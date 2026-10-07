@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build dependencies
         run: |
           sudo apt-get update
@@ -26,15 +26,16 @@ jobs:
         run: ./linux/build-appimage.sh
       - name: Tests
         run: |
-          .venv/bin/pip install reportlab
+          .venv/bin/pip install reportlab numpy
           .venv/bin/python tests/test_layout.py
           .venv/bin/python tests/test_l10n.py
           .venv/bin/python tests/test_win_print.py
           .venv/bin/python tests/test_gui_smoke.py
+          .venv/bin/python tests/test_cut_dialog.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |
           APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=offscreen timeout 120 dist/*.AppImage --selftest
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Passermark-Linux-AppImage
           path: dist/*.AppImage

@@ -1,4 +1,4 @@
-# Passermark 1.4.6
+# Passermark 1.4.7
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 

@@ -1,5 +1,12 @@
 # Änderungen – Passermark
 
+## 1.4.7
+- CutContour: Vorschau aktualisiert sich automatisch bei jeder Einstellung – vorher zeigte sie nach einem
+  Formwechsel (Rechteck, Kreis, Herz …) weiter die alte Kontur, bis man „Vorschau aktualisieren“ drückte
+- CutContour: Vorschau rechnet im Hintergrund, das Fenster bleibt bedienbar („Berechne Vorschau …“); schnelle
+  Änderungen hintereinander lösen nur eine Berechnung aus
+- Neuer Test (tests/test_cut_dialog.py): Formwechsel ändert die Vorschau
+
 ## 1.4.6
 - Behoben: Programm startete unter Python 3.10/3.11 nicht (z. B. Ubuntu 22.04) – Syntax in convert.py, die erst ab
   Python 3.12 erlaubt ist; das AppImage-Build prüft das jetzt als ersten Schritt

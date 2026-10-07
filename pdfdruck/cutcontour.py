@@ -299,16 +299,19 @@ def _snap_to_solid(fill, core_px, bg, tol):
     return pal[_nearest_idx(flat, pal)].reshape(fill.shape).astype(np.uint8)
 
 
-def compute(page, s: CutSettings) -> CutResult:
-    """Schnitt + Überfüller für alle Objekte einer normalisierten Seite."""
+def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
+    """Schnitt + Überfüller für alle Objekte einer normalisierten Seite.
+    rgba/size: schon gerenderte Seite (bei s.dpi) und Seitengröße in pt – dann wird pdfium hier nicht benutzt,
+    und die Berechnung darf in einem Hintergrund-Thread laufen (pdfium ist nicht thread-sicher)."""
     import numpy as np
     from contourpy import LineType, contour_generator
     from PIL import Image, ImageDraw
     from scipy import ndimage as ndi
 
-    W, H = page.get_size()
+    W, H = size if size is not None else page.get_size()
     px = s.dpi / 72.0
-    rgba = render_rgba(page, s.dpi)
+    if rgba is None:
+        rgba = render_rgba(page, s.dpi)
     mask, mode = motif_mask(rgba, s.detect)
     bg_rgb = None
     if mode == "color":

@@ -9,7 +9,7 @@ from __future__ import annotations
 import dataclasses
 import traceback
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
                                QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
@@ -391,6 +391,22 @@ class SeparateDialog(QDialog):
 
 
 # --------------------------------------------------------------------------- #
+class _CutWorker(QThread):
+    """Konturberechnung im Hintergrund (nur numpy/scipy – die Seite wurde vorher im Hauptthread gerendert)."""
+    done = Signal(int, object, str)
+
+    def __init__(self, gen, s, rgba, size):
+        super().__init__()
+        self.gen, self.s, self.rgba, self.size = gen, s, rgba, size
+
+    def run(self):
+        try:
+            self.done.emit(self.gen, cutcontour.compute(None, self.s, self.rgba, self.size), "")
+        except Exception as e:
+            import traceback
+            self.done.emit(self.gen, None, f"{e}\n\n{traceback.format_exc()}")
+
+
 class CutContourDialog(QDialog):
     """Schnittkontur (Sonderfarbe CutContour) mit Überfüller für Schneideplotter, z. B. Roland VersaWorks."""
 
@@ -527,6 +543,26 @@ class CutContourDialog(QDialog):
         self.cmb_bcol.currentIndexChanged.connect(self._sync)
         self.chk_bleed.toggled.connect(self._sync)
         self.cmb_out.currentIndexChanged.connect(self._sync)
+        # Vorschau automatisch: jede Einstellung -> kurz warten -> im Hintergrund neu rechnen
+        self._pv_gen, self._pv_worker, self._pv_pending = 0, None, False
+        self._pv_timer = QTimer(self)
+        self._pv_timer.setSingleShot(True)
+        self._pv_timer.setInterval(350)
+        self._pv_timer.timeout.connect(self._preview)
+        for sig in (self.cmb_shape.currentIndexChanged, self.cmb_bcol.currentIndexChanged, self.chk_bleed.toggled,
+                    self.cmb_out.currentIndexChanged, self.chk_seams.toggled, self.chk_inner.toggled):
+            sig.connect(self._pv_timer.start)
+        for sp in (self.spn_corner, self.spn_scale, self.spn_fw, self.spn_fh, self.spn_off, self.spn_smooth,
+                   self.spn_bleed, self.spn_margin):
+            sp.valueChanged.connect(self._pv_timer.start)
+        for wdg in self.w.values():
+            for name in ("valueChanged", "currentIndexChanged", "toggled"):
+                sig = getattr(wdg, name, None)
+                if sig is not None:
+                    try:
+                        sig.connect(self._pv_timer.start)
+                    except Exception:
+                        pass
         right.addWidget(g3)
         b = QPushButton(tr("Vorschau aktualisieren"))
         b.clicked.connect(self._preview)
@@ -602,25 +638,48 @@ class CutContourDialog(QDialog):
         return s
 
     def _preview(self):
-        s = self._settings(preview=True)
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        """Seite im Hauptthread rendern (pdfium, wenige ms), Kontur im Hintergrund rechnen – Fenster bleibt bedienbar."""
+        import copy
+        if self._pv_worker is not None and self._pv_worker.isRunning():
+            self._pv_pending = True              # nach der laufenden Berechnung mit dem neuesten Stand nochmal
+            return
+        s = copy.deepcopy(self._settings(preview=True))
         try:
             pg = self.norm[self.page]
             try:
-                r = cutcontour.compute(pg, s)
-                w, h = pg.get_size()
-                rgba = objects.render_rgba(pg, 100)
-                if r.knockout is not None and r.knockout.shape == rgba.shape[:2]:
-                    rgba[:, :, 3] = rgba[:, :, 3] * r.knockout      # Hintergrund wie in der Ausgabe ausblenden
-                motif = rgba_to_pixmap(rgba)
+                size = pg.get_size()
+                rgba = objects.render_rgba(pg, s.dpi)
             finally:
                 pg.close()
         except Exception as e:
-            QApplication.restoreOverrideCursor()
             self.lbl_info.setText("⚠ " + str(e))
             show_error(self, tr("Vorschau"), e)
             return
-        QApplication.restoreOverrideCursor()
+        self._pv_gen += 1
+        self._pv_rgba, self._pv_size = rgba, size
+        self.lbl_info.setText(tr("Berechne Vorschau …"))
+        self._pv_worker = _CutWorker(self._pv_gen, s, rgba.copy(), size)
+        self._pv_worker.done.connect(self._preview_done)
+        self._pv_worker.start()
+
+    def _preview_done(self, gen, r, err):
+        if self._pv_pending:                     # Einstellungen haben sich inzwischen geändert -> neu rechnen
+            self._pv_pending = False
+            QTimer.singleShot(0, self._preview)
+            return
+        if gen != self._pv_gen:
+            return
+        if err:
+            self.lbl_info.setText("⚠ " + err.splitlines()[0])
+            box = QMessageBox(QMessageBox.Icon.Critical, tr("Vorschau"), err.split("\n\n")[0], parent=self)
+            box.setDetailedText(err)
+            box.exec()
+            return
+        rgba = self._pv_rgba.copy()
+        w, h = self._pv_size
+        if r.knockout is not None and r.knockout.shape == rgba.shape[:2]:
+            rgba[:, :, 3] = rgba[:, :, 3] * r.knockout      # Hintergrund wie in der Ausgabe ausblenden
+        motif = rgba_to_pixmap(rgba)
         layers = [(rgba_to_pixmap(o.bleed_rgba), o.bleed_box) for o in r.objects if o.bleed_rgba is not None]
         layers.append((motif, (0, 0, w, h)))
         x0 = min([0.0] + [o.box[0] for o in r.objects])
@@ -648,5 +707,10 @@ class CutContourDialog(QDialog):
         self.accept()
 
     def done(self, r):
+        if getattr(self, "_pv_timer", None) is not None:
+            self._pv_timer.stop()
+        w = getattr(self, "_pv_worker", None)
+        if w is not None and w.isRunning():
+            w.wait(30000)                        # Thread nicht mitten in der Berechnung zerstören
         self.norm.close()
         super().done(r)
