@@ -1,9 +1,14 @@
+# build output - never commit (GitHub rejects files > 100 MB)
 .venv/
 .venv-win/
 build/
 dist/
+AppDir/
 __pycache__/
 *.pyc
 *.AppImage
 *.exe
 *.zip
+*.tar.gz
+windows/*.ico
+linux/tools/

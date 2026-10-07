@@ -989,4 +989,13 @@ MESSAGES = {
     "Änderung nicht übernommen": "Modification non appliquée",
     "Der Text lag in einer Ebene – die neue Zeile gehört nicht mehr zu dieser Ebene.": "Le texte était dans un calque – la nouvelle ligne n'appartient plus à ce calque.",
     "Die Schrift dieser Datei lässt sich nicht neu schreiben (z. B. Type3 aus Chrome) – die Zeile wurde in {0} neu gesetzt.": "La police de ce fichier ne peut pas être réécrite (par ex. Type3 issu de Chrome) – la ligne a été recomposée en {0}.",
+    "Automatisch (600 dpi mit JPEG, sonst 400 dpi)": "Automatique (600 ppp avec JPEG, sinon 400 ppp)",
+    "Automatisch (PostScript-Treiber: PostScript, sonst Raster)": "Automatique (pilote PostScript : PostScript, sinon raster)",
+    "Drucken unter Windows": "Impression sous Windows",
+    "PostScript (Canon PS3, Fiery …)": "PostScript (Canon PS3, Fiery …)",
+    "Raster (schnell, für alle Treiber)": "Raster (rapide, pour tous les pilotes)",
+    "Raster-Auflösung:": "Résolution raster :",
+    "Vektor über GDI (früheres Verfahren)": "Vectoriel via GDI (ancienne méthode)",
+    "Verfahren:": "Méthode :",
+    "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "Si la mise en file d'attente est lente ou si des travaux s'interrompent : essayez « Raster » avec 300–400 ppp.",
 }

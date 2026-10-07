@@ -1,45 +1,56 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build Passermark for Windows: Python 3.12 (x64) and Inno Setup 6 required.
-# Bundles Ghostscript next to the program (repair/optimize/CMYK work out of the box).
+# Build the Passermark Windows installer (ASCII ONLY in this file - non-ASCII breaks PowerShell on CI runners).
+# Needs: Python 3.12 x64, Inno Setup 6, 7-Zip, curl.exe (all preinstalled on GitHub windows runners).
+# Local use:  powershell -ExecutionPolicy Bypass -File windows\build.ps1
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
-# --- Ghostscript version (adjust on new releases) --------------------------
+# Ghostscript (bundled, so repair/CMYK/fonts work without extra installs)
 $GsVersion = "10.05.1"
-$GsTag     = "gs10051"   # Artifex release tag
+$GsTag     = "gs10051"
 $GsUrl     = "https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/$GsTag/$($GsTag)w64.exe"
 
-# --- Download + EXTRACT Ghostscript (never run installers on CI - they hang)
 $GsStage = Join-Path (Get-Location) "build\gs"
 if (-not (Test-Path "$GsStage\bin\gswin64c.exe")) {
     New-Item -ItemType Directory -Force -Path "build" | Out-Null
     curl.exe -L --fail --retry 3 --retry-delay 5 -o "build\gs-setup.exe" $GsUrl
-    if (-not (Test-Path "build\gs-setup.exe")) { throw "Ghostscript download failed: $GsUrl" }
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path "build\gs-setup.exe")) { throw "Ghostscript download failed: $GsUrl" }
+    # extract, do NOT run the installer (it waits for dialogs on CI)
     7z x "build\gs-setup.exe" -o"build\gs-extract" -y | Out-Null
-    $appDir = Get-ChildItem "build\gs-extract" -Recurse -Directory -Filter "bin" |
-        Where-Object { Test-Path (Join-Path $_.FullName "gswin64c.exe") } |
-        Select-Object -First 1
-    if (-not $appDir) { throw "gswin64c.exe not found after extraction" }
+    $binDir = Get-ChildItem "build\gs-extract" -Recurse -Directory -Filter "bin" |
+        Where-Object { Test-Path (Join-Path $_.FullName "gswin64c.exe") } | Select-Object -First 1
+    if (-not $binDir) { throw "gswin64c.exe not found after extraction" }
     New-Item -ItemType Directory -Force -Path $GsStage | Out-Null
-    Copy-Item -Recurse -Force "$($appDir.Parent.FullName)\*" $GsStage
+    Copy-Item -Recurse -Force "$($binDir.Parent.FullName)\*" $GsStage
     Remove-Item "build\gs-setup.exe","build\gs-extract" -Recurse -Force
 }
 
-# --- Python environment + PyInstaller --------------------------------------
+# Python environment + PyInstaller
 python -m venv .venv-win
-.\.venv-win\Scripts\pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "python -m venv failed" }
+.\.venv-win\Scripts\python -m pip install --upgrade pip
 .\.venv-win\Scripts\pip install -r requirements-windows.txt pyinstaller
+if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
 .\.venv-win\Scripts\python windows\make_icon.py
+.\.venv-win\Scripts\pyinstaller --noconfirm windows\passermark.spec --distpath dist --workpath build\pyi
+if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
-# --- Build program folder ---------------------------------------------------
-.\.venv-win\Scripts\pyinstaller --noconfirm windows\passermark.spec --distpath dist --workpath build
-
-# --- Put Ghostscript next to the program (platform.py finds it there) ------
+# Ghostscript next to the program (pdfdruck/platform.py finds it there)
 $GsDest = "dist\passermark\gs\gs$GsVersion"
 New-Item -ItemType Directory -Force -Path $GsDest | Out-Null
 Copy-Item -Recurse -Force "$GsStage\*" $GsDest
 
-# --- Build the installer ----------------------------------------------------
+# Self test of the finished program (all bundled dependencies incl. Ghostscript must load)
+$p = Start-Process -FilePath "dist\passermark\passermark.exe" -ArgumentList "--selftest" -Wait -PassThru
+$log = Join-Path $env:TEMP "passermark-selftest.log"
+if (Test-Path $log) { Get-Content $log }
+if ($p.ExitCode -ne 0) { throw "Self test failed (exit code $($p.ExitCode))" }
+
+# Installer
+$Version = (.\.venv-win\Scripts\python -c "import pdfdruck; print(pdfdruck.__version__)").Trim()
+$env:PASSERMARK_VERSION = $Version
 $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+if (-not (Test-Path $iscc)) { throw "Inno Setup 6 not found: $iscc" }
 & $iscc windows\passermark.iss
-Write-Host "Done: dist\Passermark-*-Setup.exe (with bundled Ghostscript)"
+if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+Write-Host "Done: dist\Passermark-$Version-Setup.exe (Ghostscript included)"

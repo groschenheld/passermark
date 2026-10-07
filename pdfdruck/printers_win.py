@@ -221,8 +221,119 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
     return dm
 
 
+# --------------------------------------------------------------------------- #
+# Drucken (nur Windows)
+# --------------------------------------------------------------------------- #
+QUERYESCSUPPORT = 8
+POSTSCRIPT_PASSTHROUGH = 4115
+CHECKJPEGFORMAT = 4119
+DIB_RGB_COLORS = 0
+SRCCOPY = 0x00CC0020
+BI_RGB, BI_JPEG = 0, 4
+FPDF_PRINTMODE_EMF, FPDF_PRINTMODE_POSTSCRIPT3 = 0, 3
+BAND_BYTES = 24 * 1024 * 1024          # Speicher je Rasterstreifen (konstant, unabhängig von Seitengröße/Auflösung)
+
+
+def _gdi32():
+    import ctypes
+    return ctypes.windll.gdi32
+
+
+class _BITMAPINFOHEADER(__import__("ctypes").Structure):
+    import ctypes as _c
+    _fields_ = [("biSize", _c.c_uint32), ("biWidth", _c.c_int32), ("biHeight", _c.c_int32),
+                ("biPlanes", _c.c_uint16), ("biBitCount", _c.c_uint16), ("biCompression", _c.c_uint32),
+                ("biSizeImage", _c.c_uint32), ("biXPelsPerMeter", _c.c_int32), ("biYPelsPerMeter", _c.c_int32),
+                ("biClrUsed", _c.c_uint32), ("biClrImportant", _c.c_uint32)]
+
+
+def _escape_supported(gdi, hdc, esc) -> bool:
+    import ctypes
+    v = ctypes.c_int(esc)
+    try:
+        return gdi.ExtEscape(hdc, QUERYESCSUPPORT, ctypes.sizeof(v), ctypes.byref(v), 0, None) > 0
+    except Exception:
+        return False
+
+
+def _jpeg_ok(gdi, hdc, data: bytes) -> bool:
+    import ctypes
+    res = ctypes.c_uint32(0)
+    try:
+        return gdi.ExtEscape(hdc, CHECKJPEGFORMAT, len(data), data, ctypes.sizeof(res), ctypes.byref(res)) > 0 \
+            and res.value == 1
+    except Exception:
+        return False
+
+
+def print_settings() -> tuple[str, int]:
+    """(Verfahren, Raster-dpi) aus Datei → Einstellungen (nur Windows)."""
+    try:
+        from .l10n import load_settings
+        st = load_settings()
+    except Exception:
+        st = {}
+    mode = st.get("win_print_mode", "auto")
+    dpi = int(st.get("win_raster_dpi", 0) or 0)
+    return (mode if mode in ("auto", "postscript", "raster", "vector") else "auto"), dpi
+
+
+def choose_mode(gdi, hdc, wanted: str) -> str:
+    if wanted != "auto":
+        return wanted
+    # PostScript-Treiber: pdfium schreibt PostScript direkt (vektoriell, kompakt) – sonst selbst rastern
+    return "postscript" if _escape_supported(gdi, hdc, POSTSCRIPT_PASSTHROUGH) else "raster"
+
+
+def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jpeg):
+    """Seite in waagrechten Streifen rastern und an den Treiber geben (BGR-DIB bzw. JPEG, wenn möglich)."""
+    import ctypes
+    import io as _io
+    dpx, dpy = dev_dpi
+    scale = raster_dpi / 72.0
+    width_px = max(1, int(round(w_pt * scale)))
+    rows_per_band = max(16, BAND_BYTES // (width_px * 3))
+    band_pt = rows_per_band / scale
+    y_pt = 0.0
+    while y_pt < h_pt - 1e-6:
+        y2 = min(h_pt, y_pt + band_pt)
+        # Streifen [y_pt, y2] von oben gemessen rendern (crop = links, unten, rechts, oben in pt)
+        img = page.render(scale=scale, crop=(0, h_pt - y2, 0, y_pt), may_draw_forms=True, draw_annots=True,
+                          fill_color=(255, 255, 255, 255)).to_pil().convert("RGB")
+        dy0 = int(round(y_pt * dpy / 72.0))
+        dy1 = int(round(y2 * dpy / 72.0))
+        dw = int(round(w_pt * dpx / 72.0))
+        bih = _BITMAPINFOHEADER()
+        bih.biSize, bih.biWidth, bih.biPlanes, bih.biBitCount = ctypes.sizeof(_BITMAPINFOHEADER), img.width, 1, 24
+        data = None
+        if use_jpeg:
+            b = _io.BytesIO()
+            img.save(b, "JPEG", quality=92, subsampling=0)
+            jp = b.getvalue()
+            if _jpeg_ok(gdi, hdc, jp):
+                bih.biHeight, bih.biCompression, bih.biSizeImage = img.height, BI_JPEG, len(jp)
+                data = jp
+        if data is None:
+            stride = (img.width * 3 + 3) & ~3
+            data = img.tobytes("raw", "BGR", stride, -1)          # unten-oben (positive Höhe)
+            bih.biHeight, bih.biCompression, bih.biSizeImage = img.height, BI_RGB, len(data)
+        buf = ctypes.create_string_buffer(data, len(data))
+        r = gdi.StretchDIBits(hdc, -ox, -oy + dy0, dw, dy1 - dy0, 0, 0, img.width, img.height,
+                              buf, ctypes.byref(bih), DIB_RGB_COLORS, SRCCOPY)
+        if r == 0 or r == -1:
+            raise RuntimeError("StretchDIBits")
+        y_pt = y2
+
+
 def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int = 1, collate: bool = True) -> int:
-    """Das fertig ausgeschossene PDF Seite für Seite an den Windows-Treiber geben."""
+    """Das fertig ausgeschossene PDF Seite für Seite an den Windows-Treiber geben.
+
+    Verfahren (Datei → Einstellungen → Drucken unter Windows):
+      auto       PostScript-Treiber -> postscript, sonst raster
+      postscript pdfium erzeugt PostScript für den Treiber (vektoriell, kompakt; Canon PS3, Fiery …)
+      raster     Seite selbst in Streifen rastern (konstanter Speicher; JPEG, wenn der Treiber es kann)
+      vector     früheres Verfahren: pdfium zeichnet per GDI (kann bei Transparenz/Mehrfachnutzen sehr groß werden)
+    """
     import ctypes
 
     import pypdfium2 as pdfium
@@ -230,29 +341,42 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
     import win32gui
     import win32print
 
+    gdi = _gdi32()
+    wanted, dpi_setting = print_settings()
     dm = _devmode_for_job(printer, values, copies, collate)
     hdc = win32gui.CreateDC("WINSPOOL", printer, dm)
     doc = pdfium.PdfDocument(pdf_path)
     job = 0
+    mode = "raster"
+    set_mode = getattr(r, "FPDF_SetPrintMode", None)
     try:
         dpx, dpy = win32print.GetDeviceCaps(hdc, LOGPIXELSX), win32print.GetDeviceCaps(hdc, LOGPIXELSY)
         ox, oy = win32print.GetDeviceCaps(hdc, PHYSICALOFFSETX), win32print.GetDeviceCaps(hdc, PHYSICALOFFSETY)
+        mode = choose_mode(gdi, hdc, wanted)
+        if mode in ("postscript", "vector") and not hasattr(r, "FPDF_RenderPage"):
+            mode = "raster"
+        if mode == "postscript":
+            if set_mode is None:
+                mode = "raster"
+            else:
+                set_mode(getattr(r, "FPDF_PRINTMODE_POSTSCRIPT3", FPDF_PRINTMODE_POSTSCRIPT3))
+        use_jpeg = mode == "raster" and _escape_supported(gdi, hdc, CHECKJPEGFORMAT)
+        raster_dpi = dpi_setting or (600 if use_jpeg else 400)
+        raster_dpi = max(150, min(raster_dpi, max(dpx, dpy)))
         job = win32print.StartDoc(hdc, (title[:120], None, None, 0))
-        vector = hasattr(r, "FPDF_RenderPage")
         for i in range(len(doc)):
             win32print.StartPage(hdc)
             w, h = doc.get_page_size(i)
-            sx, sy = int(round(w * dpx / 72.0)), int(round(h * dpy / 72.0))
             page = doc[i]
-            if vector:   # PDFium zeichnet direkt in den Druckerkontext (Vektoren, Schriften)
-                r.FPDF_RenderPage(ctypes.c_void_p(hdc), page.raw, -ox, -oy, sx, sy, 0,
-                                  r.FPDF_PRINTING | r.FPDF_ANNOT)
-            else:        # Rückfall: rastern (max. 600 dpi) und als Bild ausgeben
-                from PIL import ImageWin
-                scale = min(dpx, 600) / 72.0
-                img = page.render(scale=scale, may_draw_forms=True).to_pil()
-                ImageWin.Dib(img).draw(hdc, (-ox, -oy, -ox + sx, -oy + sy))
-            page.close()
+            try:
+                if mode == "raster":
+                    _raster_page(gdi, hdc, page, w, h, (dpx, dpy), ox, oy, raster_dpi, use_jpeg)
+                else:
+                    sx, sy = int(round(w * dpx / 72.0)), int(round(h * dpy / 72.0))
+                    r.FPDF_RenderPage(ctypes.c_void_p(hdc), page.raw, -ox, -oy, sx, sy, 0,
+                                      r.FPDF_PRINTING | r.FPDF_ANNOT)
+            finally:
+                page.close()
             win32print.EndPage(hdc)
         win32print.EndDoc(hdc)
     except Exception:
@@ -262,6 +386,11 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
             pass
         raise
     finally:
+        if mode == "postscript" and set_mode is not None:
+            try:
+                set_mode(getattr(r, "FPDF_PRINTMODE_EMF", FPDF_PRINTMODE_EMF))
+            except Exception:
+                pass
         doc.close()
         win32gui.DeleteDC(hdc)
     return int(job or 0)

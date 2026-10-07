@@ -989,4 +989,13 @@ MESSAGES = {
     "Änderung nicht übernommen": "Cambio no aplicado",
     "Der Text lag in einer Ebene – die neue Zeile gehört nicht mehr zu dieser Ebene.": "El texto estaba en una capa: la nueva línea ya no pertenece a esa capa.",
     "Die Schrift dieser Datei lässt sich nicht neu schreiben (z. B. Type3 aus Chrome) – die Zeile wurde in {0} neu gesetzt.": "La fuente de este archivo no se puede reescribir (p. ej. Type3 de Chrome): la línea se ha compuesto de nuevo en {0}.",
+    "Automatisch (600 dpi mit JPEG, sonst 400 dpi)": "Automático (600 ppp con JPEG; si no, 400 ppp)",
+    "Automatisch (PostScript-Treiber: PostScript, sonst Raster)": "Automático (controlador PostScript: PostScript; si no, ráster)",
+    "Drucken unter Windows": "Imprimir en Windows",
+    "PostScript (Canon PS3, Fiery …)": "PostScript (Canon PS3, Fiery …)",
+    "Raster (schnell, für alle Treiber)": "Ráster (rápido, para todos los controladores)",
+    "Raster-Auflösung:": "Resolución ráster:",
+    "Vektor über GDI (früheres Verfahren)": "Vectorial mediante GDI (método anterior)",
+    "Verfahren:": "Método:",
+    "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "Si la cola tarda mucho o los trabajos se cancelan: pruebe «Ráster» con 300–400 ppp.",
 }

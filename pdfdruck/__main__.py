@@ -17,6 +17,17 @@ import sys
 
 
 def main():
+    # fertige Programmdatei prüfen (GitHub-Build) bzw. AppImage-Root-Helfer (über pkexec)
+    if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
+        from . import selftest
+        return selftest.run()
+    if len(sys.argv) >= 2 and sys.argv[1] == "--admin-helper":
+        from . import selftest
+        return selftest.admin_helper(sys.argv[2:])
+    if len(sys.argv) >= 2 and sys.argv[1] == "--version":
+        from . import __version__
+        print(__version__)
+        return 0
     # Windows: erhöhter Admin-Helfer (über UAC gestartet) – ohne Oberfläche
     if len(sys.argv) == 3 and sys.argv[1] == "--admin-apply":
         from . import winadmin

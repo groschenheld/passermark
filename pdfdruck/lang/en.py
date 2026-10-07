@@ -989,4 +989,13 @@ MESSAGES = {
     "Änderung nicht übernommen": "Change not applied",
     "Der Text lag in einer Ebene – die neue Zeile gehört nicht mehr zu dieser Ebene.": "The text was in a layer – the new line no longer belongs to that layer.",
     "Die Schrift dieser Datei lässt sich nicht neu schreiben (z. B. Type3 aus Chrome) – die Zeile wurde in {0} neu gesetzt.": "The font of this file cannot be rewritten (e.g. Type3 from Chrome) – the line was reset in {0}.",
+    "Automatisch (600 dpi mit JPEG, sonst 400 dpi)": "Automatic (600 dpi with JPEG, otherwise 400 dpi)",
+    "Automatisch (PostScript-Treiber: PostScript, sonst Raster)": "Automatic (PostScript driver: PostScript, otherwise raster)",
+    "Drucken unter Windows": "Printing on Windows",
+    "PostScript (Canon PS3, Fiery …)": "PostScript (Canon PS3, Fiery …)",
+    "Raster (schnell, für alle Treiber)": "Raster (fast, for all drivers)",
+    "Raster-Auflösung:": "Raster resolution:",
+    "Vektor über GDI (früheres Verfahren)": "Vector via GDI (previous method)",
+    "Verfahren:": "Method:",
+    "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "If spooling takes long or jobs abort: try “Raster” with 300–400 dpi.",
 }

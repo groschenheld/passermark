@@ -39,6 +39,14 @@ def user_cache_dir() -> str:
     return os.path.join(os.path.expanduser("~"), ".cache", "passermark")
 
 
+def app_dirs() -> list[str]:
+    """Ordner der eigenen Programmdatei (Installer/AppImage bringen dort z. B. Ghostscript mit)."""
+    import sys
+    if getattr(sys, "frozen", False):
+        return [os.path.dirname(os.path.abspath(sys.executable))]
+    return []
+
+
 def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
     """Programm im PATH oder (Windows) unter den üblichen Installationsorten finden."""
     for n in names:
@@ -46,13 +54,8 @@ def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
         if p:
             return p
     if IS_WIN:
-        # gebuendelte Programme neben der eigenen EXE zuerst (PyInstaller frozen)
-        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
-        for pat in win_globs:
-            hits = sorted(glob.glob(os.path.join(exe_dir, pat)), reverse=True)
-            if hits:
-                return hits[0]
-        roots = [os.environ.get(v) for v in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "LOCALAPPDATA")]
+        roots = app_dirs() + [os.environ.get(v) for v in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432",
+                                                          "LOCALAPPDATA")]
         for root in filter(None, roots):
             for pat in win_globs:
                 hits = sorted(glob.glob(os.path.join(root, pat)), reverse=True)   # neueste Version zuerst

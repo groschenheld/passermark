@@ -24,11 +24,42 @@ from . import theme
 from .common import Session, fill_combo, fit_width, guard_wheel
 
 
+def _helper_cmd() -> list:
+    """Root-Helfer: installiert (install.sh) bzw. – im AppImage – das AppImage selbst als root (pkexec)."""
+    appimage = os.environ.get("APPIMAGE")
+    if not os.path.exists(config.HELPER) and appimage:
+        return ["pkexec", "env", "APPIMAGE_EXTRACT_AND_RUN=1", appimage, "--admin-helper"]
+    return ["pkexec", config.HELPER]
+
+
+def _scroll(widget):
+    """Reiter-Inhalt scrollbar machen (kleine Bildschirme, Windows-Skalierung)."""
+    from PySide6.QtWidgets import QFrame, QScrollArea
+    sa = QScrollArea()
+    sa.setWidgetResizable(True)
+    sa.setFrameShape(QFrame.Shape.NoFrame)
+    sa.setWidget(widget)
+    return sa
+
+
+def _fit_screen(dlg, want_w: int, want_h: int):
+    """Fenstergröße auf den verfügbaren Bildschirm begrenzen (Taskleiste/Skalierung berücksichtigt)."""
+    from PySide6.QtGui import QGuiApplication
+    scr = dlg.screen() if hasattr(dlg, "screen") and dlg.screen() else QGuiApplication.primaryScreen()
+    if scr is None:
+        dlg.resize(want_w, want_h)
+        return
+    av = scr.availableGeometry()
+    w = min(want_w, int(av.width() * 0.96))
+    h = min(want_h, int(av.height() * 0.90))
+    dlg.resize(w, h)
+    dlg.move(av.x() + (av.width() - w) // 2, av.y() + max(0, (av.height() - h) // 2))
+
+
 class AdminDialog(QDialog):
     def __init__(self, parent, session: Session):
         super().__init__(parent)
         self.setWindowTitle(tr("Verwaltung – Standardeinstellungen (Admin)"))
-        self.resize(900, 700)
         self.s = session
         self.cfg = copy.deepcopy(session.cfg)
         self.queue_changes: dict[tuple[str, str], str] = {}
@@ -49,14 +80,15 @@ class AdminDialog(QDialog):
         v.addWidget(note)
         tabs = QTabWidget()
         v.addWidget(tabs, 1)
-        tabs.addTab(self._tab_general(), tr("Allgemein"))
-        tabs.addTab(self._tab_printers(), tr("Druckerstandards"))
-        tabs.addTab(self._tab_profiles(), tr("Farbprofile"))
+        tabs.addTab(_scroll(self._tab_general()), tr("Allgemein"))
+        tabs.addTab(_scroll(self._tab_printers()), tr("Druckerstandards"))
+        tabs.addTab(_scroll(self._tab_profiles()), tr("Farbprofile"))
         fit_width(self)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._save)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
+        _fit_screen(self, 900, 700)        # nie größer als der Bildschirm; der Rest scrollt
 
     # ================================================================== #
     def _tab_general(self):
@@ -775,7 +807,7 @@ class AdminDialog(QDialog):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(bundle, f, ensure_ascii=False)
             os.chmod(tmp, 0o644)
-            r = subprocess.run(["pkexec", config.HELPER, "apply", tmp], capture_output=True, text=True)
+            r = subprocess.run(_helper_cmd() + ["apply", tmp], capture_output=True, text=True)
         except FileNotFoundError:
             QMessageBox.critical(self, tr("Polkit"), tr("pkexec wurde nicht gefunden (Paket polkit)."))
             return

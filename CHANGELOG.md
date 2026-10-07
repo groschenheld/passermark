@@ -1,5 +1,26 @@
 # Änderungen – Passermark
 
+## 1.4.6
+- Behoben: Programm startete unter Python 3.10/3.11 nicht (z. B. Ubuntu 22.04) – Syntax in convert.py, die erst ab
+  Python 3.12 erlaubt ist; das AppImage-Build prüft das jetzt als ersten Schritt
+- AppImage: installiertes Ghostscript hat Vorrang, das mitgelieferte dient als Reserve; startet es beim Bauen
+  nicht, wird es mit Warnung entfernt (Build bricht nicht ab)
+- **Fertige Programme über GitHub:** Windows-Setup.exe und Linux-AppImage werden bei jedem Push gebaut, bei
+  Tags `v*` als Release veröffentlicht; Abhängigkeiten (Python, Qt, alle Pakete, Ghostscript) sind enthalten
+- Selbsttest der fertigen Programmdatei im Build (`--selftest`); `--version`
+- Ghostscript wird neben der eigenen Programmdatei gefunden (Installer/AppImage bringen es mit)
+- AppImage: Admin-Standards speichern über pkexec mit demselben abgesicherten Helfer
+- Behoben: Admin-Fenster auf kleinen Bildschirmen nicht scrollbar (Reiter scrollen, Fenster passt sich an)
+- Behoben: Touchpad-Scrollen (Seitenwechsel/Zoom) unter Windows
+- `uninstall.sh`, `.gitignore`; Installer-Skript UTF-8 mit BOM; `build.ps1` reines ASCII; README auf Englisch
+
+## 1.4.5
+- **Windows-Druck neu** (wie pdfToolkit 1.4.3): PostScript direkt für PS-Treiber, sonst eigenes Rastern in Streifen
+  mit JPEG – behebt langes Spoolen und Abbrüche (besonders bei Mehrfachnutzen); Einstellungen unter
+  Datei → Einstellungen → „Drucken unter Windows“. Linux-Druck unverändert
+- Behoben: mögliche Abstürze – die Dokumentprüfung nutzte pdfium in einem Hintergrund-Thread gleichzeitig mit der
+  Anzeige (pdfium ist nicht thread-sicher); diese Teile laufen jetzt im Hauptthread
+
 ## 1.4.4
 - **Ursache gefunden** (an einer Chrome-PDF): pdfium kann Seiten mit **Type3-Schriften** nicht neu schreiben –
   bisher verschwand dabei aller Text. Bearbeiten kommt jetzt ganz ohne Neuerzeugung der Seite aus:

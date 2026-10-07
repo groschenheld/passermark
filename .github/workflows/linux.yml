@@ -1,31 +1,46 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Baut das Linux-AppImage automatisch (GitHub Actions), inkl. gebuendeltem Ghostscript.
-# Ergebnis unter "Artifacts".
-name: Linux-AppImage
+# Builds the Linux AppImage (incl. Python, Qt, Ghostscript). Built on ubuntu-22.04 so it runs on newer distros too.
+# Result: "Artifacts" of the run; for tags v* also attached to a GitHub Release.
+name: Linux AppImage
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - name: Systemabhaengigkeiten
+      - name: Build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-venv python3-cups ghostscript patchelf wget
-      - name: Tests (plattformneutrale Teile)
-        run: |
-          python3 -m venv .venv-test
-          .venv-test/bin/pip install --upgrade pip
-          .venv-test/bin/pip install pypdfium2 pikepdf Pillow
-          .venv-test/bin/python tests/test_ipp.py
-          .venv-test/bin/python tests/test_l10n.py
-          .venv-test/bin/python tests/test_trays.py
-      - name: AppImage bauen (PyInstaller + Ghostscript + linuxdeploy)
+          sudo apt-get install -y python3-venv python3-cups python3-dev ghostscript libcups2-dev patchelf wget file \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-shape0 libxcb-xinerama0 libxkbcommon-x11-0 libegl1 libgl1 fonts-liberation2 fonts-crosextra-carlito \
+            fonts-crosextra-caladea fonts-dejavu-core fontconfig
+      - name: Build AppImage
         run: ./linux/build-appimage.sh
+      - name: Tests
+        run: |
+          .venv/bin/pip install reportlab
+          .venv/bin/python tests/test_layout.py
+          .venv/bin/python tests/test_l10n.py
+          .venv/bin/python tests/test_win_print.py
+          .venv/bin/python tests/test_gui_smoke.py
+      - name: Self test of the AppImage (all bundled dependencies)
+        run: |
+          APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=offscreen timeout 120 dist/*.AppImage --selftest
       - uses: actions/upload-artifact@v4
         with:
           name: Passermark-Linux-AppImage
-          path: dist/Passermark-*-x86_64.AppImage
+          path: dist/*.AppImage
+          if-no-files-found: error
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.AppImage

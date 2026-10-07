@@ -989,4 +989,13 @@ MESSAGES = {
     "Änderung nicht übernommen": "A módosítás nem lett alkalmazva",
     "Der Text lag in einer Ebene – die neue Zeile gehört nicht mehr zu dieser Ebene.": "A szöveg egy rétegben volt – az új sor már nem tartozik ehhez a réteghez.",
     "Die Schrift dieser Datei lässt sich nicht neu schreiben (z. B. Type3 aus Chrome) – die Zeile wurde in {0} neu gesetzt.": "A fájl betűtípusa nem írható újra (pl. Chrome-ból származó Type3) – a sor {0} betűtípussal lett újraszedve.",
+    "Automatisch (600 dpi mit JPEG, sonst 400 dpi)": "Automatikus (JPEG-gel 600 dpi, egyébként 400 dpi)",
+    "Automatisch (PostScript-Treiber: PostScript, sonst Raster)": "Automatikus (PostScript-illesztő: PostScript, egyébként raszter)",
+    "Drucken unter Windows": "Nyomtatás Windows alatt",
+    "PostScript (Canon PS3, Fiery …)": "PostScript (Canon PS3, Fiery …)",
+    "Raster (schnell, für alle Treiber)": "Raszter (gyors, minden illesztőhöz)",
+    "Raster-Auflösung:": "Raszterfelbontás:",
+    "Vektor über GDI (früheres Verfahren)": "Vektor GDI-n keresztül (korábbi módszer)",
+    "Verfahren:": "Módszer:",
+    "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "Ha a sorba állítás sokáig tart vagy a feladatok megszakadnak: próbálja a „Raszter” módot 300–400 dpi-vel.",
 }

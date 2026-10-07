@@ -178,7 +178,9 @@ def _walk_resources(res, page_no, visit, seen):
 # --------------------------------------------------------------------------- #
 # Analyse
 # --------------------------------------------------------------------------- #
-def analyze(data: bytes, deep_layers: bool = True) -> Report:
+def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
+    """Dokument prüfen. pdfium_parts=False: nur die Teile ohne pdfium (für Hintergrund-Threads – pdfium ist nicht
+    thread-sicher); den Rest danach im Hauptthread mit finish() ergänzen."""
     import pikepdf
     rep = Report()
     pdf = pikepdf.open(io.BytesIO(data))
@@ -242,6 +244,15 @@ def analyze(data: bytes, deep_layers: bool = True) -> Report:
         rep.layers = _layers(pdf)
     finally:
         pdf.close()
+    if pdfium_parts:
+        finish(rep, data, deep_layers)
+    else:
+        rep.issues = _issues(rep)
+    return rep
+
+
+def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
+    """pdfium-Teile der Prüfung (seltsame Zeichen, Ebenen außerhalb der Seite) – im Hauptthread aufrufen."""
     rep.garbled = _garbled(data)
     if deep_layers and rep.layers:
         try:

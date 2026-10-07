@@ -44,6 +44,30 @@ class SettingsDialog(QDialog):
         self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
         f2.addRow(self.chk_pf)
         v.addWidget(g2)
+        from .. import platform as _platform
+        self.cmb_wmode = self.cmb_wdpi = None
+        if _platform.IS_WIN:
+            g3 = QGroupBox(tr("Drucken unter Windows"))
+            f3 = QFormLayout(g3)
+            self.cmb_wmode = QComboBox()
+            for val, txt in (("auto", tr("Automatisch (PostScript-Treiber: PostScript, sonst Raster)")),
+                             ("postscript", tr("PostScript (Canon PS3, Fiery …)")),
+                             ("raster", tr("Raster (schnell, für alle Treiber)")),
+                             ("vector", tr("Vektor über GDI (früheres Verfahren)"))):
+                self.cmb_wmode.addItem(txt, val)
+            self.cmb_wmode.setCurrentIndex(max(0, self.cmb_wmode.findData(self.settings.get("win_print_mode", "auto"))))
+            f3.addRow(tr("Verfahren:"), self.cmb_wmode)
+            self.cmb_wdpi = QComboBox()
+            for val, txt in ((0, tr("Automatisch (600 dpi mit JPEG, sonst 400 dpi)")), (300, "300 dpi"), (400, "400 dpi"),
+                             (600, "600 dpi"), (1200, "1200 dpi")):
+                self.cmb_wdpi.addItem(txt, val)
+            self.cmb_wdpi.setCurrentIndex(max(0, self.cmb_wdpi.findData(int(self.settings.get("win_raster_dpi", 0) or 0))))
+            f3.addRow(tr("Raster-Auflösung:"), self.cmb_wdpi)
+            hint = QLabel(tr("Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen."))
+            hint.setWordWrap(True)
+            hint.setStyleSheet(f"color: {theme.MUTED};")
+            f3.addRow(hint)
+            v.addWidget(g3)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._ok)
         bb.rejected.connect(self.reject)
@@ -53,6 +77,9 @@ class SettingsDialog(QDialog):
         new = self.cmb.currentData()
         old = self.settings.get("language", "auto")
         self.settings["language"] = new
+        if self.cmb_wmode is not None:
+            self.settings["win_print_mode"] = self.cmb_wmode.currentData()
+            self.settings["win_raster_dpi"] = int(self.cmb_wdpi.currentData() or 0)
         self.settings["preflight_on_open"] = self.chk_pf.isChecked()
         try:
             l10n.save_settings(self.settings)

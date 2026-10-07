@@ -428,13 +428,15 @@ class PageView(QScrollArea):
         return True
 
     def wheelEvent(self, e):
+        # Touchpads (v. a. Windows Precision/macOS-artige) liefern oft nur pixelDelta, angleDelta = 0
+        ady = e.angleDelta().y() or e.pixelDelta().y() * 3
         if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            steps = e.angleDelta().y() / 120.0      # 1 Raste = 120; Touchpads liefern Bruchteile
+            steps = ady / 120.0                     # 1 Raste = 120; Touchpads liefern Bruchteile
             if steps:
                 self.zoom_at(1.15 ** steps, e.position().toPoint())
             e.accept()
             return
-        dy = e.angleDelta().y()
+        dy = ady
         if self.single and dy and self._edge_jump(dy):
             e.accept()
             return
@@ -894,7 +896,8 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.pf_panel.set_error(str(e))
             return
-        w = _Worker(preflight.analyze, data)
+        # Hintergrund: nur pikepdf-Teile (pdfium ist nicht thread-sicher – sonst gelegentliche Abstürze)
+        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
 
         def done(rep, err, gen=gen, w=w):
             if gen != self._pf_gen:
@@ -903,6 +906,10 @@ class MainWindow(QMainWindow):
                 self.pf_panel.set_error(err)
                 self.btn_pf.setText("⚠ " + tr("Prüfung fehlgeschlagen"))
                 return
+            try:
+                preflight.finish(rep, data)          # pdfium-Teile im Hauptthread
+            except Exception:
+                pass
             self.pf_panel.set_report(rep)
             c = rep.counts()
             if c["error"] or c["warning"]:

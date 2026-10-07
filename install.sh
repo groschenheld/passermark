@@ -10,6 +10,7 @@ LIB=/usr/local/lib/passermark
 VENV="$LIB/venv"
 
 if command -v apt-get >/dev/null; then
+    apt-get update
     apt-get install -y python3-venv python3-cups ghostscript librsvg2-bin fontconfig fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-urw-base35 fonts-dejavu-core polkitd pkexec libxcb-cursor0 \
         python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full
 fi

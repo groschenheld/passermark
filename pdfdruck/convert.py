@@ -236,14 +236,18 @@ def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
     conv_dir = os.path.dirname(exe)
     fonts = _x2t_fonts(exe)
     params = os.path.join(outdir, "x2t-params.xml")
+    # Ausdrücke vorab berechnen: Backslashes/Anführungszeichen in f-String-Klammern gehen erst ab Python 3.12
+    font_dir = (os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts") if _platform.IS_WIN
+                else "/usr/share/fonts")
+    all_fonts = os.path.join(fonts, "AllFonts.js")
     with open(params, "w", encoding="utf-8") as f:
         f.write(f"""<?xml version="1.0" encoding="utf-8"?>
 <TaskQueueDataConvert xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <m_sFileFrom>{escape(path)}</m_sFileFrom>
   <m_sFileTo>{escape(out)}</m_sFileTo>
   <m_nFormatTo>{X2T_PDF}</m_nFormatTo>
-  <m_sFontDir>{escape(os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts") if _platform.IS_WIN else "/usr/share/fonts")}</m_sFontDir>
-  <m_sAllFontsPath>{escape(os.path.join(fonts, "AllFonts.js"))}</m_sAllFontsPath>
+  <m_sFontDir>{escape(font_dir)}</m_sFontDir>
+  <m_sAllFontsPath>{escape(all_fonts)}</m_sAllFontsPath>
   <m_sTempDir>{escape(outdir)}</m_sTempDir>
   <m_bIsNoBase64>true</m_bIsNoBase64>
 </TaskQueueDataConvert>

@@ -1,31 +1,45 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Baut den Windows-Installer automatisch (GitHub Actions). Ergebnis unter "Artifacts".
-name: Windows-Installer
+# Builds the Windows installer (Setup.exe incl. Ghostscript). Result: "Artifacts" of the run;
+# for tags v* also attached to a GitHub Release. Start manually: Actions -> Windows installer -> Run workflow.
+name: Windows installer
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Abhaengigkeiten
+      - name: Tests
+        shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path "\tmp" | Out-Null
           python -m pip install --upgrade pip
-          pip install -r requirements-windows.txt
-      - name: Tests (plattformneutrale Teile)
-        run: |
+          pip install -r requirements-windows.txt numpy reportlab
           python tests/test_layout.py
-          python tests/test_proof.py
-          python tests/test_repair.py
-      - name: Build (inkl. gebuendeltem Ghostscript)
-        shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File windows\build.ps1
+          python tests/test_l10n.py
+          python tests/test_win_print.py
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build installer
+        shell: pwsh
+        run: ./windows/build.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: Passermark-Windows
           path: dist/Passermark-*-Setup.exe
+          if-no-files-found: error
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Passermark-*-Setup.exe
