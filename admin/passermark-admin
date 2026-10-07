@@ -1,0 +1,166 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Passermark – Copyright (C) 2026 Hias
+# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
+# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
+# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+"""passermark-admin – läuft via pkexec als root. Bewusst eigenständig (kein Import
+aus Benutzerpfaden), validiert alles, schreibt atomar.
+
+  passermark-admin write-config  <json-datei>
+  passermark-admin import-icc    <icc-datei> <id>
+  passermark-admin remove-icc    <id>
+  passermark-admin set-queue-option <drucker> <key> <wert>   (z. B. Finisher/Kassetten)
+  passermark-admin apply <bundle.json>   (alles in einem Aufruf = eine Passwortabfrage)
+     {"import_icc": [{"src": "...", "id": "..."}], "remove_icc": ["id"],
+      "queue_options": [["drucker", "key", "wert"]], "config": {...}}
+"""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+CONFIG_DIR = "/etc/passermark"
+DEFAULTS = os.path.join(CONFIG_DIR, "defaults.json")
+ICC_DIR = os.path.join(CONFIG_DIR, "icc")
+MAX_JSON = 1 << 20
+MAX_ICC = 20 << 20
+
+RX_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+RX_QUEUE = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
+RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
+
+LIB = "/usr/local/lib/passermark"     # root-eigener Programmordner (install.sh) – sicher importierbar
+
+
+def die(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def atomic_write(path, data: bytes, mode=0o644):
+    os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            os.fchmod(f.fileno(), mode)
+            os.fchown(f.fileno(), 0, 0)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def read_limited(path, limit):
+    st = os.stat(path)
+    if st.st_size > limit:
+        die("Datei zu groß")
+    with open(path, "rb") as f:
+        return f.read(limit + 1)
+
+
+def validate(cfg):
+    """Gemeinsame Prüfregeln aus pdfdruck/cfgvalidate.py (nur aus dem root-eigenen Programmordner)."""
+    if LIB not in sys.path:
+        sys.path.insert(0, LIB)
+    try:
+        from pdfdruck import cfgvalidate
+    except ImportError:
+        die(f"Prüfmodul nicht gefunden ({LIB}/pdfdruck/cfgvalidate.py) – install.sh erneut ausführen.")
+    st = os.stat(os.path.join(LIB, "pdfdruck", "cfgvalidate.py"))
+    if st.st_uid != 0 or st.st_mode & 0o022:
+        die("Prüfmodul ist nicht root-geschützt – Abbruch.")
+    try:
+        cfgvalidate.validate(cfg, ICC_DIR, windows=False)
+    except ValueError as e:
+        die(str(e))
+
+
+def cmd_write_config(src):
+    raw = read_limited(src, MAX_JSON)
+    try:
+        cfg = json.loads(raw.decode("utf-8"))
+    except ValueError as e:
+        die(f"JSON-Fehler: {e}")
+    validate(cfg)
+    atomic_write(DEFAULTS, json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+def cmd_import_icc(src, pid):
+    if not RX_ID.match(pid):
+        die("id ungültig")
+    data = read_limited(src, MAX_ICC)
+    if len(data) < 128 or data[36:40] != b"acsp":
+        die("Keine gültige ICC-Datei")
+    if data[16:20] not in (b"RGB ", b"CMYK", b"GRAY"):
+        die("Nur RGB-, CMYK- oder Graustufenprofile")
+    atomic_write(os.path.join(ICC_DIR, pid + ".icc"), data)
+
+
+def cmd_remove_icc(pid):
+    if not RX_ID.match(pid):
+        die("id ungültig")
+    p = os.path.join(ICC_DIR, pid + ".icc")
+    if os.path.exists(p):
+        os.unlink(p)
+
+
+def cmd_set_queue_option(queue, key, val):
+    if not RX_QUEUE.match(queue) or not RX_KEY.match(key) or not RX_VAL.match(val):
+        die("Ungültige Parameter")
+    lpadmin = shutil.which("lpadmin") or "/usr/sbin/lpadmin"
+    r = subprocess.run([lpadmin, "-p", queue, "-o", f"{key}={val}"], capture_output=True, text=True)
+    if r.returncode != 0:
+        die(r.stderr or "lpadmin fehlgeschlagen")
+
+
+def cmd_apply(src):
+    raw = read_limited(src, MAX_JSON)
+    try:
+        b = json.loads(raw.decode("utf-8"))
+    except ValueError as e:
+        die(f"JSON-Fehler: {e}")
+    if not isinstance(b, dict):
+        die("Bundle ungültig")
+    # zuerst alles prüfen, dann schreiben
+    if "config" in b:
+        validate(b["config"])
+    for it in b.get("import_icc", []):
+        cmd_import_icc(str(it["src"]), str(it["id"]))
+    for pid in b.get("remove_icc", []):
+        cmd_remove_icc(str(pid))
+    for q, k, v in b.get("queue_options", []):
+        cmd_set_queue_option(str(q), str(k), str(v))
+    if "config" in b:
+        atomic_write(DEFAULTS, json.dumps(b["config"], indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+def main():
+    if os.geteuid() != 0:
+        die("Muss als root laufen (pkexec).")
+    os.umask(0o022)
+    a = sys.argv[1:]
+    if len(a) == 2 and a[0] == "write-config":
+        cmd_write_config(a[1])
+    elif len(a) == 3 and a[0] == "import-icc":
+        cmd_import_icc(a[1], a[2])
+    elif len(a) == 2 and a[0] == "remove-icc":
+        cmd_remove_icc(a[1])
+    elif len(a) == 2 and a[0] == "apply":
+        cmd_apply(a[1])
+    elif len(a) == 4 and a[0] == "set-queue-option":
+        cmd_set_queue_option(a[1], a[2], a[3])
+    else:
+        die(__doc__)
+
+
+if __name__ == "__main__":
+    main()

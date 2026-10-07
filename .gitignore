@@ -1,0 +1,9 @@
+.venv/
+.venv-win/
+build/
+dist/
+__pycache__/
+*.pyc
+*.AppImage
+*.exe
+*.zip

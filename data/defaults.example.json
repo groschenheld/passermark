@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "default_printer": "Canon_C3822i",
+  "allow_user_profile_choice": true,
+  "layout": {
+    "mode": "fit", "custom_percent": 100.0, "nup": 1, "cols": 0, "rows": 0,
+    "order": "horizontal", "tile_mode": "fit", "tile_percent": 100.0, "gap_mm": 0.0,
+    "borders": false, "orientation": "auto", "autorotate": true, "center": true,
+    "use_margins": true
+  },
+  "printers": {
+    "Canon_C3822i": { "options": { "Duplex": "DuplexNoTumble" }, "color_profile": "", "intent": "relative" },
+    "Epson_ET15000": { "options": {}, "color_profile": "", "intent": "perceptual" }
+  },
+  "color_profiles": []
+}

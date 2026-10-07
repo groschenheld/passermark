@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Baut das Linux-AppImage automatisch (GitHub Actions), inkl. gebuendeltem Ghostscript.
+# Ergebnis unter "Artifacts".
+name: Linux-AppImage
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Systemabhaengigkeiten
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-cups ghostscript patchelf wget
+      - name: Tests (plattformneutrale Teile)
+        run: |
+          python3 -m venv .venv-test
+          .venv-test/bin/pip install --upgrade pip
+          .venv-test/bin/pip install pypdfium2 pikepdf Pillow
+          .venv-test/bin/python tests/test_ipp.py
+          .venv-test/bin/python tests/test_l10n.py
+          .venv-test/bin/python tests/test_trays.py
+      - name: AppImage bauen (PyInstaller + Ghostscript + linuxdeploy)
+        run: ./linux/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Passermark-Linux-AppImage
+          path: dist/Passermark-*-x86_64.AppImage
