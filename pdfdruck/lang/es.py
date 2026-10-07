@@ -998,4 +998,8 @@ MESSAGES = {
     "Vektor über GDI (früheres Verfahren)": "Vectorial mediante GDI (método anterior)",
     "Verfahren:": "Método:",
     "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "Si la cola tarda mucho o los trabajos se cancelan: pruebe «Ráster» con 300–400 ppp.",
+    "Lineale anzeigen": "Mostrar reglas",
+    "Messen": "Medir",
+    "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Medir: 1.er clic inicio, 2.º clic fin · Mayús = horizontal/vertical/45° · Esc = cancelar",
+    "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Medición: longitud, distancia horizontal y vertical, ángulo",
 }

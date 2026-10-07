@@ -1,5 +1,12 @@
 # Änderungen – Passermark
 
+## 1.5.0
+- **Lineale und Messen** (Ansicht → Lineale anzeigen, Strg+R; Ansicht → Messen, Strg+Umschalt+M, auch in der
+  Werkzeugleiste): Lineale in mm oben und links an der Kante der Ansicht, bleiben beim Scrollen stehen, Nullpunkt =
+  linke obere Seitenecke, Mausposition markiert; Messen: 1. Klick Anfang, 2. Klick Ende, Umschalt rastet
+  waagrecht/senkrecht/45° ein, Esc bricht ab; Ergebnis (Länge, ΔX, ΔY, Winkel) rechts unten in der Statusleiste;
+  gemessen in echten Seitenmaßen, unabhängig von Zoom und Drehung
+
 ## 1.4.7
 - CutContour: Vorschau aktualisiert sich automatisch bei jeder Einstellung – vorher zeigte sie nach einem
   Formwechsel (Rechteck, Kreis, Herz …) weiter die alte Kontur, bis man „Vorschau aktualisieren“ drückte

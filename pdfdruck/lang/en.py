@@ -998,4 +998,8 @@ MESSAGES = {
     "Vektor über GDI (früheres Verfahren)": "Vector via GDI (previous method)",
     "Verfahren:": "Method:",
     "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "If spooling takes long or jobs abort: try “Raster” with 300–400 dpi.",
+    "Lineale anzeigen": "Show rulers",
+    "Messen": "Measure",
+    "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Measure: 1st click start, 2nd click end · Shift = horizontal/vertical/45° · Esc = cancel",
+    "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Measurement: length, horizontal and vertical distance, angle",
 }

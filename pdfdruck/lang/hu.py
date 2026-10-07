@@ -998,4 +998,8 @@ MESSAGES = {
     "Vektor über GDI (früheres Verfahren)": "Vektor GDI-n keresztül (korábbi módszer)",
     "Verfahren:": "Módszer:",
     "Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen.": "Ha a sorba állítás sokáig tart vagy a feladatok megszakadnak: próbálja a „Raszter” módot 300–400 dpi-vel.",
+    "Lineale anzeigen": "Vonalzók megjelenítése",
+    "Messen": "Mérés",
+    "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Mérés: 1. kattintás kezdet, 2. kattintás vég · Shift = vízszintes/függőleges/45° · Esc = mégse",
+    "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Mérés: hossz, vízszintes és függőleges távolság, szög",
 }

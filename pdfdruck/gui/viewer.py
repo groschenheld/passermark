@@ -13,7 +13,7 @@ import os
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_r
-from PySide6.QtCore import QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDockWidget,
                                QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
@@ -181,6 +181,69 @@ class PageWidget(QWidget):
             self.view.mouse_double(self, e)
 
 
+class Ruler(QWidget):
+    """Lineal in mm an der Kante der Seitenansicht; Nullpunkt = linke obere Ecke der aktuellen Seite.
+    Bleibt beim Scrollen stehen, die Skala läuft mit (Zoom, Seite, Drehung)."""
+    SIZE = 22
+
+    def __init__(self, view, horizontal: bool):
+        super().__init__()
+        self.view, self.horizontal = view, horizontal
+        self.cursor_px = None            # Mausposition (Bildschirm, global) für den Markierungsstrich
+        if horizontal:
+            self.setFixedHeight(self.SIZE)
+        else:
+            self.setFixedWidth(self.SIZE)
+
+    def paintEvent(self, _):
+        from PySide6.QtCore import QPoint
+        from .. import measure as ms
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor(theme.PANEL))
+        geo = self.view.ruler_geometry()
+        if geo is None:
+            return
+        origin_vp, ppm = geo                          # Seitenecke (Viewport-Pixel), Pixel je mm
+        g = self.view.viewport().mapToGlobal(origin_vp)
+        o = self.mapFromGlobal(g)
+        o0 = o.x() if self.horizontal else o.y()
+        length = self.width() if self.horizontal else self.height()
+        minor, major = ms.ruler_steps(ppm)
+        p.setPen(QPen(QColor(theme.MUTED), 1))
+        p.setFont(theme.mono_font(7.5))
+        first = int((0 - o0) / (minor * ppm)) - 1
+        last = int((length - o0) / (minor * ppm)) + 1
+        for k in range(first, last + 1):
+            mm = k * minor
+            pos = int(round(o0 + mm * ppm))
+            is_major = abs(mm / major - round(mm / major)) < 1e-9
+            tick = self.SIZE - 2 if is_major else (self.SIZE // 3)
+            if self.horizontal:
+                p.drawLine(pos, self.SIZE, pos, self.SIZE - tick)
+                if is_major:
+                    p.drawText(pos + 3, 10, f"{mm:g}")
+            else:
+                p.drawLine(self.SIZE, pos, self.SIZE - tick, pos)
+                if is_major:
+                    p.save()
+                    p.translate(10, pos - 3)
+                    p.rotate(-90)
+                    p.drawText(0, 0, f"{mm:g}")
+                    p.restore()
+        if self.cursor_px is not None:
+            c = self.mapFromGlobal(self.cursor_px)
+            p.setPen(QPen(QColor(theme.ACCENT), 1))
+            if self.horizontal:
+                p.drawLine(c.x(), 0, c.x(), self.SIZE)
+            else:
+                p.drawLine(0, c.y(), self.SIZE, c.y())
+        p.setPen(QPen(QColor(theme.MUTED), 1))
+        if self.horizontal:
+            p.drawLine(0, self.SIZE - 1, self.width(), self.SIZE - 1)
+        else:
+            p.drawLine(self.SIZE - 1, 0, self.SIZE - 1, self.height())
+
+
 class PageView(QScrollArea):
     """Seitenansicht.
 
@@ -191,6 +254,7 @@ class PageView(QScrollArea):
     """
     pageChanged = Signal(int)
     zoomChanged = Signal(float)
+    viewMoved = Signal()                 # Scrollen/Zoom/Seite -> Lineale neu zeichnen
 
     JUMP_THRESHOLD = 120       # eine Mausrad-Raste; Touchpad-Bruchteile werden gesammelt
     JUMP_COOLDOWN = 0.30       # s – verhindert, dass Schwung-Scrollen mehrere Seiten überspringt
@@ -216,6 +280,9 @@ class PageView(QScrollArea):
         self._tp = {}             # Seite -> (PdfPage, PdfTextPage)
         self.imode = "text"       # Maus: text = Textauswahl; edit = Bearbeiten-Modus (Klicks an edit_click)
         self.edit_click = None    # Rückruf (Seite, x, y in Seitenkoordinaten, Umschalt)
+        self.meas = None          # Messung: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
+        self.on_measure = None    # Rückruf (Text für die Statusleiste)
+        self.on_cursor = None     # Rückruf (Seiten-Widget, Mausposition) für die Lineale
         self.editor = None        # Bearbeiten-Seitenleiste: press/drag/release/cursor (Seitenkoordinaten)
         self._edrag = False
         self.overlay = {}         # Seite -> [(x0, y0, x1, y1, Farbe)] in Seitenkoordinaten
@@ -224,6 +291,8 @@ class PageView(QScrollArea):
         self.setWidget(self.container)
         self._timer = QTimer(self, singleShot=True, interval=30, timeout=self._render_visible)
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self.verticalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
+        self.horizontalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
 
     # --------------------------------------------------------------- #
     def set_document(self, doc, keep_page: int | None = None):
@@ -231,6 +300,7 @@ class PageView(QScrollArea):
             w.deleteLater()
         self._close_textpages()
         self.sel, self._drag = None, None
+        self.meas = None
         self.doc = doc
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         self.pages = [PageWidget(i, self) for i in range(len(doc))]
@@ -313,6 +383,7 @@ class PageView(QScrollArea):
                 y += hh + PAGE_GAP
             self.container.resize(cw, y)
         self.zoomChanged.emit(self.zoom)
+        self.viewMoved.emit()
         self._timer.start()
 
     def resizeEvent(self, e):
@@ -443,6 +514,9 @@ class PageView(QScrollArea):
         super().wheelEvent(e)
 
     def keyPressEvent(self, e):
+        if self.imode == "measure" and e.key() == Qt.Key.Key_Escape:
+            self.measure_clear()
+            return
         if self.single and self.doc is not None:
             k = e.key()
             vb, hb = self.verticalScrollBar(), self.horizontalScrollBar()
@@ -514,8 +588,97 @@ class PageView(QScrollArea):
         i = tp.get_index(x, y, tol, tol)
         return i if i is not None and i >= 0 else -1
 
+    # --------------------------------------------------------------- #
+    # Lineal und Messen
+    # --------------------------------------------------------------- #
+    def ruler_geometry(self):
+        """(linke obere Seitenecke in Viewport-Pixeln, Pixel je mm) der aktuellen Seite – oder None."""
+        from PySide6.QtCore import QPoint
+        if not self.doc or not (0 <= self.current < len(self.pages)):
+            return None
+        w = self.pages[self.current]
+        pw, _ph = self._rot_size(self.current)
+        if pw <= 0 or w.width() <= 0:
+            return None
+        return w.mapTo(self.viewport(), QPoint(0, 0)), w.width() / pw * 72.0 / 25.4
+
+    def page_matrix(self, w):
+        """Lineare Abbildung Seite -> Bildschirm (a, b, c, d) inkl. Zoom und Drehung, aus pdfium abgeleitet."""
+        x0, y0 = self.to_page(w, QPointF(w.width() / 2, w.height() / 2))
+        far = 1000.0
+        p0 = self.to_widget(w, x0, y0)
+        px = self.to_widget(w, x0 + far, y0)
+        py = self.to_widget(w, x0, y0 + far)
+        return ((px[0] - p0[0]) / far, (px[1] - p0[1]) / far, (py[0] - p0[0]) / far, (py[1] - p0[1]) / far)
+
+    def _measure_point(self, w, pos, shift):
+        """Mausposition -> Seitenpunkt; mit Umschalt waagrecht/senkrecht/45° zum Startpunkt eingerastet."""
+        from .. import measure as ms
+        if shift and self.meas and self.meas["a"] is not None and not self.meas["done"]:
+            sx, sy = self.to_widget(w, *self.meas["a"])
+            vx, vy = ms.snap(pos.x() - sx, pos.y() - sy, True)
+            # eingerasteten Bildschirmvektor exakt in Seitenmaße umrechnen (nicht über ganze Pixel)
+            a, b, c, d = self.page_matrix(w)
+            det = a * d - b * c
+            if abs(det) > 1e-12:
+                px = (d * vx - c * vy) / det
+                py = (-b * vx + a * vy) / det
+                ax, ay = self.meas["a"]
+                return ax + px, ay + py
+        return self.to_page(w, pos)
+
+    def _measure_report(self, w):
+        from .. import l10n
+        from .. import measure as ms
+        if self.on_measure is None or not self.meas:
+            return
+        if self.meas["b"] is None:
+            return
+        r = ms.measure(self.meas["a"], self.meas["b"], self.page_matrix(w))
+        self.on_measure(ms.describe(r, l10n.current()))
+
+    def measure_clear(self):
+        if self.meas is not None and 0 <= self.meas["page"] < len(self.pages):
+            self.pages[self.meas["page"]].update()
+        self.meas = None
+        if self.on_measure is not None:
+            self.on_measure("")
+
+    def _measure_press(self, w, e):
+        shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+        m = self.meas
+        if m is None or m["done"] or m["page"] != w.index:
+            a = self.to_page(w, e.position())
+            self.meas = {"page": w.index, "a": a, "b": None, "done": False}       # 1. Klick: Anfang
+        else:
+            m["b"] = self._measure_point(w, e.position(), shift)                    # 2. Klick: Ende
+            m["done"] = True
+            self._measure_report(w)
+        w.update()
+
+    def _measure_move(self, w, e):
+        from .. import l10n
+        from .. import measure as ms
+        if self.on_cursor is not None:
+            self.on_cursor(w, e.position())
+        m = self.meas
+        if m is not None and not m["done"] and m["page"] == w.index:
+            shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            m["b"] = self._measure_point(w, e.position(), shift)                   # Gummiband
+            self._measure_report(w)
+            w.update()
+        elif self.on_measure is not None and (m is None or m["done"]):
+            geo = self.ruler_geometry()
+            if geo is not None and w.index == self.current:
+                ppm = geo[1]
+                if m is None:
+                    self.on_measure(ms.describe_pos(e.position().x() / ppm, e.position().y() / ppm, l10n.current()))
+
     def mouse_press(self, w, e):
         self.setFocus()
+        if self.imode == "measure":
+            self._measure_press(w, e)
+            return
         if self.imode == "edit":
             x, y = self.to_page(w, e.position())
             if self.editor is not None:
@@ -533,6 +696,12 @@ class PageView(QScrollArea):
             self.pages[old[0]].update()
 
     def mouse_move(self, w, e):
+        if self.imode == "measure":
+            w.setCursor(Qt.CursorShape.CrossCursor)
+            self._measure_move(w, e)
+            return
+        if self.on_cursor is not None:
+            self.on_cursor(w, e.position())
         if self.imode == "edit":
             x, y = self.to_page(w, e.position())
             if self.editor is not None and self._edrag:
@@ -567,7 +736,7 @@ class PageView(QScrollArea):
         return 7.0 * pw / max(1, w.width())
 
     def mouse_double(self, w, e):
-        if self.imode == "edit":
+        if self.imode in ("edit", "measure"):
             return
         i = self._char_at(w, e.position(), 12.0)
         if i < 0:
@@ -608,6 +777,24 @@ class PageView(QScrollArea):
                 col.setAlpha(90)
                 for k in range(n):
                     p.fillRect(self._rect_widget(w, *tp.get_rect(k)), col)
+            m = self.meas
+            if m is not None and m["page"] == w.index and m["b"] is not None:
+                ax, ay = self.to_widget(w, *m["a"])
+                bx, by = self.to_widget(w, *m["b"])
+                col = QColor(theme.ACCENT)
+                pen = QPen(col, 2)
+                if not m["done"]:
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                p.setPen(pen)
+                p.drawLine(ax, ay, bx, by)
+                p.setBrush(col)
+                for (x, y) in ((ax, ay), (bx, by)):
+                    p.drawEllipse(QPointF(x, y), 3.5, 3.5)
+            elif m is not None and m["page"] == w.index:
+                ax, ay = self.to_widget(w, *m["a"])
+                p.setPen(QPen(QColor(theme.ACCENT), 2))
+                p.drawLine(ax - 6, ay, ax + 6, ay)
+                p.drawLine(ax, ay - 6, ax, ay + 6)
             for item in self.overlay.get(w.index, []):
                 x0, y0, x1, y1, c = item[:5]
                 style = item[5] if len(item) > 5 else ""
@@ -773,7 +960,27 @@ class MainWindow(QMainWindow):
         self.modified = False
 
         self.view = PageView(single=getattr(ctl, "view_single", True))
-        self.setCentralWidget(self.view)
+        # Lineale oben/links an der Kante der Ansicht (bleiben beim Scrollen stehen)
+        from PySide6.QtWidgets import QGridLayout
+        central = QWidget()
+        grid = QGridLayout(central)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
+        self.ruler_h = Ruler(self.view, True)
+        self.ruler_v = Ruler(self.view, False)
+        self.ruler_corner = QWidget()
+        self.ruler_corner.setFixedSize(Ruler.SIZE, Ruler.SIZE)
+        self.ruler_corner.setStyleSheet(f"background: {theme.PANEL};")
+        grid.addWidget(self.ruler_corner, 0, 0)
+        grid.addWidget(self.ruler_h, 0, 1)
+        grid.addWidget(self.ruler_v, 1, 0)
+        grid.addWidget(self.view, 1, 1)
+        for r in (self.ruler_corner, self.ruler_h, self.ruler_v):
+            r.hide()
+        self._rulers_on = False
+        self.setCentralWidget(central)
+        self.view.viewMoved.connect(self._rulers_update)
+        self.view.on_cursor = self._rulers_cursor
         self.view.pageChanged.connect(self._page_changed)
         self.view.zoomChanged.connect(self._zoom_changed)
 
@@ -810,6 +1017,12 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
         self._build_edit(dock)
+        self.lbl_measure = QLabel()
+        self.lbl_measure.setContentsMargins(8, 0, 8, 0)
+        self.lbl_measure.setFont(theme.mono_font(9.5))
+        self.lbl_measure.setToolTip(tr("Messung: Länge, waagrechter und senkrechter Abstand, Winkel"))
+        self.statusBar().addPermanentWidget(self.lbl_measure)     # ganz rechts unten, stört die Arbeit nicht
+        self.view.on_measure = self.lbl_measure.setText
         self._update_title()
 
     # ---------------- Bearbeiten-Modus (Text und Ebenen) ---------------- #
@@ -833,7 +1046,46 @@ class MainWindow(QMainWindow):
         self.view.editor = self.edit_panel
         self.view.pageChanged.connect(lambda _p: self.a_edit.isChecked() and self.edit_panel.refresh())
 
+    # ---------------- Lineale und Messen ---------------- #
+    def _show_rulers(self, on: bool):
+        self._rulers_on = bool(on)
+        for r in (self.ruler_corner, self.ruler_h, self.ruler_v):
+            r.setVisible(on)
+        if not on and self.a_measure.isChecked():
+            self.a_measure.setChecked(False)
+        self._rulers_update()
+
+    def _rulers_update(self):
+        if self._rulers_on:
+            self.ruler_h.update()
+            self.ruler_v.update()
+
+    def _rulers_cursor(self, w, pos):
+        if not self._rulers_on:
+            return                                         # nur rechnen, wenn die Lineale zu sehen sind
+        gpos = w.mapToGlobal(pos.toPoint())
+        self.ruler_h.cursor_px = gpos
+        self.ruler_v.cursor_px = gpos
+        self._rulers_update()
+
+    def _measure_mode(self, on: bool):
+        if on:
+            if self.a_edit.isChecked():
+                self.a_edit.setChecked(False)              # Bearbeiten und Messen schließen sich aus
+            self.view.imode = "measure"
+            self.view.sel = None
+            if not self.a_rulers.isChecked():
+                self.a_rulers.setChecked(True)
+            self.statusBar().showMessage(tr("Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° "
+                                            "· Esc = abbrechen"), 8000)
+        else:
+            if self.view.imode == "measure":
+                self.view.imode = "text"
+            self.view.measure_clear()
+
     def _edit_mode(self, on: bool):
+        if on and self.a_measure.isChecked():
+            self.a_measure.setChecked(False)
         self.view.imode = "edit" if on else "text"
         self.view.sel = None
         if on:
@@ -1010,6 +1262,15 @@ class MainWindow(QMainWindow):
         self.a_single.setChecked(self.view.single)
         m.addAction(self.a_single)
         m.addSeparator()
+        self.a_rulers = A(tr("Lineale anzeigen"), lambda: None, "Ctrl+R", "ruler")
+        self.a_rulers.setCheckable(True)
+        self.a_rulers.toggled.connect(self._show_rulers)
+        self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+M", "ruler")
+        self.a_measure.setCheckable(True)
+        self.a_measure.toggled.connect(self._measure_mode)
+        m.addAction(self.a_rulers)
+        m.addAction(self.a_measure)
+        m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
         self.a_fitpage = A(tr("Ganze Seite"), lambda: self.view.set_zoom("page"), "Ctrl+1", "fit_page")
@@ -1073,6 +1334,8 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_vrot_l)
         tb.addAction(self.a_vrot_r)
+        tb.addSeparator()
+        tb.addAction(self.a_measure)
         A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
         A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
         self._update_actions()
