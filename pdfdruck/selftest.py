@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 """Selbsttest der fertigen Programmdatei (EXE/AppImage): prüft, dass alle mitgelieferten Abhängigkeiten laden.
-Aufruf: passermark --selftest   (Rückgabe 0 = OK; Protokoll in <Temp>/passermark-selftest.log)"""
+Aufruf: pdftoolkit --selftest   (Rückgabe 0 = OK; Protokoll in <Temp>/pdftoolkit-selftest.log)"""
 import os
 import re
 import subprocess
@@ -11,7 +11,7 @@ import traceback
 
 
 def run() -> int:
-    log = os.path.join(tempfile.gettempdir(), "passermark-selftest.log")
+    log = os.path.join(tempfile.gettempdir(), "pdftoolkit-selftest.log")
     lines, ok = [], True
 
     def step(name, fn):
@@ -92,7 +92,7 @@ def admin_helper(args: list) -> int:
     """Linux-AppImage: den mitgelieferten Root-Helfer ausführen (aufgerufen über pkexec, siehe admindialog).
     Der Helfer prüft wie gewohnt: Prüfregeln nur aus einem root-eigenen Ordner (beim AppImage: entpackt durch root)."""
     base = getattr(sys, "_MEIPASS", None) or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    path = os.path.join(base, "admin", "passermark-admin")
+    path = os.path.join(base, "admin", "pdfdruck-admin")
     with open(path, encoding="utf-8") as f:
         code = f.read()
     code = re.sub(r'^LIB = .*$', "LIB = " + repr(base), code, count=1, flags=re.M)

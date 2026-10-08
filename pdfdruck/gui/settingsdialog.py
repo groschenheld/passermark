@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtCore import QProcess
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
                                QLabel, QMessageBox, QVBoxLayout)
 
 from .. import l10n
@@ -33,17 +33,11 @@ class SettingsDialog(QDialog):
         i = self.cmb.findData(self.settings.get("language", "auto"))
         self.cmb.setCurrentIndex(max(0, i))
         f.addRow(tr("Oberflächensprache:"), self.cmb)
-        note = QLabel(tr("Die Sprache wird nach einem Neustart von Passermark wirksam."))
+        note = QLabel(tr("Die Sprache wird nach einem Neustart von pdfToolkit wirksam."))
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
         v.addWidget(g)
-        g2 = QGroupBox(tr("Dokumentprüfung"))
-        f2 = QFormLayout(g2)
-        self.chk_pf = QCheckBox(tr("Dokumente beim Öffnen automatisch prüfen (Schriften, Ebenen, Transparenz)"))
-        self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
-        f2.addRow(self.chk_pf)
-        v.addWidget(g2)
         from .. import platform as _platform
         self.cmb_wmode = self.cmb_wdpi = None
         if _platform.IS_WIN:
@@ -81,7 +75,6 @@ class SettingsDialog(QDialog):
         if self.cmb_wmode is not None:
             self.settings["win_print_mode"] = self.cmb_wmode.currentData()
             self.settings["win_raster_dpi"] = int(self.cmb_wdpi.currentData() or 0)
-        self.settings["preflight_on_open"] = self.chk_pf.isChecked()
         try:
             l10n.save_settings(self.settings)
         except OSError as e:
@@ -89,7 +82,7 @@ class SettingsDialog(QDialog):
             return
         self.accept()
         if new != old and QMessageBox.question(
-                self.parent(), tr("Neustart"), tr("Passermark jetzt neu starten, damit die Sprache wirksam wird?")
+                self.parent(), tr("Neustart"), tr("pdfToolkit jetzt neu starten, damit die Sprache wirksam wird?")
         ) == QMessageBox.StandardButton.Yes:
             restart(self.parent())
 

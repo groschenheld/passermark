@@ -1,6 +1,6 @@
 #!/bin/sh
-# Passermark AppImage entry point
+# pdfToolkit AppImage entry point
 HERE="$(dirname "$(readlink -f "$0")")"
 export PATH="$PATH:$HERE/usr/bin"            # system Ghostscript first, bundled one only as fallback
-export PASSERMARK_APPIMAGE=1
-exec "$HERE/usr/lib/passermark/passermark" "$@"
+export PDFTOOLKIT_APPIMAGE=1
+exec "$HERE/usr/lib/pdftoolkit/pdftoolkit" "$@"

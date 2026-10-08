@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
 """Logiktests ohne echtes CUPS (Attrappen für pycups)."""
 import importlib.machinery, importlib.util, json, os, sys, types
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PDFTOOLKIT_LANG", "de")   # Tests prüfen deutsche Texte
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # ---- Fake pycups --------------------------------------------------------
@@ -82,13 +82,13 @@ def test_ipp():
 def test_helper_validate():
     from pdfdruck import cfgvalidate
     cfg = json.load(open(os.path.join(os.path.dirname(__file__), "..", "data", "defaults.example.json")))
-    cfgvalidate.validate(cfg, "/etc/passermark/icc")
+    cfgvalidate.validate(cfg, "/etc/pdfdruck/icc")
     for bad in [{"evil": 1}, {"layout": {"mode": "x"}}, {"printers": {"a;rm": {}}},
                 {"printers": {"P": {"options": {"K": "v;rm -rf"}}}},
                 {"color_profiles": [{"id": "x", "file": "/tmp/x.icc"}]},
                 {"printers": {"P": {"devmode": "nicht base64!"}}}]:
         try:
-            cfgvalidate.validate(bad, "/etc/passermark/icc"); raise AssertionError(bad)
+            cfgvalidate.validate(bad, "/etc/pdfdruck/icc"); raise AssertionError(bad)
         except ValueError:
             pass
 
@@ -141,10 +141,10 @@ def test_presets_validate():
     from pdfdruck import cfgvalidate
     cfg = {"printers": {"Canon_V1350": {"options": {}, "presets": [
         {"name": "Broschüre heften + falzen", "options": {"CNSaddleStitch": "True"}, "booklet": True}]}}}
-    cfgvalidate.validate(cfg, "/etc/passermark/icc")
+    cfgvalidate.validate(cfg, "/etc/pdfdruck/icc")
     cfg["printers"]["Canon_V1350"]["presets"][0]["evil"] = 1
     try:
-        cfgvalidate.validate(cfg, "/etc/passermark/icc"); assert False
+        cfgvalidate.validate(cfg, "/etc/pdfdruck/icc"); assert False
     except ValueError:
         pass
 

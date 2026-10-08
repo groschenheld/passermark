@@ -2,16 +2,16 @@
 <!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>Passermark</vendor>
-  <action id="at.hias.passermark.admin">
-    <description>Passermark: Druck-Standardeinstellungen ändern</description>
+  <vendor>pdfToolkit</vendor>
+  <action id="at.hias.pdfdruck.admin">
+    <description>pdfToolkit: Druck-Standardeinstellungen ändern</description>
     <message>Zum Ändern der Druck-Standards (Drucker, Fächer, Farbprofile) ist eine Authentifizierung als Administrator erforderlich.</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
-    <icon_name>passermark</icon_name>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/passermark-admin</annotate>
+    <icon_name>pdftoolkit</icon_name>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/pdfdruck-admin</annotate>
   </action>
 </policyconfig>

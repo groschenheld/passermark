@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -282,7 +282,7 @@ class AdminDialog(QDialog):
             g = QGroupBox(tr("Herstellereinstellungen (Windows-Treiber)"))
             gl = QVBoxLayout(g)
             lbl = QLabel(tr("Finisher, Heften, Lochen, Falzen, Beschnitt, Fiery-Optionen usw. stellst du im Original-"
-                         "Dialog des Herstellers ein. Die Auswahl wird als Passermark-Standard gespeichert."))
+                         "Dialog des Herstellers ein. Die Auswahl wird als pdfToolkit-Standard gespeichert."))
             lbl.setWordWrap(True)
             gl.addWidget(lbl)
             row = QHBoxLayout()
@@ -350,7 +350,7 @@ class AdminDialog(QDialog):
             gl.addWidget(QLabel(tr("Der Treiber meldet keine Fächer/Formate – automatische Fachwahl nicht möglich.")))
             v.addWidget(g)
             return
-        info = QLabel(tr("Reihenfolge = Vorrang: Bei mehreren passenden Laden nimmt Passermark die oberste; "
+        info = QLabel(tr("Reihenfolge = Vorrang: Bei mehreren passenden Laden nimmt pdfToolkit die oberste; "
                       "ist sie laut Gerät leer, die nächste. Am Gerät zusätzlich die automatische "
                       "Kassettenumschaltung einschalten – nur der Drucker kann mitten im Auftrag wechseln."))
         info.setWordWrap(True)
@@ -713,7 +713,7 @@ class AdminDialog(QDialog):
         from .. import iccfetch
         from .iccimport import IccImportDialog
         if not hasattr(self, "_icc_work"):
-            self._icc_work = tempfile.mkdtemp(prefix="passermark-icc-")
+            self._icc_work = tempfile.mkdtemp(prefix="pdftoolkit-icc-")
             self.finished.connect(lambda *_: __import__("shutil").rmtree(self._icc_work, ignore_errors=True))
         current = self.cmb_p.currentData() if hasattr(self, "cmb_p") else None
         dlg = IccImportDialog(self, self.plist, current, self._icc_work)
@@ -802,7 +802,7 @@ class AdminDialog(QDialog):
                 return
             self._saved_message(n_sys)
             return
-        fd, tmp = tempfile.mkstemp(prefix="passermark-admin-", suffix=".json")
+        fd, tmp = tempfile.mkstemp(prefix="pdfdruck-admin-", suffix=".json")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(bundle, f, ensure_ascii=False)

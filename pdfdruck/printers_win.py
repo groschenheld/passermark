@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -7,11 +7,11 @@
 
 Windows kennt keine PPD. Die Fähigkeiten eines Treibers stecken in zwei Teilen:
   * öffentlich (DeviceCapabilities): Papierformate, Fächer, Duplex, Farbe, Medientypen
-    -> daraus baut Passermark die Basisfelder (alle Fächer immer wählbar)
+    -> daraus baut pdfToolkit die Basisfelder (alle Fächer immer wählbar)
   * privat (DEVMODE-Treiberdaten): alles Herstellerspezifische – Finisher, Heften, Lochen, Falzen,
     Beschnitt, Booklet, Stacker, Fiery-Optionen …
     -> erreichbar über den ORIGINAL-Treiberdialog des Herstellers (DocumentProperties).
-       Passermark speichert das Ergebnis (Admin-Standard, Vorlage oder Sitzung) und setzt beim Druck
+       pdfToolkit speichert das Ergebnis (Admin-Standard, Vorlage oder Sitzung) und setzt beim Druck
        nur die Basisfelder darüber.
 
 Gedruckt wird über GDI: PDFium zeichnet jede ausgeschossene Seite direkt in den Drucker-Gerätekontext
@@ -506,7 +506,7 @@ def test_print(printer: str, values: dict | None = None) -> list[tuple[str, str]
     import tempfile
     out = []
     for mode, label in TEST_MODES:
-        fd, path = tempfile.mkstemp(prefix="passermark-test-", suffix=".pdf")
+        fd, path = tempfile.mkstemp(prefix="pdftoolkit-test-", suffix=".pdf")
         os.close(fd)
         try:
             with open(path, "wb") as f:
