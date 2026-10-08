@@ -58,6 +58,17 @@ def test_print_layout_kind():
         pass
 
 
+def test_migrate_print_presets_from_17():
+    """1.7 legte Druck-Presets unter „druck“ ab – werden übernommen und gelten für `impose`."""
+    import shutil
+    shutil.rmtree(presets.job_dir(presets.PRINT), ignore_errors=True)
+    old = os.path.join(presets.root_dir(), "druck")
+    os.makedirs(old, exist_ok=True)
+    core.save_settings(os.path.join(old, "Alt.json"), "druck", {"handling": "booklet"})
+    assert "Alt" in presets.list_presets(presets.PRINT)
+    assert presets.load(presets.PRINT, "Alt").handling == "booklet"
+
+
 def test_wrong_kind_rejected():
     p = presets.save("manip", "x", core.settings_class("manip")())
     os.makedirs(presets.job_dir("cutcontour"), exist_ok=True)
@@ -151,7 +162,11 @@ md_dlg.panel.load_settings(cmyk.ManipSettings(crop=True, crop_size="A5"))
 from pdfdruck.gui import printdialog as pd
 from pdfdruck.layout import LayoutSettings
 pdlg = pd.PrintDialog(None, pdfium.PdfDocument(sys.argv[1]), sys.argv[1], 0, s)
-pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3))
+pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kind="grouped", booklet_per_sig=2,
+                                 booklet_fold_marks=True))
+imp = pdlg._preset_settings()
+from pdfdruck.layout import ImposeSettings
+assert isinstance(imp, ImposeSettings)              # Qt-Ersatz liefert keine echten Feldwerte
 print("ok")
 '''
 

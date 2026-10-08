@@ -20,7 +20,7 @@ from . import core
 from .l10n import tr
 
 LAST = ".zuletzt"
-PRINT = "druck"                                  # Druck-Layout (Größe, Mehrere, Broschüre, Poster, Nutzen) – kein CLI-Auftrag
+PRINT = "impose"                                 # Druck-Layout (Größe, Mehrere, Broschüre, Poster, Nutzen) = CLI-Auftrag impose
 _BAD = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
@@ -30,15 +30,25 @@ def root_dir() -> str:
 
 
 def settings_class(kind: str):
-    if kind == PRINT:
-        from .layout import LayoutSettings
-        return LayoutSettings
     return core.settings_class(kind)             # unbekannter Auftrag -> ValueError
 
 
 def job_dir(kind: str) -> str:
     settings_class(kind)
-    return os.path.join(root_dir(), kind)
+    d = os.path.join(root_dir(), kind)
+    if kind == PRINT:                            # 1.7: Druck-Presets lagen unter „druck“
+        old = os.path.join(root_dir(), "druck")
+        if os.path.isdir(old) and not os.path.exists(d):
+            try:
+                os.rename(old, d)
+                for f in os.listdir(d):
+                    if f.endswith(".json"):
+                        k, data = core.load_settings(os.path.join(d, f))
+                        if k == "druck":
+                            core.save_settings(os.path.join(d, f), PRINT, data)
+            except (OSError, ValueError, KeyError):
+                pass
+    return d
 
 
 def clean_name(name: str) -> str:
@@ -75,6 +85,8 @@ def load(kind: str, name: str):
     """Einstellungen (Datenklasse des Auftrags) aus einem Preset; FileNotFoundError, wenn es keines gibt."""
     p = path_for(kind, name)
     k, d = core.load_settings(p)
+    if k == "druck" and kind == PRINT:
+        k = PRINT
     if k != kind:
         raise ValueError(tr("Preset ist für „{0}“, nicht für „{1}“").format(k, kind))
     return core.settings_from_dict(settings_class(kind), d)

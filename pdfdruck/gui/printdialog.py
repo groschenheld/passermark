@@ -90,7 +90,14 @@ class PrintDialog(QDialog):
         root = QHBoxLayout(self)
         self.tabs = QTabWidget()
         self.tabs.setMinimumWidth(500)
-        root.addWidget(self.tabs, 0)
+        left = QVBoxLayout()
+        # Preset über den Reitern: gilt für Allgemein UND Weitere Optionen (ohne Drucker/Fach)
+        from .presetbar import PresetBar
+        self.presetbar = PresetBar(self, "impose", self._preset_settings, self._load_layout)
+        self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
+        left.addWidget(self.presetbar)
+        left.addWidget(self.tabs, 1)
+        root.addLayout(left, 0)
         self.general = QWidget()
         self.tabs.addTab(self._scroll(self.general), tr("Allgemein"))
         self.extras = QWidget()
@@ -158,10 +165,6 @@ class PrintDialog(QDialog):
     # ================================================================== #
     def _build_general(self):
         v = QVBoxLayout(self.general)
-        from .presetbar import PresetBar
-        self.presetbar = PresetBar(self, "druck", self._settings, self._load_layout)
-        self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
-        v.addWidget(self.presetbar)
 
         # Drucker
         g = QGroupBox(tr("Drucker"))
@@ -339,6 +342,20 @@ class PrintDialog(QDialog):
         # -- Broschüre
         bw = QWidget()
         bl = QFormLayout(bw)
+        self.cmb_bkind = QComboBox()
+        fill_combo(self.cmb_bkind, [("saddle", tr("Sammelheftung (alle Bögen ineinander)")),
+                                    ("grouped", tr("Gruppierte Lagen (je Lage mehrere Bögen)")),
+                                    ("stack", tr("Einzelbögen gestapelt (Klebebindung)"))], L.booklet_kind)
+        self.cmb_bkind.setToolTip(tr("Sammelheftung: ein Heft, Bögen ineinandergesteckt und in der Mitte geheftet. "
+                                     "Gruppierte Lagen: z. B. je 4 Bögen = 16 Seiten pro Lage, Lagen hintereinander "
+                                     "(Fadenheftung, dicke Hefte). Einzelbögen: jeder Bogen einzeln gefalzt, "
+                                     "gestapelt (Klebebindung, Blockheftung)."))
+        bl.addRow(tr("Bindeart:"), self.cmb_bkind)
+        self.spn_persig = QSpinBox()
+        self.spn_persig.setRange(1, 32)
+        self.spn_persig.setValue(L.booklet_per_sig)
+        self.spn_persig.setSuffix(tr(" Bögen je Lage"))
+        bl.addRow("", self.spn_persig)
         self.cmb_bsides = QComboBox()
         fill_combo(self.cmb_bsides, [("both", tr("Beidseitig")), ("front", tr("Nur Vorderseiten")),
                                      ("back", tr("Nur Rückseiten"))], L.booklet_sides)
@@ -355,6 +372,40 @@ class PrintDialog(QDialog):
         self.spn_gutter.setSuffix(tr(" mm"))
         self.spn_gutter.setValue(L.booklet_gutter_mm)
         bl.addRow(tr("Bundsteg:"), self.spn_gutter)
+        self.spn_creep = QDoubleSpinBox()
+        self.spn_creep.setRange(0, 2)
+        self.spn_creep.setDecimals(2)
+        self.spn_creep.setSingleStep(0.05)
+        self.spn_creep.setSuffix(tr(" mm je Bogen"))
+        self.spn_creep.setValue(L.booklet_creep_mm)
+        self.spn_creep.setToolTip(tr("Bundzug: innere Bögen stehen nach dem Falzen vorne über. Ihr Inhalt wird je Bogen "
+                                     "um diesen Wert zum Falz verschoben (ungefähr die Papierstärke, z. B. 0,1 mm "
+                                     "bei 80 g/m², 0,15 mm bei 150 g/m²)."))
+        bl.addRow(tr("Bundzug:"), self.spn_creep)
+        self.cmb_blanks = QComboBox()
+        fill_combo(self.cmb_blanks, [("end", tr("am Ende")), ("before_back", tr("vor der letzten Seite (Rückseite bleibt hinten)"))],
+                   L.booklet_blanks)
+        bl.addRow(tr("Leerseiten:"), self.cmb_blanks)
+        self.ed_blank = QLineEdit(L.booklet_blank_text)
+        self.ed_blank.setPlaceholderText(tr("Hinweistext auf Leerseiten (optional), z. B. „Diese Seite bleibt leer“"))
+        bl.addRow("", self.ed_blank)
+        mrow = QHBoxLayout()
+        self.chk_bfold = QCheckBox(tr("Falzmarken"))
+        self.chk_bfold.setChecked(L.booklet_fold_marks)
+        self.chk_breg = QCheckBox(tr("Passermarken"))
+        self.chk_breg.setChecked(L.booklet_reg_marks)
+        self.chk_bcoll = QCheckBox(tr("Flattermarken"))
+        self.chk_bcoll.setChecked(L.booklet_collation_marks)
+        self.chk_bcoll.setToolTip(tr("Balken am Rücken jeder Lage, je Lage versetzt – beim Zusammentragen ergibt sich "
+                                     "eine Treppe; eine fehlende oder vertauschte Lage fällt sofort auf."))
+        for c in (self.chk_bfold, self.chk_breg, self.chk_bcoll):
+            mrow.addWidget(c)
+        mrow.addStretch()
+        bl.addRow(tr("Marken:"), mrow)
+        self.btn_overview = QPushButton(tr("Bogenübersicht …"))
+        self.btn_overview.setToolTip(tr("Alle Bögen als Miniaturen – Verteilung der Seiten prüfen"))
+        self.btn_overview.clicked.connect(self._sheet_overview)
+        bl.addRow("", self.btn_overview)
         self.lbl_bhint = QLabel()
         self.lbl_bhint.setWordWrap(True)
         self.lbl_bhint.setStyleSheet(f"color: {theme.MUTED};")
@@ -471,13 +522,16 @@ class PrintDialog(QDialog):
         self.mode_group.buttonClicked.connect(self._changed)
         self.ed_range.editingFinished.connect(self._changed)
         self.ed_bsheets.editingFinished.connect(self._changed)
+        self.ed_blank.editingFinished.connect(self._changed)
+        for w in (self.chk_bfold, self.chk_breg, self.chk_bcoll):
+            w.toggled.connect(self._changed)
         self.cmb_custom_by.currentIndexChanged.connect(self._changed)
         for w in (self.spn_custom, self.spn_custom_mm, self.spn_cols, self.spn_rows, self.spn_tile, self.spn_gap,
-                  self.spn_gutter, self.spn_ppct, self.spn_pcols, self.spn_prows, self.spn_ptw,
+                  self.spn_gutter, self.spn_creep, self.spn_persig, self.spn_ppct, self.spn_pcols, self.spn_prows, self.spn_ptw,
                   self.spn_pth, self.spn_overlap):
             w.valueChanged.connect(self._changed)
         for w in (self.cmb_subset, self.cmb_nup, self.cmb_order, self.cmb_tile, self.cmb_orient,
-                  self.cmb_bsides, self.cmb_binding, self.cmb_pmode, self.cmb_ptarget):
+                  self.cmb_bsides, self.cmb_binding, self.cmb_bkind, self.cmb_blanks, self.cmb_pmode, self.cmb_ptarget):
             w.currentIndexChanged.connect(self._changed)
         for w in (self.chk_pmarks, self.chk_plabels, self.chk_plarge):
             w.toggled.connect(self._changed)
@@ -673,6 +727,9 @@ class PrintDialog(QDialog):
             for b in self.handling_btns.values():
                 b.setEnabled(not sr)
         booklet = self._handling() == "booklet"
+        self.spn_persig.setEnabled(booklet and self.cmb_bkind.currentData() == "grouped")
+        self.spn_creep.setEnabled(booklet and self.cmb_bkind.currentData() != "stack")
+        self.chk_bcoll.setEnabled(booklet and self.cmb_bkind.currentData() != "saddle")
         self.chk_reverse.setText(tr("Bögen in umgekehrter Reihenfolge") if booklet
                                  else tr("Seiten in umgekehrter Reihenfolge"))
         if booklet and self.caps is not None:
@@ -1064,6 +1121,14 @@ class PrintDialog(QDialog):
         L.booklet_binding = self.cmb_binding.currentData()
         L.booklet_sheets = self.ed_bsheets.text().strip()
         L.booklet_gutter_mm = self.spn_gutter.value()
+        L.booklet_kind = self.cmb_bkind.currentData() or "saddle"
+        L.booklet_per_sig = self.spn_persig.value()
+        L.booklet_creep_mm = self.spn_creep.value()
+        L.booklet_blanks = self.cmb_blanks.currentData() or "end"
+        L.booklet_blank_text = self.ed_blank.text()
+        L.booklet_fold_marks = self.chk_bfold.isChecked()
+        L.booklet_reg_marks = self.chk_breg.isChecked()
+        L.booklet_collation_marks = self.chk_bcoll.isChecked()
         L.poster_mode = self.cmb_pmode.currentData()
         L.poster_percent = self.spn_ppct.value()
         L.poster_cols, L.poster_rows = self.spn_pcols.value(), self.spn_prows.value()
@@ -1125,6 +1190,14 @@ class PrintDialog(QDialog):
         pick(self.cmb_binding, L.booklet_binding)
         self.ed_bsheets.setText(L.booklet_sheets)
         self.spn_gutter.setValue(L.booklet_gutter_mm)
+        pick(self.cmb_bkind, L.booklet_kind)
+        self.spn_persig.setValue(L.booklet_per_sig)
+        self.spn_creep.setValue(L.booklet_creep_mm)
+        pick(self.cmb_blanks, L.booklet_blanks)
+        self.ed_blank.setText(L.booklet_blank_text)
+        self.chk_bfold.setChecked(L.booklet_fold_marks)
+        self.chk_breg.setChecked(L.booklet_reg_marks)
+        self.chk_bcoll.setChecked(L.booklet_collation_marks)
         pick(self.cmb_pmode, L.poster_mode)
         self.spn_ppct.setValue(L.poster_percent)
         self.spn_pcols.setValue(L.poster_cols)
@@ -1167,11 +1240,34 @@ class PrintDialog(QDialog):
         return layout.select_pages(n, rng, self.cmb_subset.currentData(), rev, cur)
 
     def _make_plans(self, pages):
+        if getattr(self, "trims", None) is None:
+            try:
+                self.trims = layout.page_trims(self.doc)
+            except Exception:
+                self.trims = []
         return printjob.make_plans(self.sizes, pages, self._sheet(), self._settings(),
-                                   self.chk_reverse.isChecked())
+                                   self.chk_reverse.isChecked(), self.trims)
 
     def _short_edge_choice(self):
         return printjob.short_edge_choice(self.caps)
+
+    def _preset_settings(self) -> layout.ImposeSettings:
+        """Layout + aktuelles Papierformat – so passt ein Druck-Preset auch für `passermark-cli impose`."""
+        import dataclasses
+        imp = layout.ImposeSettings(**dataclasses.asdict(self._settings()))
+        try:
+            sh = self._sheet() if self.caps else None
+        except Exception:
+            sh = None
+        if sh is not None:
+            from ..printers import STD_SIZES_MM
+            w, h = sh.width / layout.MM, sh.height / layout.MM
+            name = next((k for k, (a, b) in STD_SIZES_MM.items() if abs(a - w) < 1 and abs(b - h) < 1), None)
+            if name:
+                imp.sheet = name
+            else:
+                imp.sheet, imp.sheet_w_mm, imp.sheet_h_mm = "custom", round(w, 1), round(h, 1)
+        return imp
 
     def _sheet(self) -> layout.Sheet:
         w, h, ia = self.caps.sheet_for(self.values)
@@ -1241,6 +1337,51 @@ class PrintDialog(QDialog):
         if 0 <= i < len(self.plans):
             self.sheet_index = i
             self._render_sheet()
+
+    def _sheet_overview(self):
+        """Alle Bögen als Miniaturen (Leserichtung) – zeigt die Verteilung der Seiten auf einen Blick."""
+        from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem
+        from PySide6.QtCore import QSize
+        from PySide6.QtGui import QIcon
+        from .manipdialog import pil_to_pixmap
+        if not self.plans:
+            QMessageBox.information(self, tr("Bogenübersicht"), tr("Keine Seiten"))
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            sheet = self._sheet()
+            out = layout.impose_with(self._print_doc(), sheet, self.plans, self._settings())
+            thumbs = []
+            for i, sp in enumerate(self.plans[:400]):
+                pg = out[i]
+                img = pg.render(scale=150 / max(sheet.width, sheet.height), rotation=90 if sp.landscape else 0).to_pil()
+                pg.close()
+                thumbs.append((pil_to_pixmap(img), sp.label or tr("Blatt {0}").format(i + 1)))
+            out.close()
+        finally:
+            QApplication.restoreOverrideCursor()
+        dlg = QDialog(self)
+        dlg.setWindowTitle(tr("Bogenübersicht – Passermark"))
+        dlg.resize(980, 700)
+        v = QVBoxLayout(dlg)
+        lw = QListWidget()
+        lw.setViewMode(QListView.ViewMode.IconMode)
+        lw.setIconSize(QSize(160, 160))
+        lw.setGridSize(QSize(200, 215))
+        lw.setResizeMode(QListView.ResizeMode.Adjust)
+        lw.setMovement(QListView.Movement.Static)
+        lw.setWordWrap(True)
+        for pm, text in thumbs:
+            lw.addItem(QListWidgetItem(QIcon(pm), text))
+        lw.itemDoubleClicked.connect(lambda it: (self._goto_sheet(lw.row(it)), dlg.accept()))
+        v.addWidget(lw, 1)
+        hint = QLabel(tr("Doppelklick springt zu diesem Bogen in der Vorschau."))
+        hint.setStyleSheet(f"color: {theme.MUTED};")
+        v.addWidget(hint)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        bb.rejected.connect(dlg.reject)
+        v.addWidget(bb)
+        dlg.exec()
 
     def _render_sheet(self):
         n = len(self.plans)

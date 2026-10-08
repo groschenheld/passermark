@@ -303,6 +303,11 @@ class PageView(QScrollArea):
         self.meas = None
         self.doc = doc
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
+        try:
+            from ..layout import page_boxes
+            self.boxes = page_boxes(doc)                 # Endformat/Anschnitt (TrimBox/BleedBox)
+        except Exception:
+            self.boxes = []
         self.pages = [PageWidget(i, self) for i in range(len(doc))]
         for w in self.pages:
             w.setParent(self.container)
@@ -795,6 +800,30 @@ class PageView(QScrollArea):
                 p.setPen(QPen(QColor(theme.ACCENT), 2))
                 p.drawLine(ax - 6, ay, ax + 6, ay)
                 p.drawLine(ax, ay - 6, ax, ay + 6)
+            bx = self.boxes[w.index] if getattr(self, "show_boxes", True) and w.index < len(self.boxes) else None
+            if bx and bx[0] is not None:
+                # Endformat rot durchgezogen, Anschnittbereich rot getönt, BleedBox rot gestrichelt (nicht gedruckt)
+                trim, bleed = bx
+                pg_, _tp = self._textpage(w.index)
+                crop = pg_.get_cropbox()
+                red = QColor("#e0301e")
+                outer = self._rect_widget(w, crop[0], crop[1], crop[2], crop[3])
+                inner = self._rect_widget(w, trim[0], trim[1], trim[2], trim[3])
+                from PySide6.QtGui import QPainterPath
+                path = QPainterPath()
+                path.addRect(outer)
+                path.addRect(inner)
+                tint = QColor(red)
+                tint.setAlpha(45)
+                p.fillPath(path, tint)                   # Ring zwischen Seitenrand und Endformat
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.setPen(QPen(red, 1.5))
+                p.drawRect(inner)
+                if bleed is not None:
+                    pen = QPen(red, 1.2)
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                    p.setPen(pen)
+                    p.drawRect(self._rect_widget(w, bleed[0], bleed[1], bleed[2], bleed[3]))
             for item in self.overlay.get(w.index, []):
                 x0, y0, x1, y1, c = item[:5]
                 style = item[5] if len(item) > 5 else ""
@@ -1037,8 +1066,9 @@ class MainWindow(QMainWindow):
         self.a_presets = self._act(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
         self.a_cli = self._act(tr("Kommandozeile – Anleitung (PDF)"), self._open_cli_howto, None, "terminal")
         tools = {"view": [(self.a_rulers, tr("Lineale")), (self.a_measure, tr("Messen")),
+                          (self.a_boxes, tr("Endformat")),
                           (self.a_copy, tr("Text kopieren"))],
-                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_manip_cmyk, tr("CMYK")),
+                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_boxes, tr("Endformat")), (self.a_manip_cmyk, tr("CMYK")),
                           (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
                           (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
                  "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
@@ -1162,6 +1192,19 @@ class MainWindow(QMainWindow):
         self.ruler_h.cursor_px = gpos
         self.ruler_v.cursor_px = gpos
         self._rulers_update()
+
+    def _show_boxes(self, on: bool):
+        self.view.show_boxes = bool(on)
+        for w in self.view.pages:
+            w.update()
+        from .. import l10n
+        st = l10n.load_settings()
+        if st.get("show_trim", True) != bool(on):
+            st["show_trim"] = bool(on)
+            try:
+                l10n.save_settings(st)
+            except OSError:
+                pass
 
     def _measure_mode(self, on: bool):
         if on:
@@ -1365,8 +1408,15 @@ class MainWindow(QMainWindow):
         self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+L", "measure")
         self.a_measure.setCheckable(True)
         self.a_measure.toggled.connect(self._measure_mode)
+        self.a_boxes = A(tr("Endformat und Anschnitt anzeigen"), lambda: None, "Ctrl+Shift+B", "crop")
+        self.a_boxes.setCheckable(True)
+        from .. import l10n as _l10n
+        self.a_boxes.setChecked(bool(_l10n.load_settings().get("show_trim", True)))
+        self.view.show_boxes = self.a_boxes.isChecked()
+        self.a_boxes.toggled.connect(self._show_boxes)
         m.addAction(self.a_rulers)
         m.addAction(self.a_measure)
+        m.addAction(self.a_boxes)
         m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
@@ -1804,7 +1854,15 @@ class MainWindow(QMainWindow):
             self.thumbs.blockSignals(False)
             self.thumbs.scrollToItem(self.thumbs.item(i))
         w, h = self.doc.get_page_size(i)
-        self.lbl_size.setText(tr("Seite {0}/{1}   ·   {2}").format(i + 1, len(self.doc), page_size_text(w, h)))
+        txt = tr("Seite {0}/{1}   ·   {2}").format(i + 1, len(self.doc), page_size_text(w, h))
+        try:
+            from ..layout import trim_info
+            ti = trim_info(self.doc, i)
+        except Exception:
+            ti = None
+        if ti:
+            txt += "   ·   " + tr("Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm").format(*ti)
+        self.lbl_size.setText(txt)
 
     def _zoom_changed(self, z):
         if self.view.mode == "fixed":

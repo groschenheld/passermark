@@ -1,5 +1,29 @@
 # Änderungen – Passermark
 
+## 1.8.0
+- **Bindungsschemata** (Druckdialog → Broschüre): *Bindeart* Sammelheftung (alle Bögen ineinander), gruppierte
+  Lagen (z. B. 4 Bögen = 16 Seiten je Lage, Lagen hintereinander) oder Einzelbögen gestapelt (Klebebindung).
+  Vorschau beschriftet „Lage x · Bogen y – Vorder-/Rückseite“
+- **Leerseiten:** werden auf ein Vielfaches von 4 aufgefüllt – am Ende oder vor der letzten Seite (Rückseite des
+  Umschlags bleibt hinten); optional mit Hinweistext
+- **Bundzug** (mm je Bogen, ≈ Papierstärke): innere Bögen werden zum Falz verschoben
+- **Marken:** Falzmarken, Passermarken, Flattermarken am Rücken (Treppe beim Zusammentragen); dafür wird am
+  Bogenrand Platz freigehalten
+- **Bogenübersicht …:** alle Bögen als Miniaturen, Doppelklick springt in die Vorschau
+- **Kommandozeile `impose`:** Ausschießen wie im Druckdialog als PDF (Broschüre/Lagen, Nutzen, Mehrere, Poster),
+  Bogenformat mit `sheet` (z. B. SRA3). Druck-Presets aus dem Programm gelten direkt und merken sich das Papierformat
+  (`--preset "Name"`); vorhandene Druck-Presets aus 1.7 werden übernommen. Anleitung um Fallbeispiele ergänzt
+- **Anschnitt aus dem Dokument wird erkannt** (TrimBox/BleedBox, z. B. aus InDesign/Affinity/Scribus mit
+  „Anschnitt verwenden“): Ansicht zeigt das Endformat als rote Linie, den Anschnittbereich rot getönt, die BleedBox
+  gestrichelt (wird nicht gedruckt; Ansicht → Endformat und Anschnitt anzeigen, Strg+Umschalt+B); Statusleiste
+  nennt Endformat und Anschnitt. Beim Ausschießen (Nutzen, Broschüre, Schnittmarken, Anschnitt) wird das
+  Endformat platziert und skaliert – Schnittmarken sitzen am Endformat, der Anschnitt kommt echt aus dem
+  Dokument; nur wenn mehr Anschnitt eingestellt ist als vorhanden, wird der Rest an der Seitenkante gespiegelt.
+  Normaler Druck („Größe“) druckt weiter die ganze Seite
+- Druckdialog: Preset-Zeile steht über den Reitern (gilt für Allgemein und Weitere Optionen)
+- Test: Falz-Simulation (falzen, ineinanderstecken, Lagen stapeln) prüft für alle Bindearten, Bindung links/rechts
+  und Leerseiten-Lagen, dass die Seiten 1…N ergeben
+
 ## 1.7.1
 - **Beschneiden auf Format skaliert jetzt** (Standard): die passende Kante wird genau aufs Zielformat skaliert,
   der Überstand der anderen Kante beidseitig gleich abgeschnitten – A4 → A6 = 50 %, ein schmales Plakat füllt die

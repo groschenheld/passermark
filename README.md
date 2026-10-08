@@ -1,4 +1,4 @@
-# Passermark 1.7.1
+# Passermark 1.8.0
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -6,7 +6,9 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 
 - **View and print** PDFs, images (incl. HEIC, SVG) and Office files (via LibreOffice). Uses the printer
   drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options.
-- **Imposition:** fit/scale, N-up, booklet, poster tiling, step & repeat.
+- **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
+  or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
+  and a sheet overview. Also on the command line (`passermark-cli impose`).
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
 - **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute
@@ -72,7 +74,7 @@ points to the log. Logs without errors are deleted on exit.
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.7.1 && git push origin v1.7.1`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.8.0 && git push origin v1.8.0`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

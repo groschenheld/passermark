@@ -255,6 +255,42 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
     return JobResult(dst, {}, notes)
 
 
+def _job_impose(src, dst, s, opts, progress, cancel):
+    """Ausschießen wie im Druckdialog (Größe, Mehrere, Broschüre/Lagen, Poster, Nutzen) – Ergebnis als PDF."""
+    import pypdfium2 as pdfium
+    from . import layout
+    sheet = s.sheet_obj()
+    doc = pdfium.PdfDocument(src)
+    try:
+        flat = layout.flattened(doc)
+        try:
+            _report(progress, 0, 1, tr("Bearbeite …"))
+            sizes = [flat.get_page_size(i) for i in range(len(flat))]
+            pages = opts.get("pages") or list(range(len(flat)))
+            plans = layout.plan(sizes, pages, sheet, s, layout.page_trims(flat))
+            if not plans:
+                raise ValueError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
+            _check(cancel)
+            out = layout.impose_with(flat, sheet, plans, s)
+            try:
+                _write_atomic(dst, _doc_bytes(out))
+            finally:
+                out.close()
+        finally:
+            if flat is not doc:
+                flat.close()
+    finally:
+        doc.close()
+    notes = [w for sp in plans for w in sp.warnings]
+    _report(progress, 1, 1, "")
+    return JobResult(dst, {"sheets": len(plans)}, notes)
+
+
+def _impose_settings():
+    from .layout import ImposeSettings
+    return ImposeSettings
+
+
 def _cut_settings():
     from .cutcontour import CutSettings
     return CutSettings
@@ -272,6 +308,7 @@ JOBS = {
     "manip": (_manip_settings, _job_manip),
     "repair": (lambda: RepairSettings, _job_repair),
     "preflight_fix": (lambda: PreflightFixSettings, _job_preflight_fix),
+    "impose": (_impose_settings, _job_impose),
 }
 
 

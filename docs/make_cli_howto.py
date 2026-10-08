@@ -118,7 +118,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die fünf Aufträge", H3))
+    s.append(P("Die sechs Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -126,6 +126,7 @@ def build():
         [c("manip"), "CMYK-Umwandlung mit ICC-Profil und/oder Beschneiden auf ein Format"],
         [c("repair"), "Reparieren, für Druck optimieren, verkleinern, PDF/A, Passwort"],
         [c("preflight_fix"), "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren"],
+        [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -301,6 +302,51 @@ def build():
                f"CMYK-Umwandlung brauchen Ghostscript. Windows-Setup und AppImage bringen es mit; bei der "
                f"Linux-Installation installiert es {c('install.sh')}.", NOTE))
 
+    # ------------------------------------------------------------------ impose
+    s.append(PageBreak())
+    s.append(P("impose – Broschüren, Lagen und Nutzen ausschießen", H3))
+    s.append(P("Dasselbe wie der Druckdialog, aber als PDF-Datei: jede Seite der Ausgabe ist ein Druckbogen. "
+               "Das Bogenformat steht in " + c("sheet") + ". Alle Einstellungen des Druckdialogs zeigt "
+               + c("passermark-cli settings impose") + "; die wichtigsten:"))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("sheet"), c("A4"), "Bogen: A0–A6, A3+, SRA3, B4–B6, LETTER, LEGAL, TABLOID oder " + c("custom")
+         + " mit " + c("sheet_w_mm") + "/" + c("sheet_h_mm")],
+        [c("handling"), c("size"), c("booklet") + " (Broschüre), " + c("multiple") + " (mehrere pro Blatt), "
+         + c("poster")],
+        [c("booklet_kind"), c("saddle"), c("saddle") + " = Sammelheftung (alle Bögen ineinander), " + c("grouped")
+         + " = Lagen aus mehreren Bögen, " + c("stack") + " = Einzelbögen (Klebebindung)"],
+        [c("booklet_per_sig"), "4", "bei " + c("grouped") + ": Bögen je Lage (4 Bögen = 16 Seiten)"],
+        [c("booklet_creep_mm"), "0", "Bundzug je Bogen, etwa die Papierstärke (0.1 bei 80 g/m²)"],
+        [c("booklet_blanks"), c("end"), "Leerseiten " + c("end") + " oder " + c("before_back")
+         + " (Rückseite bleibt letzte Seite)"],
+        [c("booklet_blank_text"), "–", "Hinweistext auf aufgefüllten Leerseiten"],
+        [c("booklet_fold_marks"), c("false"), "Falzmarken"],
+        [c("booklet_reg_marks"), c("false"), "Passermarken"],
+        [c("booklet_collation_marks"), c("false"), "Flattermarken am Rücken jeder Lage"],
+        [c("booklet_gutter_mm"), "0", "Bundsteg (Abstand zum Falz)"],
+        [c("step_repeat"), c("false"), "Nutzen: eine Seite mehrfach je Bogen; " + c("sr_by") + "="
+         + c("long") + "/" + c("short") + " + " + c("sr_mm") + " für die Nutzengröße"],
+        [c("bleed_mm") + ", " + c("crop_marks"), "0, " + c("false"), "Anschnitt (gespiegelt) und Schnittmarken"],
+    ], [47 * mm, 20 * mm, W - 67 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(example("Heft A5 auf A4 (Sammelheftung)", "Leerseiten vor der Rückseite, Falzmarken.",
+                     "passermark-cli impose heft.pdf heft-bogen.pdf --set handling=booklet --set sheet=A4 \\\n"
+                     "    --set booklet_blanks=before_back --set booklet_fold_marks=true"))
+    s.append(example("Dickes Buch in Lagen zu 16 Seiten", "4 Bögen je Lage, Bundzug 0,1 mm, Flattermarken.",
+                     "passermark-cli impose buch.pdf buch-bogen.pdf --set handling=booklet --set sheet=A3 \\\n"
+                     "    --set booklet_kind=grouped --set booklet_per_sig=4 --set booklet_creep_mm=0.1 \\\n"
+                     "    --set booklet_collation_marks=true"))
+    s.append(example("Flyer A4 als A6 8× auf SRA3", "Lange Kante 148 mm, 2 mm Anschnitt, Schnittmarken.",
+                     "passermark-cli impose flyer.pdf flyer-sra3.pdf --pages 1 --set sheet=SRA3 \\\n"
+                     "    --set step_repeat=true --set sr_by=long --set sr_mm=148 \\\n"
+                     "    --set bleed_mm=2 --set crop_marks=true"))
+    s.append(P("Druck-Presets aus dem Programm gelten hier direkt – samt Papierformat: im Druckdialog einstellen, "
+               "oben <b>Speichern…</b>, dann " + c('--preset "Name"') + ". Die Druckreihenfolge der Bögen ist "
+               "für beidseitigen Druck über die <b>kurze Kante</b> ausgelegt. Hat das PDF ein Endformat mit Anschnitt "
+               "(TrimBox, z. B. aus InDesign mit „Anschnitt verwenden“), wird das Endformat platziert und der "
+               "Anschnitt aus dem Dokument genommen – " + c("sr_mm") + " meint dann das Endformat.", NOTE))
+
     # ------------------------------------------------------------------ Presets
     s.append(PageBreak())
     s.append(P("3 · Presets: Einstellungen als Datei", H2))
@@ -335,7 +381,7 @@ def build():
     s.append(P("Abgelegt sind die Presets als JSON-Dateien je Auftrag – unter Linux in "
                + c("~/.config/passermark/presets/") + ", unter Windows in " + c("%APPDATA%\\Passermark\\presets\\")
                + ". Im Programm: Arbeitsbereich <b>Automatisierung</b> → <b>Presets</b> öffnet den Ordner. "
-               "Druck-Presets (Broschüre, Poster, Nutzen) gelten nur im Druckdialog.", NOTE))
+               "Druck-Presets (Broschüre, Poster, Nutzen) gehören zum Auftrag " + c("impose") + ".", NOTE))
 
     # ------------------------------------------------------------------ Stapel
     s.append(P("4 · Ganze Ordner auf einmal", H2))
@@ -377,7 +423,6 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                "Fallbeispielen in dieser Anleitung:"))
     s.append(table([
         ["Version", "Neu in der Kommandozeile"],
-        ["1.8", "Broschüren und Bindungen: Sammelheftung, Stapelheftung, gruppierte Lagen; Ausschießen allgemein"],
         ["1.9", "Variable Daten: Nummerierung, QR- und Barcodes, Datenquelle CSV; Mehrfachnutzen mit eigenem Code "
                 "je Nutzen"],
         ["1.10", "Projektordner (Watcher): Datei in einen Ordner werfen – fertiges, gedrucktes oder gespeichertes "
