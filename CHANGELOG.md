@@ -6,6 +6,8 @@
   mehrere Aufträge gleichzeitig möglich; das Ergebnis öffnet sich wie gewohnt in einem neuen Fenster
 - Ein Absturz in der Berechnung reißt das Programm nicht mehr mit – es kommt eine Fehlermeldung mit Details
 - Beim Schließen eines Fensters werden laufende Aufträge abgebrochen und aufgeräumt
+- Anleitung: Beispiel „PDF/A mit Passwort“ korrigiert (PDF/A verbietet Verschlüsselung) – getrennt in „PDF/A“ und
+  „Mit Passwort schützen“; Test der Beispiele legt jetzt für jedes Beispiel eine Eingabe an (Build-Fehler unter Linux)
 
 ## 1.6.1
 - **Anleitung zur Kommandozeile** (PDF, 6 Seiten) mit Fallbeispielen für alle Aufträge, Presets und ganze Ordner

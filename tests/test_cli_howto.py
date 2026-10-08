@@ -49,38 +49,57 @@ def _examples():
     return out
 
 
-def test_examples_run():
-    """Jedes Beispiel echt ausführen (ohne die, die Ghostscript oder fremde Dateien brauchen)."""
+def _prepare_inputs(tmp, examples):
+    """Für jedes Beispiel eine Eingabedatei anlegen (Name wie in der Anleitung); Liste der ausführbaren Beispiele."""
     import test_cutcontour as tc, test_preflight as tp
-    from pdfdruck import platform as pl
-    tmp = tempfile.mkdtemp(prefix="pm-howto-")
-    tc.stickers().save(os.path.join(tmp, "bogen.pdf"))
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
+    tc.stickers().save(os.path.join(tmp, "bogen.pdf"))
     c = canvas.Canvas(os.path.join(tmp, "logo.pdf"), pagesize=(150 * mm, 100 * mm))
     c.setFillColorRGB(0.8, 0.1, 0.1)
     for x in (30, 60, 90):
         c.rect(x * mm, 40 * mm, 22 * mm, 22 * mm, fill=1, stroke=0)
     c.showPage(); c.save()
-    for name in ("plan", "flyer", "foto", "mappe", "scan", "plakat"):
-        src = tp.problem_pdf() if name in ("plan", "flyer", "foto") else open(os.path.join(tmp, "bogen.pdf"), "rb").read()
-        open(os.path.join(tmp, f"{name}.pdf"), "wb").write(src)
-    gs = bool(pl.ghostscript())
-    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de")
-    ran = 0
-    examples = _examples()
-    assert len(examples) >= 15, len(examples)
-    # Preset aus der Anleitung anlegen
-    subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
-                   stdout=open(os.path.join(tmp, "sticker.json"), "w"))
+    runnable = []
     for cmd in examples:
         args = shlex.split(cmd)[1:]
+        if args[0] in ("settings", "list") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
+            continue
+        src = os.path.join(tmp, args[1])
+        if not os.path.exists(src):                  # Motiv-Aufträge: Bogen, sonst Problem-PDF (Ebenen, Formular)
+            data = (open(os.path.join(tmp, "bogen.pdf"), "rb").read() if args[0] in ("cutcontour", "separate")
+                    else tp.problem_pdf())
+            open(src, "wb").write(data)
+        if "--pages" in args:                        # Seitenauswahl auf die vorhandene Seite beschränken
+            args[args.index("--pages") + 1] = "1"
+        runnable.append((cmd, args))
+    return runnable
+
+
+def test_every_example_has_input():
+    """Unabhängig von Ghostscript: jedes ausführbare Beispiel hat seine Eingabedatei (Fehler aus dem Build 1.6.2)."""
+    tmp = tempfile.mkdtemp(prefix="pm-howto-in-")
+    runnable = _prepare_inputs(tmp, _examples())
+    assert len(runnable) >= 15, len(runnable)
+    for cmd, args in runnable:
+        assert os.path.isfile(os.path.join(tmp, args[1])), cmd
+
+
+def test_examples_run():
+    """Jedes Beispiel echt ausführen; die mit Ghostscript nur, wenn es da ist (GitHub-Build)."""
+    from pdfdruck import platform as pl
+    tmp = tempfile.mkdtemp(prefix="pm-howto-")
+    runnable = _prepare_inputs(tmp, _examples())
+    gs = bool(pl.ghostscript())
+    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de")
+    subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
+                   stdout=open(os.path.join(tmp, "sticker.json"), "w"))
+    ran = 0
+    for cmd, args in runnable:
         needs_gs = args[0] == "repair" or "cmyk=true" in cmd or any(f in cmd for f in ("embed_fonts", "outline_text",
                                                                                      "flatten_transparency"))
-        if (needs_gs and not gs) or args[0] in ("settings", "list") or ">" in args:
+        if needs_gs and not gs:
             continue
-        if "mappe.pdf" in cmd:                         # Seiten 1,3-5 brauchen 5 Seiten
-            args = [a if a != "1,3-5" else "1" for a in args]
         r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args, "--quiet"], cwd=tmp, env=env,
                            capture_output=True, text=True, timeout=600)
         assert r.returncode == 0, f"{cmd}\n{r.stderr}"

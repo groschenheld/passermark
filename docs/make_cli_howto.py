@@ -254,15 +254,18 @@ def build():
          "Schriften einbetten), " + c("screen") + " (für Mail verkleinern, 150 dpi), " + c("pdfa")
          + " (PDF/A-2b, Archiv/Behörden)"],
         [c("password"), "", "Passwort der Eingabedatei, falls geschützt"],
-        [c("new_password"), "", "neues Passwort für die Ausgabe (leer = keins)"],
+        [c("new_password"), "", "neues Passwort für die Ausgabe (leer = keins); nicht bei " + c("pdfa")
+         + " – PDF/A verbietet Verschlüsselung, das Passwort wird dann weggelassen"],
         [c("allow_print"), c("true"), "mit Passwort: Drucken trotzdem erlauben"],
     ], [32 * mm, 22 * mm, W - 54 * mm]))
     s.append(Spacer(1, 4))
     s.append(example("Kaputtes PDF für den Druck aufbereiten", "",
                      "passermark-cli repair kaputt.pdf ok.pdf --set mode=print"))
     s.append(example("Für Mail verkleinern", "", "passermark-cli repair katalog.pdf katalog-klein.pdf --set mode=screen"))
-    s.append(example("PDF/A mit Passwortschutz", "",
-                     "passermark-cli repair vertrag.pdf vertrag-a.pdf --set mode=pdfa --set new_password=geheim"))
+    s.append(example("Archivieren als PDF/A", "Für Archiv, Behörden und E-Rechnungs-Anhänge.",
+                     "passermark-cli repair vertrag.pdf vertrag-a.pdf --set mode=pdfa"))
+    s.append(example("Mit Passwort schützen", "Öffnen nur mit Passwort, Drucken bleibt erlaubt.",
+                     "passermark-cli repair angebot.pdf angebot-geschuetzt.pdf --set new_password=geheim"))
 
     # ------------------------------------------------------------------ preflight_fix
     s.append(P("preflight_fix – Problem-PDFs druckfest machen", H3))
