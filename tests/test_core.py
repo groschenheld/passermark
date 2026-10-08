@@ -121,6 +121,9 @@ def test_preflight_fix_job():
     pk = pikepdf.open(dst)
     assert "/OCProperties" not in pk.Root
     pk.close()
+    # ohne Ebenen: nicht abbrechen (Ketten/Ordner), Datei unverändert durchreichen + Hinweis
+    r = core.run_job("preflight_fix", dst, os.path.join(TMP, "nochmal.pdf"), {"fix": "flatten_layers"})
+    assert open(r.output, "rb").read() == open(dst, "rb").read() and r.notes
 
 
 def test_repair_job():

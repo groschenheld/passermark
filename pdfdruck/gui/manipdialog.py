@@ -86,7 +86,7 @@ class ManipPanel(QWidget):
         # ---------------- Beschneiden ----------------
         g = self.grp_crop = QGroupBox(tr("Auf Format beschneiden"))
         f = QFormLayout(g)
-        self.chk_crop = QCheckBox(tr("Seiten auf ein Zielformat beschneiden (Überstand beidseitig gleich)"))
+        self.chk_crop = QCheckBox(tr("Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)"))
         self.chk_crop.setChecked(settings.crop)
         f.addRow(self.chk_crop)
         self.cmb_size = QComboBox()
@@ -109,6 +109,13 @@ class ManipPanel(QWidget):
         self.chk_follow = QCheckBox(tr("Hoch-/Querformat der jeweiligen Seite folgen"))
         self.chk_follow.setChecked(settings.crop_follow)
         f.addRow(self.chk_follow)
+        self.chk_scale = QCheckBox(tr("Skalieren, bis das Format ganz gefüllt ist"))
+        self.chk_scale.setChecked(settings.crop_scale)
+        self.chk_scale.setToolTip(tr("An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen "
+                                     "wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten "
+                                     "(z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, "
+                                     "die schon in der richtigen Größe mit Anschnitt kommen."))
+        f.addRow(self.chk_scale)
         self.lbl_crop = QLabel()
         self.lbl_crop.setWordWrap(True)
         self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT};")
@@ -117,7 +124,7 @@ class ManipPanel(QWidget):
         v.addStretch()
 
         self._fill_profiles()
-        for w in (self.chk_cmyk, self.chk_bpc, self.chk_k, self.chk_oi, self.chk_crop, self.chk_follow):
+        for w in (self.chk_cmyk, self.chk_bpc, self.chk_k, self.chk_oi, self.chk_crop, self.chk_follow, self.chk_scale):
             w.toggled.connect(self._changed)
         for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
             w.currentIndexChanged.connect(self._changed)
@@ -165,7 +172,7 @@ class ManipPanel(QWidget):
             self.lbl_cmyk.setText(tr("⚠ Ghostscript fehlt – ohne Ghostscript ist keine CMYK-Umwandlung möglich."))
         crop = self.chk_crop.isChecked()
         custom = self.cmb_size.currentData() == "custom"
-        for w in (self.cmb_size, self.chk_follow):
+        for w in (self.cmb_size, self.chk_follow, self.chk_scale):
             w.setEnabled(crop)
         self.spn_w.setEnabled(crop and custom)
         self.spn_h.setEnabled(crop and custom)
@@ -200,6 +207,7 @@ class ManipPanel(QWidget):
         s.crop_size = self.cmb_size.currentData() or "A4"
         s.crop_w_mm, s.crop_h_mm = self.spn_w.value(), self.spn_h.value()
         s.crop_follow = self.chk_follow.isChecked()
+        s.crop_scale = self.chk_scale.isChecked()
         return s
 
     def load_settings(self, s: cmyk.ManipSettings):
@@ -217,7 +225,7 @@ class ManipPanel(QWidget):
                 self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(p), p, "file"))
         self._fill_profiles()
         ws = [self.chk_cmyk, self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.chk_bpc, self.chk_k,
-              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow]
+              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale]
         for w in ws:
             w.blockSignals(True)
         try:
@@ -238,6 +246,7 @@ class ManipPanel(QWidget):
             self.spn_w.setValue(s.crop_w_mm)
             self.spn_h.setValue(s.crop_h_mm)
             self.chk_follow.setChecked(bool(s.crop_follow))
+            self.chk_scale.setChecked(bool(s.crop_scale))
         finally:
             for w in ws:
                 w.blockSignals(False)

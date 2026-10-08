@@ -1113,4 +1113,9 @@ MESSAGES = {
     "wiederholen": "confirmer",
     "– wählen –": "– choisir –",
     "„{0}“ gibt es schon. Überschreiben?": "« {0} » existe déjà. Écraser ?",
+    ", skaliert auf {0:.1f} %": ", mis à l’échelle à {0:.1f} %",
+    "An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten (z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, die schon in der richtigen Größe mit Anschnitt kommen.": "Activé : le bord adéquat est mis exactement au format cible, l’excédent de l’autre bord est rogné également en haut/bas ou à gauche/droite (p. ex. A4 → A6 = 50 %). Désactivé : rogner seulement, sans mise à l’échelle – pour les fichiers déjà au bon format avec fond perdu.",
+    "Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)": "Mettre les pages à un format cible (excédent égal des deux côtés)",
+    "Skalieren, bis das Format ganz gefüllt ist": "Mettre à l’échelle jusqu’à remplir entièrement le format",
+    "Keine Ebenen – Datei unverändert übernommen.": "Aucun calque – fichier repris sans modification.",
 }

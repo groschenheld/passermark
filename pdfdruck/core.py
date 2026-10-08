@@ -234,8 +234,13 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
     with open(src, "rb") as f:
         data = f.read()
     _report(progress, 0, 1, tr("Bearbeite …"))
+    notes = []
     if s.fix == "flatten_layers":
-        out = preflight.flatten_layers(data, set(s.visible) if s.visible is not None else None)
+        if preflight.has_layers(data):
+            out = preflight.flatten_layers(data, set(s.visible) if s.visible is not None else None)
+        else:                                    # nichts zu tun – in Ketten/Ordnern nicht abbrechen
+            out = data
+            notes.append(tr("Keine Ebenen – Datei unverändert übernommen."))
     elif s.fix == "embed_fonts":
         out = preflight.embed_fonts(data, s.font_map)
     elif s.fix == "outline_text":
@@ -247,7 +252,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
     _check(cancel)
     _write_atomic(dst, out)
     _report(progress, 1, 1, "")
-    return JobResult(dst)
+    return JobResult(dst, {}, notes)
 
 
 def _cut_settings():

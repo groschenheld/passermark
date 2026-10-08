@@ -1113,4 +1113,9 @@ MESSAGES = {
     "wiederholen": "repeat",
     "– wählen –": "– choose –",
     "„{0}“ gibt es schon. Überschreiben?": "“{0}” already exists. Overwrite?",
+    ", skaliert auf {0:.1f} %": ", scaled to {0:.1f} %",
+    "An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten (z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, die schon in der richtigen Größe mit Anschnitt kommen.": "On: the matching edge is scaled exactly to the target format, the excess of the other edge is trimmed evenly top/bottom or left/right (e.g. A4 → A6 = 50 %). Off: trim only, without scaling – for files that already come at the right size with bleed.",
+    "Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)": "Bring pages to a target format (equal excess on both sides)",
+    "Skalieren, bis das Format ganz gefüllt ist": "Scale until the format is completely filled",
+    "Keine Ebenen – Datei unverändert übernommen.": "No layers – file passed through unchanged.",
 }

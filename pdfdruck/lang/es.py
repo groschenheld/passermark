@@ -1113,4 +1113,9 @@ MESSAGES = {
     "wiederholen": "repetir",
     "– wählen –": "– elegir –",
     "„{0}“ gibt es schon. Überschreiben?": "«{0}» ya existe. ¿Sobrescribir?",
+    ", skaliert auf {0:.1f} %": ", escalado al {0:.1f} %",
+    "An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten (z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, die schon in der richtigen Größe mit Anschnitt kommen.": "Activado: el borde adecuado se escala exactamente al formato de destino y el sobrante del otro borde se recorta por igual arriba/abajo o izquierda/derecha (p. ej., A4 → A6 = 50 %). Desactivado: solo recortar, sin escalar, para archivos que ya llegan al tamaño correcto con sangrado.",
+    "Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)": "Llevar las páginas a un formato de destino (sobrante igual en ambos lados)",
+    "Skalieren, bis das Format ganz gefüllt ist": "Escalar hasta llenar el formato por completo",
+    "Keine Ebenen – Datei unverändert übernommen.": "Sin capas: archivo transferido sin cambios.",
 }

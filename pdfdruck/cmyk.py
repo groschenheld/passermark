@@ -70,6 +70,7 @@ class ManipSettings:
     crop_w_mm: float = 210.0
     crop_h_mm: float = 297.0
     crop_follow: bool = True           # Hoch-/Querformat der Seite folgen
+    crop_scale: bool = True            # zuerst skalieren, bis das Ziel ganz bedeckt ist, dann Überstand beschneiden
 
     @classmethod
     def from_dict(cls, d):

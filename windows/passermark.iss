@@ -2,7 +2,7 @@
 ; Passermark – Windows-Installer (Inno Setup 6). Aufruf: iscc windows\passermark.iss
 #define AppVersion GetEnv("PASSERMARK_VERSION")
 #if AppVersion == ""
-  #define AppVersion "1.7.0"
+  #define AppVersion "1.7.1"
 #endif
 
 [Setup]

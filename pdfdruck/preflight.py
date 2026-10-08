@@ -542,6 +542,12 @@ def current_visible(pdf, use_print=True) -> set:
     return vis
 
 
+def has_layers(data: bytes) -> bool:
+    import pikepdf
+    with pikepdf.open(io.BytesIO(data)) as pdf:
+        return _ocp(pdf) is not None
+
+
 def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
     """Sichtbaren Zustand festschreiben: versteckte Ebeneninhalte entfernen, Ebenen auflösen.
     Danach druckt jeder Drucker/Viewer genau das, was sichtbar ist."""

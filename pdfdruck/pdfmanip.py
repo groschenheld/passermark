@@ -5,10 +5,14 @@
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
 """Dokument-Manipulation: Beschneiden auf Zielformat und CMYK-Umwandlung.
 
-Beschneiden: Jede Seite wird auf das Zielformat gesetzt. Steht eine Kante über, wird der Überstand je zur
-Hälfte auf BEIDEN Seiten weggenommen (zentriert). Ist eine Seite in einer Richtung kleiner als das Ziel,
-bleibt sie in dieser Richtung unverändert (Hinweis). Media-, Crop-, Trim- und BleedBox werden gesetzt –
-der Inhalt selbst bleibt unangetastet und vektoriell.
+Beschneiden (Standard, crop_scale): Die Seite wird so skaliert, dass sie das Zielformat ganz bedeckt – die im
+Verhältnis passende Kante genau auf das Ziel –, und der Überstand der anderen Kante wird je zur Hälfte auf
+beiden Seiten weggeschnitten (zentriert). Beispiel: A4 auf A6 = 50 %, nichts weg; ein schmales Plakat auf A4 =
+Breite auf 210 mm, oben und unten gleich viel weg. Inhalt bleibt vektoriell.
+
+Nur beschneiden (crop_scale = False): ohne Skalieren; steht eine Kante über, wird der Überstand beidseitig
+weggenommen, ist die Seite kleiner als das Ziel, bleibt sie in dieser Richtung unverändert (Hinweis) – für Dateien,
+die schon in der richtigen Größe mit Anschnitt kommen. Es werden nur die Seitenboxen gesetzt.
 """
 from __future__ import annotations
 
@@ -36,6 +40,20 @@ def target_pt(s: _cmyk.ManipSettings) -> tuple[float, float]:
     else:
         w, h = s.crop_w_mm, s.crop_h_mm
     return w * MM, h * MM
+
+
+def _oriented(W: float, H: float, target, follow: bool):
+    tw, th = target
+    if follow and abs(W - H) > 1 and (W > H) != (tw > th):
+        tw, th = th, tw                    # Querformat-Seite -> Querformat-Ziel
+    return tw, th
+
+
+def fill_geometry(W: float, H: float, target, follow: bool):
+    """Sichtbare Seite W×H (pt) -> (Ziel tw, th, Faktor k, Überstand je Seite links/rechts, oben/unten in pt)."""
+    tw, th = _oriented(W, H, target, follow)
+    k = max(tw / W, th / H)
+    return tw, th, k, max(W * k - tw, 0) / 2, max(H * k - th, 0) / 2
 
 
 def crop_box_for(box, rotation: int, target, follow: bool):
@@ -67,6 +85,16 @@ def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
         box, rot = pg.get_cropbox(), pg.get_rotation()
     finally:
         pg.close()
+    if getattr(s, "crop_scale", True):
+        W, H = box[2] - box[0], box[3] - box[1]
+        if rot % 180:
+            W, H = H, W
+        tw, th, k, cx, cy = fill_geometry(W, H, target_pt(s), s.crop_follow)
+        txt = tr("Seite {0}: {1:.1f} × {2:.1f} mm → {3:.1f} × {4:.1f} mm").format(
+            page + 1, W / MM, H / MM, tw / MM, th / MM) + tr(", skaliert auf {0:.1f} %").format(k * 100)
+        if cx > 0.05 or cy > 0.05:
+            txt += tr(" (je {0:.1f} mm links/rechts, {1:.1f} mm oben/unten)").format(cx / MM, cy / MM)
+        return txt
     new, cx, cy, notes = crop_box_for(box, rot, target_pt(s), s.crop_follow)
     w0, h0 = (box[2] - box[0]) / MM, (box[3] - box[1]) / MM
     w1, h1 = (new[2] - new[0]) / MM, (new[3] - new[1]) / MM
@@ -80,9 +108,44 @@ def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
     return txt
 
 
+def fill_doc(doc, s: _cmyk.ManipSettings):
+    """Kopie: jede Seite skaliert, bis sie das Ziel bedeckt, Überstand beidseitig beschnitten (vektoriell)."""
+    import pypdfium2 as pdfium
+    from .layout import flattened
+    from .objects import normalized
+    flat = flattened(doc)                  # Formularwerte/Kommentare mitnehmen
+    try:
+        norm = normalized(flat)            # ungedreht, ab (0,0): sichtbare Seite = Seite
+    finally:
+        if flat is not doc:
+            flat.close()
+    out = pdfium.PdfDocument.new()
+    tgt = target_pt(s)
+    try:
+        for i in range(len(norm)):
+            W, H = norm.get_page_size(i)
+            tw, th, k, _cx, _cy = fill_geometry(W, H, tgt, s.crop_follow)
+            pg = out.new_page(tw, th)
+            xo = norm.page_as_xobject(i, out)
+            po = xo.as_pageobject()
+            po.transform(pdfium.PdfMatrix().scale(k, k).translate((tw - W * k) / 2, (th - H * k) / 2))
+            pg.insert_obj(po)
+            pg.gen_content()
+            pg.close()
+            xo.close()
+        buf = io.BytesIO()
+        out.save(buf)
+    finally:
+        out.close()
+        norm.close()
+    return pdfium.PdfDocument(buf.getvalue()), []
+
+
 def crop_doc(doc, s: _cmyk.ManipSettings):
     """Kopie mit beschnittenen Seiten + Liste der Seiten, die kleiner als das Ziel sind."""
     import pypdfium2 as pdfium
+    if getattr(s, "crop_scale", True):
+        return fill_doc(doc, s)
     buf = io.BytesIO()
     doc.save(buf)
     out = pdfium.PdfDocument(buf.getvalue())

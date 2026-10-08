@@ -28,7 +28,7 @@ def _pdf(sizes_mm, path="/tmp/_crop.pdf", rotate=None):
 
 def test_crop_symmetric():
     d = _pdf([(216, 303), (303, 216), (200, 310), (210, 297)])
-    s = cmyk.ManipSettings(crop=True, crop_size="A4")
+    s = cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False)
     out, small = pdfmanip.crop_doc(d, s)
     sz = [tuple(round(v / MM, 1) for v in out.get_page_size(i)) for i in range(4)]
     assert sz[0] == (210.0, 297.0)                    # 3 mm je Seite weg
@@ -41,15 +41,40 @@ def test_crop_symmetric():
 
 def test_crop_rotated_page():
     d = _pdf([(216, 303)], "/tmp/_crop_rot.pdf", rotate={0})       # /Rotate 90 -> sichtbar quer
-    out, _ = pdfmanip.crop_doc(d, cmyk.ManipSettings(crop=True, crop_size="A4"))
+    out, _ = pdfmanip.crop_doc(d, cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False))
     w, h = (round(v / MM, 1) for v in out.get_page_size(0))
     assert (w, h) == (297.0, 210.0)
 
 
 def test_describe():
     d = _pdf([(216, 303)])
-    txt = pdfmanip.describe_crop(d, cmyk.ManipSettings(crop=True, crop_size="A4"), 0)
+    txt = pdfmanip.describe_crop(d, cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False), 0)
     assert "216.0 × 303.0 mm → 210.0 × 297.0 mm" in txt and "3.0 mm" in txt
+
+
+def test_fill_scale_and_crop():
+    """Standard: skalieren bis das Ziel gefüllt ist, Überstand der anderen Kante beidseitig weg (A4 → A6 = 50 %)."""
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas("/tmp/_fill.pdf")
+    c.setPageSize((210 * MM, 297 * MM)); c.setFillColorRGB(1, 0, 0)
+    c.rect(0, 277 * MM, 20 * MM, 20 * MM, fill=1, stroke=0); c.showPage()          # rotes Quadrat oben links
+    c.setPageSize((200 * MM, 600 * MM)); c.setFillColorRGB(0, 0, 1); c.rect(0, 0, 200 * MM, 100 * MM, fill=1, stroke=0)
+    c.setFillColorRGB(0, 1, 0); c.rect(0, 250 * MM, 200 * MM, 100 * MM, fill=1, stroke=0); c.showPage()   # schmal
+    c.save()
+    d = pdfium.PdfDocument("/tmp/_fill.pdf")
+    s = cmyk.ManipSettings(crop=True, crop_size="A6")
+    assert "50.0 %" in pdfmanip.describe_crop(d, s, 0)
+    assert "83.5 mm oben/unten" in pdfmanip.describe_crop(d, s, 1)
+    out, small = pdfmanip.crop_doc(d, s)
+    assert small == [] and [tuple(round(v / MM) for v in out.get_page_size(i)) for i in range(2)] == [(105, 148)] * 2
+    a = out[0].render(scale=1).to_pil().convert("RGB")
+    assert a.getpixel((5, 5))[0] > 200 and a.getpixel((5, 5))[1] < 60          # Quadrat oben links mitskaliert
+    assert a.getpixel((40, 40)) == (255, 255, 255)                              # 10 mm * 50 % ≈ 14 px -> dahinter weiß
+    b = out[1].render(scale=1).to_pil().convert("RGB")
+    assert b.getpixel((b.width // 2, b.height // 2))[1] > 200                   # grüne Mitte des Plakats
+    assert b.getpixel((b.width // 2, b.height - 3)) == (255, 255, 255)          # blauer Fuß ist abgeschnitten
+    big, _ = pdfmanip.crop_doc(_pdf([(105, 148)], "/tmp/_small.pdf"), cmyk.ManipSettings(crop=True, crop_size="A4"))
+    assert tuple(round(v / MM) for v in big.get_page_size(0)) == (210, 297)    # kleiner -> hochskaliert
 
 
 def test_color_args():
@@ -92,7 +117,7 @@ def test_crop_file_then_print_end_to_end():
     c = canvas.Canvas("/tmp/_rand.pdf", pagesize=(216 * MM, 303 * MM))
     c.setFillColorRGB(1, 0, 0); c.rect(0, 0, 216 * MM, 303 * MM, fill=1, stroke=0)
     c.setFillColorRGB(0.8, 0.9, 1); c.rect(3 * MM, 3 * MM, 210 * MM, 297 * MM, fill=1, stroke=0); c.showPage(); c.save()
-    new, _ = pdfmanip.apply(pdfium.PdfDocument("/tmp/_rand.pdf"), cmyk.ManipSettings(crop=True, crop_size="A4"))
+    new, _ = pdfmanip.apply(pdfium.PdfDocument("/tmp/_rand.pdf"), cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False))
     new.save("/tmp/_rand_cache.pdf"); new.close()
     doc = pdfium.PdfDocument("/tmp/_rand_cache.pdf")
 

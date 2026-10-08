@@ -229,7 +229,9 @@ def build():
     s.append(P("manip – CMYK-Umwandlung und Beschneiden", H3))
     s.append(table([
         ["Einstellung", "Standard", "Bedeutung"],
-        [c("crop"), c("false"), "auf ein Format beschneiden (Überstand beidseitig gleich)"],
+        [c("crop"), c("false"), "auf ein Format bringen (Überstand beidseitig gleich)"],
+        [c("crop_scale"), c("true"), "zuerst skalieren, bis das Format ganz gefüllt ist (A4 → A6 = 50 %), dann den "
+         "Überstand der anderen Kante abschneiden; " + c("false") + " = nur abschneiden (Dateien mit Anschnitt)"],
         [c("crop_size"), c("A4"), "A0–A7, B4, B5, C4–C6, DL, SRA3, A3+, Letter, Legal, Tabloid, „Visitenkarte "
          "85×55“, „Visitenkarte 90×50“, „Quadrat 210“, „Quadrat 148“ oder " + c("custom")],
         [c("crop_w_mm") + " / " + c("crop_h_mm"), "210 / 297", "Maße bei " + c("custom")],
@@ -243,8 +245,13 @@ def build():
         [c("gray_to_k"), c("true"), "Grau/Schwarz nur mit K drucken"],
     ], [32 * mm, 22 * mm, W - 54 * mm]))
     s.append(Spacer(1, 4))
-    s.append(example("Alle Seiten auf A5 beschneiden",
-                     "", "passermark-cli manip flyer.pdf flyer-a5.pdf --set crop=true --set crop_size=A5"))
+    s.append(example("Alle Seiten auf A5 bringen",
+                     "A4 wird auf 70,7 % verkleinert; ein schmaleres Motiv füllt die Breite, oben und unten wird "
+                     "gleich viel abgeschnitten.",
+                     "passermark-cli manip flyer.pdf flyer-a5.pdf --set crop=true --set crop_size=A5"))
+    s.append(example("Datei mit 3 mm Anschnitt auf Endformat (nur abschneiden)",
+                     "", "passermark-cli manip flyer-anschnitt.pdf flyer-a4.pdf \\\n"
+                         "    --set crop=true --set crop_size=A4 --set crop_scale=false"))
     s.append(example("Eigenes Format 100 × 150 mm",
                      "", "passermark-cli manip foto.pdf foto-10x15.pdf \\\n"
                          "    --set crop=true --set crop_size=custom --set crop_w_mm=100 --set crop_h_mm=150"))

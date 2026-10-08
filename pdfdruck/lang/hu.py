@@ -1113,4 +1113,9 @@ MESSAGES = {
     "wiederholen": "ismét",
     "– wählen –": "– válasszon –",
     "„{0}“ gibt es schon. Überschreiben?": "„{0}” már létezik. Felülírja?",
+    ", skaliert auf {0:.1f} %": ", méretezve: {0:.1f} %",
+    "An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten (z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, die schon in der richtigen Größe mit Anschnitt kommen.": "Be: a megfelelő él pontosan a célformátumra méreteződik, a másik él túlnyúlása fent/lent ill. balra/jobbra egyenletesen levágásra kerül (pl. A4 → A6 = 50 %). Ki: csak levágás, méretezés nélkül – a már helyes méretű, kifutóval érkező fájlokhoz.",
+    "Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)": "Oldalak célformátumra hozása (túlnyúlás mindkét oldalon egyenlő)",
+    "Skalieren, bis das Format ganz gefüllt ist": "Méretezés, amíg a formátum teljesen kitöltődik",
+    "Keine Ebenen – Datei unverändert übernommen.": "Nincsenek rétegek – a fájl változatlanul átvéve.",
 }

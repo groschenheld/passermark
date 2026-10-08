@@ -1,5 +1,14 @@
 # Änderungen – Passermark
 
+## 1.7.1
+- **Beschneiden auf Format skaliert jetzt** (Standard): die passende Kante wird genau aufs Zielformat skaliert,
+  der Überstand der anderen Kante beidseitig gleich abgeschnitten – A4 → A6 = 50 %, ein schmales Plakat füllt die
+  Breite und verliert oben/unten gleich viel. Kleinere Seiten werden hochskaliert. Inhalt bleibt vektoriell.
+  Bisher wurde nur abgeschnitten; das gibt es weiter als Option (Häkchen „Skalieren, bis das Format ganz gefüllt
+  ist“ aus bzw. `--set crop_scale=false`) für Dateien, die schon in Endgröße mit Anschnitt kommen.
+- Kommandozeile/Ketten: `preflight_fix --set fix=flatten_layers` bricht bei Dateien ohne Ebenen nicht mehr ab,
+  sondern reicht die Datei unverändert durch (Hinweis „Keine Ebenen“)
+
 ## 1.7.0
 - **Arbeitsbereiche:** zweite Leiste unter der Werkzeugleiste – *Anzeigen & Drucken*, *Druckaufbereitung*,
   *Bearbeiten*, *Automatisierung*. Rechts daneben stehen die Werkzeuge des gewählten Bereichs (z. B. Prüfen, CMYK,
