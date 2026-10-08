@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -1289,7 +1289,7 @@ class PrintDialog(QDialog):
                 QMessageBox.critical(self, tr("Speichern"), str(e))
                 return
             QApplication.restoreOverrideCursor()
-            r = QMessageBox.question(self, tr("Gespeichert"), tr("Gespeichert als:\n{0}\n\nJetzt in Passermark öffnen?").format(out))
+            r = QMessageBox.question(self, tr("Gespeichert"), tr("Gespeichert als:\n{0}\n\nJetzt in pdfToolkit öffnen?").format(out))
             if r == QMessageBox.StandardButton.Yes and hasattr(self.parent(), "ctl"):
                 self.parent().ctl.open_paths([out])
             self.accept()

@@ -35,11 +35,11 @@ jobs:
         run: ./windows/build.ps1
       - uses: actions/upload-artifact@v7
         with:
-          name: Passermark-Windows
-          path: dist/Passermark-*-Setup.exe
+          name: pdfToolkit-Windows
+          path: dist/pdfToolkit-*-Setup.exe
           if-no-files-found: error
       - name: Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Passermark-*-Setup.exe
+          files: dist/pdfToolkit-*-Setup.exe

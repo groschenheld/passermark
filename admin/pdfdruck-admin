@@ -1,17 +1,17 @@
 #!/usr/bin/python3 -I
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""passermark-admin – läuft via pkexec als root. Bewusst eigenständig (kein Import
+"""pdfdruck-admin – läuft via pkexec als root. Bewusst eigenständig (kein Import
 aus Benutzerpfaden), validiert alles, schreibt atomar.
 
-  passermark-admin write-config  <json-datei>
-  passermark-admin import-icc    <icc-datei> <id>
-  passermark-admin remove-icc    <id>
-  passermark-admin set-queue-option <drucker> <key> <wert>   (z. B. Finisher/Kassetten)
-  passermark-admin apply <bundle.json>   (alles in einem Aufruf = eine Passwortabfrage)
+  pdfdruck-admin write-config  <json-datei>
+  pdfdruck-admin import-icc    <icc-datei> <id>
+  pdfdruck-admin remove-icc    <id>
+  pdfdruck-admin set-queue-option <drucker> <key> <wert>   (z. B. Finisher/Kassetten)
+  pdfdruck-admin apply <bundle.json>   (alles in einem Aufruf = eine Passwortabfrage)
      {"import_icc": [{"src": "...", "id": "..."}], "remove_icc": ["id"],
       "queue_options": [["drucker", "key", "wert"]], "config": {...}}
 """
@@ -23,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 
-CONFIG_DIR = "/etc/passermark"
+CONFIG_DIR = "/etc/pdfdruck"
 DEFAULTS = os.path.join(CONFIG_DIR, "defaults.json")
 ICC_DIR = os.path.join(CONFIG_DIR, "icc")
 MAX_JSON = 1 << 20
@@ -34,7 +34,7 @@ RX_QUEUE = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
 RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
 
-LIB = "/usr/local/lib/passermark"     # root-eigener Programmordner (install.sh) – sicher importierbar
+LIB = "/usr/local/lib/pdfdruck"     # root-eigener Programmordner (install.sh) – sicher importierbar
 
 
 def die(msg):

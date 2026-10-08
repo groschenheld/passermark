@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -91,7 +91,7 @@ def icc_info(path: str) -> IccInfo | None:
 def download(url: str, dest_dir: str, progress=None) -> str:
     if not re.match(r"^https://", url, re.I):
         raise ValueError(tr("Nur https-Links werden geladen."))
-    req = urllib.request.Request(url, headers={"User-Agent": "Passermark/0.9 (ICC-Import)"})
+    req = urllib.request.Request(url, headers={"User-Agent": "pdfToolkit/0.9 (ICC-Import)"})
     with urllib.request.urlopen(req, timeout=60) as r:
         ctype = r.headers.get("Content-Type", "")
         if "text/html" in ctype:

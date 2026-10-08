@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""passermark [--print] [--open] [DATEIEN …]
+"""pdftoolkit [--print] [--open] [DATEIEN …]
 
-  passermark a.pdf b.jpg      öffnen (Bilder werden als PDF in tatsächlicher Größe geöffnet)
-  passermark --merge a.pdf b.docx c.jpg   alles zu einem PDF (Reihenfolge im Dialog änderbar)
-  passermark --repair *.pdf   reparieren / für Weitergabe optimieren / Passwortschutz
-  passermark --print *.pdf    ohne Dialog drucken – mit den Einstellungen einer laufenden
+  pdftoolkit a.pdf b.jpg      öffnen (Bilder werden als PDF in tatsächlicher Größe geöffnet)
+  pdftoolkit --merge a.pdf b.docx c.jpg   alles zu einem PDF (Reihenfolge im Dialog änderbar)
+  pdftoolkit --repair *.pdf   reparieren / für Weitergabe optimieren / Passwortschutz
+  pdftoolkit --print *.pdf    ohne Dialog drucken – mit den Einstellungen einer laufenden
                             Instanz, sonst mit den Admin-Standards
 """
 import argparse
@@ -17,8 +17,6 @@ import sys
 
 
 def main():
-    import multiprocessing
-    multiprocessing.freeze_support()       # gebündelte Programmdatei: Arbeitsprozess starten statt Programm
     # fertige Programmdatei prüfen (GitHub-Build) bzw. AppImage-Root-Helfer (über pkexec)
     if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
         from . import selftest
@@ -26,9 +24,6 @@ def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "--admin-helper":
         from . import selftest
         return selftest.admin_helper(sys.argv[2:])
-    if len(sys.argv) >= 2 and sys.argv[1] == "--cli":
-        from .cli import main as cli_main                      # Aufträge ohne Oberfläche (AppImage: … --cli)
-        return cli_main(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "--version":
         from . import __version__
         print(__version__)
@@ -37,7 +32,7 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--admin-apply":
         from . import winadmin
         return winadmin.apply(sys.argv[2])
-    ap = argparse.ArgumentParser(prog="passermark")
+    ap = argparse.ArgumentParser(prog="pdftoolkit")
     ap.add_argument("--print", dest="do_print", action="store_true", help="ohne Dialog drucken")
     ap.add_argument("--open", action="store_true", help="öffnen (Standard)")
     ap.add_argument("--repair", action="store_true", help="reparieren / optimieren / Passwort (Dialog)")
@@ -48,12 +43,12 @@ def main():
     from PySide6.QtWidgets import QApplication
 
     app = QApplication(sys.argv[:1])
-    app.setApplicationName("Passermark")
-    app.setApplicationDisplayName("Passermark")
-    app.setDesktopFileName("passermark")   # Wayland app-id -> Icon/Desktop-Eintrag
+    app.setApplicationName("pdfToolkit")
+    app.setApplicationDisplayName("pdfToolkit")
+    app.setDesktopFileName("pdftoolkit")   # Wayland app-id -> Icon/Desktop-Eintrag
     from PySide6.QtGui import QIcon
-    _ic = os.path.join(os.path.dirname(__file__), "gui", "passermark.svg")
-    app.setWindowIcon(QIcon.fromTheme("passermark", QIcon(_ic)))
+    _ic = os.path.join(os.path.dirname(__file__), "gui", "pdftoolkit.svg")
+    app.setWindowIcon(QIcon.fromTheme("pdftoolkit", QIcon(_ic)))
     from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
     from . import l10n
     _lang = l10n.current()

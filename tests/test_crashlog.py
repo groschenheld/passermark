@@ -7,7 +7,7 @@ sys.path.insert(0, ROOT); sys.path.insert(0, HERE)
 
 
 def _run(code, state):
-    env = dict(os.environ, PYTHONPATH=ROOT, XDG_STATE_HOME=state, PASSERMARK_LANG="de", LOCALAPPDATA=state)
+    env = dict(os.environ, PYTHONPATH=ROOT, XDG_STATE_HOME=state, PDFTOOLKIT_LANG="de", LOCALAPPDATA=state)
     return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)
 
 
@@ -30,7 +30,7 @@ def test_python_error_logged_and_shown_once():
     logs = _logs(st)
     assert len(logs) == 1 and "ANGEZEIGT 1" in r.stdout, (r.stdout, r.stderr)
     text = open(logs[0], encoding="utf-8").read()
-    assert "Testfehler 42" in text and "Traceback" in text and "Passermark " in text and "Kerne:" in text
+    assert "Testfehler 42" in text and "Traceback" in text and "pdfToolkit " in text and "Kerne:" in text
     r = _run("from pdfdruck import crashlog\ncrashlog.install('gui')\nprint(len(crashlog.pending_crashes()))", st)
     assert r.stdout.strip() == "0", r.stdout                 # schon angezeigt -> beim Start nicht nochmal
 
@@ -63,19 +63,12 @@ def test_prune_keeps_max():
     assert len(_logs(st)) <= crashlog.MAX_LOGS + 1, len(_logs(st))
 
 
-def test_job_crash_details_reach_gui():
-    from pdfdruck import jobproc
-    import test_cutcontour as tc
-    tmp = tempfile.mkdtemp()
-    src = os.path.join(tmp, "b.pdf"); tc.stickers().save(src)
-    orig = jobproc.cli_command
-    jobproc.cli_command = lambda: ([sys.executable, "-c",
-                                    "import faulthandler, ctypes; faulthandler.enable(); ctypes.string_at(0)"], {})
-    try:
-        r = jobproc.JobProcess("cutcontour", src, os.path.join(tmp, "o.pdf"), {}).run()
-    finally:
-        jobproc.cli_command = orig
-    assert r["event"] == "error" and "Fatal Python error" in r.get("details", ""), r
+def test_wired_into_program():
+    """Programmstart richtet das Protokoll ein, Hilfe-Menü öffnet den Ordner."""
+    main = open(os.path.join(ROOT, "pdfdruck", "__main__.py"), encoding="utf-8").read()
+    assert 'crashlog.install("gui"' in main and "notify_previous_crashes" in main
+    viewer = open(os.path.join(ROOT, "pdfdruck", "gui", "viewer.py"), encoding="utf-8").read()
+    assert "open_log_dir" in viewer
 
 
 if __name__ == "__main__":

@@ -5,6 +5,3 @@ img2pdf
 pikepdf
 Pillow
 pillow-heif   # optional, für HEIC/HEIF
-numpy
-scipy
-contourpy

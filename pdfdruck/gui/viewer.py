@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -13,7 +13,7 @@ import os
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_r
-from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDockWidget,
                                QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
@@ -42,7 +42,7 @@ def merge_files(parent, ctl, paths: list[str]):
     import shutil
     import tempfile
     from PySide6.QtWidgets import QApplication, QProgressDialog
-    work = tempfile.mkdtemp(prefix="passermark-merge-")
+    work = tempfile.mkdtemp(prefix="pdftoolkit-merge-")
     out = pdfium.PdfDocument.new()
     notes = []
     dlg = QProgressDialog(tr("Füge zusammen …"), tr("Abbrechen"), 0, len(paths), parent)
@@ -93,7 +93,7 @@ def load_any(parent, ctl, path, workdir=None, notes=None):
         from PySide6.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            pdf, used = _convert.office_to_pdf(path, workdir or tempfile.mkdtemp(prefix="passermark-conv-"),
+            pdf, used = _convert.office_to_pdf(path, workdir or tempfile.mkdtemp(prefix="pdftoolkit-conv-"),
                                                ctl.cfg.get("office_converter", "auto"))
         finally:
             QApplication.restoreOverrideCursor()
@@ -181,69 +181,6 @@ class PageWidget(QWidget):
             self.view.mouse_double(self, e)
 
 
-class Ruler(QWidget):
-    """Lineal in mm an der Kante der Seitenansicht; Nullpunkt = linke obere Ecke der aktuellen Seite.
-    Bleibt beim Scrollen stehen, die Skala läuft mit (Zoom, Seite, Drehung)."""
-    SIZE = 22
-
-    def __init__(self, view, horizontal: bool):
-        super().__init__()
-        self.view, self.horizontal = view, horizontal
-        self.cursor_px = None            # Mausposition (Bildschirm, global) für den Markierungsstrich
-        if horizontal:
-            self.setFixedHeight(self.SIZE)
-        else:
-            self.setFixedWidth(self.SIZE)
-
-    def paintEvent(self, _):
-        from PySide6.QtCore import QPoint
-        from .. import measure as ms
-        p = QPainter(self)
-        p.fillRect(self.rect(), QColor(theme.PANEL))
-        geo = self.view.ruler_geometry()
-        if geo is None:
-            return
-        origin_vp, ppm = geo                          # Seitenecke (Viewport-Pixel), Pixel je mm
-        g = self.view.viewport().mapToGlobal(origin_vp)
-        o = self.mapFromGlobal(g)
-        o0 = o.x() if self.horizontal else o.y()
-        length = self.width() if self.horizontal else self.height()
-        minor, major = ms.ruler_steps(ppm)
-        p.setPen(QPen(QColor(theme.MUTED), 1))
-        p.setFont(theme.mono_font(7.5))
-        first = int((0 - o0) / (minor * ppm)) - 1
-        last = int((length - o0) / (minor * ppm)) + 1
-        for k in range(first, last + 1):
-            mm = k * minor
-            pos = int(round(o0 + mm * ppm))
-            is_major = abs(mm / major - round(mm / major)) < 1e-9
-            tick = self.SIZE - 2 if is_major else (self.SIZE // 3)
-            if self.horizontal:
-                p.drawLine(pos, self.SIZE, pos, self.SIZE - tick)
-                if is_major:
-                    p.drawText(pos + 3, 10, f"{mm:g}")
-            else:
-                p.drawLine(self.SIZE, pos, self.SIZE - tick, pos)
-                if is_major:
-                    p.save()
-                    p.translate(10, pos - 3)
-                    p.rotate(-90)
-                    p.drawText(0, 0, f"{mm:g}")
-                    p.restore()
-        if self.cursor_px is not None:
-            c = self.mapFromGlobal(self.cursor_px)
-            p.setPen(QPen(QColor(theme.ACCENT), 1))
-            if self.horizontal:
-                p.drawLine(c.x(), 0, c.x(), self.SIZE)
-            else:
-                p.drawLine(0, c.y(), self.SIZE, c.y())
-        p.setPen(QPen(QColor(theme.MUTED), 1))
-        if self.horizontal:
-            p.drawLine(0, self.SIZE - 1, self.width(), self.SIZE - 1)
-        else:
-            p.drawLine(self.SIZE - 1, 0, self.SIZE - 1, self.height())
-
-
 class PageView(QScrollArea):
     """Seitenansicht.
 
@@ -254,7 +191,6 @@ class PageView(QScrollArea):
     """
     pageChanged = Signal(int)
     zoomChanged = Signal(float)
-    viewMoved = Signal()                 # Scrollen/Zoom/Seite -> Lineale neu zeichnen
 
     JUMP_THRESHOLD = 120       # eine Mausrad-Raste; Touchpad-Bruchteile werden gesammelt
     JUMP_COOLDOWN = 0.30       # s – verhindert, dass Schwung-Scrollen mehrere Seiten überspringt
@@ -280,19 +216,12 @@ class PageView(QScrollArea):
         self._tp = {}             # Seite -> (PdfPage, PdfTextPage)
         self.imode = "text"       # Maus: text = Textauswahl; edit = Bearbeiten-Modus (Klicks an edit_click)
         self.edit_click = None    # Rückruf (Seite, x, y in Seitenkoordinaten, Umschalt)
-        self.meas = None          # Messung: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
-        self.on_measure = None    # Rückruf (Text für die Statusleiste)
-        self.on_cursor = None     # Rückruf (Seiten-Widget, Mausposition) für die Lineale
-        self.editor = None        # Bearbeiten-Seitenleiste: press/drag/release/cursor (Seitenkoordinaten)
-        self._edrag = False
         self.overlay = {}         # Seite -> [(x0, y0, x1, y1, Farbe)] in Seitenkoordinaten
         self.container = QWidget()
         self.container.setObjectName("pages")
         self.setWidget(self.container)
         self._timer = QTimer(self, singleShot=True, interval=30, timeout=self._render_visible)
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
-        self.verticalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
-        self.horizontalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
 
     # --------------------------------------------------------------- #
     def set_document(self, doc, keep_page: int | None = None):
@@ -300,7 +229,6 @@ class PageView(QScrollArea):
             w.deleteLater()
         self._close_textpages()
         self.sel, self._drag = None, None
-        self.meas = None
         self.doc = doc
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         self.pages = [PageWidget(i, self) for i in range(len(doc))]
@@ -383,7 +311,6 @@ class PageView(QScrollArea):
                 y += hh + PAGE_GAP
             self.container.resize(cw, y)
         self.zoomChanged.emit(self.zoom)
-        self.viewMoved.emit()
         self._timer.start()
 
     def resizeEvent(self, e):
@@ -514,9 +441,6 @@ class PageView(QScrollArea):
         super().wheelEvent(e)
 
     def keyPressEvent(self, e):
-        if self.imode == "measure" and e.key() == Qt.Key.Key_Escape:
-            self.measure_clear()
-            return
         if self.single and self.doc is not None:
             k = e.key()
             vb, hb = self.verticalScrollBar(), self.horizontalScrollBar()
@@ -588,103 +512,11 @@ class PageView(QScrollArea):
         i = tp.get_index(x, y, tol, tol)
         return i if i is not None and i >= 0 else -1
 
-    # --------------------------------------------------------------- #
-    # Lineal und Messen
-    # --------------------------------------------------------------- #
-    def ruler_geometry(self):
-        """(linke obere Seitenecke in Viewport-Pixeln, Pixel je mm) der aktuellen Seite – oder None."""
-        from PySide6.QtCore import QPoint
-        if not self.doc or not (0 <= self.current < len(self.pages)):
-            return None
-        w = self.pages[self.current]
-        pw, _ph = self._rot_size(self.current)
-        if pw <= 0 or w.width() <= 0:
-            return None
-        return w.mapTo(self.viewport(), QPoint(0, 0)), w.width() / pw * 72.0 / 25.4
-
-    def page_matrix(self, w):
-        """Lineare Abbildung Seite -> Bildschirm (a, b, c, d) inkl. Zoom und Drehung, aus pdfium abgeleitet."""
-        x0, y0 = self.to_page(w, QPointF(w.width() / 2, w.height() / 2))
-        far = 1000.0
-        p0 = self.to_widget(w, x0, y0)
-        px = self.to_widget(w, x0 + far, y0)
-        py = self.to_widget(w, x0, y0 + far)
-        return ((px[0] - p0[0]) / far, (px[1] - p0[1]) / far, (py[0] - p0[0]) / far, (py[1] - p0[1]) / far)
-
-    def _measure_point(self, w, pos, shift):
-        """Mausposition -> Seitenpunkt; mit Umschalt waagrecht/senkrecht/45° zum Startpunkt eingerastet."""
-        from .. import measure as ms
-        if shift and self.meas and self.meas["a"] is not None and not self.meas["done"]:
-            sx, sy = self.to_widget(w, *self.meas["a"])
-            vx, vy = ms.snap(pos.x() - sx, pos.y() - sy, True)
-            # eingerasteten Bildschirmvektor exakt in Seitenmaße umrechnen (nicht über ganze Pixel)
-            a, b, c, d = self.page_matrix(w)
-            det = a * d - b * c
-            if abs(det) > 1e-12:
-                px = (d * vx - c * vy) / det
-                py = (-b * vx + a * vy) / det
-                ax, ay = self.meas["a"]
-                return ax + px, ay + py
-        return self.to_page(w, pos)
-
-    def _measure_report(self, w):
-        from .. import l10n
-        from .. import measure as ms
-        if self.on_measure is None or not self.meas:
-            return
-        if self.meas["b"] is None:
-            return
-        r = ms.measure(self.meas["a"], self.meas["b"], self.page_matrix(w))
-        self.on_measure(ms.describe(r, l10n.current()))
-
-    def measure_clear(self):
-        if self.meas is not None and 0 <= self.meas["page"] < len(self.pages):
-            self.pages[self.meas["page"]].update()
-        self.meas = None
-        if self.on_measure is not None:
-            self.on_measure("")
-
-    def _measure_press(self, w, e):
-        shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-        m = self.meas
-        if m is None or m["done"] or m["page"] != w.index:
-            a = self.to_page(w, e.position())
-            self.meas = {"page": w.index, "a": a, "b": None, "done": False}       # 1. Klick: Anfang
-        else:
-            m["b"] = self._measure_point(w, e.position(), shift)                    # 2. Klick: Ende
-            m["done"] = True
-            self._measure_report(w)
-        w.update()
-
-    def _measure_move(self, w, e):
-        from .. import l10n
-        from .. import measure as ms
-        if self.on_cursor is not None:
-            self.on_cursor(w, e.position())
-        m = self.meas
-        if m is not None and not m["done"] and m["page"] == w.index:
-            shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-            m["b"] = self._measure_point(w, e.position(), shift)                   # Gummiband
-            self._measure_report(w)
-            w.update()
-        elif self.on_measure is not None and (m is None or m["done"]):
-            geo = self.ruler_geometry()
-            if geo is not None and w.index == self.current:
-                ppm = geo[1]
-                if m is None:
-                    self.on_measure(ms.describe_pos(e.position().x() / ppm, e.position().y() / ppm, l10n.current()))
-
     def mouse_press(self, w, e):
         self.setFocus()
-        if self.imode == "measure":
-            self._measure_press(w, e)
-            return
         if self.imode == "edit":
-            x, y = self.to_page(w, e.position())
-            if self.editor is not None:
-                self._edrag = True
-                self.editor.press(w.index, x, y, self._tol_pt(w))
-            elif self.edit_click is not None:
+            if self.edit_click is not None:
+                x, y = self.to_page(w, e.position())
                 self.edit_click(w.index, x, y, bool(e.modifiers() & (Qt.KeyboardModifier.ShiftModifier
                                                                      | Qt.KeyboardModifier.ControlModifier)))
             return
@@ -696,20 +528,8 @@ class PageView(QScrollArea):
             self.pages[old[0]].update()
 
     def mouse_move(self, w, e):
-        if self.imode == "measure":
-            w.setCursor(Qt.CursorShape.CrossCursor)
-            self._measure_move(w, e)
-            return
-        if self.on_cursor is not None:
-            self.on_cursor(w, e.position())
         if self.imode == "edit":
-            x, y = self.to_page(w, e.position())
-            if self.editor is not None and self._edrag:
-                self.editor.drag(w.index, x, y)
-                return
-            kind = self.editor.cursor(w.index, x, y, self._tol_pt(w)) if self.editor is not None else None
-            w.setCursor({"move": Qt.CursorShape.SizeAllCursor, "scale": Qt.CursorShape.SizeFDiagCursor}.get(
-                kind, Qt.CursorShape.PointingHandCursor))
+            w.setCursor(Qt.CursorShape.PointingHandCursor)
             return
         if self._drag is None:
             w.setCursor(Qt.CursorShape.IBeamCursor if self._char_at(w, e.position()) >= 0 else Qt.CursorShape.ArrowCursor)
@@ -724,19 +544,9 @@ class PageView(QScrollArea):
 
     def mouse_release(self, w, e):
         self._drag = None
-        if self.imode == "edit" and self._edrag:
-            self._edrag = False
-            if self.editor is not None:
-                x, y = self.to_page(w, e.position())
-                self.editor.release(w.index, x, y)
-
-    def _tol_pt(self, w) -> float:
-        """Greif-Toleranz: ~7 Bildschirmpixel in Seitenkoordinaten."""
-        pw, _ph = self._rot_size(w.index)
-        return 7.0 * pw / max(1, w.width())
 
     def mouse_double(self, w, e):
-        if self.imode in ("edit", "measure"):
+        if self.imode == "edit":
             return
         i = self._char_at(w, e.position(), 12.0)
         if i < 0:
@@ -777,36 +587,10 @@ class PageView(QScrollArea):
                 col.setAlpha(90)
                 for k in range(n):
                     p.fillRect(self._rect_widget(w, *tp.get_rect(k)), col)
-            m = self.meas
-            if m is not None and m["page"] == w.index and m["b"] is not None:
-                ax, ay = self.to_widget(w, *m["a"])
-                bx, by = self.to_widget(w, *m["b"])
-                col = QColor(theme.ACCENT)
-                pen = QPen(col, 2)
-                if not m["done"]:
-                    pen.setStyle(Qt.PenStyle.DashLine)
-                p.setPen(pen)
-                p.drawLine(ax, ay, bx, by)
-                p.setBrush(col)
-                for (x, y) in ((ax, ay), (bx, by)):
-                    p.drawEllipse(QPointF(x, y), 3.5, 3.5)
-            elif m is not None and m["page"] == w.index:
-                ax, ay = self.to_widget(w, *m["a"])
-                p.setPen(QPen(QColor(theme.ACCENT), 2))
-                p.drawLine(ax - 6, ay, ax + 6, ay)
-                p.drawLine(ax, ay - 6, ax, ay + 6)
-            for item in self.overlay.get(w.index, []):
-                x0, y0, x1, y1, c = item[:5]
-                style = item[5] if len(item) > 5 else ""
-                pen = QPen(QColor(c), 2)
+            for (x0, y0, x1, y1, c) in self.overlay.get(w.index, []):
+                p.setPen(QPen(QColor(c), 2))
                 fill = QColor(c)
                 fill.setAlpha(40)
-                if style == "dash":
-                    pen.setStyle(Qt.PenStyle.DashLine)
-                    fill.setAlpha(15)
-                elif style == "handle":
-                    fill = QColor("#ffffff")
-                p.setPen(pen)
                 p.setBrush(fill)
                 p.drawRect(self._rect_widget(w, x0, y1, x1, y0))
         except Exception:
@@ -960,28 +744,7 @@ class MainWindow(QMainWindow):
         self.modified = False
 
         self.view = PageView(single=getattr(ctl, "view_single", True))
-        self._jobs = []                      # laufende Aufträge (eigene Prozesse)
-        # Lineale oben/links an der Kante der Ansicht (bleiben beim Scrollen stehen)
-        from PySide6.QtWidgets import QGridLayout
-        central = QWidget()
-        grid = QGridLayout(central)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        self.ruler_h = Ruler(self.view, True)
-        self.ruler_v = Ruler(self.view, False)
-        self.ruler_corner = QWidget()
-        self.ruler_corner.setFixedSize(Ruler.SIZE, Ruler.SIZE)
-        self.ruler_corner.setStyleSheet(f"background: {theme.PANEL};")
-        grid.addWidget(self.ruler_corner, 0, 0)
-        grid.addWidget(self.ruler_h, 0, 1)
-        grid.addWidget(self.ruler_v, 1, 0)
-        grid.addWidget(self.view, 1, 1)
-        for r in (self.ruler_corner, self.ruler_h, self.ruler_v):
-            r.hide()
-        self._rulers_on = False
-        self.setCentralWidget(central)
-        self.view.viewMoved.connect(self._rulers_update)
-        self.view.on_cursor = self._rulers_cursor
+        self.setCentralWidget(self.view)
         self.view.pageChanged.connect(self._page_changed)
         self.view.zoomChanged.connect(self._zoom_changed)
 
@@ -1016,168 +779,7 @@ class MainWindow(QMainWindow):
         self.lbl_size.setContentsMargins(8, 0, 8, 0)
         self.lbl_size.setFont(theme.mono_font(9.5))
         self.statusBar().addPermanentWidget(self.lbl_size)
-        self._build_preflight(dock)
-        self._build_edit(dock)
-        self.lbl_measure = QLabel()
-        self.lbl_measure.setContentsMargins(8, 0, 8, 0)
-        self.lbl_measure.setFont(theme.mono_font(9.5))
-        self.lbl_measure.setToolTip(tr("Messung: Länge, waagrechter und senkrechter Abstand, Winkel"))
-        self.statusBar().addPermanentWidget(self.lbl_measure)     # ganz rechts unten, stört die Arbeit nicht
-        self.view.on_measure = self.lbl_measure.setText
         self._update_title()
-
-    # ---------------- Bearbeiten-Modus (Text und Ebenen) ---------------- #
-    def _build_edit(self, pages_dock):
-        from .editpanel import EditPanel
-        self.edit_panel = EditPanel(self)
-        class _Dock(QDockWidget):
-            def closeEvent(dock_self, e):          # Schließen-Knopf beendet den Bearbeiten-Modus
-                self.a_edit.setChecked(False)
-                e.accept()
-        self.edit_dock = _Dock(tr("Bearbeiten"), self)
-        self.edit_dock.setWidget(self.edit_panel)
-        self.edit_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
-                                   | QDockWidget.DockWidgetFeature.DockWidgetMovable)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.edit_dock)
-        self.tabifyDockWidget(pages_dock, self.edit_dock)
-        self.edit_dock.hide()
-        pages_dock.raise_()
-        self.edit_dock.visibilityChanged.connect(lambda vis: vis and self.edit_panel.refresh())
-        self.view.edit_click = self.edit_panel.page_click
-        self.view.editor = self.edit_panel
-        self.view.pageChanged.connect(lambda _p: self.a_edit.isChecked() and self.edit_panel.refresh())
-
-    # ---------------- Lineale und Messen ---------------- #
-    def _show_rulers(self, on: bool):
-        self._rulers_on = bool(on)
-        for r in (self.ruler_corner, self.ruler_h, self.ruler_v):
-            r.setVisible(on)
-        if not on and self.a_measure.isChecked():
-            self.a_measure.setChecked(False)
-        self._rulers_update()
-
-    def _rulers_update(self):
-        if self._rulers_on:
-            self.ruler_h.update()
-            self.ruler_v.update()
-
-    def _rulers_cursor(self, w, pos):
-        if not self._rulers_on:
-            return                                         # nur rechnen, wenn die Lineale zu sehen sind
-        gpos = w.mapToGlobal(pos.toPoint())
-        self.ruler_h.cursor_px = gpos
-        self.ruler_v.cursor_px = gpos
-        self._rulers_update()
-
-    def _measure_mode(self, on: bool):
-        if on:
-            if self.a_edit.isChecked():
-                self.a_edit.setChecked(False)              # Bearbeiten und Messen schließen sich aus
-            self.view.imode = "measure"
-            self.view.sel = None
-            if not self.a_rulers.isChecked():
-                self.a_rulers.setChecked(True)
-            self.statusBar().showMessage(tr("Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° "
-                                            "· Esc = abbrechen"), 8000)
-        else:
-            if self.view.imode == "measure":
-                self.view.imode = "text"
-            self.view.measure_clear()
-
-    def _edit_mode(self, on: bool):
-        if on and self.a_measure.isChecked():
-            self.a_measure.setChecked(False)
-        self.view.imode = "edit" if on else "text"
-        self.view.sel = None
-        if on:
-            self.edit_dock.show()
-            self.edit_dock.raise_()
-            self.edit_panel.refresh()
-            self.statusBar().showMessage(tr("Bearbeiten-Modus: Textzeile bzw. Ebene auf der Seite anklicken."), 6000)
-        else:
-            self.view.overlay = {}
-            self.edit_dock.hide()
-            for w in self.view.pages:
-                w.update()
-
-    # ---------------- Preflight (Dokumentprüfung) ---------------- #
-    def _build_preflight(self, pages_dock):
-        from .preflightpanel import PreflightPanel
-        self.pf_panel = PreflightPanel(self)
-        self.pf_panel.data_fn = self._doc_bytes
-        self.pf_panel.result_ready.connect(self._pf_result)
-        self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
-        self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
-        self.pf_dock = QDockWidget(tr("Prüfung"), self)
-        self.pf_dock.setWidget(self.pf_panel)
-        self.pf_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
-                                 | QDockWidget.DockWidgetFeature.DockWidgetMovable)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.pf_dock)
-        self.tabifyDockWidget(pages_dock, self.pf_dock)
-        pages_dock.raise_()
-        self.btn_pf = QPushButton("")
-        self.btn_pf.setFlat(True)
-        self.btn_pf.setToolTip(tr("Dokumentprüfung anzeigen"))
-        self.btn_pf.clicked.connect(lambda: (self.pf_dock.show(), self.pf_dock.raise_()))
-        self.btn_pf.hide()
-        self.statusBar().addPermanentWidget(self.btn_pf)
-        self._pf_timer = QTimer(self, singleShot=True, interval=700, timeout=self._pf_start)
-        self._pf_gen = 0
-        self._pf_worker = None
-
-    def _doc_bytes(self) -> bytes:
-        import io
-        buf = io.BytesIO()
-        self.doc.save(buf)
-        return buf.getvalue()
-
-    def _pf_start(self, force=False):
-        from .. import l10n
-        if self.doc is None:
-            return
-        if not force and not l10n.load_settings().get("preflight_on_open", True):
-            return
-        from .preflightpanel import _Worker
-        from .. import preflight
-        self._pf_gen += 1
-        gen = self._pf_gen
-        self.pf_panel.set_busy()
-        self.btn_pf.setText("… " + tr("Prüfe"))
-        self.btn_pf.show()
-        try:
-            data = self._doc_bytes()
-        except Exception as e:
-            self.pf_panel.set_error(str(e))
-            return
-        # Hintergrund: nur pikepdf-Teile (pdfium ist nicht thread-sicher – sonst gelegentliche Abstürze)
-        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
-
-        def done(rep, err, gen=gen, w=w):
-            if gen != self._pf_gen:
-                return                                  # veraltet (Dokument inzwischen geändert)
-            if err:
-                self.pf_panel.set_error(err)
-                self.btn_pf.setText("⚠ " + tr("Prüfung fehlgeschlagen"))
-                return
-            try:
-                preflight.finish(rep, data)          # pdfium-Teile im Hauptthread
-            except Exception:
-                pass
-            self.pf_panel.set_report(rep)
-            c = rep.counts()
-            if c["error"] or c["warning"]:
-                self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]))
-                self.btn_pf.setStyleSheet(f"color: {theme.ERROR if c['error'] else theme.ACCENT};")
-            else:
-                self.btn_pf.setText("✓ " + tr("Prüfung OK"))
-                self.btn_pf.setStyleSheet(f"color: {theme.MUTED};")
-        w.done.connect(done)
-        self._pf_worker = w
-        w.start()
-
-    def _pf_result(self, data: bytes, suffix: str, notes: list):
-        import pypdfium2 as pdfium
-        self._open_result(pdfium.PdfDocument(data), suffix, notes)
 
     @property
     def session(self):
@@ -1213,14 +815,6 @@ class MainWindow(QMainWindow):
         self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "export")
         self.a_seltext = A(tr("Text der Seite markieren"), lambda: self.view.select_page_text(), "Ctrl+Shift+A", "export")
         self.a_settings = A(tr("Einstellungen …"), self.settings_dialog, "Ctrl+,", "settings")
-        self.a_manip = A(tr("CMYK und Beschneiden in einem Schritt …"), lambda: self.manip_dialog("all"), "Ctrl+Shift+M", "export")
-        self.a_manip_cmyk = A(tr("CMYK-Umwandlung …"), lambda: self.manip_dialog("cmyk"), None, "print")
-        self.a_manip_crop = A(tr("Auf Format beschneiden …"), lambda: self.manip_dialog("crop"), None, "fit_page")
-        self.a_separate = A(tr("Objekte trennen (Einzelseiten ohne Weißraum) …"), self.separate_dialog, None, "merge")
-        self.a_cut = A(tr("CutContour erzeugen (Schneideplotter) …"), self.cut_dialog, None, "rot_r")
-        self.a_edit = A(tr("Text und Ebenen bearbeiten"), lambda: None, "Ctrl+E", "export")
-        self.a_edit.setCheckable(True)
-        self.a_edit.toggled.connect(self._edit_mode)
 
         self.a_ins_before = A(tr("Seiten einfügen – vor Auswahl…"), lambda: self.insert_dialog("before"))
         self.a_ins_after = A(tr("Seiten einfügen – nach Auswahl…"), lambda: self.insert_dialog("after"), "Ctrl+I", "insert")
@@ -1236,7 +830,7 @@ class MainWindow(QMainWindow):
 
         mb = self.menuBar()
         m = mb.addMenu(tr("&Datei"))
-        for a in (self.a_open, None, self.a_save, self.a_saveas, None, self.a_print,
+        for a in (self.a_open, self.a_merge, None, self.a_save, self.a_saveas, self.a_repair, None, self.a_print,
                   None, self.a_settings, None, self.a_close):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Seiten"))
@@ -1245,32 +839,11 @@ class MainWindow(QMainWindow):
                   self.a_delete, None, self.a_selall, None, self.a_copy, self.a_seltext):
             m.addSeparator() if a is None else m.addAction(a)
         self.page_menu = m
-        m = mb.addMenu(tr("D&okument"))
-        m.addAction(self.a_merge)
-        m.addAction(self.a_repair)
-        m.addSeparator()
-        self.a_preflight = QAction(tr("Dokumentprüfung (Preflight) …"), self)
-        self.a_preflight.setShortcut("Ctrl+Shift+P")
-        self.a_preflight.triggered.connect(lambda: (self.pf_dock.show(), self.pf_dock.raise_(), self._pf_start(force=True)))
-        m.addAction(self.a_preflight)
-        m = mb.addMenu(tr("Dokument-&Manipulation"))
-        for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
-                  self.a_cut):
-            m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
         self.a_single.setCheckable(True)
         self.a_single.setChecked(self.view.single)
         m.addAction(self.a_single)
-        m.addSeparator()
-        self.a_rulers = A(tr("Lineale anzeigen"), lambda: None, "Ctrl+R", "ruler")
-        self.a_rulers.setCheckable(True)
-        self.a_rulers.toggled.connect(self._show_rulers)
-        self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+M", "ruler")
-        self.a_measure.setCheckable(True)
-        self.a_measure.toggled.connect(self._measure_mode)
-        m.addAction(self.a_rulers)
-        m.addAction(self.a_measure)
         m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
@@ -1286,9 +859,6 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("&Verwaltung"))
         m.addAction(A(tr("Standardeinstellungen (Admin)…"), self.admin_dialog, None, "settings"))
         m = mb.addMenu(tr("&Hilfe"))
-        a = QAction(tr("Kommandozeile – Anleitung (PDF)"), self)
-        a.triggered.connect(self._open_cli_howto)
-        m.addAction(a)
         from .. import platform as _pl
         if _pl.IS_WIN:
             a = QAction(tr("Windows-Druck testen …"), self)
@@ -1347,8 +917,6 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_vrot_l)
         tb.addAction(self.a_vrot_r)
-        tb.addSeparator()
-        tb.addAction(self.a_measure)
         A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
         A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
         self._update_actions()
@@ -1363,16 +931,15 @@ class MainWindow(QMainWindow):
         has = self.doc is not None
         for a in (self.a_save, self.a_saveas, self.a_print, self.a_ins_before, self.a_ins_after,
                   self.a_ins_end, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
-                  self.a_rot_r, self.a_up, self.a_down, self.a_selall, self.a_manip, self.a_manip_cmyk,
-                  self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit):
+                  self.a_rot_r, self.a_up, self.a_down, self.a_selall):
             a.setEnabled(has)
         # Speichern nur, wenn es etwas zu speichern gibt (sonst „nichts passiert“)
         self.a_save.setEnabled(has and (self.modified or not self.path))
         self.a_save.setToolTip(tr("Speichern") if self.a_save.isEnabled() else tr("Keine ungespeicherten Änderungen"))
 
     def _update_title(self):
-        name = self.display_name or "Passermark"
-        self.setWindowTitle(("● " if self.modified else "") + name + (tr(" – Passermark") if self.doc else ""))
+        name = self.display_name or "pdfToolkit"
+        self.setWindowTitle(("● " if self.modified else "") + name + (tr(" – pdfToolkit") if self.doc else ""))
 
     # ================================================================ #
     # Öffnen
@@ -1411,8 +978,6 @@ class MainWindow(QMainWindow):
         self._update_actions()
         self._update_title()
         self._page_changed(self.view.current)
-        if hasattr(self, "_pf_timer"):
-            self._pf_timer.start()                       # Dokumentprüfung im Hintergrund
 
     def open(self, path: str):
         doc = load_pdf(self, path)
@@ -1736,181 +1301,6 @@ class MainWindow(QMainWindow):
         self.view.step_zoom(1.2 if d > 0 else 1 / 1.2)
 
     # ================================================================ #
-    def manip_dialog(self, mode: str = "all"):
-        if self.doc is None:
-            return
-        from .manipdialog import ManipDialog
-        dlg = ManipDialog(self, self.doc, self.session, self.view.current, mode)
-        if not dlg.exec() or not dlg.job:
-            return
-        suffix = {"cmyk": tr("_CMYK"), "crop": tr("_beschnitten")}.get(mode, tr("_bearbeitet"))
-        title = {"cmyk": tr("CMYK"), "crop": tr("Beschneiden")}.get(mode, tr("Bearbeiten"))
-        self.start_job(*dlg.job, suffix=suffix, title=title)
-
-    def separate_dialog(self):
-        if self.doc is None:
-            return
-        from .objectsdialog import SeparateDialog
-        dlg = SeparateDialog(self, self.doc, self.view.current)
-        if dlg.exec() and getattr(dlg, "job", None):
-            self.start_job(*dlg.job, suffix=tr("_einzeln"), title=tr("Objekte trennen"),
-                           notes=lambda info: [tr("{0} Objekt(e) als Einzelseiten.").format(info.get("objects", 0))])
-
-    def cut_dialog(self):
-        if self.doc is None:
-            return
-        from .objectsdialog import CutContourDialog
-        try:
-            dlg = CutContourDialog(self, self.doc, self.view.current)
-        except Exception as e:
-            from .objectsdialog import show_error
-            show_error(self, tr("Fehler"), e)
-            return
-        if dlg.exec() and getattr(dlg, "job", None):
-            self.start_job(*dlg.job, suffix=tr("_CutContour"), title=tr("CutContour"),
-                           notes=lambda info: [tr("{0} Schnittkontur(en) erzeugt.").format(info.get("cuts", 0))])
-
-    # ---------------- Aufträge im Hintergrund (eigener Prozess) ---------------- #
-    def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):
-        """Dokument in den Zwischenspeicher, Kommandozeile als eigenen Prozess starten, Fortschritt unten anzeigen."""
-        from .. import jobproc, l10n
-        from .jobs import JobReader, JobWidget
-        base = os.path.splitext(self.display_name or "Dokument")[0]
-        src = self.ctl.cache_file(base + "_eingabe.pdf")
-        dst = self.ctl.cache_file(base + suffix + ".pdf")
-        try:
-            self.doc.save(src)                                   # aktueller Stand (auch ungespeicherte Änderungen)
-            open(dst, "wb").close()                              # Namen reservieren (mehrere Aufträge gleichzeitig)
-            job = jobproc.JobProcess(kind, src, dst, settings, pages, lang=l10n.current())
-            job.start()
-        except Exception as e:
-            from .objectsdialog import show_error
-            show_error(self, tr("Fehler"), e)
-            return
-        entry = {"job": job, "src": src, "dst": dst}
-        widget = JobWidget(title or kind, lambda: self._cancel_job(entry))
-        reader = JobReader(job)
-        entry.update(widget=widget, reader=reader)
-        reader.progress.connect(widget.set_progress)
-        reader.finished_job.connect(lambda res: self._job_finished(entry, res, suffix, notes))
-        self.statusBar().addWidget(widget)
-        self._jobs.append(entry)
-        reader.start()
-
-    def _cancel_job(self, entry):
-        entry["widget"].set_cancelling()
-        entry["job"].cancel()
-
-    def _job_finished(self, entry, res, suffix, notes):
-        if entry in self._jobs:
-            self._jobs.remove(entry)
-        self.statusBar().removeWidget(entry["widget"])
-        entry["widget"].deleteLater()
-        entry["reader"].wait(2000)
-        try:
-            os.remove(entry["src"])
-        except OSError:
-            pass
-        ev = res.get("event")
-        if ev == "done":
-            info = res.get("info") or {}
-            extra = list(notes(info)) if notes else []
-            self._open_result_path(entry["dst"], extra + list(res.get("notes") or []))
-            return
-        try:
-            os.remove(entry["dst"])
-        except OSError:
-            pass
-        if ev == "cancelled":
-            self.statusBar().showMessage(tr("Abgebrochen."), 6000)
-            return
-        from .. import crashlog
-        crashlog.record(f"Auftrag {entry['job'].kind} fehlgeschlagen (Code {res.get('returncode')}): "
-                        f"{res.get('message')}", res.get("details") or "")
-        box = QMessageBox(QMessageBox.Icon.Critical, tr("Fehler"), res.get("message") or tr("Unbekannter Fehler"),
-                          parent=self)
-        if res.get("details"):
-            box.setDetailedText(res["details"])
-        box.exec()
-
-    def _stop_jobs(self):
-        """Fenster wird geschlossen: laufende Aufträge abbrechen."""
-        for entry in list(self._jobs):
-            entry["job"].cancel()
-        for entry in list(self._jobs):
-            entry["reader"].wait(5000)
-
-    def _open_result(self, new_doc, suffix: str, notes=()):
-        """Ergebnis in den Zwischenspeicher schreiben und von dort in einem neuen Fenster öffnen."""
-        base = os.path.splitext(self.display_name or "Dokument")[0]
-        path = self.ctl.cache_file(base + suffix + ".pdf")
-        try:
-            new_doc.save(path)
-        except Exception as e:
-            from .objectsdialog import show_error
-            show_error(self, tr("Fehler"), e)
-            return
-        finally:
-            new_doc.close()
-        self._open_result_path(path, notes)
-
-    def _open_result_path(self, path: str, notes=()):
-        """Fertige Datei aus dem Zwischenspeicher in einem neuen Fenster öffnen (temporär, „Speichern unter“)."""
-        doc = load_pdf(self, path)
-        if doc is None:
-            return
-        w = self.ctl.new_window()
-        # temporär: kein fester Speicherort -> „Speichern“ fragt nach, Schließen erinnert ans Speichern
-        w._set_doc(doc, None, os.path.basename(path), True)
-        w._temp_path = path
-        w._suggest_dir = os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", "")
-        w.raise_()
-        msg = tr("Temporär im Zwischenspeicher – zum Behalten „Speichern unter …“.")
-        if notes:
-            msg += "  " + "  ".join(notes)
-        w.statusBar().showMessage(msg, 20000)
-
-    @staticmethod
-    def cli_howto_path() -> str:
-        """Anleitung zur Kommandozeile im Programmpaket (Linux-Installation, AppImage, Windows-Setup)."""
-        from .. import __file__ as pkg
-        return os.path.join(os.path.dirname(pkg), "docs", "passermark-cli-anleitung.pdf")
-
-    def _open_cli_howto(self):
-        p = self.cli_howto_path()
-        if not os.path.isfile(p):
-            QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
-            return
-        self.ctl.open_paths([p])
-
-    def _win_print_test(self):
-        """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""
-        from PySide6.QtWidgets import QInputDialog
-        from .. import printers, printers_win
-        try:
-            names = [p.name for p in printers.list_printers()]
-        except Exception as e:                          # noqa: BLE001
-            QMessageBox.critical(self, tr("Windows-Druck testen"), str(e))
-            return
-        if not names:
-            QMessageBox.information(self, tr("Windows-Druck testen"), tr("Kein Drucker gefunden."))
-            return
-        name, ok = QInputDialog.getItem(self, tr("Windows-Druck testen"),
-                                        tr("Je Verfahren wird eine A4-Testseite gedruckt (4 Blätter).\nDrucker:"),
-                                        names, 0, False)
-        if not ok:
-            return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            res = printers_win.test_print(name)
-        finally:
-            QApplication.restoreOverrideCursor()
-        lines = "\n".join(f"• {label}: {r}" for label, r in res)
-        QMessageBox.information(self, tr("Windows-Druck testen"),
-                                tr("Gesendet an {0}:").format(name) + "\n" + lines + "\n\n"
-                                + tr("Auf jedem Blatt steht das Verfahren. Wählen Sie unter Datei → Einstellungen → Drucken "
-                                     "unter Windows das Verfahren, dessen Blatt richtig ankommt."))
-
     def copy_text(self):
         t = self.view.selected_text()
         if t:
@@ -1934,7 +1324,7 @@ class MainWindow(QMainWindow):
             files = [self.path]
         else:
             # aktueller Stand (bearbeitet, aus Bildern oder entsperrt) -> unverschlüsselte Arbeitskopie
-            tmp = os.path.join(tempfile.mkdtemp(prefix="passermark-"), "dokument.pdf")
+            tmp = os.path.join(tempfile.mkdtemp(prefix="pdftoolkit-"), "dokument.pdf")
             self.doc.save(tmp, flags=pdfium_r.FPDF_REMOVE_SECURITY)
             files = [tmp]
             names = {tmp: self.display_name or "Dokument.pdf"}
@@ -1974,14 +1364,35 @@ class MainWindow(QMainWindow):
         else:
             self.open_paths_here(paths)
 
-    def _pf_stop(self):
-        w = getattr(self, "_pf_worker", None)
-        if w is not None and w.isRunning():
-            w.wait(15000)
+    def _win_print_test(self):
+        """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""
+        from PySide6.QtWidgets import QInputDialog
+        from .. import printers, printers_win
+        try:
+            names = [p.name for p in printers.list_printers()]
+        except Exception as e:                          # noqa: BLE001
+            QMessageBox.critical(self, tr("Windows-Druck testen"), str(e))
+            return
+        if not names:
+            QMessageBox.information(self, tr("Windows-Druck testen"), tr("Kein Drucker gefunden."))
+            return
+        name, ok = QInputDialog.getItem(self, tr("Windows-Druck testen"),
+                                        tr("Je Verfahren wird eine A4-Testseite gedruckt (4 Blätter).\nDrucker:"),
+                                        names, 0, False)
+        if not ok:
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            res = printers_win.test_print(name)
+        finally:
+            QApplication.restoreOverrideCursor()
+        lines = "\n".join(f"• {label}: {r}" for label, r in res)
+        QMessageBox.information(self, tr("Windows-Druck testen"),
+                                tr("Gesendet an {0}:").format(name) + "\n" + lines + "\n\n"
+                                + tr("Auf jedem Blatt steht das Verfahren. Wählen Sie unter Datei → Einstellungen → Drucken "
+                                     "unter Windows das Verfahren, dessen Blatt richtig ankommt."))
 
     def closeEvent(self, e):
-        self._stop_jobs()
-        self._pf_stop()
         if self.doc is not None and self.modified:
             r = QMessageBox.question(
                 self, tr("Ungespeicherte Änderungen"), tr("Änderungen an „{0}“ speichern?").format(self.display_name),

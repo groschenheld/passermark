@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 """Übersetzungen: vollständig, Platzhalter identisch, Rückfall auf Deutsch."""
 import ast, glob, importlib, os, re, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-os.environ["PASSERMARK_LANG"] = "de"
+os.environ["PDFTOOLKIT_LANG"] = "de"
 from pdfdruck import l10n
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "pdfdruck")

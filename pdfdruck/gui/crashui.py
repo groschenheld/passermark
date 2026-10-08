@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 """Fehlerprotokoll in der Oberfläche: Meldung bei unerwartetem Fehler, Hinweis nach einem Absturz."""
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def show_error(summary: str, details: str):
     _showing["on"] = True
     try:
         box = QMessageBox(QMessageBox.Icon.Warning, tr("Unerwarteter Fehler"),
-                          tr("Es ist ein Fehler aufgetreten – Passermark läuft weiter.") + "\n\n" + summary + "\n\n"
+                          tr("Es ist ein Fehler aufgetreten – pdfToolkit läuft weiter.") + "\n\n" + summary + "\n\n"
                           + tr("Protokoll zum Mitschicken: {0}").format(crashlog.current_path() or "–"),
                           parent=QApplication.activeWindow())
         box.setDetailedText(details)
@@ -47,8 +47,8 @@ def notify_previous_crashes():
     if not paths:
         return
     crashlog.mark_seen(paths)
-    box = QMessageBox(QMessageBox.Icon.Information, tr("Passermark wurde unerwartet beendet"),
-                      tr("Passermark wurde beim letzten Mal unerwartet beendet. Das Protokoll hilft beim Beheben – "
+    box = QMessageBox(QMessageBox.Icon.Information, tr("pdfToolkit wurde unerwartet beendet"),
+                      tr("pdfToolkit wurde beim letzten Mal unerwartet beendet. Das Protokoll hilft beim Beheben – "
                          "bitte mitschicken:") + "\n\n" + paths[-1], parent=QApplication.activeWindow())
     btn = box.addButton(tr("Protokollordner öffnen"), QMessageBox.ButtonRole.ActionRole)
     box.addButton(QMessageBox.StandardButton.Ok)

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Passermark
+Name=pdfToolkit
 GenericName=PDF viewer and printing
 GenericName[de]=PDF-Betrachter und Druck
 GenericName[hu]=PDF-megjelenítő és nyomtatás
@@ -11,11 +11,11 @@ Comment[de]=PDF anzeigen, bearbeiten und mit allen Treiberfunktionen drucken
 Comment[hu]=PDF-ek megtekintése, szerkesztése és nyomtatása az összes illesztőprogram-funkcióval
 Comment[es]=Ver, editar e imprimir PDF con todas las funciones del controlador
 Comment[fr]=Afficher, modifier et imprimer des PDF avec toutes les fonctions du pilote
-Exec=passermark %F
-Icon=passermark
-StartupWMClass=passermark
+Exec=pdftoolkit %F
+Icon=pdftoolkit
+StartupWMClass=pdftoolkit
 Terminal=false
-MimeType=application/pdf;image/jpeg;image/png;image/tiff;image/bmp;image/gif;image/webp;image/heic;image/heif;image/svg+xml;image/svg+xml-compressed;application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;application/rtf;
+MimeType=application/pdf;image/jpeg;image/png;image/tiff;image/bmp;image/gif;image/webp;image/heic;image/heif;application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;application/rtf;
 Categories=Office;Viewer;Graphics;Printing;
 Keywords=PDF;Drucken;Print;Broschüre;Poster;Nutzen;Zusammenführen;Merge;Reparieren;
 Actions=print;merge;
@@ -26,7 +26,7 @@ Name[de]=Ohne Dialog drucken
 Name[hu]=Nyomtatás párbeszéd nélkül
 Name[es]=Imprimir sin diálogo
 Name[fr]=Imprimer sans dialogue
-Exec=passermark --print %F
+Exec=pdftoolkit --print %F
 
 [Desktop Action merge]
 Name=Merge into one PDF
@@ -34,4 +34,4 @@ Name[de]=Als ein PDF zusammenführen
 Name[hu]=Egyesítés egy PDF-be
 Name[es]=Combinar en un PDF
 Name[fr]=Fusionner en un PDF
-Exec=passermark --merge %F
+Exec=pdftoolkit --merge %F

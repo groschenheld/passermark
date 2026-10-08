@@ -1,6 +1,6 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build Passermark-<version>-x86_64.AppImage (Python, Qt, all Python packages and Ghostscript included).
+# Build pdfToolkit-<version>-x86_64.AppImage (Python, Qt, all Python packages and Ghostscript included).
 # Ubuntu/Debian build host:
 #   sudo apt install python3-venv python3-cups python3-dev ghostscript libcups2-dev patchelf wget file \
 #        libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
@@ -24,16 +24,16 @@ grep -v -i '^pycups' requirements.txt | sed 's/#.*//' | grep -v '^ *$' > build-r
 rm -f build-req.txt
 
 # 2) program folder
-.venv/bin/pyinstaller --noconfirm linux/passermark.spec --distpath dist --workpath build/pyi
+.venv/bin/pyinstaller --noconfirm linux/pdftoolkit.spec --distpath dist --workpath build/pyi
 
 # 3) AppDir
 rm -rf AppDir && mkdir -p AppDir/usr/lib AppDir/usr/bin AppDir/usr/share
-cp -a "dist/passermark" "AppDir/usr/lib/passermark"
+cp -a "dist/pdftoolkit" "AppDir/usr/lib/pdftoolkit"
 install -m 755 linux/AppRun AppDir/AppRun
-sed 's/^Exec=passermark/Exec=AppRun/; s/^TryExec=.*//' data/passermark.desktop > AppDir/passermark.desktop
-cp data/passermark.svg AppDir/passermark.svg
+sed 's/^Exec=pdftoolkit/Exec=AppRun/; s/^TryExec=.*//' data/pdftoolkit.desktop > AppDir/pdftoolkit.desktop
+cp data/pdftoolkit.svg AppDir/pdftoolkit.svg
 mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
-cp data/passermark.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+cp data/pdftoolkit.svg AppDir/usr/share/icons/hicolor/scalable/apps/
 
 # 4) Ghostscript: binary + its libraries (not glibc) + resources; started via a small wrapper
 GSBIN=$(readlink -f "$(command -v gs)")
@@ -82,5 +82,5 @@ mkdir -p linux/tools
 TOOL=linux/tools/appimagetool-x86_64.AppImage
 [ -x "$TOOL" ] || { wget -q -O "$TOOL" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage && chmod +x "$TOOL"; }
 mkdir -p dist
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$TOOL" --no-appstream AppDir "dist/Passermark-$VERSION-x86_64.AppImage"
-echo "Done: dist/Passermark-$VERSION-x86_64.AppImage"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$TOOL" --no-appstream AppDir "dist/pdfToolkit-$VERSION-x86_64.AppImage"
+echo "Done: dist/pdfToolkit-$VERSION-x86_64.AppImage"

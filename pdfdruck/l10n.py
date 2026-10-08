@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# pdfToolkit – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -28,9 +28,9 @@ _catalog: dict | None = None
 def _settings_file() -> str:
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or os.path.expanduser("~")
-        return os.path.join(base, "Passermark", "settings.json")
+        return os.path.join(base, "pdfToolkit", "settings.json")
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
-    return os.path.join(base, "passermark", "settings.json")
+    return os.path.join(base, "pdftoolkit", "settings.json")
 
 
 def load_settings() -> dict:
@@ -83,7 +83,7 @@ def system_language() -> str:
 def current() -> str:
     global _lang
     if _lang is None:
-        want = os.environ.get("PASSERMARK_LANG") or load_settings().get("language") or "auto"
+        want = os.environ.get("PDFTOOLKIT_LANG") or load_settings().get("language") or "auto"
         if want == "auto":
             want = _admin_default() or "auto"
         _lang = want if want in LANGS else system_language()
