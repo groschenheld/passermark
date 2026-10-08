@@ -1,5 +1,12 @@
 # Änderungen – Passermark
 
+## 1.6.7
+- **Zeitbudget-Tests im GitHub-Build** (tests/test_performance.py): CutContour (Kontur + Überfüller, Rechteck),
+  Objekterkennung, PDF-Aufbau und Broschüre werden gemessen – relativ zu einer Eichaufgabe auf demselben Rechner,
+  damit unterschiedlich schnelle Build-Rechner keinen Fehlalarm auslösen. Ab 1,6× langsamer als bisher gelbe
+  Warnung am Build, ab 3× schlägt der Build fehl. Bezugswerte in tests/perf_baseline.json
+  (neu messen: `python3 tests/test_performance.py --messen`)
+
 ## 1.6.6
 - **Behoben: leere Blätter beim Drucken unter Windows** (verschiedene Geräte). „Automatisch“ rastert jetzt immer
   ohne JPEG (300 dpi) – der verträglichste Weg. PostScript und JPEG-Durchreichen melden manche Treiber
