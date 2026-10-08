@@ -378,11 +378,14 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
         paths = []
         if s.shape == "contour":
             if off >= 0:
-                region = ndi.distance_transform_edt(~obj) <= off if off > 0 else obj.copy()
+                d_out = ndi.distance_transform_edt(~obj)
+                region = d_out <= off if off > 0 else obj.copy()
+                # Glättung (Schließen um sm): Abstand zur Region = Abstand zum Objekt − Abstand -> ein Feld weniger
+                dil = (d_out <= off + sm) if sm > 0 else None
             else:
                 region = ndi.distance_transform_edt(obj) > -off
+                dil = (ndi.distance_transform_edt(~region) <= sm) if sm > 0 else None
             if sm > 0:
-                dil = ndi.distance_transform_edt(~region) <= sm
                 region = ndi.distance_transform_edt(dil) > sm
             if not s.inner:
                 region = ndi.binary_fill_holes(region)
@@ -473,13 +476,19 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
             if flat:
                 # am Rand nur echte Vollfarb-Pixel zeigen (enge Toleranz -> kein heller Strich an der Linie)
                 tol2 = max(12, s.detect.tolerance * 0.6) ** 2
-                nonsolid = (_nearest_dist(rgbw.reshape(-1, 3).astype(np.int16), pal) > tol2).reshape(vis.shape)
-                vis &= ~(nonsolid & (d_in <= 1.5 * MM * px))
+                # nur der Randstreifen (bis 1,5 mm) wird gebraucht -> nur dort die nächste Vollfarbe suchen
+                cand = vis & (d_in <= 1.5 * MM * px)
+                nonsolid = np.zeros_like(vis)
+                if cand.any():
+                    nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
+                vis &= ~nonsolid
                 vis = ndi.binary_opening(vis, iterations=1)
                 # winzige Löcher (vereinzelte Mischpixel) schließen – sonst weiße Pünktchen
                 close = max(1, int(round(0.15 * MM * px)))
                 vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
-                vis = ndi.distance_transform_edt(vis) > 0.08 * MM * px
+                thr = 0.08 * MM * px
+                if thr >= 1.0:                       # darunter ist die Bedingung für jeden Motivpunkt erfüllt
+                    vis = ndi.distance_transform_edt(vis) > thr
             else:
                 vis = d_in > 0.25 * MM * px
             knock[wy0:wy1, wx0:wx1] |= vis
@@ -494,7 +503,9 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
                 labels = np.full(obj.shape, -1, np.int32)
                 labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
             tol2 = (s.detect.tolerance * 2) ** 2
-            nonsolid = obj & (_nearest_dist(rgbw.reshape(-1, 3).astype(np.int16), pal) > tol2).reshape(obj.shape)
+            nonsolid = np.zeros_like(obj)
+            if obj.any():
+                nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
             # Säume bis ~1 mm Breite gelten als Mischkante; breitere Bereiche = gewollter Verlauf/Foto -> bleiben
             thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
             seam = nonsolid & ~thick

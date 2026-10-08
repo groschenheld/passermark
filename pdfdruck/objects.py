@@ -103,8 +103,10 @@ def motif_mask(rgba, s: DetectSettings):
     # (z. B. Visitenkarte/Sticker im Endformat) -> die ganze Seite ist ein Objekt
     if (np.abs(border - bg).max(axis=1) <= s.tolerance).mean() < 0.6:
         return alpha > 96, "page"
-    diff = np.abs(rgb - bg).max(axis=2)
-    return (diff > s.tolerance) & (alpha > 96), mode
+    # ganzzahlig rechnen (schnell); doppelte Werte, damit ein „halber“ Median exakt gleich verglichen wird
+    bg2 = np.rint(bg * 2).astype(np.int16)
+    diff2 = np.abs(rgb * 2 - bg2).max(axis=2)
+    return (diff2 > 2 * s.tolerance) & (alpha > 96), mode
 
 
 def detect(page, s: DetectSettings) -> list[Box]:

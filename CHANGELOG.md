@@ -1,5 +1,10 @@
 # Änderungen – Passermark
 
+## 1.5.3
+- CutContour erzeugt schneller (ca. 17–20 %), Ergebnis bitgleich zu 1.5.2: Motiv-Erkennung rechnet ganzzahlig,
+  Vollfarb-Suche nur noch im Randstreifen, unnötige Abstandsberechnungen entfallen (u. a. eine pro Objekt bei der
+  Glättung, eine beim Aussparen unter 0,08 mm)
+
 ## 1.5.2
 - CutContour-Grundformen: **Griffe** an der Form in der Vorschau – Ecken skalieren gleichmäßig ab der Mitte,
   Seitengriffe nur Breite bzw. Höhe, **Verschiebe-Griff** über der Form verschiebt sie
