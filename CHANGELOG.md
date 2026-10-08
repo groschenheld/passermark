@@ -1,5 +1,11 @@
 # Änderungen – Passermark
 
+## 1.5.1
+- CutContour mit Grundform (Rechteck, Kreis, Herz …): **eine Form um das ganze Motiv** statt einer je erkanntem Teil;
+  sitzt mittig, Größe ändert sich ab der Mitte. Option „Eine Form je Objekt“ für Aufkleberbögen
+- CutContour: Form in der Vorschau **mit der Maus größer/kleiner ziehen** (Live-Anzeige in %, übernommen beim Loslassen)
+- Kreis umschließt das Motiv (größere Seite als Durchmesser), statt bei breiten Motiven hindurchzuschneiden
+
 ## 1.5.0
 - **Lineale und Messen** (Ansicht → Lineale anzeigen, Strg+R; Ansicht → Messen, Strg+Umschalt+M, auch in der
   Werkzeugleiste): Lineale in mm oben und links an der Kante der Ansicht, bleiben beim Scrollen stehen, Nullpunkt =

@@ -46,6 +46,7 @@ class CutSettings:
     min_size_mm: float = 3.0
     bleed_color: str = ""          # "" = automatisch aus dem Motiv, sonst feste Farbe "#rrggbb" (gleichmäßiger Rand)
     clean_seams: bool = False      # schmale Mischkanten im Motiv durch Vollfarben ersetzen (nur flächige Motive)
+    single_shape: bool = True      # Grundformen: EINE Form um das ganze Motiv (False = eine Form je Objekt)
     per_object: bool = False       # jedes Objekt als eigene Seite
     margin_mm: float = 6.0         # Rand der Einzelseiten um Überfüller/Schnitt
     spot: str = "CutContour"
@@ -111,7 +112,7 @@ def shape_polygon(kind: str, cx: float, cy: float, w: float, h: float, corner: f
         return np.array(pts)
     if kind in ("circle", "oval"):
         if kind == "circle":
-            w = h = min(w, h)
+            w = h = max(w, h)                  # um das ganze Motiv herum (größere Seite), nicht hindurch
         n = max(48, int(math.pi * (w + h) / 2 / step))
         t = np.linspace(0, 2 * math.pi, n, endpoint=False)
         return np.column_stack([cx + w / 2 * np.cos(t), cy + h / 2 * np.sin(t)])
@@ -340,6 +341,12 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
     work = (ndi.distance_transform_edt(~mask) <= gap) if gap > 0 else mask
     lab, n = ndi.label(work)
     minpx = s.min_size_mm * MM * px
+    if s.shape != "contour" and s.single_shape and n > 1:
+        # Grundform: alle Teile des Motivs (ohne Staub) zu EINEM Objekt -> eine Form, mittig, Skalierung ab der Mitte
+        keep = [k for k, sl in enumerate(ndi.find_objects(lab), start=1)
+                if sl is not None and (sl[1].stop - sl[1].start) >= minpx and (sl[0].stop - sl[0].start) >= minpx]
+        lab = np.isin(lab, keep).astype(np.int32) if keep else np.zeros_like(lab, dtype=np.int32)
+        n = 1 if keep else 0
     out_objects = []
     # Hintergrund nur ausstanzen, wenn ein Überfüller darunter liegt – ohne Überfüller bleibt das Motiv unverändert
     knock = np.zeros_like(mask) if (mode == "color" and use_bleed) else None

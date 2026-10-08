@@ -104,29 +104,56 @@ def test_offset_outward_and_inward():
 
 
 def test_shapes_sized_to_object():
+    """Option „eine Form je Objekt“ (Aufkleberbogen): jede Form passt zu ihrem Aufkleber."""
     norm = objects.normalized(stickers())
     for kind in cutcontour.SHAPES[1:]:
-        r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape=kind, corner_mm=5))
+        r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape=kind, corner_mm=5, single_shape=False))
         assert len(r.paths) == 3, kind
         p = near(pts(r), 50 * MM, 240 * MM)                      # Kreismotiv 50 × 50 mm
         w, h = (p[:, 0].max() - p[:, 0].min()) / MM, (p[:, 1].max() - p[:, 1].min()) / MM
         assert abs(w - 50) < 0.6 and abs(h - 50) < 0.6, (kind, w, h)
     # Skalierung und feste Größe
-    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", scale_pct=80))
+    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", scale_pct=80, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 40) < 0.6
-    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="circle", width_mm=60))
+    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="circle", width_mm=60, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 60) < 0.6
     # Rechteck mit -2 mm Abstand: 46 mm, Ecken scharf (Polylinie, nicht geglättet)
-    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", offset_mm=-2))
+    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", offset_mm=-2, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 46) < 0.6 and r.paths[0][1] is False
 
 
+def test_single_shape_around_whole_motif():
+    """Standard bei Grundformen: EINE Form mittig um alle Teile des Motivs, Skalierung ab der Mitte;
+    der Kreis umschließt das Motiv (größere Seite), statt hindurchzuschneiden."""
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas("/tmp/_logo.pdf", pagesize=(150 * mm, 100 * mm))
+    c.setFillColorRGB(0.8, 0.1, 0.1)
+    for x in (30, 60, 90):                                   # drei getrennte Teile, 8 mm Lücke
+        c.rect(x * mm, 40 * mm, 22 * mm, 22 * mm, fill=1, stroke=0)
+    c.showPage(); c.save()
+    norm = objects.normalized(pdfium.PdfDocument("/tmp/_logo.pdf"))
+    def box(r):
+        p = np.array([pt for poly, _s in r.paths for pt in poly]); return [v / MM for v in (p[:, 0].min(), p[:, 1].min(), p[:, 0].max(), p[:, 1].max())]
+    r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", offset_mm=0, bleed_mm=0))
+    assert len(r.paths) == 1
+    b = box(r)
+    assert abs(b[0] - 30) < 0.6 and abs(b[2] - 112) < 0.6 and abs(b[1] - 40) < 0.6 and abs(b[3] - 62) < 0.6, b
+    r2 = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", offset_mm=0, bleed_mm=0, scale_pct=150))
+    b2 = box(r2)
+    assert abs(((b2[0] + b2[2]) - (b[0] + b[2])) / 2) < 0.3 and abs((b2[2] - b2[0]) - 1.5 * (b[2] - b[0])) < 0.8, (b, b2)
+    rc = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="circle", offset_mm=0, bleed_mm=0))
+    bc = box(rc)
+    assert abs((bc[2] - bc[0]) - 82) < 0.8, bc                 # Durchmesser = Breite des ganzen Motivs
+    assert len(cutcontour.compute(norm[0], cutcontour.CutSettings(shape="contour", bleed_mm=0)).paths) == 3
+
+
 def test_pdf_output_on_sheet_and_per_object():
     import pikepdf
-    doc, n = cutcontour.make(stickers(), cutcontour.CutSettings())
+    doc, n = cutcontour.make(stickers(), cutcontour.CutSettings(single_shape=False))
     assert n == 3 and len(doc) == 1
     w, h = doc.get_page_size(0)
     assert abs(w / MM - 210) < 0.5 and abs(h / MM - 297) < 0.5        # Bogen bleibt erhalten
@@ -134,7 +161,7 @@ def test_pdf_output_on_sheet_and_per_object():
     pk = pikepdf.open("/tmp/_cut_out.pdf"); pg = pk.pages[0]
     cs = pg.Resources.ColorSpace.CSCut
     assert str(cs[0]) == "/Separation" and str(cs[1]) == "/CutContour"
-    doc2, n2 = cutcontour.make(stickers(), cutcontour.CutSettings(per_object=True, margin_mm=6, shape="circle"))
+    doc2, n2 = cutcontour.make(stickers(), cutcontour.CutSettings(per_object=True, margin_mm=6, shape="circle", single_shape=False))
     assert len(doc2) == 3
     w, h = doc2.get_page_size(0)                                           # Kreis 50 + 2×2 Überfüller + 2×6 Rand
     assert abs(w / MM - 66) < 1.0 and abs(h / MM - 66) < 1.0, (w / MM, h / MM)

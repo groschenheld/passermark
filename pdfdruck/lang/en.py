@@ -1002,4 +1002,8 @@ MESSAGES = {
     "Messen": "Measure",
     "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Measure: 1st click start, 2nd click end · Shift = horizontal/vertical/45° · Esc = cancel",
     "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Measurement: length, horizontal and vertical distance, angle",
+    "Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "For basic shapes: one shape centred around all parts of the motif (size from the centre) or a separate one per detected object – e.g. for sticker sheets. In the preview, drag the shape with the mouse to make it larger/smaller.",
+    "Eine Form je Objekt": "One shape per object",
+    "Eine Form um das ganze Motiv": "One shape around the whole motif",
+    "Größe: {0:.0f} %": "Size: {0:.0f} %",
 }

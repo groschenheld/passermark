@@ -19,15 +19,39 @@ od._CutWorker.isRunning = lambda self: False
 od.QDialog.done = lambda self, r: None       # Qt-Ersatz: Basismethode bereitstellen
 dlg = od.CutContourDialog(None, tc.stickers(), 0)
 from pdfdruck import cutcontour
-shapes = {}
-for shape in ("contour", "rect", "heart"):
+def run(shape, single=True):
     # echte Standard-Einstellungen (der Qt-Ersatz liefert für Zahlenfelder nur Platzhalter)
-    dlg._settings = lambda preview=False, shape=shape: cutcontour.CutSettings(shape=shape, dpi=100)
+    dlg._settings = lambda preview=False: cutcontour.CutSettings(shape=shape, single_shape=single, dpi=100)
+    dlg.cmb_shape.currentData = lambda: shape
     dlg._preview()
-    shapes[shape] = [tuple(round(v, 1) for pt in p for v in pt)[:12] for p in dlg.canvas.paths]
+    return [tuple(round(v, 1) for pt in p for v in pt)[:12] for p in dlg.canvas.paths]
+shapes = {sh: run(sh) for sh in ("contour", "rect", "heart")}
 assert len(ran) == 4 and ran[1:] == ["contour", "rect", "heart"], ran      # 1x beim Öffnen + 3 Formen
 assert shapes["contour"] != shapes["rect"] != shapes["heart"], "Vorschau ändert sich nicht mit der Form"
-assert all(len(v) == 3 for v in shapes.values()), {k: len(v) for k, v in shapes.items()}
+assert len(shapes["contour"]) == 3, len(shapes["contour"])                 # Kontur: je Aufkleber
+assert len(shapes["rect"]) == 1 and len(shapes["heart"]) == 1, (len(shapes["rect"]), len(shapes["heart"]))
+assert len(run("rect", single=False)) == 3                                 # Option: eine Form je Objekt
+# Form mit der Maus ziehen: doppelter Abstand zur Mitte = Faktor 2, live angezeigt, beim Loslassen übernommen
+run("rect")
+class P:
+    def __init__(s, x, y): s._x, s._y = x, y
+    def x(s): return s._x
+    def y(s): return s._y
+class E:
+    def __init__(s, x, y): s.p = P(x, y)
+    def position(s): return s.p
+    def button(s): return od.Qt.MouseButton.LeftButton
+cv = dlg.canvas
+cv.to_widget = lambda x, y: P(x, y)
+cx, cy = cv.scale_center
+got, live = [], []
+cv.on_scale, cv.on_scaling = got.append, live.append
+cv.mousePressEvent(E(cx + 40, cy)); cv.mouseMoveEvent(E(cx + 80, cy)); cv.mouseReleaseEvent(E(cx + 80, cy))
+assert live and abs(live[-1] - 2.0) < 1e-6 and got == [2.0], (live, got)
+cv.mousePressEvent(E(cx + 40, cy)); cv.mouseMoveEvent(E(cx + 20, cy)); cv.mouseReleaseEvent(E(cx + 20, cy))
+assert abs(got[-1] - 0.5) < 1e-6, got
+run("contour")
+assert dlg.canvas.scale_center is None                                     # Kontur: kein Ziehen
 dlg.done(0)
 print("CUT-DIALOG-OK")
 '''

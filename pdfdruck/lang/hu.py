@@ -1002,4 +1002,8 @@ MESSAGES = {
     "Messen": "Mérés",
     "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Mérés: 1. kattintás kezdet, 2. kattintás vég · Shift = vízszintes/függőleges/45° · Esc = mégse",
     "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Mérés: hossz, vízszintes és függőleges távolság, szög",
+    "Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "Alapformáknál: egy forma középre igazítva a motívum összes része körül (méret a középponttól), vagy felismert objektumonként külön – pl. matricaívekhez. Az előnézetben a forma egérrel nagyobbra/kisebbre húzható.",
+    "Eine Form je Objekt": "Objektumonként egy forma",
+    "Eine Form um das ganze Motiv": "Egy forma a teljes motívum körül",
+    "Größe: {0:.0f} %": "Méret: {0:.0f} %",
 }

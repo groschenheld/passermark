@@ -1002,4 +1002,8 @@ MESSAGES = {
     "Messen": "Mesurer",
     "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Mesurer : 1er clic début, 2e clic fin · Maj = horizontal/vertical/45° · Échap = annuler",
     "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Mesure : longueur, distance horizontale et verticale, angle",
+    "Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "Pour les formes simples : une forme centrée autour de toutes les parties du motif (taille depuis le centre) ou une par objet détecté – par ex. pour les planches d'autocollants. Dans l'aperçu, faites glisser la forme à la souris pour l'agrandir ou la réduire.",
+    "Eine Form je Objekt": "Une forme par objet",
+    "Eine Form um das ganze Motiv": "Une forme autour de tout le motif",
+    "Größe: {0:.0f} %": "Taille : {0:.0f} %",
 }

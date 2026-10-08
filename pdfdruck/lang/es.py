@@ -1002,4 +1002,8 @@ MESSAGES = {
     "Messen": "Medir",
     "Messen: 1. Klick Anfang, 2. Klick Ende · Umschalt = waagrecht/senkrecht/45° · Esc = abbrechen": "Medir: 1.er clic inicio, 2.º clic fin · Mayús = horizontal/vertical/45° · Esc = cancelar",
     "Messung: Länge, waagrechter und senkrechter Abstand, Winkel": "Medición: longitud, distancia horizontal y vertical, ángulo",
+    "Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "En formas básicas: una forma centrada alrededor de todas las partes del motivo (tamaño desde el centro) o una por cada objeto detectado, p. ej. para hojas de pegatinas. En la vista previa, arrastre la forma con el ratón para agrandarla o reducirla.",
+    "Eine Form je Objekt": "Una forma por objeto",
+    "Eine Form um das ganze Motiv": "Una forma alrededor de todo el motivo",
+    "Größe: {0:.0f} %": "Tamaño: {0:.0f} %",
 }

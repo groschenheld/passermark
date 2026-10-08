@@ -9,6 +9,8 @@ from __future__ import annotations
 import dataclasses
 import traceback
 
+import math
+
 from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
@@ -56,6 +58,11 @@ class PageCanvas(QWidget):
         self.boxes: list[objects.Box] = []
         self.selected: set[int] = set()
         self.paths = []           # Konturen in pt
+        self.scale_center = None  # Grundform: Mitte (pt) -> Form mit der Maus ziehen = skalieren
+        self.on_scale = None      # Rückruf (Faktor) beim Loslassen
+        self.on_scaling = None    # Rückruf (Faktor) während des Ziehens (Anzeige)
+        self.live_factor = 1.0
+        self._sdrag = None
         self.margin_pt = 0.0      # Vorschau des Randes (gestrichelt)
         self._drag = None
 
@@ -113,11 +120,16 @@ class PageCanvas(QWidget):
             p.drawText(r.adjusted(4, 2, 0, 0), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), str(i + 1))
         if self.paths:
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(236, 0, 140), 1.6))
+            f, c = self.live_factor, self.scale_center
+            live = c is not None and abs(f - 1.0) > 1e-6
+
+            def tr_pt(x, y):
+                return (c[0] + (x - c[0]) * f, c[1] + (y - c[1]) * f) if live else (x, y)
+            p.setPen(QPen(QColor(236, 0, 140), 1.6, Qt.PenStyle.DashLine if live else Qt.PenStyle.SolidLine))
             for poly in self.paths:
-                path = QPainterPath(self.to_widget(*poly[0]))
+                path = QPainterPath(self.to_widget(*tr_pt(*poly[0])))
                 for x, y in poly[1:]:
-                    path.lineTo(self.to_widget(x, y))
+                    path.lineTo(self.to_widget(*tr_pt(x, y)))
                 path.closeSubpath()
                 p.drawPath(path)
         if self._drag:
@@ -128,6 +140,11 @@ class PageCanvas(QWidget):
     # Maus/Tastatur ------------------------------------------------------- #
     def mousePressEvent(self, e):
         if not self.editable:
+            if self.scale_center is not None and self.paths and e.button() == Qt.MouseButton.LeftButton:
+                c = self.to_widget(*self.scale_center)
+                d0 = math.hypot(e.position().x() - c.x(), e.position().y() - c.y())
+                if d0 > 4:
+                    self._sdrag = (c, d0)            # Form anfassen: Abstand zur Mitte = Bezug
             return
         pos = e.position()
         hit = next((i for i in reversed(range(len(self.boxes))) if self._rect(self.boxes[i]).contains(pos)), None)
@@ -145,11 +162,30 @@ class PageCanvas(QWidget):
         self.update()
 
     def mouseMoveEvent(self, e):
+        if self._sdrag:
+            c, d0 = self._sdrag
+            d = math.hypot(e.position().x() - c.x(), e.position().y() - c.y())
+            self.live_factor = max(0.05, min(20.0, d / d0))
+            if self.on_scaling is not None:
+                self.on_scaling(self.live_factor)
+            self.update()
+            return
+        if not self.editable and self.scale_center is not None and self.paths:
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
         if self._drag:
             self._drag[1] = e.position()
             self.update()
 
     def mouseReleaseEvent(self, e):
+        if self._sdrag:
+            f = self.live_factor
+            self._sdrag = None
+            if self.on_scale is not None and abs(f - 1.0) > 0.005:
+                self.on_scale(f)                     # Größe übernehmen -> sauber neu rechnen
+            else:
+                self.live_factor = 1.0
+                self.update()
+            return
         if not self._drag:
             return
         a, b = self.to_pt(self._drag[0]), self.to_pt(self._drag[1])
@@ -450,6 +486,13 @@ class CutContourDialog(QDialog):
         self.cmb_shape = QComboBox()
         fill_combo(self.cmb_shape, SHAPES, self.s.shape)
         f.addRow(tr("Form:"), self.cmb_shape)
+        self.cmb_single = QComboBox()
+        fill_combo(self.cmb_single, [(True, tr("Eine Form um das ganze Motiv")), (False, tr("Eine Form je Objekt"))],
+                   self.s.single_shape)
+        self.cmb_single.setToolTip(tr("Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) "
+                                      "oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. "
+                                      "In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen."))
+        f.addRow("", self.cmb_single)
 
         def dspin(val, lo, hi, tip=""):
             sp = QDoubleSpinBox()
@@ -549,7 +592,8 @@ class CutContourDialog(QDialog):
         self._pv_timer.setSingleShot(True)
         self._pv_timer.setInterval(350)
         self._pv_timer.timeout.connect(self._preview)
-        for sig in (self.cmb_shape.currentIndexChanged, self.cmb_bcol.currentIndexChanged, self.chk_bleed.toggled,
+        for sig in (self.cmb_shape.currentIndexChanged, self.cmb_single.currentIndexChanged,
+                    self.cmb_bcol.currentIndexChanged, self.chk_bleed.toggled,
                     self.cmb_out.currentIndexChanged, self.chk_seams.toggled, self.chk_inner.toggled):
             sig.connect(self._pv_timer.start)
         for sp in (self.spn_corner, self.spn_scale, self.spn_fw, self.spn_fh, self.spn_off, self.spn_smooth,
@@ -612,13 +656,14 @@ class CutContourDialog(QDialog):
         self.spn_smooth.setEnabled(contour)
         self.chk_inner.setEnabled(contour)
         self.spn_corner.setEnabled(shape == "rounded")
-        for w in (self.spn_scale, self.spn_fw, self.spn_fh):
+        for w in (self.spn_scale, self.spn_fw, self.spn_fh, self.cmb_single):
             w.setEnabled(not contour)
         self.spn_margin.setEnabled(bool(self.cmb_out.currentData()))
 
     def _settings(self, preview=False):
         s = self.s
         s.shape = self.cmb_shape.currentData()
+        s.single_shape = bool(self.cmb_single.currentData())
         s.corner_mm = self.spn_corner.value()
         s.scale_pct = self.spn_scale.value()
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
@@ -690,8 +735,24 @@ class CutContourDialog(QDialog):
         self.canvas.page_w, self.canvas.page_h = x1 - x0, y1 - y0
         shift = [(pm, (a - x0, b - y0, c - x0, d - y0)) for pm, (a, b, c, d) in layers]
         self.canvas.paths = [[(x - x0, y - y0) for x, y in p] for p, _smooth in r.paths]
+        self.canvas.live_factor = 1.0
+        if self.cmb_shape.currentData() != "contour" and self.canvas.paths:
+            xs = [x for p in self.canvas.paths for x, _y in p]
+            ys = [y for p in self.canvas.paths for _x, y in p]
+            self.canvas.scale_center = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+            self.canvas.on_scale = self._scale_by
+            self.canvas.on_scaling = lambda f: self.lbl_info.setText(
+                tr("Größe: {0:.0f} %").format(self.spn_scale.value() * f))
+        else:
+            self.canvas.scale_center = None
         self.canvas.set_page(x1 - x0, y1 - y0, shift)
         self.lbl_info.setText(tr("{0} Kontur(en) auf dieser Seite").format(len(r.paths)))
+
+    def _scale_by(self, f):
+        """Form mit der Maus gezogen: Größe (%) übernehmen; die Vorschau rechnet danach neu."""
+        v = max(self.spn_scale.minimum(), min(self.spn_scale.maximum(), self.spn_scale.value() * f))
+        self.spn_scale.setValue(round(v, 1))
+        self._pv_timer.start()
 
     def _apply(self):
         s = self._settings()
