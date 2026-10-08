@@ -82,6 +82,15 @@ def test_known_orders():
     assert layout.booklet_sequence(6, "before_back") == [0, 1, 2, 3, 4, None, None, 5]
 
 
+def test_three_sheets_per_signature_24_pages():
+    """Gemeldet: 3 Bögen ineinander, gefalzt; die nächsten 3 Bögen darunter. Seite 24 darf nicht neben Seite 1."""
+    lay, _b, nsig = layout.booklet_layout(24, LayoutSettings(booklet_kind="grouped", booklet_per_sig=3))
+    faces = [[[x + 1 for x in side] for side in f] for (*_x, f) in lay]
+    assert nsig == 2
+    assert faces[0] == [[12, 1], [2, 11]] and faces[2] == [[8, 5], [6, 7]]       # Lage 1: Seiten 1–12
+    assert faces[3] == [[24, 13], [14, 23]]                                       # Lage 2 beginnt mit 13
+
+
 def test_creep_shifts_inner_sheets_to_fold():
     s = LayoutSettings(handling="booklet", booklet_creep_mm=0.2, use_margins=False)
     plans = layout.plan_booklet([A4] * 16, list(range(16)), A3, s)

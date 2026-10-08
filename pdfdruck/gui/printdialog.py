@@ -356,6 +356,10 @@ class PrintDialog(QDialog):
         self.spn_persig.setValue(L.booklet_per_sig)
         self.spn_persig.setSuffix(tr(" Bögen je Lage"))
         bl.addRow("", self.spn_persig)
+        # „Bögen je Lage“ ändern = gruppierte Lagen (sonst würde die Zahl bei Sammelheftung nichts bewirken)
+        self.spn_persig.valueChanged.connect(
+            lambda _v: self.cmb_bkind.currentData() == "saddle"
+            and self.cmb_bkind.setCurrentIndex(max(0, self.cmb_bkind.findData("grouped"))))
         self.cmb_bsides = QComboBox()
         fill_combo(self.cmb_bsides, [("both", tr("Beidseitig")), ("front", tr("Nur Vorderseiten")),
                                      ("back", tr("Nur Rückseiten"))], L.booklet_sides)
@@ -727,7 +731,7 @@ class PrintDialog(QDialog):
             for b in self.handling_btns.values():
                 b.setEnabled(not sr)
         booklet = self._handling() == "booklet"
-        self.spn_persig.setEnabled(booklet and self.cmb_bkind.currentData() == "grouped")
+        self.spn_persig.setEnabled(booklet and self.cmb_bkind.currentData() != "stack")
         self.spn_creep.setEnabled(booklet and self.cmb_bkind.currentData() != "stack")
         self.chk_bcoll.setEnabled(booklet and self.cmb_bkind.currentData() != "saddle")
         self.chk_reverse.setText(tr("Bögen in umgekehrter Reihenfolge") if booklet
@@ -1190,8 +1194,10 @@ class PrintDialog(QDialog):
         pick(self.cmb_binding, L.booklet_binding)
         self.ed_bsheets.setText(L.booklet_sheets)
         self.spn_gutter.setValue(L.booklet_gutter_mm)
-        pick(self.cmb_bkind, L.booklet_kind)
+        self.spn_persig.blockSignals(True)
         self.spn_persig.setValue(L.booklet_per_sig)
+        self.spn_persig.blockSignals(False)
+        pick(self.cmb_bkind, L.booklet_kind)
         self.spn_creep.setValue(L.booklet_creep_mm)
         pick(self.cmb_blanks, L.booklet_blanks)
         self.ed_blank.setText(L.booklet_blank_text)

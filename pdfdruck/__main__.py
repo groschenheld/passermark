@@ -63,6 +63,8 @@ def main():
         app.installTranslator(_tr)     # Qt-Standardtexte (Ja/Nein, Abbrechen, Dateidialog) in der Oberflächensprache
     from .gui import theme
     theme.apply(app)                 # dunkles Design, gelber Akzent, Mausrad-Schutz
+    from .gui.common import window_modal_dialogs
+    window_modal_dialogs()           # Dialoge sperren nur ihr eigenes Fenster, nicht alle Passermark-Fenster
     from . import crashlog
     from .gui import crashui
     crashlog.install("gui", on_error=crashui.show_error)     # Fehlerprotokoll (Datei zum Mitschicken)

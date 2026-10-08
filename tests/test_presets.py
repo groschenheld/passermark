@@ -131,7 +131,8 @@ from pdfdruck.gui import viewer
 viewer.PageView._dpi_scale = lambda self: 1.0
 viewer.PageView.page_zoom = lambda self, i: 1.0
 from pdfdruck import config, l10n
-from pdfdruck.gui.common import Session
+from pdfdruck.gui.common import Session, window_modal_dialogs
+window_modal_dialogs(); window_modal_dialogs()      # zweimal: darf nicht doppelt einhängen
 import pypdfium2 as pdfium
 w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)

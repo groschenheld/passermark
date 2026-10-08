@@ -1,4 +1,4 @@
-# Passermark 1.8.1
+# Passermark 1.8.2
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -74,7 +74,7 @@ points to the log. Logs without errors are deleted on exit.
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.8.1 && git push origin v1.8.1`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.8.2 && git push origin v1.8.2`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

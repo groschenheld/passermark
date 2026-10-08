@@ -115,3 +115,23 @@ class Session:
             pc = self.cfg.get("printers", {}).get(name, {})
             self.color[name] = (pc.get("color_profile", ""), pc.get("intent", "relative"))
         return self.color[name]
+
+
+def window_modal_dialogs():
+    """QDialog.exec() sperrt sonst das ganze Programm (alle Fenster). Mit Elternfenster nur noch dieses Fenster –
+    in anderen Passermark-Fenstern kann man weiterarbeiten (Druckdialog offen lassen, anderes Dokument ansehen)."""
+    from PySide6.QtCore import Qt as _Qt
+    from PySide6.QtWidgets import QDialog
+    if getattr(QDialog, "_pm_window_modal", False):
+        return
+    orig = QDialog.exec
+
+    def exec_(self, *a, **k):
+        try:
+            if self.parentWidget() is not None and self.windowModality() != _Qt.WindowModality.WindowModal:
+                self.setWindowModality(_Qt.WindowModality.WindowModal)
+        except Exception:
+            pass
+        return orig(self, *a, **k)
+    QDialog.exec = exec_
+    QDialog._pm_window_modal = True

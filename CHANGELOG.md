@@ -1,5 +1,12 @@
 # Änderungen – Passermark
 
+## 1.8.2
+- **Dialoge sperren nur noch ihr eigenes Fenster:** Druckdialog, CutContour, CMYK … offen – in anderen
+  Passermark-Fenstern kann man weiter blättern, zoomen, arbeiten. (Reiter im selben Fenster gehören zum Fenster
+  und sind solange gesperrt; „In eigenem Fenster öffnen“ löst einen Reiter.)
+- Broschüre: „Bögen je Lage“ ist immer einstellbar; wer die Zahl ändert, bekommt automatisch „Gruppierte Lagen“
+  (bei Sammelheftung blieb die Zahl sonst ohne Wirkung). Test für 24 Seiten mit 3 Bögen je Lage ergänzt
+
 ## 1.8.1
 - **Reiter (Tabs):** Was im Programm entsteht oder geöffnet wird, kommt als Reiter ins selbe Fenster – Öffnen-Knopf
   bei offenem Dokument, Hineinziehen, Ergebnisse (CutContour, CMYK/Beschneiden, Objekte trennen …), „Jetzt in
