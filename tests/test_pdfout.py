@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 """Als PDF speichern + Formularwerte beim Druck (Flatten)."""
 import os, sys
 import os as _os
-_os.environ.setdefault("PDFTOOLKIT_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
 from pdfdruck import config, layout, printers, printjob

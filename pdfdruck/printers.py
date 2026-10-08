@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -245,7 +245,7 @@ PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA3", "LETTER", 
 
 def pdf_target_info() -> "PrinterInfo":
     return PrinterInfo(name=PDF_TARGET, info=tr("Als PDF speichern (Farben unverändert)"), location="",
-                       model="pdfToolkit", state=3, state_message="", is_default=False)
+                       model="Passermark", state=3, state_message="", is_default=False)
 
 
 def pdf_caps() -> "PrinterCaps":

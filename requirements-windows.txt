@@ -5,3 +5,6 @@ img2pdf
 Pillow
 pikepdf
 pillow-heif
+numpy
+scipy
+contourpy

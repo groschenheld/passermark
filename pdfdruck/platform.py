@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -28,17 +28,17 @@ def config_dir() -> str:
     if env:
         return env
     if IS_WIN:
-        return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "pdfToolkit")
-    return "/etc/pdfdruck"
+        return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Passermark")
+    return "/etc/passermark"
 
 
 def user_log_dir() -> str:
-    """Fehlerprotokolle: Windows %LOCALAPPDATA%\\pdfToolkit\\logs, Linux ~/.local/state/pdftoolkit/logs."""
+    """Fehlerprotokolle: Windows %LOCALAPPDATA%\\Passermark\\logs, Linux ~/.local/state/passermark/logs."""
     if IS_WIN:
         base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
-        return os.path.join(base, "pdfToolkit", "logs")
+        return os.path.join(base, "Passermark", "logs")
     base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
-    return os.path.join(base, "pdftoolkit", "logs")
+    return os.path.join(base, "passermark", "logs")
 
 
 def total_memory() -> int | None:
@@ -66,8 +66,8 @@ def total_memory() -> int | None:
 def user_cache_dir() -> str:
     if IS_WIN:
         base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
-        return os.path.join(base, "pdfToolkit", "cache")
-    return os.path.join(os.path.expanduser("~"), ".cache", "pdftoolkit")
+        return os.path.join(base, "Passermark", "cache")
+    return os.path.join(os.path.expanduser("~"), ".cache", "passermark")
 
 
 def app_dirs() -> list[str]:
@@ -111,10 +111,10 @@ def notify(title: str, body: str, error: bool = False):
             app = QApplication.instance()
             if app is None:
                 return
-            tray = getattr(app, "_pdftoolkit_tray", None)
+            tray = getattr(app, "_passermark_tray", None)
             if tray is None:
                 tray = QSystemTrayIcon(app.windowIcon(), app)
-                app._pdftoolkit_tray = tray
+                app._passermark_tray = tray
             tray.show()
             tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Critical if error
                              else QSystemTrayIcon.MessageIcon.Information, 6000)
@@ -122,7 +122,7 @@ def notify(title: str, body: str, error: bool = False):
             pass
         return
     if shutil.which("notify-send"):
-        subprocess.Popen(["notify-send", "-a", "pdfToolkit", "-i", "dialog-error" if error else "pdftoolkit",
+        subprocess.Popen(["notify-send", "-a", "Passermark", "-i", "dialog-error" if error else "passermark",
                           title, body], start_new_session=True)
 
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -180,7 +180,7 @@ def process(src: str, dst: str, mode: str = "print", password: str | None = None
         raise ValueError(tr("Ziel darf nicht die Quelldatei sein."))
     notes = []
     pages_in = _pages(src, password)          # wirft PasswordRequired
-    tmp = tempfile.mkdtemp(prefix="pdftoolkit-rep-")
+    tmp = tempfile.mkdtemp(prefix="passermark-rep-")
     try:
         # 1) immer zuerst die Struktur reparieren und entschlüsseln -> sauberer Zwischenstand
         clean = os.path.join(tmp, "clean.pdf")

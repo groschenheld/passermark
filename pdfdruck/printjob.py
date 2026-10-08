@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -72,19 +72,25 @@ def default_printer(session) -> str | None:
 
 def submit_document(doc, title: str, session, printer: str, pages: list[int],
                     settings: layout.LayoutSettings, copies: int = 1, collate: bool = True,
-                    reverse: bool = False, values: dict | None = None) -> int:
+                    reverse: bool = False, values: dict | None = None, manip=None) -> int:
     """Ausschießen, ggf. Farbkonvertierung, Optionen zusammenstellen, an CUPS senden."""
     caps = session.caps_for(printer)
     if values is None:
         values = session.values_for(printer)
+    flat = layout.flattened(doc)          # Formularwerte/Kommentare mit auf das Blatt
+    if manip is not None and manip.active:     # nur noch auf ausdrücklichen Wunsch (z. B. Skripte)  # Dokument-Manipulation: beschneiden, CMYK
+        from . import pdfmanip
+        changed, _notes = pdfmanip.apply(flat, manip)
+        if flat is not doc:
+            flat.close()
+        flat = changed
+    src_doc = doc
+    doc = flat
     w, h, ia = caps.sheet_for(values)
     if caps.backend == "pdf" and values.get("PageSize") == "DOC" and pages:
         w, h = doc.get_page_size(pages[0])
         ia = None
     sheet = layout.Sheet(w, h, ia)
-    flat = layout.flattened(doc)          # Formularwerte/Kommentare mit auf das Blatt
-    src_doc = doc
-    doc = flat
     sizes = [doc.get_page_size(i) for i in range(len(doc))]
     plans = make_plans(sizes, pages, sheet, settings, reverse)
     if not plans:

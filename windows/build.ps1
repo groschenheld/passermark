@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build the pdfToolkit Windows installer (ASCII ONLY in this file - non-ASCII breaks PowerShell on CI runners).
+# Build the Passermark Windows installer (ASCII ONLY in this file - non-ASCII breaks PowerShell on CI runners).
 # Needs: Python 3.12 x64, Inno Setup 6, 7-Zip, curl.exe (all preinstalled on GitHub windows runners).
 # Local use:  powershell -ExecutionPolicy Bypass -File windows\build.ps1
 $ErrorActionPreference = "Stop"
@@ -32,25 +32,29 @@ if ($LASTEXITCODE -ne 0) { throw "python -m venv failed" }
 .\.venv-win\Scripts\pip install -r requirements-windows.txt pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
 .\.venv-win\Scripts\python windows\make_icon.py
-.\.venv-win\Scripts\pyinstaller --noconfirm windows\pdftoolkit.spec --distpath dist --workpath build\pyi
+.\.venv-win\Scripts\pyinstaller --noconfirm windows\passermark.spec --distpath dist --workpath build\pyi
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 
 # Ghostscript next to the program (pdfdruck/platform.py finds it there)
-$GsDest = "dist\pdftoolkit\gs\gs$GsVersion"
+$GsDest = "dist\passermark\gs\gs$GsVersion"
 New-Item -ItemType Directory -Force -Path $GsDest | Out-Null
 Copy-Item -Recurse -Force "$GsStage\*" $GsDest
 
 # Self test of the finished program (all bundled dependencies incl. Ghostscript must load)
-$p = Start-Process -FilePath "dist\pdftoolkit\pdftoolkit.exe" -ArgumentList "--selftest" -Wait -PassThru
-$log = Join-Path $env:TEMP "pdftoolkit-selftest.log"
+$p = Start-Process -FilePath "dist\passermark\passermark.exe" -ArgumentList "--selftest" -Wait -PassThru
+$log = Join-Path $env:TEMP "passermark-selftest.log"
 if (Test-Path $log) { Get-Content $log }
 if ($p.ExitCode -ne 0) { throw "Self test failed (exit code $($p.ExitCode))" }
 
+# Command line program must start (console EXE next to the GUI EXE)
+& "dist\passermark\passermark-cli.exe" list
+if ($LASTEXITCODE -ne 0) { throw "passermark-cli.exe does not start" }
+
 # Installer
 $Version = (.\.venv-win\Scripts\python -c "import pdfdruck; print(pdfdruck.__version__)").Trim()
-$env:PDFTOOLKIT_VERSION = $Version
+$env:PASSERMARK_VERSION = $Version
 $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 if (-not (Test-Path $iscc)) { throw "Inno Setup 6 not found: $iscc" }
-& $iscc windows\pdftoolkit.iss
+& $iscc windows\passermark.iss
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
-Write-Host "Done: dist\pdfToolkit-$Version-Setup.exe (Ghostscript included)"
+Write-Host "Done: dist\Passermark-$Version-Setup.exe (Ghostscript included)"
