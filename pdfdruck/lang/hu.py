@@ -1048,4 +1048,5 @@ MESSAGES = {
     "Unbekannter Fehler": "Ismeretlen hiba",
     "wird abgebrochen …": "megszakítás …",
     "Objekt {0}/{1}": "{0}/{1}. objektum",
+    "{0} von {1} Seiten fertig": "{0}/{1} oldal kész",
 }

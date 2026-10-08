@@ -781,7 +781,11 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     todo = list(pages) if pages is not None else list(range(len(norm)))
     pool = WorkerPool(workers) if workers > 1 else None
     try:
-        results, total = _make_pages(norm, s, todo, progress, cancel, pool)
+        at_once = _pages_at_once(norm, todo, s, workers) if (pool is not None and len(todo) >= 2) else 1
+        if at_once >= 2:
+            results, total = _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once)
+        else:                                             # eine Seite (oder zu groß): Objekte parallel
+            results, total = _make_pages(norm, s, todo, progress, cancel, pool)
     except BaseException:
         norm.close()
         raise
@@ -791,6 +795,77 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     if progress is not None:
         progress(len(todo), len(todo), tr("Schreibe PDF …"))
     return _make_finish(norm, results, total, s, pages)
+
+
+PAGE_MEMORY_BUDGET = 3_000_000_000   # Bytes für gleichzeitig gerechnete Seiten (alle Arbeitsprozesse zusammen)
+BYTES_PER_PIXEL = 40                 # grobe Spitze je Bildpunkt (Bild, Masken, Abstandsfelder)
+
+
+def _page_worker(path: str, i: int, s: CutSettings):
+    """Arbeitsprozess: eine ganze Seite rechnen (eigenes pdfium – in eigenen Prozessen sicher)."""
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(path)
+    try:
+        pg = doc[i]
+        try:
+            return compute(pg, s)
+        finally:
+            pg.close()
+    finally:
+        doc.close()
+
+
+def _pages_at_once(norm, todo, s, workers: int) -> int:
+    """Wie viele Seiten gleichzeitig gerechnet werden dürfen (nach geschätztem Speicherbedarf der größten Seite)."""
+    px = s.dpi / 72.0
+    biggest = 0
+    for i in todo:
+        w, h = norm.get_page_size(i)
+        biggest = max(biggest, w * px * h * px)
+    per_page = max(1.0, biggest * BYTES_PER_PIXEL)
+    return max(1, min(workers, len(todo), int(PAGE_MEMORY_BUDGET // per_page)))
+
+
+def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
+    """Mehrere Seiten gleichzeitig: jeder Arbeitsprozess rechnet eine ganze Seite (kein Warten zwischen Seiten)."""
+    import os
+    import tempfile
+    from concurrent.futures import FIRST_COMPLETED, wait
+    fd, path = tempfile.mkstemp(prefix="passermark-cut-", suffix=".pdf")
+    os.close(fd)
+    try:
+        norm.save(path)                                   # normalisierte Seiten für die Arbeitsprozesse
+        ex = pool.get()
+        results, total, waiting = {}, 0, list(todo)
+        running = {}
+        done = 0
+        if progress is not None:
+            progress(0, len(todo), tr("Seite {0}/{1}").format(1, len(todo)))
+        try:
+            while waiting or running:
+                if cancel is not None and cancel():
+                    from .core import Cancelled
+                    raise Cancelled(tr("Abgebrochen."))
+                while waiting and len(running) < at_once:  # höchstens so viele Seiten, wie in den Speicher passen
+                    i = waiting.pop(0)
+                    running[ex.submit(_page_worker, path, i, s)] = i
+                finished, _ = wait(list(running), timeout=0.2, return_when=FIRST_COMPLETED)
+                for f in finished:
+                    i = running.pop(f)
+                    results[i] = f.result()
+                    total += len(results[i].paths)
+                    done += 1
+                    if progress is not None:
+                        progress(done, len(todo), tr("{0} von {1} Seiten fertig").format(done, len(todo)))
+        except BaseException:
+            pool.close()                                  # Abbruch/Fehler: offene Seiten verwerfen
+            raise
+        return results, total
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def _make_pages(norm, s, todo, progress, cancel, pool):

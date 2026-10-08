@@ -64,6 +64,25 @@ def test_multipage_one_pool_same_result():
         assert np.array_equal(a, b), i
 
 
+def test_pages_parallel_equals_serial():
+    """Mehrere Seiten gleichzeitig (jeder Arbeitsprozess eine ganze Seite) – bitgleich zu seriell, Seite für Seite."""
+    import test_cli as tcl
+    norm = objects.normalized(pdfium.PdfDocument(tcl._slow_input()))
+    s = cutcontour.CutSettings(clean_seams=True)
+    todo = [0, 3, 5]
+    msgs = []
+    pool = cutcontour.WorkerPool(2)
+    try:
+        par, tp = cutcontour._make_pages_parallel(norm, s, todo, lambda d, t, txt: msgs.append(txt), None, pool, 2)
+    finally:
+        pool.close()
+    ser, ts = cutcontour._make_pages(norm, s, todo, None, None, None)
+    assert tp == ts == 240 and sorted(par) == sorted(ser) == todo
+    for i in todo:
+        assert _same(par[i], ser[i]), i
+    assert any("Seiten fertig" in m for m in msgs), msgs
+
+
 def test_cancel_leaves_no_workers():
     import test_cli as tcl
     from pdfdruck import core
@@ -73,6 +92,15 @@ def test_cancel_leaves_no_workers():
         return len(calls) > 3                                # mitten in der Berechnung abbrechen
     try:
         cutcontour.make(pdfium.PdfDocument(tcl._slow_input()), cutcontour.CutSettings(), pages=[0, 1, 2],
+                        cancel=cancel, workers=2)
+        assert False, "kein Abbruch"
+    except core.Cancelled:
+        pass
+    assert not multiprocessing.active_children(), multiprocessing.active_children()
+    # Seiten-Modus (mehrere Seiten gleichzeitig): Abbruch ebenfalls ohne übrige Arbeitsprozesse
+    calls.clear()
+    try:
+        cutcontour.make(pdfium.PdfDocument(tcl._slow_input()), cutcontour.CutSettings(), pages=[0, 1, 2, 3],
                         cancel=cancel, workers=2)
         assert False, "kein Abbruch"
     except core.Cancelled:

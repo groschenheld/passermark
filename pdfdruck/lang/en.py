@@ -1048,4 +1048,5 @@ MESSAGES = {
     "Unbekannter Fehler": "Unknown error",
     "wird abgebrochen …": "cancelling …",
     "Objekt {0}/{1}": "Object {0}/{1}",
+    "{0} von {1} Seiten fertig": "{0} of {1} pages done",
 }

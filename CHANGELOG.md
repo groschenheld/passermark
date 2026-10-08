@@ -1,5 +1,12 @@
 # Änderungen – Passermark
 
+## 1.6.4
+- CutContour mit **mehreren Seiten: ganze Seiten parallel** – jeder Arbeitsprozess rechnet eine komplette Seite
+  (auch Rendern und Erkennen); kein Stocken mehr zwischen den Seiten. Eine Seite: weiterhin Objekte parallel
+- Speicherschutz: Anzahl gleichzeitiger Seiten nach geschätztem Speicherbedarf (z. B. A4: bis 8, A0: 1 – dann
+  Objekte parallel)
+- Fortschritt bei mehreren Seiten: „3 von 12 Seiten fertig“; Ergebnis bitgleich zum seriellen Rechnen
+
 ## 1.6.3
 - **Paralleles Rechnen:** CutContour verteilt die Objekte einer Seite auf mehrere Rechenkerne (alle bis auf einen,
   höchstens 8); Ergebnis bitgleich zum seriellen Rechnen. Arbeitsprozesse werden einmal je Auftrag gestartet und für

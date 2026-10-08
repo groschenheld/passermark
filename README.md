@@ -1,4 +1,4 @@
-# Passermark 1.6.3
+# Passermark 1.6.4
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -61,7 +61,7 @@ A guide with examples (German PDF) is in the program under **Help → Command li
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.3 && git push origin v1.6.3`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.4 && git push origin v1.6.4`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and
