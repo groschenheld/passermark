@@ -1,5 +1,28 @@
 # Änderungen – Passermark
 
+## 1.7.0
+- **Arbeitsbereiche:** zweite Leiste unter der Werkzeugleiste – *Anzeigen & Drucken*, *Druckaufbereitung*,
+  *Bearbeiten*, *Automatisierung*. Rechts daneben stehen die Werkzeuge des gewählten Bereichs (z. B. Prüfen, CMYK,
+  Beschneiden, CutContour, Objekte trennen, Reparieren). Druckaufbereitung öffnet die Prüfung, Bearbeiten die
+  Seitenleiste; wer den Bereich verlässt, beendet den Bearbeiten-Modus. Der zuletzt gewählte Bereich gilt beim
+  nächsten Start. Die Menüs bleiben vollständig.
+- **Presets:** in den Fenstern CutContour, CMYK/Beschneiden und im Druckdialog oben die Zeile *Preset* – wählen,
+  *Speichern…*, löschen, als Datei exportieren/laden, Standardwerte. Druck-Presets umfassen Seitenhandhabung,
+  Mehrere, Broschüre, Poster, Nutzen und weitere Optionen (ohne Drucker und Fach).
+  Ablage: Linux `~/.config/passermark/presets/`, Windows `%APPDATA%\Passermark\presets\`
+- CutContour merkt sich die zuletzt verwendeten Einstellungen (ohne Versatz der Form)
+- **Kommandozeile:** `--preset NAME` findet ein im Programm gespeichertes Preset; `passermark-cli presets [auftrag]`
+  listet sie. Anleitung ergänzt.
+- **Als PDF speichern mit Passwort** (Druckdialog, Ziel „Als PDF speichern“): Häkchen *PDF mit Passwort schützen*
+  (AES-256, Passwort zweimal eingeben)
+- **Windows-Setup:** optional *passermark-cli in jeder Eingabeaufforderung verfügbar machen* (Suchpfad PATH;
+  beim Deinstallieren wieder entfernt)
+- Tastenkürzel ohne Doppelbelegung: Messen jetzt Strg+Umschalt+L (Strg+Umschalt+M = CMYK und Beschneiden),
+  Text und Ebenen bearbeiten Strg+T (Strg+E = Auswahl exportieren), Text der Seite markieren Strg+Alt+A
+  (Strg+Umschalt+A = alle Seiten auswählen); ein Test prüft das künftig
+- Eigene Symbole für CutContour, CMYK, Beschneiden, Objekte trennen, Bearbeiten, Prüfen, Reparieren, Messen u. a.
+  (vorher teils doppelt vergebene Symbole)
+
 ## 1.6.7
 - **Zeitbudget-Tests im GitHub-Build** (tests/test_performance.py): CutContour (Kontur + Überfüller, Rechteck),
   Objekterkennung, PDF-Aufbau und Broschüre werden gemessen – relativ zu einer Eichaufgabe auf demselben Rechner,

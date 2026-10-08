@@ -1018,6 +1018,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
         self._build_edit(dock)
+        self._build_workspaces(dock)
         self.lbl_measure = QLabel()
         self.lbl_measure.setContentsMargins(8, 0, 8, 0)
         self.lbl_measure.setFont(theme.mono_font(9.5))
@@ -1025,6 +1026,99 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.lbl_measure)     # ganz rechts unten, stört die Arbeit nicht
         self.view.on_measure = self.lbl_measure.setText
         self._update_title()
+
+    # ---------------- Arbeitsbereiche ---------------- #
+    WORKSPACES = ("view", "prep", "edit", "auto")
+
+    def _build_workspaces(self, pages_dock):
+        """Zweite Leiste: Arbeitsbereich wählen; rechts daneben die Werkzeuge dieses Bereichs."""
+        from PySide6.QtGui import QActionGroup
+        self._pages_dock = pages_dock
+        self.a_presets = self._act(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
+        self.a_cli = self._act(tr("Kommandozeile – Anleitung (PDF)"), self._open_cli_howto, None, "terminal")
+        tools = {"view": [(self.a_rulers, tr("Lineale")), (self.a_measure, tr("Messen")),
+                          (self.a_copy, tr("Text kopieren"))],
+                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_manip_cmyk, tr("CMYK")),
+                          (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
+                          (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
+                 "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
+                          (self.a_delete, tr("Löschen")), (self.a_rot_l, tr("Links drehen")),
+                          (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
+                          (self.a_down, tr("Nach hinten")), (self.a_merge, tr("Zusammenführen")),
+                          (self.a_export, tr("Exportieren"))],
+                 "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))]}
+        self.addToolBarBreak()
+        tb = self.ws_bar = self.addToolBar(tr("Arbeitsbereich"))
+        tb.setObjectName("workspaces")
+        tb.setMovable(False)
+        tb.setIconSize(QSize(18, 18))
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        self.ws_actions = {}
+        names = {"view": tr("Anzeigen & Drucken"), "prep": tr("Druckaufbereitung"), "edit": tr("Bearbeiten"),
+                 "auto": tr("Automatisierung")}
+        for key in self.WORKSPACES:
+            a = QAction(names[key], self)
+            a.setCheckable(True)
+            a.setData(key)
+            grp.addAction(a)
+            tb.addAction(a)
+            btn = tb.widgetForAction(a)
+            if isinstance(btn, QToolButton):
+                btn.setObjectName("workspace")
+            self.ws_actions[key] = a
+        tb.setStyleSheet(f"QToolButton#workspace {{ padding: 3px 10px; border-bottom: 2px solid transparent; }}"
+                         f"QToolButton#workspace:checked {{ color: {theme.ACCENT}; border-bottom: 2px solid {theme.ACCENT};"
+                         f" background: transparent; }}")
+        tb.addSeparator()
+        self.ws_tools = {}
+        for key, acts in tools.items():
+            holders = []
+            for a, text in acts:
+                a.setIconText(text)                    # Kurztext für Leisten; Menüs zeigen weiter den vollen Text
+                b = QToolButton()
+                b.setDefaultAction(a)
+                b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+                holders.append(tb.addWidget(b))
+            self.ws_tools[key] = holders
+        grp.triggered.connect(lambda a: self.set_workspace(a.data()))
+        from .. import l10n
+        key = l10n.load_settings().get("workspace", "view")
+        self.set_workspace(key if key in self.ws_actions else "view", remember=False)
+
+    def set_workspace(self, key: str, remember: bool = True):
+        self.workspace = key
+        self.ws_actions[key].setChecked(True)
+        for k, holders in self.ws_tools.items():
+            for h in holders:
+                h.setVisible(k == key)
+        if key != "edit" and self.a_edit.isChecked():
+            self.a_edit.setChecked(False)                  # Bearbeiten-Modus gehört zum Bereich Bearbeiten
+        if key == "prep":
+            self.pf_dock.show()
+            self.pf_dock.raise_()
+        elif key == "edit":
+            self._pages_dock.show()
+            self._pages_dock.raise_()
+        elif self._pages_dock.isVisible():
+            self._pages_dock.raise_()
+        if remember:
+            from .. import l10n
+            st = l10n.load_settings()
+            if st.get("workspace") != key:
+                st["workspace"] = key
+                try:
+                    l10n.save_settings(st)
+                except OSError:
+                    pass
+
+    def _open_presets_dir(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from .. import presets
+        d = presets.root_dir()
+        os.makedirs(d, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(d))
 
     # ---------------- Bearbeiten-Modus (Text und Ebenen) ---------------- #
     def _build_edit(self, pages_dock):
@@ -1087,6 +1181,8 @@ class MainWindow(QMainWindow):
     def _edit_mode(self, on: bool):
         if on and self.a_measure.isChecked():
             self.a_measure.setChecked(False)
+        if on and getattr(self, "workspace", "edit") != "edit":
+            self.set_workspace("edit")
         self.view.imode = "edit" if on else "text"
         self.view.sel = None
         if on:
@@ -1208,17 +1304,17 @@ class MainWindow(QMainWindow):
         self.a_saveas = A(tr("Speichern unter…"), self.save_as, "Ctrl+Shift+S")
         self.a_merge = A(tr("Dokumente zusammenführen…"), self.merge_dialog, "Ctrl+M", "merge")
         self.a_print = A(tr("Drucken…"), self.print_dialog, QKeySequence.StandardKey.Print, "print")
-        self.a_repair = A(tr("Reparieren, optimieren, Passwort…"), self.repair_dialog, "Ctrl+Shift+R", "export")
+        self.a_repair = A(tr("Reparieren, optimieren, Passwort…"), self.repair_dialog, "Ctrl+Shift+R", "repair")
         self.a_close = A(tr("Schließen"), self.close, QKeySequence.StandardKey.Close)
-        self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "export")
-        self.a_seltext = A(tr("Text der Seite markieren"), lambda: self.view.select_page_text(), "Ctrl+Shift+A", "export")
+        self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "copy")
+        self.a_seltext = A(tr("Text der Seite markieren"), lambda: self.view.select_page_text(), "Ctrl+Alt+A", "select")
         self.a_settings = A(tr("Einstellungen …"), self.settings_dialog, "Ctrl+,", "settings")
-        self.a_manip = A(tr("CMYK und Beschneiden in einem Schritt …"), lambda: self.manip_dialog("all"), "Ctrl+Shift+M", "export")
-        self.a_manip_cmyk = A(tr("CMYK-Umwandlung …"), lambda: self.manip_dialog("cmyk"), None, "print")
-        self.a_manip_crop = A(tr("Auf Format beschneiden …"), lambda: self.manip_dialog("crop"), None, "fit_page")
-        self.a_separate = A(tr("Objekte trennen (Einzelseiten ohne Weißraum) …"), self.separate_dialog, None, "merge")
-        self.a_cut = A(tr("CutContour erzeugen (Schneideplotter) …"), self.cut_dialog, None, "rot_r")
-        self.a_edit = A(tr("Text und Ebenen bearbeiten"), lambda: None, "Ctrl+E", "export")
+        self.a_manip = A(tr("CMYK und Beschneiden in einem Schritt …"), lambda: self.manip_dialog("all"), "Ctrl+Shift+M", "cmyk")
+        self.a_manip_cmyk = A(tr("CMYK-Umwandlung …"), lambda: self.manip_dialog("cmyk"), None, "cmyk")
+        self.a_manip_crop = A(tr("Auf Format beschneiden …"), lambda: self.manip_dialog("crop"), None, "crop")
+        self.a_separate = A(tr("Objekte trennen (Einzelseiten ohne Weißraum) …"), self.separate_dialog, None, "separate")
+        self.a_cut = A(tr("CutContour erzeugen (Schneideplotter) …"), self.cut_dialog, None, "cut")
+        self.a_edit = A(tr("Text und Ebenen bearbeiten"), lambda: None, "Ctrl+T", "edit")
         self.a_edit.setCheckable(True)
         self.a_edit.toggled.connect(self._edit_mode)
 
@@ -1230,8 +1326,8 @@ class MainWindow(QMainWindow):
         self.a_delete = A(tr("Seiten löschen"), self.delete_pages, QKeySequence.StandardKey.Delete, "delete")
         self.a_rot_l = A(tr("Seiten links drehen (dauerhaft)"), lambda: self.rotate_pages(-90), None, "rot_l")
         self.a_rot_r = A(tr("Seiten rechts drehen (dauerhaft)"), lambda: self.rotate_pages(90), None, "rot_r")
-        self.a_up = A(tr("Seiten nach vorne verschieben"), lambda: self.move_pages(-1), "Alt+Up")
-        self.a_down = A(tr("Seiten nach hinten verschieben"), lambda: self.move_pages(1), "Alt+Down")
+        self.a_up = A(tr("Seiten nach vorne verschieben"), lambda: self.move_pages(-1), "Alt+Up", "move_up")
+        self.a_down = A(tr("Seiten nach hinten verschieben"), lambda: self.move_pages(1), "Alt+Down", "move_down")
         self.a_selall = A(tr("Alle Seiten auswählen"), lambda: self.thumbs.selectAll(), "Ctrl+Shift+A")
 
         mb = self.menuBar()
@@ -1249,9 +1345,9 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_merge)
         m.addAction(self.a_repair)
         m.addSeparator()
-        self.a_preflight = QAction(tr("Dokumentprüfung (Preflight) …"), self)
-        self.a_preflight.setShortcut("Ctrl+Shift+P")
-        self.a_preflight.triggered.connect(lambda: (self.pf_dock.show(), self.pf_dock.raise_(), self._pf_start(force=True)))
+        self.a_preflight = A(tr("Dokumentprüfung (Preflight) …"),
+                             lambda: (self.pf_dock.show(), self.pf_dock.raise_(), self._pf_start(force=True)),
+                             "Ctrl+Shift+P", "check")
         m.addAction(self.a_preflight)
         m = mb.addMenu(tr("Dokument-&Manipulation"))
         for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
@@ -1266,7 +1362,7 @@ class MainWindow(QMainWindow):
         self.a_rulers = A(tr("Lineale anzeigen"), lambda: None, "Ctrl+R", "ruler")
         self.a_rulers.setCheckable(True)
         self.a_rulers.toggled.connect(self._show_rulers)
-        self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+M", "ruler")
+        self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+L", "measure")
         self.a_measure.setCheckable(True)
         self.a_measure.toggled.connect(self._measure_mode)
         m.addAction(self.a_rulers)
@@ -1347,8 +1443,6 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_vrot_l)
         tb.addAction(self.a_vrot_r)
-        tb.addSeparator()
-        tb.addAction(self.a_measure)
         A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
         A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
         self._update_actions()

@@ -158,6 +158,10 @@ class PrintDialog(QDialog):
     # ================================================================== #
     def _build_general(self):
         v = QVBoxLayout(self.general)
+        from .presetbar import PresetBar
+        self.presetbar = PresetBar(self, "druck", self._settings, self._load_layout)
+        self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
+        v.addWidget(self.presetbar)
 
         # Drucker
         g = QGroupBox(tr("Drucker"))
@@ -175,6 +179,26 @@ class PrintDialog(QDialog):
         self.btn_reset = QPushButton(tr("Auf Admin-Standards zurücksetzen"))
         self.btn_reset.clicked.connect(self._reset_to_admin)
         f.addRow("", self.btn_reset)
+        # nur beim Speichern als PDF: Passwortschutz
+        self.pw_box = QWidget()
+        pv = QVBoxLayout(self.pw_box)
+        pv.setContentsMargins(0, 0, 0, 0)
+        self.chk_pw = QCheckBox(tr("PDF mit Passwort schützen (AES-256)"))
+        pv.addWidget(self.chk_pw)
+        prow = QHBoxLayout()
+        self.ed_pw, self.ed_pw2 = QLineEdit(), QLineEdit()
+        for ed, ph in ((self.ed_pw, tr("Passwort")), (self.ed_pw2, tr("wiederholen"))):
+            ed.setEchoMode(QLineEdit.EchoMode.Password)
+            ed.setPlaceholderText(ph)
+            ed.setEnabled(False)
+            prow.addWidget(ed)
+        pv.addLayout(prow)
+        self.chk_pw.toggled.connect(lambda on: (self.ed_pw.setEnabled(on), self.ed_pw2.setEnabled(on)))
+        self.pw_box.setToolTip(tr("Zum Öffnen der gespeicherten Datei wird das Passwort verlangt. "
+                                  "Es wird nirgends gespeichert – gut merken."))
+        self.pw_box.hide()
+        f.addRow(tr("Schutz:"), self.pw_box)
+        self._pw_form = f
         row = QHBoxLayout()
         self.spn_copies = QSpinBox()
         self.spn_copies.setRange(1, 9999)
@@ -707,6 +731,7 @@ class PrintDialog(QDialog):
         QApplication.restoreOverrideCursor()
         self.btn_print.setEnabled(True)
         self.btn_print.setText(tr("Speichern …") if p.name == printers.PDF_TARGET else tr("Drucken"))
+        self._pw_form.setRowVisible(self.pw_box, p.name == printers.PDF_TARGET)
         self.spn_copies.setEnabled(p.name != printers.PDF_TARGET)
         self.chk_collate.setEnabled(p.name != printers.PDF_TARGET)
         if hasattr(self, "btn_reset"):
@@ -1073,6 +1098,67 @@ class PrintDialog(QDialog):
         L.use_margins = self.chk_margins.isChecked()
         return L
 
+    def _load_layout(self, L: layout.LayoutSettings):
+        """Felder aus Layout-Einstellungen setzen (Preset)."""
+        def pick(cmb, val):
+            i = cmb.findData(val)
+            if i >= 0:
+                cmb.setCurrentIndex(i)
+        for b in self.mode_group.buttons():
+            if b.property("mode") == L.mode:
+                b.setChecked(True)
+        pick(self.cmb_custom_by, L.custom_by)
+        self.spn_custom.setValue(L.custom_percent)
+        self.spn_custom_mm.setValue(L.custom_mm)
+        if L.cols and L.rows:
+            pick(self.cmb_nup, 0)
+            self.spn_cols.setValue(L.cols)
+            self.spn_rows.setValue(L.rows)
+        else:
+            pick(self.cmb_nup, L.nup if L.nup > 1 else 2)
+        pick(self.cmb_order, L.order)
+        pick(self.cmb_tile, L.tile_mode)
+        self.spn_tile.setValue(L.tile_percent)
+        self.spn_gap.setValue(L.gap_mm)
+        self.chk_borders.setChecked(L.borders)
+        pick(self.cmb_bsides, L.booklet_sides)
+        pick(self.cmb_binding, L.booklet_binding)
+        self.ed_bsheets.setText(L.booklet_sheets)
+        self.spn_gutter.setValue(L.booklet_gutter_mm)
+        pick(self.cmb_pmode, L.poster_mode)
+        self.spn_ppct.setValue(L.poster_percent)
+        self.spn_pcols.setValue(L.poster_cols)
+        self.spn_prows.setValue(L.poster_rows)
+        pick(self.cmb_ptarget, L.poster_target)
+        self.spn_ptw.setValue(L.poster_target_w_mm)
+        self.spn_pth.setValue(L.poster_target_h_mm)
+        self.spn_overlap.setValue(L.poster_overlap_mm)
+        self.chk_pmarks.setChecked(L.poster_marks)
+        self.chk_plabels.setChecked(L.poster_labels)
+        self.chk_plarge.setChecked(L.poster_large_only)
+        pick(self.cmb_orient, L.orientation)
+        self.chk_autorot.setChecked(L.autorotate)
+        self.chk_center.setChecked(L.center)
+        self.chk_margins.setChecked(L.use_margins)
+        self.chk_mirror_h.setChecked(L.mirror_h)
+        self.chk_mirror_v.setChecked(L.mirror_v)
+        self.chk_sr.setChecked(L.step_repeat)
+        pick(self.cmb_srmode, L.sr_mode)
+        self.spn_srcols.setValue(L.sr_cols)
+        self.spn_srrows.setValue(L.sr_rows)
+        self.spn_srpct.setValue(L.sr_percent)
+        pick(self.cmb_srby, L.sr_by)
+        self.spn_srmm.setValue(L.sr_mm)
+        self.spn_srgap.setValue(L.sr_gap_mm)
+        pick(self.cmb_srorient, L.sr_orientation)
+        pick(self.cmb_srrot, str(L.sr_rotate))
+        pick(self.cmb_srjoin, L.sr_join)
+        self.chk_marks.setChecked(L.crop_marks)
+        self.spn_bleed.setValue(L.bleed_mm)
+        self.handling_btns.get(L.handling, self.handling_btns["size"]).setChecked(True)
+        self._handling_changed()
+        self._changed()
+
     def _pages(self) -> list[int]:
         n = len(self.doc)
         cur = self.current if self.rb_cur.isChecked() else None
@@ -1266,6 +1352,15 @@ class PrintDialog(QDialog):
         name = self.caps.name
         values = self.values
         if self._is_pdf_target():
+            pw = ""
+            if self.chk_pw.isChecked():
+                pw = self.ed_pw.text()
+                if not pw:
+                    QMessageBox.warning(self, tr("Passwort"), tr("Bitte ein Passwort eingeben."))
+                    return
+                if pw != self.ed_pw2.text():
+                    QMessageBox.warning(self, tr("Passwort"), tr("Die Passwörter stimmen nicht überein."))
+                    return
             base = os.path.splitext(os.path.basename(self.path or "Dokument"))[0]
             start_dir = getattr(self.parent(), "_suggest_dir", "") or (
                 os.path.dirname(getattr(self.parent(), "path", "") or "") or os.path.expanduser("~"))
@@ -1283,7 +1378,7 @@ class PrintDialog(QDialog):
             try:
                 printjob.submit_document(self.doc, os.path.basename(self.path or "Dokument"), self.s, name,
                                          pages, self._settings(), 1, True, self.chk_reverse.isChecked(),
-                                         values=dict(self.values, __out__=out))
+                                         values=dict(self.values, __out__=out, __password__=pw))
             except Exception as e:
                 QApplication.restoreOverrideCursor()
                 QMessageBox.critical(self, tr("Speichern"), str(e))

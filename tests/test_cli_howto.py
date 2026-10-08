@@ -63,7 +63,7 @@ def _prepare_inputs(tmp, examples):
     runnable = []
     for cmd in examples:
         args = shlex.split(cmd)[1:]
-        if args[0] in ("settings", "list") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
+        if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
             continue
         src = os.path.join(tmp, args[1])
         if not os.path.exists(src):                  # Motiv-Aufträge: Bogen, sonst Problem-PDF (Ebenen, Formular)
@@ -91,7 +91,10 @@ def test_examples_run():
     tmp = tempfile.mkdtemp(prefix="pm-howto-")
     runnable = _prepare_inputs(tmp, _examples())
     gs = bool(pl.ghostscript())
-    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de")
+    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
+    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour; "
+                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded'))"],
+                   cwd=tmp, env=env, check=True)
     subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
                    stdout=open(os.path.join(tmp, "sticker.json"), "w"))
     ran = 0
@@ -121,7 +124,10 @@ def test_bash_loop_verbatim():
     os.makedirs(os.path.join(tmp, "eingang"))
     tc.stickers().save(os.path.join(tmp, "eingang", "a.pdf"))
     tc.stickers().save(os.path.join(tmp, "eingang", "b.pdf"))
-    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de")
+    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
+    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour; "
+                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded'))"],
+                   cwd=tmp, env=env, check=True)
     subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
                    stdout=open(os.path.join(tmp, "sticker.json"), "w"))
     script = f'passermark-cli() {{ "{sys.executable}" -m pdfdruck.cli "$@"; }}\n' + snippet

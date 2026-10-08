@@ -41,6 +41,7 @@ jobs:
           .venv/bin/python tests/test_jobs_gui.py
           .venv/bin/python tests/test_parallel.py
           .venv/bin/python tests/test_crashlog.py
+          .venv/bin/python tests/test_presets.py
           .venv/bin/python tests/test_performance.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |

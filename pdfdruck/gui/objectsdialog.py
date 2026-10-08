@@ -558,6 +558,9 @@ class CutContourDialog(QDialog):
         root.addLayout(left, 1)
 
         right = QVBoxLayout()
+        from .presetbar import PresetBar
+        self.presetbar = PresetBar(self, "cutcontour", self._settings, self._load_settings)
+        right.addWidget(self.presetbar)
         g = QGroupBox(tr("Schnittlinie"))
         f = QFormLayout(g)
         self.cmb_shape = QComboBox()
@@ -714,8 +717,68 @@ class CutContourDialog(QDialog):
         wrap.setFixedWidth(380)
         root.addWidget(wrap)
         fit_width(wrap)
+        from .. import presets
+        last = presets.load_last("cutcontour")
+        if last is not None:                     # zuletzt verwendete Einstellungen – Versatz gehört zum alten Motiv
+            last.shift_x_mm = last.shift_y_mm = 0.0
+            try:
+                self._load_settings(last, preview=False)
+            except Exception:
+                pass
         self._sync()
         self._preview()
+
+    def _load_settings(self, s, preview=True):
+        """Felder aus Einstellungen setzen (Preset, zuletzt verwendet)."""
+        def pick(cmb, val):
+            i = cmb.findData(val)
+            if i >= 0:
+                cmb.setCurrentIndex(i)
+        widgets = [self.cmb_shape, self.cmb_single, self.cmb_out, self.cmb_bcol, self.cmb_dpi, self.chk_seams,
+                   self.chk_bleed, self.chk_inner, self.spn_corner, self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy,
+                   self.spn_off, self.spn_smooth, self.spn_bleed, self.spn_stroke, self.spn_margin, self.ed_spot,
+                   *self.w.values()]
+        for wd in widgets:
+            wd.blockSignals(True)
+        try:
+            pick(self.cmb_shape, s.shape)
+            pick(self.cmb_single, bool(s.single_shape))
+            pick(self.cmb_out, bool(s.per_object))
+            pick(self.cmb_dpi, int(s.dpi))
+            self.spn_corner.setValue(s.corner_mm)
+            self.spn_fw.setValue(s.width_mm)
+            self.spn_fh.setValue(s.height_mm)
+            self.spn_sx.setValue(s.shift_x_mm)
+            self.spn_sy.setValue(s.shift_y_mm)
+            self.spn_off.setValue(s.offset_mm)
+            self.spn_smooth.setValue(s.smooth_mm)
+            self.spn_bleed.setValue(s.bleed_mm)
+            self.chk_bleed.setChecked(bool(s.bleed))
+            self.chk_inner.setChecked(bool(s.inner))
+            self.chk_seams.setChecked(bool(s.clean_seams))
+            if s.bleed_color:
+                self._bcol = s.bleed_color
+                self._paint_bcol()
+                pick(self.cmb_bcol, "fixed")
+            else:
+                pick(self.cmb_bcol, "auto")
+            self.ed_spot.setText(s.spot or "CutContour")
+            self.spn_stroke.setValue(s.stroke_pt)
+            self.spn_margin.setValue(s.margin_mm)
+            d = s.detect
+            pick(self.w["mode"], d.mode)
+            self.w["tol"].setValue(d.tolerance)
+            self.w["min"].setValue(d.min_size_mm)
+            if "gap" in self.w:
+                self.w["gap"].setValue(d.gap_mm)
+            if "margin" in self.w:
+                self.w["margin"].setValue(d.margin_mm)
+        finally:
+            for wd in widgets:
+                wd.blockSignals(False)
+        self._sync()
+        if preview:
+            self._pv_timer.start()
 
     def _paint_bcol(self):
         self.btn_bcol.setStyleSheet(f"background: {self._bcol}; border: 1px solid {theme.MUTED};")
@@ -859,6 +922,8 @@ class CutContourDialog(QDialog):
         s = self._settings()
         pages = None if self.chk_all.isChecked() else [self.page]
         self.job = ("cutcontour", core.settings_to_dict(s), pages)
+        from .. import presets
+        presets.save_last("cutcontour", s)
         self.accept()
 
     def done(self, r):

@@ -2,7 +2,7 @@
 ; Passermark – Windows-Installer (Inno Setup 6). Aufruf: iscc windows\passermark.iss
 #define AppVersion GetEnv("PASSERMARK_VERSION")
 #if AppVersion == ""
-  #define AppVersion "1.6.7"
+  #define AppVersion "1.7.0"
 #endif
 
 [Setup]
@@ -24,6 +24,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ChangesAssociations=yes
+ChangesEnvironment=yes
 
 [Languages]
 Name: "de"; MessagesFile: "compiler:Languages\German.isl"
@@ -33,6 +34,11 @@ Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 
 [CustomMessages]
+de.AddPath=Kommandozeile „passermark-cli“ in jeder Eingabeaufforderung verfügbar machen (Suchpfad PATH)
+en.AddPath=Make the command line “passermark-cli” available in every command prompt (PATH)
+hu.AddPath=A „passermark-cli” parancssor elérhetővé tétele minden parancssorban (PATH)
+es.AddPath=Hacer disponible la línea de comandos «passermark-cli» en cualquier consola (PATH)
+fr.AddPath=Rendre la ligne de commande « passermark-cli » disponible dans toutes les invites (PATH)
 de.Print=Drucken (Passermark)
 en.Print=Print (Passermark)
 hu.Print=Nyomtatás (Passermark)
@@ -82,6 +88,7 @@ Name: "{autodesktop}\Passermark"; Filename: "{app}\passermark.exe"; Tasks: deskt
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:Desktop}"; Flags: unchecked
+Name: "addtopath"; Description: "{cm:AddPath}"; Flags: unchecked
 
 [Run]
 ; Admin-Standards: nur Administratoren und SYSTEM dürfen schreiben, Benutzer nur lesen (SIDs = sprachunabhängig)
@@ -89,6 +96,8 @@ Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark"" /inher
 Filename: "{app}\passermark.exe"; Description: "{cm:Launch}"; Flags: postinstall nowait skipifsilent unchecked
 
 [Registry]
+; Kommandozeile: Programmordner zum System-Suchpfad (optional, beim Deinstallieren wieder entfernt – siehe [Code])
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
 ; Explorer-Kontextmenü in der Installationssprache (Windows 11: unter „Weitere Optionen anzeigen“)
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\passermark.print"; ValueType: string; ValueName: ""; ValueData: "{cm:Print}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\passermark.print"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\passermark.exe"",0"
@@ -298,3 +307,41 @@ Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passerm
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passermark.merge"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\passermark.exe"",0"
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passermark.merge"; ValueType: string; ValueName: "MultiSelectModel"; ValueData: "Player"
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passermark.merge\command"; ValueType: string; ValueName: ""; ValueData: """{app}\passermark.exe"" --merge ""%1"""
+
+[Code]
+const
+  EnvKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+
+function NeedsAddPath(Dir: string): Boolean;
+var
+  Paths: string;
+begin
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvKey, 'Path', Paths) then
+  begin
+    Result := True;
+    exit;
+  end;
+  Result := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(Paths) + ';') = 0;
+end;
+
+procedure RemovePath(Dir: string);
+var
+  Paths: string;
+  P: Integer;
+begin
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, EnvKey, 'Path', Paths) then
+    exit;
+  Paths := ';' + Paths + ';';
+  P := Pos(';' + Uppercase(Dir) + ';', Uppercase(Paths));
+  if P = 0 then
+    exit;
+  Delete(Paths, P, Length(Dir) + 1);
+  Paths := Copy(Paths, 2, Length(Paths) - 2);
+  RegWriteExpandStringValue(HKEY_LOCAL_MACHINE, EnvKey, 'Path', Paths);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+    RemovePath(ExpandConstant('{app}'));
+end;

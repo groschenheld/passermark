@@ -107,7 +107,12 @@ def build():
         ["Linux (installiert mit install.sh)", c("passermark-cli …")],
         ["Linux (AppImage)", c("./Passermark-*-x86_64.AppImage --cli …")],
         ["Windows", c('"C:\\Program Files\\Passermark\\passermark-cli.exe" …')],
+        ["Windows (Suchpfad bei der Installation angehakt)", c("passermark-cli …")],
     ], [55 * mm, W - 55 * mm]))
+    s.append(P("Windows: Im Setup gibt es (ab 1.7) das Häkchen „Kommandozeile passermark-cli in jeder "
+               "Eingabeaufforderung verfügbar machen“. Dann genügt " + c("passermark-cli") + " – in einem "
+               "<b>neu geöffneten</b> Fenster von Eingabeaufforderung oder PowerShell. Ohne Häkchen immer den vollen "
+               "Pfad in Anführungszeichen angeben.", NOTE))
     s.append(Spacer(1, 6))
     s.append(P("Die Eingabedatei wird nie verändert. Die Ausgabe entsteht erst, wenn alles fertig ist – nach einem "
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
@@ -131,12 +136,14 @@ def build():
          + c("--set detect.tolerance=40")],
         [c("--preset datei.json"), "Einstellungen aus einer Datei laden (siehe Abschnitt 3). " + c("--set")
          + " überschreibt einzelne Werte daraus"],
+        [c('--preset "Name"'), "ein im Programm gespeichertes Preset verwenden (siehe Abschnitt 3)"],
         [c("--pages 1,3-5"), "nur diese Seiten bearbeiten (wo sinnvoll)"],
         [c("--quiet"), "keine Fortschrittsanzeige"],
         [c("--json-progress"), "Fortschritt und Ergebnis als JSON-Zeilen – für andere Programme"],
         [c("list"), "alle Aufträge anzeigen: " + c("passermark-cli list")],
         [c("settings <auftrag>"), "alle Einstellungen eines Auftrags mit Standardwerten als JSON – die Vorlage "
          "für eigene Presets"],
+        [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
     ], [42 * mm, W - 42 * mm]))
 
     s.append(P("Rückgabewerte und Abbrechen", H3))
@@ -310,6 +317,18 @@ def build():
     s.append(P("Ein Preset gehört immer zu einem Auftrag – ein CutContour-Preset kann nicht für " + c("separate")
                + " verwendet werden. Werte mit Sonderzeichen (z. B. " + c("font_map") + " mit Windows-Pfaden) "
                "trägt man am einfachsten im Preset statt mit " + c("--set") + " ein.", NOTE))
+
+    s.append(P("Presets aus dem Programm", H3))
+    s.append(P("Einfacher geht es im Programm selbst: In den Fenstern für CutContour, CMYK/Beschneiden und im "
+               "Druckdialog gibt es oben die Zeile <b>Preset</b>. Einstellungen wie gewünscht setzen, "
+               "<b>Speichern…</b> und einen Namen vergeben. Die Kommandozeile findet das Preset dann über seinen "
+               "Namen – ohne Pfad:"))
+    s.append(code('passermark-cli presets cutcontour\n'
+                  'passermark-cli cutcontour bogen.pdf bogen-cut.pdf --preset "Sticker rund"'))
+    s.append(P("Abgelegt sind die Presets als JSON-Dateien je Auftrag – unter Linux in "
+               + c("~/.config/passermark/presets/") + ", unter Windows in " + c("%APPDATA%\\Passermark\\presets\\")
+               + ". Im Programm: Arbeitsbereich <b>Automatisierung</b> → <b>Presets</b> öffnet den Ordner. "
+               "Druck-Presets (Broschüre, Poster, Nutzen) gelten nur im Druckdialog.", NOTE))
 
     # ------------------------------------------------------------------ Stapel
     s.append(P("4 · Ganze Ordner auf einmal", H2))

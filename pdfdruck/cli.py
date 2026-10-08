@@ -9,6 +9,8 @@
     passermark-cli settings cutcontour                       (Standard-Einstellungen als JSON = Preset-Vorlage)
     passermark-cli cutcontour ein.pdf aus.pdf --set shape=rect --set bleed_mm=2
     passermark-cli cutcontour ein.pdf aus.pdf --preset sticker.json --pages 1,3-5
+    passermark-cli cutcontour ein.pdf aus.pdf --preset Sticker               (im Programm gespeichertes Preset)
+    passermark-cli presets [auftrag]                         (gespeicherte Presets auflisten)
     passermark-cli … --json-progress                         (Fortschritt als JSON-Zeilen, für die Oberfläche)
 
 Rückgabe: 0 = ok, 1 = Fehler, 2 = falscher Aufruf, 130 = abgebrochen (Strg+C).
@@ -97,10 +99,10 @@ class _Reporter:
 def build_parser() -> argparse.ArgumentParser:
     from .l10n import tr
     p = argparse.ArgumentParser(prog="passermark-cli", description=tr("Passermark – Aufträge ohne Oberfläche"))
-    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings"))
+    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets"))
     p.add_argument("input", nargs="?", help=tr("Eingabe-PDF (bei 'settings': Auftrag)"))
     p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF"))
-    p.add_argument("--preset", help=tr("Einstellungen aus JSON-Datei (von 'settings' oder aus dem Programm gespeichert)"))
+    p.add_argument("--preset", help=tr("Einstellungen: JSON-Datei oder Name eines im Programm gespeicherten Presets"))
     p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
                    help=tr("einzelne Einstellung, auch verschachtelt (detect.tolerance=40); mehrfach möglich"))
     p.add_argument("--pages", help=tr("nur diese Seiten, z. B. 1,3-5"))
@@ -136,6 +138,19 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"job": a.input, "settings": core.settings_to_dict(cls())}, ensure_ascii=False, indent=2))
         return EXIT_OK
 
+    if a.job == "presets":
+        from . import presets
+        kinds = [a.input] if a.input else list(core.JOBS)
+        for kind in kinds:
+            try:
+                names = presets.list_presets(kind)
+            except ValueError as e:
+                print(str(e), file=sys.stderr)
+                return EXIT_USAGE
+            for n in names:
+                print(f"{kind}\t{n}" if not a.input else n)
+        return EXIT_OK
+
     rep = _Reporter(a.json_progress, a.quiet)
 
     def fail(msg, code, raw=None):
@@ -155,7 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = {}
         if a.preset:
-            kind, settings = core.load_settings(a.preset)
+            from . import presets
+            kind, settings = core.load_settings(presets.resolve(a.job, a.preset))
             if kind != a.job:
                 return fail(tr("Preset ist für „{0}“, nicht für „{1}“").format(kind, a.job), EXIT_USAGE)
         apply_sets(settings, a.set)

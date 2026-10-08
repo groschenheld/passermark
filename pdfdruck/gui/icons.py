@@ -33,6 +33,21 @@ _SHAPES = {
     "fit_page": '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/>',
     "ruler": '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2"/>',
     "actual": '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M8 9.5l2-1.5v8M14 9.5l2-1.5v8"/>',
+    "measure": '<path d="M4 20L20 4"/><path d="M4 16v4h4M20 8V4h-4"/><path d="M9 13l2 2M12 10l2 2"/>',
+    "cut": '<circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8.3 15.7L18 4M15.7 15.7L6 4"/>',
+    "cmyk": '<circle cx="9" cy="9" r="4.5"/><circle cx="15" cy="9" r="4.5"/><circle cx="12" cy="14.5" r="4.5"/>',
+    "crop": '<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
+    "separate": '<rect x="3" y="3" width="7.5" height="7.5" rx="1"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1"/><path d="M14 17.5h6M17 14.5v6" stroke-dasharray="1.5 2"/>',
+    "edit": '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+    "check": '<path d="M12 3l7.5 3v6c0 4.2-3.2 7.6-7.5 9-4.3-1.4-7.5-4.8-7.5-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+    "repair": '<path d="M14.5 6.5a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 0-2-2z"/><path d="M14.5 6.5l3-3a4 4 0 0 1 2 5"/>',
+    "copy": '<rect x="8" y="8" width="12" height="12" rx="1"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    "select": '<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="2 2.5"/><path d="M8 10h8M8 14h6"/>',
+    "terminal": '<rect x="3" y="4.5" width="18" height="15" rx="1.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/>',
+    "folder_gear": '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="13.5" r="2.2"/>',
+    "lock": '<rect x="5" y="11" width="14" height="9.5" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/>',
+    "move_up": '<rect x="6" y="9" width="12" height="12" rx="1"/><path d="M12 3v3.5M9.5 5L12 2.5 14.5 5"/>',
+    "move_down": '<rect x="6" y="3" width="12" height="12" rx="1"/><path d="M12 21v-3.5M9.5 19l2.5 2.5 2.5-2.5"/>',
 }
 
 

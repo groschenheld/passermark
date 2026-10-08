@@ -173,6 +173,13 @@ def _pike_save(src: str, dst: str, password: str | None, new_password: str | Non
         pdf.close()
 
 
+def encrypt_file(src: str, dst: str, password: str, allow_print: bool = True) -> None:
+    """Fertige PDF mit Passwort (AES-256) schützen – zum Öffnen und Bearbeiten dasselbe Passwort."""
+    if not password:
+        raise ValueError(tr("Bitte ein Passwort eingeben."))
+    _pike_save(src, dst, None, password, allow_print=allow_print)
+
+
 def process(src: str, dst: str, mode: str = "print", password: str | None = None,
             new_password: str | None = None, allow_print: bool = True) -> Result:
     """Verarbeitet eine Datei. Wirft PasswordRequired, wenn ein Passwort nötig/falsch ist."""

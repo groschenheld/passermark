@@ -202,6 +202,50 @@ class ManipPanel(QWidget):
         s.crop_follow = self.chk_follow.isChecked()
         return s
 
+    def load_settings(self, s: cmyk.ManipSettings):
+        """Felder aus Einstellungen setzen (Preset). Ein Zielprofil, das es hier nicht gibt, wird gemeldet."""
+        import os
+
+        def pick(cmb, val):
+            i = cmb.findData(val)
+            if i >= 0:
+                cmb.setCurrentIndex(i)
+            return i >= 0
+        missing = []
+        for p in (s.target, s.source):
+            if p and self.cmb_target.findData(p) < 0 and os.path.isfile(p):
+                self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(p), p, "file"))
+        self._fill_profiles()
+        ws = [self.chk_cmyk, self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.chk_bpc, self.chk_k,
+              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow]
+        for w in ws:
+            w.blockSignals(True)
+        try:
+            if not self.chk_cmyk.isHidden():
+                self.chk_cmyk.setChecked(bool(s.cmyk))
+            pick(self.cmb_mode, s.cmyk_mode)
+            if s.target and not pick(self.cmb_target, s.target):
+                missing.append(s.target)
+            if not pick(self.cmb_source, s.source or "") and s.source:
+                missing.append(s.source)
+            pick(self.cmb_intent, s.intent)
+            self.chk_bpc.setChecked(bool(s.bpc))
+            self.chk_k.setChecked(bool(s.gray_to_k))
+            self.chk_oi.setChecked(bool(s.output_intent))
+            if not self.chk_crop.isHidden():
+                self.chk_crop.setChecked(bool(s.crop))
+            pick(self.cmb_size, s.crop_size)
+            self.spn_w.setValue(s.crop_w_mm)
+            self.spn_h.setValue(s.crop_h_mm)
+            self.chk_follow.setChecked(bool(s.crop_follow))
+        finally:
+            for w in ws:
+                w.blockSignals(False)
+        self._changed()
+        if missing:
+            QMessageBox.warning(self, tr("Preset"), tr("Dieses Farbprofil gibt es auf diesem Rechner nicht – bitte ein "
+                                                       "anderes wählen:") + "\n" + "\n".join(missing))
+
     def open_preview(self):
         if self.doc is None:
             return
@@ -381,6 +425,9 @@ class ManipDialog(QDialog):
         sa.setWidgetResizable(True)
         sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.panel = ManipPanel(self, session.manip, session.cfg, doc, current)
+        from .presetbar import PresetBar
+        self.presetbar = PresetBar(self, "manip", self.panel.settings, self.panel.load_settings)
+        v.addWidget(self.presetbar)
         sa.setWidget(self.panel)
         v.addWidget(sa, 1)
         if mode == "cmyk":

@@ -99,8 +99,23 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
     if caps.backend == "pdf":            # Als PDF speichern: unverändert, ohne Farbprofil
         try:
             out = layout.impose_with(doc, sheet, plans, settings)
-            out.save(values["__out__"])
-            out.close()
+            dst = values["__out__"]
+            pw = values.get("__password__")
+            if pw:                               # erst unverschlüsselt in den Zwischenspeicher, dann geschützt ans Ziel
+                tmpd = tempfile.mkdtemp(prefix="pdfdruck-")
+                try:
+                    plain = os.path.join(tmpd, "plain.pdf")
+                    out.save(plain)
+                    out.close()
+                    from .repair import encrypt_file
+                    part = dst + ".part"
+                    encrypt_file(plain, part, pw)
+                    os.replace(part, dst)
+                finally:
+                    shutil.rmtree(tmpd, ignore_errors=True)
+            else:
+                out.save(dst)
+                out.close()
         finally:
             if doc is not src_doc:
                 doc.close()

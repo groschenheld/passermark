@@ -1,4 +1,4 @@
-# Passermark 1.6.7
+# Passermark 1.7.0
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -16,7 +16,10 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   hide, remove or replace layers; undo.
 - Rulers and measuring: rulers in mm at the edge of the view; click start and end to measure (Shift snaps to
   horizontal/vertical/45°), result in the status bar.
-- Repair/optimise PDFs, PDF/A, merge files, select and copy text.
+- **Workspaces** (View & Print, Prepress, Edit, Automation) with their own tool row.
+- **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
+- Repair/optimise PDFs, PDF/A, password protection (also when saving as PDF from the print dialog), merge files,
+  select and copy text.
 - Languages: English, German, Hungarian, Spanish, French.
 
 ## Install
@@ -47,6 +50,8 @@ passermark-cli list                                   # available jobs
 passermark-cli settings cutcontour > sticker.json     # default settings = preset template
 passermark-cli cutcontour in.pdf out.pdf --set shape=rect --set bleed_mm=2
 passermark-cli cutcontour in.pdf out.pdf --preset sticker.json --pages 1,3-5
+passermark-cli cutcontour in.pdf out.pdf --preset "Sticker rund"   # preset saved in the program
+passermark-cli presets                                # list presets saved in the program
 ```
 
 Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`. Nested settings with a dot
@@ -55,7 +60,7 @@ Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`. 
 limit with the environment variable `PASSERMARK_WORKERS` (1 = no parallel processing).
 
 Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
-Windows → `passermark-cli.exe` in the installation folder.
+Windows → `passermark-cli.exe` in the installation folder (setup option: add it to PATH).
 A guide with examples (German PDF) is in the program under **Help → Command line – guide**.
 
 ## Error logs
@@ -67,7 +72,7 @@ points to the log. Logs without errors are deleted on exit.
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.7 && git push origin v1.6.7`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.7.0 && git push origin v1.7.0`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and
