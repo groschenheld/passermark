@@ -36,6 +36,9 @@ jobs:
           .venv/bin/python tests/test_measure_gui.py
           .venv/bin/python tests/test_core.py
           .venv/bin/python tests/test_cli.py
+          .venv/bin/python tests/test_cli_howto.py
+          .venv/bin/python tests/test_jobproc.py
+          .venv/bin/python tests/test_jobs_gui.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |
           APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=offscreen timeout 120 dist/*.AppImage --selftest

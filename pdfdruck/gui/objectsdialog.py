@@ -492,14 +492,10 @@ class SeparateDialog(QDialog):
         if not any(self.boxes.values()):
             QMessageBox.information(self, tr("Nichts zu tun"), tr("Keine Objekte gefunden."))
             return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            self.result = objects.separate(self.norm, self.boxes, self.w["margin"].value())
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            show_error(self, tr("Fehler"), e)
-            return
-        QApplication.restoreOverrideCursor()
+        # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
+        boxes = {str(i): [[b.x0, b.y0, b.x1, b.y1] for b in bs] for i, bs in self.boxes.items() if bs}
+        self.job = ("separate", {"margin_mm": self.w["margin"].value(), "boxes": boxes},
+                    sorted(int(i) for i in boxes))
         self.accept()
 
     def done(self, r):
@@ -858,16 +854,11 @@ class CutContourDialog(QDialog):
         self._pv_timer.start()
 
     def _apply(self):
+        """Nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess), das Fenster friert nicht ein."""
+        from .. import core
         s = self._settings()
         pages = None if self.chk_all.isChecked() else [self.page]
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            self.result, self.count = cutcontour.make(self.doc, s, pages)
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            show_error(self, tr("Fehler"), e)
-            return
-        QApplication.restoreOverrideCursor()
+        self.job = ("cutcontour", core.settings_to_dict(s), pages)
         self.accept()
 
     def done(self, r):

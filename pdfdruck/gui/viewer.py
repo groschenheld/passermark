@@ -960,6 +960,7 @@ class MainWindow(QMainWindow):
         self.modified = False
 
         self.view = PageView(single=getattr(ctl, "view_single", True))
+        self._jobs = []                      # laufende Aufträge (eigene Prozesse)
         # Lineale oben/links an der Kante der Ansicht (bleiben beim Scrollen stehen)
         from PySide6.QtWidgets import QGridLayout
         central = QWidget()
@@ -1284,6 +1285,10 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_vrot_r)
         m = mb.addMenu(tr("&Verwaltung"))
         m.addAction(A(tr("Standardeinstellungen (Admin)…"), self.admin_dialog, None, "settings"))
+        m = mb.addMenu(tr("&Hilfe"))
+        a = QAction(tr("Kommandozeile – Anleitung (PDF)"), self)
+        a.triggered.connect(self._open_cli_howto)
+        m.addAction(a)
 
         dock_act = dock.toggleViewAction()
         dock_act.setIcon(svg_icon("sidebar"))
@@ -1728,18 +1733,20 @@ class MainWindow(QMainWindow):
             return
         from .manipdialog import ManipDialog
         dlg = ManipDialog(self, self.doc, self.session, self.view.current, mode)
-        if not dlg.exec() or dlg.new_doc is None:
+        if not dlg.exec() or not dlg.job:
             return
         suffix = {"cmyk": tr("_CMYK"), "crop": tr("_beschnitten")}.get(mode, tr("_bearbeitet"))
-        self._open_result(dlg.new_doc, suffix, dlg.notes)
+        title = {"cmyk": tr("CMYK"), "crop": tr("Beschneiden")}.get(mode, tr("Bearbeiten"))
+        self.start_job(*dlg.job, suffix=suffix, title=title)
 
     def separate_dialog(self):
         if self.doc is None:
             return
         from .objectsdialog import SeparateDialog
         dlg = SeparateDialog(self, self.doc, self.view.current)
-        if dlg.exec() and dlg.result is not None:
-            self._open_result(dlg.result, tr("_einzeln"), [tr("{0} Objekt(e) als Einzelseiten.").format(len(dlg.result))])
+        if dlg.exec() and getattr(dlg, "job", None):
+            self.start_job(*dlg.job, suffix=tr("_einzeln"), title=tr("Objekte trennen"),
+                           notes=lambda info: [tr("{0} Objekt(e) als Einzelseiten.").format(info.get("objects", 0))])
 
     def cut_dialog(self):
         if self.doc is None:
@@ -1751,8 +1758,76 @@ class MainWindow(QMainWindow):
             from .objectsdialog import show_error
             show_error(self, tr("Fehler"), e)
             return
-        if dlg.exec() and dlg.result is not None:
-            self._open_result(dlg.result, tr("_CutContour"), [tr("{0} Schnittkontur(en) erzeugt.").format(dlg.count)])
+        if dlg.exec() and getattr(dlg, "job", None):
+            self.start_job(*dlg.job, suffix=tr("_CutContour"), title=tr("CutContour"),
+                           notes=lambda info: [tr("{0} Schnittkontur(en) erzeugt.").format(info.get("cuts", 0))])
+
+    # ---------------- Aufträge im Hintergrund (eigener Prozess) ---------------- #
+    def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):
+        """Dokument in den Zwischenspeicher, Kommandozeile als eigenen Prozess starten, Fortschritt unten anzeigen."""
+        from .. import jobproc, l10n
+        from .jobs import JobReader, JobWidget
+        base = os.path.splitext(self.display_name or "Dokument")[0]
+        src = self.ctl.cache_file(base + "_eingabe.pdf")
+        dst = self.ctl.cache_file(base + suffix + ".pdf")
+        try:
+            self.doc.save(src)                                   # aktueller Stand (auch ungespeicherte Änderungen)
+            open(dst, "wb").close()                              # Namen reservieren (mehrere Aufträge gleichzeitig)
+            job = jobproc.JobProcess(kind, src, dst, settings, pages, lang=l10n.current())
+            job.start()
+        except Exception as e:
+            from .objectsdialog import show_error
+            show_error(self, tr("Fehler"), e)
+            return
+        entry = {"job": job, "src": src, "dst": dst}
+        widget = JobWidget(title or kind, lambda: self._cancel_job(entry))
+        reader = JobReader(job)
+        entry.update(widget=widget, reader=reader)
+        reader.progress.connect(widget.set_progress)
+        reader.finished_job.connect(lambda res: self._job_finished(entry, res, suffix, notes))
+        self.statusBar().addWidget(widget)
+        self._jobs.append(entry)
+        reader.start()
+
+    def _cancel_job(self, entry):
+        entry["widget"].set_cancelling()
+        entry["job"].cancel()
+
+    def _job_finished(self, entry, res, suffix, notes):
+        if entry in self._jobs:
+            self._jobs.remove(entry)
+        self.statusBar().removeWidget(entry["widget"])
+        entry["widget"].deleteLater()
+        entry["reader"].wait(2000)
+        try:
+            os.remove(entry["src"])
+        except OSError:
+            pass
+        ev = res.get("event")
+        if ev == "done":
+            info = res.get("info") or {}
+            extra = list(notes(info)) if notes else []
+            self._open_result_path(entry["dst"], extra + list(res.get("notes") or []))
+            return
+        try:
+            os.remove(entry["dst"])
+        except OSError:
+            pass
+        if ev == "cancelled":
+            self.statusBar().showMessage(tr("Abgebrochen."), 6000)
+            return
+        box = QMessageBox(QMessageBox.Icon.Critical, tr("Fehler"), res.get("message") or tr("Unbekannter Fehler"),
+                          parent=self)
+        if res.get("details"):
+            box.setDetailedText(res["details"])
+        box.exec()
+
+    def _stop_jobs(self):
+        """Fenster wird geschlossen: laufende Aufträge abbrechen."""
+        for entry in list(self._jobs):
+            entry["job"].cancel()
+        for entry in list(self._jobs):
+            entry["reader"].wait(5000)
 
     def _open_result(self, new_doc, suffix: str, notes=()):
         """Ergebnis in den Zwischenspeicher schreiben und von dort in einem neuen Fenster öffnen."""
@@ -1766,6 +1841,10 @@ class MainWindow(QMainWindow):
             return
         finally:
             new_doc.close()
+        self._open_result_path(path, notes)
+
+    def _open_result_path(self, path: str, notes=()):
+        """Fertige Datei aus dem Zwischenspeicher in einem neuen Fenster öffnen (temporär, „Speichern unter“)."""
         doc = load_pdf(self, path)
         if doc is None:
             return
@@ -1779,6 +1858,19 @@ class MainWindow(QMainWindow):
         if notes:
             msg += "  " + "  ".join(notes)
         w.statusBar().showMessage(msg, 20000)
+
+    @staticmethod
+    def cli_howto_path() -> str:
+        """Anleitung zur Kommandozeile im Programmpaket (Linux-Installation, AppImage, Windows-Setup)."""
+        from .. import __file__ as pkg
+        return os.path.join(os.path.dirname(pkg), "docs", "passermark-cli-anleitung.pdf")
+
+    def _open_cli_howto(self):
+        p = self.cli_howto_path()
+        if not os.path.isfile(p):
+            QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
+            return
+        self.ctl.open_paths([p])
 
     def copy_text(self):
         t = self.view.selected_text()
@@ -1849,6 +1941,7 @@ class MainWindow(QMainWindow):
             w.wait(15000)
 
     def closeEvent(self, e):
+        self._stop_jobs()
         self._pf_stop()
         if self.doc is not None and self.modified:
             r = QMessageBox.question(

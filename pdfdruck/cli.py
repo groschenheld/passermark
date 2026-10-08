@@ -136,10 +136,10 @@ def main(argv: list[str] | None = None) -> int:
 
     rep = _Reporter(a.json_progress, a.quiet)
 
-    def fail(msg, code):
+    def fail(msg, code, raw=None):
         rep.finish_line()
-        if a.json_progress:
-            rep.emit(event="cancelled" if code == EXIT_CANCELLED else "error", message=msg)
+        if a.json_progress:                     # für Programme ohne „Fehler:“-Vorsatz (das Fenster heißt schon so)
+            rep.emit(event="cancelled" if code == EXIT_CANCELLED else "error", message=raw or msg)
         else:
             print(msg, file=sys.stderr)
         return code
@@ -179,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
                 os.remove(p)
         return fail(tr("Abgebrochen."), EXIT_CANCELLED)
     except Exception as e:                                  # noqa: BLE001 – jede Ursache melden
-        return fail(tr("Fehler: {0}").format(e), EXIT_ERROR)
+        return fail(tr("Fehler: {0}").format(e), EXIT_ERROR, raw=str(e))
     rep.finish_line()
     if a.json_progress:
         rep.emit(event="done", output=r.output, info=r.info, notes=r.notes)

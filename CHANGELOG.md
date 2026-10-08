@@ -1,5 +1,18 @@
 # Änderungen – Passermark
 
+## 1.6.2
+- **Kein Einfrieren mehr:** CutContour, Objekte trennen und CMYK/Beschneiden rechnen als eigener Prozess im
+  Hintergrund. Das Fenster bleibt bedienbar; unten in der Statusleiste Fortschritt und Abbrechen-Knopf (✕);
+  mehrere Aufträge gleichzeitig möglich; das Ergebnis öffnet sich wie gewohnt in einem neuen Fenster
+- Ein Absturz in der Berechnung reißt das Programm nicht mehr mit – es kommt eine Fehlermeldung mit Details
+- Beim Schließen eines Fensters werden laufende Aufträge abgebrochen und aufgeräumt
+
+## 1.6.1
+- **Anleitung zur Kommandozeile** (PDF, 6 Seiten) mit Fallbeispielen für alle Aufträge, Presets und ganze Ordner
+  (Linux und Windows); im Programm unter **Hilfe → Kommandozeile – Anleitung**
+- Die Fallbeispiele der Anleitung werden automatisch getestet (tests/test_cli_howto.py) – die Anleitung kann nicht
+  unbemerkt veralten; Erzeugen mit `python3 docs/make_cli_howto.py`
+
 ## 1.6.0
 - **Kommandozeile** `passermark-cli`: CutContour, Objekte trennen, CMYK/Beschneiden, Reparieren und
   Preflight-Reparaturen ohne Oberfläche; Einstellungen per `--preset datei.json` und `--set schlüssel=wert`

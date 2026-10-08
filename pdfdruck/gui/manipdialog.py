@@ -405,6 +405,7 @@ class ManipDialog(QDialog):
         v.addWidget(bb)
         self.new_doc = None
         self.notes = []
+        self.job = None
 
     def _apply(self):
         s = self.panel.settings()
@@ -415,16 +416,7 @@ class ManipDialog(QDialog):
         if not s.active:
             QMessageBox.information(self, tr("Nichts zu tun"), tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren."))
             return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            from ..layout import flattened
-            flat = flattened(self.doc)
-            self.new_doc, self.notes = pdfmanip.apply(flat, s)
-            if flat is not self.doc and flat is not self.new_doc:
-                flat.close()
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, tr("Fehler"), str(e))
-            return
-        QApplication.restoreOverrideCursor()
+        # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
+        from .. import core
+        self.job = ("manip", core.settings_to_dict(s), None)
         self.accept()
