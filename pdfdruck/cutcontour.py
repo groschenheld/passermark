@@ -496,7 +496,12 @@ def _compute_object(ctx, job):
     if bleed.any():
         yy, xx = np.where(alpha > 0)
         by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
-        img = np.dstack([fill[by0:by1, bx0:bx1], alpha[by0:by1, bx0:bx1]])
+        rgb_b = fill[by0:by1, bx0:bx1].astype(np.uint8).copy()
+        al_b = alpha[by0:by1, bx0:bx1]
+        # unsichtbare Pixel weiß: liest ein Programm/Treiber die Transparenz (SMask) nicht, erscheint sonst ein
+        # farbiges Rechteck – so bleibt es papierweiß
+        rgb_b[al_b == 0] = 255
+        img = np.dstack([rgb_b, al_b])
         p0 = to_pt(bx0 + wx0, by0 + wy0)
         p1 = to_pt(bx1 + wx0, by1 + wy0)
         bbox = (p0[0], p1[1], p1[0], p0[1])
@@ -559,7 +564,11 @@ def _compute_object(ctx, job):
             yy, xx = np.where(seam)
             sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
             col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
-            al = (seam[sy0:sy1, sx0:sx1] * 255).astype(np.uint8)
+            sm_ = seam[sy0:sy1, sx0:sx1]
+            # außerhalb der Säume das Original-Motiv: ignoriert ein Programm/Treiber die Transparenz (SMask),
+            # sieht man so nur das Motiv statt eines farbigen Rechtecks über dem Objekt
+            col[~sm_] = rgbw[sy0:sy1, sx0:sx1][~sm_].astype(np.uint8)
+            al = (sm_ * 255).astype(np.uint8)
             ov_img = np.dstack([col, al])
             q0 = to_pt(sx0 + wx0, sy0 + wy0)
             q1 = to_pt(sx1 + wx0, sy1 + wy0)
@@ -797,7 +806,15 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     return _make_finish(norm, results, total, s, pages)
 
 
-PAGE_MEMORY_BUDGET = 3_000_000_000   # Bytes für gleichzeitig gerechnete Seiten (alle Arbeitsprozesse zusammen)
+PAGE_MEMORY_SHARE = 0.4             # Anteil des Arbeitsspeichers für gleichzeitig gerechnete Seiten
+PAGE_MEMORY_FALLBACK = 3_000_000_000  # wenn der Arbeitsspeicher nicht ermittelbar ist
+
+
+def page_memory_budget() -> int:
+    """Bytes für gleichzeitig gerechnete Seiten (alle Arbeitsprozesse zusammen) – nach dem Rechner, mind. 1 GB."""
+    from . import platform as _platform
+    total = _platform.total_memory()
+    return max(1_000_000_000, int(total * PAGE_MEMORY_SHARE)) if total else PAGE_MEMORY_FALLBACK
 BYTES_PER_PIXEL = 40                 # grobe Spitze je Bildpunkt (Bild, Masken, Abstandsfelder)
 
 
@@ -823,7 +840,7 @@ def _pages_at_once(norm, todo, s, workers: int) -> int:
         w, h = norm.get_page_size(i)
         biggest = max(biggest, w * px * h * px)
     per_page = max(1.0, biggest * BYTES_PER_PIXEL)
-    return max(1, min(workers, len(todo), int(PAGE_MEMORY_BUDGET // per_page)))
+    return max(1, min(workers, len(todo), int(page_memory_budget() // per_page)))
 
 
 def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):

@@ -234,9 +234,24 @@ FPDF_PRINTMODE_EMF, FPDF_PRINTMODE_POSTSCRIPT3 = 0, 3
 BAND_BYTES = 24 * 1024 * 1024          # Speicher je Rasterstreifen (konstant, unabhängig von Seitengröße/Auflösung)
 
 
+HALFTONE = 4
+
+
 def _gdi32():
+    """gdi32 mit festen Argumenttypen: Gerätekontexte sind Zeiger (64 bit) – ohne argtypes gibt ctypes Ganzzahlen
+    als 32-bit-int weiter."""
     import ctypes
-    return ctypes.windll.gdi32
+    from ctypes import c_int, c_uint, c_ulong, c_void_p
+    g = ctypes.windll.gdi32
+    sig = {"ExtEscape": ([c_void_p, c_int, c_int, c_void_p, c_int, c_void_p], c_int),
+           "StretchDIBits": ([c_void_p, c_int, c_int, c_int, c_int, c_int, c_int, c_int, c_int, c_void_p, c_void_p,
+                              c_uint, c_ulong], c_int),
+           "SetStretchBltMode": ([c_void_p, c_int], c_int),
+           "SetBrushOrgEx": ([c_void_p, c_int, c_int, c_void_p], c_int)}
+    for name, (args, res) in sig.items():
+        f = getattr(g, name)
+        f.argtypes, f.restype = args, res
+    return g
 
 
 class _BITMAPINFOHEADER(__import__("ctypes").Structure):
@@ -275,14 +290,20 @@ def print_settings() -> tuple[str, int]:
         st = {}
     mode = st.get("win_print_mode", "auto")
     dpi = int(st.get("win_raster_dpi", 0) or 0)
-    return (mode if mode in ("auto", "postscript", "raster", "vector") else "auto"), dpi
+    return (mode if mode in MODES else "auto"), dpi
+
+
+MODES = ("auto", "raster", "raster_jpeg", "postscript", "vector")
 
 
 def choose_mode(gdi, hdc, wanted: str) -> str:
-    if wanted != "auto":
-        return wanted
-    # PostScript-Treiber: pdfium schreibt PostScript direkt (vektoriell, kompakt) – sonst selbst rastern
-    return "postscript" if _escape_supported(gdi, hdc, POSTSCRIPT_PASSTHROUGH) else "raster"
+    """Automatisch = Raster ohne JPEG: der verträglichste Weg (nur StretchDIBits). PostScript und
+    JPEG-Durchreichen melden manche Treiber als „unterstützt“ und liefern dann leere Blätter – nur auf Wunsch."""
+    if wanted == "auto":
+        return "raster"
+    if wanted == "postscript" and not _escape_supported(gdi, hdc, POSTSCRIPT_PASSTHROUGH):
+        return "raster"
+    return wanted
 
 
 def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jpeg):
@@ -291,6 +312,7 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
     import io as _io
     dpx, dpy = dev_dpi
     scale = raster_dpi / 72.0
+    stats = {"bands": 0, "jpeg_bands": 0}
     width_px = max(1, int(round(w_pt * scale)))
     rows_per_band = max(16, BAND_BYTES // (width_px * 3))
     band_pt = rows_per_band / scale
@@ -322,10 +344,14 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
                               buf, ctypes.byref(bih), DIB_RGB_COLORS, SRCCOPY)
         if r == 0 or r == -1:
             raise RuntimeError("StretchDIBits")
+        stats["bands"] += 1
+        stats["jpeg_bands"] += int(bih.biCompression == BI_JPEG)
         y_pt = y2
+    return stats
 
 
-def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int = 1, collate: bool = True) -> int:
+def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int = 1, collate: bool = True,
+              force_mode: str | None = None) -> int:
     """Das fertig ausgeschossene PDF Seite für Seite an den Windows-Treiber geben.
 
     Verfahren (Datei → Einstellungen → Drucken unter Windows):
@@ -343,6 +369,9 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
 
     gdi = _gdi32()
     wanted, dpi_setting = print_settings()
+    if force_mode:
+        wanted = force_mode
+    info = {"printer": printer, "wanted": wanted}
     dm = _devmode_for_job(printer, values, copies, collate)
     hdc = win32gui.CreateDC("WINSPOOL", printer, dm)
     doc = pdfium.PdfDocument(pdf_path)
@@ -352,6 +381,8 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
     try:
         dpx, dpy = win32print.GetDeviceCaps(hdc, LOGPIXELSX), win32print.GetDeviceCaps(hdc, LOGPIXELSY)
         ox, oy = win32print.GetDeviceCaps(hdc, PHYSICALOFFSETX), win32print.GetDeviceCaps(hdc, PHYSICALOFFSETY)
+        info.update(dpi=(dpx, dpy), offset=(ox, oy), ps=_escape_supported(gdi, hdc, POSTSCRIPT_PASSTHROUGH),
+                    jpeg=_escape_supported(gdi, hdc, CHECKJPEGFORMAT))
         mode = choose_mode(gdi, hdc, wanted)
         if mode in ("postscript", "vector") and not hasattr(r, "FPDF_RenderPage"):
             mode = "raster"
@@ -360,17 +391,28 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
                 mode = "raster"
             else:
                 set_mode(getattr(r, "FPDF_PRINTMODE_POSTSCRIPT3", FPDF_PRINTMODE_POSTSCRIPT3))
-        use_jpeg = mode == "raster" and _escape_supported(gdi, hdc, CHECKJPEGFORMAT)
-        raster_dpi = dpi_setting or (600 if use_jpeg else 400)
+        use_jpeg = mode == "raster_jpeg" and info["jpeg"]
+        if mode == "raster_jpeg":
+            mode = "raster"
+        raster_dpi = dpi_setting or (600 if use_jpeg else 300)
         raster_dpi = max(150, min(raster_dpi, max(dpx, dpy)))
+        info.update(mode=mode, use_jpeg=use_jpeg, raster_dpi=raster_dpi)
+        if mode == "raster":
+            for fn, args in (("SetStretchBltMode", (hdc, HALFTONE)), ("SetBrushOrgEx", (hdc, 0, 0, None))):
+                f = getattr(gdi, fn, None)
+                if f is not None:
+                    f(*args)                      # Halbton: saubere Verkleinerung, empfohlen für Drucker
         job = win32print.StartDoc(hdc, (title[:120], None, None, 0))
+        info["pages"] = 0
+        info["bands"] = 0
         for i in range(len(doc)):
             win32print.StartPage(hdc)
             w, h = doc.get_page_size(i)
             page = doc[i]
             try:
                 if mode == "raster":
-                    _raster_page(gdi, hdc, page, w, h, (dpx, dpy), ox, oy, raster_dpi, use_jpeg)
+                    st = _raster_page(gdi, hdc, page, w, h, (dpx, dpy), ox, oy, raster_dpi, use_jpeg)
+                    info["bands"] += (st or {}).get("bands", 0)
                 else:
                     sx, sy = int(round(w * dpx / 72.0)), int(round(h * dpy / 72.0))
                     r.FPDF_RenderPage(ctypes.c_void_p(hdc), page.raw, -ox, -oy, sx, sy, 0,
@@ -378,8 +420,13 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
             finally:
                 page.close()
             win32print.EndPage(hdc)
+            info["pages"] += 1
         win32print.EndDoc(hdc)
-    except Exception:
+        _log_job(info)
+        LAST_INFO.clear(); LAST_INFO.update(info)
+    except Exception as e:
+        info["error"] = repr(e)
+        _log_job(info)
         try:
             win32print.AbortDoc(hdc)
         except Exception:
@@ -394,6 +441,92 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
         doc.close()
         win32gui.DeleteDC(hdc)
     return int(job or 0)
+
+
+def _log_job(info: dict):
+    """Jeden Windows-Druckauftrag kurz protokollieren (Verfahren, Auflösung, Treiber-Fähigkeiten) – hilft bei
+    leeren Blättern o. ä.: Datei druck-windows.log im Protokollordner, die letzten 200 Aufträge."""
+    import datetime
+    import os
+    try:
+        from . import platform as _platform
+        d = _platform.user_log_dir()
+        os.makedirs(d, exist_ok=True)
+        p = os.path.join(d, "druck-windows.log")
+        lines = []
+        if os.path.exists(p):
+            with open(p, encoding="utf-8", errors="replace") as f:
+                lines = f.read().splitlines()[-199:]
+        lines.append(datetime.datetime.now().isoformat(timespec="seconds") + " " + json.dumps(info, default=str, ensure_ascii=False))
+        with open(p, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception:                                   # noqa: BLE001 – Protokoll darf den Druck nie stören
+        pass
+
+
+LAST_INFO: dict = {}
+
+TEST_MODES = (("raster", "Raster"), ("raster_jpeg", "Raster + JPEG"), ("postscript", "PostScript"),
+              ("vector", "Vektor (GDI)"))
+
+
+def test_page_pdf(label: str, printer: str) -> bytes:
+    """Eine A4-Testseite: großer Verfahrensname, Rahmen, Farbfelder (ohne Zusatzbibliotheken, mit pikepdf)."""
+    import datetime
+
+    import pikepdf
+    pdf = pikepdf.new()
+    w, h = 595.28, 841.89
+    def esc(t):
+        return t.encode("cp1252", "replace").decode("latin-1").replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    when = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+    ops = [f"q 2 w 0 0 0 RG 28 28 {w - 56:.2f} {h - 56:.2f} re S Q",
+           f"BT /F1 40 Tf 60 700 Td ({esc(label)}) Tj ET",
+           f"BT /F1 14 Tf 60 660 Td ({esc('Verfahren: ' + label)}) Tj ET",
+           f"BT /F1 11 Tf 60 640 Td ({esc('Drucker: ' + printer)}) Tj ET",
+           f"BT /F1 11 Tf 60 622 Td ({esc('Testseite – ' + when)}) Tj ET"]
+    for i, (r_, g_, b_) in enumerate(((1, 0, 0), (0, 0.6, 0), (0, 0, 1), (0, 0, 0))):
+        ops.append(f"q {r_} {g_} {b_} rg {60 + i * 120} 420 100 140 re f Q")
+    page = pikepdf.Dictionary(Type=pikepdf.Name.Page, MediaBox=[0, 0, w, h],
+                              Resources=pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=pikepdf.Dictionary(
+                                  Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica,
+                                  Encoding=pikepdf.Name.WinAnsiEncoding))),
+                              Contents=pikepdf.Stream(pdf, "\n".join(ops).encode("latin-1")))
+    pdf.pages.append(pikepdf.Page(page))
+    import io
+    b = io.BytesIO()
+    pdf.save(b)
+    return b.getvalue()
+
+
+def test_print(printer: str, values: dict | None = None) -> list[tuple[str, str]]:
+    """Je Verfahren eine Testseite an den Drucker schicken. Ergebnis: [(Verfahren, „ok“ | Fehler)].
+    Welche Blätter mit Inhalt ankommen, zeigt, welches Verfahren der Treiber wirklich kann."""
+    import os
+    import tempfile
+    out = []
+    for mode, label in TEST_MODES:
+        fd, path = tempfile.mkstemp(prefix="passermark-test-", suffix=".pdf")
+        os.close(fd)
+        try:
+            with open(path, "wb") as f:
+                f.write(test_page_pdf(label, printer))
+            print_pdf(printer, path, f"Testseite {label}", values or {}, 1, True, force_mode=mode)
+            used = LAST_INFO.get("mode")
+            if mode == "postscript" and used != "postscript":
+                out.append((label, tr("Treiber kann kein PostScript – als Raster gedruckt")))
+            elif mode == "raster_jpeg" and not LAST_INFO.get("use_jpeg"):
+                out.append((label, tr("Treiber kann kein JPEG – ohne JPEG gedruckt")))
+            else:
+                out.append((label, "ok"))
+        except Exception as e:                          # noqa: BLE001 – jedes Verfahren einzeln melden
+            out.append((label, str(e) or repr(e)))
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    return out
 
 
 def set_printer_default(printer: str, devmode_str: str):

@@ -32,6 +32,37 @@ def config_dir() -> str:
     return "/etc/passermark"
 
 
+def user_log_dir() -> str:
+    """Fehlerprotokolle: Windows %LOCALAPPDATA%\\Passermark\\logs, Linux ~/.local/state/passermark/logs."""
+    if IS_WIN:
+        base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
+        return os.path.join(base, "Passermark", "logs")
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(base, "passermark", "logs")
+
+
+def total_memory() -> int | None:
+    """Arbeitsspeicher des Rechners in Bytes (None, wenn nicht ermittelbar)."""
+    try:
+        if IS_WIN:
+            import ctypes
+
+            class _MS(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+            ms = _MS()
+            ms.dwLength = ctypes.sizeof(_MS)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(ms)):
+                return int(ms.ullTotalPhys)
+            return None
+        return int(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES"))
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
 def user_cache_dir() -> str:
     if IS_WIN:
         base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()

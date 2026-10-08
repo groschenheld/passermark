@@ -1,5 +1,27 @@
 # Änderungen – Passermark
 
+## 1.6.6
+- **Behoben: leere Blätter beim Drucken unter Windows** (verschiedene Geräte). „Automatisch“ rastert jetzt immer
+  ohne JPEG (300 dpi) – der verträglichste Weg. PostScript und JPEG-Durchreichen melden manche Treiber
+  als unterstützt und liefern dann leere Blätter; beide gibt es nur noch auf Wunsch (Datei → Einstellungen)
+- Neu: **Hilfe → Windows-Druck testen** – je Verfahren (Raster, Raster + JPEG, PostScript, Vektor) eine
+  beschriftete Testseite; zeigt, was der Treiber wirklich kann
+- Windows-Druck: Gerätekontext wird als 64-bit-Zeiger übergeben (vorher ctypes-Standard int), Halbton-Modus beim
+  Rastern; jeder Auftrag wird in `druck-windows.log` im Protokollordner festgehalten (Verfahren, Auflösung,
+  Treiber-Fähigkeiten)
+- **Behoben: rötliches Rechteck über dem Objekt (CutContour)**, wenn ein Programm oder Druckertreiber die
+  Transparenz der Überfüller-/Kantenbilder nicht auswertet (u. a. Windows-PostScript-Weg): unsichtbare Bereiche
+  sind jetzt papierweiß bzw. zeigen das Original-Motiv statt der ersten Vollfarbe
+
+## 1.6.5
+- **Fehlerprotokoll:** jeder Fehler landet in einer Datei zum Mitschicken (mit Versionen und Systemangaben) –
+  Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`; Hilfe → Fehlerprotokolle öffnen
+  - unerwarteter Fehler: Meldung mit Pfad zum Protokoll, Passermark läuft weiter
+  - harter Absturz (z. B. in einer Bibliothek): beim nächsten Start einmalige Meldung mit dem Protokoll
+  - Fehler in Hintergrund-Aufträgen samt Details; Fehler in Threads
+  - ohne Fehler wird das Protokoll beim Beenden gelöscht; höchstens 10 werden aufgehoben
+- Paralleles Rechnen: Speicherbudget nach dem tatsächlichen Arbeitsspeicher des Rechners (40 %, mind. 1 GB)
+
 ## 1.6.4
 - CutContour mit **mehreren Seiten: ganze Seiten parallel** – jeder Arbeitsprozess rechnet eine komplette Seite
   (auch Rendern und Erkennen); kein Stocken mehr zwischen den Seiten. Eine Seite: weiterhin Objekte parallel

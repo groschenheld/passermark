@@ -110,6 +110,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    import faulthandler
+    faulthandler.enable()                   # harter Absturz -> Ausgabe auf stderr (landet im Protokoll der Oberfläche)
     from . import core
     from .l10n import tr
     parser = build_parser()

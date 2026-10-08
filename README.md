@@ -1,4 +1,4 @@
-# Passermark 1.6.4
+# Passermark 1.6.6
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -58,10 +58,16 @@ Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppIm
 Windows → `passermark-cli.exe` in the installation folder.
 A guide with examples (German PDF) is in the program under **Help → Command line – guide**.
 
+## Error logs
+
+If something goes wrong, Passermark writes a log file to send along (Help → Open error logs):
+Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`. After a crash, the next start
+points to the log. Logs without errors are deleted on exit.
+
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.4 && git push origin v1.6.4`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.6 && git push origin v1.6.6`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

@@ -63,6 +63,9 @@ def main():
         app.installTranslator(_tr)     # Qt-Standardtexte (Ja/Nein, Abbrechen, Dateidialog) in der Oberflächensprache
     from .gui import theme
     theme.apply(app)                 # dunkles Design, gelber Akzent, Mausrad-Schutz
+    from . import crashlog
+    from .gui import crashui
+    crashlog.install("gui", on_error=crashui.show_error)     # Fehlerprotokoll (Datei zum Mitschicken)
     files = [os.path.abspath(f) for f in args.files]
 
     from . import app as appmod
@@ -87,6 +90,8 @@ def main():
         ctl.queue_request(cmd, files)
     if not files and cmd == "open":
         ctl.new_window()
+    from PySide6.QtCore import QTimer
+    QTimer.singleShot(1200, crashui.notify_previous_crashes)  # Absturz beim letzten Mal? -> einmal melden
     return app.exec()
 
 

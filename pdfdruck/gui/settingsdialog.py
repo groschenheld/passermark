@@ -50,20 +50,21 @@ class SettingsDialog(QDialog):
             g3 = QGroupBox(tr("Drucken unter Windows"))
             f3 = QFormLayout(g3)
             self.cmb_wmode = QComboBox()
-            for val, txt in (("auto", tr("Automatisch (PostScript-Treiber: PostScript, sonst Raster)")),
+            for val, txt in (("auto", tr("Automatisch (Raster – der verträglichste Weg)")),
+                             ("raster_jpeg", tr("Raster + JPEG (kleinere Aufträge, nicht jeder Treiber)")),
                              ("postscript", tr("PostScript (Canon PS3, Fiery …)")),
-                             ("raster", tr("Raster (schnell, für alle Treiber)")),
                              ("vector", tr("Vektor über GDI (früheres Verfahren)"))):
                 self.cmb_wmode.addItem(txt, val)
             self.cmb_wmode.setCurrentIndex(max(0, self.cmb_wmode.findData(self.settings.get("win_print_mode", "auto"))))
             f3.addRow(tr("Verfahren:"), self.cmb_wmode)
             self.cmb_wdpi = QComboBox()
-            for val, txt in ((0, tr("Automatisch (600 dpi mit JPEG, sonst 400 dpi)")), (300, "300 dpi"), (400, "400 dpi"),
+            for val, txt in ((0, tr("Automatisch (600 dpi mit JPEG, sonst 300 dpi)")), (300, "300 dpi"), (400, "400 dpi"),
                              (600, "600 dpi"), (1200, "1200 dpi")):
                 self.cmb_wdpi.addItem(txt, val)
             self.cmb_wdpi.setCurrentIndex(max(0, self.cmb_wdpi.findData(int(self.settings.get("win_raster_dpi", 0) or 0))))
             f3.addRow(tr("Raster-Auflösung:"), self.cmb_wdpi)
-            hint = QLabel(tr("Wenn das Spoolen lange dauert oder Aufträge abbrechen: „Raster“ mit 300–400 dpi versuchen."))
+            hint = QLabel(tr("Leere Blätter oder Fehler? Hilfe → Windows-Druck testen schickt je Verfahren eine "
+                             "Testseite – dann das Verfahren wählen, dessen Seite richtig ankommt."))
             hint.setWordWrap(True)
             hint.setStyleSheet(f"color: {theme.MUTED};")
             f3.addRow(hint)

@@ -1289,6 +1289,14 @@ class MainWindow(QMainWindow):
         a = QAction(tr("Kommandozeile – Anleitung (PDF)"), self)
         a.triggered.connect(self._open_cli_howto)
         m.addAction(a)
+        from .. import platform as _pl
+        if _pl.IS_WIN:
+            a = QAction(tr("Windows-Druck testen …"), self)
+            a.triggered.connect(self._win_print_test)
+            m.addAction(a)
+        a = QAction(tr("Fehlerprotokolle öffnen"), self)
+        a.triggered.connect(lambda: __import__("pdfdruck.gui.crashui", fromlist=["x"]).open_log_dir())
+        m.addAction(a)
 
         dock_act = dock.toggleViewAction()
         dock_act.setIcon(svg_icon("sidebar"))
@@ -1816,6 +1824,9 @@ class MainWindow(QMainWindow):
         if ev == "cancelled":
             self.statusBar().showMessage(tr("Abgebrochen."), 6000)
             return
+        from .. import crashlog
+        crashlog.record(f"Auftrag {entry['job'].kind} fehlgeschlagen (Code {res.get('returncode')}): "
+                        f"{res.get('message')}", res.get("details") or "")
         box = QMessageBox(QMessageBox.Icon.Critical, tr("Fehler"), res.get("message") or tr("Unbekannter Fehler"),
                           parent=self)
         if res.get("details"):
@@ -1871,6 +1882,34 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
             return
         self.ctl.open_paths([p])
+
+    def _win_print_test(self):
+        """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""
+        from PySide6.QtWidgets import QInputDialog
+        from .. import printers, printers_win
+        try:
+            names = [p.name for p in printers.list_printers()]
+        except Exception as e:                          # noqa: BLE001
+            QMessageBox.critical(self, tr("Windows-Druck testen"), str(e))
+            return
+        if not names:
+            QMessageBox.information(self, tr("Windows-Druck testen"), tr("Kein Drucker gefunden."))
+            return
+        name, ok = QInputDialog.getItem(self, tr("Windows-Druck testen"),
+                                        tr("Je Verfahren wird eine A4-Testseite gedruckt (4 Blätter).\nDrucker:"),
+                                        names, 0, False)
+        if not ok:
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            res = printers_win.test_print(name)
+        finally:
+            QApplication.restoreOverrideCursor()
+        lines = "\n".join(f"• {label}: {r}" for label, r in res)
+        QMessageBox.information(self, tr("Windows-Druck testen"),
+                                tr("Gesendet an {0}:").format(name) + "\n" + lines + "\n\n"
+                                + tr("Auf jedem Blatt steht das Verfahren. Wählen Sie unter Datei → Einstellungen → Drucken "
+                                     "unter Windows das Verfahren, dessen Blatt richtig ankommt."))
 
     def copy_text(self):
         t = self.view.selected_text()

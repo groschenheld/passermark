@@ -29,7 +29,7 @@ def test_raster_bands_exact_and_jpeg_smaller():
     sizes = {}
     for jpeg in (False, True):
         g = _setup(dpi=300, jpeg=jpeg)
-        pw.print_settings = lambda: ("auto", 300)
+        pw.print_settings = lambda jpeg=jpeg: ("raster_jpeg" if jpeg else "auto", 300)
         pw.BAND_BYTES = 2 * 1024 * 1024
         assert pw.print_pdf("T", SAMPLE, "t", {}, 1, True) == 42
         bands = [c for c in g.calls if c[0] == "band"]
@@ -50,7 +50,7 @@ def test_postscript_driver_uses_pdfium_ps_and_resets():
     r.FPDF_SetPrintMode = lambda m: log.append(("mode", m))
     r.FPDF_RenderPage = lambda *a: log.append(("render",))
     try:
-        pw.print_settings = lambda: ("auto", 0)
+        pw.print_settings = lambda: ("postscript", 0)
         pw.print_pdf("PS", SAMPLE, "t", {}, 1, True)
         assert [x for x in log if x[0] == "mode"] == [("mode", 3), ("mode", 0)]
         assert not any(c[0] == "band" for c in g.calls)
@@ -69,6 +69,54 @@ def test_error_aborts_job():
     except RuntimeError:
         pass
     assert ("abort",) in g.calls
+
+
+def test_auto_is_plain_raster_even_if_driver_claims_more():
+    """Automatisch: nie PostScript/JPEG – die führten bei manchen Treibern zu leeren Blättern."""
+    g = _setup(dpi=300, ps=True, jpeg=True)
+    pw.print_settings = lambda: ("auto", 0)
+    pw.BAND_BYTES = 24 * 1024 * 1024
+    pw.print_pdf("Canon", SAMPLE, "t", {}, 1, True)
+    bands = [c for c in g.calls if c[0] == "band"]
+    assert bands and all(c[3] == 0 for c in bands)
+    assert pw.LAST_INFO["mode"] == "raster" and pw.LAST_INFO["ps"] and pw.LAST_INFO["jpeg"]
+    assert pw.LAST_INFO["raster_dpi"] == 300 and pw.LAST_INFO["pages"] == len(pdfium.PdfDocument(SAMPLE))
+
+
+def test_job_log_written():
+    import tempfile
+    from pdfdruck import platform as pl
+    d = tempfile.mkdtemp()
+    old = pl.user_log_dir
+    pl.user_log_dir = lambda: d
+    try:
+        _setup(dpi=300)
+        pw.print_settings = lambda: ("auto", 0)
+        pw.print_pdf("Büro-Drucker", SAMPLE, "t", {}, 1, True)
+        g = _setup(dpi=300); g.StretchDIBits = lambda *a: 0
+        try:
+            pw.print_pdf("Büro-Drucker", SAMPLE, "t", {}, 1, True)
+        except RuntimeError:
+            pass
+    finally:
+        pl.user_log_dir = old
+    lines = open(os.path.join(d, "druck-windows.log"), encoding="utf-8").read().splitlines()
+    assert len(lines) == 2 and '"mode": "raster"' in lines[0] and "Büro-Drucker" in lines[0] and "error" in lines[1]
+
+
+def test_test_print_all_modes():
+    g = _setup(dpi=300, ps=False, jpeg=True)
+    pw.print_settings = lambda: ("auto", 0)
+    had = hasattr(r, "FPDF_RenderPage")
+    r.FPDF_RenderPage = lambda *a: g.calls.append(("vector",))
+    try:
+        res = dict(pw.test_print("T"))
+    finally:
+        if not had: del r.FPDF_RenderPage
+    assert list(res) == [lab for _m, lab in pw.TEST_MODES]
+    assert res["Raster"] == "ok" and res["Raster + JPEG"] == "ok" and res["Vektor (GDI)"] == "ok"
+    assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"    # Treiber kann es nicht -> gemeldet
+    assert len(g.pages) == 4 and ("vector",) in g.calls
 
 
 if __name__ == "__main__":
