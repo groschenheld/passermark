@@ -1006,4 +1006,13 @@ MESSAGES = {
     "Eine Form je Objekt": "Una forma por objeto",
     "Eine Form um das ganze Motiv": "Una forma alrededor de todo el motivo",
     "Größe: {0:.0f} %": "Tamaño: {0:.0f} %",
+    "Form wieder mittig aufs Motiv setzen": "Volver a centrar la forma en el motivo",
+    "Form: {0} × {1} mm": "Forma: {0} × {1} mm",
+    "Größe (B × H):": "Tamaño (An × Al):",
+    "Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau.": "Tamaño de la línea de corte en mm; «auto» = del motivo más distancia (un solo valor: se mantiene la proporción). También cambia al arrastrar los tiradores en la vista previa.",
+    "Versatz (X / Y):": "Desplazamiento (X / Y):",
+    "Versatz senkrecht (+ oben)": "Desplazamiento vertical (+ arriba)",
+    "Versatz waagrecht (+ rechts)": "Desplazamiento horizontal (+ derecha)",
+    "Versatz: {0} / {1} mm": "Desplazamiento: {0} / {1} mm",
+    "auch mit dem Verschiebe-Griff über der Form in der Vorschau": "también con el tirador de mover sobre la forma en la vista previa",
 }

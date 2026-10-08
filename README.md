@@ -1,4 +1,4 @@
-# Passermark 1.5.1
+# Passermark 1.5.2
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -8,7 +8,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options.
 - **Imposition:** fit/scale, N-up, booklet, poster tiling, step & repeat.
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
-  **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; drag shapes to resize).
+  **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
 - **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute
   fonts (free metric-compatible fonts or download from fontsource.org), outline text, fix/remove layers,
   flatten transparency.
@@ -41,7 +41,7 @@ Optional: LibreOffice (Office files), 7-Zip (ICC profile import from archives).
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.5.1 && git push origin v1.5.1`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.5.2 && git push origin v1.5.2`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

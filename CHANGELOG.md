@@ -1,5 +1,14 @@
 # Änderungen – Passermark
 
+## 1.5.2
+- CutContour-Grundformen: **Griffe** an der Form in der Vorschau – Ecken skalieren gleichmäßig ab der Mitte,
+  Seitengriffe nur Breite bzw. Höhe, **Verschiebe-Griff** über der Form verschiebt sie
+- Größe nur noch in **mm** („Größe (B × H)“, „auto“ = aus dem Motiv plus Abstand); Prozent entfällt.
+  Eine eingetragene Größe gilt exakt als Schnittlinie; Ziehen an den Griffen schreibt die mm-Werte in die Felder
+- Neu: **Versatz (X / Y)** in mm, mit Knopf zum Zurücksetzen
+- Behoben: Nach dem Skalieren mit der Maus wirkten eingegebene Größen nicht mehr (versteckter Prozentfaktor)
+- Anzeige unten: aktuelle Formgröße in mm, beim Ziehen live
+
 ## 1.5.1
 - CutContour mit Grundform (Rechteck, Kreis, Herz …): **eine Form um das ganze Motiv** statt einer je erkanntem Teil;
   sitzt mittig, Größe ändert sich ab der Mitte. Option „Eine Form je Objekt“ für Aufkleberbögen

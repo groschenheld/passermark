@@ -1006,4 +1006,13 @@ MESSAGES = {
     "Eine Form je Objekt": "One shape per object",
     "Eine Form um das ganze Motiv": "One shape around the whole motif",
     "Größe: {0:.0f} %": "Size: {0:.0f} %",
+    "Form wieder mittig aufs Motiv setzen": "Centre the shape on the motif again",
+    "Form: {0} × {1} mm": "Shape: {0} × {1} mm",
+    "Größe (B × H):": "Size (W × H):",
+    "Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau.": "Size of the cut line in mm; “auto” = from the motif plus distance (only one value: aspect ratio is kept). Also changes when dragging the handles in the preview.",
+    "Versatz (X / Y):": "Offset (X / Y):",
+    "Versatz senkrecht (+ oben)": "Vertical offset (+ up)",
+    "Versatz waagrecht (+ rechts)": "Horizontal offset (+ right)",
+    "Versatz: {0} / {1} mm": "Offset: {0} / {1} mm",
+    "auch mit dem Verschiebe-Griff über der Form in der Vorschau": "also with the move handle above the shape in the preview",
 }

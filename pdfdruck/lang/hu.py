@@ -1006,4 +1006,13 @@ MESSAGES = {
     "Eine Form je Objekt": "Objektumonként egy forma",
     "Eine Form um das ganze Motiv": "Egy forma a teljes motívum körül",
     "Größe: {0:.0f} %": "Méret: {0:.0f} %",
+    "Form wieder mittig aufs Motiv setzen": "A formát ismét a motívum közepére helyezni",
+    "Form: {0} × {1} mm": "Forma: {0} × {1} mm",
+    "Größe (B × H):": "Méret (Sz × M):",
+    "Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau.": "A vágóvonal mérete mm-ben; „auto” = a motívumból plusz távolság (csak egy érték: a méretarány megmarad). Az előnézetben a fogantyúk húzásakor is változik.",
+    "Versatz (X / Y):": "Eltolás (X / Y):",
+    "Versatz senkrecht (+ oben)": "Függőleges eltolás (+ fel)",
+    "Versatz waagrecht (+ rechts)": "Vízszintes eltolás (+ jobbra)",
+    "Versatz: {0} / {1} mm": "Eltolás: {0} / {1} mm",
+    "auch mit dem Verschiebe-Griff über der Form in der Vorschau": "az előnézetben a forma feletti mozgató fogantyúval is",
 }

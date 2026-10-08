@@ -41,8 +41,10 @@ class CutSettings:
     inner: bool = False            # nur Kontur: Innenkonturen (Löcher) mitschneiden
     corner_mm: float = 3.0         # abgerundetes Rechteck: Eckenradius
     scale_pct: float = 100.0       # Formen: Größe relativ zum Objekt
-    width_mm: float = 0.0          # Formen: feste Größe (0 = vom Objekt)
+    width_mm: float = 0.0          # Formen: Größe der Schnittlinie in mm (0 = aus dem Objekt + Abstand)
     height_mm: float = 0.0
+    shift_x_mm: float = 0.0        # Formen: Versatz der Form gegenüber der Motivmitte (+ rechts)
+    shift_y_mm: float = 0.0        # (+ oben)
     min_size_mm: float = 3.0
     bleed_color: str = ""          # "" = automatisch aus dem Motiv, sonst feste Farbe "#rrggbb" (gleichmäßiger Rand)
     clean_seams: bool = False      # schmale Mischkanten im Motiv durch Vollfarben ersetzen (nur flächige Motive)
@@ -181,16 +183,17 @@ def line_ops(poly) -> str:
 
 
 def _offset_shape(s: CutSettings, w, h):
-    """Formgröße aus Objektgröße (bzw. fester Größe), Skalierung und Abstand."""
+    """Formgröße: angegebene Größe gilt EXAKT als Schnittlinie; ohne Angabe Objektgröße + Abstand.
+    Nur eine Angabe (Breite oder Höhe): das Seitenverhältnis des Objekts bleibt."""
+    k = s.scale_pct / 100.0                      # nur noch für Aufrufer der Programmschnittstelle (Oberfläche: 100)
     if s.width_mm > 0 and s.height_mm > 0:
-        w, h = s.width_mm * MM, s.height_mm * MM
-    elif s.width_mm > 0:
-        h, w = h * s.width_mm * MM / w, s.width_mm * MM
-    elif s.height_mm > 0:
-        w, h = w * s.height_mm * MM / h, s.height_mm * MM
-    k = s.scale_pct / 100.0
+        return max(1.0, s.width_mm * MM * k), max(1.0, s.height_mm * MM * k)
     off = 2 * s.offset_mm * MM
-    return max(1.0, w * k + off), max(1.0, h * k + off)
+    if s.width_mm > 0:
+        return max(1.0, s.width_mm * MM * k), max(1.0, (h + off) * s.width_mm * MM / (w + off) * k)
+    if s.height_mm > 0:
+        return max(1.0, (w + off) * s.height_mm * MM / (h + off) * k), max(1.0, s.height_mm * MM * k)
+    return max(1.0, (w + off) * k), max(1.0, (h + off) * k)
 
 
 # --------------------------------------------------------------------------- #
@@ -326,6 +329,7 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
     if s.shape != "contour":
         # feste Größe / Skalierung kann die Form über das Objekt hinaus vergrößern
         grow_shape = max(0.0, (s.scale_pct / 100.0 - 1) * max(mask.shape) / 2, (s.width_mm + s.height_mm) * MM * px)
+        grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px     # Versatz braucht Platz
     pad = int(math.ceil(max(off, 0) + sm + bl + grow_shape + 6))
     mask = np.pad(mask, pad)
     rgb = np.pad(rgba[:, :, :3], ((pad, pad), (pad, pad), (0, 0)), mode="edge")
@@ -398,7 +402,7 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
             mx0, my1 = to_pt(ox0, oy0)
             mx1, my0 = to_pt(ox1, oy1)
             w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
-            poly = shape_polygon(s.shape, (mx0 + mx1) / 2, (my0 + my1) / 2, w, h,
+            poly = shape_polygon(s.shape, (mx0 + mx1) / 2 + s.shift_x_mm * MM, (my0 + my1) / 2 + s.shift_y_mm * MM, w, h,
                                  s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
             paths.append((poly.tolist(), False))
             im = Image.new("L", (wx1 - wx0, wy1 - wy0), 0)

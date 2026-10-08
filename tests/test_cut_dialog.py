@@ -31,7 +31,7 @@ assert shapes["contour"] != shapes["rect"] != shapes["heart"], "Vorschau ändert
 assert len(shapes["contour"]) == 3, len(shapes["contour"])                 # Kontur: je Aufkleber
 assert len(shapes["rect"]) == 1 and len(shapes["heart"]) == 1, (len(shapes["rect"]), len(shapes["heart"]))
 assert len(run("rect", single=False)) == 3                                 # Option: eine Form je Objekt
-# Form mit der Maus ziehen: doppelter Abstand zur Mitte = Faktor 2, live angezeigt, beim Loslassen übernommen
+# Griffe: Ecke = gleichmäßig, Seite = nur Breite, Verschiebe-Griff = Versatz; Felder bekommen mm-Werte
 run("rect")
 class P:
     def __init__(s, x, y): s._x, s._y = x, y
@@ -41,17 +41,53 @@ class E:
     def __init__(s, x, y): s.p = P(x, y)
     def position(s): return s.p
     def button(s): return od.Qt.MouseButton.LeftButton
+od.QPointF = lambda x, y: P(x, y)
+od.QRectF = lambda *a: None
 cv = dlg.canvas
-cv.to_widget = lambda x, y: P(x, y)
-cx, cy = cv.scale_center
-got, live = [], []
-cv.on_scale, cv.on_scaling = got.append, live.append
-cv.mousePressEvent(E(cx + 40, cy)); cv.mouseMoveEvent(E(cx + 80, cy)); cv.mouseReleaseEvent(E(cx + 80, cy))
-assert live and abs(live[-1] - 2.0) < 1e-6 and got == [2.0], (live, got)
-cv.mousePressEvent(E(cx + 40, cy)); cv.mouseMoveEvent(E(cx + 20, cy)); cv.mouseReleaseEvent(E(cx + 20, cy))
-assert abs(got[-1] - 0.5) < 1e-6, got
+cv._geom = lambda: (1.0, 0.0, 0.0)                 # 1 px = 1 pt
+cv.page_h = 1000.0
+x0, y0, x1, y1 = cv.shape_box
+assert cv.shape_box is not None
+got = []
+cv.on_shape = lambda *v: got.append(v)
+def drag(name, ddx, ddy):
+    h = cv._handles()[name]
+    cv.mousePressEvent(E(h.x(), h.y()))
+    c = cv.to_widget((x0 + x1) / 2, (y0 + y1) / 2)
+    if name.startswith("c") or name.startswith("s"):
+        tx, ty = c.x() + (h.x() - c.x()) * ddx, c.y() + (h.y() - c.y()) * ddy
+    else:
+        tx, ty = h.x() + ddx, h.y() + ddy
+    cv.mouseMoveEvent(E(tx, ty)); cv.mouseReleaseEvent(E(tx, ty))
+    cv.live = (1.0, 1.0, 0.0, 0.0)
+    return got[-1]
+sx, sy, dx, dy = drag("c11", 2, 2)
+assert abs(sx - 2) < 1e-6 and abs(sy - 2) < 1e-6 and dx == 0 and dy == 0, (sx, sy, dx, dy)
+sx, sy, dx, dy = drag("sx1", 2, 1)
+assert abs(sx - 2) < 1e-6 and sy == 1.0, (sx, sy)
+sx, sy, dx, dy = drag("move", 30, -20)
+assert sx == sy == 1.0 and abs(dx - 30) < 1e-6 and abs(dy - 20) < 1e-6, (dx, dy)   # Bildschirm-y nach unten = Seite nach oben
+# Übernahme in die Felder (mm)
+class Spin:
+    def __init__(s, v=0.0): s.v = v
+    def value(s): return s.v
+    def setValue(s, v): s.v = v
+    def minimum(s): return -2000.0
+    def maximum(s): return 2000.0
+    def blockSignals(s, b): pass
+dlg.spn_fw, dlg.spn_fh, dlg.spn_sx, dlg.spn_sy = Spin(), Spin(), Spin(5.0), Spin()
+MM = 72 / 25.4
+bw, bh = (x1 - x0) / MM, (y1 - y0) / MM
+dlg._apply_drag(1.5, 1.0, 10 * MM, -4 * MM)
+assert abs(dlg.spn_fw.v - round(bw * 1.5, 1)) < 0.11 and abs(dlg.spn_fh.v - round(bh, 1)) < 0.11, (dlg.spn_fw.v, bw)
+assert abs(dlg.spn_sx.v - 15.0) < 0.01 and abs(dlg.spn_sy.v + 4.0) < 0.01, (dlg.spn_sx.v, dlg.spn_sy.v)
+# danach eingetippte Größe wirkt direkt (kein versteckter Prozentfaktor mehr)
+dlg._settings = lambda preview=False: cutcontour.CutSettings(shape="rect", width_mm=100, height_mm=40, dpi=100)
+dlg._preview()
+bb = dlg.canvas.shape_box
+assert abs((bb[2] - bb[0]) / MM - 100) < 0.6 and abs((bb[3] - bb[1]) / MM - 40) < 0.6, bb
 run("contour")
-assert dlg.canvas.scale_center is None                                     # Kontur: kein Ziehen
+assert dlg.canvas.shape_box is None                                        # Kontur: keine Griffe
 dlg.done(0)
 print("CUT-DIALOG-OK")
 '''

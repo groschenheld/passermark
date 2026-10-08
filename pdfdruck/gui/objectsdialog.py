@@ -29,6 +29,12 @@ SHAPES = [("contour", "Kontur (folgt dem Motiv)"), ("rect", "Rechteck"), ("round
           ("star", "Stern"), ("shield", "Wappen"), ("arch", "Torbogen")]
 
 
+def fmt_mm(v: float) -> str:
+    from .. import l10n
+    from ..measure import fmt
+    return fmt(v, l10n.current())
+
+
 def show_error(parent, title, exc):
     """Fehlermeldung mit Details (Ablauf zum Kopieren) – damit Fehler eindeutig gemeldet werden können."""
     box = QMessageBox(QMessageBox.Icon.Critical, title, str(exc) or type(exc).__name__, parent=parent)
@@ -58,10 +64,10 @@ class PageCanvas(QWidget):
         self.boxes: list[objects.Box] = []
         self.selected: set[int] = set()
         self.paths = []           # Konturen in pt
-        self.scale_center = None  # Grundform: Mitte (pt) -> Form mit der Maus ziehen = skalieren
-        self.on_scale = None      # Rückruf (Faktor) beim Loslassen
-        self.on_scaling = None    # Rückruf (Faktor) während des Ziehens (Anzeige)
-        self.live_factor = 1.0
+        self.shape_box = None     # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
+        self.on_shape = None      # Rückruf (sx, sy, dx_pt, dy_pt) beim Loslassen
+        self.on_shaping = None    # Rückruf (sx, sy, dx_pt, dy_pt) während des Ziehens (Anzeige)
+        self.live = (1.0, 1.0, 0.0, 0.0)
         self._sdrag = None
         self.margin_pt = 0.0      # Vorschau des Randes (gestrichelt)
         self._drag = None
@@ -120,31 +126,87 @@ class PageCanvas(QWidget):
             p.drawText(r.adjusted(4, 2, 0, 0), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), str(i + 1))
         if self.paths:
             p.setBrush(Qt.BrushStyle.NoBrush)
-            f, c = self.live_factor, self.scale_center
-            live = c is not None and abs(f - 1.0) > 1e-6
-
-            def tr_pt(x, y):
-                return (c[0] + (x - c[0]) * f, c[1] + (y - c[1]) * f) if live else (x, y)
+            live = self.live != (1.0, 1.0, 0.0, 0.0)
             p.setPen(QPen(QColor(236, 0, 140), 1.6, Qt.PenStyle.DashLine if live else Qt.PenStyle.SolidLine))
             for poly in self.paths:
-                path = QPainterPath(self.to_widget(*tr_pt(*poly[0])))
-                for x, y in poly[1:]:
-                    path.lineTo(self.to_widget(*tr_pt(x, y)))
+                tpoly = self._transformed(poly) if live else poly
+                path = QPainterPath(self.to_widget(*tpoly[0]))
+                for x, y in tpoly[1:]:
+                    path.lineTo(self.to_widget(x, y))
                 path.closeSubpath()
                 p.drawPath(path)
+            if self.shape_box is not None:
+                self._paint_handles(p)
         if self._drag:
             p.setPen(QPen(QColor(theme.ACCENT), 1, Qt.PenStyle.DashLine))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(QRectF(self._drag[0], self._drag[1]).normalized())
 
+    # Griffe der Grundform ------------------------------------------------ #
+    HANDLE = 5          # halbe Griffgröße (px)
+    GRIP_OFF = 18       # Verschiebe-Griff: Abstand über der Form (px)
+
+    def _box_now(self):
+        """Rahmen der Form inkl. laufender Änderung (pt)."""
+        x0, y0, x1, y1 = self.shape_box
+        sx, sy, dx, dy = self.live
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        hw, hh = (x1 - x0) / 2 * sx, (y1 - y0) / 2 * sy
+        return cx - hw + dx, cy - hh + dy, cx + hw + dx, cy + hh + dy
+
+    def _transformed(self, poly):
+        """Punkte der Form mit laufender Änderung: jede Form um ihre eigene Mitte skaliert, dann verschoben."""
+        sx, sy, dx, dy = self.live
+        xs = [x for x, _y in poly]
+        ys = [y for _x, y in poly]
+        cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        return [(cx + (x - cx) * sx + dx, cy + (y - cy) * sy + dy) for x, y in poly]
+
+    def _handles(self):
+        """{Name: Bildschirmpunkt} – Ecken (gleichmäßig), Seiten (nur Breite/Höhe), Verschiebe-Griff."""
+        x0, y0, x1, y1 = self._box_now()
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        h = {"c00": (x0, y0), "c10": (x1, y0), "c01": (x0, y1), "c11": (x1, y1),
+             "sx0": (x0, cy), "sx1": (x1, cy), "sy0": (cx, y0), "sy1": (cx, y1)}
+        out = {k: self.to_widget(*v) for k, v in h.items()}
+        top = self.to_widget(cx, y1)
+        out["move"] = QPointF(top.x(), top.y() - self.GRIP_OFF)
+        return out
+
+    def _hit(self, pos):
+        for name, c in self._handles().items():
+            r = self.HANDLE + (3 if name == "move" else 2)
+            if abs(pos.x() - c.x()) <= r + 2 and abs(pos.y() - c.y()) <= r + 2:
+                return name
+        return None
+
+    def _paint_handles(self, p):
+        hs = self._handles()
+        top = self.to_widget((self._box_now()[0] + self._box_now()[2]) / 2, self._box_now()[3])
+        p.setPen(QPen(QColor(236, 0, 140), 1))
+        p.drawLine(top, hs["move"])
+        p.setBrush(QColor("#ffffff"))
+        for name, c in hs.items():
+            if name == "move":
+                continue
+            p.drawRect(QRectF(c.x() - self.HANDLE, c.y() - self.HANDLE, 2 * self.HANDLE, 2 * self.HANDLE))
+        m = hs["move"]
+        p.setBrush(QColor(236, 0, 140))
+        p.drawEllipse(m, self.HANDLE + 3, self.HANDLE + 3)
+        p.setPen(QPen(QColor("#ffffff"), 1.4))
+        a = self.HANDLE
+        p.drawLine(QPointF(m.x() - a, m.y()), QPointF(m.x() + a, m.y()))     # Kreuz = verschieben
+        p.drawLine(QPointF(m.x(), m.y() - a), QPointF(m.x(), m.y() + a))
+
     # Maus/Tastatur ------------------------------------------------------- #
     def mousePressEvent(self, e):
         if not self.editable:
-            if self.scale_center is not None and self.paths and e.button() == Qt.MouseButton.LeftButton:
-                c = self.to_widget(*self.scale_center)
-                d0 = math.hypot(e.position().x() - c.x(), e.position().y() - c.y())
-                if d0 > 4:
-                    self._sdrag = (c, d0)            # Form anfassen: Abstand zur Mitte = Bezug
+            if self.shape_box is not None and self.paths and e.button() == Qt.MouseButton.LeftButton:
+                name = self._hit(e.position())
+                if name is not None:
+                    x0, y0, x1, y1 = self.shape_box
+                    c = self.to_widget((x0 + x1) / 2, (y0 + y1) / 2)
+                    self._sdrag = (name, e.position(), c)
             return
         pos = e.position()
         hit = next((i for i in reversed(range(len(self.boxes))) if self._rect(self.boxes[i]).contains(pos)), None)
@@ -163,27 +225,46 @@ class PageCanvas(QWidget):
 
     def mouseMoveEvent(self, e):
         if self._sdrag:
-            c, d0 = self._sdrag
-            d = math.hypot(e.position().x() - c.x(), e.position().y() - c.y())
-            self.live_factor = max(0.05, min(20.0, d / d0))
-            if self.on_scaling is not None:
-                self.on_scaling(self.live_factor)
+            name, p0, c = self._sdrag
+            pos = e.position()
+            sx = sy = 1.0
+            dx = dy = 0.0
+            if name == "move":
+                s_, _ox, _oy = self._geom()
+                dx, dy = (pos.x() - p0.x()) / s_, -(pos.y() - p0.y()) / s_
+            elif name.startswith("c"):
+                d0 = math.hypot(p0.x() - c.x(), p0.y() - c.y()) or 1.0
+                sx = sy = max(0.05, min(20.0, math.hypot(pos.x() - c.x(), pos.y() - c.y()) / d0))
+            elif name.startswith("sx"):
+                sx = max(0.05, min(20.0, abs(pos.x() - c.x()) / (abs(p0.x() - c.x()) or 1.0)))
+            else:
+                sy = max(0.05, min(20.0, abs(pos.y() - c.y()) / (abs(p0.y() - c.y()) or 1.0)))
+            self.live = (sx, sy, dx, dy)
+            if self.on_shaping is not None:
+                self.on_shaping(*self.live)
             self.update()
             return
-        if not self.editable and self.scale_center is not None and self.paths:
-            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        if not self.editable and self.shape_box is not None and self.paths:
+            name = self._hit(e.position())
+            cur = {"c00": Qt.CursorShape.SizeBDiagCursor, "c11": Qt.CursorShape.SizeBDiagCursor,
+                   "c10": Qt.CursorShape.SizeFDiagCursor, "c01": Qt.CursorShape.SizeFDiagCursor,
+                   "sx0": Qt.CursorShape.SizeHorCursor, "sx1": Qt.CursorShape.SizeHorCursor,
+                   "sy0": Qt.CursorShape.SizeVerCursor, "sy1": Qt.CursorShape.SizeVerCursor,
+                   "move": Qt.CursorShape.SizeAllCursor}.get(name, Qt.CursorShape.ArrowCursor)
+            self.setCursor(cur)
         if self._drag:
             self._drag[1] = e.position()
             self.update()
 
     def mouseReleaseEvent(self, e):
         if self._sdrag:
-            f = self.live_factor
             self._sdrag = None
-            if self.on_scale is not None and abs(f - 1.0) > 0.005:
-                self.on_scale(f)                     # Größe übernehmen -> sauber neu rechnen
+            sx, sy, dx, dy = self.live
+            changed = abs(sx - 1) > 0.002 or abs(sy - 1) > 0.002 or abs(dx) > 0.2 or abs(dy) > 0.2
+            if self.on_shape is not None and changed:
+                self.on_shape(sx, sy, dx, dy)            # Größe/Versatz in mm übernehmen -> neu rechnen
             else:
-                self.live_factor = 1.0
+                self.live = (1.0, 1.0, 0.0, 0.0)
                 self.update()
             return
         if not self._drag:
@@ -508,22 +589,27 @@ class CutContourDialog(QDialog):
         f.addRow(tr("Abstand zum Motiv:"), self.spn_off)
         self.spn_corner = dspin(self.s.corner_mm, 0, 200)
         f.addRow(tr("Eckenradius:"), self.spn_corner)
-        self.spn_scale = QDoubleSpinBox()
-        self.spn_scale.setRange(5, 500)
-        self.spn_scale.setDecimals(1)
-        self.spn_scale.setSuffix(" %")
-        self.spn_scale.setValue(self.s.scale_pct)
-        self.spn_scale.setToolTip(tr("Größe der Form relativ zum Objekt (ohne Überfüller)"))
-        f.addRow(tr("Größe:"), self.spn_scale)
         row = QHBoxLayout()
         self.spn_fw, self.spn_fh = dspin(0, 0, 2000), dspin(0, 0, 2000)
         for sp in (self.spn_fw, self.spn_fh):
             sp.setSpecialValueText(tr("auto"))
-            sp.setToolTip(tr("Feste Größe der Form; „auto“ = aus dem Objekt (nur eine Angabe: Seitenverhältnis bleibt)"))
+            sp.setToolTip(tr("Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: "
+                             "Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau."))
         row.addWidget(self.spn_fw)
         row.addWidget(QLabel("×"))
         row.addWidget(self.spn_fh)
-        f.addRow(tr("Feste Größe:"), row)
+        f.addRow(tr("Größe (B × H):"), row)
+        row = QHBoxLayout()
+        self.spn_sx, self.spn_sy = dspin(self.s.shift_x_mm, -2000, 2000), dspin(self.s.shift_y_mm, -2000, 2000)
+        for sp, tip in ((self.spn_sx, tr("Versatz waagrecht (+ rechts)")), (self.spn_sy, tr("Versatz senkrecht (+ oben)"))):
+            sp.setToolTip(tip + " – " + tr("auch mit dem Verschiebe-Griff über der Form in der Vorschau"))
+            row.addWidget(sp)
+        self.btn_shift0 = QPushButton("↺")
+        self.btn_shift0.setFixedWidth(34)
+        self.btn_shift0.setToolTip(tr("Form wieder mittig aufs Motiv setzen"))
+        self.btn_shift0.clicked.connect(lambda: (self.spn_sx.setValue(0), self.spn_sy.setValue(0)))
+        row.addWidget(self.btn_shift0)
+        f.addRow(tr("Versatz (X / Y):"), row)
         self.spn_smooth = dspin(self.s.smooth_mm, 0, 20, tr("Buchten und Lücken schmaler als das Doppelte werden überbrückt, Ecken gerundet – nötig zum Entgittern"))
         f.addRow(tr("Glättung:"), self.spn_smooth)
         self.spn_bleed = dspin(self.s.bleed_mm, 0, 10, tr("So weit wird das Motiv über die Schnittlinie hinaus verlängert"))
@@ -596,7 +682,7 @@ class CutContourDialog(QDialog):
                     self.cmb_bcol.currentIndexChanged, self.chk_bleed.toggled,
                     self.cmb_out.currentIndexChanged, self.chk_seams.toggled, self.chk_inner.toggled):
             sig.connect(self._pv_timer.start)
-        for sp in (self.spn_corner, self.spn_scale, self.spn_fw, self.spn_fh, self.spn_off, self.spn_smooth,
+        for sp in (self.spn_corner, self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.spn_off, self.spn_smooth,
                    self.spn_bleed, self.spn_margin):
             sp.valueChanged.connect(self._pv_timer.start)
         for wdg in self.w.values():
@@ -656,7 +742,7 @@ class CutContourDialog(QDialog):
         self.spn_smooth.setEnabled(contour)
         self.chk_inner.setEnabled(contour)
         self.spn_corner.setEnabled(shape == "rounded")
-        for w in (self.spn_scale, self.spn_fw, self.spn_fh, self.cmb_single):
+        for w in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.btn_shift0, self.cmb_single):
             w.setEnabled(not contour)
         self.spn_margin.setEnabled(bool(self.cmb_out.currentData()))
 
@@ -665,8 +751,9 @@ class CutContourDialog(QDialog):
         s.shape = self.cmb_shape.currentData()
         s.single_shape = bool(self.cmb_single.currentData())
         s.corner_mm = self.spn_corner.value()
-        s.scale_pct = self.spn_scale.value()
+        s.scale_pct = 100.0                          # Größe nur noch in mm (Feld bzw. Griffe)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
+        s.shift_x_mm, s.shift_y_mm = self.spn_sx.value(), self.spn_sy.value()
         s.per_object = bool(self.cmb_out.currentData())
         s.bleed_color = self._bcol if self.cmb_bcol.currentData() == "fixed" else ""
         s.clean_seams = self.chk_seams.isChecked()
@@ -735,23 +822,39 @@ class CutContourDialog(QDialog):
         self.canvas.page_w, self.canvas.page_h = x1 - x0, y1 - y0
         shift = [(pm, (a - x0, b - y0, c - x0, d - y0)) for pm, (a, b, c, d) in layers]
         self.canvas.paths = [[(x - x0, y - y0) for x, y in p] for p, _smooth in r.paths]
-        self.canvas.live_factor = 1.0
+        self.canvas.live = (1.0, 1.0, 0.0, 0.0)
+        info = tr("{0} Kontur(en) auf dieser Seite").format(len(r.paths))
         if self.cmb_shape.currentData() != "contour" and self.canvas.paths:
-            xs = [x for p in self.canvas.paths for x, _y in p]
-            ys = [y for p in self.canvas.paths for _x, y in p]
-            self.canvas.scale_center = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
-            self.canvas.on_scale = self._scale_by
-            self.canvas.on_scaling = lambda f: self.lbl_info.setText(
-                tr("Größe: {0:.0f} %").format(self.spn_scale.value() * f))
+            boxes = [(min(x for x, _y in p), min(y for _x, y in p), max(x for x, _y in p), max(y for _x, y in p))
+                     for p in self.canvas.paths]
+            self.canvas.shape_box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))   # größte Form
+            self.canvas.on_shape = self._apply_drag
+            self.canvas.on_shaping = self._show_drag
+            bx = self.canvas.shape_box
+            info = tr("Form: {0} × {1} mm").format(fmt_mm((bx[2] - bx[0]) / objects.MM), fmt_mm((bx[3] - bx[1]) / objects.MM))
         else:
-            self.canvas.scale_center = None
+            self.canvas.shape_box = None
         self.canvas.set_page(x1 - x0, y1 - y0, shift)
-        self.lbl_info.setText(tr("{0} Kontur(en) auf dieser Seite").format(len(r.paths)))
+        self.lbl_info.setText(info)
 
-    def _scale_by(self, f):
-        """Form mit der Maus gezogen: Größe (%) übernehmen; die Vorschau rechnet danach neu."""
-        v = max(self.spn_scale.minimum(), min(self.spn_scale.maximum(), self.spn_scale.value() * f))
-        self.spn_scale.setValue(round(v, 1))
+    def _show_drag(self, sx, sy, dx, dy):
+        bx = self.canvas.shape_box
+        w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
+        txt = tr("Form: {0} × {1} mm").format(fmt_mm(w), fmt_mm(h))
+        if abs(dx) > 0.2 or abs(dy) > 0.2:
+            txt += "  ·  " + tr("Versatz: {0} / {1} mm").format(fmt_mm(self.spn_sx.value() + dx / objects.MM),
+                                                             fmt_mm(self.spn_sy.value() + dy / objects.MM))
+        self.lbl_info.setText(txt)
+
+    def _apply_drag(self, sx, sy, dx, dy):
+        """Griff losgelassen: Größe (B × H) und Versatz in mm in die Felder – Felder und Maus bleiben im Einklang."""
+        bx = self.canvas.shape_box
+        w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
+        for sp, v in ((self.spn_fw, w), (self.spn_fh, h), (self.spn_sx, self.spn_sx.value() + dx / objects.MM),
+                      (self.spn_sy, self.spn_sy.value() + dy / objects.MM)):
+            sp.blockSignals(True)
+            sp.setValue(round(max(sp.minimum(), min(sp.maximum(), v)), 1))
+            sp.blockSignals(False)
         self._pv_timer.start()
 
     def _apply(self):

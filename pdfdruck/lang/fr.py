@@ -1006,4 +1006,13 @@ MESSAGES = {
     "Eine Form je Objekt": "Une forme par objet",
     "Eine Form um das ganze Motiv": "Une forme autour de tout le motif",
     "Größe: {0:.0f} %": "Taille : {0:.0f} %",
+    "Form wieder mittig aufs Motiv setzen": "Recentrer la forme sur le motif",
+    "Form: {0} × {1} mm": "Forme : {0} × {1} mm",
+    "Größe (B × H):": "Taille (L × H) :",
+    "Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau.": "Taille de la ligne de coupe en mm ; « auto » = d'après le motif plus la distance (une seule valeur : proportions conservées). Change aussi en tirant les poignées dans l'aperçu.",
+    "Versatz (X / Y):": "Décalage (X / Y) :",
+    "Versatz senkrecht (+ oben)": "Décalage vertical (+ haut)",
+    "Versatz waagrecht (+ rechts)": "Décalage horizontal (+ droite)",
+    "Versatz: {0} / {1} mm": "Décalage : {0} / {1} mm",
+    "auch mit dem Verschiebe-Griff über der Form in der Vorschau": "aussi avec la poignée de déplacement au-dessus de la forme dans l'aperçu",
 }
