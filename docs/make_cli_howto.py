@@ -337,7 +337,10 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
          + c("--set detect.mode=color") + ")"],
         ["Flecken werden als Motiv erkannt", "Toleranz erhöhen, " + c("detect.min_size_mm") + " vergrößern"],
         ["Teile eines Logos bekommen getrennte Konturen", c("detect.gap_mm") + " erhöhen, z. B. 3"],
-        ["Dauert lange", c("dpi") + " auf 200 lassen; 300 dauert gut doppelt so lang"],
+        ["Dauert lange", c("dpi") + " auf 200 lassen; 300 dauert gut doppelt so lang. Große Seiten mit vielen "
+         "Objekten rechnet Passermark automatisch auf mehreren Rechenkernen"],
+        ["Rechner soll nebenbei frei bleiben", "Rechenkerne begrenzen: Linux " + c("PASSERMARK_WORKERS=2 passermark-cli …")
+         + ", Windows (PowerShell) " + c("$env:PASSERMARK_WORKERS=2") + " davor; 1 = nicht parallel"],
         ["Preset ist für „…“", "Das Preset gehört zu einem anderen Auftrag"],
         ["Wert wird als Text statt Zahl gelesen", "Dezimalpunkt verwenden: " + c("bleed_mm=2.5") + " (nicht 2,5)"],
         ["Leerzeichen im Dateinamen", "Namen in Anführungszeichen setzen: " + c('"mein bogen.pdf"')],

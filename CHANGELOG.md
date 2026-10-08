@@ -1,5 +1,14 @@
 # Änderungen – Passermark
 
+## 1.6.3
+- **Paralleles Rechnen:** CutContour verteilt die Objekte einer Seite auf mehrere Rechenkerne (alle bis auf einen,
+  höchstens 8); Ergebnis bitgleich zum seriellen Rechnen. Arbeitsprozesse werden einmal je Auftrag gestartet und für
+  alle Seiten verwendet; kleine Aufgaben bleiben seriell (lohnt sich dort nicht). Begrenzen mit der Umgebungsvariable
+  `PASSERMARK_WORKERS` (1 = nicht parallel)
+- Fortschritt je Objekt („Seite 1/1 · Objekt 12/40“)
+- Abbrechen beendet auch die Arbeitsprozesse
+- Intern: Objektberechnung als eigene Funktion; Programmdateien rufen `multiprocessing.freeze_support()` auf
+
 ## 1.6.2
 - **Kein Einfrieren mehr:** CutContour, Objekte trennen und CMYK/Beschneiden rechnen als eigener Prozess im
   Hintergrund. Das Fenster bleibt bedienbar; unten in der Statusleiste Fortschritt und Abbrechen-Knopf (✕);

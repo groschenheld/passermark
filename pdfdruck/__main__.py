@@ -17,6 +17,8 @@ import sys
 
 
 def main():
+    import multiprocessing
+    multiprocessing.freeze_support()       # gebündelte Programmdatei: Arbeitsprozess starten statt Programm
     # fertige Programmdatei prüfen (GitHub-Build) bzw. AppImage-Root-Helfer (über pkexec)
     if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
         from . import selftest

@@ -1047,4 +1047,5 @@ MESSAGES = {
     "Objekte trennen": "Séparer les objets",
     "Unbekannter Fehler": "Erreur inconnue",
     "wird abgebrochen …": "annulation …",
+    "Objekt {0}/{1}": "Objet {0}/{1}",
 }

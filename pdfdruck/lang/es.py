@@ -1047,4 +1047,5 @@ MESSAGES = {
     "Objekte trennen": "Separar objetos",
     "Unbekannter Fehler": "Error desconocido",
     "wird abgebrochen …": "cancelando …",
+    "Objekt {0}/{1}": "Objeto {0}/{1}",
 }

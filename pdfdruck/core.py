@@ -142,7 +142,8 @@ def _job_cutcontour(src, dst, s, opts, progress, cancel):
     from . import cutcontour
     doc = pdfium.PdfDocument(src)
     try:
-        out, n = cutcontour.make(doc, s, opts.get("pages"), progress=progress, cancel=cancel)
+        out, n = cutcontour.make(doc, s, opts.get("pages"), progress=progress, cancel=cancel,
+                                 workers=opts.get("workers") or cutcontour.default_workers())
         try:
             _check(cancel)
             _write_atomic(dst, _doc_bytes(out))

@@ -6,4 +6,6 @@ import sys
 from pdfdruck.cli import main
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()   # Arbeitsprozesse fürs parallele Rechnen (gebündelte Programmdatei)
     sys.exit(main())

@@ -303,7 +303,279 @@ def _snap_to_solid(fill, core_px, bg, tol):
     return pal[_nearest_idx(flat, pal)].reshape(fill.shape).astype(np.uint8)
 
 
-def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
+@dataclass
+class _ObjCtx:
+    """Seitenweite Werte, die jedes Objekt braucht (klein, wird an Arbeitsprozesse übergeben)."""
+    s: CutSettings
+    pad: int
+    px: float
+    H: float
+    off: float
+    sm: float
+    bl: float
+    use_bleed: bool
+    bg_rgb: object
+    has_knock: bool
+
+
+PARALLEL_MIN_OBJECTS = 4            # darunter lohnt sich der Start von Arbeitsprozessen nicht
+PARALLEL_MIN_PIXELS = 1_500_000     # Summe der Arbeitsfenster (Bildpunkte)
+
+
+def default_workers() -> int:
+    """Arbeitsprozesse für paralleles Rechnen: alle Kerne bis auf einen (für die Oberfläche), höchstens 8.
+    Begrenzen mit der Umgebungsvariable PASSERMARK_WORKERS (z. B. 2; 1 = nicht parallel)."""
+    import os
+    env = os.environ.get("PASSERMARK_WORKERS", "").strip()
+    if env.isdigit() and int(env) >= 1:
+        return int(env)
+    return max(1, min(8, (os.cpu_count() or 1) - 1))
+
+
+class WorkerPool:
+    """Arbeitsprozesse einmal pro Auftrag starten und für alle Seiten verwenden (Start kostet ~1 s je Prozess)."""
+
+    def __init__(self, workers: int):
+        self.workers = workers
+        self._ex = None
+
+    def get(self):
+        if self._ex is None:
+            import multiprocessing as mp
+            from concurrent.futures import ProcessPoolExecutor
+            # „spawn“: frische Prozesse (kein Erbe von pdfium/Threads), überall gleich (Linux, Windows, AppImage)
+            self._ex = ProcessPoolExecutor(max_workers=self.workers, mp_context=mp.get_context("spawn"))
+        return self._ex
+
+    def close(self):
+        if self._ex is not None:
+            self._ex.shutdown(wait=True, cancel_futures=True)
+            self._ex = None
+
+
+def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
+    """Objekte berechnen – seriell oder auf mehrere Arbeitsprozesse verteilt; Reihenfolge bleibt erhalten."""
+    n = len(jobs)
+    pixels = sum(j[0].size for j in jobs)
+    if pool is not None:
+        workers = pool.workers
+    parallel = workers > 1 and n >= PARALLEL_MIN_OBJECTS and pixels >= PARALLEL_MIN_PIXELS
+
+    def check():
+        if cancel is not None and cancel():
+            from .core import Cancelled
+            raise Cancelled(tr("Abgebrochen."))
+    if not parallel:
+        out = []
+        for i, job in enumerate(jobs):
+            check()
+            if progress is not None:
+                progress(i, n)
+            out.append(_compute_object(ctx, job))
+        return out
+    from concurrent.futures import FIRST_COMPLETED, wait
+    out = [None] * n
+    own = pool is None
+    if own:
+        pool = WorkerPool(min(workers, n))
+    ex = pool.get()
+    try:
+        pending = {ex.submit(_compute_object, ctx, job): i for i, job in enumerate(jobs)}
+        done_count = 0
+        while pending:
+            check()
+            finished, _ = wait(list(pending), timeout=0.2, return_when=FIRST_COMPLETED)
+            for f in finished:
+                out[pending.pop(f)] = f.result()
+                done_count += 1
+                if progress is not None:
+                    progress(done_count, n)
+    except BaseException:
+        if not own:                      # Abbruch/Fehler: offene Aufgaben verwerfen, Prozesse beenden
+            pool.close()
+        raise
+    finally:
+        if own:
+            pool.close()
+    return out
+
+
+def _compute_object(ctx, job):
+    """Ein Objekt berechnen (Schnitt, Überfüller, Aussparung). Unabhängig von anderen Objekten -> auch in einem
+    eigenen Arbeitsprozess lauffähig. Liefert (CutObject | None, Aussparung im Fenster | None)."""
+    import numpy as np
+    from contourpy import LineType, contour_generator
+    from PIL import Image, ImageDraw
+    from scipy import ndimage as ndi
+    obj, rgbw, (wy0, wy1, wx0, wx1), (ox0, oy0, ox1, oy1) = job
+    s, pad, px, H = ctx.s, ctx.pad, ctx.px, ctx.H
+    off, sm, bl, use_bleed, bg_rgb = ctx.off, ctx.sm, ctx.bl, ctx.use_bleed, ctx.bg_rgb
+    knock_patch = None
+
+    def to_pt(col, row):
+        return float((col - pad) / px), float(H - (row - pad) / px)
+
+    def to_px(x, y):
+        return x * px + pad, (H - y) * px + pad
+
+    # 2. Schnittbereich
+    paths = []
+    if s.shape == "contour":
+        if off >= 0:
+            d_out = ndi.distance_transform_edt(~obj)
+            region = d_out <= off if off > 0 else obj.copy()
+            # Glättung (Schließen um sm): Abstand zur Region = Abstand zum Objekt − Abstand -> ein Feld weniger
+            dil = (d_out <= off + sm) if sm > 0 else None
+        else:
+            region = ndi.distance_transform_edt(obj) > -off
+            dil = (ndi.distance_transform_edt(~region) <= sm) if sm > 0 else None
+        if sm > 0:
+            region = ndi.distance_transform_edt(dil) > sm
+        if not s.inner:
+            region = ndi.binary_fill_holes(region)
+        field_ = ndi.gaussian_filter(region.astype(np.float32), sigma=max(1.0, sm / 2.5))
+        cut = field_ >= 0.5
+        step = max(0.25, min(0.5, s.smooth_mm / 3 if s.smooth_mm > 0 else 0.25)) * MM
+        for line in contour_generator(z=field_, line_type=LineType.Separate).lines(0.5):
+            if len(line) < 8:
+                continue
+            pts = np.column_stack([(line[:, 0] + wx0 - pad) / px, H - (line[:, 1] + wy0 - pad) / px])
+            if np.allclose(pts[0], pts[-1]):
+                pts = pts[:-1]
+            if float(np.sum(np.hypot(*np.diff(pts, axis=0).T))) < s.min_size_mm * MM:
+                continue
+            paths.append((_resample(pts, step).tolist(), True))
+    else:
+        mx0, my1 = to_pt(ox0, oy0)
+        mx1, my0 = to_pt(ox1, oy1)
+        w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
+        poly = shape_polygon(s.shape, (mx0 + mx1) / 2 + s.shift_x_mm * MM, (my0 + my1) / 2 + s.shift_y_mm * MM, w, h,
+                             s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
+        paths.append((poly.tolist(), False))
+        im = Image.new("L", (wx1 - wx0, wy1 - wy0), 0)
+        ImageDraw.Draw(im).polygon([(to_px(x, y)[0] - wx0, to_px(x, y)[1] - wy0) for x, y in poly], fill=255)
+        cut = np.asarray(im) > 127
+    if not paths:
+        return None, None
+
+    # 3. Überfüller: die GANZE Fläche innerhalb der Schnittlinie (auch Einbuchtungen, Freiräume zwischen
+    #    Objekt und Linie) plus „Überfüller“ über die Linie hinaus – gefüllt mit den nach außen gezogenen
+    #    Randfarben des Objekts. Liegt HINTER dem Objekt, Verzerrungen sind dadurch unsichtbar bzw. werden
+    #    abgeschnitten. Der Schnitt liegt so immer im Überfüller.
+    bleed = (cut | (ndi.distance_transform_edt(~cut) <= bl)) if use_bleed else np.zeros_like(cut)
+    # Überfüller-Farbe
+    bg_vec = bg_rgb if bg_rgb is not None else np.array([255, 255, 255])
+    core = obj
+    for it in (max(2, int(round(0.5 * MM * px))), max(1, int(round(0.25 * MM * px))), 1):
+        c2 = ndi.binary_erosion(obj, iterations=it)
+        if c2.sum() > 0.15 * obj.sum():
+            core = c2
+            break
+    pal, solid_share = _solid_palette(rgbw[core], bg_rgb, s.detect.tolerance)
+    flat = pal is not None and solid_share > 0.85
+    labels = None
+    if s.bleed_color:
+        # feste Farbe: gleichmäßiger Rand (für Motive, bei denen die automatische Farbe nicht passt)
+        c = s.bleed_color.lstrip("#")
+        fill = np.empty(obj.shape + (3,), np.uint8)
+        fill[:] = (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
+    elif flat:
+        # jedes Objektpixel seiner Vollfarbe zuordnen (Entmischen), dann vom nächsten Objektpixel übernehmen
+        labels = np.full(obj.shape, -1, np.int32)
+        labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
+        _d, (iy, ix) = ndi.distance_transform_edt(~obj, return_indices=True)
+        fill = pal[labels[iy, ix]].astype(np.uint8)
+    else:
+        # Foto (keine Vollfarben): Farbe vom nächsten Kernpixel (~0,5 mm innen, ohne Mischsaum)
+        _d, (iy, ix) = ndi.distance_transform_edt(~core, return_indices=True)
+        fill = rgbw[iy, ix]
+    alpha = np.clip(ndi.gaussian_filter(bleed.astype(np.float32), 0.7), 0, 1)
+    alpha[cut] = 1.0                                   # innerhalb der Schnittform immer deckend (keine Löcher)
+    alpha = (alpha * 255).astype(np.uint8)
+    img = bbox = None
+    if bleed.any():
+        yy, xx = np.where(alpha > 0)
+        by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
+        img = np.dstack([fill[by0:by1, bx0:bx1], alpha[by0:by1, bx0:bx1]])
+        p0 = to_pt(bx0 + wx0, by0 + wy0)
+        p1 = to_pt(bx1 + wx0, by1 + wy0)
+        bbox = (p0[0], p1[1], p1[0], p0[1])
+    # Motiv mit Hintergrund (weiße Seite, Rasterbild): Original auf die Objektform begrenzen, sonst deckt
+    # der Hintergrund den Überfüller zu. Innenflächen (weiße Schrift, Löcher) bleiben erhalten.
+    clip = []
+    if ctx.has_knock:
+        vis = ndi.binary_fill_holes(obj)
+        if s.shape == "contour" and s.inner:
+            # Löcher, die ausgeschnitten werden, aus dem Original aussparen -> Überfüller läuft ins Loch;
+            # kleine Innenflächen (weiße Schrift u. ä.) bleiben sichtbar
+            holes, nh = ndi.label(vis & ~obj)
+            if nh:
+                sizes = ndi.sum(np.ones_like(holes), holes, range(1, nh + 1))
+                big = np.isin(holes, np.where(sizes >= (s.min_size_mm * MM * px) ** 2 * 0.25)[0] + 1)
+                vis &= ~big
+        # Mischsaum an der Kante (Kantenglättung, weichgezeichnetes Raster) nicht zeigen – dort liegt der
+        # vollfarbige Überfüller. Flächige Motive: alles am Rand aussparen, was keiner Vollfarbe entspricht
+        # (max. 1,5 mm tief); Fotos (keine Vollfarben): fester kleiner Abstand.
+        d_in = ndi.distance_transform_edt(vis)
+        if flat:
+            # am Rand nur echte Vollfarb-Pixel zeigen (enge Toleranz -> kein heller Strich an der Linie)
+            tol2 = max(12, s.detect.tolerance * 0.6) ** 2
+            # nur der Randstreifen (bis 1,5 mm) wird gebraucht -> nur dort die nächste Vollfarbe suchen
+            cand = vis & (d_in <= 1.5 * MM * px)
+            nonsolid = np.zeros_like(vis)
+            if cand.any():
+                nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
+            vis &= ~nonsolid
+            vis = ndi.binary_opening(vis, iterations=1)
+            # winzige Löcher (vereinzelte Mischpixel) schließen – sonst weiße Pünktchen
+            close = max(1, int(round(0.15 * MM * px)))
+            vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
+            thr = 0.08 * MM * px
+            if thr >= 1.0:                       # darunter ist die Bedingung für jeden Motivpunkt erfüllt
+                vis = ndi.distance_transform_edt(vis) > thr
+        else:
+            vis = d_in > 0.25 * MM * px
+        knock_patch = vis
+        fld = ndi.gaussian_filter(vis.astype(np.float32), 0.6)
+        for line in contour_generator(z=fld, line_type=LineType.Separate).lines(0.5):
+            if len(line) >= 4:
+                clip.append([[float((c + wx0 - pad) / px), float(H - (r_ + wy0 - pad) / px)] for c, r_ in line])
+    ov_img = ov_box = None
+    if s.clean_seams and flat:
+        # schmale Mischsäume IM Motiv (z. B. Rot/Grün-Kante) durch die zugeordnete Vollfarbe ersetzen
+        if labels is None:
+            labels = np.full(obj.shape, -1, np.int32)
+            labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
+        tol2 = (s.detect.tolerance * 2) ** 2
+        nonsolid = np.zeros_like(obj)
+        if obj.any():
+            nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
+        # Säume bis ~1 mm Breite gelten als Mischkante; breitere Bereiche = gewollter Verlauf/Foto -> bleiben
+        thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
+        seam = nonsolid & ~thick
+        if knock_patch is not None:
+            seam &= knock_patch           # Aussparung dieses Objekts (Objekte überlappen sich nicht)
+        if seam.any():
+            yy, xx = np.where(seam)
+            sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
+            col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
+            al = (seam[sy0:sy1, sx0:sx1] * 255).astype(np.uint8)
+            ov_img = np.dstack([col, al])
+            q0 = to_pt(sx0 + wx0, sy0 + wy0)
+            q1 = to_pt(sx1 + wx0, sy1 + wy0)
+            ov_box = (q0[0], q1[1], q1[0], q0[1])
+    mx0, my1 = to_pt(ox0, oy0)
+    mx1, my0 = to_pt(ox1, oy1)
+    xs_ = [x for p, _ in paths for x, _y in p] + ([bbox[0], bbox[2]] if bbox else [])
+    ys_ = [y for p, _ in paths for _x, y in p] + ([bbox[1], bbox[3]] if bbox else [])
+    return CutObject(paths, img, bbox, (mx0, my0, mx1, my1),
+                                 (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_))), clip,
+                                 ov_img, ov_box), knock_patch
+
+
+
+def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progress=None,
+            cancel=None, pool=None) -> CutResult:
     """Schnitt + Überfüller für alle Objekte einer normalisierten Seite.
     rgba/size: schon gerenderte Seite (bei s.dpi) und Seitengröße in pt – dann wird pdfium hier nicht benutzt,
     und die Berechnung darf in einem Hintergrund-Thread laufen (pdfium ist nicht thread-sicher)."""
@@ -354,6 +626,7 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
     out_objects = []
     # Hintergrund nur ausstanzen, wenn ein Überfüller darunter liegt – ohne Überfüller bleibt das Motiv unverändert
     knock = np.zeros_like(mask) if (mode == "color" and use_bleed) else None
+    jobs = []
     for k, sl in enumerate(ndi.find_objects(lab), start=1):
         if sl is None:
             continue
@@ -374,159 +647,15 @@ def compute(page, s: CutSettings, rgba=None, size=None) -> CutResult:
         obj = (lab[wy0:wy1, wx0:wx1] == k) & mask[wy0:wy1, wx0:wx1]
         rgbw = rgb[wy0:wy1, wx0:wx1]
 
-        # 2. Schnittbereich
-        paths = []
-        if s.shape == "contour":
-            if off >= 0:
-                d_out = ndi.distance_transform_edt(~obj)
-                region = d_out <= off if off > 0 else obj.copy()
-                # Glättung (Schließen um sm): Abstand zur Region = Abstand zum Objekt − Abstand -> ein Feld weniger
-                dil = (d_out <= off + sm) if sm > 0 else None
-            else:
-                region = ndi.distance_transform_edt(obj) > -off
-                dil = (ndi.distance_transform_edt(~region) <= sm) if sm > 0 else None
-            if sm > 0:
-                region = ndi.distance_transform_edt(dil) > sm
-            if not s.inner:
-                region = ndi.binary_fill_holes(region)
-            field_ = ndi.gaussian_filter(region.astype(np.float32), sigma=max(1.0, sm / 2.5))
-            cut = field_ >= 0.5
-            step = max(0.25, min(0.5, s.smooth_mm / 3 if s.smooth_mm > 0 else 0.25)) * MM
-            for line in contour_generator(z=field_, line_type=LineType.Separate).lines(0.5):
-                if len(line) < 8:
-                    continue
-                pts = np.column_stack([(line[:, 0] + wx0 - pad) / px, H - (line[:, 1] + wy0 - pad) / px])
-                if np.allclose(pts[0], pts[-1]):
-                    pts = pts[:-1]
-                if float(np.sum(np.hypot(*np.diff(pts, axis=0).T))) < s.min_size_mm * MM:
-                    continue
-                paths.append((_resample(pts, step).tolist(), True))
-        else:
-            mx0, my1 = to_pt(ox0, oy0)
-            mx1, my0 = to_pt(ox1, oy1)
-            w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
-            poly = shape_polygon(s.shape, (mx0 + mx1) / 2 + s.shift_x_mm * MM, (my0 + my1) / 2 + s.shift_y_mm * MM, w, h,
-                                 s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
-            paths.append((poly.tolist(), False))
-            im = Image.new("L", (wx1 - wx0, wy1 - wy0), 0)
-            ImageDraw.Draw(im).polygon([(to_px(x, y)[0] - wx0, to_px(x, y)[1] - wy0) for x, y in poly], fill=255)
-            cut = np.asarray(im) > 127
-        if not paths:
+        jobs.append((obj, rgbw, (wy0, wy1, wx0, wx1), (ox0, oy0, ox1, oy1)))
+    ctx = _ObjCtx(s, pad, px, H, off, sm, bl, use_bleed, bg_rgb, knock is not None)
+    results = _run_objects(ctx, jobs, workers, progress, cancel, pool)
+    for (cobj, patch), (_o, _r, (wy0, wy1, wx0, wx1), _b) in zip(results, jobs):
+        if cobj is None:
             continue
-
-        # 3. Überfüller: die GANZE Fläche innerhalb der Schnittlinie (auch Einbuchtungen, Freiräume zwischen
-        #    Objekt und Linie) plus „Überfüller“ über die Linie hinaus – gefüllt mit den nach außen gezogenen
-        #    Randfarben des Objekts. Liegt HINTER dem Objekt, Verzerrungen sind dadurch unsichtbar bzw. werden
-        #    abgeschnitten. Der Schnitt liegt so immer im Überfüller.
-        bleed = (cut | (ndi.distance_transform_edt(~cut) <= bl)) if use_bleed else np.zeros_like(cut)
-        # Überfüller-Farbe
-        bg_vec = bg_rgb if bg_rgb is not None else np.array([255, 255, 255])
-        core = obj
-        for it in (max(2, int(round(0.5 * MM * px))), max(1, int(round(0.25 * MM * px))), 1):
-            c2 = ndi.binary_erosion(obj, iterations=it)
-            if c2.sum() > 0.15 * obj.sum():
-                core = c2
-                break
-        pal, solid_share = _solid_palette(rgbw[core], bg_rgb, s.detect.tolerance)
-        flat = pal is not None and solid_share > 0.85
-        labels = None
-        if s.bleed_color:
-            # feste Farbe: gleichmäßiger Rand (für Motive, bei denen die automatische Farbe nicht passt)
-            c = s.bleed_color.lstrip("#")
-            fill = np.empty(obj.shape + (3,), np.uint8)
-            fill[:] = (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
-        elif flat:
-            # jedes Objektpixel seiner Vollfarbe zuordnen (Entmischen), dann vom nächsten Objektpixel übernehmen
-            labels = np.full(obj.shape, -1, np.int32)
-            labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
-            _d, (iy, ix) = ndi.distance_transform_edt(~obj, return_indices=True)
-            fill = pal[labels[iy, ix]].astype(np.uint8)
-        else:
-            # Foto (keine Vollfarben): Farbe vom nächsten Kernpixel (~0,5 mm innen, ohne Mischsaum)
-            _d, (iy, ix) = ndi.distance_transform_edt(~core, return_indices=True)
-            fill = rgbw[iy, ix]
-        alpha = np.clip(ndi.gaussian_filter(bleed.astype(np.float32), 0.7), 0, 1)
-        alpha[cut] = 1.0                                   # innerhalb der Schnittform immer deckend (keine Löcher)
-        alpha = (alpha * 255).astype(np.uint8)
-        img = bbox = None
-        if bleed.any():
-            yy, xx = np.where(alpha > 0)
-            by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
-            img = np.dstack([fill[by0:by1, bx0:bx1], alpha[by0:by1, bx0:bx1]])
-            p0 = to_pt(bx0 + wx0, by0 + wy0)
-            p1 = to_pt(bx1 + wx0, by1 + wy0)
-            bbox = (p0[0], p1[1], p1[0], p0[1])
-        # Motiv mit Hintergrund (weiße Seite, Rasterbild): Original auf die Objektform begrenzen, sonst deckt
-        # der Hintergrund den Überfüller zu. Innenflächen (weiße Schrift, Löcher) bleiben erhalten.
-        clip = []
-        if knock is not None:
-            vis = ndi.binary_fill_holes(obj)
-            if s.shape == "contour" and s.inner:
-                # Löcher, die ausgeschnitten werden, aus dem Original aussparen -> Überfüller läuft ins Loch;
-                # kleine Innenflächen (weiße Schrift u. ä.) bleiben sichtbar
-                holes, nh = ndi.label(vis & ~obj)
-                if nh:
-                    sizes = ndi.sum(np.ones_like(holes), holes, range(1, nh + 1))
-                    big = np.isin(holes, np.where(sizes >= (s.min_size_mm * MM * px) ** 2 * 0.25)[0] + 1)
-                    vis &= ~big
-            # Mischsaum an der Kante (Kantenglättung, weichgezeichnetes Raster) nicht zeigen – dort liegt der
-            # vollfarbige Überfüller. Flächige Motive: alles am Rand aussparen, was keiner Vollfarbe entspricht
-            # (max. 1,5 mm tief); Fotos (keine Vollfarben): fester kleiner Abstand.
-            d_in = ndi.distance_transform_edt(vis)
-            if flat:
-                # am Rand nur echte Vollfarb-Pixel zeigen (enge Toleranz -> kein heller Strich an der Linie)
-                tol2 = max(12, s.detect.tolerance * 0.6) ** 2
-                # nur der Randstreifen (bis 1,5 mm) wird gebraucht -> nur dort die nächste Vollfarbe suchen
-                cand = vis & (d_in <= 1.5 * MM * px)
-                nonsolid = np.zeros_like(vis)
-                if cand.any():
-                    nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
-                vis &= ~nonsolid
-                vis = ndi.binary_opening(vis, iterations=1)
-                # winzige Löcher (vereinzelte Mischpixel) schließen – sonst weiße Pünktchen
-                close = max(1, int(round(0.15 * MM * px)))
-                vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
-                thr = 0.08 * MM * px
-                if thr >= 1.0:                       # darunter ist die Bedingung für jeden Motivpunkt erfüllt
-                    vis = ndi.distance_transform_edt(vis) > thr
-            else:
-                vis = d_in > 0.25 * MM * px
-            knock[wy0:wy1, wx0:wx1] |= vis
-            fld = ndi.gaussian_filter(vis.astype(np.float32), 0.6)
-            for line in contour_generator(z=fld, line_type=LineType.Separate).lines(0.5):
-                if len(line) >= 4:
-                    clip.append([[float((c + wx0 - pad) / px), float(H - (r_ + wy0 - pad) / px)] for c, r_ in line])
-        ov_img = ov_box = None
-        if s.clean_seams and flat:
-            # schmale Mischsäume IM Motiv (z. B. Rot/Grün-Kante) durch die zugeordnete Vollfarbe ersetzen
-            if labels is None:
-                labels = np.full(obj.shape, -1, np.int32)
-                labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
-            tol2 = (s.detect.tolerance * 2) ** 2
-            nonsolid = np.zeros_like(obj)
-            if obj.any():
-                nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
-            # Säume bis ~1 mm Breite gelten als Mischkante; breitere Bereiche = gewollter Verlauf/Foto -> bleiben
-            thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
-            seam = nonsolid & ~thick
-            if knock is not None:
-                seam &= knock[wy0:wy1, wx0:wx1]
-            if seam.any():
-                yy, xx = np.where(seam)
-                sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
-                col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
-                al = (seam[sy0:sy1, sx0:sx1] * 255).astype(np.uint8)
-                ov_img = np.dstack([col, al])
-                q0 = to_pt(sx0 + wx0, sy0 + wy0)
-                q1 = to_pt(sx1 + wx0, sy1 + wy0)
-                ov_box = (q0[0], q1[1], q1[0], q0[1])
-        mx0, my1 = to_pt(ox0, oy0)
-        mx1, my0 = to_pt(ox1, oy1)
-        xs_ = [x for p, _ in paths for x, _y in p] + ([bbox[0], bbox[2]] if bbox else [])
-        ys_ = [y for p, _ in paths for _x, y in p] + ([bbox[1], bbox[3]] if bbox else [])
-        out_objects.append(CutObject(paths, img, bbox, (mx0, my0, mx1, my1),
-                                     (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_))), clip,
-                                     ov_img, ov_box))
+        if patch is not None:
+            knock[wy0:wy1, wx0:wx1] |= patch
+        out_objects.append(cobj)
     from .objects import Box, reading_order
     boxes = [Box(*o.motif_box) for o in out_objects]
     order = reading_order(list(boxes))
@@ -642,7 +771,7 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     return out.getvalue()
 
 
-def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, cancel=None):
+def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, cancel=None, workers: int = 1):
     """Komplett: normalisieren, Schnitte berechnen, PDF bauen. Liefert (pypdfium2-Dokument, Anzahl Schnitte).
     progress(erledigt, gesamt, text) je Seite; cancel() -> True bricht ab (core.Cancelled)."""
     import pypdfium2 as pdfium
@@ -650,21 +779,46 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     norm = normalized(doc)
     results, total = {}, 0
     todo = list(pages) if pages is not None else list(range(len(norm)))
+    pool = WorkerPool(workers) if workers > 1 else None
+    try:
+        results, total = _make_pages(norm, s, todo, progress, cancel, pool)
+    except BaseException:
+        norm.close()
+        raise
+    finally:
+        if pool is not None:
+            pool.close()
+    if progress is not None:
+        progress(len(todo), len(todo), tr("Schreibe PDF …"))
+    return _make_finish(norm, results, total, s, pages)
+
+
+def _make_pages(norm, s, todo, progress, cancel, pool):
+    """Alle gewählten Seiten berechnen; Fortschritt je Seite und je Objekt."""
+    results, total = {}, 0
     for k, i in enumerate(todo):
         if cancel is not None and cancel():
-            norm.close()
             from .core import Cancelled
             raise Cancelled(tr("Abgebrochen."))
+        page_txt = tr("Seite {0}/{1}").format(k + 1, len(todo))
         if progress is not None:
-            progress(k, len(todo), tr("Seite {0}/{1}").format(k + 1, len(todo)))
+            progress(k, len(todo), page_txt)
+
+        def obj_progress(done, n, k=k, page_txt=page_txt):
+            if progress is not None and n:
+                progress(k, len(todo), page_txt + " · " + tr("Objekt {0}/{1}").format(min(done + 1, n), n))
         pg = norm[i]
         try:
-            results[i] = compute(pg, s)
+            results[i] = compute(pg, s, progress=obj_progress, cancel=cancel, pool=pool)
         finally:
             pg.close()
         total += len(results[i].paths)
-    if progress is not None:
-        progress(len(todo), len(todo), tr("Schreibe PDF …"))
+    return results, total
+
+
+def _make_finish(norm, results, total, s, pages):
+    """Ergebnisse zum PDF zusammensetzen (Überfüller unter dem Motiv, CutContour-Pfade)."""
+    import pypdfium2 as pdfium
     if not total:
         norm.close()
         raise ValueError(tr("Kein Motiv gefunden – Hintergrund/Toleranz prüfen."))

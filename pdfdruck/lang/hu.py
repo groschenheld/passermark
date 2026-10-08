@@ -1047,4 +1047,5 @@ MESSAGES = {
     "Objekte trennen": "Objektumok szétválasztása",
     "Unbekannter Fehler": "Ismeretlen hiba",
     "wird abgebrochen …": "megszakítás …",
+    "Objekt {0}/{1}": "{0}/{1}. objektum",
 }
