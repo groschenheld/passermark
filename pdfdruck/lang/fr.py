@@ -1150,4 +1150,12 @@ MESSAGES = {
     "Endformat": "Format fini",
     "Endformat und Anschnitt anzeigen": "Afficher format fini et fond perdu",
     "Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm": "Format fini {0:.1f} × {1:.1f} mm, fond perdu {2:.1f} mm",
+    "Neues Fenster": "Nouvelle fenêtre",
+    "Andere schließen": "Fermer les autres",
+    "Fenster": "Fenêtres",
+    "Im Programm Geöffnetes als Reiter im selben Fenster": "Ouvrir les documents depuis le programme comme onglets dans la même fenêtre",
+    "In eigenem Fenster öffnen": "Ouvrir dans une fenêtre séparée",
+    "Neuer Reiter": "Nouvel onglet",
+    "Reiter in eigenes Fenster lösen": "Détacher l’onglet dans une fenêtre",
+    "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster.": "Le bouton Ouvrir, le glisser-déposer et les résultats (CutContour, CMJN …) arrivent en onglets. Le démarrage du programme et le double-clic dans le gestionnaire de fichiers ouvrent toujours leur propre fenêtre.",
 }

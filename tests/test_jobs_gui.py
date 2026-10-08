@@ -23,7 +23,7 @@ class Ctl:
         while os.path.exists(p):
             p, i = os.path.join(tmp, f"{base}_{i}{ext}"), i + 1
         return p
-    def new_window(s):
+    def new_window(s, tab_of=None):
         w = viewer.MainWindow(s); s.made.append(w); return w
 ctl = Ctl()
 tc.stickers().save(os.path.join(tmp, "bogen.pdf"))

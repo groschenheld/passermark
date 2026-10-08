@@ -1527,7 +1527,7 @@ class PrintDialog(QDialog):
             QApplication.restoreOverrideCursor()
             r = QMessageBox.question(self, tr("Gespeichert"), tr("Gespeichert als:\n{0}\n\nJetzt in Passermark öffnen?").format(out))
             if r == QMessageBox.StandardButton.Yes and hasattr(self.parent(), "ctl"):
-                self.parent().ctl.open_paths([out])
+                self.parent().ctl.open_paths([out], tab_of=self.parent())
             self.accept()
             return
         skey = self.caps.roles.get("source")

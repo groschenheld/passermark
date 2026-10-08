@@ -56,6 +56,7 @@ class Controller(QObject):
         self.cfg = config.load()
         self.session = Session(self.cfg)
         self.windows = []
+        self.hosts = []                   # Fensterrahmen (je einer mit einem oder mehreren Reitern)
         self.server: QLocalServer | None = None
         self.view_single = True       # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
 
@@ -145,6 +146,10 @@ class Controller(QObject):
         sock.write(b"ok\n")
         sock.flush()
         sock.disconnected.connect(sock.deleteLater)
+        if cmd in (None, "open") and not files:
+            # Programm nochmal gestartet (Startmenü, Symbol) -> neues, leeres Fenster statt nichts
+            self.new_window()
+            return
         self.queue_request(cmd, files)
 
     # ---------------------------------------------------------------- #
@@ -181,33 +186,68 @@ class Controller(QObject):
             QApplication.instance().quit()     # nichts mehr offen (reiner Druck/Reparatur/abgebrochen): fertig
 
     # ---------------------------------------------------------------- #
-    def new_window(self):
+    @staticmethod
+    def tabs_enabled() -> bool:
+        from . import l10n
+        return bool(l10n.load_settings().get("open_in_tabs", True))
+
+    def new_host(self):
+        from .gui.tabhost import TabHost
+        h = TabHost(self)
+        self.hosts.append(h)
+        return h
+
+    def new_window(self, tab_of=None):
+        """Neues Dokumentfenster. tab_of = Fenster, aus dem heraus es entsteht: dann als Reiter daneben
+        (Einstellung „Im Programm Geöffnetes als Reiter“). Sonst eigenständiges Fenster."""
         from .gui.viewer import MainWindow
         w = MainWindow(self)
         self.windows.append(w)
         w.destroyed.connect(lambda *_: self.windows.remove(w) if w in self.windows else None)
-        w.show()
+        host = getattr(tab_of, "_host", None) if tab_of is not None and self.tabs_enabled() else None
+        if host is None:
+            host = self.new_host()
+            if tab_of is not None:
+                try:
+                    host.move(tab_of.window().pos().x() + 40, tab_of.window().pos().y() + 40)
+                except Exception:
+                    pass
+        host.add(w)
+        host.show_tab(w)
         return w
 
-    def _target_window(self):
-        for w in self.windows:
-            if w.doc is None:
-                return w
-        return self.new_window()
+    def show_window(self, w):
+        host = getattr(w, "_host", None)
+        if host is not None:
+            host.show_tab(w)
+        else:
+            w.show()
+            w.raise_()
+            w.activateWindow()
 
-    def open_paths(self, paths: list[str]):
+    def _target_window(self, tab_of=None):
+        if tab_of is None:                       # von außen (Doppelklick, „Öffnen mit“): leeres Fenster nutzen
+            for w in self.windows:
+                if w.doc is None:
+                    return w
+        return self.new_window(tab_of)
+
+    def open_paths(self, paths: list[str], tab_of=None):
+        """Dateien öffnen. tab_of = Fenster im Programm (Öffnen-Knopf, Ziehen, Ergebnis) -> als Reiter;
+        sonst (Programmstart, Doppelklick im Dateimanager) eigenständige Fenster."""
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p)]
         imgs = [p for p in paths if images.is_image(p)]
         rest = [p for p in paths if not images.is_image(p)]
+        last = None
         if imgs:   # mehrere Bilder auf einmal -> ein Dokument
-            self._target_window().open_images(imgs)
+            last = self._target_window(tab_of)
+            last.open_images(imgs)
         for p in rest:   # PDF direkt, Office wird umgewandelt
-            self._target_window().open_any(p)
+            last = self._target_window(tab_of)
+            last.open_any(p)
         if not self.windows:
-            self.new_window()
-        w = self.windows[-1]
-        w.raise_()
-        w.activateWindow()
+            last = self.new_window()
+        self.show_window(last or self.windows[-1])
 
     def merge_paths(self, paths: list[str]):
         """Rechtsklick „Als ein PDF zusammenführen“: Reihenfolge prüfen, dann zusammenführen."""
@@ -231,8 +271,7 @@ class Controller(QObject):
         base = os.path.splitext(os.path.basename(paths[0]))[0]
         w._set_doc(doc, None, tr("{0} (zusammengeführt).pdf").format(base), True)
         w._suggest_dir = os.path.dirname(paths[0])
-        w.show()
-        w.raise_()
+        self.show_window(w)
         conv = [n for n in notes if "umgewandelt" in n]
         skip = [n for n in notes if tr("übersprungen") in n]
         msg = tr("{0} Datei(en), {1} Seiten zusammengeführt – noch nicht gespeichert.").format(len(paths) - len(skip), len(doc))

@@ -1150,4 +1150,12 @@ MESSAGES = {
     "Endformat": "Trim size",
     "Endformat und Anschnitt anzeigen": "Show trim size and bleed",
     "Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm": "Trim {0:.1f} × {1:.1f} mm, bleed {2:.1f} mm",
+    "Neues Fenster": "New window",
+    "Andere schließen": "Close others",
+    "Fenster": "Windows",
+    "Im Programm Geöffnetes als Reiter im selben Fenster": "Open documents from within the program as tabs in the same window",
+    "In eigenem Fenster öffnen": "Open in own window",
+    "Neuer Reiter": "New tab",
+    "Reiter in eigenes Fenster lösen": "Move tab to own window",
+    "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster.": "Open button, drag and drop and results (CutContour, CMYK …) arrive as tabs. Starting the program and double-clicking in the file manager always open their own window.",
 }

@@ -44,6 +44,14 @@ class SettingsDialog(QDialog):
         self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
         f2.addRow(self.chk_pf)
         v.addWidget(g2)
+        g4 = QGroupBox(tr("Fenster"))
+        f4 = QFormLayout(g4)
+        self.chk_tabs = QCheckBox(tr("Im Programm Geöffnetes als Reiter im selben Fenster"))
+        self.chk_tabs.setChecked(bool(self.settings.get("open_in_tabs", True)))
+        self.chk_tabs.setToolTip(tr("Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. "
+                                    "Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster."))
+        f4.addRow(self.chk_tabs)
+        v.addWidget(g4)
         from .. import platform as _platform
         self.cmb_wmode = self.cmb_wdpi = None
         if _platform.IS_WIN:
@@ -82,6 +90,7 @@ class SettingsDialog(QDialog):
             self.settings["win_print_mode"] = self.cmb_wmode.currentData()
             self.settings["win_raster_dpi"] = int(self.cmb_wdpi.currentData() or 0)
         self.settings["preflight_on_open"] = self.chk_pf.isChecked()
+        self.settings["open_in_tabs"] = self.chk_tabs.isChecked()
         try:
             l10n.save_settings(self.settings)
         except OSError as e:

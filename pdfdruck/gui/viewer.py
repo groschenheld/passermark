@@ -1343,6 +1343,9 @@ class MainWindow(QMainWindow):
         SP = QStyle.StandardPixmap
         A = self._act
         self.a_open = A(tr("Öffnen…"), self.open_dialog, QKeySequence.StandardKey.Open, "open")
+        self.a_newwin = A(tr("Neues Fenster"), lambda: self.ctl.new_window(), "Ctrl+N")
+        self.a_newtab = A(tr("Neuer Reiter"), lambda: self._new_tab(), "Ctrl+Shift+N")
+        self.a_detach = A(tr("Reiter in eigenes Fenster lösen"), self._detach, None)
         self.a_save = A(tr("Speichern"), self.save, QKeySequence.StandardKey.Save, "save")
         self.a_saveas = A(tr("Speichern unter…"), self.save_as, "Ctrl+Shift+S")
         self.a_merge = A(tr("Dokumente zusammenführen…"), self.merge_dialog, "Ctrl+M", "merge")
@@ -1375,7 +1378,7 @@ class MainWindow(QMainWindow):
 
         mb = self.menuBar()
         m = mb.addMenu(tr("&Datei"))
-        for a in (self.a_open, None, self.a_save, self.a_saveas, None, self.a_print,
+        for a in (self.a_open, self.a_newwin, self.a_newtab, self.a_detach, None, self.a_save, self.a_saveas, None, self.a_print,
                   None, self.a_settings, None, self.a_close):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Seiten"))
@@ -1514,9 +1517,23 @@ class MainWindow(QMainWindow):
         self.a_save.setEnabled(has and (self.modified or not self.path))
         self.a_save.setToolTip(tr("Speichern") if self.a_save.isEnabled() else tr("Keine ungespeicherten Änderungen"))
 
+    def _new_tab(self):
+        if getattr(self, "_host", None) is None or not self.ctl.tabs_enabled():
+            self.ctl.new_window()
+            return
+        self.ctl.new_window(tab_of=self)
+
+    def _detach(self):
+        host = getattr(self, "_host", None)
+        if host is not None:
+            host.detach(self)
+
     def _update_title(self):
         name = self.display_name or "Passermark"
         self.setWindowTitle(("● " if self.modified else "") + name + (tr(" – Passermark") if self.doc else ""))
+        host = getattr(self, "_host", None)
+        if host is not None:
+            host.update_tab(self)
 
     # ================================================================ #
     # Öffnen
@@ -1530,7 +1547,7 @@ class MainWindow(QMainWindow):
         """Erstes Dokument in dieses (leere) Fenster, den Rest in neue Fenster.
         Mehrere Bilder auf einmal werden zu einem Dokument."""
         if self.doc is not None:
-            self.ctl.open_paths(paths)
+            self.ctl.open_paths(paths, tab_of=self)
             return
         imgs = [p for p in paths if images.is_image(p)]
         rest = [p for p in paths if not images.is_image(p)]
@@ -1539,7 +1556,7 @@ class MainWindow(QMainWindow):
         elif rest:
             self.open_any(rest.pop(0))
         if rest:
-            self.ctl.open_paths(rest)
+            self.ctl.open_paths(rest, tab_of=self)
 
     def _set_doc(self, doc, path, display, modified, keep_page=None):
         if self.doc is not None and self.doc is not doc:
@@ -2011,7 +2028,7 @@ class MainWindow(QMainWindow):
         doc = load_pdf(self, path)
         if doc is None:
             return
-        w = self.ctl.new_window()
+        w = self.ctl.new_window(tab_of=self)
         # temporär: kein fester Speicherort -> „Speichern“ fragt nach, Schließen erinnert ans Speichern
         w._set_doc(doc, None, os.path.basename(path), True)
         w._temp_path = path
@@ -2033,7 +2050,7 @@ class MainWindow(QMainWindow):
         if not os.path.isfile(p):
             QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
             return
-        self.ctl.open_paths([p])
+        self.ctl.open_paths([p], tab_of=self)
 
     def _win_print_test(self):
         """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""
@@ -2091,7 +2108,7 @@ class MainWindow(QMainWindow):
             files = [tmp]
             names = {tmp: self.display_name or "Dokument.pdf"}
             out_dir = os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", os.path.expanduser("~"))
-        RepairDialog(self, files, names, out_dir, open_cb=lambda p: self.ctl.open_paths([p])).exec()
+        RepairDialog(self, files, names, out_dir, open_cb=lambda p: self.ctl.open_paths([p], tab_of=self)).exec()
 
     def print_dialog(self):
         if self.doc is None:
@@ -2147,3 +2164,6 @@ class MainWindow(QMainWindow):
             self.doc.close()
             self.doc = None
         super().closeEvent(e)
+        host = getattr(self, "_host", None)
+        if host is not None:
+            host.tab_closed()

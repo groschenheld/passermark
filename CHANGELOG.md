@@ -1,5 +1,16 @@
 # Änderungen – Passermark
 
+## 1.8.1
+- **Reiter (Tabs):** Was im Programm entsteht oder geöffnet wird, kommt als Reiter ins selbe Fenster – Öffnen-Knopf
+  bei offenem Dokument, Hineinziehen, Ergebnisse (CutContour, CMYK/Beschneiden, Objekte trennen …), „Jetzt in
+  Passermark öffnen“ nach „Als PDF speichern“, Hilfe-Anleitung. Programmstart ohne Datei und Doppelklick bzw.
+  „Öffnen mit“ im Dateimanager öffnen weiter ein eigenständiges Fenster. Jeder Reiter ist ein vollständiges
+  Fenster mit eigenen Menüs, Leisten und Seitenleisten; mit nur einem Dokument ist die Reiterleiste ausgeblendet
+- Reiter: verschieben per Ziehen, schließen mit ×, Rechtsklick → „In eigenem Fenster öffnen“ / „Andere
+  schließen“; Datei → Neuer Reiter (Strg+Umschalt+N), Reiter in eigenes Fenster lösen, Neues Fenster (Strg+N).
+  Beim Schließen eines Fensters mit mehreren Reitern wird für jedes ungespeicherte Dokument nachgefragt
+- Abschaltbar: Datei → Einstellungen → Fenster → „Im Programm Geöffnetes als Reiter im selben Fenster“
+
 ## 1.8.0
 - **Bindungsschemata** (Druckdialog → Broschüre): *Bindeart* Sammelheftung (alle Bögen ineinander), gruppierte
   Lagen (z. B. 4 Bögen = 16 Seiten je Lage, Lagen hintereinander) oder Einzelbögen gestapelt (Klebebindung).
@@ -20,6 +31,8 @@
   Endformat platziert und skaliert – Schnittmarken sitzen am Endformat, der Anschnitt kommt echt aus dem
   Dokument; nur wenn mehr Anschnitt eingestellt ist als vorhanden, wird der Rest an der Seitenkante gespiegelt.
   Normaler Druck („Größe“) druckt weiter die ganze Seite
+- **Behoben: Passermark ein zweites Mal starten (Startmenü, Symbol) tat nichts**, solange schon ein Fenster offen
+  war – die laufende Instanz öffnet jetzt ein neues, leeres Fenster. Neu: Datei → Neues Fenster (Strg+N)
 - Druckdialog: Preset-Zeile steht über den Reitern (gilt für Allgemein und Weitere Optionen)
 - Test: Falz-Simulation (falzen, ineinanderstecken, Lagen stapeln) prüft für alle Bindearten, Bindung links/rechts
   und Leerseiten-Lagen, dass die Seiten 1…N ergeben

@@ -1150,4 +1150,12 @@ MESSAGES = {
     "Endformat": "Formato final",
     "Endformat und Anschnitt anzeigen": "Mostrar formato final y sangrado",
     "Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm": "Formato final {0:.1f} × {1:.1f} mm, sangrado {2:.1f} mm",
+    "Neues Fenster": "Nueva ventana",
+    "Andere schließen": "Cerrar las demás",
+    "Fenster": "Ventanas",
+    "Im Programm Geöffnetes als Reiter im selben Fenster": "Abrir los documentos desde el programa como pestañas en la misma ventana",
+    "In eigenem Fenster öffnen": "Abrir en ventana propia",
+    "Neuer Reiter": "Nueva pestaña",
+    "Reiter in eigenes Fenster lösen": "Mover pestaña a ventana propia",
+    "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster.": "El botón Abrir, arrastrar y soltar y los resultados (CutContour, CMYK …) se abren como pestañas. Iniciar el programa y el doble clic en el gestor de archivos abren siempre una ventana propia.",
 }

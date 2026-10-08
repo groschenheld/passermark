@@ -167,6 +167,38 @@ pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kin
 imp = pdlg._preset_settings()
 from pdfdruck.layout import ImposeSettings
 assert isinstance(imp, ImposeSettings)              # Qt-Ersatz liefert keine echten Feldwerte
+# zweiter Programmstart ohne Datei -> neues Fenster (vorher passierte nichts)
+from pdfdruck import app as appmod
+import json as _json
+ctl = appmod.Controller()
+made = []
+ctl.new_window = lambda: made.append(1) or types.SimpleNamespace(raise_=lambda: None, activateWindow=lambda: None)
+class Sock:
+    def __init__(s, msg): s.msg = msg
+    def canReadLine(s): return True
+    def readLine(s): return (_json.dumps(s.msg) + "\n").encode()
+    def write(s, b): pass
+    def flush(s): pass
+    def deleteLater(s): pass
+    disconnected = types.SimpleNamespace(connect=lambda f: None)
+ctl._on_ready(Sock({"cmd": "open", "files": []}))
+assert made == [1], made
+# Reiter: aus dem Programm heraus -> gleicher Rahmen; von außen / Neues Fenster -> eigener Rahmen
+ctl2 = appmod.Controller()
+w1 = ctl2.new_window()
+w2 = ctl2.new_window(tab_of=w1)
+w3 = ctl2.new_window()
+assert w1._host is w2._host and w3._host is not w1._host and len(ctl2.hosts) == 2, (w1._host, w2._host, w3._host, ctl2.hosts, ctl2.tabs_enabled())
+st = l10n.load_settings(); st["open_in_tabs"] = False; l10n.save_settings(st)
+w4 = ctl2.new_window(tab_of=w1)
+assert w4._host is not w1._host                     # Reiter abgeschaltet -> eigenes Fenster
+st["open_in_tabs"] = True; l10n.save_settings(st)
+ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf im Programm
+assert ctl2.windows[-1]._host is w1._host
+n_hosts = len(ctl2.hosts)
+ctl2.open_paths([sys.argv[1]])                      # Doppelklick im Dateimanager: leeres Fenster nutzen / neues
+assert ctl2.windows[-1]._host is not w1._host or len(ctl2.hosts) == n_hosts
+w1._detach()
 print("ok")
 '''
 

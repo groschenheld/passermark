@@ -1150,4 +1150,12 @@ MESSAGES = {
     "Endformat": "Vágott méret",
     "Endformat und Anschnitt anzeigen": "Vágott méret és kifutó megjelenítése",
     "Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm": "Vágott méret {0:.1f} × {1:.1f} mm, kifutó {2:.1f} mm",
+    "Neues Fenster": "Új ablak",
+    "Andere schließen": "Többi bezárása",
+    "Fenster": "Ablakok",
+    "Im Programm Geöffnetes als Reiter im selben Fenster": "A programból megnyitott dokumentumok fülként ugyanabban az ablakban",
+    "In eigenem Fenster öffnen": "Megnyitás külön ablakban",
+    "Neuer Reiter": "Új fül",
+    "Reiter in eigenes Fenster lösen": "Fül leválasztása külön ablakba",
+    "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster.": "A Megnyitás gomb, a behúzás és az eredmények (CutContour, CMYK …) fülként jelennek meg. A program indítása és a dupla kattintás a fájlkezelőben mindig külön ablakot nyit.",
 }
