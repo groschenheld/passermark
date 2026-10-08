@@ -171,14 +171,17 @@ def separate(norm_doc, boxes_by_page: dict[int, list[Box]], margin_mm: float = 0
     out = pdfium.PdfDocument.new()
     for pi in sorted(boxes_by_page):
         pw, ph = norm_doc.get_page_size(pi)
-        for b in boxes_by_page[pi]:
-            b = with_margin(b, margin_mm, pw, ph) if margin_mm else b
+        for b0 in boxes_by_page[pi]:
+            b = with_margin(b0, margin_mm, pw, ph) if margin_mm else b0
             if b.w < 1 or b.h < 1:
                 continue
             out.import_pages(norm_doc, [pi])
             pg = out[len(out) - 1]
-            for setter in (pg.set_mediabox, pg.set_cropbox, pg.set_trimbox, pg.set_bleedbox):
+            for setter in (pg.set_mediabox, pg.set_cropbox, pg.set_bleedbox):
                 setter(b.x0, b.y0, b.x1, b.y1)
+            # Endformat = Objekt selbst; ein positiver Rand ist Anschnitt (beim Ausschießen erkannt)
+            t = Box(max(b.x0, b0.x0), max(b.y0, b0.y0), min(b.x1, b0.x1), min(b.y1, b0.y1)) if margin_mm > 0 else b
+            pg.set_trimbox(t.x0, t.y0, t.x1, t.y1)
             pg.close()
     if len(out) == 0:
         out.close()

@@ -206,6 +206,33 @@ def test_trimbox_recognized():
     assert plain[0].placements[0].trim is None
 
 
+def test_cutcontour_objects_bleed_to_bleed():
+    """Gemeldet: Nutzen „Überfüller an Überfüller“ aus CutContour-Einzelobjekten hatte Abstände (weißer Seitenrand).
+    Jetzt: Endformat = Schnittlinie, Anschnitt = Überfüller -> die Überfüller liegen aneinander."""
+    sys.path.insert(0, HERE)
+    import test_cutcontour as tc
+    from pdfdruck import cutcontour
+    out, _n = cutcontour.make(tc.stickers(), cutcontour.CutSettings(per_object=True, bleed_mm=2, margin_mm=6, dpi=150))
+    trims, bleeds = layout.page_trims(out), layout.page_doc_bleeds(out)
+    assert all(t and min(t) > 7 * MM for t in trims)                 # 6 mm Rand + Überfüller außerhalb des Endformats
+    assert all(1.5 * MM < b < 2.6 * MM for b in bleeds), bleeds
+    sizes = [out.get_page_size(i) for i in range(len(out))]
+    for s, want_gap in ((LayoutSettings(step_repeat=True, sr_join="bleed"), 2 * bleeds[0]),        # aus dem Dokument
+                        (LayoutSettings(step_repeat=True, sr_join="bleed", bleed_mm=1), 2 * MM),   # eingestellt
+                        (LayoutSettings(step_repeat=True, sr_join="gap", sr_gap_mm=0), 0.0)):     # Abstand 0
+        sp = layout.plan(sizes, [0], Sheet(210 * MM, 297 * MM), s, trims, bleeds)[0]
+        xs = sorted({round(pl.x, 3) for pl in sp.placements})
+        w = sp.placements[0].w
+        gaps = [b - a - w for a, b in zip(xs, xs[1:])]
+        assert gaps and all(abs(g - want_gap) < 0.05 for g in gaps), (s.sr_join, s.bleed_mm, gaps, want_gap)
+    # Objekte trennen mit Rand: Endformat = Objekt, Rand = Anschnitt
+    from pdfdruck import objects
+    norm = objects.normalized(tc.stickers())
+    sep = objects.separate(norm, {0: objects.detect(norm[0], objects.DetectSettings())}, 3.0)
+    t = layout.page_trims(sep)[0]
+    assert t and abs(min(t) - 3 * MM) < 0.5, t
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

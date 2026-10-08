@@ -725,6 +725,18 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
         for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
             if k in page.obj:
                 del page.obj[k]
+        if single:
+            # Endformat = Schnittlinie, Anschnitt = Überfüller: beim Ausschießen (Nutzen „Überfüller an
+            # Überfüller“) liegen dann die Überfüller aneinander statt der weißen Seitenränder
+            pts = [pt for poly, _sm in objs[0].paths for pt in poly]
+            if pts:
+                tx0, ty0 = max(box[0], min(p_[0] for p_ in pts)), max(box[1], min(p_[1] for p_ in pts))
+                tx1, ty1 = min(box[2], max(p_[0] for p_ in pts)), min(box[3], max(p_[1] for p_ in pts))
+                if tx1 - tx0 > 2 and ty1 - ty0 > 2:
+                    page.TrimBox = [float(tx0), float(ty0), float(tx1), float(ty1)]
+                    ob = objs[0].box
+                    page.BleedBox = [float(max(box[0], min(ob[0], tx0))), float(max(box[1], min(ob[1], ty0))),
+                                     float(min(box[2], max(ob[2], tx1))), float(min(box[3], max(ob[3], ty1)))]
         res = sub(page.obj, "/Resources")
         def image(arr, name, box):
             a = np.asarray(arr)

@@ -233,6 +233,7 @@ def build():
         [c("crop"), c("false"), "auf ein Format bringen (Überstand beidseitig gleich)"],
         [c("crop_scale"), c("true"), "zuerst skalieren, bis das Format ganz gefüllt ist (A4 → A6 = 50 %), dann den "
          "Überstand der anderen Kante abschneiden; " + c("false") + " = nur abschneiden (Dateien mit Anschnitt)"],
+        [c("crop_inset_mm"), "0", "vorher rundum so viel abschneiden (weiße Ränder der Vorlage)"],
         [c("crop_size"), c("A4"), "A0–A7, B4, B5, C4–C6, DL, SRA3, A3+, Letter, Legal, Tabloid, „Visitenkarte "
          "85×55“, „Visitenkarte 90×50“, „Quadrat 210“, „Quadrat 148“ oder " + c("custom")],
         [c("crop_w_mm") + " / " + c("crop_h_mm"), "210 / 297", "Maße bei " + c("custom")],

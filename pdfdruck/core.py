@@ -267,7 +267,7 @@ def _job_impose(src, dst, s, opts, progress, cancel):
             _report(progress, 0, 1, tr("Bearbeite …"))
             sizes = [flat.get_page_size(i) for i in range(len(flat))]
             pages = opts.get("pages") or list(range(len(flat)))
-            plans = layout.plan(sizes, pages, sheet, s, layout.page_trims(flat))
+            plans = layout.plan(sizes, pages, sheet, s, layout.page_trims(flat), layout.page_doc_bleeds(flat))
             if not plans:
                 raise ValueError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
             _check(cancel)

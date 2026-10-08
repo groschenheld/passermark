@@ -93,7 +93,16 @@ class Session:
     def caps_for(self, name: str, reload: bool = False) -> printers.PrinterCaps:
         if reload or name not in self.caps:
             self.caps[name] = printers.pdf_caps() if name == printers.PDF_TARGET else printers.load_caps(name)
+            try:
+                printers.apply_custom_sizes(self.caps[name])      # Sonderformate des Benutzers
+            except Exception:
+                pass
         return self.caps[name]
+
+    def refresh_custom_sizes(self):
+        sizes = printers.load_custom_sizes()
+        for c in self.caps.values():
+            printers.apply_custom_sizes(c, sizes)
 
     def values_for(self, name: str) -> dict[str, str]:
         if name not in self.values:

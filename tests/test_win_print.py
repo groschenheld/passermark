@@ -13,6 +13,7 @@ from pdfdruck import printers  # noqa: F401  zuerst laden: unter Windows bindet 
 from pdfdruck import printers_win as pw
 
 SAMPLE = os.path.join(HERE, "sample.pdf")
+_ORIG_DEVMODE = pw._devmode_for_job
 
 
 def _setup(**kw):
@@ -117,6 +118,18 @@ def test_test_print_all_modes():
     assert res["Raster"] == "ok" and res["Raster + JPEG"] == "ok" and res["Vektor (GDI)"] == "ok"
     assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"    # Treiber kann es nicht -> gemeldet
     assert len(g.pages) == 4 and ("vector",) in g.calls
+
+
+def test_custom_paper_size_devmode():
+    """Sonderformat: DMPAPER_USER mit Breite/Länge in 0,1 mm; normale Formate wie bisher."""
+    class DM:
+        Fields = 0
+    pw.devmode_from_str = lambda printer, s: DM()
+    dm = _ORIG_DEVMODE("T", {"PageSize": printers.custom_value(330, 1000)}, 1, True)
+    assert dm.PaperSize == 256 and dm.PaperWidth == 3300 and dm.PaperLength == 10000
+    assert dm.Fields & pw.DM_PAPERWIDTH and dm.Fields & pw.DM_PAPERLENGTH and dm.Fields & pw.DM_PAPERSIZE
+    dm = _ORIG_DEVMODE("T", {"PageSize": "9"}, 1, True)
+    assert dm.PaperSize == 9 and not hasattr(dm, "PaperWidth")
 
 
 if __name__ == "__main__":

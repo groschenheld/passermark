@@ -15,8 +15,8 @@ from . import colorconv, config, layout, printers
 from .l10n import tr
 
 
-def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bool = False, trims=None):
-    plans = layout.plan(sizes, pages, sheet, settings, trims)
+def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bool = False, trims=None, bleeds=None):
+    plans = layout.plan(sizes, pages, sheet, settings, trims, bleeds)
     if settings.handling == "booklet" and reverse:     # bei Broschüre die Bögen umkehren
         step = 2 if settings.booklet_sides == "both" else 1
         groups = [plans[i:i + step] for i in range(0, len(plans), step)]
@@ -92,7 +92,7 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
         ia = None
     sheet = layout.Sheet(w, h, ia)
     sizes = [doc.get_page_size(i) for i in range(len(doc))]
-    plans = make_plans(sizes, pages, sheet, settings, reverse, layout.page_trims(doc))
+    plans = make_plans(sizes, pages, sheet, settings, reverse, layout.page_trims(doc), layout.page_doc_bleeds(doc))
     if not plans:
         raise RuntimeError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
 

@@ -826,11 +826,33 @@ class PrintDialog(QDialog):
                 drv = self.caps.options[key].text
                 label = tr(label)
                 text = label if drv.lower() in (label.lower(), key.lower()) else f"{label}\n({drv})"
+                if role == "pagesize":
+                    row = QHBoxLayout()
+                    row.addWidget(cb, 1)
+                    b = QPushButton(tr("Sonderformate …"))
+                    b.setToolTip(tr("Eigene Papierformate anlegen – bleiben gespeichert und stehen bei allen Druckern "
+                                    "und bei „Als PDF speichern“ zur Wahl (mit ★)"))
+                    b.clicked.connect(self._custom_sizes)
+                    row.addWidget(b)
+                    self.paper_form.addRow(text + ":", row)
+                    continue
                 self.paper_form.addRow(text + ":", cb)
         if not self.role_combos:
             self.paper_form.addRow(QLabel(tr("Keine Basisoptionen erkannt – siehe Reiter „Treiber“.")))
         self._build_tray_auto()
         self._build_finishing()
+
+    def _custom_sizes(self):
+        from .customsizes import CustomSizesDialog
+        dlg = CustomSizesDialog(self)
+        if not dlg.exec():
+            return
+        self.s.refresh_custom_sizes()
+        key = self.caps.roles.get("pagesize") if self.caps else None
+        if key and dlg.chosen:                     # neu angelegtes/gewähltes Format gleich einstellen
+            self.values[key] = dlg.chosen
+        self._build_paper()
+        self._changed()
 
     # ---------------- automatische Fachwahl ---------------- #
     def _pc(self):
@@ -1248,11 +1270,11 @@ class PrintDialog(QDialog):
     def _make_plans(self, pages):
         if getattr(self, "trims", None) is None:
             try:
-                self.trims = layout.page_trims(self.doc)
+                self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
             except Exception:
-                self.trims = []
+                self.trims, self.doc_bleeds = [], []
         return printjob.make_plans(self.sizes, pages, self._sheet(), self._settings(),
-                                   self.chk_reverse.isChecked(), self.trims)
+                                   self.chk_reverse.isChecked(), self.trims, self.doc_bleeds)
 
     def _short_edge_choice(self):
         return printjob.short_edge_choice(self.caps)

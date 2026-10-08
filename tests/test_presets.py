@@ -166,6 +166,9 @@ pdlg = pd.PrintDialog(None, pdfium.PdfDocument(sys.argv[1]), sys.argv[1], 0, s)
 pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kind="grouped", booklet_per_sig=2,
                                  booklet_fold_marks=True))
 imp = pdlg._preset_settings()
+from pdfdruck.gui.customsizes import CustomSizesDialog
+CustomSizesDialog(None)
+s.refresh_custom_sizes()
 from pdfdruck.layout import ImposeSettings
 assert isinstance(imp, ImposeSettings)              # Qt-Ersatz liefert keine echten Feldwerte
 # zweiter Programmstart ohne Datei -> neues Fenster (vorher passierte nichts)

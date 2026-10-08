@@ -32,6 +32,7 @@ DC_BINS, DC_PAPERS, DC_PAPERSIZE, DC_DUPLEX = 6, 2, 3, 7
 DC_BINNAMES, DC_PAPERNAMES, DC_COLORDEVICE = 12, 16, 32
 DC_MEDIATYPENAMES, DC_MEDIATYPES = 34, 35
 DM_ORIENTATION, DM_PAPERSIZE, DM_COPIES, DM_DEFAULTSOURCE = 0x1, 0x2, 0x100, 0x200
+DM_PAPERLENGTH, DM_PAPERWIDTH, DMPAPER_USER = 0x4, 0x8, 256
 DM_COLOR, DM_DUPLEX, DM_COLLATE, DM_MEDIATYPE = 0x800, 0x1000, 0x8000, 0x2000000
 DM_OUT_BUFFER, DM_IN_PROMPT, DM_IN_BUFFER = 2, 4, 8
 LOGPIXELSX, LOGPIXELSY, HORZRES, VERTRES = 88, 90, 8, 10
@@ -204,7 +205,13 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
             fields |= flag
         except (TypeError, ValueError):
             pass
-    if values.get("PageSize"):
+    from .printers import parse_custom
+    cust = parse_custom(values.get("PageSize"))
+    if cust:                                             # Sonderformat: DMPAPER_USER mit Breite/Länge in 0,1 mm
+        setf("PaperSize", DMPAPER_USER, DM_PAPERSIZE)
+        setf("PaperWidth", round(cust[0] * 10), DM_PAPERWIDTH)
+        setf("PaperLength", round(cust[1] * 10), DM_PAPERLENGTH)
+    elif values.get("PageSize"):
         setf("PaperSize", values["PageSize"], DM_PAPERSIZE)
     if values.get("InputSlot"):
         setf("DefaultSource", values["InputSlot"], DM_DEFAULTSOURCE)

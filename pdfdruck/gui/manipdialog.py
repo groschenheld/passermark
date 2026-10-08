@@ -116,6 +116,15 @@ class ManipPanel(QWidget):
                                      "(z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, "
                                      "die schon in der richtigen Größe mit Anschnitt kommen."))
         f.addRow(self.chk_scale)
+        self.spn_inset = QDoubleSpinBox()
+        self.spn_inset.setRange(0, 100)
+        self.spn_inset.setDecimals(1)
+        self.spn_inset.setSuffix(" mm")
+        self.spn_inset.setValue(settings.crop_inset_mm)
+        self.spn_inset.setToolTip(tr("Vorher rundum so viel von der Vorlage abschneiden – z. B. weiße Ränder eines "
+                                     "Scans oder einer Datei ohne Anschnitt. Danach wird wie eingestellt skaliert "
+                                     "und beschnitten."))
+        f.addRow(tr("Weißen Rand vorher abschneiden:"), self.spn_inset)
         self.lbl_crop = QLabel()
         self.lbl_crop.setWordWrap(True)
         self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT};")
@@ -128,7 +137,7 @@ class ManipPanel(QWidget):
             w.toggled.connect(self._changed)
         for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
             w.currentIndexChanged.connect(self._changed)
-        for w in (self.spn_w, self.spn_h):
+        for w in (self.spn_w, self.spn_h, self.spn_inset):
             w.valueChanged.connect(self._changed)
         self._sync()
         fit_width(self)
@@ -172,7 +181,7 @@ class ManipPanel(QWidget):
             self.lbl_cmyk.setText(tr("⚠ Ghostscript fehlt – ohne Ghostscript ist keine CMYK-Umwandlung möglich."))
         crop = self.chk_crop.isChecked()
         custom = self.cmb_size.currentData() == "custom"
-        for w in (self.cmb_size, self.chk_follow, self.chk_scale):
+        for w in (self.cmb_size, self.chk_follow, self.chk_scale, self.spn_inset):
             w.setEnabled(crop)
         self.spn_w.setEnabled(crop and custom)
         self.spn_h.setEnabled(crop and custom)
@@ -208,6 +217,7 @@ class ManipPanel(QWidget):
         s.crop_w_mm, s.crop_h_mm = self.spn_w.value(), self.spn_h.value()
         s.crop_follow = self.chk_follow.isChecked()
         s.crop_scale = self.chk_scale.isChecked()
+        s.crop_inset_mm = self.spn_inset.value()
         return s
 
     def load_settings(self, s: cmyk.ManipSettings):
@@ -225,7 +235,7 @@ class ManipPanel(QWidget):
                 self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(p), p, "file"))
         self._fill_profiles()
         ws = [self.chk_cmyk, self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.chk_bpc, self.chk_k,
-              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale]
+              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale, self.spn_inset]
         for w in ws:
             w.blockSignals(True)
         try:
@@ -247,6 +257,7 @@ class ManipPanel(QWidget):
             self.spn_h.setValue(s.crop_h_mm)
             self.chk_follow.setChecked(bool(s.crop_follow))
             self.chk_scale.setChecked(bool(s.crop_scale))
+            self.spn_inset.setValue(s.crop_inset_mm)
         finally:
             for w in ws:
                 w.blockSignals(False)

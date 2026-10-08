@@ -77,6 +77,23 @@ def test_fill_scale_and_crop():
     assert tuple(round(v / MM) for v in big.get_page_size(0)) == (210, 297)    # kleiner -> hochskaliert
 
 
+def test_fill_with_inset():
+    """Weißer Rand der Vorlage wird vorher abgeschnitten: 10 mm weiß um A4 -> danach erst auf A6 skaliert."""
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas("/tmp/_inset.pdf", pagesize=(210 * MM, 297 * MM))
+    c.setFillColorRGB(0, 0, 1); c.rect(10 * MM, 10 * MM, 190 * MM, 277 * MM, fill=1, stroke=0); c.showPage(); c.save()
+    d = pdfium.PdfDocument("/tmp/_inset.pdf")
+    s = cmyk.ManipSettings(crop=True, crop_size="A6", crop_inset_mm=10)
+    assert "190.0 × 277.0 mm" in pdfmanip.describe_crop(d, s, 0)
+    out, _ = pdfmanip.crop_doc(d, s)
+    im = out[0].render(scale=1).to_pil().convert("RGB")
+    for xy in ((1, 1), (im.width - 2, im.height - 2), (1, im.height // 2), (im.width // 2, 1)):
+        assert im.getpixel(xy)[2] > 200 and im.getpixel(xy)[0] < 60, (xy, im.getpixel(xy))   # bis zum Rand blau
+    s2 = cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False, crop_inset_mm=10)
+    o2, _ = pdfmanip.crop_doc(d, s2)
+    assert tuple(round(v / MM) for v in o2.get_page_size(0)) == (190, 277)                     # nur abschneiden
+
+
 def test_color_args():
     s = cmyk.ManipSettings(cmyk=True, target="/p/psov3.icc", cmyk_mode="rgb_only", intent="perceptual")
     a = cmyk.color_args(s)

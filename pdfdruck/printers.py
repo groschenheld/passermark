@@ -180,7 +180,7 @@ class PrinterCaps:
         """Wie sheet_for, plus ob das Maß wirklich bekannt ist (False = Notlösung A4)."""
         key = self.roles.get("pagesize")
         val = values.get(key) if key else None
-        if self.backend == "win" and val is not None:
+        if self.backend == "win" and val is not None and not str(val).startswith(CUSTOM_PREFIX):
             cache = self.__dict__.setdefault("_win_ia", {})
             if val not in cache:
                 try:
@@ -262,6 +262,84 @@ def pdf_caps() -> "PrinterCaps":
     caps.groups.append(("pdf", tr("Allgemein"), ["PageSize"]))
     caps.roles["pagesize"] = "PageSize"
     return caps
+
+
+# --------------------------------------------------------------------------- #
+# Sonderformate (vom Benutzer angelegt, dauerhaft gespeichert)
+# --------------------------------------------------------------------------- #
+CUSTOM_PREFIX = "Custom."
+_MMPT = 72.0 / 25.4
+
+
+def custom_value(w_mm: float, h_mm: float) -> str:
+    """Papierwert wie bei CUPS/PPD: Custom.85x55mm (Breite × Höhe)."""
+    return f"{CUSTOM_PREFIX}{w_mm:g}x{h_mm:g}mm"
+
+
+def parse_custom(val) -> tuple[float, float] | None:
+    m = re.fullmatch(r"Custom\.([0-9.]+)x([0-9.]+)mm", str(val or ""))
+    if not m:
+        return None
+    try:
+        w, h = float(m.group(1)), float(m.group(2))
+    except ValueError:
+        return None
+    return (w, h) if w > 0 and h > 0 else None
+
+
+def load_custom_sizes() -> list[dict]:
+    """[{"name": …, "w": mm, "h": mm}] aus den Benutzereinstellungen."""
+    from . import l10n
+    out = []
+    for e in l10n.load_settings().get("custom_sizes", []) or []:
+        try:
+            w, h = float(e["w"]), float(e["h"])
+            if w > 0 and h > 0:
+                out.append({"name": str(e.get("name") or "").strip() or f"{w:g} × {h:g} mm", "w": w, "h": h})
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def save_custom_sizes(sizes: list[dict]) -> None:
+    from . import l10n
+    st = l10n.load_settings()
+    st["custom_sizes"] = [{"name": e["name"], "w": float(e["w"]), "h": float(e["h"])} for e in sizes]
+    l10n.save_settings(st)
+
+
+def apply_custom_sizes(caps: "PrinterCaps", sizes: list[dict] | None = None) -> None:
+    """Sonderformate in die Papierliste eines Druckers bzw. „Als PDF speichern“ einhängen (vorherige ersetzen).
+    Gedruckt wird mit PageSize/media = Custom.BxHmm (CUPS) bzw. DMPAPER_USER (Windows)."""
+    sizes = load_custom_sizes() if sizes is None else sizes
+    key = caps.roles.get("pagesize")
+    if not key or key not in caps.options:
+        return
+    opt = caps.options[key]
+    opt.choices = [c for c in opt.choices if not str(c.value).startswith(CUSTOM_PREFIX)]
+    for k in [k for k in caps.page_sizes if str(k).startswith(CUSTOM_PREFIX)]:
+        caps.page_sizes.pop(k, None)
+        caps.imageable.pop(k, None)
+    # Ränder des Druckers vom Standardformat übernehmen (Sonderformate kennt der Treiber oft nicht im Voraus)
+    margins = None
+    if caps.backend != "pdf":
+        ref = opt.default if opt.default in caps.imageable else next(iter(caps.imageable), None)
+        if ref is not None and ref in caps.page_sizes:
+            W, H = caps.page_sizes[ref]
+            l, b, r, t = caps.imageable[ref]
+            margins = (l, b, W - r, H - t)
+        else:
+            margins = (12.0, 12.0, 12.0, 12.0)
+    for e in sizes:
+        v = custom_value(e["w"], e["h"])
+        w, h = e["w"] * _MMPT, e["h"] * _MMPT
+        opt.choices.append(Choice(v, f"★ {e['name']} ({e['w']:g} × {e['h']:g} mm)"))
+        caps.page_sizes[v] = (w, h)
+        if margins is None:
+            caps.imageable[v] = (0.0, 0.0, w, h)
+        else:
+            ml, mb, mr, mt = margins
+            caps.imageable[v] = (ml, mb, w - mr, h - mt)
 
 
 def _conn():

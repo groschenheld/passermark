@@ -408,8 +408,8 @@ class PageView(QScrollArea):
                 break
 
     def _render_visible(self):
-        if not self.doc:
-            return
+        if self.doc is None or getattr(self.doc, "raw", None) is None:
+            return                         # Dokument schon geschlossen (Fenster/Reiter zu, Zeitgeber kam danach)
         top = self.verticalScrollBar().value() - 200
         bottom = top + self.viewport().height() + 400
         dpr = self.devicePixelRatioF()
@@ -2160,6 +2160,11 @@ class MainWindow(QMainWindow):
                 e.ignore()
                 return
         # Druckeinstellungen der Sitzung bleiben bis zum letzten Fenster – dann verfallen sie.
+        try:
+            self.view._timer.stop()
+            self.view.doc = None           # Ansicht darf das gleich geschlossene Dokument nicht mehr anfassen
+        except Exception:
+            pass
         if self.doc is not None:
             self.doc.close()
             self.doc = None

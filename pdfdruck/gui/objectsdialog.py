@@ -66,6 +66,7 @@ class PageCanvas(QWidget):
         self.paths = []           # Konturen in pt
         self.shape_box = None     # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
         self.on_shape = None      # Rückruf (sx, sy, dx_pt, dy_pt) beim Loslassen
+        self.keep_aspect = False  # Kreis: Seitengriffe skalieren gleichmäßig
         self.on_shaping = None    # Rückruf (sx, sy, dx_pt, dy_pt) während des Ziehens (Anzeige)
         self.live = (1.0, 1.0, 0.0, 0.0)
         self._sdrag = None
@@ -237,8 +238,12 @@ class PageCanvas(QWidget):
                 sx = sy = max(0.05, min(20.0, math.hypot(pos.x() - c.x(), pos.y() - c.y()) / d0))
             elif name.startswith("sx"):
                 sx = max(0.05, min(20.0, abs(pos.x() - c.x()) / (abs(p0.x() - c.x()) or 1.0)))
+                if self.keep_aspect:
+                    sy = sx                              # Kreis: Seitengriff skaliert gleichmäßig
             else:
                 sy = max(0.05, min(20.0, abs(pos.y() - c.y()) / (abs(p0.y() - c.y()) or 1.0)))
+                if self.keep_aspect:
+                    sx = sy
             self.live = (sx, sy, dx, dy)
             if self.on_shaping is not None:
                 self.on_shaping(*self.live)
@@ -590,6 +595,8 @@ class CutContourDialog(QDialog):
         f.addRow(tr("Eckenradius:"), self.spn_corner)
         row = QHBoxLayout()
         self.spn_fw, self.spn_fh = dspin(0, 0, 2000), dspin(0, 0, 2000)
+        self.spn_fw.valueChanged.connect(
+            lambda v: self.cmb_shape.currentData() == "circle" and self.spn_fh.setValue(v))
         for sp in (self.spn_fw, self.spn_fh):
             sp.setSpecialValueText(tr("auto"))
             sp.setToolTip(tr("Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: "
@@ -597,6 +604,11 @@ class CutContourDialog(QDialog):
         row.addWidget(self.spn_fw)
         row.addWidget(QLabel("×"))
         row.addWidget(self.spn_fh)
+        self.btn_size0 = QPushButton("↺")
+        self.btn_size0.setFixedWidth(34)
+        self.btn_size0.setToolTip(tr("Größe und Lage zurücksetzen (automatisch aus dem Motiv, mittig)"))
+        self.btn_size0.clicked.connect(self._reset_shape)
+        row.addWidget(self.btn_size0)
         f.addRow(tr("Größe (B × H):"), row)
         row = QHBoxLayout()
         self.spn_sx, self.spn_sy = dspin(self.s.shift_x_mm, -2000, 2000), dspin(self.s.shift_y_mm, -2000, 2000)
@@ -801,8 +813,17 @@ class CutContourDialog(QDialog):
         self.spn_smooth.setEnabled(contour)
         self.chk_inner.setEnabled(contour)
         self.spn_corner.setEnabled(shape == "rounded")
-        for w in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.btn_shift0, self.cmb_single):
+        for w in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.btn_shift0, self.btn_size0, self.cmb_single):
             w.setEnabled(not contour)
+        circle = shape == "circle"
+        self.spn_fh.setEnabled(not contour and not circle)     # Kreis: ein Durchmesser
+        self.canvas.keep_aspect = circle
+        if circle and abs(self.spn_fh.value() - self.spn_fw.value()) > 0.05:
+            d = max(self.spn_fw.value(), self.spn_fh.value())
+            for sp in (self.spn_fw, self.spn_fh):
+                sp.blockSignals(True)
+                sp.setValue(d)
+                sp.blockSignals(False)
         self.spn_margin.setEnabled(bool(self.cmb_out.currentData()))
 
     def _settings(self, preview=False):
@@ -812,6 +833,8 @@ class CutContourDialog(QDialog):
         s.corner_mm = self.spn_corner.value()
         s.scale_pct = 100.0                          # Größe nur noch in mm (Feld bzw. Griffe)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
+        if s.shape == "circle" and s.width_mm > 0:
+            s.height_mm = s.width_mm                         # Kreis bleibt Kreis
         s.shift_x_mm, s.shift_y_mm = self.spn_sx.value(), self.spn_sy.value()
         s.per_object = bool(self.cmb_out.currentData())
         s.bleed_color = self._bcol if self.cmb_bcol.currentData() == "fixed" else ""
@@ -905,10 +928,20 @@ class CutContourDialog(QDialog):
                                                              fmt_mm(self.spn_sy.value() + dy / objects.MM))
         self.lbl_info.setText(txt)
 
+    def _reset_shape(self):
+        for sp in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy):
+            sp.blockSignals(True)
+            sp.setValue(0)
+            sp.blockSignals(False)
+        self.canvas.live = (1.0, 1.0, 0.0, 0.0)
+        self._pv_timer.start()
+
     def _apply_drag(self, sx, sy, dx, dy):
         """Griff losgelassen: Größe (B × H) und Versatz in mm in die Felder – Felder und Maus bleiben im Einklang."""
         bx = self.canvas.shape_box
         w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
+        if self.cmb_shape.currentData() == "circle":
+            w = h = max(w, h)
         for sp, v in ((self.spn_fw, w), (self.spn_fh, h), (self.spn_sx, self.spn_sx.value() + dx / objects.MM),
                       (self.spn_sy, self.spn_sy.value() + dy / objects.MM)):
             sp.blockSignals(True)

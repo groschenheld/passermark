@@ -777,9 +777,11 @@ def uses_trim(s: LayoutSettings) -> bool:
     return bool(s.step_repeat or s.handling == "booklet" or s.crop_marks or s.bleed_mm > 0)
 
 
-def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None) -> list[SheetPlan]:
+def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None) -> list[SheetPlan]:
     """Bögen planen. trims (aus page_trims): Seiten mit definiertem Endformat werden auf ihr Endformat gesetzt,
-    ihr Anschnitt kommt aus dem Dokument (nicht gespiegelt)."""
+    ihr Anschnitt kommt aus dem Dokument (nicht gespiegelt). bleeds (aus page_doc_bleeds): Anschnitt laut
+    BleedBox – bei Nutzen „Überfüller an Überfüller“ ohne eingestellten Anschnitt wird er übernommen
+    (z. B. CutContour-Objekte: die Überfüller liegen aneinander)."""
     if not trims or not any(trims) or not uses_trim(s):
         return _plan(sizes, pages, sheet, s)
     sz = list(sizes)
@@ -787,7 +789,16 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None) -> list[Shee
         if t and i < len(sz):
             w, h = sz[i]
             sz[i] = (w - t[0] - t[2], h - t[1] - t[3])
-    plans = _plan(sz, pages, sheet, s)
+    if s.step_repeat and s.sr_join == "bleed" and s.bleed_mm <= 0 and bleeds and any(bleeds):
+        import dataclasses
+        plans = []
+        for p in pages:
+            b = bleeds[p] if p < len(bleeds) and trims[p] else 0.0
+            sc = edge_scale(sz[p][0], sz[p][1], s.sr_by, s.sr_mm, s.sr_percent)
+            s2 = dataclasses.replace(s, bleed_mm=b * sc / MM) if b > 0 else s
+            plans += _plan(sz, [p], sheet, s2)
+    else:
+        plans = _plan(sz, pages, sheet, s)
     for sp in plans:
         for pl in sp.placements:
             t = trims[pl.src] if pl.src < len(trims) else None
@@ -1070,6 +1081,18 @@ def page_boxes(doc) -> list:
     return out
 
 
+def page_doc_bleeds(doc) -> list:
+    """Je Seite der Anschnitt laut BleedBox um die TrimBox (kleinster Rand, pt) – 0, wo keiner definiert ist."""
+    out = []
+    for trim, bleed in page_boxes(doc):
+        if trim is None or bleed is None:
+            out.append(0.0)
+            continue
+        d = min(trim[0] - bleed[0], trim[1] - bleed[1], bleed[2] - trim[2], bleed[3] - trim[3])
+        out.append(max(0.0, d))
+    return out
+
+
 def trim_info(doc, i: int):
     """(Endformat-Breite, -Höhe in mm in Leserichtung, Anschnitt in mm (kleinster Rand)) oder None."""
     t = page_trims_one(doc, i)
@@ -1129,7 +1152,7 @@ def flattened(doc):
 
 def build_pdf(src, sheet: Sheet, pages: list[int], settings: LayoutSettings, path: str):
     sizes = [src.get_page_size(i) for i in range(len(src))]
-    plans = plan(sizes, pages, sheet, settings, page_trims(src))
+    plans = plan(sizes, pages, sheet, settings, page_trims(src), page_doc_bleeds(src))
     doc = impose_with(src, sheet, plans, settings)
     doc.save(path)
     doc.close()

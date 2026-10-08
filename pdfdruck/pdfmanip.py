@@ -42,6 +42,14 @@ def target_pt(s: _cmyk.ManipSettings) -> tuple[float, float]:
     return w * MM, h * MM
 
 
+def _inset_box(box, s) -> tuple:
+    """Weißen Rand der Vorlage zuerst rundum abziehen (crop_inset_mm); nie kleiner als 1 mm."""
+    m = max(0.0, getattr(s, "crop_inset_mm", 0.0)) * MM
+    l, b, r, t = box
+    m = min(m, (r - l - MM) / 2, (t - b - MM) / 2)
+    return (l + m, b + m, r - m, t - m) if m > 0 else tuple(box)
+
+
 def _oriented(W: float, H: float, target, follow: bool):
     tw, th = target
     if follow and abs(W - H) > 1 and (W > H) != (tw > th):
@@ -85,6 +93,7 @@ def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
         box, rot = pg.get_cropbox(), pg.get_rotation()
     finally:
         pg.close()
+    box = _inset_box(box, s)
     if getattr(s, "crop_scale", True):
         W, H = box[2] - box[0], box[3] - box[1]
         if rot % 180:
@@ -123,12 +132,14 @@ def fill_doc(doc, s: _cmyk.ManipSettings):
     tgt = target_pt(s)
     try:
         for i in range(len(norm)):
-            W, H = norm.get_page_size(i)
+            W0, H0 = norm.get_page_size(i)
+            l, b, r, t = _inset_box((0.0, 0.0, W0, H0), s)
+            W, H = r - l, t - b
             tw, th, k, _cx, _cy = fill_geometry(W, H, tgt, s.crop_follow)
             pg = out.new_page(tw, th)
             xo = norm.page_as_xobject(i, out)
             po = xo.as_pageobject()
-            po.transform(pdfium.PdfMatrix().scale(k, k).translate((tw - W * k) / 2, (th - H * k) / 2))
+            po.transform(pdfium.PdfMatrix().translate(-l, -b).scale(k, k).translate((tw - W * k) / 2, (th - H * k) / 2))
             pg.insert_obj(po)
             pg.gen_content()
             pg.close()
@@ -153,7 +164,7 @@ def crop_doc(doc, s: _cmyk.ManipSettings):
     tgt = target_pt(s)
     for i in range(len(out)):
         pg = out[i]
-        new, _cx, _cy, notes = crop_box_for(pg.get_cropbox(), pg.get_rotation(), tgt, s.crop_follow)
+        new, _cx, _cy, notes = crop_box_for(_inset_box(pg.get_cropbox(), s), pg.get_rotation(), tgt, s.crop_follow)
         pg.set_mediabox(*new)
         pg.set_cropbox(*new)
         pg.set_trimbox(*new)

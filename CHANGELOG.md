@@ -1,5 +1,30 @@
 # Änderungen – Passermark
 
+## 1.8.5
+- **Sonderformate im Druckdialog:** neben „Papierformat“ der Knopf *Sonderformate …* – Name, Breite × Höhe in mm
+  anlegen oder löschen. Die Formate bleiben gespeichert und stehen bei allen Druckern und bei „Als PDF speichern“
+  zur Wahl (mit ★). Gespoolt werden sie als Sondergröße: CUPS `PageSize`/`media` = `Custom.BxHmm`, Windows
+  benutzerdefiniertes Papier (DMPAPER_USER mit Breite/Länge). Ob ein Gerät das Maß annimmt, entscheidet sein
+  Treiber; die Druckränder werden vom Standardformat des Druckers übernommen
+- Druck-Presets mit Sonderformat merken sich das Maß (für `passermark-cli impose`: `sheet=custom`)
+
+## 1.8.4
+- **Behoben: Absturz-Meldung nach dem Schließen** eines Fensters/Reiters („expected LP_struct_fpdf_document …“ in
+  der Seitenanzeige) – die Ansicht greift auf das geschlossene Dokument nicht mehr zu
+- **CutContour Kreis:** Seitengriffe skalieren gleichmäßig (vorher kurz ein Oval, dann zurückgesprungen; die Felder
+  blieben z. B. auf 60 × 120). Beim Kreis gibt es nur noch einen Durchmesser (Höhe folgt der Breite)
+- CutContour: Knopf ↺ neben „Größe“ setzt Größe und Lage zurück (automatisch aus dem Motiv, mittig)
+- **Auf Format beschneiden:** neu „Weißen Rand vorher abschneiden“ (mm, Kommandozeile `crop_inset_mm`) – zuerst
+  wird die Vorlage rundum um diesen Wert verkleinert, dann wie eingestellt skaliert und beschnitten
+
+## 1.8.3
+- **Behoben: Nutzen „Überfüller an Überfüller“ ließ Abstände zwischen Objekten** – bei Einzelobjekten aus
+  CutContour bzw. „Objekte trennen“ wurde die ganze Seite samt weißem Rand gesetzt. Jetzt tragen diese Seiten ihr
+  Endformat mit: CutContour = Schnittlinie (Anschnitt = Überfüller), Objekte trennen = Objekt (Anschnitt = Rand).
+  Beim Ausschießen liegen die Überfüller aneinander
+- Nutzen „Überfüller an Überfüller“ mit Anschnitt 0: der Anschnitt aus dem Dokument (BleedBox) wird übernommen –
+  ein eingestellter Wert hat Vorrang. „Mit Abstand“ 0 setzt die Endformate (Schnittlinien) direkt aneinander
+
 ## 1.8.2
 - **Dialoge sperren nur noch ihr eigenes Fenster:** Druckdialog, CutContour, CMYK … offen – in anderen
   Passermark-Fenstern kann man weiter blättern, zoomen, arbeiten. (Reiter im selben Fenster gehören zum Fenster

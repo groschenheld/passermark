@@ -39,6 +39,34 @@ def test_print_pdf_defaults():
     assert pr == "canon" and jid == 42 and n == 7 and opts["copies"] == "2"
     assert opts["print-scaling"] == "none" and opts["InputSlot"] == "Auto"
 
+def test_custom_size_pdf_and_cups():
+    """Sonderformate: dauerhaft gespeichert, bei „Als PDF speichern“ und bei CUPS-Druckern wählbar und gespoolt."""
+    import tempfile
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    os.environ["APPDATA"] = os.environ["XDG_CONFIG_HOME"]
+    printers.save_custom_sizes([{"name": "Banner", "w": 330, "h": 1000}])
+    v = printers.custom_value(330, 1000)
+    caps = printers.pdf_caps(); printers.apply_custom_sizes(caps)
+    out = os.path.join(os.environ["XDG_CONFIG_HOME"], "banner.pdf")
+    S = type("S", (), {"caps_for": lambda self, n: caps})()
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(os.path.join(HERE, "sample.pdf"))
+    printjob.submit_document(doc, "x", S, printers.PDF_TARGET, [0], layout.LayoutSettings(),
+                             values=dict(caps.defaults(), PageSize=v, __out__=out))
+    w, h = pdfium.PdfDocument(out).get_page_size(0)
+    assert round(w / 72 * 25.4) == 330 and round(h / 72 * 25.4) == 1000
+    # CUPS-Drucker: Format in der Liste, Job bekommt PageSize=Custom.330x1000mm
+    SENT.clear()
+    sess = FakeSession()
+    printers.apply_custom_sizes(sess.caps_for("canon"))
+    key = sess.caps_for("canon").roles["pagesize"]
+    vals = dict(sess.values_for("canon")); vals[key] = v
+    printjob.submit_document(doc, "x", sess, "canon", [0], layout.LayoutSettings(), values=vals)
+    assert SENT[-1][2][key] == v
+    pw, ph = SENT[-1][4]
+    assert round(pw / 72 * 25.4) == 330 and round(ph / 72 * 25.4) == 1000
+
+
 def test_print_booklet_sets_tumble():
     SENT.clear()
     printjob.print_file(os.path.join(HERE, "sample.pdf"), FakeSession(handling="booklet"))
