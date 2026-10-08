@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
 import os, sys
 import os as _os
-_os.environ.setdefault("PDFTOOLKIT_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 import test_backend as tb                      # Fake-pycups

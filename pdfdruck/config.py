@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Admin-Standards aus /etc/pdfdruck/defaults.json.
+"""Admin-Standards aus /etc/passermark/defaults.json.
 
 Das Programm liest diese Datei nur. Geschrieben wird sie ausschließlich über
-den Polkit-Helper /usr/libexec/pdfdruck-admin (läuft als root).
+den Polkit-Helper /usr/libexec/passermark-admin (läuft als root).
 Benutzeränderungen leben nur im Speicher der laufenden Sitzung -> nach dem
 Beenden gelten automatisch wieder die Admin-Standards.
 """
@@ -22,7 +22,7 @@ from . import platform as _platform
 CONFIG_DIR = Path(_platform.config_dir())
 DEFAULTS_FILE = CONFIG_DIR / "defaults.json"
 ICC_DIR = CONFIG_DIR / "icc"
-HELPER = os.environ.get("PDFDRUCK_HELPER", "/usr/libexec/pdfdruck-admin")
+HELPER = os.environ.get("PDFDRUCK_HELPER", "/usr/libexec/passermark-admin")
 
 INTENTS = {
     "perceptual": "Wahrnehmungsorientiert",

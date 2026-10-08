@@ -1,21 +1,99 @@
-# Änderungen
+# Änderungen – Passermark
 
-## 1.4.8
+## 1.6.6
 - **Behoben: leere Blätter beim Drucken unter Windows** (verschiedene Geräte). „Automatisch“ rastert jetzt immer
-  ohne JPEG (300 dpi) – der verträglichste Weg. PostScript und JPEG-Durchreichen melden manche Treiber als
-  unterstützt und liefern dann leere Blätter; beide gibt es nur noch auf Wunsch (Datei → Einstellungen)
+  ohne JPEG (300 dpi) – der verträglichste Weg. PostScript und JPEG-Durchreichen melden manche Treiber
+  als unterstützt und liefern dann leere Blätter; beide gibt es nur noch auf Wunsch (Datei → Einstellungen)
 - Neu: **Hilfe → Windows-Druck testen** – je Verfahren (Raster, Raster + JPEG, PostScript, Vektor) eine
   beschriftete Testseite; zeigt, was der Treiber wirklich kann
-- Windows-Druck: Gerätekontext als 64-bit-Zeiger, Halbton-Modus beim Rastern; jeder Auftrag wird in
-  `druck-windows.log` im Protokollordner festgehalten (Verfahren, Auflösung, Treiber-Fähigkeiten)
+- Windows-Druck: Gerätekontext wird als 64-bit-Zeiger übergeben (vorher ctypes-Standard int), Halbton-Modus beim
+  Rastern; jeder Auftrag wird in `druck-windows.log` im Protokollordner festgehalten (Verfahren, Auflösung,
+  Treiber-Fähigkeiten)
+- **Behoben: rötliches Rechteck über dem Objekt (CutContour)**, wenn ein Programm oder Druckertreiber die
+  Transparenz der Überfüller-/Kantenbilder nicht auswertet (u. a. Windows-PostScript-Weg): unsichtbare Bereiche
+  sind jetzt papierweiß bzw. zeigen das Original-Motiv statt der ersten Vollfarbe
+
+## 1.6.5
+- **Fehlerprotokoll:** jeder Fehler landet in einer Datei zum Mitschicken (mit Versionen und Systemangaben) –
+  Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`; Hilfe → Fehlerprotokolle öffnen
+  - unerwarteter Fehler: Meldung mit Pfad zum Protokoll, Passermark läuft weiter
+  - harter Absturz (z. B. in einer Bibliothek): beim nächsten Start einmalige Meldung mit dem Protokoll
+  - Fehler in Hintergrund-Aufträgen samt Details; Fehler in Threads
+  - ohne Fehler wird das Protokoll beim Beenden gelöscht; höchstens 10 werden aufgehoben
+- Paralleles Rechnen: Speicherbudget nach dem tatsächlichen Arbeitsspeicher des Rechners (40 %, mind. 1 GB)
+
+## 1.6.4
+- CutContour mit **mehreren Seiten: ganze Seiten parallel** – jeder Arbeitsprozess rechnet eine komplette Seite
+  (auch Rendern und Erkennen); kein Stocken mehr zwischen den Seiten. Eine Seite: weiterhin Objekte parallel
+- Speicherschutz: Anzahl gleichzeitiger Seiten nach geschätztem Speicherbedarf (z. B. A4: bis 8, A0: 1 – dann
+  Objekte parallel)
+- Fortschritt bei mehreren Seiten: „3 von 12 Seiten fertig“; Ergebnis bitgleich zum seriellen Rechnen
+
+## 1.6.3
+- **Paralleles Rechnen:** CutContour verteilt die Objekte einer Seite auf mehrere Rechenkerne (alle bis auf einen,
+  höchstens 8); Ergebnis bitgleich zum seriellen Rechnen. Arbeitsprozesse werden einmal je Auftrag gestartet und für
+  alle Seiten verwendet; kleine Aufgaben bleiben seriell (lohnt sich dort nicht). Begrenzen mit der Umgebungsvariable
+  `PASSERMARK_WORKERS` (1 = nicht parallel)
+- Fortschritt je Objekt („Seite 1/1 · Objekt 12/40“)
+- Abbrechen beendet auch die Arbeitsprozesse
+- Intern: Objektberechnung als eigene Funktion; Programmdateien rufen `multiprocessing.freeze_support()` auf
+
+## 1.6.2
+- **Kein Einfrieren mehr:** CutContour, Objekte trennen und CMYK/Beschneiden rechnen als eigener Prozess im
+  Hintergrund. Das Fenster bleibt bedienbar; unten in der Statusleiste Fortschritt und Abbrechen-Knopf (✕);
+  mehrere Aufträge gleichzeitig möglich; das Ergebnis öffnet sich wie gewohnt in einem neuen Fenster
+- Ein Absturz in der Berechnung reißt das Programm nicht mehr mit – es kommt eine Fehlermeldung mit Details
+- Beim Schließen eines Fensters werden laufende Aufträge abgebrochen und aufgeräumt
+- Anleitung: Beispiel „PDF/A mit Passwort“ korrigiert (PDF/A verbietet Verschlüsselung) – getrennt in „PDF/A“ und
+  „Mit Passwort schützen“; Test der Beispiele legt jetzt für jedes Beispiel eine Eingabe an (Build-Fehler unter Linux)
+
+## 1.6.1
+- **Anleitung zur Kommandozeile** (PDF, 6 Seiten) mit Fallbeispielen für alle Aufträge, Presets und ganze Ordner
+  (Linux und Windows); im Programm unter **Hilfe → Kommandozeile – Anleitung**
+- Die Fallbeispiele der Anleitung werden automatisch getestet (tests/test_cli_howto.py) – die Anleitung kann nicht
+  unbemerkt veralten; Erzeugen mit `python3 docs/make_cli_howto.py`
+
+## 1.6.0
+- **Kommandozeile** `passermark-cli`: CutContour, Objekte trennen, CMYK/Beschneiden, Reparieren und
+  Preflight-Reparaturen ohne Oberfläche; Einstellungen per `--preset datei.json` und `--set schlüssel=wert`
+  (auch verschachtelt), `--pages`, Fortschrittsbalken, Strg+C bricht sauber ab, `--json-progress` für Programme.
+  Linux: `passermark-cli` (install.sh), AppImage: `… --cli`, Windows: `passermark-cli.exe`
+- Intern: Kern-Schnittstelle `core.py` (Eingabe-PDF + Einstellungen → Ausgabe-PDF, Fortschritt, Abbrechen,
+  atomares Schreiben) – Grundlage für Aufträge im eigenen Prozess, Presets und Watcher
+
+## 1.5.3
+- CutContour erzeugt schneller (ca. 17–20 %), Ergebnis bitgleich zu 1.5.2: Motiv-Erkennung rechnet ganzzahlig,
+  Vollfarb-Suche nur noch im Randstreifen, unnötige Abstandsberechnungen entfallen (u. a. eine pro Objekt bei der
+  Glättung, eine beim Aussparen unter 0,08 mm)
+
+## 1.5.2
+- CutContour-Grundformen: **Griffe** an der Form in der Vorschau – Ecken skalieren gleichmäßig ab der Mitte,
+  Seitengriffe nur Breite bzw. Höhe, **Verschiebe-Griff** über der Form verschiebt sie
+- Größe nur noch in **mm** („Größe (B × H)“, „auto“ = aus dem Motiv plus Abstand); Prozent entfällt.
+  Eine eingetragene Größe gilt exakt als Schnittlinie; Ziehen an den Griffen schreibt die mm-Werte in die Felder
+- Neu: **Versatz (X / Y)** in mm, mit Knopf zum Zurücksetzen
+- Behoben: Nach dem Skalieren mit der Maus wirkten eingegebene Größen nicht mehr (versteckter Prozentfaktor)
+- Anzeige unten: aktuelle Formgröße in mm, beim Ziehen live
+
+## 1.5.1
+- CutContour mit Grundform (Rechteck, Kreis, Herz …): **eine Form um das ganze Motiv** statt einer je erkanntem Teil;
+  sitzt mittig, Größe ändert sich ab der Mitte. Option „Eine Form je Objekt“ für Aufkleberbögen
+- CutContour: Form in der Vorschau **mit der Maus größer/kleiner ziehen** (Live-Anzeige in %, übernommen beim Loslassen)
+- Kreis umschließt das Motiv (größere Seite als Durchmesser), statt bei breiten Motiven hindurchzuschneiden
+
+## 1.5.0
+- **Lineale und Messen** (Ansicht → Lineale anzeigen, Strg+R; Ansicht → Messen, Strg+Umschalt+M, auch in der
+  Werkzeugleiste): Lineale in mm oben und links an der Kante der Ansicht, bleiben beim Scrollen stehen, Nullpunkt =
+  linke obere Seitenecke, Mausposition markiert; Messen: 1. Klick Anfang, 2. Klick Ende, Umschalt rastet
+  waagrecht/senkrecht/45° ein, Esc bricht ab; Ergebnis (Länge, ΔX, ΔY, Winkel) rechts unten in der Statusleiste;
+  gemessen in echten Seitenmaßen, unabhängig von Zoom und Drehung
 
 ## 1.4.7
-- **Fehlerprotokoll:** jeder Fehler landet in einer Datei zum Mitschicken (mit Versionen und Systemangaben) –
-  Linux `~/.local/state/pdftoolkit/logs`, Windows `%LOCALAPPDATA%\pdfToolkit\logs`; Hilfe → Fehlerprotokolle öffnen
-  - unerwarteter Fehler: Meldung mit Pfad zum Protokoll, pdfToolkit läuft weiter
-  - harter Absturz (z. B. in einer Bibliothek): beim nächsten Start einmalige Meldung mit dem Protokoll
-  - Fehler in Threads werden ebenfalls erfasst
-  - ohne Fehler wird das Protokoll beim Beenden gelöscht; höchstens 10 werden aufgehoben
+- CutContour: Vorschau aktualisiert sich automatisch bei jeder Einstellung – vorher zeigte sie nach einem
+  Formwechsel (Rechteck, Kreis, Herz …) weiter die alte Kontur, bis man „Vorschau aktualisieren“ drückte
+- CutContour: Vorschau rechnet im Hintergrund, das Fenster bleibt bedienbar („Berechne Vorschau …“); schnelle
+  Änderungen hintereinander lösen nur eine Berechnung aus
+- Neuer Test (tests/test_cut_dialog.py): Formwechsel ändert die Vorschau
 
 ## 1.4.6
 - Behoben: Programm startete unter Python 3.10/3.11 nicht (z. B. Ubuntu 22.04) – Syntax in convert.py, die erst ab
@@ -29,93 +107,156 @@
 - AppImage: Admin-Standards speichern über pkexec mit demselben abgesicherten Helfer
 - Behoben: Admin-Fenster auf kleinen Bildschirmen nicht scrollbar (Reiter scrollen, Fenster passt sich an)
 - Behoben: Touchpad-Scrollen (Seitenwechsel/Zoom) unter Windows
-- `uninstall.sh` (Programm entfernen, Abhängigkeiten bleiben; `--dry-run`, `--purge`), `.gitignore`
-- Installer-Skript als UTF-8 mit BOM (Umlaute im Setup korrekt); `build.ps1` reines ASCII; install.sh mit apt-get update
-- Versionen 1.4.4/1.4.5 entfallen (zusammengefasst in 1.4.6)
+- `uninstall.sh`, `.gitignore`; Installer-Skript UTF-8 mit BOM; `build.ps1` reines ASCII; README auf Englisch
 
-## 1.4.3 (nur Windows betroffen, Linux unverändert)
-- **Windows-Druck neu:** PostScript-Treiber (Canon PS3, Fiery …) bekommen PostScript direkt von pdfium (vektoriell,
-  kompakt); alle anderen Treiber erhalten die Seite selbst gerastert in Streifen (konstanter Speicher, mit JPEG,
-  wenn der Treiber es kann – bis über 90 % weniger Daten in der Warteschlange)
-- Behoben: sehr langes Spoolen und Abbrüche (besonders bei Mehrfachnutzen/Step & Repeat) – der frühere GDI-Weg
-  schickte Transparenzen, Beschneidungen und jede Nutzen-Platzierung unkomprimiert in voller Druckerauflösung
-- Fehler mitten im Druck brechen den Auftrag jetzt sauber ab
-- Datei → Einstellungen → „Drucken unter Windows“: Verfahren (Automatisch/PostScript/Raster/Vektor) und Raster-Auflösung
-- Neuer Test (tests/test_win_print.py) mit nachgebauten Windows-Schnittstellen
+## 1.4.5
+- **Windows-Druck neu** (wie pdfToolkit 1.4.3): PostScript direkt für PS-Treiber, sonst eigenes Rastern in Streifen
+  mit JPEG – behebt langes Spoolen und Abbrüche (besonders bei Mehrfachnutzen); Einstellungen unter
+  Datei → Einstellungen → „Drucken unter Windows“. Linux-Druck unverändert
+- Behoben: mögliche Abstürze – die Dokumentprüfung nutzte pdfium in einem Hintergrund-Thread gleichzeitig mit der
+  Anzeige (pdfium ist nicht thread-sicher); diese Teile laufen jetzt im Hauptthread
+
+## 1.4.4
+- **Ursache gefunden** (an einer Chrome-PDF): pdfium kann Seiten mit **Type3-Schriften** nicht neu schreiben –
+  bisher verschwand dabei aller Text. Bearbeiten kommt jetzt ganz ohne Neuerzeugung der Seite aus:
+  - Verschieben/Skalieren: Zeile wird aus ihrem Textblock herausgelöst (Zeilenmatrix wird mitgerechnet), auch wenn
+    sich viele Zeilen einen Block teilen
+  - Text/Schrift ändern: zuerst direkt; verliert die Seite dabei Inhalt, wird die alte Zeile entfernt und die neue
+    an gleicher Stelle und in gleicher Farbe darübergelegt
+  - Löschen: nur die Textbefehle der Zeile werden entfernt
+- Koordinatensystem wird mitgerechnet (Chrome: Maßstab 0,24 + gespiegelt; CAD: 0,12) – beim Verschieben von Text
+  und Ebenen, beim Ersetzen von Ebenen und bei der CutContour-Linie (Originalinhalt wird in q/Q eingeschlossen)
+- Zeilen werden besser erkannt (auch bei Schriftwechsel in der Zeile und einzeln gesetzten Buchstaben)
+- Nachprüfung empfindlicher (auch bei Seiten mit wenig Text)
+- Neue Tests: Chrome-artige Type3-Datei, CAD-Ebene in skaliertem Koordinatensystem
+
+## 1.4.3
+- Behoben: Nach Verschieben/Skalieren per Maus, Textänderung oder Schriftwechsel konnten alle Texte der Seite
+  verschwinden
+  - Verschieben/Skalieren von Text ändert jetzt nur noch die betroffenen Textblöcke im PDF (q/cm/Q), die übrige
+    Seite bleibt byte-gleich; pdfiums Neuerzeugung der Seite nur noch als Rückfall
+  - jede Textbearbeitung läuft auf einer Kopie und wird **nachgeprüft** (Zeichen und Bildpunkte außerhalb der
+    bearbeiteten Zeile); fehlt etwas, wird nichts übernommen und eine Meldung mit Details erscheint
+  - die Ansicht gibt vor der Bearbeitung ihre offenen Seiten frei
+- Start-Test deutlich strenger (fehlende eigene Methoden fallen sofort auf) und prüft jetzt auch Text ändern,
+  Schrift wechseln und Löschen – dabei bleiben alle anderen Zeilen erhalten
 
 ## 1.4.2
-- Behoben: Programm startete nicht (Namenskonflikt in der Seitenansicht durch die neue Textauswahl)
-- Behoben: Strg+C (Text kopieren) hätte einen Fehler ausgelöst (fehlender Import)
-- Neuer Start-Test (tests/test_gui_smoke.py): Programmstart, Fenster, Textauswahl – ohne Bildschirm
+- Behoben: „don't know how to encode value np.float64“ beim Skalieren von Ebenen (Bezug „Mitte der Ebene“)
+- Behoben: Mausauswahl im Bearbeiten-Modus fand nichts, wenn die Listen beim Einschalten nicht geladen waren
+- **Mit der Maus verschieben und skalieren:** Objekt (Textzeile/Ebene) greifen und ziehen; an den vier Eckgriffen
+  skalieren (gegenüberliegende Ecke bleibt fix); gestrichelte Vorschau, passende Mauszeiger, Rückgängig
+- Textzeilen verschieben/skalieren behält Schrift, Farbe und Ebene
+- Feinere Ebenen-Erkennung; Start-Test prüft jetzt auch die Mausbedienung
 
 ## 1.4.1
-- **Text markieren** in der Seitenansicht (ziehen, Doppelklick = Wort, Strg+C kopiert, Seiten → Text der Seite markieren)
-- Übersetzungen: fehlende Texte ergänzt (Druckdialog-Knöpfe Größe/Mehrere/Broschüre/Poster, Admin, Zusammenführen,
-  Dateifilter, Meldungen), „&“ in Übersetzungen ausgeschrieben, deutsche Treiberbegriffe werden übersetzt
+- Behoben: Programm startete nicht (Namenskonflikt in der Seitenansicht durch die neue Textauswahl)
+- Behoben: Strg+C (Text kopieren) hätte einen Fehler ausgelöst (fehlender Import)
+- Neuer Start-Test (tests/test_gui_smoke.py): Programmstart, Fenster, Textauswahl, Bearbeiten-Modus – ohne Bildschirm
 
 ## 1.4.0
-- **Mehrsprachig:** Deutsch, Englisch, Ungarisch, Spanisch, Französisch – *Datei → Einstellungen*,
-  Admin-Standardsprache, Neustart auf Knopfdruck; Qt-Standardtexte in der jeweiligen Sprache
-- Treiberbegriffe (Fächer, Finisher, Medien, Epson-Papiersorten) je Sprache; bei Englisch Originaltexte des Treibers
-- Nautilus-Menü, Desktop-Eintrag, Explorer-Kontextmenü und Windows-Installer mehrsprachig
-- Test `test_l10n.py` prüft Vollständigkeit und Platzhalter aller Kataloge
+- **Bearbeiten-Modus** (Dokument-Manipulation → Text und Ebenen bearbeiten, Strg+E): Seitenleiste „Bearbeiten“
+  - **Text:** Zeilen der Seite auflisten oder auf der Seite anklicken; Text, Schrift (Original, Standardschriften,
+    eigene Datei) und Größe ändern, Zeile löschen
+  - **Ebenen:** auflisten oder auf der Seite anklicken (wiederholter Klick wechselt durch übereinanderliegende);
+    ein-/ausblenden, entfernen, skalieren/verschieben (inkl. „Auf die Seite zurückholen“), durch eine Seite einer
+    anderen PDF ersetzen; Rückgängig
+- **Text markieren** in der Seitenansicht (ziehen, Doppelklick = Wort, Strg+C kopiert)
+- Schrift-Download: eigene Knöpfe unter der Tabelle, sichtbare Fehlermeldungen, Rückfall auf das fontsource-CDN
+- Übersetzungen: fehlende Texte ergänzt (Druckdialog, Admin, Zusammenführen, Dateifilter, Meldungen),
+  „&“ in Übersetzungen ausgeschrieben, deutsche Treiberbegriffe (deutsch installierte PPDs) werden übersetzt
+
+## 1.3.2
+- Behoben: Dialog „Freie Schrift herunterladen“ öffnete sich nicht
+- Ebenen festschreiben / Empfohlene Reparaturen: unterscheiden sich Ansicht und Druck, fragt Passermark, welcher
+  Zustand gelten soll („Wie beim Druck“ / „Wie am Bildschirm“) – statt still den Druck-Zustand zu nehmen
+- Einbetten: Warnung, wenn für eine fehlende Schrift kein Ersatz gewählt ist (Ghostscript nähme sonst eine eigene)
+- CAD-Normschriften (ISOCPEUR & Co.) ohne osifont: schmale Ausweichschrift (DejaVu Sans Condensed)
+- Schriften mit eigenen Zeichennamen (ohne Einbettung) werden als nicht reparierbar erkannt
+
+## 1.3.1
+- Schrift-Download: kommerzielle Schriften werden auf ihren freien, metrisch gleichen Zwilling umgeleitet
+  (Arial → Arimo, Times New Roman → Tinos, Courier New → Cousine, Calibri → Carlito, Cambria → Caladea,
+  Georgia → Gelasio); der Dialog schlägt ihn vor und erklärt warum
+- Unbekannter Name: Vorschläge ähnlicher freier Schriften („Meintest du …“) statt nur „404“
 
 ## 1.3.0
-- **Als PDF speichern** als Ziel im Druckdialog: ausgeschossenes Ergebnis als PDF, vektoriell, Farben und
-  Farbräume unverändert (geprüft: CMYK-/RGB-Werte bitgenau gleich), ohne Farbprofil und Druckerränder
-- **Behoben:** ausgefüllte Formularfelder, Kommentare und Stempel fehlten beim Druck – sie werden jetzt wie
-  in Acrobat eingebrannt (gilt für alle Drucker und die Vorschau)
+- **Neuer Name: Passermark** (vorher pdfToolbox – Namensgleichheit mit einem kommerziellen Preflight-Produkt);
+  eigene Pfade (/etc/passermark, /usr/local/lib/passermark), läuft neben pdfToolkit/pdfToolbox
+- **Dokumentprüfung (Preflight)** beim Öffnen: Schriften (Einbettung, Typ, Unicode, seltsame Zeichen), Ebenen
+  (Ansicht/Druck, verrutscht), Transparenzen; Statusknopf, Seitenleiste „Prüfung“, Bericht
+- Reparaturen: Ebenen-Zustand übernehmen, sichtbaren Zustand festschreiben, Ebenen entfernen, Schriften einbetten
+  mit metrisch kompatiblem Ersatz / eigener Datei / Download (fontsource.org), Text in Pfade, Transparenzen reduzieren
+- install.sh: freie Ersatzschriften (Liberation, Carlito, Caladea, URW, DejaVu)
+
+## 1.2.5
+- CutContour: **Überfüller abschaltbar** („erzeugen“ bzw. 0 mm) – Motiv bleibt unverändert (kein Überfüller, kein
+  Ausstanzen), nur die Schnittlinie; mit positivem „Abstand zum Motiv“ entstehen weiße Ränder
+
+## 1.2.4
+- CutContour-Farben: **Entmischen** statt RGB-Abstand – Kantenpixel werden als Mischung Vollfarbe+Hintergrund
+  bzw. Vollfarbe+Vollfarbe gedeutet (helles Rosa = Rot, nicht Grün); behebt falschfarbige Keile im Überfüller
+- Überfüller-Farbe kommt aus dieser Zuordnung; innerhalb der Schnittform immer voll deckend
+- Aussparung: winzige Löcher geschlossen (keine weißen Pünktchen), engere Toleranz (kein heller Strich)
+- Neu: **Überfüller-Farbe fest wählbar** (gleichmäßiger Rand) für Motive, bei denen die Automatik nicht passt
+- Neu (optional): **Mischkanten im Motiv bereinigen** (schmale Säume bis ~1 mm zwischen Vollfarben)
 
 ## 1.2.3
-- Behoben: Absturz bei Step & Repeat, wenn beim Eintippen eines Kantenmaßes kurz winzige Werte entstanden
-  (z. B. 1 mm -> über 40.000 Nutzen). Zahlenfelder übernehmen Werte jetzt erst bei Enter/Feldwechsel;
-  Schutzgrenzen (max. 400 Nutzen pro Blatt, 2000 Posterblätter) mit verständlicher Meldung
+- CutContour-Überfüller in **Vollfarben**: Farbe = rechnerisch nächste Vollfarbe des Objekts (exakter
+  Originalton), keine blassen Mischtöne mehr von Kantenglättung/skaliertem Raster
+- **Heller Saum entfernt:** Bei Motiven mit Hintergrund wird der Mischsaum am Rand ausgespart (flächige Motive:
+  adaptiv bis 1,5 mm, Fotos: 0,25 mm) – dort liegt der vollfarbige Überfüller
+- **Innenschnitt mit Überfüller:** ausgeschnittene Löcher werden im Original ausgespart, der Überfüller läuft
+  über die innere Schnittlinie; kleine Innenflächen (weiße Schrift) bleiben
 
 ## 1.2.2
-- Step & Repeat (Mehrfachnutzen): Nutzengröße wahlweise in % oder „kurze/lange Kante auf … mm“;
-  Größe je Nutzen und Anzahl pro Blatt werden live angezeigt
+- Behoben: Fehler „don't know how to encode value np.float64“ bei „Jedes Objekt als eigene Seite“ + Überfüller
+  (Seitenmaße werden jetzt als normale Zahlen an pikepdf übergeben)
+- Behoben: Überfüller unsichtbar bei Motiven mit Hintergrund (weiße Seite, Rasterbild) – das Original wird auf
+  die Objektform begrenzt (Hintergrund ausgestanzt), Innenflächen wie weiße Schrift bleiben; Vorschau ebenso
 
 ## 1.2.1
-- Benutzerdefinierte Skalierung: zusätzlich „Kurze Kante auf … mm“ bzw. „Lange Kante auf … mm“
-  (proportional); resultierende Seitengröße in mm wird live angezeigt
+- Objekte trennen: **Rand wirkt sofort** (auch negativ, auch auf selbst gezogene Rahmen) – vorher nur nach
+  „neu erkennen“; gestrichelte Vorschau des Randes; übrige Regler erkennen automatisch neu
+- CutContour: **Überfüller füllt die ganze Fläche innerhalb der Schnittlinie** (Raum zwischen Objekt und
+  Linie, Einbuchtungen) plus Überfüller über die Linie – Randfarben (auch mehrfarbig) nach außen gezogen,
+  liegt hinter dem Objekt; Farben aus dem Kern (keine Mischfarben von der Kantenglättung)
+- Fehlermeldungen in den Objekt-Dialogen mit „Details“ (Ablauf zum Kopieren)
 
 ## 1.2.0
-- **Automatische Fachwahl**: Format (und Grammatur) wählen -> erste Lade mit genau diesem Papier;
-  Reihenfolge = Vorrang; leere Laden werden per IPP-Live-Abfrage übersprungen
-- Admin: **Fächerbelegung** je Drucker, „Vom Gerät lesen“ befüllt sie per IPP (Format, Grammatur, Lade)
-- Druckdialog: Grammatur-Auswahl, Anzeige der gewählten Lade, Prüfung vor dem Senden; gilt auch für den
-  Rechtsklick-Druck
-- Eigener IPP-Client (ohne CUPS, auch unter Windows)
+- CutContour: **Stickerformen** Rechteck, abgerundetes Rechteck, Kreis, Oval, Sechseck, Achteck, Herz, Stern,
+  Wappen, Torbogen – in Objektgröße, skalierbar (%) oder feste Größe (mm); Abstand auch negativ
+- CutContour: **Überfüller geht vom Objekt aus** (keine Rahmen in leeren Flächen); Schnitt am Motiv liegt
+  immer im Überfüller
+- CutContour: Ausgabe wahlweise **jedes Objekt als eigene Seite** mit Rand (Standard 6 mm), Nachbarn ausgeblendet
+- Erkennung: Motiv, das die ganze Seite füllt, wird als ein Objekt erkannt (Kontur hing vorher am Seitenrand);
+  Auto-Modus erkennt Hintergrund auch bei teilweise transparenten Seiten
+- Objekte trennen: Rand auch **negativ** (nach innen)
 
 ## 1.1.0
-- **Windows-Version**: Druck über die Windows-Druck-API mit Original-Treiberdialog des Herstellers
-  (alle Finisher-Funktionen), Admin-Standards per UAC in %ProgramData%, Explorer-Kontextmenü,
-  Installer (Inno Setup) und automatischer Build (GitHub Actions)
-- **Endverarbeitung**: eigener Bereich im Druckdialog, automatisch erkannte und übersetzte Finisher-Optionen
-  (Sattelheftung, Heften, Lochen, Falzen, Beschnitt, Stapler), **Finisher-Vorlagen** je Drucker
-- Canon imagePRESS V1350 und V700/V800/V900: Einrichtungsanleitung und Ausstattungsübersicht
-- Office-Umwandlung unter Windows zusätzlich über Microsoft Office
-- Mehrfachauswahl im Dateimanager wird gesammelt (ein Zusammenführen-Dialog für alle Dateien)
-- Gemeinsame Prüfregeln für Admin-Änderungen (Linux und Windows)
+- **Objekte trennen:** Objekte (Visitenkarten, Fotos auf Scans …) erkennen und als Einzelseiten ohne Weißraum
+  öffnen; Vektor exakt über Transparenz, Raster über Hintergrundfarbe; Rahmen bearbeitbar
+- **CutContour** für Schneideplotter (Roland VersaWorks): Sonderfarbe „CutContour“, Abstand, Glättung zum
+  Entgittern, automatisch erzeugter Überfüller (Schnitt liegt immer darin), Innenkonturen, Vorschau
+- **SVG/SVGZ öffnen** (vektoriell, echte Größe; rsvg-convert > Inkscape > Qt), auch per Rechtsklick und Zusammenführen
+- Transparenz bei WebP/GIF/HEIC bleibt erhalten (statt auf Weiß geplättet)
+- Neue Abhängigkeiten: scipy, contourpy, librsvg2-bin
 
 ## 1.0.1
-- Office-Umwandlung: LibreOffice als Snap/Flatpak funktioniert jetzt (eigenes /tmp der Sandbox umgangen)
-- OnlyOffice/Euro-Office: Schriftenverzeichnis für den Konverter wird gefunden bzw. einmalig erzeugt
-- Kürzere Fehlermeldungen mit „Details“, Qt-Standardknöpfe auf Deutsch
+- Dokument-Manipulation jetzt als eigenes Menü neben „Dokument“ (CMYK-Umwandlung, Beschneiden, beides);
+  nicht mehr im Druckdialog
+- Ergebnis öffnet sich in einem neuen Fenster, abgelegt nur temporär im Zwischenspeicher (beim Beenden gelöscht)
+- Behoben: Beschneiden wirkte beim Druck nicht – gedruckt wird jetzt die beschnittene Datei selbst
+  (durchgehender Test: Beschneiden -> Zwischenspeicher -> Druck, Rand verschwindet)
+- Menü „Dokument“: Zusammenführen und Reparieren/Optimieren
 
 ## 1.0.0 (Oktober 2026)
-Erste stabile Version.
+Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen übernommen).
 
-- Acrobat-ähnlicher Betrachter: Einzelseite mit Springen oder fortlaufend, Seiten gleich groß, Seitenmaß unten rechts,
-  Strg+Mausrad-Zoom, Miniaturen mit Mehrfachauswahl
-- Eigener Druckdialog mit allen Treiberoptionen (PPD/IPP), alle Fächer immer wählbar, Admin-Standards per Polkit,
-  Sitzungseinstellungen bis Programmende, Live-Vorschau mit Softproof
-- Skalierung: tatsächliche Größe, Anpassen, Verkleinern, benutzerdefiniert; N-Up 2/4/6/8/9/16/frei mit Kachel-Skalierung
-- Broschüre, Poster/Überformat, Step & Repeat (Kante an Kante / Überfüller an Überfüller / Abstand),
-  Spiegeln, Schnittmarken, gespiegelter Anschnitt
-- Seiten einfügen, exportieren, drehen, verschieben, löschen; Zusammenführen beliebiger Dateien
-  (PDF, Bilder inkl. HEIC, Office über LibreOffice/OnlyOffice/Euro-Office)
-- Reparieren, für Weitergabe optimieren, PDF/A-2b, Passwortschutz setzen/entfernen
-- Farbprofile: Admin-Verwaltung, Import aus Datei/ZIP/Treiberpaket/Link, Ghostscript-Konvertierung
-- Nautilus-Kontextmenü, Einzelinstanz, dunkles Design mit gelbem Akzent
-- Lizenz: GPL-3.0-or-later
+- **Dokument-Manipulation** (Reiter im Druckdialog und Menü Dokument):
+  - CMYK-Umwandlung: RGB→CMYK mit unverändertem CMYK, komplette Neuseparation (Quell- → Zielprofil),
+    Graustufen; Intent, BPC, Grau/Schwarz nur mit K, Output Intent
+  - Farbvorschau vorher/nachher aus echten CMYK-Werten, Einzelauszüge, Farbauftrag (TAC), Papierweiß
+  - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
+- Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
+- Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -83,6 +83,8 @@ class Session:
         self.values: dict[str, dict[str, str]] = {}       # drucker -> Optionen
         self.color: dict[str, tuple[str, str]] = {}       # drucker -> (profil-id, intent)
         self.caps: dict[str, printers.PrinterCaps] = {}
+        from ..cmyk import ManipSettings
+        self.manip = ManipSettings()          # Dokument-Manipulation (nur diese Sitzung)
         self.copies = 1
         self.collate = True
         self.subset = "all"

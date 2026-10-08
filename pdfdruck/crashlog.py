@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -38,7 +38,7 @@ def log_dir() -> str:
 
 def system_info() -> str:
     from . import __version__
-    lines = [f"pdfToolkit {__version__}",
+    lines = [f"Passermark {__version__}",
              f"System: {_pyplatform.platform()}",
              f"Python: {sys.version.split()[0]} ({'gebündelt' if getattr(sys, 'frozen', False) else 'Quelltext'})"]
     for mod, label in (("pypdfium2", "pypdfium2"), ("pikepdf", "pikepdf"), ("numpy", "numpy"), ("scipy", "scipy")):
@@ -76,11 +76,11 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         os.makedirs(d, exist_ok=True)
         _prune()
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        path = os.path.join(d, f"pdftoolkit-{kind}-{stamp}-{os.getpid()}.log")
+        path = os.path.join(d, f"passermark-{kind}-{stamp}-{os.getpid()}.log")
         f = open(path, "w", encoding="utf-8", buffering=1)
     except OSError:
         return None                                        # kein Protokoll möglich – Programm läuft trotzdem
-    f.write(f"== pdfToolkit-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")
+    f.write(f"== Passermark-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")
     f.write(system_info() + "\n\n")
     f.flush()
     _state.update(file=f, path=path, error=False, on_error=on_error, kind=kind)

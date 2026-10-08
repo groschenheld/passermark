@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
 """Admin-Änderungen unter Windows: Gegenstück zu Polkit/pkexec.
 
 Ablauf: Die GUI schreibt ein Bündel (Konfiguration, ICC-Importe, Drucker-Standards) in eine
-temporäre Datei und startet pdftoolkit.exe --admin-apply <datei> über UAC („Als Administrator“).
+temporäre Datei und startet passermark.exe --admin-apply <datei> über UAC („Als Administrator“).
 Der erhöhte Prozess prüft ALLES mit denselben Regeln wie unter Linux (cfgvalidate), schreibt
-atomar nach %ProgramData%\\pdfToolkit (nur Administratoren dürfen dort schreiben – setzt der
+atomar nach %ProgramData%\\Passermark (nur Administratoren dürfen dort schreiben – setzt der
 Installer) und legt das Ergebnis in <datei>.result ab.
 """
 from __future__ import annotations
@@ -119,7 +119,7 @@ def run_elevated(bundle: dict) -> tuple[int, str, dict]:
     import win32process
     from win32com.shell import shell, shellcon
 
-    fd, tmp = tempfile.mkstemp(prefix="pdftoolkit-admin-", suffix=".json")
+    fd, tmp = tempfile.mkstemp(prefix="passermark-admin-", suffix=".json")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(bundle, f, ensure_ascii=False)
     if getattr(sys, "frozen", False):

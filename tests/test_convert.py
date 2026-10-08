@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 import os, sys, shutil, subprocess, tempfile
 import os as _os
-_os.environ.setdefault("PDFTOOLKIT_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import convert
 
@@ -20,7 +20,7 @@ def test_libreoffice_real():
     if not shutil.which("soffice"):
         print("  (LibreOffice nicht installiert – übersprungen)"); return
     d = tempfile.mkdtemp()
-    p = os.path.join(d, "test.txt"); open(p, "w").write("Hallo pdfToolkit\\n")
+    p = os.path.join(d, "test.txt"); open(p, "w").write("Hallo Passermark\\n")
     doc, used = convert.to_document(p, d, preference="libreoffice")
     assert used == "LibreOffice" and len(doc) == 1
 

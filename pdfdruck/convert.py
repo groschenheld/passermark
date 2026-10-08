@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -136,12 +136,12 @@ def _sandboxed(exe: str) -> bool:
 
 def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
     from pathlib import Path
-    profile = Path(tempfile.gettempdir(), f"pdftoolkit-lo-{_platform.user_id()}").as_uri()
+    profile = Path(tempfile.gettempdir(), f"passermark-lo-{_platform.user_id()}").as_uri()
     base = os.path.splitext(os.path.basename(path))[0]
     work, src = outdir, path
     if _sandboxed(exe):
         # sichtbarer Ordner im Home – den darf ein Snap/Flatpak lesen und beschreiben
-        root = os.path.join(os.path.expanduser("~"), "pdfToolkit-Umwandlung")
+        root = os.path.join(os.path.expanduser("~"), "Passermark-Umwandlung")
         os.makedirs(root, exist_ok=True)
         work = tempfile.mkdtemp(prefix="lo-", dir=root)
         src = os.path.join(work, "in" + ext(path))

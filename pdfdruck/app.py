@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# pdfToolkit – Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
@@ -29,7 +29,7 @@ from .gui.common import Session
 
 
 def server_name() -> str:
-    return f"pdfdruck-{_platform.user_id()}"
+    return f"passermark-{_platform.user_id()}"
 
 
 def notify(title: str, body: str, error: bool = False):
@@ -60,6 +60,48 @@ class Controller(QObject):
         self.view_single = True       # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
 
     # ---------------------------------------------------------------- #
+    # ---------------------------------------------------------------- #
+    # Zwischenspeicher für Manipulations-Ergebnisse (wird beim Beenden geleert)
+    # ---------------------------------------------------------------- #
+    def cache_dir(self) -> str:
+        if not hasattr(self, "_cache"):
+            import time
+            self._cache = os.path.join(_platform.user_cache_dir(), "dokumente")
+            os.makedirs(self._cache, exist_ok=True)
+            self._cache_files = []
+            for f in os.listdir(self._cache):          # Reste früherer Sitzungen (älter als 2 Tage)
+                p = os.path.join(self._cache, f)
+                try:
+                    if time.time() - os.path.getmtime(p) > 2 * 86400:
+                        os.remove(p)
+                except OSError:
+                    pass
+            QApplication.instance().aboutToQuit.connect(self._clear_cache)
+        return self._cache
+
+    def cache_file(self, name: str) -> str:
+        import re
+        d = self.cache_dir()
+        base, ext = os.path.splitext(re.sub(r'[\\/:*?"<>|]+', "_", name) or "Dokument.pdf")
+        path, i = os.path.join(d, base + ext), 2
+        while os.path.exists(path):
+            path, i = os.path.join(d, f"{base}_{i}{ext}"), i + 1
+        self._cache_files.append(path)
+        return path
+
+    def _clear_cache(self):
+        for w in list(self.windows):
+            if getattr(w, "doc", None) is not None:
+                try:
+                    w.doc.close()
+                except Exception:
+                    pass
+        for p in getattr(self, "_cache_files", []):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
     def reload_config(self):
         """Nach Admin-Änderung: neue Standards sofort für alle Fenster."""
         self.cfg = config.load()
