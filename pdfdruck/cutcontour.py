@@ -642,19 +642,29 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     return out.getvalue()
 
 
-def make(doc, s: CutSettings, pages: list[int] | None = None):
-    """Komplett: normalisieren, Schnitte berechnen, PDF bauen. Liefert (pypdfium2-Dokument, Anzahl Schnitte)."""
+def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, cancel=None):
+    """Komplett: normalisieren, Schnitte berechnen, PDF bauen. Liefert (pypdfium2-Dokument, Anzahl Schnitte).
+    progress(erledigt, gesamt, text) je Seite; cancel() -> True bricht ab (core.Cancelled)."""
     import pypdfium2 as pdfium
     from .objects import normalized
     norm = normalized(doc)
     results, total = {}, 0
-    for i in (pages if pages is not None else range(len(norm))):
+    todo = list(pages) if pages is not None else list(range(len(norm)))
+    for k, i in enumerate(todo):
+        if cancel is not None and cancel():
+            norm.close()
+            from .core import Cancelled
+            raise Cancelled(tr("Abgebrochen."))
+        if progress is not None:
+            progress(k, len(todo), tr("Seite {0}/{1}").format(k + 1, len(todo)))
         pg = norm[i]
         try:
             results[i] = compute(pg, s)
         finally:
             pg.close()
         total += len(results[i].paths)
+    if progress is not None:
+        progress(len(todo), len(todo), tr("Schreibe PDF …"))
     if not total:
         norm.close()
         raise ValueError(tr("Kein Motiv gefunden – Hintergrund/Toleranz prüfen."))

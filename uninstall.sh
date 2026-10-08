@@ -21,7 +21,7 @@ rmp() {
         fi
     done
 }
-rmp /usr/local/lib/passermark /usr/local/bin/passermark /usr/libexec/passermark-admin \
+rmp /usr/local/lib/passermark /usr/local/bin/passermark /usr/local/bin/passermark-cli /usr/libexec/passermark-admin \
     /usr/share/polkit-1/actions/at.hias.passermark.policy \
     /usr/share/applications/passermark.desktop /usr/share/icons/hicolor/scalable/apps/passermark.svg \
     /usr/share/nautilus-python/extensions/passermark_nautilus.py

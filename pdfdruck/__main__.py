@@ -24,6 +24,9 @@ def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "--admin-helper":
         from . import selftest
         return selftest.admin_helper(sys.argv[2:])
+    if len(sys.argv) >= 2 and sys.argv[1] == "--cli":
+        from .cli import main as cli_main                      # Aufträge ohne Oberfläche (AppImage: … --cli)
+        return cli_main(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "--version":
         from . import __version__
         print(__version__)

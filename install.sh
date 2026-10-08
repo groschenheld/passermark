@@ -44,6 +44,11 @@ cat > /usr/local/bin/passermark <<SH
 PYTHONPATH="$LIB" exec "$VENV/bin/python" -m pdfdruck "\$@"
 SH
 chmod 755 /usr/local/bin/passermark
+cat > /usr/local/bin/passermark-cli <<SH
+#!/bin/sh
+PYTHONPATH="$LIB" exec "$VENV/bin/python" -m pdfdruck.cli "\$@"
+SH
+chmod 755 /usr/local/bin/passermark-cli
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
 command -v update-desktop-database >/dev/null && update-desktop-database -q || true
 if ! command -v soffice >/dev/null && ! ls /opt/*/desktopeditors/converter/x2t >/dev/null 2>&1; then

@@ -34,9 +34,12 @@ jobs:
           .venv/bin/python tests/test_cut_dialog.py
           .venv/bin/python tests/test_measure.py
           .venv/bin/python tests/test_measure_gui.py
+          .venv/bin/python tests/test_core.py
+          .venv/bin/python tests/test_cli.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |
           APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=offscreen timeout 120 dist/*.AppImage --selftest
+          APPIMAGE_EXTRACT_AND_RUN=1 timeout 60 dist/*.AppImage --cli list
       - uses: actions/upload-artifact@v7
         with:
           name: Passermark-Linux-AppImage

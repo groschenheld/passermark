@@ -1,5 +1,13 @@
 # Änderungen – Passermark
 
+## 1.6.0
+- **Kommandozeile** `passermark-cli`: CutContour, Objekte trennen, CMYK/Beschneiden, Reparieren und
+  Preflight-Reparaturen ohne Oberfläche; Einstellungen per `--preset datei.json` und `--set schlüssel=wert`
+  (auch verschachtelt), `--pages`, Fortschrittsbalken, Strg+C bricht sauber ab, `--json-progress` für Programme.
+  Linux: `passermark-cli` (install.sh), AppImage: `… --cli`, Windows: `passermark-cli.exe`
+- Intern: Kern-Schnittstelle `core.py` (Eingabe-PDF + Einstellungen → Ausgabe-PDF, Fortschritt, Abbrechen,
+  atomares Schreiben) – Grundlage für Aufträge im eigenen Prozess, Presets und Watcher
+
 ## 1.5.3
 - CutContour erzeugt schneller (ca. 17–20 %), Ergebnis bitgleich zu 1.5.2: Motiv-Erkennung rechnet ganzzahlig,
   Vollfarb-Suche nur noch im Randstreifen, unnötige Abstandsberechnungen entfallen (u. a. eine pro Objekt bei der

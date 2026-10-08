@@ -46,6 +46,10 @@ $log = Join-Path $env:TEMP "passermark-selftest.log"
 if (Test-Path $log) { Get-Content $log }
 if ($p.ExitCode -ne 0) { throw "Self test failed (exit code $($p.ExitCode))" }
 
+# Command line program must start (console EXE next to the GUI EXE)
+& "dist\passermark\passermark-cli.exe" list
+if ($LASTEXITCODE -ne 0) { throw "passermark-cli.exe does not start" }
+
 # Installer
 $Version = (.\.venv-win\Scripts\python -c "import pdfdruck; print(pdfdruck.__version__)").Trim()
 $env:PASSERMARK_VERSION = $Version

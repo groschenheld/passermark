@@ -1,4 +1,4 @@
-# Passermark 1.5.3
+# Passermark 1.6.0
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -38,10 +38,28 @@ sudo ./uninstall.sh      # remove again (--dry-run to preview, --purge also remo
 
 Optional: LibreOffice (Office files), 7-Zip (ICC profile import from archives).
 
+## Command line
+
+All heavy functions also run without the user interface – for scripts, batch processing and automation:
+
+```sh
+passermark-cli list                                   # available jobs
+passermark-cli settings cutcontour > sticker.json     # default settings = preset template
+passermark-cli cutcontour in.pdf out.pdf --set shape=rect --set bleed_mm=2
+passermark-cli cutcontour in.pdf out.pdf --preset sticker.json --pages 1,3-5
+```
+
+Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`. Nested settings with a dot
+(`--set detect.tolerance=40`). Ctrl+C cancels cleanly (no half-written file). Exit codes: 0 ok, 1 error,
+2 wrong usage, 130 cancelled. `--json-progress` prints progress and result as JSON lines.
+
+Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
+Windows → `passermark-cli.exe` in the installation folder.
+
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.5.3 && git push origin v1.5.3`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.6.0 && git push origin v1.6.0`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and
