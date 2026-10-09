@@ -1,0 +1,95 @@
+{
+  "job": "vdp",
+  "settings": {
+    "fields": [
+      {
+        "kind": "ean13",
+        "content": "{{EAN}}",
+        "x_mm": 10,
+        "y_mm": 25,
+        "w_mm": 45,
+        "h_mm": 28,
+        "font": "Helvetica",
+        "size_pt": 12.0,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "links: {{EAN}} aus der CSV",
+        "x_mm": 10,
+        "y_mm": 56,
+        "w_mm": 60,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "ean13",
+        "content": "{{nr}}",
+        "x_mm": 80,
+        "y_mm": 25,
+        "w_mm": 45,
+        "h_mm": 28,
+        "font": "Helvetica",
+        "size_pt": 12.0,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "rechts: {{nr}}",
+        "x_mm": 80,
+        "y_mm": 56,
+        "w_mm": 60,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "(Nummerierung: Vorsatz 2012345, Stellen 5)",
+        "x_mm": 80,
+        "y_mm": 61,
+        "w_mm": 60,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      }
+    ],
+    "csv_path": "daten.csv",
+    "delimiter": "",
+    "encoding": "",
+    "records": "",
+    "count": 1,
+    "numbering": {
+      "start": 1,
+      "step": 1,
+      "digits": 5,
+      "prefix": "2012345",
+      "suffix": "",
+      "check": "none",
+      "continue_key": ""
+    },
+    "order": "each",
+    "reverse": false,
+    "log_path": "",
+    "placeholders": false
+  }
+}

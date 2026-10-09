@@ -139,6 +139,21 @@ def test_cli_and_step_repeat_sequence():
         assert len(plans) == 3 and [pl.src + 1 for pl in plans[0].placements] == first, stack
 
 
+def test_code128_klartext_in_schriftgroesse():
+    """Klartext unter Code 128 wird in der eingestellten Größe gesetzt, nicht mit den Strichen verzerrt."""
+    out = os.path.join(TMP, "c128.pdf")
+    s = vdp.VdpSettings(count=1, fields=[vdp.VdpField("code128", "T{{nr}}", 10, 10, 120, 40, size_pt=9)])
+    with open(out, "wb") as f:
+        f.write(vdp.build(SAMPLE, s, pages=[0])[0])
+    d = pdfium.PdfDocument(out)
+    tp = d[0].get_textpage()
+    assert "T1" in tp.get_text_range()
+    i = tp.get_text_range().index("T1")
+    l, b, r, t = tp.get_charbox(i)
+    assert (t - b) < 12, (t - b)                 # 9 pt Schrift, nicht auf 40 mm Kastenhöhe gestreckt
+    d.close()
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

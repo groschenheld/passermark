@@ -287,7 +287,17 @@ def draw_field(cv, f: VdpField, value: str, page_h: float):
                 value = digits[:12]                          # Prüfziffer rechnet reportlab selbst
                 kw = {"humanReadable": True}
             else:
-                kw = {"humanReadable": f.size_pt > 0, "quiet": False}
+                # Klartextzeile selbst setzen: reportlab würde sie mit den Strichen auf die Kastengröße verzerren
+                th = f.size_pt * 1.25 if f.size_pt > 0 else 0.0
+                d = createBarcodeDrawing(kind, value=value, width=w, height=max(1.0, h - th),
+                                         barFillColor=col, humanReadable=False, quiet=False)
+                renderPDF.draw(d, cv, 0, th)
+                if th:
+                    cv.setFillColor(col)
+                    cv.setFont(_font_for(f.font, value), f.size_pt)
+                    cv.drawCentredString(w / 2, f.size_pt * 0.2, value)
+                cv.restoreState()
+                return
             d = createBarcodeDrawing(kind, value=value, width=w, height=h, barFillColor=col, **kw)
             renderPDF.draw(d, cv, 0, 0)
     cv.restoreState()

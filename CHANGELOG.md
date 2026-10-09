@@ -1,5 +1,10 @@
 # Änderungen – Passermark
 
+## 1.9.4
+- **Behoben: Code 128 – Klartextzeile verzerrt.** Die lesbare Zeile unter dem Strichcode wurde mit den Strichen
+  auf die Feldgröße gestreckt; jetzt steht sie in der eingestellten Schriftgröße darunter
+- Beispielpaket „passermark-vdp-beispiele“: Vorlage, CSV, Presets und fertige PDFs für QR-Code, Code 128 und EAN-13
+
 ## 1.9.3
 - **Behoben: Variable Daten setzten auf jede Seite dieselben Werte** (Nummer 1, gleicher Name, {{i}} = 1) – ein
   Datensatz galt immer für eine Kopie des *ganzen* Dokuments. Neu und Standard: **jede Seite bekommt den nächsten

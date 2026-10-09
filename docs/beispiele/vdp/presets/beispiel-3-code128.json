@@ -1,0 +1,81 @@
+{
+  "job": "vdp",
+  "settings": {
+    "fields": [
+      {
+        "kind": "code128",
+        "content": "T{{nr}}",
+        "x_mm": 10,
+        "y_mm": 28,
+        "w_mm": 60,
+        "h_mm": 18,
+        "font": "Helvetica",
+        "size_pt": 9,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "oben: T{{nr}}  (Nummerierung, Stellen 4)",
+        "x_mm": 10,
+        "y_mm": 50,
+        "w_mm": 120,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "code128",
+        "content": "{{Artikelnummer}}",
+        "x_mm": 10,
+        "y_mm": 62,
+        "w_mm": 60,
+        "h_mm": 18,
+        "font": "Helvetica",
+        "size_pt": 9,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "unten: {{Artikelnummer}}  (aus der CSV)",
+        "x_mm": 10,
+        "y_mm": 84,
+        "w_mm": 120,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      }
+    ],
+    "csv_path": "daten.csv",
+    "delimiter": "",
+    "encoding": "",
+    "records": "",
+    "count": 1,
+    "numbering": {
+      "start": 1,
+      "step": 1,
+      "digits": 4,
+      "prefix": "",
+      "suffix": "",
+      "check": "none",
+      "continue_key": ""
+    },
+    "order": "each",
+    "reverse": false,
+    "log_path": "",
+    "placeholders": false
+  }
+}

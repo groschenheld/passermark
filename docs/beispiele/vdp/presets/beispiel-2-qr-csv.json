@@ -1,0 +1,81 @@
+{
+  "job": "vdp",
+  "settings": {
+    "fields": [
+      {
+        "kind": "qr",
+        "content": "{{Name}} – {{Ort}}",
+        "x_mm": 100,
+        "y_mm": 25,
+        "w_mm": 35,
+        "h_mm": 35,
+        "font": "Helvetica",
+        "size_pt": 12.0,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "{{Name}}",
+        "x_mm": 10,
+        "y_mm": 30,
+        "w_mm": 60,
+        "h_mm": 8,
+        "font": "Helvetica",
+        "size_pt": 16,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "{{Ort}}",
+        "x_mm": 10,
+        "y_mm": 42,
+        "w_mm": 60,
+        "h_mm": 8,
+        "font": "Helvetica",
+        "size_pt": 12,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      },
+      {
+        "kind": "text",
+        "content": "QR-Inhalt: {{Name}} – {{Ort}}",
+        "x_mm": 10,
+        "y_mm": 85,
+        "w_mm": 85,
+        "h_mm": 6,
+        "font": "Helvetica",
+        "size_pt": 8,
+        "color": "#000000",
+        "align": "left",
+        "rotate": 0,
+        "pages": ""
+      }
+    ],
+    "csv_path": "daten.csv",
+    "delimiter": "",
+    "encoding": "",
+    "records": "",
+    "count": 1,
+    "numbering": {
+      "start": 1,
+      "step": 1,
+      "digits": 0,
+      "prefix": "",
+      "suffix": "",
+      "check": "none",
+      "continue_key": ""
+    },
+    "order": "each",
+    "reverse": false,
+    "log_path": "",
+    "placeholders": false
+  }
+}
