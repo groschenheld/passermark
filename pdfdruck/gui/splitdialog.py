@@ -18,7 +18,8 @@ from .common import fill_combo, no_enter_default
 
 
 class SplitDialog(QDialog):
-    def __init__(self, parent, doc, current: int = 0, selected=None, preset: split.SplitSettings | None = None):
+    def __init__(self, parent, doc, current: int = 0, selected=None, preset: split.SplitSettings | None = None,
+                 which: str = "all"):
         super().__init__(parent)
         self.setWindowTitle(tr("Seiten teilen – Passermark"))
         self.doc = doc
@@ -59,7 +60,9 @@ class SplitDialog(QDialog):
         if len(self.selected) > 1:
             items.append(("selected", tr("ausgewählte Seiten ({0})").format(len(self.selected))))
         items.append(("range", tr("Seitenbereich …")))
-        fill_combo(self.cmb_which, items, "all")
+        if which == "selected" and len(self.selected) <= 1:
+            which = "current"                      # eine Seite markiert = diese Seite
+        fill_combo(self.cmb_which, items, which if which in [k for k, _ in items] else "all")
         f.addRow(tr("Welche Seiten:"), self.cmb_which)
         self.ed_range = QLineEdit()
         self.ed_range.setPlaceholderText(tr("z. B. 2-5, 8"))

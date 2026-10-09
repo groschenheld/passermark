@@ -1,5 +1,10 @@
 # Änderungen – Passermark
 
+## 1.10.3
+- **Seiten teilen per Rechtsklick:** Seiten in der Seitenleiste markieren → Rechtsklick → **Teilen** →
+  „Senkrecht halbieren“ / „Waagrecht halbieren“ – sofort, nur die markierten Seiten, keine Vergleichsseite nötig.
+  „Raster / weitere Optionen …“ öffnet den Dialog mit der Auswahl voreingestellt
+
 ## 1.10.2
 - **Variable Daten – Vorder- und Rückseite:** neu „Seiten je Datensatz“ (unter 2.): 2 = Seite 1+2 → Datensatz 1,
   3+4 → Datensatz 2 … – egal ob die Vorlage 2 Seiten hat oder schon alle Karten (z. B. 200 Seiten für 100

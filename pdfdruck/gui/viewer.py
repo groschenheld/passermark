@@ -1825,8 +1825,15 @@ class MainWindow(QMainWindow):
         m = QMenu(self)
         m.addSection(tr("{0} Seite(n) ausgewählt").format(n))
         for a in (self.a_ins_before, self.a_ins_after, None, self.a_export, self.a_export_each, None,
-                  self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None, self.a_delete):
+                  self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None):
             m.addSeparator() if a is None else m.addAction(a)
+        sm = m.addMenu(svg_icon("split"), tr("Teilen"))
+        sm.addAction(tr("Senkrecht halbieren (links | rechts)"), lambda: self.split_selected("halves_v"))
+        sm.addAction(tr("Waagrecht halbieren (oben / unten)"), lambda: self.split_selected("halves_h"))
+        sm.addSeparator()
+        sm.addAction(tr("Raster / weitere Optionen …"), lambda: self.split_dialog(selection=True))
+        m.addSeparator()
+        m.addAction(self.a_delete)
         m.exec(self.thumbs.mapToGlobal(pos))
 
     # ================================================================ #
@@ -1958,11 +1965,23 @@ class MainWindow(QMainWindow):
             self.start_job(*dlg.job, suffix=tr("_einzeln"), title=tr("Objekte trennen"),
                            notes=lambda info: [tr("{0} Objekt(e) als Einzelseiten.").format(info.get("objects", 0))])
 
-    def split_dialog(self):
+    def split_selected(self, mode: str):
+        """Rechtsklick → Teilen: die ausgewählten Seiten sofort halbieren (ohne Dialog, ohne Vergleichsseite)."""
+        if self.doc is None:
+            return
+        from .. import core, split
+        pages = self.selected_pages()
+        if not pages:
+            return
+        self.start_job("split", core.settings_to_dict(split.SplitSettings(mode=mode)), pages,
+                       suffix=tr("_geteilt"), title=tr("Seiten teilen"))
+
+    def split_dialog(self, selection: bool = False):
         if self.doc is None:
             return
         from .splitdialog import SplitDialog
-        dlg = SplitDialog(self, self.doc, self.view.current, self.selected_pages())
+        dlg = SplitDialog(self, self.doc, self.view.current, self.selected_pages(),
+                          which="selected" if selection else "all")
         if dlg.exec() and getattr(dlg, "job", None):
             self.start_job(*dlg.job, suffix=tr("_geteilt"), title=tr("Seiten teilen"))
 

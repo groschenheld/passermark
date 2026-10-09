@@ -1535,4 +1535,5 @@ MESSAGES = {
     "zufälliger Code aus 8 Großbuchstaben und Ziffern (ohne 0/O, 1/I)": "random code of 8 capital letters and digits (no 0/O, 1/I)",
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} page(s) will be split → {1} pieces each.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} pages split: {1} → {2} pages.",
+    "Raster / weitere Optionen …": "Grid / more options …",
 }

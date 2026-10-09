@@ -338,6 +338,12 @@ vv = VariablesDialog(None, ["Name"]); assert "{{Name}}" in vv.items and "{{datum
 from pdfdruck.gui.splitdialog import SplitDialog
 sd = SplitDialog(None, pdfium.PdfDocument(sys.argv[1]), 0, [0]); sd._apply(); assert sd.job[0] == "split"
 w.split_dialog(); w.split_spreads(); w.rotate_view(90); w.rotate_view(-90)
+jobs = []
+w.start_job = lambda *a, **k: jobs.append(a)
+w.split_selected("halves_h"); w._thumb_menu(types.SimpleNamespace())
+assert jobs and jobs[0][0] == "split" and jobs[0][1]["mode"] == "halves_h" and jobs[0][2] == [w.view.current], jobs
+w.split_dialog(selection=True)
+sd2 = SplitDialog(None, pdfium.PdfDocument(sys.argv[1]), 0, [0, 1], which="selected"); sd2._apply()
 dd = DataDialog(None, op)
 assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # keine doppelten Spalten
 assert dd.problems() == [], dd.problems()

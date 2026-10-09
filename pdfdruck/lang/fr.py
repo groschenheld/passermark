@@ -1535,4 +1535,5 @@ MESSAGES = {
     "zufälliger Code aus 8 Großbuchstaben und Ziffern (ohne 0/O, 1/I)": "code aléatoire de 8 majuscules et chiffres (sans 0/O, 1/I)",
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} page(s) seront coupées → {1} morceaux chacune.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} pages coupées : {1} → {2} pages.",
+    "Raster / weitere Optionen …": "Grille / autres options …",
 }

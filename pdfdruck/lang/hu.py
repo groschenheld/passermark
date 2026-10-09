@@ -1535,4 +1535,5 @@ MESSAGES = {
     "zufälliger Code aus 8 Großbuchstaben und Ziffern (ohne 0/O, 1/I)": "véletlen kód 8 nagybetűből és számjegyből (0/O, 1/I nélkül)",
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} oldal szétvágva → egyenként {1} darab.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} oldal szétvágva: {1} → {2} oldal.",
+    "Raster / weitere Optionen …": "Rács / további beállítások …",
 }

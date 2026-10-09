@@ -416,7 +416,8 @@ def build():
     s.append(P("split – Seiten teilen (halbieren, Raster, Doppelseiten)", H3))
     s.append(P("Teilt Seiten in Einzelseiten – verlustfrei, der Inhalt wird nicht verändert. Hat die Seite ein "
                "Endformat, wird darin geteilt und der Anschnitt bleibt außen. Gedrehte Seiten werden so geteilt, wie "
-               "man sie sieht. Im Programm: Seiten → Seiten teilen … bzw. Doppelseiten teilen."))
+               "man sie sieht. Im Programm: Seiten markieren, Rechtsklick → Teilen → halbieren; oder Seiten → Seiten teilen … "
+               "bzw. Doppelseiten teilen."))
     s.append(table([
         ["Einstellung", "Standard", "Bedeutung"],
         [c("mode"), c("halves_v"), c("halves_v") + " = links | rechts, " + c("halves_h") + " = oben / unten, "

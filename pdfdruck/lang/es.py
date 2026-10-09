@@ -1535,4 +1535,5 @@ MESSAGES = {
     "zufälliger Code aus 8 Großbuchstaben und Ziffern (ohne 0/O, 1/I)": "código aleatorio de 8 mayúsculas y dígitos (sin 0/O, 1/I)",
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} página(s) se dividirán → {1} trozos cada una.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} páginas divididas: {1} → {2} páginas.",
+    "Raster / weitere Optionen …": "Cuadrícula / más opciones …",
 }
