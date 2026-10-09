@@ -8,6 +8,8 @@
 Stil und Hilfsfunktionen kommen aus make_cli_howto.py.
 """
 import os
+
+os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
 import sys
 import tempfile
 
@@ -184,6 +186,24 @@ def build():
         k = datakinds.get(kid)
         rows.append([k.title, ", ".join(cc.key + ("*" if cc.required else "") for cc in k.cols), k.help])
     s.append(table(rows, [42 * mm, 70 * mm, W - 112 * mm]))
+    s.append(P("Eigene CSV mit anderen Spaltennamen", H3))
+    s.append(P("Eine vorhandene Tabelle muss nicht umbenannt werden – z. B. ein Kontakt-Export aus Outlook, Google "
+               "oder Thunderbird mit englischen Spalten („First Name“, „Mobile Phone“, „E-mail Address“ …):"))
+    s += steps([
+        "Vorlage öffnen, Variable Daten, unter 2. <b>CSV öffnen …</b> → die Datei (im Beispielordner: "
+        + c("kontakte-outlook.csv") + ").",
+        "Darunter steht, wozu die Tabelle passt, z. B. „QR – Visitenkarte (vCard)“. <b>Passendes Feld anlegen</b> "
+        "legt den QR-Code mit dieser Art an – oder beim eigenen QR-Feld die <b>Art des QR-Codes</b> wählen.",
+        "Unter der Art steht, was woher kommt: „Vorname ← First Name, Telefon ← Business Phone …“. Fehlt eine "
+        "Pflichtangabe oder passt etwas nicht: <b>Spalten zuordnen …</b> – je Angabe die Spalte wählen, "
+        "„– leer lassen –“ oder „automatisch“. Unten ist der fertige Inhalt für den ersten Datensatz zu sehen.",
+        "Die eigene Zuordnung wird im Preset gespeichert – dieselbe Art von Tabelle geht beim nächsten Mal ohne "
+        "Nacharbeit, auch auf der Kommandozeile.",
+    ])
+    s.append(P("Erkannt werden die Namen aus Abschnitt 4 und gängige andere: englisch, ungarisch, spanisch, "
+               "französisch sowie die Kopfzeilen der Kontakt-Exporte von Outlook, Google und Thunderbird. Groß/klein, "
+               "Leer- und Satzzeichen sind egal; „E-Mail-Adresse privat“ passt auch zu E-Mail. Die CSV selbst wird "
+               "nie verändert.", NOTE))
     s.append(P("Visitenkarte: Vorname, Nachname oder Firma muss ausgefüllt sein. Termin: Beginn als "
                + c("24.10.2026 18:00") + " oder " + c("2026-10-24 18:00") + "; nur Datum = ganztägig. WLAN: "
                "Verschlüsselung leer = WPA; ohne Passwort = offenes Netz.", NOTE))
@@ -343,8 +363,8 @@ def build():
         ["EAN-13: Fehler in der Vorschau", "Inhalt ergibt nicht 12 oder 13 Ziffern – z. B. Buchstaben im Vorsatz "
          "oder zu wenige Stellen (Vorsatz + Stellen = 12) – oder die 13. Ziffer (Prüfziffer) ist falsch; die "
          "Meldung nennt die richtige"],
-        ["QR mit Art: „Spalte … ist leer oder fehlt“", "Spaltennamen genau wie in Abschnitt 4 (Groß/klein egal); "
-         "Tabelle mit „Daten erfassen“ öffnen – die Prüfung zeigt die Zeile"],
+        ["QR mit Art: „Spalte … ist leer oder fehlt“", "Beim QR-Feld „Spalten zuordnen …“ – die Spalte wählen, aus "
+         "der die Angabe kommt; oder die Zeile ist leer (Prüfung in „Daten erfassen“ zeigt sie)"],
         ["Code 128 lässt sich schlecht scannen", "Kasten breiter machen; nicht verkleinert drucken"],
         ["QR-Code zu fein", "Kasten größer oder Inhalt kürzer (kurze Webadresse); eine Visitenkarte mit allen "
          "Angaben braucht etwa 35 × 35 mm"],

@@ -166,6 +166,88 @@ def test_old_presets_still_load():
         pass
 
 
+OUTLOOK = ["Title", "First Name", "Middle Name", "Last Name", "Suffix", "Company", "Department", "Job Title",
+           "Business Street", "Business City", "Business State", "Business Postal Code", "Business Country/Region",
+           "Business Phone", "Mobile Phone", "E-mail Address", "Web Page", "Notes"]
+GOOGLE = ["First Name", "Middle Name", "Last Name", "Organization Name", "Organization Title", "E-mail 1 - Label",
+          "E-mail 1 - Value", "Phone 1 - Label", "Phone 1 - Value", "Phone 2 - Value", "Address 1 - Street",
+          "Address 1 - City", "Address 1 - Postal Code", "Address 1 - Country", "Website 1 - Value", "Notes"]
+THUNDERBIRD = ["First Name", "Last Name", "Display Name", "Nickname", "Primary Email", "Secondary Email", "Work Phone",
+               "Home Phone", "Mobile Number", "Work Address", "Work City", "Work ZipCode", "Work Country",
+               "Job Title", "Organization", "Web Page 1", "Notes"]
+
+
+def _outlook_csv(path):
+    import csv
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(OUTLOOK)
+        w.writerow(["Dr.", "Zoë", "", "Kovács", "", "Huber GmbH", "", "Grafik", "Annenstraße 5", "Graz", "", "8020",
+                    "Österreich", "+43 316 1", "+43 664 2", "zoe@huber.at", "huber.at", "VIP"])
+        w.writerow(["", "Bálint", "", "Szabó", "", "Huber GmbH", "", "", "", "", "", "", "", "", "", "b@huber.at",
+                    "", ""])
+    return path
+
+
+def test_auto_map_contact_exports():
+    exp = {"Vorname": "First Name", "Nachname": "Last Name"}
+    for cols, extra in ((OUTLOOK, {"Firma": "Company", "Telefon": "Business Phone", "Mobil": "Mobile Phone",
+                                   "E-Mail": "E-mail Address", "Ort": "Business City", "PLZ": "Business Postal Code"}),
+                        (GOOGLE, {"Firma": "Organization Name", "Telefon": "Phone 1 - Value",
+                                  "E-Mail": "E-mail 1 - Value", "Ort": "Address 1 - City"}),
+                        (THUNDERBIRD, {"Firma": "Organization", "Telefon": "Work Phone", "Mobil": "Mobile Number",
+                                       "E-Mail": "Primary Email", "PLZ": "Work ZipCode"})):
+        m = D.auto_map("vcard", cols)
+        for k, v in {**exp, **extra}.items():
+            assert m[k] == v, (k, m[k], v)
+        assert m["Position"] != "Title"                     # Outlook „Title“ = Anrede, nicht Funktion
+        assert D.guess_kind(cols) == "vcard"
+    assert D.guess_kind(["SSID", "Password"]) == "wifi"
+    assert D.auto_map("wifi", ["ssid", "Kennwort"]) == {"Netzname": "ssid", "Passwort": "Kennwort",
+                                                       "Verschlüsselung": "", "Versteckt": ""}
+    assert D.auto_map("ean13", ["GTIN", "Bezeichnung"])["EAN"] == "GTIN"
+    # eigene Namen gehen vor Synonymen; startswith für „E-Mail-Adresse privat“
+    assert D.auto_map("vcard", ["Telefon", "Phone"])["Telefon"] == "Telefon"
+    assert D.auto_map("vcard", ["E-Mail-Adresse privat"])["E-Mail"] == "E-Mail-Adresse privat"
+
+
+def test_mapping_override_and_validate():
+    rec = {"Title": "Dr.", "First Name": "A", "Last Name": "B", "Job Title": "Chef", "Notes": "x"}
+    v = D.build("vcard", rec)
+    assert "TITLE:Chef" in v and "NOTE:x" in v
+    v = D.build("vcard", rec, {"Position": "Title", "Notiz": D.NONE})
+    assert "TITLE:Dr." in v and "NOTE" not in v
+    assert D.resolve_map("vcard", list(rec), {"Position": "gibtsnicht"})["Position"] == "Job Title"
+    assert D.validate("wifi", ["SSID", "Password"], [{"SSID": "N", "Password": "p"}]) == []
+    p = D.validate("wifi", ["SSID"], [{"SSID": "N"}], {"Netzname": D.NONE})
+    assert p and p[0][:2] == (-1, "Netzname")
+
+
+def test_outlook_export_to_vcard_qr():
+    """Outlook-Export unverändert als Datenquelle: QR-Feld Art Visitenkarte, Zuordnung automatisch bzw. im Preset."""
+    from pdfdruck import core, presets
+    csvp = _outlook_csv(os.path.join(TMP, "outlook.csv"))
+    f = vdp.VdpField("qr", "", 40, 10, 60, 60, qr_type="vcard", qr_map={"Position": "Title"})
+    s = vdp.VdpSettings(csv_path=csvp, fields=[f])
+    presets.save("vdp", "Outlook-Karten", s)                           # Zuordnung bleibt im Preset
+    s2 = presets.load("vdp", "Outlook-Karten")
+    f2 = vdp._fields(s2)[0]
+    assert f2.qr_map == {"Position": "Title"} and f2.qr_type == "vcard"
+    data, info = vdp.build(_a6(), s2)
+    assert info["pages"] == 2
+    if not C.HAVE_CV2:
+        return
+    d = pdfium.PdfDocument(data)
+    got = [C.read_qr(C.page_gray(d[i]))[0].replace("\r\n", "\n") for i in range(2)]
+    d.close()
+    assert "N:Kovács;Zoë;;;" in got[0] and "TITLE:Dr." in got[0] and "EMAIL;TYPE=INTERNET:zoe@huber.at" in got[0]
+    assert "ADR;TYPE=WORK:;;Annenstraße 5;Graz;;8020;Österreich" in got[0], got[0]
+    assert "N:Szabó;Bálint;;;" in got[1] and "TEL" not in got[1]
+    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "datencheck", csvp], capture_output=True, text=True,
+                       env=dict(os.environ, PYTHONPATH=ROOT))
+    assert r.returncode == 0 and "vcard" in r.stdout, r.stdout + r.stderr
+
+
 GUI = r'''
 import sys, os, types
 from pdfdruck.gui.datadialog import DataDialog, field_for
@@ -218,6 +300,32 @@ w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 w.data_dialog()
 w.vdp_dialog((p, "wifi"))
 w.set_workspace("vdp")
+# Fremde Kopfzeilen: Art erkannt, passendes Feld, Zuordnung ändern
+import csv as _csv
+op = os.path.join(tmp, "ol.csv")
+with open(op, "w", newline="", encoding="utf-8") as fh:
+    ww = _csv.writer(fh); ww.writerow(["Title", "First Name", "Last Name", "Job Title", "E-mail Address"])
+    ww.writerow(["Dr.", "Zoë", "Kovács", "Grafik", "z@h.at"])
+vd2 = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
+vd2._csv_changed(op)
+assert vd2._guess == "vcard" and vd2._sample["First Name"] == "Zoë", (vd2._guess, vd2._sample)
+vd2._use_guess()
+qi = [k for k, x in enumerate(vd2.fields) if x.kind == "qr"]
+assert len(qi) == 1 and vd2.fields[qi[0]].qr_type == "vcard"
+from pdfdruck.gui.mapdialog import MapDialog, summary
+md = MapDialog(None, "vcard", vd2.cols, {}, vd2._sample)
+assert "TITLE:Grafik" in md.preview_text()
+md.set_choice("Position", "Title"); md.set_choice("E-Mail", "-")
+assert "TITLE:Dr." in md.preview_text() and "EMAIL" not in md.preview_text()
+md.set_choice("E-Mail", ""); assert md.result_mapping() == {"Position": "Title"}
+md.reset(); assert md.result_mapping() == {}
+vd2.set_qr_map(qi[0], {"Position": "Title"})
+assert vd2._settings().fields[qi[0]]["qr_map"] == {"Position": "Title"}
+t = summary("vcard", vd2.cols, {"Position": "Title"}); assert "Vorname ← First Name" in t and "Position ← Title" in t, t
+t = summary("wifi", ["Name"], {}); assert "Netzname*" in t, t
+dd = DataDialog(None, op)
+assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # keine doppelten Spalten
+assert dd.problems() == [], dd.problems()
 print("ok")
 '''
 

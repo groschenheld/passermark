@@ -45,6 +45,8 @@ class VdpField:
     qr_type: str = "text"         # QR: text = Inhalt wie eingegeben; vcard, wifi, email, url, phone, sms, event, geo =
                                   # Inhalt aus den Spalten der Datentabelle zusammengesetzt (siehe datakinds)
     quiet: bool = True            # QR/Code 128: weiße Ruhezone im Feld freihalten (für sicheres Scannen)
+    qr_map: dict = field(default_factory=dict)   # QR mit Art: Feld der Art -> CSV-Spalte ("-" = leer lassen);
+                                                 # nicht genannte Felder werden automatisch zugeordnet
 
 
 @dataclass
@@ -184,7 +186,7 @@ def field_value(f: "VdpField", rec: dict) -> str:
     t = getattr(f, "qr_type", "text") or "text"
     if f.kind == "qr" and t != "text":
         from . import datakinds
-        return datakinds.build(t, rec)
+        return datakinds.build(t, rec, getattr(f, "qr_map", None) or None)
     return fill(f.content, rec)
 
 

@@ -40,6 +40,10 @@ def test_in_package():
     full = "".join(pdfium.PdfDocument(examples.VDP_HOWTO)[i].get_textpage().get_text_range() for i in range(n))
     for s in ("passermark-cli beispiele", "EAN-13", "Code 128", "QR-Code", "{{nr}}", "Strg+Umschalt+D"):
         assert s in full, s
+    for s in ("Visitenkarte (vCard)", "Spalten zuordnen", "kontakte-outlook.csv"):
+        assert s in full, s
+    for s in ("Business card", "phone offers", "Wi-Fi access"):          # Handbuch nie in der Systemsprache
+        assert s not in full, s
 
 
 def test_specs_ship_docs_folder():

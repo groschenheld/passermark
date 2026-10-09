@@ -8,6 +8,7 @@ Inhalt
   daten.csv          3 Datensätze: Name;Ort;Artikelnummer;EAN (Beispiele 2–4)
   visitenkarten.csv  3 Kontakte (Beispiel 5)
   wlan.csv           3 WLAN-Zugänge (Beispiel 6)
+  kontakte-outlook.csv  so sieht ein Kontakt-Export aus Outlook aus (englische Spalten)
   presets/           je Beispiel die Einstellungen
   ergebnis/          so sieht das fertige PDF aus
 
@@ -54,6 +55,12 @@ Kommandozeile (in diesem Ordner)
    QR-Feld mit Art „WLAN-Zugang“, Spalten Netzname, Passwort, Verschlüsselung
    (leer = WPA), Versteckt; ohne Passwort = offenes Netz
    → Handy verbindet sich nach dem Scannen
+
+Fremde Spaltennamen (z. B. Export aus Outlook, Google, Thunderbird)
+   Variable Daten → CSV öffnen → kontakte-outlook.csv
+   → „Die Tabelle passt zu: QR – Visitenkarte“ → Passendes Feld anlegen
+   Spalten werden automatisch zugeordnet; ändern mit „Spalten zuordnen …“ beim
+   QR-Feld (z. B. Position aus „Title“ statt „Job Title“). Die CSV bleibt unverändert.
 
 Eigene Tabelle auf der Kommandozeile
   passermark-cli datenvorlage vcard kontakte.csv     (leere Tabelle)

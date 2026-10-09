@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import datetime as _dt
+import functools
 import re
 from dataclasses import dataclass, field
 from urllib.parse import quote
@@ -142,20 +143,145 @@ def _v(rec: dict, key: str) -> str:
     return ""
 
 
+# --------------------------------------------------------------------------- #
+# Spalten zuordnen: fremde Kopfzeilen (Outlook, Google, Thunderbird, Kunden-CSV) auf die Felder einer Art
+# --------------------------------------------------------------------------- #
+# Synonyme je Feld; "art:Feld" gilt nur für diese Art (z. B. Ort = Stadt bei der Visitenkarte, Veranstaltungsort
+# beim Termin). Verglichen wird ohne Groß-/Kleinschreibung, Leer- und Satzzeichen, Umlaute als ae/oe/ue/ss.
+_EMAIL = ["E-mail Address", "Email Address", "E-Mail-Adresse", "Email", "Mail", "E-mail 1 - Value", "Primary Email",
+          "E-Mail 1", "Emailadresse", "Correo", "Courriel", "E-mail cím"]
+SYNONYMS = {
+    "Vorname": ["First Name", "Firstname", "Given Name", "Forename", "Keresztnév", "Utónév", "Nombre", "Prénom"],
+    "Nachname": ["Last Name", "Lastname", "Family Name", "Surname", "Familienname", "Zuname", "Vezetéknév",
+                 "Apellido", "Apellidos", "Nom"],
+    "Firma": ["Company", "Organization", "Organisation", "Organization Name", "Organization 1 - Name", "Unternehmen",
+              "Firmenname", "Cég", "Empresa", "Entreprise", "Société"],
+    "Position": ["Job Title", "Organization Title", "Organization 1 - Title", "Funktion", "Berufsbezeichnung",
+                 "Beosztás", "Cargo", "Puesto", "Fonction"],
+    "vcard:Telefon": ["Business Phone", "Work Phone", "Phone", "Telephone", "Phone 1 - Value", "Telefon geschäftlich",
+                      "Telefonnummer", "Festnetz", "Tel", "Primary Phone", "Telefonszám", "Teléfono", "Téléphone"],
+    "Mobil": ["Mobile Phone", "Mobile", "Mobile Number", "Cell", "Cellphone", "Cell Phone", "Handy", "Mobiltelefon",
+              "Mobilnummer", "Phone 2 - Value", "Mobilszám", "Móvil", "Portable"],
+    "E-Mail": _EMAIL + ["Recipient", "Empfänger", "An", "To"],
+    "Straße": ["Business Street", "Street", "Address 1 - Street", "Work Address", "Strasse", "Adresse", "Anschrift",
+               "Address", "Utca", "Calle", "Rue"],
+    "PLZ": ["Business Postal Code", "Postal Code", "Zip", "Zip Code", "ZIP", "Postcode", "Address 1 - Postal Code",
+            "Work ZipCode", "Postleitzahl", "Irányítószám", "Código postal", "Code postal"],
+    "vcard:Ort": ["Business City", "City", "Address 1 - City", "Work City", "Stadt", "Wohnort", "Town", "Település",
+                  "Város", "Ciudad", "Ville"],
+    "Land": ["Business Country/Region", "Country", "Address 1 - Country", "Work Country", "Country/Region", "Staat",
+             "Ország", "País", "Pays"],
+    "Web": ["Web Page", "Website", "Website 1 - Value", "Web Page 1", "Homepage", "URL", "Internet", "Webseite",
+            "Weboldal", "Sitio web", "Site web"],
+    "Notiz": ["Notes", "Note", "Bemerkung", "Anmerkung", "Kommentar", "Megjegyzés", "Notas"],
+    "Netzname": ["SSID", "Network", "Network Name", "Netzwerk", "WLAN", "WiFi", "Wi-Fi", "WLAN-Name", "Hálózat"],
+    "Passwort": ["Password", "Kennwort", "Key", "Schlüssel", "PW", "Jelszó", "Contraseña", "Mot de passe"],
+    "Verschlüsselung": ["Encryption", "Security", "Sicherheit", "Auth", "Titkosítás", "Cifrado", "Chiffrement"],
+    "Versteckt": ["Hidden", "Rejtett", "Oculta", "Caché"],
+    "Betreff": ["Subject", "Tárgy", "Asunto", "Objet"],
+    "Text": ["Body", "Message", "Nachricht", "Üzenet", "Mensaje"],
+    "url:Adresse": ["URL", "Link", "Web", "Website", "Webadresse", "Homepage", "Webseite", "Weboldal", "Enlace", "Lien"],
+    "phone:Telefon": ["Phone", "Telephone", "Number", "Nummer", "Tel", "Mobile", "Handy", "Telefonnummer",
+                      "Telefonszám", "Teléfono", "Téléphone"],
+    "sms:Telefon": ["Phone", "Number", "Nummer", "Mobile", "Handy", "Empfänger", "Recipient", "Telefonnummer"],
+    "Titel": ["Title", "Summary", "Event", "Veranstaltung", "Name", "Esemény", "Evento", "Événement"],
+    "Beginn": ["Start", "Begin", "Start Date", "Startdatum", "Von", "From", "Datum", "Date", "Kezdés", "Inicio",
+               "Début"],
+    "Ende": ["End", "End Date", "Enddatum", "Bis", "Until", "Vége", "Fin"],
+    "event:Ort": ["Location", "Place", "Venue", "Veranstaltungsort", "Adresse", "Helyszín", "Lugar", "Lieu"],
+    "Beschreibung": ["Description", "Details", "Notes", "Leírás", "Descripción"],
+    "Breite": ["Latitude", "Lat", "Breitengrad", "Szélesség", "Latitud"],
+    "Länge": ["Longitude", "Lon", "Lng", "Long", "Längengrad", "Hosszúság", "Longitud"],
+    "Inhalt": ["Content", "Text", "Value", "Wert", "Data", "Code", "Tartalom", "Contenido", "Contenu"],
+    "Code": ["Artikelnummer", "Article", "SKU", "Nummer", "Number", "ID", "Barcode", "Ticket", "Cikkszám"],
+    "EAN": ["EAN13", "EAN-13", "GTIN", "EAN-Code", "EAN Code", "Barcode", "Vonalkód"],
+}
+NONE = "-"                     # in einer Zuordnung: diese Angabe bewusst leer lassen
+
+
+def _norm(s: str) -> str:
+    s = str(s or "").lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        s = s.replace(a, b)
+    return re.sub(r"[^0-9a-z\u00c0-\u024f]", "", s)
+
+
+def synonyms(kind_id: str, key: str) -> list:
+    return [key] + SYNONYMS.get(f"{kind_id}:{key}", SYNONYMS.get(key, []))
+
+
+@functools.lru_cache(maxsize=256)
+def _auto(kind_id: str, cols: tuple) -> tuple:
+    k = get(kind_id)
+    if k.free_cols:
+        return tuple((c.key, c.key if c.key in cols else "") for c in k.cols)
+    normed = [(_norm(c), c) for c in cols]
+    used, out = set(), {}
+    # 1) genau gleich (Name selbst vor Synonymen, Felder in ihrer Reihenfolge)
+    for c in k.cols:
+        for cand in synonyms(kind_id, c.key):
+            n = _norm(cand)
+            hit = next((orig for nc, orig in normed if nc == n and orig not in used), None)
+            if hit:
+                out[c.key] = hit
+                used.add(hit)
+                break
+    # 2) Spaltenname beginnt mit dem Namen/Synonym (z. B. „E-Mail-Adresse privat“, „Telefon (Büro)“)
+    for c in k.cols:
+        if c.key in out:
+            continue
+        for cand in synonyms(kind_id, c.key):
+            n = _norm(cand)
+            if len(n) < 4:
+                continue
+            hit = next((orig for nc, orig in normed if nc.startswith(n) and orig not in used), None)
+            if hit:
+                out[c.key] = hit
+                used.add(hit)
+                break
+    return tuple((c.key, out.get(c.key, "")) for c in k.cols)
+
+
+def auto_map(kind_id: str, cols) -> dict:
+    """Vorschlag: Feld der Art -> Spalte der CSV ('' = nicht gefunden)."""
+    return dict(_auto(kind_id, tuple(cols or ())))
+
+
+def resolve_map(kind_id: str, cols, mapping: dict | None = None) -> dict:
+    """Zuordnung, die beim Erzeugen gilt: eigene Wahl (Spalte oder NONE) vor dem automatischen Vorschlag."""
+    res = auto_map(kind_id, cols)
+    have = {c.lower(): c for c in (cols or ())}
+    for key, col in (mapping or {}).items():
+        if key not in res:
+            continue
+        if col == NONE:
+            res[key] = ""
+        elif col and col.lower() in have:
+            res[key] = have[col.lower()]
+    return res
+
+
+def mapped(kind_id: str, rec: dict, mapping: dict | None = None) -> dict:
+    """Datensatz mit den Feldnamen der Art (Werte aus den zugeordneten Spalten)."""
+    cols = [k for k in rec if isinstance(k, str) and not k.startswith("_")]
+    m = resolve_map(kind_id, cols, mapping)
+    return {key: (rec.get(col, "") if col else "") for key, col in m.items()}
+
+
 def guess_kind(cols: list) -> str:
-    """Datenart aus den Spaltennamen einer CSV erraten (meiste Übereinstimmung, Pflichtspalten vorhanden)."""
-    have = {c.lower() for c in cols}
+    """Datenart aus den Spaltennamen einer CSV erraten – auch fremde Kopfzeilen (Outlook, Google …) über Synonyme."""
     best, score = "text", 0
     for kid in IDS:
         k = get(kid)
         if k.free_cols:
             continue
-        keys = [c.key.lower() for c in k.cols]
-        if not all(c.key.lower() in have for c in k.cols if c.required):
+        m = auto_map(kid, cols)
+        if not all(m.get(c.key) for c in k.cols if c.required):
             continue
-        n = sum(1 for c in keys if c in have)
-        # Anteil, damit „Telefon“ allein nicht zur Visitenkarte wird
-        sc = n * 10 - (len(keys) - n) + (5 if n == len(keys) else 0)
+        n = sum(1 for c in k.cols if m.get(c.key))
+        exact = sum(1 for c in k.cols if m.get(c.key, "").lower() == c.key.lower())
+        # Anteil zählt, damit „Telefon“ allein nicht zur Visitenkarte wird; eigene Namen leicht bevorzugt
+        sc = n * 10 - (len(k.cols) - n) + (5 if n == len(k.cols) else 0) + exact
         if n and sc > score:
             best, score = kid, sc
     return best
@@ -219,9 +345,12 @@ def _num(s: str) -> float:
     return float(s.strip().replace(",", "."))
 
 
-def build(kind_id: str, rec: dict) -> str:
-    """Inhalt des Codes für einen Datensatz. Fehlende Pflichtangaben -> ValueError mit verständlicher Meldung."""
+def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
+    """Inhalt des Codes für einen Datensatz. Fremde Spaltennamen werden über die Zuordnung (eigene Wahl, sonst
+    automatisch) gelesen. Fehlende Pflichtangaben -> ValueError mit verständlicher Meldung."""
     k = get(kind_id)
+    if not k.free_cols:
+        rec = mapped(kind_id, rec, mapping)
     for c in k.cols:
         if c.required and not _v(rec, c.key):
             raise ValueError(tr("{0}: Spalte „{1}“ ist leer oder fehlt").format(k.title, c.key))
@@ -332,13 +461,14 @@ def ean_problem(value: str) -> str:
     return ""
 
 
-def validate(kind_id: str, cols: list, rows: list) -> list:
+def validate(kind_id: str, cols: list, rows: list, mapping: dict | None = None) -> list:
     """Probleme als Liste (zeile0, spalte|"", meldung); leere Zeilen werden übersprungen."""
     k = get(kind_id)
     out = []
+    m = resolve_map(kind_id, cols, mapping) if not k.free_cols else {c.key: c.key for c in k.cols}
     have = {c.lower() for c in cols}
     for c in k.cols:
-        if c.required and c.key.lower() not in have:
+        if c.required and not (m.get(c.key) and m[c.key].lower() in have):
             out.append((-1, c.key, tr("Spalte „{0}“ fehlt").format(c.key)))
     if out:
         return out
@@ -346,19 +476,20 @@ def validate(kind_id: str, cols: list, rows: list) -> list:
         if not any(str(v or "").strip() for v in rec.values()):
             continue
         try:
-            value = build(kind_id, rec)
+            value = build(kind_id, rec, mapping)
         except ValueError as e:
             out.append((i, "", str(e)))
             continue
+        mr = mapped(kind_id, rec, mapping) if not k.free_cols else rec
         if kind_id == "ean13":
-            p = ean_problem(_v(rec, "EAN"))
+            p = ean_problem(_v(mr, "EAN"))
             if p:
                 out.append((i, "EAN", p))
         elif kind_id == "code128":
             bad = sorted({ch for ch in value if ord(ch) < 32 or ord(ch) > 126})
             if bad:
                 out.append((i, "Code", tr("Zeichen nicht möglich: {0}").format(" ".join(bad))))
-        elif kind_id == "email" and "@" not in _v(rec, "E-Mail"):
+        elif kind_id == "email" and "@" not in _v(mr, "E-Mail"):
             out.append((i, "E-Mail", tr("keine gültige E-Mail-Adresse")))
         if k.field_kind == "qr" and len(value.encode("utf-8")) > 2000:
             out.append((i, "", tr("Inhalt sehr lang ({0} Zeichen) – QR-Code wird sehr fein").format(len(value))))

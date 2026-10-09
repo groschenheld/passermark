@@ -107,6 +107,8 @@ class VdpDialog(QDialog):
         self.s = vdp.VdpSettings(fields=[], numbering=vdp.Numbering())
         self.fields: list[vdp.VdpField] = []
         self.cols: list[str] = []
+        self._sample: dict = {}                # erster Datensatz der CSV (für Zuordnung/Vorschau)
+        self._guess = "text"                   # erkannte Art der CSV (datakinds.guess_kind)
         self._csv = ""                         # gewählte CSV (vollständiger Pfad) – Quelle für die Einstellungen
         self.job = None
         self._loading = False
@@ -190,7 +192,14 @@ class VdpDialog(QDialog):
         self.lbl_qrcols.setWordWrap(True)
         self.lbl_qrcols.setStyleSheet(f"color: {theme.ACCENT};")
         box = QVBoxLayout()
-        box.addWidget(self.cmb_qrtype)
+        row_qt = QHBoxLayout()
+        row_qt.addWidget(self.cmb_qrtype, 1)
+        self.btn_map = QPushButton(tr("Spalten zuordnen …"))
+        self.btn_map.setToolTip(tr("Festlegen, welche Spalte deiner CSV welche Angabe liefert – nötig, wenn die "
+                                   "Spalten anders heißen, z. B. bei einem Kontakt-Export"))
+        self.btn_map.clicked.connect(self._map_columns)
+        row_qt.addWidget(self.btn_map)
+        box.addLayout(row_qt)
         box.addWidget(self.lbl_qrcols)
         self._field(v, tr("Art des QR-Codes"),
                     tr("„Inhalt wie eingegeben“: der Text oben steht im Code. Visitenkarte, WLAN, E-Mail …: Passermark "
@@ -272,9 +281,21 @@ class VdpDialog(QDialog):
         row.addWidget(b)
         row.addWidget(b3)
         row.addWidget(b2)
+        row_g = QHBoxLayout()
+        self.lbl_guess = QLabel()
+        self.lbl_guess.setWordWrap(True)
+        self.lbl_guess.setStyleSheet(f"color: {theme.ACCENT};")
+        self.btn_guess = QPushButton(tr("Passendes Feld anlegen"))
+        self.btn_guess.setToolTip(tr("Legt das Feld für diese Art an, z. B. einen QR-Code mit Art Visitenkarte – die "
+                                     "Spalten werden automatisch zugeordnet"))
+        self.btn_guess.setEnabled(False)
+        self.btn_guess.clicked.connect(self._use_guess)
+        row_g.addWidget(self.lbl_guess, 1)
+        row_g.addWidget(self.btn_guess)
         self._field(v, tr("CSV-Datei (Tabelle)"), tr("Eine Zeile = eine Kopie. Die erste Zeile enthält die "
                                                      "Spaltennamen. Aus Excel/LibreOffice: „Speichern unter → CSV“. "
                                                      "Ohne CSV werden nur Nummern erzeugt."), row)
+        v.addLayout(row_g)
         self.cmb_order = QComboBox()
         fill_combo(self.cmb_order, [
             ("each", tr("Jede Seite bekommt den nächsten Datensatz")),
@@ -547,12 +568,32 @@ class VdpDialog(QDialog):
         self.chk_quiet.setEnabled(f.kind in ("qr", "code128"))
         t = (f.qr_type or "text") if qr else "text"
         self.ed_content.setEnabled(t == "text")
+        self.btn_map.setEnabled(t != "text")
         if t != "text":
-            k = datakinds.get(t)
-            self.lbl_qrcols.setText(tr("Inhalt kommt aus den Spalten: {0}").format(
-                ", ".join(c.key + ("*" if c.required else "") for c in k.cols)))
+            from .mapdialog import summary
+            self.lbl_qrcols.setText(summary(t, self.cols, f.qr_map))
         else:
             self.lbl_qrcols.setText("")
+
+    def _map_columns(self):
+        """Spalten der CSV den Angaben des QR-Codes zuordnen (eigene Wahl landet im Feld bzw. Preset)."""
+        i = self._sel()
+        if not (0 <= i < len(self.fields)) or self.fields[i].kind != "qr" or (self.fields[i].qr_type or "text") == "text":
+            return
+        f = self.fields[i]
+        if not self.cols:
+            QMessageBox.information(self, tr("Spalten zuordnen"), tr("Zuerst unter 2. eine CSV-Datei öffnen."))
+            return
+        from .mapdialog import MapDialog
+        dlg = MapDialog(self, f.qr_type, self.cols, f.qr_map, self._sample)
+        if dlg.exec():
+            self.set_qr_map(i, dlg.result_mapping())
+
+    def set_qr_map(self, i: int, mapping: dict):
+        if 0 <= i < len(self.fields):
+            self.fields[i].qr_map = dict(mapping or {})
+            self._qr_widgets(self.fields[i])
+            self._timer.start()
 
     def _qrtype_changed(self, _i):
         if self._loading:
@@ -638,19 +679,37 @@ class VdpDialog(QDialog):
         p = self.ed_csv.text() if path is None else path
         p = p.strip() if isinstance(p, str) else ""
         self.cols = []
+        self._sample = {}
         if p and not os.path.isfile(p):
             QMessageBox.warning(self, tr("CSV"), tr("Datei nicht gefunden: {0}").format(p))
             p = ""
         if p:
             try:
                 self.cols, _recs = vdp.read_csv(p)
+                self._sample = dict(_recs[0]) if _recs else {}
             except Exception as e:
                 QMessageBox.warning(self, tr("CSV"), str(e))
         self._csv = os.path.abspath(p) if p else ""
         self.lst_cols.clear()
         self.lst_cols.addItems(["nr", "i"] + self.cols)
         self.spn_count.setEnabled(not p)
+        self._guess = datakinds.guess_kind(self.cols) if self.cols else "text"
+        if self.cols and self._guess != "text":
+            self.lbl_guess.setText(tr("Die Tabelle passt zu: {0}").format(datakinds.get(self._guess).title))
+            self.btn_guess.setEnabled(True)
+        else:
+            self.lbl_guess.setText(tr("Art der Tabelle nicht erkannt – Felder selbst anlegen oder beim QR-Feld die "
+                                      "Art wählen und „Spalten zuordnen …“.") if self.cols else "")
+            self.btn_guess.setEnabled(False)
+        i = self._sel()
+        if 0 <= i < len(self.fields):
+            self._qr_widgets(self.fields[i])
         self._timer.start()
+
+    def _use_guess(self):
+        """Passendes Feld für die erkannte Art anlegen (z. B. QR-Code mit Art Visitenkarte)."""
+        if self._csv and self._guess != "text":
+            self.use_data(self._csv, self._guess)
 
     def _page_mm(self):
         w, h = self.doc.get_page_size(self.page)

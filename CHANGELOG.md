@@ -1,5 +1,18 @@
 # Änderungen – Passermark
 
+## 1.10.1
+- **Eigene CSV mit anderen Spaltennamen direkt verwenden:** Variable Daten → CSV öffnen erkennt, wozu die Tabelle
+  passt („Die Tabelle passt zu: QR – Visitenkarte“), **Passendes Feld anlegen** legt den QR-Code mit dieser Art an.
+  Die Spalten werden automatisch zugeordnet – auch englische, ungarische, spanische, französische Namen und die
+  Kopfzeilen der Kontakt-Exporte von **Outlook, Google und Thunderbird**. Die CSV bleibt unverändert
+- **Spalten zuordnen …** beim QR-Feld mit Art: je Angabe die Spalte wählen, „leer lassen“ oder automatisch; mit
+  Vorschau des fertigen Inhalts. Unter der Art steht, was woher kommt und was fehlt. Die Zuordnung wird im Preset
+  gespeichert (`qr_map`) und gilt auch auf der Kommandozeile
+- Daten erfassen: eine fremd benannte CSV bekommt keine doppelten Spalten mehr; die Kopfzeile zeigt die Zuordnung
+  („First Name → Vorname“). `datencheck` erkennt fremde Spaltennamen ebenso
+- Beispielordner: `kontakte-outlook.csv` (so sieht ein Outlook-Export aus); Anleitung um „Eigene CSV mit anderen
+  Spaltennamen“ ergänzt
+
 ## 1.10.0
 - **Daten erfassen** (Arbeitsbereich Variable Daten, Menü Dokument-Manipulation, oder im Dialog Variable Daten
   unter 2.): die Datentabelle direkt in Passermark anlegen. Je Art die passenden Spalten – **QR-Visitenkarte

@@ -141,8 +141,14 @@ class DataDialog(QDialog):
             self.cols = datakinds.columns(kind)
             self.rows = [{c: "" for c in self.cols} for _ in range(5)]
         else:
+            # nur Spalten ergänzen, für die es keine (auch keine fremd benannte) Entsprechung gibt
+            m = datakinds.auto_map(kind, self.cols) if not k.free_cols else {}
             low = {c.lower() for c in self.cols}
-            self.cols += [c for c in datakinds.columns(kind) if c.lower() not in low]
+            add = [c for c in datakinds.columns(kind) if c.lower() not in low and not m.get(c)]
+            self.cols += add
+            for r in self.rows:
+                for c in add:
+                    r.setdefault(c, "")
         self.lbl_help.setText(k.help + "  " + tr("Pflichtspalten sind mit * markiert; Erklärung beim Zeigen auf die "
                                                  "Spaltenüberschrift."))
         self._render()
@@ -236,12 +242,16 @@ class DataDialog(QDialog):
     def _render(self):
         self._sync = True
         try:
-            req = {c.key.lower(): c for c in datakinds.get(self.kind).cols}
+            kd = datakinds.get(self.kind)
+            req = {c.key.lower(): c for c in kd.cols}
+            rev = {} if kd.free_cols else {v: k for k, v in datakinds.auto_map(self.kind, self.cols).items() if v}
             self.tbl.setColumnCount(len(self.cols))
             self.tbl.setRowCount(len(self.rows))
             for j, c in enumerate(self.cols):
-                spec = req.get(c.lower())
-                it = QTableWidgetItem(c + (" *" if spec is not None and spec.required else ""))
+                target = rev.get(c, "")
+                spec = req.get(c.lower()) or req.get(target.lower())
+                head = c if not target or target.lower() == c.lower() else f"{c} → {target}"
+                it = QTableWidgetItem(head + (" *" if spec is not None and spec.required else ""))
                 if spec is not None and spec.hint:
                     it.setToolTip(spec.hint + (f"\n{tr('Beispiel')}: {spec.example}" if spec.example else ""))
                 self.tbl.setHorizontalHeaderItem(j, it)

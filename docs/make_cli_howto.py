@@ -8,6 +8,8 @@ Bei jeder neuen Version neu erzeugen; die Fallbeispiele werden in tests/test_cli
 Benötigt reportlab und die Schriften DejaVu Sans / DejaVu Sans Mono.
 """
 import os
+
+os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
 import sys
 
 from reportlab.lib import colors
@@ -382,6 +384,8 @@ def build():
         [c("fields[].qr_type"), c("text"), "QR-Feld: " + c("vcard") + ", " + c("wifi") + ", " + c("email") + ", "
          + c("url") + ", " + c("phone") + ", " + c("sms") + ", " + c("event") + ", " + c("geo")
          + " – Inhalt aus den Tabellenspalten (im Preset; im Programm „Art des QR-Codes“)"],
+        [c("fields[].qr_map"), "{}", "Zuordnung Angabe → CSV-Spalte, z. B. " + c('{"Position": "Title"}')
+         + "; " + c("-") + " = leer lassen; nicht genannte werden automatisch erkannt (auch Outlook-/Google-Exporte)"],
     ], [47 * mm, 20 * mm, W - 67 * mm]))
     s.append(Spacer(1, 4))
     s.append(P("Fertige Beispiele mit Vorlage, CSV und Presets (QR-Code, Code 128, EAN-13) holt "

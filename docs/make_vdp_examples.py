@@ -8,6 +8,8 @@ Die Presets verweisen relativ auf daten.csv; „Beispiele holen“ (Programm bzw
 Ordner zum Benutzer und trägt die Presets mit vollem Pfad ein.
 """
 import os
+
+os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
 import shutil
 import sys
 
@@ -36,6 +38,14 @@ WLAN = ("Netzname;Passwort;Verschlüsselung;Versteckt\n"
         "Huber-Gaeste;Sommer2026!;WPA;\n"
         "Huber-Werkstatt;Druck-3x;WPA;\n"
         "Huber-Cafe;;keine;\n")
+
+# so sieht ein Kontakt-Export aus Outlook aus (englische Kopfzeilen, Komma) – Passermark ordnet die Spalten zu
+OUTLOOK = ("Title,First Name,Middle Name,Last Name,Company,Job Title,Business Street,Business City,"
+           "Business Postal Code,Business Country/Region,Business Phone,Mobile Phone,E-mail Address,Web Page,Notes\n"
+           "Mag.,Anna,,Huber,Druckerei Huber,Geschäftsführerin,Hauptplatz 1,Graz,8010,Österreich,+43 316 123456,"
+           "+43 660 1234567,anna@huber.at,https://huber.at,\n"
+           ",Bernd,,Gruber,Druckerei Huber,Druckvorstufe,Hauptplatz 1,Graz,8010,Österreich,+43 316 123457,,"
+           "bernd@huber.at,https://huber.at,\n")
 
 
 def T(content, x, y, w=60, h=8, size=12):
@@ -92,7 +102,8 @@ def main():
     c.drawString(10 * mm, h - 15 * mm, "Beispiel-Vorlage (Passermark VDP)")
     c.showPage()
     c.save()
-    for name, text in (("daten.csv", CSV), ("visitenkarten.csv", VCARDS), ("wlan.csv", WLAN)):
+    for name, text in (("daten.csv", CSV), ("visitenkarten.csv", VCARDS), ("wlan.csv", WLAN),
+                       ("kontakte-outlook.csv", OUTLOOK)):
         with open(os.path.join(out, name), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
     assert sorted(SETTINGS) == sorted(k for k, _ in EXAMPLES)
