@@ -1,5 +1,10 @@
 # Änderungen – Passermark
 
+## 1.10.4
+- README zweisprachig: `README.md` (Englisch) und `README.de.md` (Deutsch), auf aktuellem Stand (Seiten teilen,
+  Variable Daten, Daten erfassen, alle Aufträge der Kommandozeile) und mit einem Hinweis zum Projektstatus
+- Beispiel-Konfiguration `data/defaults.example.json` mit neutralen Druckernamen
+
 ## 1.10.3
 - **Seiten teilen per Rechtsklick:** Seiten in der Seitenleiste markieren → Rechtsklick → **Teilen** →
   „Senkrecht halbieren“ / „Waagrecht halbieren“ – sofort, nur die markierten Seiten, keine Vergleichsseite nötig.
