@@ -1304,4 +1304,11 @@ MESSAGES = {
     "leer = jedes Mal ab der ersten Nummer": "vacío = siempre desde el primer número",
     "oben": "arriba",
     "Datei nicht gefunden: {0}": "Archivo no encontrado: {0}",
+    "Anzahl Datensätze (nur ohne CSV)": "Número de registros (solo sin CSV)",
+    "Je Datensatz eine Kopie des ganzen Dokuments": "Una copia de todo el documento por registro",
+    "Je Datensatz eine Kopie – sortiert Seite für Seite": "Una copia por registro, ordenada página a página",
+    "Jede Seite bekommt den nächsten Datensatz": "Cada página recibe el siguiente registro",
+    "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "Cuántos números se generan, p. ej. 500 para 500 entradas numeradas. Al principio figura aquí el número de páginas del documento.",
+    "Wie werden die Datensätze verteilt?": "¿Cómo se reparten los registros?",
+    "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "«Cada página …»: la página 1 recibe el registro 1, la 2 el 2, etc.; con plantilla de una página sale una página por registro. «Copia de todo el documento»: todas las páginas con el mismo registro y luego todas con el siguiente (p. ej. anverso y reverso de una tarjeta).",
 }

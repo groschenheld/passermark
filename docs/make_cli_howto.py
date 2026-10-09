@@ -370,7 +370,8 @@ def build():
         [c("numbering.check"), c("none"), c("luhn") + ", " + c("ean") + ", " + c("mod11") + " – Prüfziffer anhängen"],
         [c("numbering.continue_key"), "–", "Zählername: der nächste Auftrag zählt dort weiter"],
         [c("reverse"), c("false"), "rückwärts (Abreißblock: oberstes Blatt höchste Nummer)"],
-        [c("order"), c("record"), c("record") + " = je Datensatz alle Seiten, " + c("page") + " = je Seite alle Datensätze"],
+        [c("order"), c("each"), c("each") + " = jede Seite der nächste Datensatz (einseitige Vorlage: je Datensatz eine "
+         "Seite), " + c("record") + " = je Datensatz alle Seiten, " + c("page") + " = wie record, Seite für Seite"],
         [c("log_path"), "–", "Code-Protokoll als CSV (Ausgabeseite, Datensatz, Werte)"],
         [c("placeholders"), c("false"), c("{{…}}") + " im PDF als Feldposition übernehmen, Platzhaltertext entfernen"],
     ], [47 * mm, 20 * mm, W - 67 * mm]))

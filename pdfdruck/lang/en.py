@@ -1304,4 +1304,11 @@ MESSAGES = {
     "leer = jedes Mal ab der ersten Nummer": "empty = from the first number every time",
     "oben": "top",
     "Datei nicht gefunden: {0}": "File not found: {0}",
+    "Anzahl Datensätze (nur ohne CSV)": "Number of records (without CSV only)",
+    "Je Datensatz eine Kopie des ganzen Dokuments": "One copy of the whole document per record",
+    "Je Datensatz eine Kopie – sortiert Seite für Seite": "One copy per record – sorted page by page",
+    "Jede Seite bekommt den nächsten Datensatz": "Each page gets the next record",
+    "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "How many numbers are produced – e.g. 500 for 500 numbered tickets. Initially this is the document’s page count.",
+    "Wie werden die Datensätze verteilt?": "How are the records distributed?",
+    "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "“Each page …”: page 1 gets record 1, page 2 record 2 and so on – a single-page template gives one page per record. “Copy of the whole document”: all pages with the same record, then all pages with the next one (e.g. front and back of a card).",
 }

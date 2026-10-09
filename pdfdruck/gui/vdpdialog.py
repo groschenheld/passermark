@@ -121,7 +121,7 @@ class VdpDialog(QDialog):
         self.spn_page = QSpinBox()
         self.spn_page.setRange(1, len(doc))
         self.spn_page.setValue(self.page + 1)
-        self.spn_page.valueChanged.connect(lambda v: (setattr(self, "page", v - 1), self._refresh()))
+        self.spn_page.valueChanged.connect(self._page_changed)
         nav.addWidget(self.spn_page)
         nav.addWidget(QLabel(tr("Datensatz:")))
         self.spn_rec = QSpinBox()
@@ -253,6 +253,16 @@ class VdpDialog(QDialog):
         self._field(v, tr("CSV-Datei (Tabelle)"), tr("Eine Zeile = eine Kopie. Die erste Zeile enthält die "
                                                      "Spaltennamen. Aus Excel/LibreOffice: „Speichern unter → CSV“. "
                                                      "Ohne CSV werden nur Nummern erzeugt."), row)
+        self.cmb_order = QComboBox()
+        fill_combo(self.cmb_order, [
+            ("each", tr("Jede Seite bekommt den nächsten Datensatz")),
+            ("record", tr("Je Datensatz eine Kopie des ganzen Dokuments")),
+            ("page", tr("Je Datensatz eine Kopie – sortiert Seite für Seite"))], "each")
+        self._field(v, tr("Wie werden die Datensätze verteilt?"),
+                    tr("„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen "
+                       "Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit "
+                       "demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer "
+                       "Karte)."), self.cmb_order)
         self.lst_cols = QListWidget()
         self.lst_cols.setMaximumHeight(80)
         self.lst_cols.itemDoubleClicked.connect(lambda it: self._insert("{{" + it.text() + "}}"))
@@ -260,9 +270,10 @@ class VdpDialog(QDialog):
                                                           "ein."), self.lst_cols)
         self.spn_count = QSpinBox()
         self.spn_count.setRange(1, vdp.MAX_RECORDS)
-        self.spn_count.setValue(10)
-        self._field(v, tr("Anzahl Kopien (nur ohne CSV)"), tr("Z. B. 500 für 500 nummerierte Tickets."),
-                    self.spn_count)
+        self.spn_count.setValue(len(doc) if len(doc) > 1 else 10)
+        self._field(v, tr("Anzahl Datensätze (nur ohne CSV)"),
+                    tr("Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier "
+                       "die Seitenzahl des Dokuments."), self.spn_count)
         self.ed_records = QLineEdit()
         self.ed_records.setPlaceholderText(tr("alle"))
         self._field(v, tr("Nur diese Datensätze"), tr("Leer = alle. Z. B. „1-50“ für einen Probedruck oder "
@@ -317,12 +328,6 @@ class VdpDialog(QDialog):
         # ---------------- 4. Ausgabe ----------------
         g = QGroupBox(tr("4. Ausgabe"))
         v = QVBoxLayout(g)
-        self.cmb_order = QComboBox()
-        fill_combo(self.cmb_order, [("record", tr("Kopie für Kopie (1. Datensatz alle Seiten, dann der 2. …)")),
-                                    ("page", tr("Seite für Seite (alle Vorderseiten, dann alle Rückseiten)"))],
-                   "record")
-        self._field(v, tr("Reihenfolge bei mehrseitigen Vorlagen"), tr("Bei einseitigen Vorlagen egal."),
-                    self.cmb_order)
         row = QHBoxLayout()
         self.chk_log = QCheckBox(tr("Protokoll schreiben:"))
         self.ed_log = QLineEdit()
@@ -396,7 +401,7 @@ class VdpDialog(QDialog):
 
     def _reset(self):
         self._load_settings(vdp.VdpSettings(fields=[asdict(vdp.VdpField())], numbering=vdp.Numbering()))
-        self.spn_count.setValue(10)
+        self.spn_count.setValue(len(self.doc) if len(self.doc) > 1 else 10)
         self._remember(None)
 
     def _remember(self, s):
@@ -471,6 +476,15 @@ class VdpDialog(QDialog):
             self._loading = False
         self.canvas.sel = i
         self.canvas.update()
+
+    def _page_changed(self, v):
+        self.page = v - 1
+        if (self.cmb_order.currentData() or "each") == "each":      # Seite n zeigt Datensatz n
+            self.spn_rec.blockSignals(True)
+            self.spn_rec.setMaximum(max(self.spn_rec.maximum(), v))
+            self.spn_rec.setValue(v)
+            self.spn_rec.blockSignals(False)
+        self._refresh()
 
     def _moved(self, i, x, y):
         if i == self._sel():
@@ -611,6 +625,14 @@ class VdpDialog(QDialog):
                                   else tr("Zähler „{0}“ ist neu – beginnt bei der ersten Nummer.").format(key))
         else:
             self.lbl_cont.setText("")
+        if (self.cmb_order.currentData() or "each") == "each":
+            # jede Seite ein Datensatz: der Datensatz bestimmt, welche Seite gezeigt wird
+            pg = (self.spn_rec.value() - 1) % len(self.doc)
+            if pg != self.page:
+                self.page = pg
+                self.spn_page.blockSignals(True)
+                self.spn_page.setValue(pg + 1)
+                self.spn_page.blockSignals(False)
         W, H = self._page_mm()
         self.canvas.page_mm = (W, H)
         self.canvas.fields = self.fields

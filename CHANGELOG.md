@@ -1,5 +1,14 @@
 # Änderungen – Passermark
 
+## 1.9.3
+- **Behoben: Variable Daten setzten auf jede Seite dieselben Werte** (Nummer 1, gleicher Name, {{i}} = 1) – ein
+  Datensatz galt immer für eine Kopie des *ganzen* Dokuments. Neu und Standard: **jede Seite bekommt den nächsten
+  Datensatz** (Seite 1 → Datensatz 1, Seite 2 → 2 …; bei einseitiger Vorlage je Datensatz eine Seite). Die
+  bisherige Verteilung gibt es weiter als „Je Datensatz eine Kopie des ganzen Dokuments“ (z. B. Vorder- und
+  Rückseite einer Karte). Die Wahl steht jetzt als erste Frage unter „2. Woher kommen die Daten?“
+- Ohne CSV ist die Anzahl am Anfang die Seitenzahl des Dokuments; Seite und Datensatz in der Vorschau sind
+  gekoppelt (Seite 3 zeigt Datensatz 3)
+
 ## 1.9.2
 - **Variable Daten verständlicher:** jede Einstellung mit Überschrift und kurzer Erklärung darüber, Gruppen in
   der Reihenfolge der Arbeit (1. Felder, 2. Daten, 3. Nummerierung, 4. Ausgabe), Kurzanleitung oben; Lage/Größe,

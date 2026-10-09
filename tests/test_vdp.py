@@ -45,7 +45,7 @@ def test_csv_autodetect():
 
 
 def test_build_overlays_are_separate_per_copy():
-    s = vdp.VdpSettings(csv_path=CSV, log_path=os.path.join(TMP, "log.csv"), fields=[
+    s = vdp.VdpSettings(csv_path=CSV, order="record", log_path=os.path.join(TMP, "log.csv"), fields=[
         dict(kind="text", content="{{Name}} – {{Ort}} #{{nr}}", x_mm=20, y_mm=20, w_mm=150, h_mm=12, pages="1"),
         dict(kind="qr", content="https://x.at/{{i}}", x_mm=20, y_mm=40, w_mm=30, h_mm=30),
         dict(kind="code128", content="T{{nr}}", x_mm=60, y_mm=40, w_mm=15, h_mm=60, rotate=90),
@@ -61,6 +61,22 @@ def test_build_overlays_are_separate_per_copy():
     assert "Béla Kovács – Győr #A000083" in t2
     rows = list(csv.reader(open(s.log_path, encoding="utf-8-sig"), delimiter=";"))
     assert len(rows) == 7 and rows[3][3].startswith("Béla")
+
+
+def test_each_page_gets_next_record():
+    """Gemeldet: auf jeder Seite stand 1 bzw. derselbe Name. Standard jetzt: Seite 1 -> Datensatz 1, Seite 2 -> 2 …"""
+    out = os.path.join(TMP, "each.pdf")
+    data, info = vdp.build(SAMPLE, vdp.VdpSettings(count=7, fields=[dict(content="Nr {{nr}} i{{i}}")]))
+    open(out, "wb").write(data)
+    assert info["pages"] == 7 and all(f"Nr {k + 1} i{k + 1}" in _text(out, k) for k in range(7))
+    data, info = vdp.build(SAMPLE, vdp.VdpSettings(csv_path=CSV, fields=[dict(content="{{Name}}")]))
+    open(out, "wb").write(data)
+    assert info["pages"] == 3 and "Anna" in _text(out, 0) and "Béla" in _text(out, 1) and "Zoë" in _text(out, 2)
+    # einseitige Vorlage: reihum dieselbe Seite -> 5 Seiten mit 1…5
+    data, info = vdp.build(SAMPLE, vdp.VdpSettings(count=5, fields=[dict(content="T{{nr}}")]), pages=[0])
+    open(out, "wb").write(data)
+    assert info["pages"] == 5 and "T5" in _text(out, 4) and "1" in _text(out, 4)
+    assert vdp.page_for_record(vdp.VdpSettings(), 9, 7) == 2
 
 
 def test_order_reverse_count_and_continue():

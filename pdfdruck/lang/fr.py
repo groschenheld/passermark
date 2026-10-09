@@ -1304,4 +1304,11 @@ MESSAGES = {
     "leer = jedes Mal ab der ersten Nummer": "vide = à chaque fois depuis le premier numéro",
     "oben": "haut",
     "Datei nicht gefunden: {0}": "Fichier introuvable : {0}",
+    "Anzahl Datensätze (nur ohne CSV)": "Nombre d’enregistrements (sans CSV uniquement)",
+    "Je Datensatz eine Kopie des ganzen Dokuments": "Un exemplaire du document entier par enregistrement",
+    "Je Datensatz eine Kopie – sortiert Seite für Seite": "Un exemplaire par enregistrement – trié page par page",
+    "Jede Seite bekommt den nächsten Datensatz": "Chaque page reçoit l’enregistrement suivant",
+    "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "Combien de numéros sont produits – p. ex. 500 pour 500 billets numérotés. Au départ, c’est le nombre de pages du document.",
+    "Wie werden die Datensätze verteilt?": "Comment les enregistrements sont-ils répartis ?",
+    "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "« Chaque page … » : la page 1 reçoit l’enregistrement 1, la page 2 le 2, etc. – un modèle d’une page donne une page par enregistrement. « Exemplaire du document entier » : toutes les pages avec le même enregistrement, puis toutes avec le suivant (p. ex. recto et verso d’une carte).",
 }

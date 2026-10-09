@@ -64,7 +64,8 @@ class VdpSettings:
     records: str = ""             # nur diese Datensätze, z. B. "1-50" (leer = alle)
     count: int = 1                # ohne CSV: so viele Kopien
     numbering: Numbering = field(default_factory=Numbering)
-    order: str = "record"         # record = je Datensatz alle Seiten | page = je Seite alle Datensätze
+    order: str = "each"           # each = jede Seite der nächste Datensatz (Seiten der Vorlage reihum) |
+                                  # record = je Datensatz eine Kopie aller Seiten | page = wie record, Seite für Seite
     reverse: bool = False         # rückwärts (Abreißstapel: oberstes Blatt hat die höchste Nummer)
     log_path: str = ""            # Code-Protokoll als CSV (leer = keins)
     placeholders: bool = False    # {{…}} im PDF als Feldposition übernehmen
@@ -451,8 +452,12 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     tpl = [p for p in (pages if pages else range(npages)) if 0 <= p < npages]
     if not tpl:
         raise ValueError(tr("Keine Seiten ausgewählt."))
-    seq = ([(r, p) for r in range(len(recs)) for p in tpl] if s.order != "page"
-           else [(r, p) for p in tpl for r in range(len(recs))])
+    if s.order == "each":                              # Seite 1 -> Datensatz 1, Seite 2 -> Datensatz 2 … (reihum)
+        seq = [(r, tpl[r % len(tpl)]) for r in range(len(recs))]
+    elif s.order == "page":
+        seq = [(r, p) for p in tpl for r in range(len(recs))]
+    else:
+        seq = [(r, p) for r in range(len(recs)) for p in tpl]
     # 1) alle Überlagerungen in einem PDF (eine Seite je Ausgabeseite)
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
@@ -516,6 +521,11 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         _save_counter(nb.continue_key, last + nb.step)
     info = {"records": len(recs), "pages": len(seq), "placeholders_removed": removed, "columns": cols}
     return data.getvalue(), info
+
+
+def page_for_record(s: VdpSettings, record: int, npages: int) -> int:
+    """Welche Vorlagenseite zeigt Datensatz record? (nur bei order == "each" festgelegt)"""
+    return record % max(1, npages) if s.order == "each" else -1
 
 
 def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
