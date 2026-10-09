@@ -142,75 +142,23 @@ class VdpDialog(QDialog):
         from .presetbar import PresetBar
         self.presetbar = PresetBar(self, "vdp", self._settings, self._load_settings)
         right.addWidget(self.presetbar)
+        btn_reset = QPushButton(tr("Alles zurücksetzen"))
+        btn_reset.setToolTip(tr("Felder, Datenquelle und Nummerierung auf den Anfang: ein Textfeld mit der Nummer"))
+        btn_reset.clicked.connect(self._reset)
+        right.addWidget(btn_reset)
+        intro = QLabel(tr("So geht’s: 1. Felder anlegen und in der Vorschau an ihren Platz ziehen. 2. Festlegen, was "
+                          "drinsteht – eine Nummer, eine Spalte aus einer CSV-Datei oder fester Text. 3. Mit "
+                          "„Datensatz“ unter der Vorschau durchblättern. 4. Erzeugen: für jeden Datensatz eine Kopie "
+                          "der Seite(n)."))
+        intro.setWordWrap(True)
+        intro.setStyleSheet(f"color: {theme.MUTED};")
+        right.addWidget(intro)
 
-        # Datenquelle
-        g = QGroupBox(tr("Daten"))
-        f = QFormLayout(g)
-        row = QHBoxLayout()
-        self.ed_csv = QLineEdit()
-        self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
-        self.ed_csv.editingFinished.connect(self._csv_changed)
-        b = QPushButton(tr("CSV öffnen …"))
-        b.clicked.connect(self._pick_csv)
-        row.addWidget(self.ed_csv, 1)
-        row.addWidget(b)
-        f.addRow(tr("CSV-Datei:"), row)
-        self.lst_cols = QListWidget()
-        self.lst_cols.setMaximumHeight(70)
-        self.lst_cols.setToolTip(tr("Doppelklick fügt {{Spalte}} in den Inhalt des gewählten Feldes ein"))
-        self.lst_cols.itemDoubleClicked.connect(lambda it: self._insert("{{" + it.text() + "}}"))
-        f.addRow(tr("Spalten:"), self.lst_cols)
-        self.spn_count = QSpinBox()
-        self.spn_count.setRange(1, vdp.MAX_RECORDS)
-        self.spn_count.setValue(10)
-        self.spn_count.setToolTip(tr("Ohne CSV: so viele Kopien (z. B. nummerierte Tickets)"))
-        f.addRow(tr("Anzahl ohne CSV:"), self.spn_count)
-        self.ed_records = QLineEdit()
-        self.ed_records.setPlaceholderText(tr("alle – oder z. B. 1-50"))
-        f.addRow(tr("Datensätze:"), self.ed_records)
-        self.cmb_order = QComboBox()
-        fill_combo(self.cmb_order, [("record", tr("Je Datensatz alle Seiten")), ("page", tr("Je Seite alle Datensätze"))],
-                   "record")
-        f.addRow(tr("Reihenfolge:"), self.cmb_order)
-        self.chk_rev = QCheckBox(tr("Rückwärts (Abreißblock: oberstes Blatt hat die höchste Nummer)"))
-        f.addRow(self.chk_rev)
-        right.addWidget(g)
-
-        # Nummerierung
-        g = QGroupBox(tr("Nummerierung {{nr}}"))
-        f = QFormLayout(g)
-        row = QHBoxLayout()
-        self.spn_start, self.spn_step, self.spn_digits = QSpinBox(), QSpinBox(), QSpinBox()
-        self.spn_start.setRange(-10 ** 9, 10 ** 9)
-        self.spn_start.setValue(1)
-        self.spn_step.setRange(-1000, 1000)
-        self.spn_step.setValue(1)
-        self.spn_digits.setRange(0, 20)
-        for w_, lab in ((self.spn_start, tr("Start")), (self.spn_step, tr("Schritt")), (self.spn_digits, tr("Stellen"))):
-            w_.setToolTip(lab)
-            row.addWidget(QLabel(lab))
-            row.addWidget(w_)
-        f.addRow(row)
-        row = QHBoxLayout()
-        self.ed_prefix, self.ed_suffix = QLineEdit(), QLineEdit()
-        self.ed_prefix.setPlaceholderText(tr("Vorsatz"))
-        self.ed_suffix.setPlaceholderText(tr("Nachsatz"))
-        self.cmb_check = QComboBox()
-        fill_combo(self.cmb_check, [("none", tr("keine Prüfziffer")), ("luhn", tr("Prüfziffer Luhn (Mod 10)")),
-                                    ("ean", tr("Prüfziffer GS1/EAN")), ("mod11", tr("Prüfziffer Mod 11"))], "none")
-        row.addWidget(self.ed_prefix)
-        row.addWidget(self.ed_suffix)
-        row.addWidget(self.cmb_check)
-        f.addRow(row)
-        self.ed_cont = QLineEdit()
-        self.ed_cont.setPlaceholderText(tr("Zählername, z. B. Tickets – leer = jedes Mal ab Start"))
-        self.ed_cont.setToolTip(tr("Mit Namen: der nächste Auftrag zählt dort weiter, wo dieser aufgehört hat"))
-        f.addRow(tr("Weiterzählen:"), self.ed_cont)
-        right.addWidget(g)
-
-        # Felder
-        g = QGroupBox(tr("Felder"))
+        # ---------------- 1. Felder ----------------
+        g = QGroupBox(tr("1. Felder auf der Seite"))
         v = QVBoxLayout(g)
+        self._help(v, tr("Jedes Feld ist ein Kasten auf der Seite. In der Vorschau anklicken zum Auswählen, ziehen "
+                         "zum Verschieben."))
         self.lst = QListWidget()
         self.lst.setMaximumHeight(110)
         self.lst.currentRowChanged.connect(self._select)
@@ -218,30 +166,39 @@ class VdpDialog(QDialog):
         row = QHBoxLayout()
         for kind in vdp.KINDS:
             b = QPushButton("+ " + kind_text(kind))
+            b.setToolTip({"text": tr("Text oder Nummer"), "qr": tr("QR-Code (z. B. Webadresse, Ticketnummer)"),
+                          "code128": tr("Strichcode für Buchstaben und Ziffern"),
+                          "ean13": tr("Artikelnummer-Strichcode, genau 12 oder 13 Ziffern")}[kind])
             b.clicked.connect(lambda _c=False, k=kind: self._add(k))
             row.addWidget(b)
-        b = QPushButton(tr("Löschen"))
+        b = QPushButton(tr("Feld löschen"))
         b.clicked.connect(self._delete)
         row.addWidget(b)
         v.addLayout(row)
-        self.chk_ph = QCheckBox(tr("Platzhalter {{…}} aus dem PDF als Textfelder übernehmen"))
-        self.chk_ph.setToolTip(tr("Steht in der Vorlage z. B. {{Name}}, wird dort der Wert eingesetzt und der "
-                                  "Platzhaltertext entfernt."))
-        v.addWidget(self.chk_ph)
-        ff = QFormLayout()
+
         self.ed_content = QLineEdit()
-        self.ed_content.setPlaceholderText("{{nr}}  ·  {{Spalte}}  ·  {{i}}")
-        ff.addRow(tr("Inhalt:"), self.ed_content)
+        self.ed_content.setPlaceholderText("{{nr}}")
+        self._field(v, tr("Inhalt des gewählten Feldes"),
+                    tr("Fester Text und Platzhalter gemischt, z. B. „Ticket {{nr}}“. {{nr}} = Nummer (siehe 3.), "
+                       "{{i}} = 1, 2, 3 …, {{Spaltenname}} = Wert aus der CSV (Doppelklick in der Spaltenliste fügt "
+                       "ihn ein)."), self.ed_content)
         row = QHBoxLayout()
         self.spn_x, self.spn_y, self.spn_w, self.spn_h = (QDoubleSpinBox() for _ in range(4))
-        for sp in (self.spn_x, self.spn_y, self.spn_w, self.spn_h):
+        for sp, lab in ((self.spn_x, tr("links")), (self.spn_y, tr("oben")), (self.spn_w, tr("Breite")),
+                        (self.spn_h, tr("Höhe"))):
             sp.setRange(-2000, 5000)
             sp.setDecimals(1)
             sp.setSuffix(" mm")
-            row.addWidget(sp)
+            col = QVBoxLayout()
+            l_ = QLabel(lab)
+            l_.setStyleSheet(f"color: {theme.MUTED};")
+            col.addWidget(l_)
+            col.addWidget(sp)
+            row.addLayout(col)
         self.spn_w.setMinimum(1)
         self.spn_h.setMinimum(1)
-        ff.addRow(tr("X, Y, B, H:"), row)
+        self._field(v, tr("Lage und Größe"), tr("Abstand von der linken oberen Seitenecke, dazu Breite und Höhe des "
+                                                "Kastens. Codes werden in den Kasten eingepasst."), row)
         row = QHBoxLayout()
         self.cmb_font = QComboBox()
         for fn in vdp.STD_FONTS:
@@ -253,43 +210,131 @@ class VdpDialog(QDialog):
         self.spn_size.setSuffix(" pt")
         self.btn_color = QPushButton()
         self.btn_color.setFixedWidth(40)
+        self.btn_color.setToolTip(tr("Farbe"))
         self.btn_color.clicked.connect(self._pick_color)
         self._color = "#000000"
         row.addWidget(self.cmb_font, 1)
         row.addWidget(self.spn_size)
         row.addWidget(self.btn_color)
-        ff.addRow(tr("Schrift:"), row)
+        self._field(v, tr("Schrift, Größe, Farbe"), tr("Nur für Textfelder; bei Strichcodes steuert die Größe die "
+                                                       "Klarschrift darunter (0 = keine)."), row)
         row = QHBoxLayout()
         self.cmb_align = QComboBox()
         fill_combo(self.cmb_align, [("left", tr("links")), ("center", tr("mittig")), ("right", tr("rechts"))], "left")
         self.cmb_rot = QComboBox()
         fill_combo(self.cmb_rot, [(0, "0°"), (90, "90°"), (180, "180°"), (270, "270°")], 0)
-        self.ed_pages = QLineEdit()
-        self.ed_pages.setPlaceholderText(tr("Seiten: alle"))
         row.addWidget(self.cmb_align)
         row.addWidget(self.cmb_rot)
-        row.addWidget(self.ed_pages)
-        ff.addRow(tr("Ausrichtung:"), row)
-        v.addLayout(ff)
+        self._field(v, tr("Ausrichtung und Drehung"), tr("Text links/mittig/rechts im Kasten; Drehung des Inhalts "
+                                                         "im Kasten (90° = von unten nach oben lesbar)."), row)
+        self.ed_pages = QLineEdit()
+        self.ed_pages.setPlaceholderText(tr("alle Seiten"))
+        self._field(v, tr("Nur auf diesen Seiten der Vorlage"), tr("Leer = auf jeder Seite. Z. B. „1“ oder „1,3-4“ – "
+                                                                    "praktisch bei Vorder- und Rückseite."), self.ed_pages)
+        self.chk_ph = QCheckBox(tr("Platzhalter {{…}} aus dem PDF als Textfelder übernehmen"))
+        self._field(v, "", tr("Steht in der Vorlage z. B. {{Name}}, wird dort der Wert eingesetzt und der "
+                              "Platzhaltertext entfernt – dann braucht es dafür kein eigenes Feld."), self.chk_ph)
         right.addWidget(g)
 
-        # Ausgabe
-        g = QGroupBox(tr("Ausgabe"))
-        f = QFormLayout(g)
+        # ---------------- 2. Daten ----------------
+        g = QGroupBox(tr("2. Woher kommen die Daten?"))
+        v = QVBoxLayout(g)
         row = QHBoxLayout()
-        self.chk_log = QCheckBox(tr("Code-Protokoll (CSV):"))
+        self.ed_csv = QLineEdit()
+        self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
+        self.ed_csv.editingFinished.connect(self._csv_changed)
+        b = QPushButton(tr("CSV öffnen …"))
+        b.clicked.connect(self._pick_csv)
+        b2 = QPushButton(tr("Entfernen"))
+        b2.clicked.connect(lambda: (self.ed_csv.clear(), self._csv_changed()))
+        row.addWidget(self.ed_csv, 1)
+        row.addWidget(b)
+        row.addWidget(b2)
+        self._field(v, tr("CSV-Datei (Tabelle)"), tr("Eine Zeile = eine Kopie. Die erste Zeile enthält die "
+                                                     "Spaltennamen. Aus Excel/LibreOffice: „Speichern unter → CSV“. "
+                                                     "Ohne CSV werden nur Nummern erzeugt."), row)
+        self.lst_cols = QListWidget()
+        self.lst_cols.setMaximumHeight(80)
+        self.lst_cols.itemDoubleClicked.connect(lambda it: self._insert("{{" + it.text() + "}}"))
+        self._field(v, tr("Platzhalter zum Einfügen"), tr("Doppelklick fügt ihn in den Inhalt des gewählten Feldes "
+                                                          "ein."), self.lst_cols)
+        self.spn_count = QSpinBox()
+        self.spn_count.setRange(1, vdp.MAX_RECORDS)
+        self.spn_count.setValue(10)
+        self._field(v, tr("Anzahl Kopien (nur ohne CSV)"), tr("Z. B. 500 für 500 nummerierte Tickets."),
+                    self.spn_count)
+        self.ed_records = QLineEdit()
+        self.ed_records.setPlaceholderText(tr("alle"))
+        self._field(v, tr("Nur diese Datensätze"), tr("Leer = alle. Z. B. „1-50“ für einen Probedruck oder "
+                                                      "„51-“ für den Rest."), self.ed_records)
+        right.addWidget(g)
+
+        # ---------------- 3. Nummerierung ----------------
+        g = QGroupBox(tr("3. Nummerierung – was {{nr}} ergibt"))
+        v = QVBoxLayout(g)
+        row = QHBoxLayout()
+        self.spn_start, self.spn_step, self.spn_digits = QSpinBox(), QSpinBox(), QSpinBox()
+        self.spn_start.setRange(-10 ** 9, 10 ** 9)
+        self.spn_start.setValue(1)
+        self.spn_step.setRange(-1000, 1000)
+        self.spn_step.setValue(1)
+        self.spn_digits.setRange(0, 20)
+        for w_, lab in ((self.spn_start, tr("erste Nummer")), (self.spn_step, tr("Schrittweite")),
+                        (self.spn_digits, tr("Stellen (mit Nullen)"))):
+            col = QVBoxLayout()
+            l_ = QLabel(lab)
+            l_.setStyleSheet(f"color: {theme.MUTED};")
+            col.addWidget(l_)
+            col.addWidget(w_)
+            row.addLayout(col)
+        self._field(v, tr("Zählen"), tr("Beispiel: erste Nummer 1, Schrittweite 1, Stellen 4 → 0001, 0002, 0003 …"),
+                    row)
+        row = QHBoxLayout()
+        self.ed_prefix, self.ed_suffix = QLineEdit(), QLineEdit()
+        self.ed_prefix.setPlaceholderText(tr("davor, z. B. A-"))
+        self.ed_suffix.setPlaceholderText(tr("danach, z. B. /26"))
+        row.addWidget(self.ed_prefix)
+        row.addWidget(self.ed_suffix)
+        self._field(v, tr("Text vor und nach der Nummer"), tr("Ergibt z. B. A-0001/26."), row)
+        self.cmb_check = QComboBox()
+        fill_combo(self.cmb_check, [("none", tr("keine Prüfziffer")), ("luhn", tr("Prüfziffer Luhn (Mod 10)")),
+                                    ("ean", tr("Prüfziffer GS1/EAN")), ("mod11", tr("Prüfziffer Mod 11"))], "none")
+        self._field(v, tr("Prüfziffer"), tr("Hängt eine berechnete Ziffer an, mit der sich Tippfehler erkennen "
+                                            "lassen. Für EAN-13 nicht nötig – die rechnet der Strichcode selbst."),
+                    self.cmb_check)
+        self.chk_rev = QCheckBox(tr("Rückwärts ausgeben"))
+        self._field(v, "", tr("Für Abreißblöcke: das oberste Blatt bekommt die höchste Nummer."), self.chk_rev)
+        self.ed_cont = QLineEdit()
+        self.ed_cont.setPlaceholderText(tr("leer = jedes Mal ab der ersten Nummer"))
+        self.lbl_cont = QLabel()
+        self.lbl_cont.setStyleSheet(f"color: {theme.ACCENT};")
+        self._field(v, tr("Beim nächsten Auftrag weiterzählen"),
+                    tr("Einen Namen eingeben (z. B. „Tickets“): Passermark merkt sich, wo dieser Auftrag aufhört, und "
+                       "der nächste Auftrag mit demselben Namen zählt dort weiter."), self.ed_cont)
+        v.addWidget(self.lbl_cont)
+        right.addWidget(g)
+
+        # ---------------- 4. Ausgabe ----------------
+        g = QGroupBox(tr("4. Ausgabe"))
+        v = QVBoxLayout(g)
+        self.cmb_order = QComboBox()
+        fill_combo(self.cmb_order, [("record", tr("Kopie für Kopie (1. Datensatz alle Seiten, dann der 2. …)")),
+                                    ("page", tr("Seite für Seite (alle Vorderseiten, dann alle Rückseiten)"))],
+                   "record")
+        self._field(v, tr("Reihenfolge bei mehrseitigen Vorlagen"), tr("Bei einseitigen Vorlagen egal."),
+                    self.cmb_order)
+        row = QHBoxLayout()
+        self.chk_log = QCheckBox(tr("Protokoll schreiben:"))
         self.ed_log = QLineEdit()
         b = QPushButton(tr("Speichern unter…"))
         b.clicked.connect(self._pick_log)
         row.addWidget(self.chk_log)
         row.addWidget(self.ed_log, 1)
         row.addWidget(b)
-        f.addRow(row)
-        note = QLabel(tr("Nutzen mit je eigenem Datensatz: das Ergebnis drucken → Weitere Optionen → Nutzen → "
-                         "„Je Nutzen die nächste Seite“."))
-        note.setWordWrap(True)
-        note.setStyleSheet(f"color: {theme.MUTED};")
-        f.addRow(note)
+        self._field(v, tr("Code-Protokoll (CSV)"), tr("Liste aller erzeugten Nummern und Codes je Seite – zum "
+                                                      "Nachweis oder Abgleich."), row)
+        self._help(v, tr("Mehrere verschiedene Karten auf einem Bogen: das Ergebnis drucken → Weitere Optionen → "
+                         "Nutzen → „Je Nutzen die nächste Seite“."))
         right.addWidget(g)
         right.addStretch()
         bb = QDialogButtonBox()
@@ -317,12 +362,8 @@ class VdpDialog(QDialog):
         for w_ in (self.chk_rev, self.chk_ph):
             w_.toggled.connect(self._field_changed)
 
-        last = None
-        from .. import presets
-        try:
-            last = presets.load_last("vdp")
-        except Exception:
-            last = None
+        sess = getattr(getattr(parent, "ctl", None), "session", None)
+        last = getattr(sess, "vdp_last", None) if sess is not None else None
         if last is not None and _fields_of(last):
             self._load_settings(last)
         else:
@@ -330,6 +371,40 @@ class VdpDialog(QDialog):
         self._paint_color()
 
     # -------------------------------------------------------------- #
+    def _help(self, layout, text):
+        lab = QLabel(text)
+        lab.setWordWrap(True)
+        lab.setStyleSheet(f"color: {theme.MUTED};")
+        layout.addWidget(lab)
+        return lab
+
+    def _field(self, layout, title, text, widget):
+        """Überschrift, kurze Erklärung, darunter das Eingabeelement."""
+        box = QVBoxLayout()
+        box.setSpacing(2)
+        if title:
+            t = QLabel(f"<b>{title}</b>")
+            box.addWidget(t)
+        if text:
+            self._help(box, text)
+        if isinstance(widget, QWidget):
+            box.addWidget(widget)
+        else:
+            box.addLayout(widget)
+        layout.addSpacing(6)
+        layout.addLayout(box)
+
+    def _reset(self):
+        self._load_settings(vdp.VdpSettings(fields=[asdict(vdp.VdpField())], numbering=vdp.Numbering()))
+        self.spn_count.setValue(10)
+        self._remember(None)
+
+    def _remember(self, s):
+        """Letzte Einstellungen nur für diese Programmsitzung merken (nach einem Neustart frisch)."""
+        sess = getattr(getattr(self.parent(), "ctl", None), "session", None)
+        if sess is not None:
+            sess.vdp_last = copy.deepcopy(s) if s is not None else None
+
     def _sel(self) -> int:
         return self.lst.currentRow()
 
@@ -347,7 +422,7 @@ class VdpDialog(QDialog):
     def _add(self, kind):
         W, H = self._page_mm()
         defaults = {"text": ("{{nr}}", 60, 10), "qr": ("{{nr}}", 25, 25), "code128": ("{{nr}}", 50, 15),
-                    "ean13": ("{{nr}}", 38, 22)}
+                    "ean13": ("4006381333931", 38, 22)}
         content, w, h = defaults[kind]
         n = len(self.fields)
         self.fields.append(vdp.VdpField(kind=kind, content=content, x_mm=min(10 + 5 * n, W - w), y_mm=min(10 + 5 * n, H - h),
@@ -465,8 +540,12 @@ class VdpDialog(QDialog):
             self.chk_log.setChecked(True)
 
     def _csv_changed(self):
-        p = self.ed_csv.text().strip()
+        p = self.ed_csv.text()
+        p = p.strip() if isinstance(p, str) else ""
         self.cols = []
+        if p and not os.path.isfile(p):
+            QMessageBox.warning(self, tr("CSV"), tr("Datei nicht gefunden: {0}").format(p))
+            p = ""
         if p:
             try:
                 self.cols, _recs = vdp.read_csv(p)
@@ -525,6 +604,13 @@ class VdpDialog(QDialog):
 
     def _refresh(self, *_):
         """Vorschau: aktuelle Seite mit dem gewählten Datensatz, echt erzeugt (wie beim Druck)."""
+        key = self.ed_cont.text().strip()
+        if key:
+            nxt = vdp.counter_state().get(key)
+            self.lbl_cont.setText(tr("Zähler „{0}“ steht bei {1}.").format(key, nxt) if nxt is not None
+                                  else tr("Zähler „{0}“ ist neu – beginnt bei der ersten Nummer.").format(key))
+        else:
+            self.lbl_cont.setText("")
         W, H = self._page_mm()
         self.canvas.page_mm = (W, H)
         self.canvas.fields = self.fields
@@ -564,8 +650,8 @@ class VdpDialog(QDialog):
         if not recs:
             QMessageBox.warning(self, tr("Variable Daten"), tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
             return
-        from .. import core, presets
-        presets.save_last("vdp", s)
+        from .. import core
+        self._remember(s)
         self.job = ("vdp", core.settings_to_dict(s), None)
         self.accept()
 

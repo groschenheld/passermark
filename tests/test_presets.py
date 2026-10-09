@@ -168,7 +168,7 @@ pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kin
 imp = pdlg._preset_settings()
 from pdfdruck.gui.vdpdialog import VdpDialog
 vd = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
-vd._add("qr"); vd._add("ean13"); vd._select(0); vd._delete(); vd._refresh()
+vd._add("qr"); vd._add("ean13"); vd._select(0); vd._delete(); vd._refresh(); n_before = len(vd.fields); vd._reset(); vd._add("qr"); vd._add("ean13")
 assert len(vd.fields) >= 2 and vd.fields[-1].kind == "ean13"      # Qt-Ersatz: Löschen ohne echte Auswahl
 w._open_presets_dir()
 from pdfdruck.gui.customsizes import CustomSizesDialog

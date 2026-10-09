@@ -107,6 +107,8 @@ def format_number(n: int, nb: Numbering) -> str:
 # Datenquelle
 # --------------------------------------------------------------------------- #
 def read_csv(path: str, delimiter: str = "", encoding: str = "") -> tuple[list[str], list[dict]]:
+    if not isinstance(path, str) or not os.path.isfile(path):
+        raise FileNotFoundError(tr("Datei nicht gefunden: {0}").format(path))
     with open(path, "rb") as f:
         raw = f.read()
     if encoding:

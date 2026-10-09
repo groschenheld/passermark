@@ -1,5 +1,15 @@
 # Änderungen – Passermark
 
+## 1.9.2
+- **Variable Daten verständlicher:** jede Einstellung mit Überschrift und kurzer Erklärung darüber, Gruppen in
+  der Reihenfolge der Arbeit (1. Felder, 2. Daten, 3. Nummerierung, 4. Ausgabe), Kurzanleitung oben; Lage/Größe,
+  Zählen mit beschrifteten Einzelfeldern (links, oben, Breite, Höhe – erste Nummer, Schrittweite, Stellen);
+  Anzeige, wo ein Zähler zum Weiterzählen gerade steht; CSV „Entfernen“
+- **Alles zurücksetzen** (Knopf oben): ein Textfeld mit der Nummer, keine CSV, Nummerierung ab 1
+- Variable Daten merken sich die letzten Einstellungen nur noch bis zum Programmende – nach einem Neustart
+  beginnt der Dialog frisch. Dauerhaft behalten: als Preset speichern
+- Neues EAN-13-Feld startet mit einer gültigen Beispielnummer statt mit {{nr}}
+
 ## 1.9.1
 - **Fenster mit vielen Optionen werden nicht mehr abgeschnitten:** Variable Daten, CutContour, Objekte trennen und
   der Druckdialog haben zwischen Vorschau und Einstellungen einen verschiebbaren Teiler; der Einstellungsbereich
