@@ -181,10 +181,18 @@ class VdpDialog(QDialog):
 
         self.ed_content = QLineEdit()
         self.ed_content.setPlaceholderText("{{nr}}")
+        row_c = QHBoxLayout()
+        row_c.addWidget(self.ed_content, 1)
+        b_vars = QPushButton("?")
+        b_vars.setFixedWidth(32)
+        b_vars.setToolTip(tr("Alle Variablen anzeigen: Datum, Uhrzeit, Seite, Zufallszahl, Spalten … – Doppelklick fügt "
+                             "ein"))
+        b_vars.clicked.connect(self._show_vars)
+        row_c.addWidget(b_vars)
         self._field(v, tr("Inhalt des gewählten Feldes"),
                     tr("Fester Text und Platzhalter gemischt, z. B. „Ticket {{nr}}“. {{nr}} = Nummer (siehe 3.), "
                        "{{i}} = 1, 2, 3 …, {{Spaltenname}} = Wert aus der CSV (Doppelklick in der Spaltenliste fügt "
-                       "ihn ein)."), self.ed_content)
+                       "ihn ein). „?“ zeigt alle Variablen wie Datum, Seite oder Zufallszahl."), row_c)
         self.cmb_qrtype = QComboBox()
         fill_combo(self.cmb_qrtype, [(t, datakinds.qr_type_text(t)) for t in datakinds.QR_TYPES], "text")
         self.cmb_qrtype.currentIndexChanged.connect(self._qrtype_changed)
@@ -255,8 +263,10 @@ class VdpDialog(QDialog):
                                                          "im Kasten (90° = von unten nach oben lesbar)."), row)
         self.ed_pages = QLineEdit()
         self.ed_pages.setPlaceholderText(tr("alle Seiten"))
-        self._field(v, tr("Nur auf diesen Seiten der Vorlage"), tr("Leer = auf jeder Seite. Z. B. „1“ oder „1,3-4“ – "
-                                                                    "praktisch bei Vorder- und Rückseite."), self.ed_pages)
+        self._field(v, tr("Nur auf diesen Seiten der Vorlage"),
+                    tr("Leer = auf jeder Seite. Z. B. „1“, „1,3-4“, „ungerade“ (Vorderseiten), „gerade“ "
+                       "(Rückseiten) oder „ungerade 1-50“. Mit „Seiten je Datensatz“ 2 unter 2. gehören Vorder- und "
+                       "Rückseite zum selben Datensatz."), self.ed_pages)
         self.chk_ph = QCheckBox(tr("Platzhalter {{…}} aus dem PDF als Textfelder übernehmen"))
         self._field(v, "", tr("Steht in der Vorlage z. B. {{Name}}, wird dort der Wert eingesetzt und der "
                               "Platzhaltertext entfernt – dann braucht es dafür kein eigenes Feld."), self.chk_ph)
@@ -306,6 +316,13 @@ class VdpDialog(QDialog):
                        "Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit "
                        "demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer "
                        "Karte)."), self.cmb_order)
+        self.spn_ppr = QSpinBox()
+        self.spn_ppr.setRange(1, 100)
+        self.spn_ppr.setValue(1)
+        self._field(v, tr("Seiten je Datensatz"),
+                    tr("Bei „Jede Seite …“: so viele aufeinanderfolgende Seiten gehören zu einem Datensatz. 2 = Vorder- "
+                       "und Rückseite: Seite 1+2 → Datensatz 1, Seite 3+4 → Datensatz 2 … – mit „ungerade“/„gerade“ "
+                       "beim Feld kommt z. B. der Name nach vorne und der QR-Code nach hinten."), self.spn_ppr)
         self.lst_cols = QListWidget()
         self.lst_cols.setMaximumHeight(80)
         self.lst_cols.itemDoubleClicked.connect(lambda it: self._insert("{{" + it.text() + "}}"))
@@ -403,7 +420,7 @@ class VdpDialog(QDialog):
         for w_ in (self.ed_content, self.ed_records, self.ed_prefix, self.ed_suffix, self.ed_pages, self.ed_cont):
             w_.textChanged.connect(self._field_changed)
         for w_ in (self.spn_x, self.spn_y, self.spn_w, self.spn_h, self.spn_size, self.spn_start, self.spn_step,
-                   self.spn_digits, self.spn_count):
+                   self.spn_digits, self.spn_count, self.spn_ppr):
             w_.valueChanged.connect(self._field_changed)
         for w_ in (self.cmb_align, self.cmb_rot, self.cmb_check, self.cmb_order):
             w_.currentIndexChanged.connect(self._field_changed)
@@ -523,12 +540,17 @@ class VdpDialog(QDialog):
         self.canvas.sel = i
         self.canvas.update()
 
+    def _ppr(self) -> int:
+        v = self.spn_ppr.value()
+        return v if isinstance(v, int) and v > 0 else 1
+
     def _page_changed(self, v):
         self.page = v - 1
-        if (self.cmb_order.currentData() or "each") == "each":      # Seite n zeigt Datensatz n
+        if (self.cmb_order.currentData() or "each") == "each":      # Seite n zeigt Datensatz zu Seite n
+            rec = (v - 1) // self._ppr() + 1
             self.spn_rec.blockSignals(True)
-            self.spn_rec.setMaximum(max(self.spn_rec.maximum(), v))
-            self.spn_rec.setValue(v)
+            self.spn_rec.setMaximum(max(self.spn_rec.maximum(), rec))
+            self.spn_rec.setValue(rec)
             self.spn_rec.blockSignals(False)
         self._refresh()
 
@@ -637,8 +659,18 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _insert(self, text):
-        self.ed_content.insert(text)
+        """Platzhalter einfügen; steht im Feld nur das voreingestellte {{nr}}, wird es ersetzt."""
+        cur = self.ed_content.text()
+        if isinstance(cur, str) and cur.strip() == "{{nr}}" and text != "{{nr}}":
+            self.ed_content.setText(text)
+        else:
+            self.ed_content.insert(text)
         self.ed_content.setFocus()
+
+    def _show_vars(self):
+        dlg = VariablesDialog(self, self.cols)
+        dlg.chosen.connect(self._insert)
+        dlg.show()
 
     def _font_chosen(self, _i):
         if self.cmb_font.currentData() != "__file__":
@@ -725,6 +757,8 @@ class VdpDialog(QDialog):
         return vdp.VdpSettings(fields=[asdict(f) for f in self.fields], csv_path=self._csv,
                                records=_text(self.ed_records).strip(), count=self.spn_count.value(), numbering=nb,
                                order=order if order in ("each", "record", "page") else "each",
+                               pages_per_record=self._ppr(),
+                               doc_name=getattr(self.parent(), "display_name", "") or "",
                                reverse=bool(self.chk_rev.isChecked()),
                                log_path=os.path.abspath(log) if log and self.chk_log.isChecked() else "",
                                placeholders=bool(self.chk_ph.isChecked()))
@@ -746,6 +780,7 @@ class VdpDialog(QDialog):
             self.ed_records.setText(s.records)
             self.spn_count.setValue(max(1, int(s.count)))
             self.cmb_order.setCurrentIndex(max(0, self.cmb_order.findData(s.order)))
+            self.spn_ppr.setValue(max(1, int(getattr(s, "pages_per_record", 1) or 1)))
             self.chk_rev.setChecked(bool(s.reverse))
             self.chk_ph.setChecked(bool(s.placeholders))
             self.ed_log.setText(s.log_path)
@@ -768,9 +803,13 @@ class VdpDialog(QDialog):
                                   else tr("Zähler „{0}“ ist neu – beginnt bei der ersten Nummer.").format(key))
         else:
             self.lbl_cont.setText("")
+        self.spn_ppr.setEnabled((self.cmb_order.currentData() or "each") == "each")
         if (self.cmb_order.currentData() or "each") == "each":
-            # jede Seite ein Datensatz: der Datensatz bestimmt, welche Seite gezeigt wird
-            pg = (self.spn_rec.value() - 1) % len(self.doc)
+            # jede Seite ein Datensatz (bzw. je „Seiten je Datensatz“): bleibt die Seite beim Datensatz, sonst
+            # dessen erste Seite zeigen
+            g, n, r = self._ppr(), len(self.doc), self.spn_rec.value() - 1
+            mine = {(r * g + j) % n for j in range(g)}
+            pg = self.page if self.page in mine else (r * g) % n
             if pg != self.page:
                 self.page = pg
                 self.spn_page.blockSignals(True)
@@ -819,6 +858,45 @@ class VdpDialog(QDialog):
         self._remember(s)
         self.job = ("vdp", core.settings_to_dict(s), None)
         self.accept()
+
+
+class VariablesDialog(QDialog):
+    """Alle Variablen mit Erklärung und Beispielwert; Doppelklick fügt in das gewählte Feld ein (bleibt offen)."""
+    chosen = Signal(str)
+
+    def __init__(self, parent, cols=()):
+        super().__init__(parent)
+        self.setWindowTitle(tr("Variablen – Passermark"))
+        self.resize(640, 560)
+        v = QVBoxLayout(self)
+        lab = QLabel(tr("Doppelklick fügt die Variable in den Inhalt des gewählten Feldes ein. Fester Text und "
+                        "Variablen lassen sich mischen, z. B. „Gedruckt am {{datum}} – Karte {{i}} von {{datensaetze}}“."))
+        lab.setWordWrap(True)
+        lab.setStyleSheet(f"color: {theme.MUTED};")
+        v.addWidget(lab)
+        self.lst = QListWidget()
+        self.items = []
+        sysv = vdp.system_vars(None, 0)
+        for ph, txt in vdp.variables_help():
+            if ph == "{{Spaltenname}}":
+                for c in cols:
+                    self._add("{{" + c + "}}", tr("Spalte der CSV"))
+                if not cols:
+                    self._add(ph, txt)
+                continue
+            ex = vdp.fill(ph, {"_sys": sysv}) if "{{" in ph and ph not in ("{{nr}}", "{{i}}") else ""
+            ex = "" if ex == ph or ph in ("{{seite}}", "{{seiten}}", "{{vorlagenseite}}", "{{datensatz}}",
+                                          "{{datensaetze}}", "{{datei}}") else ex
+            self._add(ph, txt + (f"  →  {ex}" if ex else ""))
+        self.lst.itemDoubleClicked.connect(lambda it: self.chosen.emit(self.items[self.lst.row(it)]))
+        v.addWidget(self.lst, 1)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        bb.rejected.connect(self.close)
+        v.addWidget(bb)
+
+    def _add(self, ph, txt):
+        self.items.append(ph)
+        self.lst.addItem(f"{ph}    {txt}")
 
 
 def _text(w) -> str:

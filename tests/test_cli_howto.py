@@ -66,6 +66,9 @@ def _prepare_inputs(tmp, examples):
         if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
             continue
         src = os.path.join(tmp, args[1])
+        if args[0] == "split" and not os.path.exists(src) and args[1] != "bogen.pdf":
+            import test_split
+            test_split._booklet(src)                 # Broschüre mit Doppelseiten
         if not os.path.exists(src):                  # Motiv-Aufträge: Bogen, sonst Problem-PDF (Ebenen, Formular)
             data = (open(os.path.join(tmp, "bogen.pdf"), "rb").read() if args[0] in ("cutcontour", "separate")
                     else tp.problem_pdf())

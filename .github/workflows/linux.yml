@@ -48,6 +48,7 @@ jobs:
           .venv/bin/python tests/test_vdp.py
           .venv/bin/python tests/test_datakinds.py
           .venv/bin/python tests/test_examples.py
+          .venv/bin/python tests/test_split.py
           .venv/bin/python tests/test_performance.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |

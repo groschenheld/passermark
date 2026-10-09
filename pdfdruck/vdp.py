@@ -41,7 +41,8 @@ class VdpField:
     color: str = "#000000"
     align: str = "left"           # left | center | right
     rotate: int = 0               # 0 | 90 | 180 | 270 (gegen den Uhrzeigersinn)
-    pages: str = ""               # nur auf diesen Seiten der Vorlage, z. B. "1" oder "1,3-4" (leer = alle)
+    pages: str = ""               # nur auf diesen Seiten der Vorlage, z. B. "1", "1,3-4", "ungerade", "gerade",
+                                  # "ungerade 1-50" (leer = alle)
     qr_type: str = "text"         # QR: text = Inhalt wie eingegeben; vcard, wifi, email, url, phone, sms, event, geo =
                                   # Inhalt aus den Spalten der Datentabelle zusammengesetzt (siehe datakinds)
     quiet: bool = True            # QR/Code 128: weiße Ruhezone im Feld freihalten (für sicheres Scannen)
@@ -69,10 +70,13 @@ class VdpSettings:
     records: str = ""             # nur diese Datensätze, z. B. "1-50" (leer = alle)
     count: int = 1                # ohne CSV: so viele Kopien
     numbering: Numbering = field(default_factory=Numbering)
+    pages_per_record: int = 1     # nur bei order "each": so viele Vorlagenseiten gehören zu einem Datensatz
+                                  # (2 = Vorder- und Rückseite: Seite 1+2 -> Datensatz 1, 3+4 -> Datensatz 2 …)
     order: str = "each"           # each = jede Seite der nächste Datensatz (Seiten der Vorlage reihum) |
                                   # record = je Datensatz eine Kopie aller Seiten | page = wie record, Seite für Seite
     reverse: bool = False         # rückwärts (Abreißstapel: oberstes Blatt hat die höchste Nummer)
     log_path: str = ""            # Code-Protokoll als CSV (leer = keins)
+    doc_name: str = ""            # Name der Vorlage für {{datei}} (leer = Dateiname der Eingabe)
     placeholders: bool = False    # {{…}} im PDF als Feldposition übernehmen
 
 
@@ -168,9 +172,11 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
     start = nb.start
     if nb.continue_key:
         start = int(counter_state().get(nb.continue_key, nb.start))
+    sysv = system_vars(s, len(idx))
     out = []
     for k, i in enumerate(idx):
         rec = dict(rows[i])
+        rec["_sys"] = dict(sysv, datensatz=str(k + 1))
         n = start + k * nb.step
         rec["i"] = str(k + 1)
         rec["nr"] = format_number(n, nb)
@@ -179,6 +185,86 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
     if s.reverse:
         out.reverse()
     return cols, out
+
+
+# --------------------------------------------------------------------------- #
+# Variablen außer den CSV-Spalten: {{datum}}, {{seite}}, {{zufall:6}} …
+# --------------------------------------------------------------------------- #
+WEEKDAYS = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
+
+
+def _weekday(i: int) -> str:
+    return (tr("Montag"), tr("Dienstag"), tr("Mittwoch"), tr("Donnerstag"), tr("Freitag"), tr("Samstag"),
+            tr("Sonntag"))[i]
+
+
+def system_vars(s, n_records: int = 0, now=None) -> dict:
+    """Feste Variablen eines Auftrags (Zeitpunkt = Start des Auftrags, für alle Seiten gleich)."""
+    import datetime as _dt
+    now = now or _dt.datetime.now()
+    return {"datum": now.strftime("%d.%m.%Y"), "zeit": now.strftime("%H:%M"), "jahr": now.strftime("%Y"),
+            "monat": now.strftime("%m"), "tag": now.strftime("%d"), "wochentag": _weekday(now.weekday()),
+            "kw": str(now.isocalendar()[1]), "datum_iso": now.strftime("%Y-%m-%d"),
+            "datei": os.path.splitext(os.path.basename(getattr(s, "doc_name", "") or ""))[0],
+            "datensaetze": str(n_records), "_now": now}
+
+
+def variables_help() -> list:
+    """(Platzhalter, Erklärung) für das „?“-Fenster und die Anleitung."""
+    return [
+        ("{{nr}}", tr("Nummer aus „3. Nummerierung“ (mit Stellen, Vorsatz, Prüfziffer)")),
+        ("{{i}}", tr("laufende Nummer des Datensatzes: 1, 2, 3 …")),
+        ("{{Spaltenname}}", tr("Wert dieser Spalte der CSV")),
+        ("{{datum}}", tr("heutiges Datum, z. B. 09.10.2026")),
+        ("{{datum_iso}}", tr("Datum als 2026-10-09")),
+        ("{{zeit}}", tr("Uhrzeit beim Erzeugen, z. B. 14:30")),
+        ("{{jahr}}", tr("Jahr, z. B. 2026")),
+        ("{{monat}}", tr("Monat zweistellig, z. B. 10")),
+        ("{{tag}}", tr("Tag zweistellig, z. B. 09")),
+        ("{{wochentag}}", tr("z. B. Freitag")),
+        ("{{kw}}", tr("Kalenderwoche")),
+        ("{{datum:%d.%m.%y %H:%M}}", tr("Datum/Zeit mit eigenem Format (%d Tag, %m Monat, %Y Jahr, %y zweistellig, "
+                                        "%H Stunde, %M Minute, %A Wochentag englisch)")),
+        ("{{seite}}", tr("Nummer der Seite im Ergebnis")),
+        ("{{seiten}}", tr("Seitenzahl des Ergebnisses")),
+        ("{{vorlagenseite}}", tr("Seite der Vorlage (bei Vorder-/Rückseite 1 oder 2)")),
+        ("{{datensatz}}", tr("Nummer des Datensatzes (wie {{i}})")),
+        ("{{datensaetze}}", tr("Anzahl aller Datensätze – z. B. „Karte {{i}} von {{datensaetze}}“")),
+        ("{{datei}}", tr("Name der Vorlage ohne .pdf")),
+        ("{{zufall}}", tr("zufällige 6-stellige Zahl, je Feld und Seite neu (im Code-Protokoll festgehalten)")),
+        ("{{zufall:10}}", tr("zufällige Zahl mit 10 Stellen")),
+        ("{{code:8}}", tr("zufälliger Code aus 8 Großbuchstaben und Ziffern (ohne 0/O, 1/I)")),
+        ("{{uuid}}", tr("weltweit eindeutige Kennung")),
+    ]
+
+
+def _special(key: str, sysv: dict):
+    """Variablen mit Funktion: datum:FORMAT, zufall:N, code:N, uuid. None = unbekannt."""
+    import secrets
+    name, _, arg = key.partition(":")
+    name = name.strip().lower()
+    arg = arg.strip()
+    if name in ("datum", "date", "zeit", "time") and arg:
+        now = sysv.get("_now")
+        if now is None:
+            import datetime as _dt
+            now = _dt.datetime.now()
+        try:
+            return now.strftime(arg)
+        except ValueError:
+            return ""
+    if name in ("zufall", "random"):
+        n = int(arg) if arg.isdigit() else 6
+        n = max(1, min(n, 40))
+        return str(secrets.randbelow(9) + 1) + "".join(str(secrets.randbelow(10)) for _ in range(n - 1))
+    if name == "code":
+        n = int(arg) if arg.isdigit() else 8
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return "".join(secrets.choice(alphabet) for _ in range(max(1, min(n, 64))))
+    if name == "uuid" and not arg:
+        import uuid
+        return str(uuid.uuid4())
+    return None
 
 
 def field_value(f: "VdpField", rec: dict) -> str:
@@ -191,12 +277,22 @@ def field_value(f: "VdpField", rec: dict) -> str:
 
 
 def fill(template: str, rec: dict) -> str:
+    """Platzhalter ersetzen: CSV-Spalten, nr, i, dann Auftragsvariablen (datum, seite …) und Funktionen
+    (datum:FORMAT, zufall:N …). Unbekannte Platzhalter bleiben stehen."""
+    sysv = rec.get("_sys") or {}
+
     def rep(m):
         key = m.group(1)
-        if key in rec:
+        if key in rec and not key.startswith("_"):
             return str(rec[key])
-        low = {k.lower(): v for k, v in rec.items()}
-        return str(low.get(key.lower(), m.group(0)))
+        low = {k.lower(): v for k, v in rec.items() if isinstance(k, str) and not k.startswith("_")}
+        if key.lower() in low:
+            return str(low[key.lower()])
+        sl = {k.lower(): v for k, v in sysv.items() if not k.startswith("_")}
+        if key.lower() in sl:
+            return str(sl[key.lower()])
+        v = _special(key, sysv)
+        return v if v is not None else m.group(0)
     return PH.sub(rep, template or "")
 
 
@@ -320,8 +416,36 @@ def draw_field(cv, f: VdpField, value: str, page_h: float):
     cv.restoreState()
 
 
+ODD = ("ungerade", "odd", "páratlan", "impares", "impaires", "u")
+EVEN = ("gerade", "even", "páros", "pares", "paires", "g")
+
+
 def _page_set(text: str, n: int) -> set:
-    return set(_ranges(text, n))
+    """Seiten der Vorlage (0-basiert): „1,3-4“, „ungerade“, „gerade“, „ungerade 1-50“ (= ungerade in 1–50);
+    mehrere Angaben mit Komma = alle zusammen."""
+    from .layout import parse_ranges
+    out = set()
+    for part in re.split(r"[,;]", text or ""):
+        words = part.strip().lower().split()
+        if not words:
+            continue
+        par = None
+        if words[0] in ODD or words[0] in EVEN:
+            par = 1 if words[0] in ODD else 0
+            words = words[1:]
+        rng = parse_ranges(" ".join(words), n) if words else list(range(n))
+        out |= {p for p in rng if par is None or (p + 1) % 2 == par}
+    return out if (text or "").strip() else set(range(n))
+
+
+def sequence(order: str, n_records: int, tpl: list, per_record: int = 1) -> list:
+    """Ausgabeseiten als Liste (Datensatz, Vorlagenseite)."""
+    if order == "each":       # Seite 1 -> Datensatz 1 … (reihum); mit per_record > 1 gehören so viele Seiten zusammen
+        g = max(1, int(per_record or 1))
+        return [(r, tpl[(r * g + j) % len(tpl)]) for r in range(n_records) for j in range(g)]
+    if order == "page":
+        return [(r, p) for p in tpl for r in range(n_records)]
+    return [(r, p) for r in range(n_records) for p in tpl]
 
 
 def _fields(s: VdpSettings) -> list[VdpField]:
@@ -457,6 +581,9 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     from reportlab.pdfgen import canvas
     from .objects import normalized
     fields = _fields(s)
+    if not getattr(s, "doc_name", ""):
+        import dataclasses
+        s = dataclasses.replace(s, doc_name=os.path.basename(src))
     from .layout import page_trims, page_doc_bleeds
     src_doc = pdfium.PdfDocument(src)
     try:
@@ -482,12 +609,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     tpl = [p for p in (pages if pages else range(npages)) if 0 <= p < npages]
     if not tpl:
         raise ValueError(tr("Keine Seiten ausgewählt."))
-    if s.order == "each":                              # Seite 1 -> Datensatz 1, Seite 2 -> Datensatz 2 … (reihum)
-        seq = [(r, tpl[r % len(tpl)]) for r in range(len(recs))]
-    elif s.order == "page":
-        seq = [(r, p) for p in tpl for r in range(len(recs))]
-    else:
-        seq = [(r, p) for r in range(len(recs)) for p in tpl]
+    seq = sequence(s.order, len(recs), tpl, s.pages_per_record)
     # 1) alle Überlagerungen in einem PDF (eine Seite je Ausgabeseite)
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
@@ -502,10 +624,12 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         W, H = sizes[p]
         cv.setPageSize((W, H))
         vals = {}
+        rec = dict(recs[r])
+        rec["_sys"] = dict(rec.get("_sys") or {}, seite=str(k + 1), seiten=str(total), vorlagenseite=str(p + 1))
         for fi, f in enumerate(fields):
             if p not in pages_of[fi]:
                 continue
-            v = field_value(f, recs[r])
+            v = field_value(f, rec)
             vals[fi] = v
             draw_field(cv, f, v, H)
         cv.showPage()
@@ -554,8 +678,9 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
 
 
 def page_for_record(s: VdpSettings, record: int, npages: int) -> int:
-    """Welche Vorlagenseite zeigt Datensatz record? (nur bei order == "each" festgelegt)"""
-    return record % max(1, npages) if s.order == "each" else -1
+    """Erste Vorlagenseite von Datensatz record (nur bei order == "each" festgelegt)."""
+    g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
+    return (record * g) % max(1, npages) if s.order == "each" else -1
 
 
 def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
@@ -583,7 +708,10 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     s2.csv_path = ""
     s2.count = 1
     # festen Datensatz einsetzen: Nummer/Spalten als Vorlage-Konstanten
-    rec = recs[record]
+    rec = dict(recs[record])
+    seq = sequence(s.order, len(recs), list(range(len(src_doc))), s.pages_per_record)
+    k = next((i for i, (r, p) in enumerate(seq) if r == record and p == page), 0)
+    rec["_sys"] = dict(rec.get("_sys") or {}, seite=str(k + 1), seiten=str(len(seq)), vorlagenseite=str(page + 1))
     fl = []
     for f in _fields(s):
         if f.pages.strip() and page not in _page_set(f.pages, len(src_doc)):

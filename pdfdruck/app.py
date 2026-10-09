@@ -225,11 +225,26 @@ class Controller(QObject):
             w.raise_()
             w.activateWindow()
 
+    @staticmethod
+    def blocked(w) -> bool:
+        """Ist das Fenster (bzw. sein Rahmen mit allen Reitern) gerade durch einen offenen Dialog gesperrt?"""
+        from PySide6.QtWidgets import QDialog
+        top = getattr(w, "_host", None) or w
+        try:
+            return any(d.isVisible() and d.isModal() for d in top.findChildren(QDialog))
+        except Exception:                        # noqa: BLE001 – im Zweifel nicht gesperrt
+            return False
+
     def _target_window(self, tab_of=None):
-        if tab_of is None:                       # von außen (Doppelklick, „Öffnen mit“): leeres Fenster nutzen
-            for w in self.windows:
-                if w.doc is None:
+        if tab_of is None:                       # von außen (Doppelklick, „Öffnen mit“): leeres Fenster nutzen –
+            for w in self.windows:               # aber nicht in einem Rahmen, in dem gerade ein Werkzeug offen ist
+                if w.doc is None and not self.blocked(w):
                     return w
+            return self.new_window()
+        if self.blocked(tab_of):                 # Ergebnis/Öffnen aus einem gesperrten Fenster: eigenes Fenster
+            return self.new_window()
+        if getattr(tab_of, "doc", 1) is None and tab_of in self.windows:
+            return tab_of                        # leeres Fenster selbst nutzen (kein unsichtbarer leerer Reiter)
         return self.new_window(tab_of)
 
     def open_paths(self, paths: list[str], tab_of=None):

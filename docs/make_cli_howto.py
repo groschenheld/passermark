@@ -120,7 +120,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die sieben Aufträge", H3))
+    s.append(P("Die acht Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -130,6 +130,7 @@ def build():
         [c("preflight_fix"), "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren"],
         [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
         [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – jede Seite der nächste Datensatz"],
+        [c("split"), "Seiten teilen: halbieren oder Raster, z. B. als Doppelseiten exportierte Broschüre in Einzelseiten"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -377,6 +378,9 @@ def build():
         [c("numbering.check"), c("none"), c("luhn") + ", " + c("ean") + ", " + c("mod11") + " – Prüfziffer anhängen"],
         [c("numbering.continue_key"), "–", "Zählername: der nächste Auftrag zählt dort weiter"],
         [c("reverse"), c("false"), "rückwärts (Abreißblock: oberstes Blatt höchste Nummer)"],
+        [c("pages_per_record"), "1", "bei " + c("each") + ": so viele Seiten je Datensatz – 2 = Vorder- und Rückseite"],
+        [c("fields[].pages"), "–", "Feld nur auf diesen Vorlagenseiten: " + c("1,3-4") + ", " + c("ungerade") + ", "
+         + c("gerade") + ", " + c("ungerade 1-50")],
         [c("order"), c("each"), c("each") + " = jede Seite der nächste Datensatz (einseitige Vorlage: je Datensatz eine "
          "Seite), " + c("record") + " = je Datensatz alle Seiten, " + c("page") + " = wie record, Seite für Seite"],
         [c("log_path"), "–", "Code-Protokoll als CSV (Ausgabeseite, Datensatz, Werte)"],
@@ -407,6 +411,27 @@ def build():
                      "passermark-cli impose tickets.pdf tickets-sra3.pdf --set sheet=SRA3 \\\n"
                      "    --set step_repeat=true --set sr_sequence=true --set sr_stack=stack \\\n"
                      "    --set crop_marks=true"))
+
+    # ------------------------------------------------------------------ split
+    s.append(P("split – Seiten teilen (halbieren, Raster, Doppelseiten)", H3))
+    s.append(P("Teilt Seiten in Einzelseiten – verlustfrei, der Inhalt wird nicht verändert. Hat die Seite ein "
+               "Endformat, wird darin geteilt und der Anschnitt bleibt außen. Gedrehte Seiten werden so geteilt, wie "
+               "man sie sieht. Im Programm: Seiten → Seiten teilen … bzw. Doppelseiten teilen."))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("mode"), c("halves_v"), c("halves_v") + " = links | rechts, " + c("halves_h") + " = oben / unten, "
+         + c("grid") + " = Raster"],
+        [c("cols") + " / " + c("rows"), "2 / 2", "nur bei " + c("grid") + ": Spalten × Zeilen"],
+        [c("only_spreads"), c("false"), "nur Seiten teilen, die doppelt so breit (bzw. Raster-mal so groß) wie die "
+         "übrigen sind"],
+        [c("rtl"), c("false"), "Reihenfolge rechts nach links (Bindung rechts)"],
+        [c("use_trim"), c("true"), "im Endformat teilen, Anschnitt außen behalten"],
+    ], [34 * mm, 22 * mm, W - 56 * mm]))
+    s.append(example("Broschüre als Doppelseiten exportiert", "Seite 1 einzeln A4, dann A3-Doppelseiten: nur die "
+                     "Doppelseiten halbieren – ergibt fortlaufende A4-Seiten.",
+                     "passermark-cli split broschuere.pdf einzelseiten.pdf --set only_spreads=true"))
+    s.append(example("Bogen mit 2 × 4 Karten in Einzelkarten", "Raster auf Seite 1.",
+                     "passermark-cli split bogen.pdf karten.pdf --set mode=grid --set cols=2 --set rows=4 --pages 1"))
 
     # ------------------------------------------------------------------ Presets
     s.append(PageBreak())

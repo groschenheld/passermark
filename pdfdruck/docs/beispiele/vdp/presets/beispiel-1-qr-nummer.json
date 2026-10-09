@@ -68,9 +68,11 @@
       "check": "none",
       "continue_key": ""
     },
+    "pages_per_record": 1,
     "order": "each",
     "reverse": false,
     "log_path": "",
+    "doc_name": "",
     "placeholders": false
   }
 }

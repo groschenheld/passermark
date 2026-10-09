@@ -1,5 +1,26 @@
 # Änderungen – Passermark
 
+## 1.10.2
+- **Variable Daten – Vorder- und Rückseite:** neu „Seiten je Datensatz“ (unter 2.): 2 = Seite 1+2 → Datensatz 1,
+  3+4 → Datensatz 2 … – egal ob die Vorlage 2 Seiten hat oder schon alle Karten (z. B. 200 Seiten für 100
+  Visitenkarten). Felder „Nur auf diesen Seiten“ kennen jetzt **ungerade** und **gerade**, auch kombiniert mit
+  Bereichen („ungerade 1-50“). Beispiel 7: Visitenkarte mit Name vorne und QR-Visitenkarte hinten
+- **Weitere Variablen:** {{datum}}, {{zeit}}, {{jahr}}, {{monat}}, {{tag}}, {{wochentag}}, {{kw}}, {{datum_iso}},
+  {{datum:FORMAT}}, {{seite}}, {{seiten}}, {{vorlagenseite}}, {{datensatz}}, {{datensaetze}}, {{datei}},
+  {{zufall}}, {{zufall:N}}, {{code:N}}, {{uuid}}. Knopf **?** neben dem Inhalt zeigt alle mit Beispielwert,
+  Doppelklick fügt ein. CSV-Spalten gleichen Namens gehen vor
+- Doppelklick auf eine Spalte **ersetzt** ein unverändertes {{nr}} statt es davor stehen zu lassen
+- **Seiten teilen** (Seiten → Seiten teilen …, Arbeitsbereich Bearbeiten): senkrecht/waagrecht halbieren oder
+  Raster, alle/diese/ausgewählte Seiten oder Bereich, nur Doppelseiten, Reihenfolge rechts→links; mit Vorschau der
+  Schnittlinien. **Doppelseiten teilen** mit einem Klick für falsch exportierte Broschüren. Verlustfrei (Inhalt wird
+  nicht kopiert oder gerastert), gedrehte Seiten so, wie man sie sieht; mit Endformat wird darin geteilt und der
+  Anschnitt bleibt außen. Kommandozeile: Auftrag `split`
+- **Seitenleiste:** die Miniaturen drehen mit „Ansicht links/rechts drehen“ mit
+- **Behoben: Öffnen von außen landete in einem gesperrten Fenster** (Windows, Rechtsklick/Doppelklick, während
+  in einem Fenster ein Werkzeug offen ist) – jetzt eigenes Fenster. Ursache: Öffnen im leeren Startfenster ließ
+  einen unsichtbaren leeren Reiter zurück; das leere Fenster wird jetzt selbst verwendet. Ergebnisse aus einem
+  gesperrten Fenster öffnen sich ebenfalls in einem eigenen Fenster
+
 ## 1.10.1
 - **Eigene CSV mit anderen Spaltennamen direkt verwenden:** Variable Daten → CSV öffnen erkennt, wozu die Tabelle
   passt („Die Tabelle passt zu: QR – Visitenkarte“), **Passendes Feld anlegen** legt den QR-Code mit dieser Art an.

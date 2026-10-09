@@ -22,6 +22,7 @@ from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer  # no
 
 from pdfdruck import __version__  # noqa: E402
 from pdfdruck import datakinds  # noqa: E402
+from pdfdruck import vdp as vdp_mod  # noqa: E402
 from pdfdruck.examples import EXAMPLES, VDP_DIR, VDP_HOWTO  # noqa: E402
 
 P, c, code, table, W = H.P, H.c, H.code, H.table, H.W
@@ -84,7 +85,15 @@ def build():
         [c("{{Spaltenname}}"), "dem Wert dieser Spalte", "der CSV-Datei; erste Zeile = Spaltennamen"],
     ], [32 * mm, 52 * mm, W - 84 * mm]))
     s.append(P("Ohne Klammern ist es einfacher Text: " + c("nr") + " druckt „nr“. Groß-/Kleinschreibung der "
-               "Spaltennamen ist egal.", NOTE))
+               "Spaltennamen ist egal. Doppelklick auf eine Spalte ersetzt ein noch unverändertes " + c("{{nr}}") + ".",
+               NOTE))
+    s.append(P("Weitere Variablen", H3))
+    s.append(P("Im Dialog zeigt der Knopf <b>?</b> neben dem Inhalt alle Variablen mit Beispielwert; Doppelklick fügt "
+               "ein. Datum und Uhrzeit sind der Zeitpunkt des Erzeugens – für alle Seiten gleich. Eine Spalte der CSV "
+               "mit gleichem Namen geht immer vor."))
+    s.append(table([["Variable", "ergibt"]] + [[c(ph), txt] for ph, txt in vdp_mod.variables_help()
+                                                if ph not in ("{{nr}}", "{{i}}", "{{Spaltenname}}")],
+                   [48 * mm, W - 48 * mm]))
     s.append(P("Feldarten", H3))
     s.append(table([
         ["Art", "Was hinein darf", "Beispiel-Inhalt", "Darauf achten"],
@@ -107,13 +116,22 @@ def build():
         ["Je Datensatz eine Kopie des ganzen Dokuments / " + c("record"),
          "alle Seiten mit demselben Datensatz, dann die nächste Kopie (Vorder- und Rückseite einer Karte)"],
         ["… sortiert Seite für Seite / " + c("page"), "wie oben, aber zuerst alle Vorderseiten, dann alle Rückseiten"],
+        ["<b>Seiten je Datensatz</b> / " + c("pages_per_record"),
+         "bei „Jede Seite …“: so viele Seiten gehören zusammen. <b>2 = Vorder- und Rückseite</b>: Seite 1+2 → "
+         "Datensatz 1, 3+4 → Datensatz 2 … – egal ob die Vorlage 2 Seiten hat (wird wiederholt) oder schon 200 "
+         "(100 Karten)"],
     ], [70 * mm, W - 70 * mm]))
+    s.append(P("Vorder- und Rückseite unterschiedlich", H3))
+    s.append(P("Jedes Feld hat „Nur auf diesen Seiten der Vorlage“: " + c("ungerade") + " = Vorderseiten, "
+               + c("gerade") + " = Rückseiten, " + c("1-50") + " = Bereich, " + c("ungerade 1-50") + " = ungerade "
+               "im Bereich, mehrere mit Komma. Beispiel 100 Visitenkarten: „Seiten je Datensatz“ 2, Feld "
+               + c("{{Name}}") + " auf " + c("ungerade") + ", QR-Code auf " + c("gerade") + " (Beispiel 7)."))
 
     # ------------------------------------------------------------------ 2 Beispiele holen
     s.append(P("2 · Die Beispiele holen", H2))
-    s.append(P("Passermark bringt sechs fertige Beispiele mit. „Holen“ kopiert sie in den Ordner "
+    s.append(P("Passermark bringt sieben fertige Beispiele mit. „Holen“ kopiert sie in den Ordner "
                + c("Passermark-Beispiele/vdp") + " in deinem Benutzerordner und trägt sie als Presets "
-               "„Beispiel 1“ bis „Beispiel 6“ ein (mit dem richtigen Pfad zur Tabelle)."))
+               "„Beispiel 1“ bis „Beispiel 7“ ein (mit dem richtigen Pfad zur Tabelle)."))
     s.append(table([
         ["Wo", "So"],
         ["Oberfläche", "Menü <b>Hilfe → Beispiele für Variable Daten holen …</b> oder Arbeitsbereich "
@@ -124,11 +142,12 @@ def build():
     s.append(Spacer(1, 4))
     s.append(table([
         ["Datei", "Inhalt"],
-        [c("vorlage-a6.pdf"), "leere Vorlage A6 quer – darauf kommen die Felder"],
+        [c("vorlage-a6.pdf"), "leere Vorlage A6 quer – darauf kommen die Felder (Beispiele 1–6)"],
+        [c("vorlage-karte-vorne-hinten.pdf"), "Visitenkarte 85 × 55 mm, Seite 1 vorne, Seite 2 hinten (Beispiel 7)"],
         [c("daten.csv"), "3 Datensätze: Name;Ort;Artikelnummer;EAN (Beispiele 2–4)"],
         [c("visitenkarten.csv"), "3 Kontakte für die Visitenkarte (Beispiel 5)"],
         [c("wlan.csv"), "3 WLAN-Zugänge (Beispiel 6)"],
-        [c("presets/beispiel-*.json"), "die Einstellungen der sechs Beispiele"],
+        [c("presets/beispiel-*.json"), "die Einstellungen der sieben Beispiele"],
         [c("ergebnis/beispiel-*.pdf"), "so muss das Ergebnis aussehen"],
         [c("LIESMICH.txt"), "Kurzfassung dieser Anleitung"],
     ], [50 * mm, W - 50 * mm]))
@@ -210,8 +229,9 @@ def build():
 
     # ------------------------------------------------------------------ 5 Beispiele
     s.append(PageBreak())
-    s.append(P("5 · Die sechs Beispiele", H2))
-    s.append(P("Alle Beispiele verwenden " + c("vorlage-a6.pdf") + ". Lage in mm: links, oben, Breite × Höhe. "
+    s.append(P("5 · Die sieben Beispiele", H2))
+    s.append(P("Die Beispiele 1–6 verwenden " + c("vorlage-a6.pdf") + ", Beispiel 7 "
+               + c("vorlage-karte-vorne-hinten.pdf") + ". Lage in mm: links, oben, Breite × Höhe. "
                "Die kleinen Textzeilen in den Beispielen zeigen nur zur Kontrolle, was im Code steckt.", NOTE))
     blocks = [
         example_block(
@@ -306,6 +326,27 @@ def build():
              "Textfelder anlegen, Inhalt " + c("WLAN: {{Netzname}}") + " und " + c("Passwort: {{Passwort}}") + ".",
              "<b>Erzeugen</b> – Seite 3 (Huber-Cafe, ohne Passwort) ergibt ein offenes Netz."],
             'passermark-cli vdp vorlage-a6.pdf wlan-karten.pdf --preset presets/beispiel-6-wlan.json'),
+        example_block(
+            "beispiel-7-karte-vorne-hinten", "Beispiel 7 – Visitenkarte mit Vorder- und Rückseite",
+            "Vorne Name und Kontaktdaten, hinten ein QR-Code zum Speichern des Kontakts – je Kontakt beide Seiten. "
+            "Ergebnis: Seite 1/2 Anna, 3/4 Bernd, 5/6 Zoë.",
+            [["Text", c("{{Vorname}} {{Nachname}}") + ", 13 pt, Seiten " + c("ungerade"), "8, 18, 70 × 7"],
+             ["Text", c("{{Position}}") + ", " + c("{{Mobil}}") + ", " + c("{{E-Mail}}") + ", Seiten "
+              + c("ungerade"), "8, 26 / 36 / 41"],
+             ["QR-Code", "Art „Visitenkarte (vCard)“, Seiten " + c("gerade"), "27.5, 10, 30 × 30"],
+             ["Text", "„Kontakt speichern“, mittig, Seiten " + c("gerade"), "8, 43, 69 × 5"]],
+            [c("vorlage-karte-vorne-hinten.pdf") + " öffnen, Variable Daten, <b>Alles zurücksetzen</b>.",
+             "2.: <b>CSV öffnen …</b> → " + c("visitenkarten.csv") + " · <b>Seiten je Datensatz: 2</b>.",
+             "Textfeld " + c("{{Vorname}} {{Nachname}}") + " (Doppelklick auf Vorname, Leerzeichen, Nachname), "
+             "unter „Nur auf diesen Seiten“ " + c("ungerade") + "; ebenso die weiteren Zeilen.",
+             "<b>Passendes Feld anlegen</b> (QR-Code mit Art Visitenkarte), Seiten " + c("gerade") + ", Lage 27.5 / 10 / "
+             "30 / 30.",
+             "Datensatz 1–3 durchblättern: Seite und Datensatz laufen mit (Datensatz 2 = Seite 3), <b>Erzeugen</b>."],
+            'passermark-cli vdp vorlage-karte-vorne-hinten.pdf karten.pdf \\\n'
+            '    --preset presets/beispiel-7-karte-vorne-hinten.json\n'
+            '# Vorlage mit 200 Seiten (100 Karten schon gestaltet), Kunden-CSV:\n'
+            'passermark-cli vdp kunde-200-seiten.pdf fertig.pdf \\\n'
+            '    --preset "Beispiel 7 – Visitenkarte vorne und hinten" --set csv_path=kunde.csv'),
     ]
     for i, b in enumerate(blocks):
         if i:
@@ -335,6 +376,7 @@ def build():
         [c("numbering.continue_key"), c("--set numbering.continue_key=Tickets"),
          "beim nächsten Auftrag dort weiterzählen"],
         [c("order"), c("--set order=record"), c("each") + " / " + c("record") + " / " + c("page") + " (Abschnitt 1)"],
+        [c("pages_per_record"), c("--set pages_per_record=2"), "Seiten je Datensatz (Vorder-/Rückseite)"],
         [c("reverse"), c("--set reverse=true"), "rückwärts (Abreißblock)"],
         [c("log_path"), c("--set log_path=codes.csv"), "Protokoll: welche Seite welchen Code hat"],
     ], [40 * mm, 62 * mm, W - 102 * mm]))
@@ -360,6 +402,8 @@ def build():
         ["Was passiert", "Ursache / Lösung"],
         ["Überall steht „nr“ oder der Spaltenname", "Klammern fehlen: " + c("{{nr}}") + ", " + c("{{Name}}")],
         ["Jede Seite hat dieselbe Nummer", "Verteilung auf „Jede Seite bekommt den nächsten Datensatz“ stellen"],
+        ["Rückseite hat den nächsten Datensatz statt denselben", "„Seiten je Datensatz“ auf 2"],
+        ["Name steht auch auf der Rückseite", "beim Feld „Nur auf diesen Seiten“: " + c("ungerade")],
         ["EAN-13: Fehler in der Vorschau", "Inhalt ergibt nicht 12 oder 13 Ziffern – z. B. Buchstaben im Vorsatz "
          "oder zu wenige Stellen (Vorsatz + Stellen = 12) – oder die 13. Ziffer (Prüfziffer) ist falsch; die "
          "Meldung nennt die richtige"],

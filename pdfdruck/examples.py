@@ -27,6 +27,7 @@ EXAMPLES = [
     ("beispiel-4-ean13", "Beispiel 4 – EAN-13"),
     ("beispiel-5-visitenkarte", "Beispiel 5 – Visitenkarte (vCard)"),
     ("beispiel-6-wlan", "Beispiel 6 – WLAN-Zugang"),
+    ("beispiel-7-karte-vorne-hinten", "Beispiel 7 – Visitenkarte vorne und hinten"),
 ]
 
 

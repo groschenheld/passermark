@@ -154,6 +154,61 @@ def test_code128_klartext_in_schriftgroesse():
     d.close()
 
 
+def test_front_back_pages_per_record_and_parity():
+    """100-Visitenkarten-Fall: Vorder-/Rückseite je Datensatz, Name nur ungerade, QR nur gerade (1.10.2)."""
+    from reportlab.lib.units import mm as _mm
+    from reportlab.pdfgen import canvas as _cv
+    for npages in (2, 6):                                   # Vorlage 2 Seiten (reihum) oder schon 3 Karten × 2
+        tpl = os.path.join(TMP, f"karte{npages}.pdf")
+        c = _cv.Canvas(tpl, pagesize=(85 * _mm, 55 * _mm))
+        for i in range(npages):
+            c.drawString(5, 5, "VORNE" if i % 2 == 0 else "HINTEN")
+            c.showPage()
+        c.save()
+        s = vdp.VdpSettings(csv_path=CSV, pages_per_record=2, fields=[
+            vdp.VdpField("text", "{{Name}} S{{seite}}/{{seiten}} V{{vorlagenseite}} D{{datensatz}}/{{datensaetze}}",
+                         2, 2, 80, 6, size_pt=6, pages="ungerade"),
+            vdp.VdpField("text", "QR {{Name}}", 2, 20, 80, 6, size_pt=6, pages="gerade")])
+        out = os.path.join(TMP, f"karten{npages}.pdf")
+        data, info = vdp.build(tpl, s)
+        open(out, "wb").write(data)
+        assert info["pages"] == 6, info
+        t = [_text(out, i) for i in range(6)]
+        assert "Anna Müller S1/6 V1 D1/3" in t[0] and "VORNE" in t[0] and "QR" not in t[0], t[0]
+        assert "QR Anna Müller" in t[1] and "HINTEN" in t[1] and "S2" not in t[1], t[1]
+        assert "Béla Kovács S3/6" in t[2] and "QR Béla Kovács" in t[3]
+        assert "QR Zoë" in t[5]
+
+
+def test_page_set_parity_and_ranges():
+    assert sorted(vdp._page_set("ungerade", 6)) == [0, 2, 4]
+    assert sorted(vdp._page_set("gerade", 6)) == [1, 3, 5]
+    assert sorted(vdp._page_set("ungerade 3-6, 2", 8)) == [1, 2, 4]
+    assert sorted(vdp._page_set("odd", 4)) == [0, 2] and sorted(vdp._page_set("", 3)) == [0, 1, 2]
+    assert vdp.sequence("each", 2, [0, 1, 2, 3], 2) == [(0, 0), (0, 1), (1, 2), (1, 3)]
+    assert vdp.sequence("each", 3, [0, 1], 2) == [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)]
+    assert vdp.sequence("each", 3, [0, 1]) == [(0, 0), (1, 1), (2, 0)]
+
+
+def test_more_variables():
+    import datetime as dt
+    now = dt.datetime(2026, 10, 9, 14, 5)
+    rec = {"Name": "Anna", "datum": "aus CSV", "_sys": vdp.system_vars(vdp.VdpSettings(doc_name="flyer.pdf"), 7, now)}
+    assert vdp.fill("{{datum}}", rec) == "aus CSV"                       # CSV-Spalte geht vor
+    del rec["datum"]
+    out = vdp.fill("{{datum}} {{zeit}} {{jahr}} {{kw}} {{wochentag}} {{datei}} {{datensaetze}} {{datum:%y%m%d}}", rec)
+    assert out == "09.10.2026 14:05 2026 41 Freitag flyer 7 261009", out
+    z = vdp.fill("{{zufall}}|{{zufall:10}}|{{code:8}}|{{uuid}}", rec).split("|")
+    assert len(z[0]) == 6 and z[0].isdigit() and len(z[1]) == 10 and len(z[2]) == 8 and len(z[3]) == 36, z
+    assert not set(z[2]) & set("0O1I")
+    assert vdp.fill("{{gibtsnicht}} {{Name}}", rec) == "{{gibtsnicht}} Anna"
+    names = [p for p, _ in vdp.variables_help()]
+    assert "{{datum}}" in names and "{{seite}}" in names and "{{zufall:10}}" in names
+    # Datenarten sehen die Variablen nicht als Spalten (z. B. Termin-Beginn ≠ {{datum}})
+    from pdfdruck import datakinds
+    assert datakinds.mapped("event", {"Titel": "x", "_sys": {"datum": "1.1.2026"}})["Beginn"] == ""
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

@@ -202,8 +202,19 @@ st = l10n.load_settings(); st["open_in_tabs"] = False; l10n.save_settings(st)
 w4 = ctl2.new_window(tab_of=w1)
 assert w4._host is not w1._host                     # Reiter abgeschaltet -> eigenes Fenster
 st["open_in_tabs"] = True; l10n.save_settings(st)
-ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf im Programm
-assert ctl2.windows[-1]._host is w1._host
+n_win = len(ctl2.windows)
+ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf im leeren Fenster: dieses Fenster nutzen
+assert w1.doc is not None and len(ctl2.windows) == n_win, (w1.doc, len(ctl2.windows), n_win)
+ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf bei offenem Dokument: Reiter daneben
+assert ctl2.windows[-1]._host is w1._host and len(ctl2.windows) == n_win + 1
+# Fenster mit offenem Werkzeug (gesperrt): von außen und als Ergebnis -> eigenes Fenster
+ctl2.blocked = lambda w: w._host is w1._host
+for w_ in ctl2.windows:
+    if w_._host is w1._host and w_ is not w1:
+        w_.doc = None                              # leerer Reiter im gesperrten Rahmen
+assert ctl2._target_window()._host is not w1._host
+assert ctl2._target_window(w1)._host is not w1._host
+del ctl2.blocked
 n_hosts = len(ctl2.hosts)
 ctl2.open_paths([sys.argv[1]])                      # Doppelklick im Dateimanager: leeres Fenster nutzen / neues
 assert ctl2.windows[-1]._host is not w1._host or len(ctl2.hosts) == n_hosts

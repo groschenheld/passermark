@@ -85,7 +85,15 @@ SETTINGS = {
         T("Passwort: {{Passwort}}", 10, 42, 85, 6, 10),
         VdpField("qr", "", 100, 25, 38, 38, qr_type="wifi"),
         T("QR-Art: WLAN – Handy verbindet sich nach dem Scannen", 10, 85, 120, 6, 8)]),
+    "beispiel-7-karte-vorne-hinten": VdpSettings(csv_path="visitenkarten.csv", pages_per_record=2, fields=[
+        VdpField("text", "{{Vorname}} {{Nachname}}", 8, 18, 70, 7, size_pt=13, pages="ungerade"),
+        VdpField("text", "{{Position}}", 8, 26, 70, 5, size_pt=8, pages="ungerade"),
+        VdpField("text", "{{Mobil}}", 8, 36, 70, 5, size_pt=8, pages="ungerade"),
+        VdpField("text", "{{E-Mail}}", 8, 41, 70, 5, size_pt=8, pages="ungerade"),
+        VdpField("qr", "", 27.5, 10, 30, 30, qr_type="vcard", pages="gerade"),
+        VdpField("text", "Kontakt speichern", 8, 43, 69, 5, size_pt=7, align="center", pages="gerade")]),
 }
+TEMPLATES = {"beispiel-7-karte-vorne-hinten": "vorlage-karte-vorne-hinten.pdf"}
 
 
 def main():
@@ -102,6 +110,20 @@ def main():
     c.drawString(10 * mm, h - 15 * mm, "Beispiel-Vorlage (Passermark VDP)")
     c.showPage()
     c.save()
+    # Visitenkarte 85 × 55 mm: Seite 1 vorne, Seite 2 hinten
+    c = canvas.Canvas(os.path.join(out, "vorlage-karte-vorne-hinten.pdf"), pagesize=(85 * mm, 55 * mm))
+    c.setTitle("Passermark – Visitenkarte vorne/hinten")
+    for side in ("VORDERSEITE", "RÜCKSEITE"):
+        c.setStrokeColorRGB(.6, .6, .6)
+        c.rect(2 * mm, 2 * mm, 81 * mm, 51 * mm)
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColorRGB(.75, 0.1, .35)
+        c.drawString(8 * mm, 47 * mm, "Druckerei Huber")
+        c.setFont("Helvetica", 5)
+        c.setFillColorRGB(.5, .5, .5)
+        c.drawRightString(80 * mm, 47 * mm, side)
+        c.showPage()
+    c.save()
     for name, text in (("daten.csv", CSV), ("visitenkarten.csv", VCARDS), ("wlan.csv", WLAN),
                        ("kontakte-outlook.csv", OUTLOOK)):
         with open(os.path.join(out, name), "w", encoding="utf-8", newline="\n") as f:
@@ -110,7 +132,7 @@ def main():
     for name, s in SETTINGS.items():
         core.save_settings(os.path.join(out, "presets", name + ".json"), "vdp", s)
         run = vdp.VdpSettings(**{**s.__dict__, "csv_path": os.path.join(out, s.csv_path) if s.csv_path else ""})
-        data, _ = vdp.build(os.path.join(out, "vorlage-a6.pdf"), run)
+        data, _ = vdp.build(os.path.join(out, TEMPLATES.get(name, "vorlage-a6.pdf")), run)
         with open(os.path.join(out, "ergebnis", name + ".pdf"), "wb") as f:
             f.write(data)
     shutil.copy(os.path.join(ROOT, "docs", "vdp-liesmich.txt"), os.path.join(out, "LIESMICH.txt"))

@@ -300,6 +300,21 @@ def _job_vdp(src, dst, s, opts, progress, cancel):
     return JobResult(dst, {"records": info["records"], "pages": info["pages"]}, notes)
 
 
+def _job_split(src, dst, s, opts, progress, cancel):
+    """Seiten teilen (Hälften/Raster, optional nur Doppelseiten) – verlustfrei über Ausschnitte."""
+    from . import split
+    data, info = split.split(src, s, pages=opts.get("pages"), progress=progress, cancel=cancel)
+    _check(cancel)
+    _write_atomic(dst, data)
+    return JobResult(dst, info, [tr("{0} Seiten geteilt: {1} → {2} Seiten.").format(
+        info["split"], info["pages_in"], info["pages_out"])])
+
+
+def _split_settings():
+    from .split import SplitSettings
+    return SplitSettings
+
+
 def _vdp_settings():
     from .vdp import VdpSettings
     return VdpSettings
@@ -329,6 +344,7 @@ JOBS = {
     "preflight_fix": (lambda: PreflightFixSettings, _job_preflight_fix),
     "impose": (_impose_settings, _job_impose),
     "vdp": (_vdp_settings, _job_vdp),
+    "split": (_split_settings, _job_split),
 }
 
 

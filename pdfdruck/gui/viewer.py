@@ -1076,7 +1076,8 @@ class MainWindow(QMainWindow):
                  "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
                           (self.a_delete, tr("Löschen")), (self.a_rot_l, tr("Links drehen")),
                           (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
-                          (self.a_down, tr("Nach hinten")), (self.a_merge, tr("Zusammenführen")),
+                          (self.a_down, tr("Nach hinten")), (self.a_split, tr("Teilen")),
+                          (self.a_merge, tr("Zusammenführen")),
                           (self.a_export, tr("Exportieren"))],
                  "vdp": [(self.a_vdp, tr("Variable Daten")), (self.a_data, tr("Daten erfassen")),
                          (self.a_examples, tr("Beispiele")),
@@ -1377,6 +1378,9 @@ class MainWindow(QMainWindow):
         self.a_export = A(tr("Auswahl als ein PDF exportieren…"), self.export_selection, "Ctrl+E", "export")
         self.a_export_each = A(tr("Auswahl als einzelne PDFs exportieren…"), self.export_each, "Ctrl+Shift+E")
         self.a_delete = A(tr("Seiten löschen"), self.delete_pages, QKeySequence.StandardKey.Delete, "delete")
+        self.a_split = A(tr("Seiten teilen (halbieren, Raster) …"), self.split_dialog, None, "split")
+        self.a_split_spreads = A(tr("Doppelseiten teilen (falsch exportierte Broschüre)"), self.split_spreads, None,
+                                 "split")
         self.a_rot_l = A(tr("Seiten links drehen (dauerhaft)"), lambda: self.rotate_pages(-90), None, "rot_l")
         self.a_rot_r = A(tr("Seiten rechts drehen (dauerhaft)"), lambda: self.rotate_pages(90), None, "rot_r")
         self.a_up = A(tr("Seiten nach vorne verschieben"), lambda: self.move_pages(-1), "Alt+Up", "move_up")
@@ -1391,6 +1395,7 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("&Seiten"))
         for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, None, self.a_export,
                   self.a_export_each, None, self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None,
+                  self.a_split, self.a_split_spreads, None,
                   self.a_delete, None, self.a_selall, None, self.a_copy, self.a_seltext):
             m.addSeparator() if a is None else m.addAction(a)
         self.page_menu = m
@@ -1435,8 +1440,8 @@ class MainWindow(QMainWindow):
         for a in (self.a_fitpage, self.a_fitwidth, self.a_actual):
             m.addAction(a)
         m.addSeparator()
-        self.a_vrot_l = A(tr("Ansicht links drehen"), lambda: self.view.rotate(-90), "Ctrl+Shift+-", "rot_l")
-        self.a_vrot_r = A(tr("Ansicht rechts drehen"), lambda: self.view.rotate(90), "Ctrl+Shift++", "rot_r")
+        self.a_vrot_l = A(tr("Ansicht links drehen"), lambda: self.rotate_view(-90), "Ctrl+Shift+-", "rot_l")
+        self.a_vrot_r = A(tr("Ansicht rechts drehen"), lambda: self.rotate_view(90), "Ctrl+Shift++", "rot_r")
         m.addAction(self.a_vrot_l)
         m.addAction(self.a_vrot_r)
         m = mb.addMenu(tr("&Verwaltung"))
@@ -1524,7 +1529,8 @@ class MainWindow(QMainWindow):
         for a in (self.a_save, self.a_saveas, self.a_print, self.a_ins_before, self.a_ins_after,
                   self.a_ins_end, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
                   self.a_rot_r, self.a_up, self.a_down, self.a_selall, self.a_manip, self.a_manip_cmyk,
-                  self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit, self.a_vdp):
+                  self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit, self.a_vdp,
+                  self.a_split, self.a_split_spreads):
             a.setEnabled(has)
         # Speichern nur, wenn es etwas zu speichern gibt (sonst „nichts passiert“)
         self.a_save.setEnabled(has and (self.modified or not self.path))
@@ -1826,11 +1832,24 @@ class MainWindow(QMainWindow):
     # ================================================================ #
     # Miniaturen / Anzeige
     # ================================================================ #
+    def rotate_view(self, delta: int):
+        """Ansicht drehen – die Miniaturen in der Seitenleiste drehen mit (das Dokument bleibt unverändert)."""
+        self.view.rotate(delta)
+        if self.doc is not None:
+            self._rebuild_thumbs()
+
+    def _view_rot(self) -> int:
+        r = getattr(self.view, "rotation", 0)
+        return r % 360 if isinstance(r, int) else 0
+
     def _rebuild_thumbs(self):
         self.thumbs.clear()
+        rot = self._view_rot()
         for i in range(len(self.doc)):
             it = QListWidgetItem(str(i + 1))
             w, h = self.doc.get_page_size(i)
+            if rot % 180:
+                w, h = h, w
             it.setData(THUMB_ASPECT, h / w if w else 1.414)
             it.setToolTip(tr("Seite {0}: {1}").format(i + 1, page_size_text(w, h)))
             self.thumbs.addItem(it)
@@ -1864,9 +1883,10 @@ class MainWindow(QMainWindow):
             iw = dlg.image_rect(QRect(0, 0, vw, 10000), it.data(THUMB_ASPECT)).width()
             if it.data(THUMB_W) == iw and it.data(THUMB_PIX) is not None:
                 continue
-            w, _h = self.doc.get_page_size(i)
+            w, h = self.doc.get_page_size(i)
+            rot = self._view_rot()
             page = self.doc[i]
-            pm = render_pixmap(page, iw / w, 0, dpr)
+            pm = render_pixmap(page, iw / (h if rot % 180 else w), rot, dpr)
             page.close()
             it.setData(THUMB_PIX, pm)
             it.setData(THUMB_W, iw)
@@ -1937,6 +1957,28 @@ class MainWindow(QMainWindow):
         if dlg.exec() and getattr(dlg, "job", None):
             self.start_job(*dlg.job, suffix=tr("_einzeln"), title=tr("Objekte trennen"),
                            notes=lambda info: [tr("{0} Objekt(e) als Einzelseiten.").format(info.get("objects", 0))])
+
+    def split_dialog(self):
+        if self.doc is None:
+            return
+        from .splitdialog import SplitDialog
+        dlg = SplitDialog(self, self.doc, self.view.current, self.selected_pages())
+        if dlg.exec() and getattr(dlg, "job", None):
+            self.start_job(*dlg.job, suffix=tr("_geteilt"), title=tr("Seiten teilen"))
+
+    def split_spreads(self):
+        """Ein Klick: alle Doppelseiten senkrecht halbieren (z. B. Broschüre als Druckbögen exportiert)."""
+        if self.doc is None:
+            return
+        from .. import core, split
+        sizes = [self.doc.get_page_size(i) for i in range(len(self.doc))]
+        if not split.spreads(sizes, 2, 1):
+            QMessageBox.information(self, tr("Doppelseiten teilen"), tr(
+                "Keine Doppelseiten gefunden – keine Seite ist doppelt so breit wie die übrigen. Für andere Fälle: "
+                "Seiten → Seiten teilen …"))
+            return
+        self.start_job("split", core.settings_to_dict(split.SplitSettings(only_spreads=True)), None,
+                       suffix=tr("_geteilt"), title=tr("Doppelseiten teilen"))
 
     def cut_dialog(self):
         if self.doc is None:

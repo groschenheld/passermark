@@ -323,6 +323,21 @@ vd2.set_qr_map(qi[0], {"Position": "Title"})
 assert vd2._settings().fields[qi[0]]["qr_map"] == {"Position": "Title"}
 t = summary("vcard", vd2.cols, {"Position": "Title"}); assert "Vorname ← First Name" in t and "Position ← Title" in t, t
 t = summary("wifi", ["Name"], {}); assert "Netzname*" in t, t
+# Doppelklick ersetzt das unberührte {{nr}} statt es davor stehen zu lassen
+vd3 = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
+vd3.ed_content.text = lambda: "{{nr}}"
+got = []
+vd3.ed_content.setText = lambda t: got.append(("set", t))
+vd3.ed_content.insert = lambda t: got.append(("ins", t))
+vd3._insert("{{Name}}")
+vd3.ed_content.text = lambda: "Ticket {{nr}}"
+vd3._insert("{{datum}}")
+assert got == [("set", "{{Name}}"), ("ins", "{{datum}}")], got
+from pdfdruck.gui.vdpdialog import VariablesDialog
+vv = VariablesDialog(None, ["Name"]); assert "{{Name}}" in vv.items and "{{datum}}" in vv.items
+from pdfdruck.gui.splitdialog import SplitDialog
+sd = SplitDialog(None, pdfium.PdfDocument(sys.argv[1]), 0, [0]); sd._apply(); assert sd.job[0] == "split"
+w.split_dialog(); w.split_spreads(); w.rotate_view(90); w.rotate_view(-90)
 dd = DataDialog(None, op)
 assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # keine doppelten Spalten
 assert dd.problems() == [], dd.problems()
