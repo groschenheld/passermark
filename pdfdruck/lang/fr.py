@@ -1311,4 +1311,10 @@ MESSAGES = {
     "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "Combien de numéros sont produits – p. ex. 500 pour 500 billets numérotés. Au départ, c’est le nombre de pages du document.",
     "Wie werden die Datensätze verteilt?": "Comment les enregistrements sont-ils répartis ?",
     "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "« Chaque page … » : la page 1 reçoit l’enregistrement 1, la page 2 le 2, etc. – un modèle d’une page donne une page par enregistrement. « Exemplaire du document entier » : toutes les pages avec le même enregistrement, puis toutes avec le suivant (p. ex. recto et verso d’une carte).",
+    "Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele": "Tâche (p. ex. cutcontour) ou : list, settings, presets, beispiele",
+    "Beispiele": "Exemples",
+    "Beispiele für Variable Daten holen …": "Récupérer les exemples de données variables …",
+    "Die Beispiele liegen in:\n{0}\n\nDie Vorlage ist geöffnet. Unter Variable Daten (Strg+Umschalt+D) in der Preset-Leiste „Beispiel 1“ bis „Beispiel 4“ wählen – die CSV ist schon eingetragen.\n\nIm Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.": "Les exemples se trouvent dans :\n{0}\n\nLe modèle est ouvert. Dans Données variables (Ctrl+Maj+D), choisissez « Beispiel 1 » à « Beispiel 4 » dans la barre de préréglages – le CSV est déjà défini.\n\nLe dossier « ergebnis » contient les PDF finis pour comparaison ; le guide est à côté.",
+    "Presets: {0}": "Préréglages : {0}",
+    "Variable Daten – Anleitung (PDF)": "Données variables – guide (PDF)",
 }

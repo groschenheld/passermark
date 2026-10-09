@@ -1,0 +1,49 @@
+Passermark – Beispiele Variable Daten (QR-Code, Code 128, EAN-13)
+=================================================================
+
+Ausführlich: passermark-vdp-anleitung.pdf (im Programm: Hilfe → Variable Daten – Anleitung)
+
+Inhalt
+  vorlage-a6.pdf     leere Vorlage (A6 quer) – darauf kommen die Felder
+  daten.csv          3 Datensätze: Name;Ort;Artikelnummer;EAN
+  presets/           je Beispiel die Einstellungen
+  ergebnis/          so sieht das fertige PDF aus
+
+Holen (kopiert diesen Ordner nach ~/Passermark-Beispiele/vdp und trägt die Presets ein)
+  Programm:       Hilfe → Beispiele für Variable Daten holen …
+  Kommandozeile:  passermark-cli beispiele
+
+Im Programm
+  vorlage-a6.pdf öffnen, Variable Daten (Strg+Umschalt+D),
+  in der Preset-Leiste „Beispiel 1“ … „Beispiel 4“ wählen, Erzeugen.
+
+Kommandozeile (in diesem Ordner)
+  passermark-cli vdp vorlage-a6.pdf aus.pdf --preset presets/beispiel-4-ean13.json
+  passermark-cli vdp vorlage-a6.pdf aus.pdf --preset "Beispiel 4 – EAN-13"
+
+-----------------------------------------------------------------
+1  QR-Code mit Nummerierung (ohne CSV, 5 Tickets)
+   QR  Inhalt:  https://deinefirma.at/ticket/{{nr}}
+   Text Inhalt: Ticket {{nr}}
+   Nummerierung: erste Nummer 1, Stellen 4  → 0001, 0002 …
+
+2  QR-Code aus der CSV
+   QR  Inhalt:  {{Name}} – {{Ort}}   → „Anna Huber – Wien“ (Umlaute gehen)
+
+3  Code 128
+   oben   Inhalt: T{{nr}}             → T0001, T0002, T0003 (Stellen 4)
+   unten  Inhalt: {{Artikelnummer}}   → ART-1001 … aus der CSV
+   Größe 9 pt = Klartextzeile darunter, 0 = keine. Keine Umlaute.
+
+4  EAN-13
+   links  Inhalt: {{EAN}} aus der CSV – 13 Ziffern, oder 12 (Prüfziffer wird
+          dazugerechnet: 978316148410 → 9783161484100)
+   rechts Inhalt: {{nr}} mit Vorsatz 2012345, Stellen 5, Prüfziffer „keine“
+          → 201234500001 → 2012345000018  (20–29 = Nummernkreis für interne Codes)
+
+So geht es NICHT (Vorschau zeigt einen Fehler bzw. falschen Inhalt)
+   EAN-13 Inhalt: ART-{{nr}}            → Buchstaben fallen weg, zu wenig Ziffern
+   EAN-13 Inhalt: {{nr}} mit Stellen 4  → nur 4 Ziffern
+   Inhalt: nr (ohne {{ }})              → es steht einfach „nr“ da
+
+Lesbarkeit der Codes immer am Ausdruck mit Scanner oder Handy prüfen.

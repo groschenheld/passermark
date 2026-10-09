@@ -1065,6 +1065,8 @@ class MainWindow(QMainWindow):
         self._pages_dock = pages_dock
         self.a_presets = self._act(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
         self.a_cli = self._act(tr("Kommandozeile – Anleitung (PDF)"), self._open_cli_howto, None, "terminal")
+        self.a_vdp_howto = self._act(tr("Variable Daten – Anleitung (PDF)"), self._open_vdp_howto, None, "book")
+        self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
         tools = {"view": [(self.a_rulers, tr("Lineale")), (self.a_measure, tr("Messen")),
                           (self.a_boxes, tr("Endformat")),
                           (self.a_copy, tr("Text kopieren"))],
@@ -1076,7 +1078,8 @@ class MainWindow(QMainWindow):
                           (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
                           (self.a_down, tr("Nach hinten")), (self.a_merge, tr("Zusammenführen")),
                           (self.a_export, tr("Exportieren"))],
-                 "vdp": [(self.a_vdp, tr("Variable Daten"))],
+                 "vdp": [(self.a_vdp, tr("Variable Daten")), (self.a_examples, tr("Beispiele")),
+                         (self.a_vdp_howto, tr("Anleitung"))],
                  "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))]}
         self.addToolBarBreak()
         tb = self.ws_bar = self.addToolBar(tr("Arbeitsbereich"))
@@ -1439,6 +1442,12 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("&Hilfe"))
         a = QAction(tr("Kommandozeile – Anleitung (PDF)"), self)
         a.triggered.connect(self._open_cli_howto)
+        m.addAction(a)
+        a = QAction(tr("Variable Daten – Anleitung (PDF)"), self)
+        a.triggered.connect(self._open_vdp_howto)
+        m.addAction(a)
+        a = QAction(tr("Beispiele für Variable Daten holen …"), self)
+        a.triggered.connect(self._get_examples)
         m.addAction(a)
         from .. import platform as _pl
         if _pl.IS_WIN:
@@ -2068,6 +2077,28 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
             return
         self.ctl.open_paths([p], tab_of=self)
+
+    def _open_vdp_howto(self):
+        from .. import examples
+        p = examples.VDP_HOWTO
+        if not os.path.isfile(p):
+            QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
+            return
+        self.ctl.open_paths([p], tab_of=self)
+
+    def _get_examples(self):
+        """Beispiele in den Benutzerordner kopieren, Presets eintragen, Vorlage in einem Reiter öffnen."""
+        from .. import examples
+        try:
+            d = examples.install()
+        except OSError as e:
+            QMessageBox.critical(self, tr("Beispiele"), tr("Fehler: {0}").format(e))
+            return
+        self.ctl.open_paths([os.path.join(d, "vorlage-a6.pdf")], tab_of=self)
+        QMessageBox.information(self, tr("Beispiele"), tr(
+            "Die Beispiele liegen in:\n{0}\n\nDie Vorlage ist geöffnet. Unter Variable Daten (Strg+Umschalt+D) "
+            "in der Preset-Leiste „Beispiel 1“ bis „Beispiel 4“ wählen – die CSV ist schon eingetragen.\n\n"
+            "Im Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.").format(d))
 
     def _win_print_test(self):
         """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""

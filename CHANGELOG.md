@@ -1,5 +1,17 @@
 # Änderungen – Passermark
 
+## 1.9.5
+- **Beispiele für Variable Daten im Programm:** Vorlage, CSV, 4 Presets (QR mit Nummer, QR aus CSV, Code 128,
+  EAN-13) und fertige Ergebnis-PDFs liegen im Programmpaket. *Hilfe → Beispiele für Variable Daten holen …* (auch im
+  Arbeitsbereich Variable Daten) kopiert sie nach `~/Passermark-Beispiele/vdp`, trägt die Presets „Beispiel 1“ bis
+  „Beispiel 4“ mit vollem CSV-Pfad ein und öffnet die Vorlage
+- **Neue Anleitung „Variable Daten“ (PDF)** für Oberfläche und Kommandozeile, mit allen vier Beispielen Schritt für
+  Schritt: *Hilfe → Variable Daten – Anleitung (PDF)*
+- Kommandozeile: `passermark-cli beispiele [ordner]`; ein relativer `csv_path` im Preset wird auch neben der
+  Preset-Datei gesucht
+- Anleitung Kommandozeile: VDP-Texte auf den aktuellen Stand (jede Seite der nächste Datensatz, Arbeitsbereich)
+- Windows-/Linux-Build: der ganze Ordner `pdfdruck/docs` wird mitgeliefert
+
 ## 1.9.4
 - **Behoben: Code 128 – Klartextzeile verzerrt.** Die lesbare Zeile unter dem Strichcode wurde mit den Strichen
   auf die Feldgröße gestreckt; jetzt steht sie in der eingestellten Schriftgröße darunter

@@ -1311,4 +1311,10 @@ MESSAGES = {
     "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "Cuántos números se generan, p. ej. 500 para 500 entradas numeradas. Al principio figura aquí el número de páginas del documento.",
     "Wie werden die Datensätze verteilt?": "¿Cómo se reparten los registros?",
     "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "«Cada página …»: la página 1 recibe el registro 1, la 2 el 2, etc.; con plantilla de una página sale una página por registro. «Copia de todo el documento»: todas las páginas con el mismo registro y luego todas con el siguiente (p. ej. anverso y reverso de una tarjeta).",
+    "Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele": "Trabajo (p. ej. cutcontour) o: list, settings, presets, beispiele",
+    "Beispiele": "Ejemplos",
+    "Beispiele für Variable Daten holen …": "Obtener ejemplos de datos variables …",
+    "Die Beispiele liegen in:\n{0}\n\nDie Vorlage ist geöffnet. Unter Variable Daten (Strg+Umschalt+D) in der Preset-Leiste „Beispiel 1“ bis „Beispiel 4“ wählen – die CSV ist schon eingetragen.\n\nIm Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.": "Los ejemplos están en:\n{0}\n\nLa plantilla está abierta. En Datos variables (Ctrl+Mayús+D) elige «Beispiel 1» a «Beispiel 4» en la barra de ajustes – el CSV ya está configurado.\n\nLa carpeta «ergebnis» contiene los PDF terminados para comparar; la guía está al lado.",
+    "Presets: {0}": "Ajustes: {0}",
+    "Variable Daten – Anleitung (PDF)": "Datos variables – guía (PDF)",
 }

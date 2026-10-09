@@ -1311,4 +1311,10 @@ MESSAGES = {
     "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "Hány szám készüljön – pl. 500 az 500 számozott jegyhez. Kezdetben itt a dokumentum oldalszáma áll.",
     "Wie werden die Datensätze verteilt?": "Hogyan oszlanak el a rekordok?",
     "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "„Minden oldal …”: az 1. oldal az 1. rekordot kapja, a 2. a 2.-at stb. – egyoldalas sablonnál rekordonként egy oldal készül. „A teljes dokumentum példánya”: minden oldal ugyanazzal a rekorddal, aztán minden oldal a következővel (pl. kártya elő- és hátoldala).",
+    "Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele": "Feladat (pl. cutcontour) vagy: list, settings, presets, beispiele",
+    "Beispiele": "Példák",
+    "Beispiele für Variable Daten holen …": "Változó adatok példáinak lekérése …",
+    "Die Beispiele liegen in:\n{0}\n\nDie Vorlage ist geöffnet. Unter Variable Daten (Strg+Umschalt+D) in der Preset-Leiste „Beispiel 1“ bis „Beispiel 4“ wählen – die CSV ist schon eingetragen.\n\nIm Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.": "A példák helye:\n{0}\n\nA sablon meg van nyitva. A Változó adatok (Ctrl+Shift+D) preset-sávjában válaszd a „Beispiel 1” – „Beispiel 4” elemet – a CSV már be van állítva.\n\nAz „ergebnis” mappában vannak a kész PDF-ek összehasonlításhoz, mellette az útmutató.",
+    "Presets: {0}": "Presetek: {0}",
+    "Variable Daten – Anleitung (PDF)": "Változó adatok – útmutató (PDF)",
 }

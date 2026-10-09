@@ -7,7 +7,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 root = os.path.abspath(os.path.join(SPECPATH, ".."))
 datas = [(os.path.join(root, "pdfdruck", "gui", "passermark.svg"), "pdfdruck/gui"),
          (os.path.join(root, "LICENSE"), "."), (os.path.join(root, "README.md"), "."),
-         (os.path.join(root, "pdfdruck", "docs", "passermark-cli-anleitung.pdf"), "pdfdruck/docs")]
+         (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs")]
 datas += collect_data_files("pypdfium2") + collect_data_files("pypdfium2_raw") + collect_data_files("reportlab")
 binaries = collect_dynamic_libs("pypdfium2_raw") + collect_dynamic_libs("pikepdf")
 RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (dynamisch geladen)

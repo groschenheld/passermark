@@ -127,7 +127,7 @@ def build():
         [c("repair"), "Reparieren, für Druck optimieren, verkleinern, PDF/A, Passwort"],
         [c("preflight_fix"), "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren"],
         [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
-        [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – je Datensatz eine Kopie"],
+        [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – jede Seite der nächste Datensatz"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -146,6 +146,8 @@ def build():
         [c("settings <auftrag>"), "alle Einstellungen eines Auftrags mit Standardwerten als JSON – die Vorlage "
          "für eigene Presets"],
         [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
+        [c("beispiele [ordner]"), "Beispiele für Variable Daten in den Benutzerordner kopieren (Standard: "
+         + c("Passermark-Beispiele") + ") und als Presets „Beispiel 1 …“ eintragen"],
     ], [42 * mm, W - 42 * mm]))
 
     s.append(P("Rückgabewerte und Abbrechen", H3))
@@ -352,11 +354,11 @@ def build():
     # ------------------------------------------------------------------ vdp
     s.append(PageBreak())
     s.append(P("vdp – Variable Daten: Nummern, Namen, QR- und Barcodes", H3))
-    s.append(P("Legt Felder auf die Vorlage – je Datensatz eine Kopie. Datensätze kommen aus einer CSV-Datei "
-               "(erste Zeile = Spaltennamen, Trennzeichen ; , oder Tab werden erkannt) oder aus einer reinen "
+    s.append(P("Legt Felder auf die Vorlage – jede Seite bekommt den nächsten Datensatz. Datensätze kommen aus "
+               "einer CSV-Datei (erste Zeile = Spaltennamen, Trennzeichen ; , oder Tab werden erkannt) oder aus einer reinen "
                "Nummerierung (" + c("count") + "). Inhalte sind Vorlagen: " + c("{{Spalte}}") + ", " + c("{{nr}}")
                + " (formatierte Nummer), " + c("{{i}}") + " (laufend ab 1). Alles bleibt Vektor."))
-    s.append(P("Die Felder legt man am einfachsten im Programm an (Dokument-Manipulation → Variable Daten, Felder mit "
+    s.append(P("Die Felder legt man am einfachsten im Programm an (Arbeitsbereich Variable Daten, Strg+Umschalt+D, Felder mit "
                "der Maus platzieren, Vorschau je Datensatz) und speichert ein Preset. Die Kommandozeile nimmt dann "
                "das Preset und ändert nur, was sich je Auftrag ändert:"))
     s.append(table([
@@ -376,6 +378,9 @@ def build():
         [c("placeholders"), c("false"), c("{{…}}") + " im PDF als Feldposition übernehmen, Platzhaltertext entfernen"],
     ], [47 * mm, 20 * mm, W - 67 * mm]))
     s.append(Spacer(1, 4))
+    s.append(P("Fertige Beispiele mit Vorlage, CSV und Presets (QR-Code, Code 128, EAN-13) holt "
+               + c("passermark-cli beispiele") + "; ausführlich erklärt in der Anleitung „Variable Daten“ "
+               "(Hilfe → Variable Daten – Anleitung).", NOTE))
     s.append(example("500 nummerierte Tickets", "Preset „Tickets“ im Programm angelegt (Feld mit {{nr}}).",
                      'passermark-cli vdp ticket.pdf tickets.pdf --preset "Tickets" --set count=500'))
     s.append(example("Namensschilder aus einer Gästeliste", "Felder {{Name}} und QR-Code mit {{Name}}; Protokoll dazu.",

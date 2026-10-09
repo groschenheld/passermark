@@ -1311,4 +1311,10 @@ MESSAGES = {
     "Wie viele Nummern erzeugt werden – z. B. 500 für 500 nummerierte Tickets. Am Anfang steht hier die Seitenzahl des Dokuments.": "How many numbers are produced – e.g. 500 for 500 numbered tickets. Initially this is the document’s page count.",
     "Wie werden die Datensätze verteilt?": "How are the records distributed?",
     "„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer Karte).": "“Each page …”: page 1 gets record 1, page 2 record 2 and so on – a single-page template gives one page per record. “Copy of the whole document”: all pages with the same record, then all pages with the next one (e.g. front and back of a card).",
+    "Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele": "Job (e.g. cutcontour) or: list, settings, presets, beispiele",
+    "Beispiele": "Examples",
+    "Beispiele für Variable Daten holen …": "Get variable data examples …",
+    "Die Beispiele liegen in:\n{0}\n\nDie Vorlage ist geöffnet. Unter Variable Daten (Strg+Umschalt+D) in der Preset-Leiste „Beispiel 1“ bis „Beispiel 4“ wählen – die CSV ist schon eingetragen.\n\nIm Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.": "The examples are in:\n{0}\n\nThe template is open. In Variable data (Ctrl+Shift+D) choose “Beispiel 1” to “Beispiel 4” in the preset bar – the CSV is already set.\n\nThe folder “ergebnis” contains the finished PDFs for comparison; the guide is next to it.",
+    "Presets: {0}": "Presets: {0}",
+    "Variable Daten – Anleitung (PDF)": "Variable data – guide (PDF)",
 }

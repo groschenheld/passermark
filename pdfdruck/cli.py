@@ -11,6 +11,7 @@
     passermark-cli cutcontour ein.pdf aus.pdf --preset sticker.json --pages 1,3-5
     passermark-cli cutcontour ein.pdf aus.pdf --preset Sticker               (im Programm gespeichertes Preset)
     passermark-cli presets [auftrag]                         (gespeicherte Presets auflisten)
+    passermark-cli beispiele [zielordner]                   (Beispiele für Variable Daten holen + Presets)
     passermark-cli … --json-progress                         (Fortschritt als JSON-Zeilen, für die Oberfläche)
 
 Rückgabe: 0 = ok, 1 = Fehler, 2 = falscher Aufruf, 130 = abgebrochen (Strg+C).
@@ -96,10 +97,22 @@ class _Reporter:
             sys.stderr.flush()
 
 
+def _rebase_paths(settings: dict, base: str) -> None:
+    """Relative Datei-Angaben im Preset (z. B. csv_path) gelten relativ zur Preset-Datei, wenn es sie im aktuellen
+    Ordner nicht gibt – so laufen mitgelieferte Presets von überall."""
+    for key in ("csv_path",):
+        v = settings.get(key)
+        if isinstance(v, str) and v and not os.path.isabs(v) and not os.path.exists(v):
+            for cand in (os.path.join(base, v), os.path.join(os.path.dirname(base), v)):
+                if os.path.exists(cand):
+                    settings[key] = cand
+                    break
+
+
 def build_parser() -> argparse.ArgumentParser:
     from .l10n import tr
     p = argparse.ArgumentParser(prog="passermark-cli", description=tr("Passermark – Aufträge ohne Oberfläche"))
-    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets"))
+    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele"))
     p.add_argument("input", nargs="?", help=tr("Eingabe-PDF (bei 'settings': Auftrag)"))
     p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF"))
     p.add_argument("--preset", help=tr("Einstellungen: JSON-Datei oder Name eines im Programm gespeicherten Presets"))
@@ -138,6 +151,19 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"job": a.input, "settings": core.settings_to_dict(cls())}, ensure_ascii=False, indent=2))
         return EXIT_OK
 
+    if a.job == "beispiele":
+        from . import examples
+        try:
+            d = examples.install(a.input)
+        except OSError as e:
+            print(tr("Fehler: {0}").format(e), file=sys.stderr)
+            return EXIT_ERROR
+        print(d)
+        print("  " + tr("Presets: {0}").format(", ".join(n for _, n in examples.EXAMPLES)))
+        print("  passermark-cli vdp \"{0}\" aus.pdf --preset \"{1}\"".format(
+            os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]))
+        return EXIT_OK
+
     if a.job == "presets":
         from . import presets
         kinds = [a.input] if a.input else list(core.JOBS)
@@ -171,9 +197,11 @@ def main(argv: list[str] | None = None) -> int:
         settings = {}
         if a.preset:
             from . import presets
-            kind, settings = core.load_settings(presets.resolve(a.job, a.preset))
+            ppath = presets.resolve(a.job, a.preset)
+            kind, settings = core.load_settings(ppath)
             if kind != a.job:
                 return fail(tr("Preset ist für „{0}“, nicht für „{1}“").format(kind, a.job), EXIT_USAGE)
+            _rebase_paths(settings, os.path.dirname(os.path.abspath(ppath)))
         apply_sets(settings, a.set)
         pages = parse_pages(a.pages)
     except (OSError, ValueError, KeyError) as e:
