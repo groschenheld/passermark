@@ -1,5 +1,14 @@
 # Änderungen – Passermark
 
+## 1.9.1
+- **Fenster mit vielen Optionen werden nicht mehr abgeschnitten:** Variable Daten, CutContour, Objekte trennen und
+  der Druckdialog haben zwischen Vorschau und Einstellungen einen verschiebbaren Teiler; der Einstellungsbereich
+  scrollt senkrecht und – wenn er schmaler als sein Inhalt ist – auch waagrecht. Dasselbe in CMYK/Beschneiden und
+  im Admin-Dialog. Dialoge werden nie größer als der Bildschirm geöffnet
+- Variable Daten: Knopf „CSV öffnen …“ (war bei schmalem Fenster abgeschnitten – sichtbar blieb nur der
+  Speichern-Knopf des Code-Protokolls, jetzt „Speichern unter…“); Enter in einem Eingabefeld startet nicht mehr
+  versehentlich „Erzeugen“
+
 ## 1.9.0
 - **Variable Daten** (Dokument-Manipulation → Variable Daten …, Strg+Umschalt+D; eigener Arbeitsbereich):
   Felder auf die Vorlage legen und mit der Maus platzieren – **Text**, **QR-Code**, **Code 128**, **EAN-13**,

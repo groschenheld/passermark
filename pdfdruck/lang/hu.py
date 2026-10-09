@@ -1239,4 +1239,5 @@ MESSAGES = {
     "von {0}": "/ {0}",
     "{0} Datensätze, {1} Seiten erzeugt.": "{0} rekord, {1} oldal létrehozva.",
     "{0} Platzhalter aus der Vorlage übernommen.": "{0} helyőrző átvéve a sablonból.",
+    "CSV öffnen …": "CSV megnyitása …",
 }

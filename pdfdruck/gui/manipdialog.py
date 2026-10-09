@@ -443,7 +443,7 @@ class ManipDialog(QDialog):
         v = QVBoxLayout(self)
         sa = QScrollArea()
         sa.setWidgetResizable(True)
-        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.panel = ManipPanel(self, session.manip, session.cfg, doc, current)
         from .presetbar import PresetBar
         self.presetbar = PresetBar(self, "manip", self.panel.settings, self.panel.load_settings)

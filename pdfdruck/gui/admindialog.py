@@ -338,7 +338,7 @@ class AdminDialog(QDialog):
         v.addStretch()
         self.p_area.setWidget(inner)
         fit_width(inner)
-        self.p_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.p_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
     # ---------------- Fächerbelegung ---------------- #
     def _build_tray_table(self, v, name, caps, pc):
@@ -875,7 +875,7 @@ class PresetDialog(QDialog):
         v.addWidget(self.chk_all)
         self.area = QScrollArea()
         self.area.setWidgetResizable(True)
-        self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         v.addWidget(self.area, 1)
         if caps.backend == "win":
             row = QHBoxLayout()

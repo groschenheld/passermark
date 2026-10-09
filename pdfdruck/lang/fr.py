@@ -1239,4 +1239,5 @@ MESSAGES = {
     "von {0}": "sur {0}",
     "{0} Datensätze, {1} Seiten erzeugt.": "{0} enregistrements, {1} pages créées.",
     "{0} Platzhalter aus der Vorlage übernommen.": "{0} marqueurs repris du modèle.",
+    "CSV öffnen …": "Ouvrir un CSV …",
 }

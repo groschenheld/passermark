@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDia
 from .. import cutcontour, objects
 from ..l10n import tr
 from . import theme
-from .common import fill_combo, fit_width
+from .common import split_panels, fill_combo, fit_width
 
 MODES = [("auto", "Automatisch"), ("transparent", "Vektor/Transparenz (exakt)"),
          ("color", "Hintergrundfarbe (Scans)")]
@@ -391,7 +391,7 @@ class SeparateDialog(QDialog):
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         left.addWidget(hint)
-        root.addLayout(left, 1)
+        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
 
         right = QVBoxLayout()
         g, self.w = _detect_group(self, self.ds)
@@ -437,8 +437,7 @@ class SeparateDialog(QDialog):
         right.addWidget(bb)
         wrap = QWidget()
         wrap.setLayout(right)
-        wrap.setFixedWidth(360)
-        root.addWidget(wrap)
+        split_panels(root, left, wrap, 400)
         fit_width(wrap)
         self._detect([self.page])
 
@@ -560,7 +559,7 @@ class CutContourDialog(QDialog):
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         nav.addWidget(self.lbl_info)
         left.addLayout(nav)
-        root.addLayout(left, 1)
+        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
 
         right = QVBoxLayout()
         from .presetbar import PresetBar
@@ -726,8 +725,7 @@ class CutContourDialog(QDialog):
         right.addWidget(bb)
         wrap = QWidget()
         wrap.setLayout(right)
-        wrap.setFixedWidth(380)
-        root.addWidget(wrap)
+        split_panels(root, left, wrap, 420)
         fit_width(wrap)
         from .. import presets
         last = presets.load_last("cutcontour")

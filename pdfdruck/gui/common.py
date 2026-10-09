@@ -61,7 +61,8 @@ def fit_width(root):
         sp.setKeyboardTracking(False)
     for sa in root.findChildren(QAbstractScrollArea):
         if sa.metaObject().className() == "QScrollArea":
-            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            # nichts abschneiden: wird das Fenster schmaler als der Inhalt, gibt es eine waagrechte Leiste
+            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
 
 def guard_wheel(root):
@@ -141,6 +142,51 @@ def window_modal_dialogs():
                 self.setWindowModality(_Qt.WindowModality.WindowModal)
         except Exception:
             pass
+        try:                                     # nie größer als der Bildschirm (kleine Notebooks)
+            scr = (self.parentWidget() or self).screen().availableGeometry()
+            w, h = min(self.width(), scr.width() - 40), min(self.height(), scr.height() - 60)
+            if (w, h) != (self.width(), self.height()):
+                self.resize(max(320, w), max(240, h))
+        except Exception:
+            pass
         return orig(self, *a, **k)
     QDialog.exec = exec_
     QDialog._pm_window_modal = True
+
+
+def split_panels(root, left, right, right_width: int = 420):
+    """Vorschau links, Einstellungen rechts – mit verschiebbarem Teiler; rechts scrollbar (senkrecht und waagrecht),
+    damit bei kleinem Fenster nichts abgeschnitten wird. left/right: Layout oder Widget."""
+    from PySide6.QtWidgets import QFrame, QLayout, QScrollArea, QSplitter, QWidget
+
+    def as_widget(x):
+        if isinstance(x, QLayout):
+            w = QWidget()
+            w.setLayout(x)
+            return w
+        return x
+    lw, rw = as_widget(left), as_widget(right)
+    sa = QScrollArea()
+    sa.setWidgetResizable(True)
+    sa.setFrameShape(QFrame.Shape.NoFrame)
+    sa.setWidget(rw)
+    sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    sa.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    sa.setMinimumWidth(260)
+    sp = QSplitter(Qt.Orientation.Horizontal)
+    sp.addWidget(lw)
+    sp.addWidget(sa)
+    sp.setStretchFactor(0, 1)
+    sp.setStretchFactor(1, 0)
+    sp.setChildrenCollapsible(False)
+    sp.setSizes([900, right_width])
+    root.addWidget(sp)
+    return sp
+
+
+def no_enter_default(dialog):
+    """Enter in einem Eingabefeld löst nicht den Standardknopf aus (z. B. „Erzeugen“) – nur ein Klick."""
+    from PySide6.QtWidgets import QPushButton
+    for b in dialog.findChildren(QPushButton):
+        b.setAutoDefault(False)
+        b.setDefault(False)

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog, QDia
 from .. import vdp
 from ..l10n import tr
 from . import theme
-from .common import fill_combo, fit_width
+from .common import fill_combo, fit_width, no_enter_default, split_panels
 
 def kind_text(k: str) -> str:
     return {"text": tr("Text"), "qr": tr("QR-Code"), "code128": "Code 128", "ean13": "EAN-13"}.get(k, k)
@@ -136,7 +136,7 @@ class VdpDialog(QDialog):
         self.lbl_info.setWordWrap(True)
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         left.addWidget(self.lbl_info)
-        root.addLayout(left, 1)
+        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
 
         right = QVBoxLayout()
         from .presetbar import PresetBar
@@ -150,7 +150,7 @@ class VdpDialog(QDialog):
         self.ed_csv = QLineEdit()
         self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
         self.ed_csv.editingFinished.connect(self._csv_changed)
-        b = QPushButton(tr("CSV …"))
+        b = QPushButton(tr("CSV öffnen …"))
         b.clicked.connect(self._pick_csv)
         row.addWidget(self.ed_csv, 1)
         row.addWidget(b)
@@ -279,8 +279,7 @@ class VdpDialog(QDialog):
         row = QHBoxLayout()
         self.chk_log = QCheckBox(tr("Code-Protokoll (CSV):"))
         self.ed_log = QLineEdit()
-        b = QPushButton("…")
-        b.setFixedWidth(30)
+        b = QPushButton(tr("Speichern unter…"))
         b.clicked.connect(self._pick_log)
         row.addWidget(self.chk_log)
         row.addWidget(self.ed_log, 1)
@@ -302,13 +301,9 @@ class VdpDialog(QDialog):
         right.addWidget(bb)
         wrap = QWidget()
         wrap.setLayout(right)
-        sa = QScrollArea()
-        sa.setWidgetResizable(True)
-        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        sa.setWidget(wrap)
-        sa.setFixedWidth(500)
-        root.addWidget(sa)
+        split_panels(root, left, wrap, 560)
         fit_width(wrap)
+        no_enter_default(self)
 
         # Änderungen -> Vorschau (verzögert)
         self._timer = QTimer(self, singleShot=True, interval=350, timeout=self._refresh)

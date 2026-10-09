@@ -1239,4 +1239,5 @@ MESSAGES = {
     "von {0}": "of {0}",
     "{0} Datensätze, {1} Seiten erzeugt.": "{0} records, {1} pages created.",
     "{0} Platzhalter aus der Vorlage übernommen.": "{0} placeholders taken from the template.",
+    "CSV öffnen …": "Open CSV …",
 }

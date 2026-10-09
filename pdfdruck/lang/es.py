@@ -1239,4 +1239,5 @@ MESSAGES = {
     "von {0}": "de {0}",
     "{0} Datensätze, {1} Seiten erzeugt.": "{0} registros, {1} páginas creadas.",
     "{0} Platzhalter aus der Vorlage übernommen.": "{0} marcadores tomados de la plantilla.",
+    "CSV öffnen …": "Abrir CSV …",
 }

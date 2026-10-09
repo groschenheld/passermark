@@ -89,7 +89,7 @@ class PrintDialog(QDialog):
 
         root = QHBoxLayout(self)
         self.tabs = QTabWidget()
-        self.tabs.setMinimumWidth(500)
+        self.tabs.setMinimumWidth(360)
         left = QVBoxLayout()
         # Preset über den Reitern: gilt für Allgemein UND Weitere Optionen (ohne Drucker/Fach)
         from .presetbar import PresetBar
@@ -97,7 +97,6 @@ class PrintDialog(QDialog):
         self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
         left.addWidget(self.presetbar)
         left.addWidget(self.tabs, 1)
-        root.addLayout(left, 0)
         self.general = QWidget()
         self.tabs.addTab(self._scroll(self.general), tr("Allgemein"))
         self.extras = QWidget()
@@ -106,7 +105,19 @@ class PrintDialog(QDialog):
         self.tabs.addTab(self._scroll(self.driver_box), tr("Treiber (alle Optionen)"))
 
         right = QVBoxLayout()
-        root.addLayout(right, 1)
+        # Einstellungen | Vorschau mit verschiebbarem Teiler (breiter ziehen statt abgeschnitten)
+        from PySide6.QtWidgets import QSplitter
+        lw, rw = QWidget(), QWidget()
+        lw.setLayout(left)
+        rw.setLayout(right)
+        self.split = QSplitter(Qt.Orientation.Horizontal)
+        self.split.addWidget(lw)
+        self.split.addWidget(rw)
+        self.split.setStretchFactor(0, 0)
+        self.split.setStretchFactor(1, 1)
+        self.split.setChildrenCollapsible(False)
+        self.split.setSizes([560, 620])
+        root.addWidget(self.split)
         self.preview = Preview()
         right.addWidget(self.preview, 1)
         nav = QHBoxLayout()
@@ -156,7 +167,7 @@ class PrintDialog(QDialog):
     def _scroll(w):
         sa = QScrollArea()
         sa.setWidgetResizable(True)
-        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         sa.setWidget(w)
         return sa
 
