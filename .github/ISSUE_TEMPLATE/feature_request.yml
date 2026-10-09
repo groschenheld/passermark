@@ -1,0 +1,33 @@
+name: "Funktion vorschlagen / Feature request"
+description: "Idee oder Wunsch für Passermark / Idea or wish for Passermark"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Idee! Passermark ist ein privates Projekt – Umsetzung ohne Garantie.
+        Thanks for the idea! Passermark is a private project – no guarantee it will be implemented.
+  - type: textarea
+    id: task
+    attributes:
+      label: "Was willst du erledigen? / What do you want to get done?"
+      description: |
+        Die Aufgabe aus dem Alltag, nicht nur der Knopf – z. B. „Kunde schickt 100 Visitenkarten als ein PDF …“.
+        The real-world job, not just the button – e.g. "a customer sends 100 business cards as one PDF …".
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: "Wie machst du es heute? / How do you do it today?"
+      description: "Umweg, anderes Programm, von Hand … / workaround, other tool, by hand …"
+  - type: textarea
+    id: idea
+    attributes:
+      label: "Vorschlag / Suggestion"
+      description: "Wie könnte es in Passermark aussehen? / How could it look in Passermark?"
+  - type: textarea
+    id: files
+    attributes:
+      label: "Beispiel / Example"
+      description: "Beispieldatei oder Bildschirmfoto (ohne vertrauliche Inhalte) / sample file or screenshot (no confidential content)"
