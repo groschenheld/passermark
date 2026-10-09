@@ -19,6 +19,7 @@ from reportlab.lib.units import mm  # noqa: E402
 from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer  # noqa: E402
 
 from pdfdruck import __version__  # noqa: E402
+from pdfdruck import datakinds  # noqa: E402
 from pdfdruck.examples import EXAMPLES, VDP_DIR, VDP_HOWTO  # noqa: E402
 
 P, c, code, table, W = H.P, H.c, H.code, H.table, H.W
@@ -62,8 +63,8 @@ def example_block(stem, title, intro, rows, gui, cli):
 def build():
     s = []
     s += [P("Passermark – Variable Daten", H1),
-          P(f"Nummern, Texte aus einer CSV, QR-Code, Code 128 und EAN-13 – in der Oberfläche und auf der "
-            f"Kommandozeile · Passermark {__version__}", SUB)]
+          P(f"Nummern, Texte aus einer Tabelle, QR-Code (auch Visitenkarte, WLAN, E-Mail …), Code 128 und EAN-13 – "
+            f"in der Oberfläche und auf der Kommandozeile · Passermark {__version__}", SUB)]
     s.append(P("Variable Daten legen Felder auf ein PDF und füllen sie für jede Seite neu: fortlaufende Nummern, "
                "Namen aus einer Tabelle, QR- und Strichcodes. Die Vorlage bleibt, wie sie ist; alles wird als "
                "Vektor darübergelegt."))
@@ -86,13 +87,14 @@ def build():
     s.append(table([
         ["Art", "Was hinein darf", "Beispiel-Inhalt", "Darauf achten"],
         ["Text", "alles, auch Umlaute", c("Ticket {{nr}}"), "Schrift, Größe, Farbe, Ausrichtung im Dialog"],
-        ["QR-Code", "alles: Text, Umlaute, Webadressen", c("https://…/{{nr}}"),
-         "wird quadratisch in den Kasten eingepasst; für Webadressen ab etwa 20 × 20 mm"],
+        ["QR-Code", "alles: Text, Umlaute, Webadressen – oder mit „Art“ Visitenkarte, WLAN, E-Mail … aus Spalten "
+         "(Abschnitt 4)", c("https://…/{{nr}}"),
+         "wird quadratisch in den Kasten eingepasst, mit weißem Rand (Ruhezone); für Webadressen ab etwa 20 × 20 mm"],
         ["Code 128", "Buchstaben, Ziffern, übliche Zeichen – keine Umlaute", c("T{{nr}}"),
          "wird auf die Kastenbreite gezogen – breit anlegen (50–60 mm für 8–10 Zeichen). Größe = Klartextzeile "
          "darunter, 0 = keine"],
         ["EAN-13", "genau 12 oder 13 Ziffern", c("{{EAN}}"),
-         "bei 12 Ziffern wird die Prüfziffer dazugerechnet; bei 13 wird die letzte Stelle neu gerechnet"],
+         "bei 12 Ziffern wird die Prüfziffer dazugerechnet; bei 13 wird die letzte Stelle geprüft – falsch = Fehler"],
     ], [20 * mm, 40 * mm, 42 * mm, W - 102 * mm]))
     s.append(P("Wie die Datensätze auf die Seiten kommen", H3))
     s.append(table([
@@ -107,9 +109,9 @@ def build():
 
     # ------------------------------------------------------------------ 2 Beispiele holen
     s.append(P("2 · Die Beispiele holen", H2))
-    s.append(P("Passermark bringt vier fertige Beispiele mit. „Holen“ kopiert sie in den Ordner "
+    s.append(P("Passermark bringt sechs fertige Beispiele mit. „Holen“ kopiert sie in den Ordner "
                + c("Passermark-Beispiele/vdp") + " in deinem Benutzerordner und trägt sie als Presets "
-               "„Beispiel 1“ bis „Beispiel 4“ ein (mit dem richtigen Pfad zur CSV)."))
+               "„Beispiel 1“ bis „Beispiel 6“ ein (mit dem richtigen Pfad zur Tabelle)."))
     s.append(table([
         ["Wo", "So"],
         ["Oberfläche", "Menü <b>Hilfe → Beispiele für Variable Daten holen …</b> oder Arbeitsbereich "
@@ -121,8 +123,10 @@ def build():
     s.append(table([
         ["Datei", "Inhalt"],
         [c("vorlage-a6.pdf"), "leere Vorlage A6 quer – darauf kommen die Felder"],
-        [c("daten.csv"), "3 Datensätze: Name;Ort;Artikelnummer;EAN"],
-        [c("presets/beispiel-*.json"), "die Einstellungen der vier Beispiele"],
+        [c("daten.csv"), "3 Datensätze: Name;Ort;Artikelnummer;EAN (Beispiele 2–4)"],
+        [c("visitenkarten.csv"), "3 Kontakte für die Visitenkarte (Beispiel 5)"],
+        [c("wlan.csv"), "3 WLAN-Zugänge (Beispiel 6)"],
+        [c("presets/beispiel-*.json"), "die Einstellungen der sechs Beispiele"],
         [c("ergebnis/beispiel-*.pdf"), "so muss das Ergebnis aussehen"],
         [c("LIESMICH.txt"), "Kurzfassung dieser Anleitung"],
     ], [50 * mm, W - 50 * mm]))
@@ -153,9 +157,40 @@ def build():
                "der Dialog die Einstellungen nur bis zum Schließen von Passermark. <b>Alles zurücksetzen</b> "
                "fängt mit einem leeren Textfeld " + c("{{nr}}") + " neu an.", NOTE))
 
-    # ------------------------------------------------------------------ 4 Beispiele
+    # ------------------------------------------------------------------ 4 Daten erfassen
     s.append(PageBreak())
-    s.append(P("4 · Die vier Beispiele", H2))
+    s.append(P("4 · Daten erfassen – die Tabelle in Passermark", H2))
+    s.append(P("Statt die Tabelle in Excel anzulegen, geht es auch direkt in Passermark: Arbeitsbereich "
+               "<b>Variable Daten → Daten erfassen</b> (oder im Dialog Variable Daten unter 2. <b>Daten erfassen …</b>). "
+               "Je Art bringt die Tabelle die passenden Spalten mit, prüft jede Zeile sofort und zeigt rechts den "
+               "fertigen Code der gewählten Zeile."))
+    s += steps([
+        "Oben die <b>Art</b> wählen, z. B. „QR – Visitenkarte (vCard)“. Pflichtspalten haben ein *; beim Zeigen auf "
+        "eine Spaltenüberschrift steht, was hinein gehört.",
+        "Zeilen ausfüllen – oder aus Excel/LibreOffice kopieren und mit " + c("Strg+V") + " einfügen (auch viele "
+        "Zeilen und Spalten auf einmal). <b>Zeile duplizieren</b> spart Tipparbeit, wenn sich wenig ändert.",
+        "<b>Spalte füllen …</b> erzeugt eine Nummernreihe (z. B. T0001 … T0100) und legt dabei auch gleich die "
+        "Zeilen an. <b>Spalte hinzufügen …</b> für eigene Texte, z. B. „Tisch“.",
+        "Unter <b>Prüfung</b> stehen Fehler mit Zeilennummer (Doppelklick springt hin): fehlende Pflichtangaben, "
+        "falsche EAN-Prüfziffer, Umlaute im Code 128, unklares Datum …",
+        "<b>Speichern</b> legt eine CSV an (UTF-8, Semikolon – Excel öffnet sie richtig). <b>In Variable Daten "
+        "verwenden</b> speichert und übernimmt die Tabelle samt passendem Feld.",
+    ])
+    s.append(P("In der CSV stehen lesbare Spalten (Vorname, Telefon …), nicht der fertige Code-Inhalt. Den setzt "
+               "Passermark beim Erzeugen zusammen: Ein QR-Feld bekommt dafür unter <b>Art des QR-Codes</b> z. B. "
+               "„Visitenkarte (vCard)“. So bleibt die Tabelle in Excel bearbeitbar.", NOTE))
+    rows = [["Art", "Spalten (* = Pflicht)", "Was das Handy beim Scannen macht"]]
+    for kid in datakinds.IDS:
+        k = datakinds.get(kid)
+        rows.append([k.title, ", ".join(cc.key + ("*" if cc.required else "") for cc in k.cols), k.help])
+    s.append(table(rows, [42 * mm, 70 * mm, W - 112 * mm]))
+    s.append(P("Visitenkarte: Vorname, Nachname oder Firma muss ausgefüllt sein. Termin: Beginn als "
+               + c("24.10.2026 18:00") + " oder " + c("2026-10-24 18:00") + "; nur Datum = ganztägig. WLAN: "
+               "Verschlüsselung leer = WPA; ohne Passwort = offenes Netz.", NOTE))
+
+    # ------------------------------------------------------------------ 5 Beispiele
+    s.append(PageBreak())
+    s.append(P("5 · Die sechs Beispiele", H2))
     s.append(P("Alle Beispiele verwenden " + c("vorlage-a6.pdf") + ". Lage in mm: links, oben, Breite × Höhe. "
                "Die kleinen Textzeilen in den Beispielen zeigen nur zur Kontrolle, was im Code steckt.", NOTE))
     blocks = [
@@ -219,6 +254,38 @@ def build():
              "(12 Ziffern) → Code 2012345000018.",
              "<b>Erzeugen</b>."],
             'passermark-cli vdp vorlage-a6.pdf ean.pdf --preset presets/beispiel-4-ean13.json'),
+        example_block(
+            "beispiel-5-visitenkarte", "Beispiel 5 – QR-Visitenkarte (vCard) aus einer Kontaktliste",
+            "Je Kontakt eine Karte: Name, Funktion und Kontaktdaten als Text, dazu ein QR-Code, mit dem das Handy den "
+            "Kontakt speichert.",
+            [["Text", c("{{Vorname}} {{Nachname}}") + ", 15 pt", "10, 28, 85 × 8"],
+             ["Text", c("{{Position}} · {{Firma}}") + ", 9 pt", "10, 37, 85 × 6"],
+             ["Text", c("{{Mobil}}") + ", " + c("{{E-Mail}}") + ", " + c("{{Straße}}, {{PLZ}} {{Ort}}"),
+              "10, 50 / 56 / 62"],
+             ["QR-Code", "Art „Visitenkarte (vCard)“", "100, 25, 38 × 38"]],
+            ["<b>Daten erfassen</b> → Art „QR – Visitenkarte (vCard)“ → Kontakte eintragen oder " + c("visitenkarten.csv")
+             + " öffnen → <b>In Variable Daten verwenden</b>. Das QR-Feld mit Art Visitenkarte ist schon angelegt.",
+             "QR-Feld an die Stelle ziehen, Lage 100 / 25 / 38 / 38.",
+             "Textfelder anlegen und die Spalten per Doppelklick einfügen.",
+             "Datensatz 1–3 durchblättern, <b>Erzeugen</b>."],
+            'passermark-cli vdp vorlage-a6.pdf karten.pdf --preset presets/beispiel-5-visitenkarte.json\n'
+            '# eigene Liste:\n'
+            'passermark-cli datenvorlage vcard kontakte.csv        # leere Tabelle mit den Spalten\n'
+            'passermark-cli datencheck kontakte.csv                # prüfen\n'
+            'passermark-cli vdp vorlage-a6.pdf karten.pdf \\\n'
+            '    --preset presets/beispiel-5-visitenkarte.json --set csv_path=kontakte.csv'),
+        example_block(
+            "beispiel-6-wlan", "Beispiel 6 – WLAN-Zugang zum Scannen",
+            "Tischaufsteller oder Zimmerkarte: Netzname und Passwort lesbar, der QR-Code verbindet das Handy "
+            "direkt.",
+            [["Text", c("WLAN: {{Netzname}}") + ", 15 pt", "10, 30, 85 × 8"],
+             ["Text", c("Passwort: {{Passwort}}") + ", 10 pt", "10, 42, 85 × 6"],
+             ["QR-Code", "Art „WLAN-Zugang“", "100, 25, 38 × 38"]],
+            ["<b>Daten erfassen</b> → Art „QR – WLAN-Zugang“ → Netzname, Passwort eintragen (Verschlüsselung leer = "
+             "WPA) → <b>In Variable Daten verwenden</b>.",
+             "Textfelder anlegen, Inhalt " + c("WLAN: {{Netzname}}") + " und " + c("Passwort: {{Passwort}}") + ".",
+             "<b>Erzeugen</b> – Seite 3 (Huber-Cafe, ohne Passwort) ergibt ein offenes Netz."],
+            'passermark-cli vdp vorlage-a6.pdf wlan-karten.pdf --preset presets/beispiel-6-wlan.json'),
     ]
     for i, b in enumerate(blocks):
         if i:
@@ -227,12 +294,15 @@ def build():
     s.append(P("EAN-13 für den Handel braucht eine bei GS1 registrierte Nummer. Für rein interne Codes "
                "(Lager, Inventar) sind die Nummernbereiche 20–29 vorgesehen.", NOTE))
 
-    # ------------------------------------------------------------------ 5 Kommandozeile
-    s.append(P("5 · Auf der Kommandozeile", H2))
+    # ------------------------------------------------------------------ 6 Kommandozeile
+    s.append(P("6 · Auf der Kommandozeile", H2))
     s.append(P("Die Felder legt man im Programm an und speichert ein Preset; die Kommandozeile verwendet es und ändert "
                "nur, was sich je Auftrag ändert. Ein Preset geht als Datei oder als Name aus der Preset-Leiste."))
     s.append(code('passermark-cli beispiele                               # Beispiele + Presets holen\n'
                   'passermark-cli presets vdp                             # gespeicherte Presets anzeigen\n'
+                  'passermark-cli datenarten                              # Datenarten und ihre Spalten\n'
+                  'passermark-cli datenvorlage wifi wlan.csv              # leere Tabelle mit Beispielzeile\n'
+                  'passermark-cli datencheck wlan.csv                     # prüfen (Rückgabe 1 bei Problemen)\n'
                   'passermark-cli vdp <vorlage.pdf> <ergebnis.pdf> --preset "<Name oder Datei>" [--set …]'))
     s.append(table([
         ["Mit --set ändern", "Beispiel", "Bedeutung"],
@@ -264,16 +334,22 @@ def build():
     s.append(P("In der Oberfläche dasselbe: Ergebnis drucken → Weitere Optionen → Nutzen → „Je Nutzen die nächste "
                "Seite“.", NOTE))
 
-    # ------------------------------------------------------------------ 6 Fehler
-    s.append(P("6 · Typische Fehler", H2))
+    # ------------------------------------------------------------------ 7 Fehler
+    s.append(P("7 · Typische Fehler", H2))
     s.append(table([
         ["Was passiert", "Ursache / Lösung"],
         ["Überall steht „nr“ oder der Spaltenname", "Klammern fehlen: " + c("{{nr}}") + ", " + c("{{Name}}")],
         ["Jede Seite hat dieselbe Nummer", "Verteilung auf „Jede Seite bekommt den nächsten Datensatz“ stellen"],
         ["EAN-13: Fehler in der Vorschau", "Inhalt ergibt nicht 12 oder 13 Ziffern – z. B. Buchstaben im Vorsatz "
-         "oder zu wenige Stellen. Vorsatz + Stellen = 12"],
+         "oder zu wenige Stellen (Vorsatz + Stellen = 12) – oder die 13. Ziffer (Prüfziffer) ist falsch; die "
+         "Meldung nennt die richtige"],
+        ["QR mit Art: „Spalte … ist leer oder fehlt“", "Spaltennamen genau wie in Abschnitt 4 (Groß/klein egal); "
+         "Tabelle mit „Daten erfassen“ öffnen – die Prüfung zeigt die Zeile"],
         ["Code 128 lässt sich schlecht scannen", "Kasten breiter machen; nicht verkleinert drucken"],
-        ["QR-Code zu fein", "Kasten größer oder Inhalt kürzer (kurze Webadresse)"],
+        ["QR-Code zu fein", "Kasten größer oder Inhalt kürzer (kurze Webadresse); eine Visitenkarte mit allen "
+         "Angaben braucht etwa 35 × 35 mm"],
+        ["Code liest sich nicht, wenn er nahe an Bild/Farbe steht", "„Weißen Rand (Ruhezone) freihalten“ "
+         "eingeschaltet lassen"],
         ["Spalte wird nicht gefunden", "Name in der ersten CSV-Zeile prüfen; Trennzeichen ; , oder Tab"],
         ["Umlaute aus der CSV falsch", "CSV als UTF-8 speichern (Excel: „CSV UTF-8“)"],
         ["Kommandozeile: Datei nicht gefunden (CSV)", c("--set csv_path=") + " mit vollem Pfad angeben"],

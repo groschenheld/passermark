@@ -1,11 +1,13 @@
-Passermark – Beispiele Variable Daten (QR-Code, Code 128, EAN-13)
-=================================================================
+Passermark – Beispiele Variable Daten (QR-Code, Visitenkarte, WLAN, Code 128, EAN-13)
+=====================================================================================
 
 Ausführlich: passermark-vdp-anleitung.pdf (im Programm: Hilfe → Variable Daten – Anleitung)
 
 Inhalt
   vorlage-a6.pdf     leere Vorlage (A6 quer) – darauf kommen die Felder
-  daten.csv          3 Datensätze: Name;Ort;Artikelnummer;EAN
+  daten.csv          3 Datensätze: Name;Ort;Artikelnummer;EAN (Beispiele 2–4)
+  visitenkarten.csv  3 Kontakte (Beispiel 5)
+  wlan.csv           3 WLAN-Zugänge (Beispiel 6)
   presets/           je Beispiel die Einstellungen
   ergebnis/          so sieht das fertige PDF aus
 
@@ -15,7 +17,8 @@ Holen (kopiert diesen Ordner nach ~/Passermark-Beispiele/vdp und trägt die Pres
 
 Im Programm
   vorlage-a6.pdf öffnen, Variable Daten (Strg+Umschalt+D),
-  in der Preset-Leiste „Beispiel 1“ … „Beispiel 4“ wählen, Erzeugen.
+  in der Preset-Leiste „Beispiel 1“ … „Beispiel 6“ wählen, Erzeugen.
+  Eigene Tabellen: Arbeitsbereich Variable Daten → Daten erfassen.
 
 Kommandozeile (in diesem Ordner)
   passermark-cli vdp vorlage-a6.pdf aus.pdf --preset presets/beispiel-4-ean13.json
@@ -41,9 +44,25 @@ Kommandozeile (in diesem Ordner)
    rechts Inhalt: {{nr}} mit Vorsatz 2012345, Stellen 5, Prüfziffer „keine“
           → 201234500001 → 2012345000018  (20–29 = Nummernkreis für interne Codes)
 
+5  QR-Visitenkarte (vCard) – visitenkarten.csv
+   QR-Feld mit „Art des QR-Codes“: Visitenkarte (vCard)
+   Inhalt kommt aus den Spalten Vorname, Nachname, Firma, Position, Telefon,
+   Mobil, E-Mail, Straße, PLZ, Ort, Land, Web, Notiz
+   → Handy bietet beim Scannen „Kontakt speichern“ an
+
+6  QR-WLAN – wlan.csv
+   QR-Feld mit Art „WLAN-Zugang“, Spalten Netzname, Passwort, Verschlüsselung
+   (leer = WPA), Versteckt; ohne Passwort = offenes Netz
+   → Handy verbindet sich nach dem Scannen
+
+Eigene Tabelle auf der Kommandozeile
+  passermark-cli datenvorlage vcard kontakte.csv     (leere Tabelle)
+  passermark-cli datencheck kontakte.csv             (prüfen)
+
 So geht es NICHT (Vorschau zeigt einen Fehler bzw. falschen Inhalt)
    EAN-13 Inhalt: ART-{{nr}}            → Buchstaben fallen weg, zu wenig Ziffern
    EAN-13 Inhalt: {{nr}} mit Stellen 4  → nur 4 Ziffern
+   EAN-13 mit 13 Ziffern, letzte falsch  → Fehler, die richtige wird genannt
    Inhalt: nr (ohne {{ }})              → es steht einfach „nr“ da
 
 Lesbarkeit der Codes immer am Ausdruck mit Scanner oder Handy prüfen.

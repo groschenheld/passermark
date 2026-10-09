@@ -96,7 +96,9 @@ def test_examples_run():
                     "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded')); "
                     "presets.save('vdp', 'Tickets', vdp.VdpSettings(fields=[dict(content='Nr. {{nr}}')])); "
                     "presets.save('vdp', 'Namensschilder', vdp.VdpSettings(fields=[dict(content='{{Name}}'), "
-                    "dict(kind='qr', content='{{Name}}', y_mm=30, w_mm=25, h_mm=25)]))"],
+                    "dict(kind='qr', content='{{Name}}', y_mm=30, w_mm=25, h_mm=25)])); "
+                    "presets.save('vdp', 'Visitenkarte', vdp.VdpSettings(fields=[dict(content='{{Vorname}}'), "
+                    "dict(kind='qr', qr_type='vcard', y_mm=30, w_mm=35, h_mm=35)]))"],
                    cwd=tmp, env=env, check=True)
     open(os.path.join(tmp, "gaeste.csv"), "w", encoding="utf-8").write("Name;Firma\nAnna;A\nBéla;B\n")
     subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,

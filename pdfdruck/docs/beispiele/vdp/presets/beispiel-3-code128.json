@@ -14,7 +14,9 @@
         "color": "#000000",
         "align": "left",
         "rotate": 0,
-        "pages": ""
+        "pages": "",
+        "qr_type": "text",
+        "quiet": true
       },
       {
         "kind": "text",
@@ -28,7 +30,9 @@
         "color": "#000000",
         "align": "left",
         "rotate": 0,
-        "pages": ""
+        "pages": "",
+        "qr_type": "text",
+        "quiet": true
       },
       {
         "kind": "code128",
@@ -42,7 +46,9 @@
         "color": "#000000",
         "align": "left",
         "rotate": 0,
-        "pages": ""
+        "pages": "",
+        "qr_type": "text",
+        "quiet": true
       },
       {
         "kind": "text",
@@ -56,7 +62,9 @@
         "color": "#000000",
         "align": "left",
         "rotate": 0,
-        "pages": ""
+        "pages": "",
+        "qr_type": "text",
+        "quiet": true
       }
     ],
     "csv_path": "daten.csv",

@@ -1078,7 +1078,8 @@ class MainWindow(QMainWindow):
                           (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
                           (self.a_down, tr("Nach hinten")), (self.a_merge, tr("Zusammenführen")),
                           (self.a_export, tr("Exportieren"))],
-                 "vdp": [(self.a_vdp, tr("Variable Daten")), (self.a_examples, tr("Beispiele")),
+                 "vdp": [(self.a_vdp, tr("Variable Daten")), (self.a_data, tr("Daten erfassen")),
+                         (self.a_examples, tr("Beispiele")),
                          (self.a_vdp_howto, tr("Anleitung"))],
                  "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))]}
         self.addToolBarBreak()
@@ -1365,6 +1366,7 @@ class MainWindow(QMainWindow):
         self.a_separate = A(tr("Objekte trennen (Einzelseiten ohne Weißraum) …"), self.separate_dialog, None, "separate")
         self.a_cut = A(tr("CutContour erzeugen (Schneideplotter) …"), self.cut_dialog, None, "cut")
         self.a_vdp = A(tr("Variable Daten (Nummern, QR-/Barcodes, CSV) …"), self.vdp_dialog, "Ctrl+Shift+D", "vdp")
+        self.a_data = A(tr("Daten erfassen (Tabelle für Visitenkarten, WLAN, Codes …) …"), self.data_dialog, None, "table")
         self.a_edit = A(tr("Text und Ebenen bearbeiten"), lambda: None, "Ctrl+T", "edit")
         self.a_edit.setCheckable(True)
         self.a_edit.toggled.connect(self._edit_mode)
@@ -1402,7 +1404,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_preflight)
         m = mb.addMenu(tr("Dokument-&Manipulation"))
         for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
-                  self.a_cut, None, self.a_vdp):
+                  self.a_cut, None, self.a_vdp, self.a_data):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
@@ -1950,12 +1952,15 @@ class MainWindow(QMainWindow):
             self.start_job(*dlg.job, suffix=tr("_CutContour"), title=tr("CutContour"),
                            notes=lambda info: [tr("{0} Schnittkontur(en) erzeugt.").format(info.get("cuts", 0))])
 
-    def vdp_dialog(self):
+    def vdp_dialog(self, data=None):
+        """data = (csv_pfad, datenart) aus „Daten erfassen“: Tabelle gleich als Datenquelle samt Feld übernehmen."""
         if self.doc is None:
             return
         from .vdpdialog import VdpDialog
         try:
             dlg = VdpDialog(self, self.doc, self.view.current)
+            if data:
+                dlg.use_data(*data)
         except Exception as e:
             from .objectsdialog import show_error
             show_error(self, tr("Fehler"), e)
@@ -1964,6 +1969,19 @@ class MainWindow(QMainWindow):
             self.start_job(*dlg.job, suffix=tr("_Daten"), title=tr("Variable Daten"),
                            notes=lambda info: [tr("{0} Datensätze, {1} Seiten erzeugt.").format(
                                info.get("records", 0), info.get("pages", 0))])
+
+    def data_dialog(self):
+        """Datentabelle anlegen; „In Variable Daten verwenden“ öffnet Variable Daten mit dieser Tabelle."""
+        from .datadialog import DataDialog
+        dlg = DataDialog(self)
+        if not (dlg.exec() and dlg.use and dlg.path):
+            return
+        if self.doc is None:
+            QMessageBox.information(self, tr("Daten erfassen"), tr(
+                "Die Tabelle ist gespeichert:\n{0}\n\nJetzt die Vorlage (PDF) öffnen und unter Variable Daten → "
+                "„CSV öffnen …“ diese Datei wählen.").format(dlg.path))
+            return
+        self.vdp_dialog((dlg.path, dlg.kind))
 
     # ---------------- Aufträge im Hintergrund (eigener Prozess) ---------------- #
     def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):

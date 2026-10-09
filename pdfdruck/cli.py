@@ -12,6 +12,9 @@
     passermark-cli cutcontour ein.pdf aus.pdf --preset Sticker               (im Programm gespeichertes Preset)
     passermark-cli presets [auftrag]                         (gespeicherte Presets auflisten)
     passermark-cli beispiele [zielordner]                   (Beispiele für Variable Daten holen + Presets)
+    passermark-cli datenarten                                (Datenarten für Tabellen: vcard, wifi, email …)
+    passermark-cli datenvorlage vcard karten.csv             (leere Tabelle mit den passenden Spalten)
+    passermark-cli datencheck karten.csv [art]               (Tabelle prüfen; Rückgabe 1 bei Problemen)
     passermark-cli … --json-progress                         (Fortschritt als JSON-Zeilen, für die Oberfläche)
 
 Rückgabe: 0 = ok, 1 = Fehler, 2 = falscher Aufruf, 130 = abgebrochen (Strg+C).
@@ -109,10 +112,55 @@ def _rebase_paths(settings: dict, base: str) -> None:
                     break
 
 
+def _data_cmd(a) -> int:
+    """Datentabellen für variable Daten: Arten anzeigen, leere Vorlage schreiben, Tabelle prüfen."""
+    from . import datakinds, vdp
+    from .l10n import tr
+    if a.job == "datenarten":
+        for kid in datakinds.IDS:
+            k = datakinds.get(kid)
+            print(f"{kid}\t{k.title}\t" + ";".join(c.key + ("*" if c.required else "") for c in k.cols))
+        return EXIT_OK
+    if a.job == "datenvorlage":
+        if not a.input or a.input not in datakinds.IDS:
+            print("passermark-cli datenvorlage <" + "|".join(datakinds.IDS) + "> [datei.csv]", file=sys.stderr)
+            return EXIT_USAGE
+        cols = datakinds.columns(a.input)
+        if a.output:
+            datakinds.write_csv(a.output, cols, [datakinds.example_row(a.input)])
+            print(a.output)
+        else:
+            import csv as _csv
+            w = _csv.writer(sys.stdout, delimiter=";", lineterminator="\n")
+            w.writerow(cols)
+            ex = datakinds.example_row(a.input)
+            w.writerow([ex.get(c, "") for c in cols])
+        return EXIT_OK
+    # datencheck <datei.csv> [art]
+    if not a.input or not os.path.isfile(a.input):
+        print("passermark-cli datencheck <datei.csv> [art]", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        cols, rows = vdp.read_csv(a.input)
+        kind = a.output or datakinds.guess_kind(cols)
+        probs = datakinds.validate(kind, cols, rows)
+    except (OSError, ValueError, UnicodeDecodeError) as e:
+        print(tr("Fehler: {0}").format(e), file=sys.stderr)
+        return EXIT_ERROR
+    print(tr("{0}: {1} Datensätze, Art {2}").format(a.input, len(rows), kind))
+    for r, col, msg in probs:
+        where = tr("Zeile {0}").format(r + 2) if r >= 0 else tr("Tabelle")      # +2: Kopfzeile, ab 1 gezählt
+        print(f"  {where}{' · ' + col if col else ''}: {msg}")
+    if not probs:
+        print("  " + tr("Alles in Ordnung"))
+    return EXIT_ERROR if probs else EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     from .l10n import tr
     p = argparse.ArgumentParser(prog="passermark-cli", description=tr("Passermark – Aufträge ohne Oberfläche"))
-    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele"))
+    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele, datenarten, datenvorlage, "
+                           "datencheck"))
     p.add_argument("input", nargs="?", help=tr("Eingabe-PDF (bei 'settings': Auftrag)"))
     p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF"))
     p.add_argument("--preset", help=tr("Einstellungen: JSON-Datei oder Name eines im Programm gespeicherten Presets"))
@@ -150,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_USAGE
         print(json.dumps({"job": a.input, "settings": core.settings_to_dict(cls())}, ensure_ascii=False, indent=2))
         return EXIT_OK
+
+    if a.job in ("datenarten", "datenvorlage", "datencheck"):
+        return _data_cmd(a)
 
     if a.job == "beispiele":
         from . import examples

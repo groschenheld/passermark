@@ -25,6 +25,18 @@ CSV = ("Name;Ort;Artikelnummer;EAN\n"
        "Bernd Gruber;Graz;ART-1002;978316148410\n"
        "Clara Wimmer;Linz;ART-1003;5901234123457\n")
 
+VCARDS = ("Vorname;Nachname;Firma;Position;Telefon;Mobil;E-Mail;Straße;PLZ;Ort;Land;Web;Notiz\n"
+          "Anna;Huber;Druckerei Huber;Geschäftsführerin;+43 316 123456;+43 660 1234567;anna@huber.at;"
+          "Hauptplatz 1;8010;Graz;Österreich;https://huber.at;\n"
+          "Bernd;Gruber;Druckerei Huber;Druckvorstufe;+43 316 123457;;bernd@huber.at;Hauptplatz 1;8010;Graz;"
+          "Österreich;https://huber.at;\n"
+          "Zoë;Kovács;Huber Werbetechnik;Grafik;;+43 664 7654321;zoe@huber.at;Annenstraße 5;8020;Graz;"
+          "Österreich;;Termine nach Vereinbarung\n")
+WLAN = ("Netzname;Passwort;Verschlüsselung;Versteckt\n"
+        "Huber-Gaeste;Sommer2026!;WPA;\n"
+        "Huber-Werkstatt;Druck-3x;WPA;\n"
+        "Huber-Cafe;;keine;\n")
+
 
 def T(content, x, y, w=60, h=8, size=12):
     return VdpField("text", content, x, y, w, h, size_pt=size)
@@ -50,6 +62,19 @@ SETTINGS = {
         VdpField("ean13", "{{nr}}", 80, 25, 45, 28),
         T("rechts: {{nr}}", 80, 56, 60, 6, 8),
         T("(Nummerierung: Vorsatz 2012345, Stellen 5)", 80, 61, 60, 6, 8)]),
+    "beispiel-5-visitenkarte": VdpSettings(csv_path="visitenkarten.csv", fields=[
+        T("{{Vorname}} {{Nachname}}", 10, 28, 85, 8, 15),
+        T("{{Position}} · {{Firma}}", 10, 37, 85, 6, 9),
+        T("{{Mobil}}", 10, 50, 85, 6, 9),
+        T("{{E-Mail}}", 10, 56, 85, 6, 9),
+        T("{{Straße}}, {{PLZ}} {{Ort}}", 10, 62, 85, 6, 9),
+        VdpField("qr", "", 100, 25, 38, 38, qr_type="vcard"),
+        T("QR-Art: Visitenkarte – beim Scannen „Kontakt speichern“", 10, 85, 120, 6, 8)]),
+    "beispiel-6-wlan": VdpSettings(csv_path="wlan.csv", fields=[
+        T("WLAN: {{Netzname}}", 10, 30, 85, 8, 15),
+        T("Passwort: {{Passwort}}", 10, 42, 85, 6, 10),
+        VdpField("qr", "", 100, 25, 38, 38, qr_type="wifi"),
+        T("QR-Art: WLAN – Handy verbindet sich nach dem Scannen", 10, 85, 120, 6, 8)]),
 }
 
 
@@ -67,8 +92,9 @@ def main():
     c.drawString(10 * mm, h - 15 * mm, "Beispiel-Vorlage (Passermark VDP)")
     c.showPage()
     c.save()
-    with open(os.path.join(out, "daten.csv"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(CSV)
+    for name, text in (("daten.csv", CSV), ("visitenkarten.csv", VCARDS), ("wlan.csv", WLAN)):
+        with open(os.path.join(out, name), "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
     assert sorted(SETTINGS) == sorted(k for k, _ in EXAMPLES)
     for name, s in SETTINGS.items():
         core.save_settings(os.path.join(out, "presets", name + ".json"), "vdp", s)

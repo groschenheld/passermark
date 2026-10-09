@@ -25,6 +25,8 @@ EXAMPLES = [
     ("beispiel-2-qr-csv", "Beispiel 2 – QR aus CSV"),
     ("beispiel-3-code128", "Beispiel 3 – Code 128"),
     ("beispiel-4-ean13", "Beispiel 4 – EAN-13"),
+    ("beispiel-5-visitenkarte", "Beispiel 5 – Visitenkarte (vCard)"),
+    ("beispiel-6-wlan", "Beispiel 6 – WLAN-Zugang"),
 ]
 
 
@@ -44,12 +46,11 @@ def install(target: str | None = None, presets_too: bool = True) -> str:
         src = os.path.join(DOCS_DIR, f)
         if os.path.isfile(src):
             shutil.copy(src, os.path.join(os.path.dirname(dest), f))
-    csv = os.path.join(dest, "daten.csv")
     for stem, name in EXAMPLES:
         p = os.path.join(dest, "presets", stem + ".json")
         kind, data = core.load_settings(p)
-        if data.get("csv_path"):
-            data["csv_path"] = csv                       # voller Pfad: funktioniert von überall
+        if data.get("csv_path") and not os.path.isabs(data["csv_path"]):
+            data["csv_path"] = os.path.join(dest, data["csv_path"])     # voller Pfad: funktioniert von überall
         core.save_settings(p, kind, data)
         if presets_too:
             presets.save(kind, name, core.settings_from_dict(presets.settings_class(kind), data))

@@ -148,6 +148,9 @@ def build():
         [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
         [c("beispiele [ordner]"), "Beispiele für Variable Daten in den Benutzerordner kopieren (Standard: "
          + c("Passermark-Beispiele") + ") und als Presets „Beispiel 1 …“ eintragen"],
+        [c("datenarten"), "Datenarten für Tabellen (Visitenkarte, WLAN, E-Mail, Code 128, EAN-13 …) mit ihren Spalten"],
+        [c("datenvorlage <art> [datei.csv]"), "leere Tabelle mit den passenden Spalten und einer Beispielzeile"],
+        [c("datencheck <datei.csv> [art]"), "Tabelle prüfen – meldet Zeile und Fehler; Rückgabe 1 bei Problemen"],
     ], [42 * mm, W - 42 * mm]))
 
     s.append(P("Rückgabewerte und Abbrechen", H3))
@@ -376,6 +379,9 @@ def build():
          "Seite), " + c("record") + " = je Datensatz alle Seiten, " + c("page") + " = wie record, Seite für Seite"],
         [c("log_path"), "–", "Code-Protokoll als CSV (Ausgabeseite, Datensatz, Werte)"],
         [c("placeholders"), c("false"), c("{{…}}") + " im PDF als Feldposition übernehmen, Platzhaltertext entfernen"],
+        [c("fields[].qr_type"), c("text"), "QR-Feld: " + c("vcard") + ", " + c("wifi") + ", " + c("email") + ", "
+         + c("url") + ", " + c("phone") + ", " + c("sms") + ", " + c("event") + ", " + c("geo")
+         + " – Inhalt aus den Tabellenspalten (im Preset; im Programm „Art des QR-Codes“)"],
     ], [47 * mm, 20 * mm, W - 67 * mm]))
     s.append(Spacer(1, 4))
     s.append(P("Fertige Beispiele mit Vorlage, CSV und Presets (QR-Code, Code 128, EAN-13) holt "
@@ -386,6 +392,12 @@ def build():
     s.append(example("Namensschilder aus einer Gästeliste", "Felder {{Name}} und QR-Code mit {{Name}}; Protokoll dazu.",
                      'passermark-cli vdp schild.pdf schilder.pdf --preset "Namensschilder" \\\n'
                      '    --set csv_path=gaeste.csv --set log_path=codes.csv'))
+    s.append(example("Visitenkarten mit QR-Code aus einer Kontaktliste",
+                     "Leere Tabelle anlegen, in Excel ausfüllen, prüfen, erzeugen. Das Preset hat ein QR-Feld mit "
+                     "Art „Visitenkarte“ (qr_type vcard).",
+                     "passermark-cli datenvorlage vcard kontakte.csv\n"
+                     "passermark-cli datencheck kontakte.csv\n"
+                     'passermark-cli vdp karte.pdf karten.pdf --preset "Visitenkarte" --set csv_path=kontakte.csv'))
     s.append(example("Jede Karte mit eigenem Code 8× auf SRA3, schneiden und stapeln",
                      "Erst die Daten, dann ausschießen – je Nutzen die nächste Seite, Stapel bleiben fortlaufend.",
                      "passermark-cli impose tickets.pdf tickets-sra3.pdf --set sheet=SRA3 \\\n"
@@ -468,7 +480,7 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                "Fallbeispielen in dieser Anleitung:"))
     s.append(table([
         ["Version", "Neu in der Kommandozeile"],
-        ["1.10", "Projektordner (Watcher): Datei in einen Ordner werfen – fertiges, gedrucktes oder gespeichertes "
+        ["1.11", "Projektordner (Watcher): Datei in einen Ordner werfen – fertiges, gedrucktes oder gespeichertes "
                  "Ergebnis kommt heraus, ein Preset je Ordner"],
     ], [20 * mm, W - 20 * mm]))
     return s

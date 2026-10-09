@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog, QDia
                                QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
-from .. import vdp
+from .. import datakinds, vdp
 from ..l10n import tr
 from . import theme
 from .common import fill_combo, fit_width, no_enter_default, split_panels
@@ -107,6 +107,7 @@ class VdpDialog(QDialog):
         self.s = vdp.VdpSettings(fields=[], numbering=vdp.Numbering())
         self.fields: list[vdp.VdpField] = []
         self.cols: list[str] = []
+        self._csv = ""                         # gewählte CSV (vollständiger Pfad) – Quelle für die Einstellungen
         self.job = None
         self._loading = False
 
@@ -182,6 +183,22 @@ class VdpDialog(QDialog):
                     tr("Fester Text und Platzhalter gemischt, z. B. „Ticket {{nr}}“. {{nr}} = Nummer (siehe 3.), "
                        "{{i}} = 1, 2, 3 …, {{Spaltenname}} = Wert aus der CSV (Doppelklick in der Spaltenliste fügt "
                        "ihn ein)."), self.ed_content)
+        self.cmb_qrtype = QComboBox()
+        fill_combo(self.cmb_qrtype, [(t, datakinds.qr_type_text(t)) for t in datakinds.QR_TYPES], "text")
+        self.cmb_qrtype.currentIndexChanged.connect(self._qrtype_changed)
+        self.lbl_qrcols = QLabel()
+        self.lbl_qrcols.setWordWrap(True)
+        self.lbl_qrcols.setStyleSheet(f"color: {theme.ACCENT};")
+        box = QVBoxLayout()
+        box.addWidget(self.cmb_qrtype)
+        box.addWidget(self.lbl_qrcols)
+        self._field(v, tr("Art des QR-Codes"),
+                    tr("„Inhalt wie eingegeben“: der Text oben steht im Code. Visitenkarte, WLAN, E-Mail …: Passermark "
+                       "setzt den Inhalt aus den Spalten der Tabelle zusammen (Tabelle mit „Daten erfassen …“ unter 2. "
+                       "anlegen)."), box)
+        self.chk_quiet = QCheckBox(tr("Weißen Rand (Ruhezone) im Feld freihalten – empfohlen"))
+        self._field(v, "", tr("Scanner brauchen rund um QR-Code und Code 128 einen hellen Rand. Nur abschalten, wenn "
+                              "der Rand schon in der Gestaltung vorhanden ist."), self.chk_quiet)
         row = QHBoxLayout()
         self.spn_x, self.spn_y, self.spn_w, self.spn_h = (QDoubleSpinBox() for _ in range(4))
         for sp, lab in ((self.spn_x, tr("links")), (self.spn_y, tr("oben")), (self.spn_w, tr("Breite")),
@@ -242,13 +259,18 @@ class VdpDialog(QDialog):
         row = QHBoxLayout()
         self.ed_csv = QLineEdit()
         self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
-        self.ed_csv.editingFinished.connect(self._csv_changed)
+        self.ed_csv.editingFinished.connect(lambda: self._csv_changed())
         b = QPushButton(tr("CSV öffnen …"))
         b.clicked.connect(self._pick_csv)
         b2 = QPushButton(tr("Entfernen"))
-        b2.clicked.connect(lambda: (self.ed_csv.clear(), self._csv_changed()))
+        b2.clicked.connect(lambda: (self.ed_csv.clear(), self._csv_changed("")))
+        b3 = QPushButton(tr("Daten erfassen …"))
+        b3.setToolTip(tr("Tabelle direkt in Passermark anlegen oder bearbeiten – Visitenkarten, WLAN, E-Mail, "
+                         "Code 128, EAN-13 …"))
+        b3.clicked.connect(self._open_data)
         row.addWidget(self.ed_csv, 1)
         row.addWidget(b)
+        row.addWidget(b3)
         row.addWidget(b2)
         self._field(v, tr("CSV-Datei (Tabelle)"), tr("Eine Zeile = eine Kopie. Die erste Zeile enthält die "
                                                      "Spaltennamen. Aus Excel/LibreOffice: „Speichern unter → CSV“. "
@@ -364,7 +386,7 @@ class VdpDialog(QDialog):
             w_.valueChanged.connect(self._field_changed)
         for w_ in (self.cmb_align, self.cmb_rot, self.cmb_check, self.cmb_order):
             w_.currentIndexChanged.connect(self._field_changed)
-        for w_ in (self.chk_rev, self.chk_ph):
+        for w_ in (self.chk_rev, self.chk_ph, self.chk_quiet):
             w_.toggled.connect(self._field_changed)
 
         sess = getattr(getattr(parent, "ctl", None), "session", None)
@@ -418,7 +440,7 @@ class VdpDialog(QDialog):
         cur = self.lst.currentRow()
         self.lst.clear()
         for i, f in enumerate(self.fields):
-            self.lst.addItem(f"{i + 1}. {kind_text(f.kind)}: {f.content}")
+            self.lst.addItem(_item_text(i, f))
         self.lst.setCurrentRow(min(max(cur, 0), len(self.fields) - 1))
         self.lst.blockSignals(False)
         self.canvas.fields = self.fields
@@ -472,6 +494,9 @@ class VdpDialog(QDialog):
             text = f.kind == "text"
             for w_ in (self.cmb_font, self.cmb_align):
                 w_.setEnabled(text)
+            self.cmb_qrtype.setCurrentIndex(max(0, self.cmb_qrtype.findData(f.qr_type or "text")))
+            self.chk_quiet.setChecked(bool(getattr(f, "quiet", True)))
+            self._qr_widgets(f)
         finally:
             self._loading = False
         self.canvas.sel = i
@@ -508,10 +533,66 @@ class VdpDialog(QDialog):
             f.align = self.cmb_align.currentData() or "left"
             f.rotate = int(self.cmb_rot.currentData() or 0)
             f.pages = self.ed_pages.text().strip()
+            f.quiet = self.chk_quiet.isChecked()
             item = self.lst.item(i)
             if item is not None:
-                item.setText(f"{i + 1}. {kind_text(f.kind)}: {f.content}")
+                item.setText(_item_text(i, f))
         self.canvas.update()
+        self._timer.start()
+
+    def _qr_widgets(self, f):
+        """QR-Art nur bei QR-Feldern; mit Art kommt der Inhalt aus den Spalten (Inhaltszeile gesperrt)."""
+        qr = f.kind == "qr"
+        self.cmb_qrtype.setEnabled(qr)
+        self.chk_quiet.setEnabled(f.kind in ("qr", "code128"))
+        t = (f.qr_type or "text") if qr else "text"
+        self.ed_content.setEnabled(t == "text")
+        if t != "text":
+            k = datakinds.get(t)
+            self.lbl_qrcols.setText(tr("Inhalt kommt aus den Spalten: {0}").format(
+                ", ".join(c.key + ("*" if c.required else "") for c in k.cols)))
+        else:
+            self.lbl_qrcols.setText("")
+
+    def _qrtype_changed(self, _i):
+        if self._loading:
+            return
+        i = self._sel()
+        if 0 <= i < len(self.fields) and self.fields[i].kind == "qr":
+            t = self.cmb_qrtype.currentData()
+            self.fields[i].qr_type = t if t in datakinds.QR_TYPES else "text"
+            self._qr_widgets(self.fields[i])
+            item = self.lst.item(i)
+            if item is not None:
+                item.setText(_item_text(i, self.fields[i]))
+            self._timer.start()
+
+    def _open_data(self):
+        """Datentabelle anlegen/bearbeiten; „verwenden“ übernimmt sie samt passendem Feld."""
+        from .datadialog import DataDialog
+        cur = self._csv
+        kind = next((f.qr_type for f in self.fields if f.kind == "qr" and (f.qr_type or "text") != "text"), "")
+        dlg = DataDialog(self, cur, kind)
+        if dlg.exec() and dlg.use and dlg.path:
+            self.use_data(dlg.path, dlg.kind)
+
+    def use_data(self, path: str, kind: str):
+        """Tabelle als Datenquelle übernehmen und – falls noch keines da ist – das passende Feld anlegen."""
+        from .datadialog import field_for
+        self.ed_csv.setText(path)
+        self._csv_changed(path)
+        W, H = self._page_mm()
+        nf = field_for(kind, W, H)
+        have = any(f.kind == nf.kind and (f.qr_type or "text") == (nf.qr_type or "text")
+                   and (nf.kind == "qr" and nf.qr_type != "text" or f.content == nf.content) for f in self.fields)
+        if not have:
+            # das unberührte Startfeld ({{nr}}-Text) ersetzen
+            if len(self.fields) == 1 and self.fields[0].kind == "text" and self.fields[0].content == "{{nr}}":
+                self.fields = []
+            self.fields.append(nf)
+            self._fill_list()
+            self.lst.setCurrentRow(len(self.fields) - 1)
+            self._select(len(self.fields) - 1)
         self._timer.start()
 
     def _insert(self, text):
@@ -545,7 +626,7 @@ class VdpDialog(QDialog):
         p, _ = QFileDialog.getOpenFileName(self, tr("CSV-Datei wählen"), "", tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)"))
         if p:
             self.ed_csv.setText(p)
-            self._csv_changed()
+            self._csv_changed(p)
 
     def _pick_log(self):
         p, _ = QFileDialog.getSaveFileName(self, tr("Code-Protokoll speichern"), "codes.csv", tr("CSV (*.csv)"))
@@ -553,8 +634,8 @@ class VdpDialog(QDialog):
             self.ed_log.setText(p)
             self.chk_log.setChecked(True)
 
-    def _csv_changed(self):
-        p = self.ed_csv.text()
+    def _csv_changed(self, path=None):
+        p = self.ed_csv.text() if path is None else path
         p = p.strip() if isinstance(p, str) else ""
         self.cols = []
         if p and not os.path.isfile(p):
@@ -565,6 +646,7 @@ class VdpDialog(QDialog):
                 self.cols, _recs = vdp.read_csv(p)
             except Exception as e:
                 QMessageBox.warning(self, tr("CSV"), str(e))
+        self._csv = os.path.abspath(p) if p else ""
         self.lst_cols.clear()
         self.lst_cols.addItems(["nr", "i"] + self.cols)
         self.spn_count.setEnabled(not p)
@@ -577,15 +659,16 @@ class VdpDialog(QDialog):
     # -------------------------------------------------------------- #
     def _settings(self) -> vdp.VdpSettings:
         nb = vdp.Numbering(start=self.spn_start.value(), step=self.spn_step.value(), digits=self.spn_digits.value(),
-                           prefix=self.ed_prefix.text(), suffix=self.ed_suffix.text(),
-                           check=self.cmb_check.currentData() or "none", continue_key=self.ed_cont.text().strip())
-        csvp = self.ed_csv.text().strip()
-        return vdp.VdpSettings(fields=[asdict(f) for f in self.fields], csv_path=os.path.abspath(csvp) if csvp else "",
-                               records=self.ed_records.text().strip(), count=self.spn_count.value(), numbering=nb,
-                               order=self.cmb_order.currentData() or "record", reverse=self.chk_rev.isChecked(),
-                               log_path=(os.path.abspath(self.ed_log.text().strip())
-                                         if self.chk_log.isChecked() and self.ed_log.text().strip() else ""),
-                               placeholders=self.chk_ph.isChecked())
+                           prefix=_text(self.ed_prefix), suffix=_text(self.ed_suffix),
+                           check=self.cmb_check.currentData() or "none", continue_key=_text(self.ed_cont).strip())
+        log = _text(self.ed_log).strip()
+        order = self.cmb_order.currentData()
+        return vdp.VdpSettings(fields=[asdict(f) for f in self.fields], csv_path=self._csv,
+                               records=_text(self.ed_records).strip(), count=self.spn_count.value(), numbering=nb,
+                               order=order if order in ("each", "record", "page") else "each",
+                               reverse=bool(self.chk_rev.isChecked()),
+                               log_path=os.path.abspath(log) if log and self.chk_log.isChecked() else "",
+                               placeholders=bool(self.chk_ph.isChecked()))
 
     def _load_settings(self, s):
         self._loading = True
@@ -599,7 +682,8 @@ class VdpDialog(QDialog):
             self.ed_suffix.setText(nb.suffix)
             self.cmb_check.setCurrentIndex(max(0, self.cmb_check.findData(nb.check)))
             self.ed_cont.setText(nb.continue_key)
-            self.ed_csv.setText(s.csv_path if s.csv_path and os.path.isfile(s.csv_path) else "")
+            csvp = s.csv_path if s.csv_path and os.path.isfile(s.csv_path) else ""
+            self.ed_csv.setText(csvp)
             self.ed_records.setText(s.records)
             self.spn_count.setValue(max(1, int(s.count)))
             self.cmb_order.setCurrentIndex(max(0, self.cmb_order.findData(s.order)))
@@ -609,7 +693,7 @@ class VdpDialog(QDialog):
             self.chk_log.setChecked(bool(s.log_path))
         finally:
             self._loading = False
-        self._csv_changed()
+        self._csv_changed(csvp)
         self._fill_list()
         if self.fields:
             self.lst.setCurrentRow(0)
@@ -676,6 +760,17 @@ class VdpDialog(QDialog):
         self._remember(s)
         self.job = ("vdp", core.settings_to_dict(s), None)
         self.accept()
+
+
+def _text(w) -> str:
+    t = w.text()
+    return t if isinstance(t, str) else ""
+
+
+def _item_text(i: int, f) -> str:
+    if f.kind == "qr" and (f.qr_type or "text") != "text":
+        return f"{i + 1}. {kind_text(f.kind)}: {datakinds.qr_type_text(f.qr_type)}"
+    return f"{i + 1}. {kind_text(f.kind)}: {f.content}"
 
 
 def _fields_of(s) -> list:

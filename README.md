@@ -1,4 +1,4 @@
-# Passermark 1.9.5
+# Passermark 1.10.0
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -21,6 +21,9 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Variable data:** numbering (start, step, padding, check digits, reverse, continue counter), text from CSV,
   QR codes, Code 128 and EAN-13 as vectors; placeholders `{{…}}` in the PDF; code log; step & repeat with a
   different record per copy (row by row or cut & stack). Also on the command line (`passermark-cli vdp`).
+- **Enter data:** build the data table inside Passermark – QR business card (vCard), Wi-Fi access, e-mail, web
+  address, phone, SMS, event, location, Code 128, EAN-13 – with matching columns, instant checks and paste from
+  Excel; saved as CSV and used directly in variable data. Six ready-made examples (Help → Get examples).
 - **Workspaces** (View & Print, Prepress, Edit, Automation) with their own tool row.
 - **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
 - Repair/optimise PDFs, PDF/A, password protection (also when saving as PDF from the print dialog), merge files,
@@ -77,7 +80,7 @@ points to the log. Logs without errors are deleted on exit.
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.9.5 && git push origin v1.9.5`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.10.0 && git push origin v1.10.0`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

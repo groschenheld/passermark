@@ -1,5 +1,29 @@
 # Änderungen – Passermark
 
+## 1.10.0
+- **Daten erfassen** (Arbeitsbereich Variable Daten, Menü Dokument-Manipulation, oder im Dialog Variable Daten
+  unter 2.): die Datentabelle direkt in Passermark anlegen. Je Art die passenden Spalten – **QR-Visitenkarte
+  (vCard), WLAN-Zugang, E-Mail, Webadresse, Anruf, SMS, Termin, Standort**, freier QR-Text, **Code 128**,
+  **EAN-13**, Text mit eigenen Spalten. Jede Zeile wird sofort geprüft (Pflichtangaben, EAN-Prüfziffer, Umlaute im
+  Code 128, Datum …), rechts der fertige Code der gewählten Zeile. Einfügen aus Excel mit Strg+V, Zeilen
+  duplizieren, Spalte mit Nummernreihe füllen (legt auch die Zeilen an), eigene Spalten. Speichern als CSV
+  (UTF-8 mit BOM, Semikolon – Excel liest Umlaute richtig)
+- **„In Variable Daten verwenden“** übernimmt die Tabelle als Datenquelle und legt das passende Feld an
+- **QR-Feld „Art des QR-Codes“:** Inhalt wie eingegeben oder aus den Tabellenspalten zusammengesetzt (vCard,
+  WLAN, mailto, tel, SMS, Termin, geo). Die CSV bleibt lesbar; den Code-Inhalt baut Passermark beim Erzeugen
+- **Ruhezone:** QR-Code und Code 128 haben jetzt einen weißen Rand im Feld (abschaltbar). Ohne ihn waren Codes
+  nahe an anderem Inhalt schlecht lesbar. *Bestehende Presets: der QR-Code wird dadurch etwas kleiner im Feld*
+- **EAN-13 mit 13 Ziffern und falscher Prüfziffer ist jetzt ein Fehler** (mit der richtigen Nummer in der
+  Meldung) – vorher wurde die letzte Ziffer still ersetzt
+- Kommandozeile: `datenarten`, `datenvorlage <art> [datei.csv]`, `datencheck <datei.csv> [art]` (Rückgabe 1 bei
+  Problemen); im Preset `qr_type` je QR-Feld
+- Beispiele 5 (Visitenkarte aus Kontaktliste) und 6 (WLAN-Zugang); Anleitung „Variable Daten“ mit neuem
+  Abschnitt „Daten erfassen“, CLI-Anleitung ergänzt
+- Tests lesen die erzeugten Codes jetzt wirklich zurück: QR und EAN-13 mit OpenCV (wenn installiert), Code 128
+  mit eigenem Leser samt Prüfsumme
+- Behoben: Variable Daten nahm ohne Auswahl der Verteilung „je Datensatz das ganze Dokument“ statt „jede Seite
+  der nächste Datensatz“
+
 ## 1.9.5
 - **Beispiele für Variable Daten im Programm:** Vorlage, CSV, 4 Presets (QR mit Nummer, QR aus CSV, Code 128,
   EAN-13) und fertige Ergebnis-PDFs liegen im Programmpaket. *Hilfe → Beispiele für Variable Daten holen …* (auch im

@@ -42,6 +42,9 @@ class VdpField:
     align: str = "left"           # left | center | right
     rotate: int = 0               # 0 | 90 | 180 | 270 (gegen den Uhrzeigersinn)
     pages: str = ""               # nur auf diesen Seiten der Vorlage, z. B. "1" oder "1,3-4" (leer = alle)
+    qr_type: str = "text"         # QR: text = Inhalt wie eingegeben; vcard, wifi, email, url, phone, sms, event, geo =
+                                  # Inhalt aus den Spalten der Datentabelle zusammengesetzt (siehe datakinds)
+    quiet: bool = True            # QR/Code 128: weiße Ruhezone im Feld freihalten (für sicheres Scannen)
 
 
 @dataclass
@@ -176,6 +179,15 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
     return cols, out
 
 
+def field_value(f: "VdpField", rec: dict) -> str:
+    """Inhalt eines Feldes für einen Datensatz: Vorlage mit Platzhaltern oder – bei QR mit „Art“ – aus den Spalten."""
+    t = getattr(f, "qr_type", "text") or "text"
+    if f.kind == "qr" and t != "text":
+        from . import datakinds
+        return datakinds.build(t, rec)
+    return fill(f.content, rec)
+
+
 def fill(template: str, rec: dict) -> str:
     def rep(m):
         key = m.group(1)
@@ -275,7 +287,7 @@ def draw_field(cv, f: VdpField, value: str, page_h: float):
         kind = {"qr": "QR", "code128": "Code128", "ean13": "EAN13"}[f.kind]
         kw = {}
         if f.kind == "qr":
-            kw = {"barBorder": 0}
+            kw = {"barBorder": 4 if getattr(f, "quiet", True) else 0}    # Norm: 4 Module Ruhezone rundum
             side = min(w, h)
             d = createBarcodeDrawing("QR", value=value, width=side, height=side, barFillColor=col, **kw)
             renderPDF.draw(d, cv, (w - side) / 2, (h - side) / 2)
@@ -284,13 +296,16 @@ def draw_field(cv, f: VdpField, value: str, page_h: float):
                 digits = re.sub(r"\D", "", value)
                 if len(digits) not in (12, 13):
                     raise ValueError(tr("EAN-13 braucht 12 oder 13 Ziffern: „{0}“").format(value))
+                if len(digits) == 13 and check_digit(digits[:12], "ean") != digits[12]:
+                    raise ValueError(tr("EAN-13 „{0}“: Prüfziffer falsch – richtig wäre {1}").format(
+                        value, digits[:12] + check_digit(digits[:12], "ean")))
                 value = digits[:12]                          # Prüfziffer rechnet reportlab selbst
                 kw = {"humanReadable": True}
             else:
                 # Klartextzeile selbst setzen: reportlab würde sie mit den Strichen auf die Kastengröße verzerren
                 th = f.size_pt * 1.25 if f.size_pt > 0 else 0.0
-                d = createBarcodeDrawing(kind, value=value, width=w, height=max(1.0, h - th),
-                                         barFillColor=col, humanReadable=False, quiet=False)
+                d = createBarcodeDrawing(kind, value=value, width=w, height=max(1.0, h - th), barFillColor=col,
+                                         humanReadable=False, quiet=bool(getattr(f, "quiet", True)))
                 renderPDF.draw(d, cv, 0, th)
                 if th:
                     cv.setFillColor(col)
@@ -315,9 +330,12 @@ def _fields(s: VdpSettings) -> list[VdpField]:
         else:
             known = {k: v for k, v in dict(f).items() if k in VdpField.__dataclass_fields__}
             out.append(VdpField(**known))
+    from .datakinds import QR_TYPES
     for f in out:
         if f.kind not in KINDS:
             raise ValueError(tr("Unbekannte Feldart: {0}").format(f.kind))
+        if (f.qr_type or "text") not in QR_TYPES:
+            raise ValueError(tr("Unbekannte QR-Art: {0}").format(f.qr_type))
     return out
 
 
@@ -485,7 +503,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         for fi, f in enumerate(fields):
             if p not in pages_of[fi]:
                 continue
-            v = fill(f.content, recs[r])
+            v = field_value(f, recs[r])
             vals[fi] = v
             draw_field(cv, f, v, H)
         cv.showPage()
@@ -569,7 +587,8 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
         if f.pages.strip() and page not in _page_set(f.pages, len(src_doc)):
             continue
         g = VdpField(**asdict(f))
-        g.content = fill(f.content, rec)
+        g.content = field_value(f, rec)
+        g.qr_type = "text"
         g.pages = ""
         fl.append(g)
     if s.placeholders:
