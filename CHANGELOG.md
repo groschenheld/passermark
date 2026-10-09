@@ -1,5 +1,25 @@
 # Änderungen – Passermark
 
+## 1.9.0
+- **Variable Daten** (Dokument-Manipulation → Variable Daten …, Strg+Umschalt+D; eigener Arbeitsbereich):
+  Felder auf die Vorlage legen und mit der Maus platzieren – **Text**, **QR-Code**, **Code 128**, **EAN-13**,
+  alles als Vektor. Inhalt als Vorlage: `{{Spalte}}` aus einer CSV-Datei, `{{nr}}` (Nummer), `{{i}}` (laufend).
+  Schrift, Größe, Farbe, Ausrichtung, Drehung, nur auf bestimmten Seiten. Vorschau mit echtem Ergebnis für jeden
+  Datensatz. Ergebnis als neuer Reiter
+- **Nummerierung:** Start, Schrittweite, Stellen (mit Nullen), Vor-/Nachsatz, Prüfziffer (Luhn, GS1/EAN, Mod 11),
+  rückwärts für Abreißblöcke, **Weiterzählen** über Aufträge hinweg (Zählername)
+- **CSV:** Trennzeichen und Zeichensatz (UTF-8/Windows) werden erkannt; Spalten per Doppelklick einfügen;
+  Datensatzbereich; Reihenfolge je Datensatz alle Seiten oder je Seite alle Datensätze
+- **Platzhalter `{{…}}` im PDF** (z. B. aus InDesign) werden als Feldposition übernommen, der Platzhaltertext
+  entfernt
+- **Code-Protokoll** als CSV (Ausgabeseite, Datensatz, alle Werte)
+- **Nutzen mit eigenem Datensatz je Nutzen:** Druckdialog → Nutzen → „Je Nutzen die nächste Seite“, Reihenfolge
+  Bogen für Bogen oder **Schneiden und Stapeln** (jeder Stapel fortlaufend)
+- Kommandozeile: Auftrag `vdp` (Felder am bequemsten als Preset aus dem Programm), `impose` mit `sr_sequence`
+  und `sr_stack`; Anleitung mit Fallbeispielen
+- Endformat/Anschnitt der Vorlage bleibt bei variablen Daten erhalten (für das Ausschießen danach)
+- Neue Abhängigkeit: reportlab (Text, QR- und Barcodes als Vektor) – in Setup und AppImage enthalten
+
 ## 1.8.5
 - **Sonderformate im Druckdialog:** neben „Papierformat“ der Knopf *Sonderformate …* – Name, Breite × Höhe in mm
   anlegen oder löschen. Die Formate bleiben gespeichert und stehen bei allen Druckern und bei „Als PDF speichern“

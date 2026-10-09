@@ -286,6 +286,25 @@ def _job_impose(src, dst, s, opts, progress, cancel):
     return JobResult(dst, {"sheets": len(plans)}, notes)
 
 
+def _job_vdp(src, dst, s, opts, progress, cancel):
+    """Variable Daten: Felder je Datensatz auf eine Kopie der Vorlage legen."""
+    from . import vdp
+    data, info = vdp.build(src, s, progress=progress, cancel=cancel, pages=opts.get("pages"))
+    _check(cancel)
+    _write_atomic(dst, data)
+    notes = []
+    if info.get("placeholders_removed"):
+        notes.append(tr("{0} Platzhalter aus der Vorlage übernommen.").format(info["placeholders_removed"]))
+    if s.log_path:
+        notes.append(tr("Code-Protokoll: {0}").format(s.log_path))
+    return JobResult(dst, {"records": info["records"], "pages": info["pages"]}, notes)
+
+
+def _vdp_settings():
+    from .vdp import VdpSettings
+    return VdpSettings
+
+
 def _impose_settings():
     from .layout import ImposeSettings
     return ImposeSettings
@@ -309,6 +328,7 @@ JOBS = {
     "repair": (lambda: RepairSettings, _job_repair),
     "preflight_fix": (lambda: PreflightFixSettings, _job_preflight_fix),
     "impose": (_impose_settings, _job_impose),
+    "vdp": (_vdp_settings, _job_vdp),
 }
 
 

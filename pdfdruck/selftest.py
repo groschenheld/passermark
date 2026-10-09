@@ -72,6 +72,19 @@ def run() -> int:
     step("Pillow/img2pdf", images)
     step("printing", printing)
     step("Ghostscript", ghostscript)
+
+    def barcodes():                      # variable Daten: reportlab-Barcodes werden dynamisch geladen
+        import io
+        from reportlab.graphics import renderPDF
+        from reportlab.graphics.barcode import createBarcodeDrawing
+        from reportlab.pdfgen import canvas
+        buf = io.BytesIO()
+        cv = canvas.Canvas(buf)
+        for kind, val in (("QR", "passermark"), ("Code128", "PM123"), ("EAN13", "400638133393")):
+            renderPDF.draw(createBarcodeDrawing(kind, value=val, width=60, height=40), cv, 10, 10)
+        cv.save()
+        return f"{len(buf.getvalue())} B"
+    step("reportlab/Barcodes", barcodes)
     if os.path.exists(os.path.join(os.path.dirname(__file__), "cutcontour.py")):
         step("numpy/scipy/contourpy", lambda: __import__("contourpy").__version__ + " / "
              + __import__("scipy").__version__)

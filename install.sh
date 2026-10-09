@@ -21,7 +21,7 @@ cp -r pdfdruck "$LIB/"
 
 [ -x "$VENV/bin/python" ] || python3 -m venv --system-site-packages "$VENV"
 "$VENV/bin/pip" install --upgrade --quiet pip
-"$VENV/bin/pip" install --upgrade --quiet "PySide6>=6.5" "pypdfium2>=4.25" img2pdf Pillow pikepdf numpy scipy contourpy
+"$VENV/bin/pip" install --upgrade --quiet "PySide6>=6.5" "pypdfium2>=4.25" img2pdf Pillow pikepdf numpy scipy contourpy reportlab
 "$VENV/bin/pip" install --upgrade --quiet pillow-heif || echo "Hinweis: pillow-heif nicht installierbar – HEIC wird nicht unterstützt."
 "$VENV/bin/python" -c "import cups, PySide6, pypdfium2, img2pdf, pikepdf, numpy, scipy, contourpy; print('Abhängigkeiten OK')"
 

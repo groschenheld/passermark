@@ -8,3 +8,4 @@ pillow-heif
 numpy
 scipy
 contourpy
+reportlab        # variable Daten: Text, QR- und Barcodes als Vektor

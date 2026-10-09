@@ -618,6 +618,17 @@ class PrintDialog(QDialog):
         self.spn_srgap.setSuffix(tr(" mm"))
         self.spn_srgap.setValue(L.sr_gap_mm)
         f.addRow(tr("Abstand:"), self.spn_srgap)
+        self.chk_srseq = QCheckBox(tr("Je Nutzen die nächste Seite (variable Daten, Nummerierung)"))
+        self.chk_srseq.setChecked(L.sr_sequence)
+        self.chk_srseq.setToolTip(tr("Statt eine Seite zu vervielfachen, kommt auf jeden Nutzen die nächste Seite – "
+                                     "z. B. nach „Variable Daten“ jede Karte mit eigenem Namen oder Code."))
+        f.addRow(self.chk_srseq)
+        self.cmb_srstack = QComboBox()
+        fill_combo(self.cmb_srstack, [("row", tr("Bogen für Bogen")),
+                                      ("stack", tr("Schneiden und Stapeln (Stapel fortlaufend)"))], L.sr_stack)
+        self.cmb_srstack.setToolTip(tr("Schneiden und Stapeln: Bögen übereinanderlegen, schneiden – jeder Stapel ist "
+                                       "fortlaufend nummeriert (1, 2, 3 … im ersten Stapel, dann der zweite)."))
+        f.addRow(tr("Reihenfolge:"), self.cmb_srstack)
         note = QLabel(tr("Ersetzt die Seitenhandhabung (Größe/Mehrere/…), solange aktiv. Bei „Automatisch“ wird "
                       "zuerst eine Lage gesucht, in der das Raster aufs Blatt passt, dann die mit den meisten "
                       "Nutzen. Kante an Kante: zwischen den Nutzen kein Weißraum, die Schnittmarken liegen "
@@ -648,9 +659,9 @@ class PrintDialog(QDialog):
         v.addWidget(g)
         v.addStretch()
 
-        for w in (self.chk_sr, self.chk_marks):
+        for w in (self.chk_sr, self.chk_marks, self.chk_srseq):
             w.toggled.connect(self._changed)
-        for w in (self.cmb_srmode, self.cmb_srorient, self.cmb_srrot, self.cmb_srjoin):
+        for w in (self.cmb_srmode, self.cmb_srorient, self.cmb_srrot, self.cmb_srjoin, self.cmb_srstack):
             w.currentIndexChanged.connect(self._changed)
         self.cmb_srby.currentIndexChanged.connect(self._changed)
         for w in (self.spn_srcols, self.spn_srrows, self.spn_srpct, self.spn_srmm, self.spn_srgap, self.spn_bleed):
@@ -726,6 +737,8 @@ class PrintDialog(QDialog):
             self.spn_srmm.setVisible(by != "percent")
             self.lbl_srsize.setVisible(sr)
             self.spn_srgap.setEnabled(sr and self.cmb_srjoin.currentData() == "gap")
+            self.chk_srseq.setEnabled(sr)
+            self.cmb_srstack.setEnabled(sr and self.chk_srseq.isChecked())
             self.spn_srcols.setEnabled(sr and grid)
             self.spn_srrows.setEnabled(sr and grid)
             for b in self.handling_btns.values():
@@ -1176,6 +1189,8 @@ class PrintDialog(QDialog):
         L.sr_orientation = self.cmb_srorient.currentData()
         L.sr_rotate = self.cmb_srrot.currentData()
         L.sr_join = self.cmb_srjoin.currentData()
+        L.sr_sequence = self.chk_srseq.isChecked()
+        L.sr_stack = self.cmb_srstack.currentData() or "row"
         L.crop_marks = self.chk_marks.isChecked()
         L.bleed_mm = self.spn_bleed.value()
         L.order = self.cmb_order.currentData()
@@ -1254,6 +1269,8 @@ class PrintDialog(QDialog):
         pick(self.cmb_srorient, L.sr_orientation)
         pick(self.cmb_srrot, str(L.sr_rotate))
         pick(self.cmb_srjoin, L.sr_join)
+        self.chk_srseq.setChecked(L.sr_sequence)
+        pick(self.cmb_srstack, L.sr_stack)
         self.chk_marks.setChecked(L.crop_marks)
         self.spn_bleed.setValue(L.bleed_mm)
         self.handling_btns.get(L.handling, self.handling_btns["size"]).setChecked(True)

@@ -116,6 +116,8 @@ class LayoutSettings:
     sr_orientation: str = "auto"  # Blatt: auto | portrait | landscape
     sr_rotate: str = "auto"       # Nutzen: auto | 0 | 90
     sr_join: str = "bleed"        # edge = Kante an Kante | bleed = Überfüller an Überfüller | gap = Abstand
+    sr_sequence: bool = False     # je Nutzen die nächste Seite (variable Daten) statt eine Seite vervielfachen
+    sr_stack: str = "row"         # row = Bogen für Bogen | stack = Schneiden und Stapeln (Stapel bleiben fortlaufend)
     crop_marks: bool = False      # Schnittmarken
     bleed_mm: float = 0.0         # Anschnitt/Überfüller durch Spiegeln der Ränder
 
@@ -697,6 +699,32 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
     gap = _sr_gap(s)
     orients = {"portrait": [False], "landscape": [True]}.get(s.sr_orientation, [False, True])
     rots = {"0": [0], "90": [90]}.get(s.sr_rotate, [0, 90])
+    if s.sr_sequence and pages:
+        # Raster aus der ersten Seite bestimmen, dann je Nutzen die nächste Seite einsetzen
+        import dataclasses
+        proto = plan_step_repeat(sizes, pages[:1], sheet, dataclasses.replace(s, sr_sequence=False))
+        if not proto:
+            return []
+        cells = proto[0].placements
+        n = len(cells)
+        n_sheets = -(-len(pages) // n)
+        for k in range(n_sheets):
+            sp = SheetPlan(proto[0].landscape, warnings=list(proto[0].warnings) if k == 0 else [],
+                           label=tr("Bogen {0}/{1} – {2} Nutzen, je Nutzen eine eigene Seite").format(k + 1, n_sheets, n))
+            for j, cell in enumerate(cells):
+                idx = j * n_sheets + k if s.sr_stack == "stack" else k * n + j
+                if idx >= len(pages):
+                    continue
+                p = pages[idx]
+                pw0, ph0 = sizes[p]
+                pw, ph = (ph0, pw0) if cell.rot else (pw0, ph0)
+                sc = min(cell.w / pw, cell.h / ph) if pw and ph else cell.scale
+                w, h = pw * sc, ph * sc
+                pl = Placement(p, cell.rot, sc, cell.x + (cell.w - w) / 2, cell.y + (cell.h - h) / 2, w, h, None)
+                pl.bleed_sides = cell.bleed_sides
+                sp.placements.append(pl)
+            plans.append(sp)
+        return plans
     for p in pages:
         pw0, ph0 = sizes[p]
         sc = edge_scale(pw0, ph0, s.sr_by, s.sr_mm, s.sr_percent)   # je Seite (Kantenmaß gilt pro Nutzen)
@@ -792,11 +820,13 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
     if s.step_repeat and s.sr_join == "bleed" and s.bleed_mm <= 0 and bleeds and any(bleeds):
         import dataclasses
         plans = []
-        for p in pages:
+        groups = [pages] if s.sr_sequence else [[p] for p in pages]   # fortlaufend: ein gemeinsames Raster
+        for grp in groups:
+            p = grp[0]
             b = bleeds[p] if p < len(bleeds) and trims[p] else 0.0
             sc = edge_scale(sz[p][0], sz[p][1], s.sr_by, s.sr_mm, s.sr_percent)
             s2 = dataclasses.replace(s, bleed_mm=b * sc / MM) if b > 0 else s
-            plans += _plan(sz, [p], sheet, s2)
+            plans += _plan(sz, grp, sheet, s2)
     else:
         plans = _plan(sz, pages, sheet, s)
     for sp in plans:

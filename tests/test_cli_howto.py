@@ -92,9 +92,13 @@ def test_examples_run():
     runnable = _prepare_inputs(tmp, _examples())
     gs = bool(pl.ghostscript())
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
-    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour; "
-                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded'))"],
+    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour, vdp; "
+                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded')); "
+                    "presets.save('vdp', 'Tickets', vdp.VdpSettings(fields=[dict(content='Nr. {{nr}}')])); "
+                    "presets.save('vdp', 'Namensschilder', vdp.VdpSettings(fields=[dict(content='{{Name}}'), "
+                    "dict(kind='qr', content='{{Name}}', y_mm=30, w_mm=25, h_mm=25)]))"],
                    cwd=tmp, env=env, check=True)
+    open(os.path.join(tmp, "gaeste.csv"), "w", encoding="utf-8").write("Name;Firma\nAnna;A\nBéla;B\n")
     subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
                    stdout=open(os.path.join(tmp, "sticker.json"), "w"))
     ran = 0

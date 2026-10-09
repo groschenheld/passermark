@@ -1057,7 +1057,7 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     # ---------------- Arbeitsbereiche ---------------- #
-    WORKSPACES = ("view", "prep", "edit", "auto")
+    WORKSPACES = ("view", "prep", "edit", "vdp", "auto")
 
     def _build_workspaces(self, pages_dock):
         """Zweite Leiste: Arbeitsbereich wählen; rechts daneben die Werkzeuge dieses Bereichs."""
@@ -1076,6 +1076,7 @@ class MainWindow(QMainWindow):
                           (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
                           (self.a_down, tr("Nach hinten")), (self.a_merge, tr("Zusammenführen")),
                           (self.a_export, tr("Exportieren"))],
+                 "vdp": [(self.a_vdp, tr("Variable Daten"))],
                  "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))]}
         self.addToolBarBreak()
         tb = self.ws_bar = self.addToolBar(tr("Arbeitsbereich"))
@@ -1086,7 +1087,7 @@ class MainWindow(QMainWindow):
         grp.setExclusive(True)
         self.ws_actions = {}
         names = {"view": tr("Anzeigen & Drucken"), "prep": tr("Druckaufbereitung"), "edit": tr("Bearbeiten"),
-                 "auto": tr("Automatisierung")}
+                 "vdp": tr("Variable Daten"), "auto": tr("Automatisierung")}
         for key in self.WORKSPACES:
             a = QAction(names[key], self)
             a.setCheckable(True)
@@ -1360,6 +1361,7 @@ class MainWindow(QMainWindow):
         self.a_manip_crop = A(tr("Auf Format beschneiden …"), lambda: self.manip_dialog("crop"), None, "crop")
         self.a_separate = A(tr("Objekte trennen (Einzelseiten ohne Weißraum) …"), self.separate_dialog, None, "separate")
         self.a_cut = A(tr("CutContour erzeugen (Schneideplotter) …"), self.cut_dialog, None, "cut")
+        self.a_vdp = A(tr("Variable Daten (Nummern, QR-/Barcodes, CSV) …"), self.vdp_dialog, "Ctrl+Shift+D", "vdp")
         self.a_edit = A(tr("Text und Ebenen bearbeiten"), lambda: None, "Ctrl+T", "edit")
         self.a_edit.setCheckable(True)
         self.a_edit.toggled.connect(self._edit_mode)
@@ -1397,7 +1399,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_preflight)
         m = mb.addMenu(tr("Dokument-&Manipulation"))
         for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
-                  self.a_cut):
+                  self.a_cut, None, self.a_vdp):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
@@ -1511,7 +1513,7 @@ class MainWindow(QMainWindow):
         for a in (self.a_save, self.a_saveas, self.a_print, self.a_ins_before, self.a_ins_after,
                   self.a_ins_end, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
                   self.a_rot_r, self.a_up, self.a_down, self.a_selall, self.a_manip, self.a_manip_cmyk,
-                  self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit):
+                  self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit, self.a_vdp):
             a.setEnabled(has)
         # Speichern nur, wenn es etwas zu speichern gibt (sonst „nichts passiert“)
         self.a_save.setEnabled(has and (self.modified or not self.path))
@@ -1938,6 +1940,21 @@ class MainWindow(QMainWindow):
         if dlg.exec() and getattr(dlg, "job", None):
             self.start_job(*dlg.job, suffix=tr("_CutContour"), title=tr("CutContour"),
                            notes=lambda info: [tr("{0} Schnittkontur(en) erzeugt.").format(info.get("cuts", 0))])
+
+    def vdp_dialog(self):
+        if self.doc is None:
+            return
+        from .vdpdialog import VdpDialog
+        try:
+            dlg = VdpDialog(self, self.doc, self.view.current)
+        except Exception as e:
+            from .objectsdialog import show_error
+            show_error(self, tr("Fehler"), e)
+            return
+        if dlg.exec() and getattr(dlg, "job", None):
+            self.start_job(*dlg.job, suffix=tr("_Daten"), title=tr("Variable Daten"),
+                           notes=lambda info: [tr("{0} Datensätze, {1} Seiten erzeugt.").format(
+                               info.get("records", 0), info.get("pages", 0))])
 
     # ---------------- Aufträge im Hintergrund (eigener Prozess) ---------------- #
     def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):

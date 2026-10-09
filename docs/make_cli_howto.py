@@ -118,7 +118,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die sechs Aufträge", H3))
+    s.append(P("Die sieben Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -127,6 +127,7 @@ def build():
         [c("repair"), "Reparieren, für Druck optimieren, verkleinern, PDF/A, Passwort"],
         [c("preflight_fix"), "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren"],
         [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
+        [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – je Datensatz eine Kopie"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -348,6 +349,43 @@ def build():
                "(TrimBox, z. B. aus InDesign mit „Anschnitt verwenden“), wird das Endformat platziert und der "
                "Anschnitt aus dem Dokument genommen – " + c("sr_mm") + " meint dann das Endformat.", NOTE))
 
+    # ------------------------------------------------------------------ vdp
+    s.append(PageBreak())
+    s.append(P("vdp – Variable Daten: Nummern, Namen, QR- und Barcodes", H3))
+    s.append(P("Legt Felder auf die Vorlage – je Datensatz eine Kopie. Datensätze kommen aus einer CSV-Datei "
+               "(erste Zeile = Spaltennamen, Trennzeichen ; , oder Tab werden erkannt) oder aus einer reinen "
+               "Nummerierung (" + c("count") + "). Inhalte sind Vorlagen: " + c("{{Spalte}}") + ", " + c("{{nr}}")
+               + " (formatierte Nummer), " + c("{{i}}") + " (laufend ab 1). Alles bleibt Vektor."))
+    s.append(P("Die Felder legt man am einfachsten im Programm an (Dokument-Manipulation → Variable Daten, Felder mit "
+               "der Maus platzieren, Vorschau je Datensatz) und speichert ein Preset. Die Kommandozeile nimmt dann "
+               "das Preset und ändert nur, was sich je Auftrag ändert:"))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("csv_path"), "–", "CSV-Datei; leer = nur Nummerierung"],
+        [c("count"), "1", "ohne CSV: so viele Kopien"],
+        [c("records"), "–", "nur diese Datensätze, z. B. 1-50"],
+        [c("numbering.start") + " / " + c(".step") + " / " + c(".digits"), "1 / 1 / 0",
+         "Start, Schrittweite, mit Nullen auf so viele Stellen"],
+        [c("numbering.prefix") + " / " + c(".suffix"), "–", "Text vor/nach der Nummer"],
+        [c("numbering.check"), c("none"), c("luhn") + ", " + c("ean") + ", " + c("mod11") + " – Prüfziffer anhängen"],
+        [c("numbering.continue_key"), "–", "Zählername: der nächste Auftrag zählt dort weiter"],
+        [c("reverse"), c("false"), "rückwärts (Abreißblock: oberstes Blatt höchste Nummer)"],
+        [c("order"), c("record"), c("record") + " = je Datensatz alle Seiten, " + c("page") + " = je Seite alle Datensätze"],
+        [c("log_path"), "–", "Code-Protokoll als CSV (Ausgabeseite, Datensatz, Werte)"],
+        [c("placeholders"), c("false"), c("{{…}}") + " im PDF als Feldposition übernehmen, Platzhaltertext entfernen"],
+    ], [47 * mm, 20 * mm, W - 67 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(example("500 nummerierte Tickets", "Preset „Tickets“ im Programm angelegt (Feld mit {{nr}}).",
+                     'passermark-cli vdp ticket.pdf tickets.pdf --preset "Tickets" --set count=500'))
+    s.append(example("Namensschilder aus einer Gästeliste", "Felder {{Name}} und QR-Code mit {{Name}}; Protokoll dazu.",
+                     'passermark-cli vdp schild.pdf schilder.pdf --preset "Namensschilder" \\\n'
+                     '    --set csv_path=gaeste.csv --set log_path=codes.csv'))
+    s.append(example("Jede Karte mit eigenem Code 8× auf SRA3, schneiden und stapeln",
+                     "Erst die Daten, dann ausschießen – je Nutzen die nächste Seite, Stapel bleiben fortlaufend.",
+                     "passermark-cli impose tickets.pdf tickets-sra3.pdf --set sheet=SRA3 \\\n"
+                     "    --set step_repeat=true --set sr_sequence=true --set sr_stack=stack \\\n"
+                     "    --set crop_marks=true"))
+
     # ------------------------------------------------------------------ Presets
     s.append(PageBreak())
     s.append(P("3 · Presets: Einstellungen als Datei", H2))
@@ -424,8 +462,6 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                "Fallbeispielen in dieser Anleitung:"))
     s.append(table([
         ["Version", "Neu in der Kommandozeile"],
-        ["1.9", "Variable Daten: Nummerierung, QR- und Barcodes, Datenquelle CSV; Mehrfachnutzen mit eigenem Code "
-                "je Nutzen"],
         ["1.10", "Projektordner (Watcher): Datei in einen Ordner werfen – fertiges, gedrucktes oder gespeichertes "
                  "Ergebnis kommt heraus, ein Preset je Ordner"],
     ], [20 * mm, W - 20 * mm]))
