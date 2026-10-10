@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.10.8
+
+- Quellcode-Dokumentation internationalisiert: Sämtliche Kommentare und
+  Docstrings im gesamten Codebase (GUI, Sprachpakete, pdfdruck-Datenpaket,
+  Tests, Plattform-Skripte) von Deutsch auf Englisch übersetzt; die
+  GPL-Lizenzköpfe ebenfalls.
+- Fehlendes Datenpaket „pdfdruck“ ergänzt (behebt den fehlgeschlagenen Build).
+- Keine funktionalen Änderungen: Strings, Logik und Verhalten sind unverändert
+  (per AST-Abgleich mit der Vorversion verifiziert).
+
 ## 1.10.7
 - **CutContour: Grundformen ohne Berechnung.** Neue Lage „Auf das Endformat (ohne Berechnung)“: Rechteck,
   abgerundetes Rechteck, Kreis … werden direkt aufs Endformat (TrimBox, sonst die Seite) gelegt – kein Rendern,

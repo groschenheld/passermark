@@ -2,6 +2,16 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.10.8
+
+- Internationalised the source-code documentation: translated all comments and
+  docstrings across the entire codebase (GUI, language packs, pdfdruck data
+  package, tests, platform scripts) from German to English; the GPL license
+  headers as well.
+- Added the missing "pdfdruck" data package (fixes the broken build).
+- No functional changes: strings, logic and behaviour are unchanged
+  (verified against the previous release via AST comparison).
+
 ## 1.10.7
 - **CutContour: basic shapes without computation.** New placement "On the trim size (without computation)":
   rectangle, rounded rectangle, circle … are placed directly onto the trim size (TrimBox, otherwise the page) –

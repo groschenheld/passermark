@@ -5,6 +5,16 @@
 > Ez a változásnapló a **1.10.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.10.8
+
+- A forráskód dokumentációjának nemzetközivé tétele: a teljes kódbázisban
+  (grafikus felület, nyelvi csomagok, pdfdruck adatcsomag, tesztek,
+  platformszkriptek) az összes megjegyzés és docstring németről angolra
+  lett fordítva; a GPL licencfejlécek szintúgy.
+- A hiányzó „pdfdruck" adatcsomag hozzáadva (ez javítja a sikertelen buildet).
+- Nincs funkcionális változás: a szövegek, a logika és a viselkedés változatlan
+  (AST-összehasonlítással ellenőrizve az előző verzióval szemben).
+  
 ## 1.10.7
 - **CutContour: alapformák számítás nélkül.** Új elhelyezés „A végformára (számítás nélkül)”: téglalap,
   lekerekített téglalap, kör … közvetlenül a végformára kerülnek (TrimBox, egyébként az oldalra) – nincs

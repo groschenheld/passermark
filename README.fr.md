@@ -1,4 +1,4 @@
-# Passermark 1.10.7
+# Passermark 1.10.8
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -107,7 +107,7 @@ démarrage suivant pointe vers le journal. Les journaux sans erreur sont supprim
 ## Compilation
 
 Chaque push sur `main` compile sur GitHub l'installateur Windows et l'AppImage Linux (**Actions**) ; les
-deux sont vérifiés avec `--selftest`. Un tag `v*` (p. ex. `git tag v1.10.7 && git push origin v1.10.7`) les
+deux sont vérifiés avec `--selftest`. Un tag `v*` (p. ex. `git tag v1.10.8 && git push origin v1.10.8`) les
 joint à une Release GitHub.
 
 En local : `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, nécessite Python 3.12 et

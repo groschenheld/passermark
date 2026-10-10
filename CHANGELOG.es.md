@@ -5,6 +5,17 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.10.8
+
+- Documentación del código fuente internacionalizada: todos los comentarios y
+  docstrings de todo el código (interfaz gráfica, paquetes de idioma, paquete de
+  datos pdfdruck, pruebas, scripts de plataforma) se han traducido del alemán al
+  inglés; también las cabeceras de licencia GPL.
+- Añadido el paquete de datos «pdfdruck» que faltaba (corrige la compilación
+  fallida).
+- Sin cambios funcionales: las cadenas, la lógica y el comportamiento no han
+  cambiado (verificado mediante comparación AST con la versión anterior).
+
 ## 1.10.7
 - **CutContour: formas básicas sin cálculo.** Nueva colocación «Sobre el formato final (sin cálculo)»:
   rectángulo, rectángulo redondeado, círculo … se colocan directamente sobre el formato final (TrimBox, en
