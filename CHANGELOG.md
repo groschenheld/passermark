@@ -1,4 +1,6 @@
-# Änderungen – Passermark
+# Changelog – Passermark
+
+**English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
 ## 1.10.8
 
@@ -11,524 +13,583 @@
   (verified against the previous release via AST comparison).
 
 ## 1.10.7
-- **CutContour: Grundformen ohne Berechnung.** Neue Lage „Auf das Endformat (ohne Berechnung)“: Rechteck,
-  abgerundetes Rechteck, Kreis … werden direkt aufs Endformat (TrimBox, sonst die Seite) gelegt – kein Rendern,
-  keine Motiv-Erkennung, keine Arbeitsprozesse, in Sekundenbruchteilen. Abstand, Größe, Versatz und Ziehen mit der
-  Maus gelten wie bisher. Gerechnet wird nur noch bei „Kontur“ oder wenn die Form ums Motiv bzw. je Objekt gelegt
-  wird. Kommandozeile: `--set fit=trim`
-- **Standard in CutContour:** Rechteck auf das Endformat (solange keine eigenen zuletzt verwendeten Einstellungen
-  gespeichert sind)
+
+- **CutContour: basic shapes without computation.** New placement "On the trim size (without computation)":
+  rectangle, rounded rectangle, circle … are placed directly onto the trim size (TrimBox, otherwise the page) –
+  no rendering, no motif detection, no worker processes, in a fraction of a second. Spacing, size, offset and
+  dragging with the mouse work as before. Computation only happens for "Contour" or when the shape is placed
+  around the motif or per object. Command line: `--set fit=trim`
+- **CutContour default:** rectangle on the trim size (unless custom recently used settings are saved)
 
 ## 1.10.6
-- **Fix Windows: CutContour blieb bei 0 % hängen** (seit 1.10.5). Die Umstellung der Kommandozeilen-Ausgabe auf
-  UTF-8 ist wieder entfernt; der Fix für „Seiten teilen“ bleibt (Fortschrittsmeldungen als reines ASCII)
-- CutContour: kein Fehler mehr, wenn beim Schließen des Fensters noch eine Vorschau-Berechnung nachkommt
-  („expected LP_struct_fpdf_document_t … NoneType“)
+
+- Windows fix: CutContour got stuck at 0 % (since 1.10.5). The switch of the command-line output to UTF-8 has
+  been reverted; the fix for "Split pages" remains (progress messages as plain ASCII)
+- CutContour: no more error when closing the window while a preview computation is still finishing
+  ("expected LP_struct_fpdf_document_t … NoneType")
 
 ## 1.10.5
-- **Fix Windows:** „Seiten teilen“ (und jeder Auftrag, dessen Meldung Zeichen wie „→“ enthält) brach mit
-  `UnicodeEncodeError … cp1252` ab. Die Kommandozeile stellt ihre Ausgabe jetzt selbst auf UTF-8 um, die
-  Fortschrittsmeldungen an die Oberfläche sind reines ASCII
-- `SECURITY.md`, `CONTRIBUTING.md` und GitHub-Vorlagen für Fehlermeldungen und Vorschläge im Paket
+
+- Windows fix: "Split pages" (and any job whose message contains characters such as "→") aborted with
+  UnicodeEncodeError … cp1252. The command line now switches its own output to UTF-8; the progress messages
+  sent to the UI are plain ASCII
+- SECURITY.md, CONTRIBUTING.md and GitHub templates for bug reports and suggestions included in the package
 
 ## 1.10.4
-- README zweisprachig: `README.md` (Englisch) und `README.de.md` (Deutsch), auf aktuellem Stand (Seiten teilen,
-  Variable Daten, Daten erfassen, alle Aufträge der Kommandozeile) und mit einem Hinweis zum Projektstatus
-- Beispiel-Konfiguration `data/defaults.example.json` mit neutralen Druckernamen
+
+- README bilingual: README.md (English) and README.de.md (German), brought up to date (split pages, variable
+  data, data capture, all command-line jobs) and with a note on the project status
+- Example configuration data/defaults.example.json with neutral printer names
 
 ## 1.10.3
-- **Seiten teilen per Rechtsklick:** Seiten in der Seitenleiste markieren → Rechtsklick → **Teilen** →
-  „Senkrecht halbieren“ / „Waagrecht halbieren“ – sofort, nur die markierten Seiten, keine Vergleichsseite nötig.
-  „Raster / weitere Optionen …“ öffnet den Dialog mit der Auswahl voreingestellt
+
+- Split pages via right-click: select pages in the page sidebar → right-click → Split → "Halve vertically" /
+  "Halve horizontally" – immediate, only the selected pages, no comparison page needed. "Grid / more options …"
+  opens the dialog with the selection preset
 
 ## 1.10.2
-- **Variable Daten – Vorder- und Rückseite:** neu „Seiten je Datensatz“ (unter 2.): 2 = Seite 1+2 → Datensatz 1,
-  3+4 → Datensatz 2 … – egal ob die Vorlage 2 Seiten hat oder schon alle Karten (z. B. 200 Seiten für 100
-  Visitenkarten). Felder „Nur auf diesen Seiten“ kennen jetzt **ungerade** und **gerade**, auch kombiniert mit
-  Bereichen („ungerade 1-50“). Beispiel 7: Visitenkarte mit Name vorne und QR-Visitenkarte hinten
-- **Weitere Variablen:** {{datum}}, {{zeit}}, {{jahr}}, {{monat}}, {{tag}}, {{wochentag}}, {{kw}}, {{datum_iso}},
+
+- Variable data – front and back: new "Pages per record" (under 2.): 2 = page 1+2 → record 1, 3+4 → record 2 …
+  – regardless of whether the template has 2 pages or already all cards (e.g. 200 pages for 100 business cards).
+  The "Only on these pages" fields now know odd and even, also combined with ranges ("odd 1-50").
+  Example 7: business card with name on the front and QR business card on the back
+- More variables: {{datum}}, {{zeit}}, {{jahr}}, {{monat}}, {{tag}}, {{wochentag}}, {{kw}}, {{datum_iso}},
   {{datum:FORMAT}}, {{seite}}, {{seiten}}, {{vorlagenseite}}, {{datensatz}}, {{datensaetze}}, {{datei}},
-  {{zufall}}, {{zufall:N}}, {{code:N}}, {{uuid}}. Knopf **?** neben dem Inhalt zeigt alle mit Beispielwert,
-  Doppelklick fügt ein. CSV-Spalten gleichen Namens gehen vor
-- Doppelklick auf eine Spalte **ersetzt** ein unverändertes {{nr}} statt es davor stehen zu lassen
-- **Seiten teilen** (Seiten → Seiten teilen …, Arbeitsbereich Bearbeiten): senkrecht/waagrecht halbieren oder
-  Raster, alle/diese/ausgewählte Seiten oder Bereich, nur Doppelseiten, Reihenfolge rechts→links; mit Vorschau der
-  Schnittlinien. **Doppelseiten teilen** mit einem Klick für falsch exportierte Broschüren. Verlustfrei (Inhalt wird
-  nicht kopiert oder gerastert), gedrehte Seiten so, wie man sie sieht; mit Endformat wird darin geteilt und der
-  Anschnitt bleibt außen. Kommandozeile: Auftrag `split`
-- **Seitenleiste:** die Miniaturen drehen mit „Ansicht links/rechts drehen“ mit
-- **Behoben: Öffnen von außen landete in einem gesperrten Fenster** (Windows, Rechtsklick/Doppelklick, während
-  in einem Fenster ein Werkzeug offen ist) – jetzt eigenes Fenster. Ursache: Öffnen im leeren Startfenster ließ
-  einen unsichtbaren leeren Reiter zurück; das leere Fenster wird jetzt selbst verwendet. Ergebnisse aus einem
-  gesperrten Fenster öffnen sich ebenfalls in einem eigenen Fenster
+  {{zufall}}, {{zufall:N}}, {{code:N}}, {{uuid}}. The ? button next to the content shows all of them with a
+  sample value; double-click inserts one. CSV columns of the same name take precedence
+- Double-clicking a column replaces an unchanged {{nr}} instead of leaving it in place
+- Split pages (Pages → Split pages …, Edit workspace): halve vertically/horizontally or a grid, all/selected
+  pages or a range, facing pages only, order right→left; with a preview of the cut lines. Split facing pages
+  with one click for incorrectly exported brochures. Lossless (content is not copied or rasterised), rotated
+  pages as you see them; with a trim size, the cut happens inside it and the bleed stays outside.
+  Command line: job split
+- Page sidebar: the thumbnails rotate along with "Rotate view left/right"
+- Fixed: opening from outside landed in a locked window (Windows, double-click/right-click, while a tool is
+  open in another window) – now a separate window. Cause: opening in the empty start window left behind an
+  invisible empty tab; the empty window is now used itself. Results from a locked window also open in a
+  separate window
 
 ## 1.10.1
-- **Eigene CSV mit anderen Spaltennamen direkt verwenden:** Variable Daten → CSV öffnen erkennt, wozu die Tabelle
-  passt („Die Tabelle passt zu: QR – Visitenkarte“), **Passendes Feld anlegen** legt den QR-Code mit dieser Art an.
-  Die Spalten werden automatisch zugeordnet – auch englische, ungarische, spanische, französische Namen und die
-  Kopfzeilen der Kontakt-Exporte von **Outlook, Google und Thunderbird**. Die CSV bleibt unverändert
-- **Spalten zuordnen …** beim QR-Feld mit Art: je Angabe die Spalte wählen, „leer lassen“ oder automatisch; mit
-  Vorschau des fertigen Inhalts. Unter der Art steht, was woher kommt und was fehlt. Die Zuordnung wird im Preset
-  gespeichert (`qr_map`) und gilt auch auf der Kommandozeile
-- Daten erfassen: eine fremd benannte CSV bekommt keine doppelten Spalten mehr; die Kopfzeile zeigt die Zuordnung
-  („First Name → Vorname“). `datencheck` erkennt fremde Spaltennamen ebenso
-- Beispielordner: `kontakte-outlook.csv` (so sieht ein Outlook-Export aus); Anleitung um „Eigene CSV mit anderen
-  Spaltennamen“ ergänzt
+
+- Use your own CSV with different column names directly: Variable data → Open CSV recognises what the table
+  fits ("The table fits: QR – business card"); Create matching field creates the QR code with that type.
+  Columns are assigned automatically – including English, Hungarian, Spanish, French names and the headers of
+  the contact exports from Outlook, Google and Thunderbird. The CSV remains unchanged
+- Assign columns … in the QR field with a type: choose the column per item, "leave empty" or automatic; with a
+  preview of the finished content. Below the type it says what comes from where and what is missing. The
+  assignment is saved in the preset (qr_map) and also applies on the command line
+- Data capture: a CSV with foreign column names no longer gets duplicate columns; the header shows the
+  assignment ("First Name → Vorname"). datencheck also recognises foreign column names
+- Example folder: kontakte-outlook.csv (this is what an Outlook export looks like); guide extended with
+  "Your own CSV with different column names"
 
 ## 1.10.0
-- **Daten erfassen** (Arbeitsbereich Variable Daten, Menü Dokument-Manipulation, oder im Dialog Variable Daten
-  unter 2.): die Datentabelle direkt in Passermark anlegen. Je Art die passenden Spalten – **QR-Visitenkarte
-  (vCard), WLAN-Zugang, E-Mail, Webadresse, Anruf, SMS, Termin, Standort**, freier QR-Text, **Code 128**,
-  **EAN-13**, Text mit eigenen Spalten. Jede Zeile wird sofort geprüft (Pflichtangaben, EAN-Prüfziffer, Umlaute im
-  Code 128, Datum …), rechts der fertige Code der gewählten Zeile. Einfügen aus Excel mit Strg+V, Zeilen
-  duplizieren, Spalte mit Nummernreihe füllen (legt auch die Zeilen an), eigene Spalten. Speichern als CSV
-  (UTF-8 mit BOM, Semikolon – Excel liest Umlaute richtig)
-- **„In Variable Daten verwenden“** übernimmt die Tabelle als Datenquelle und legt das passende Feld an
-- **QR-Feld „Art des QR-Codes“:** Inhalt wie eingegeben oder aus den Tabellenspalten zusammengesetzt (vCard,
-  WLAN, mailto, tel, SMS, Termin, geo). Die CSV bleibt lesbar; den Code-Inhalt baut Passermark beim Erzeugen
-- **Ruhezone:** QR-Code und Code 128 haben jetzt einen weißen Rand im Feld (abschaltbar). Ohne ihn waren Codes
-  nahe an anderem Inhalt schlecht lesbar. *Bestehende Presets: der QR-Code wird dadurch etwas kleiner im Feld*
-- **EAN-13 mit 13 Ziffern und falscher Prüfziffer ist jetzt ein Fehler** (mit der richtigen Nummer in der
-  Meldung) – vorher wurde die letzte Ziffer still ersetzt
-- Kommandozeile: `datenarten`, `datenvorlage <art> [datei.csv]`, `datencheck <datei.csv> [art]` (Rückgabe 1 bei
-  Problemen); im Preset `qr_type` je QR-Feld
-- Beispiele 5 (Visitenkarte aus Kontaktliste) und 6 (WLAN-Zugang); Anleitung „Variable Daten“ mit neuem
-  Abschnitt „Daten erfassen“, CLI-Anleitung ergänzt
-- Tests lesen die erzeugten Codes jetzt wirklich zurück: QR und EAN-13 mit OpenCV (wenn installiert), Code 128
-  mit eigenem Leser samt Prüfsumme
-- Behoben: Variable Daten nahm ohne Auswahl der Verteilung „je Datensatz das ganze Dokument“ statt „jede Seite
-  der nächste Datensatz“
+
+- Data capture (Variable data workspace, Document manipulation menu, or in the Variable data dialog under 2.):
+  create the data table directly in Passermark. The matching columns per type – QR business card (vCard),
+  WLAN access, e-mail, web address, call, SMS, appointment, location, free QR text, Code 128, EAN-13, text
+  with your own columns. Every row is validated immediately (required fields, EAN check digit, umlauts in
+  Code 128, date …); on the right, the finished code of the selected row. Paste from Excel with Ctrl+V,
+  duplicate rows, fill a column with a number series (also creates the rows), custom columns. Save as CSV
+  (UTF-8 with BOM, semicolon – Excel reads umlauts correctly)
+- "Use in variable data" takes the table as the data source and creates the matching field
+- QR field "Type of QR code": content as entered or composed from the table columns (vCard, WLAN, mailto, tel,
+  SMS, appointment, geo). The CSV stays readable; Passermark builds the code content on generation
+- Quiet zone: QR code and Code 128 now have a white margin in the field (can be disabled). Without it, codes
+  close to other content were hard to read. Existing presets: the QR code becomes slightly smaller in the field
+- EAN-13 with 13 digits and a wrong check digit is now an error (with the correct number in the message) –
+  previously the last digit was silently replaced
+- Command line: datenarten, datenvorlage <type> [file.csv], datencheck <file.csv> [type] (returns 1 on
+  problems); in the preset qr_type per QR field
+- Examples 5 (business card from a contact list) and 6 (WLAN access); "Variable data" guide with the new
+  section "Data capture", CLI guide extended
+- Tests now actually read back the generated codes: QR and EAN-13 with OpenCV (if installed), Code 128 with
+  its own reader including checksum
+- Fixed: without a distribution selection, variable data used "the whole document per record" instead of
+  "each page the next record"
 
 ## 1.9.5
-- **Beispiele für Variable Daten im Programm:** Vorlage, CSV, 4 Presets (QR mit Nummer, QR aus CSV, Code 128,
-  EAN-13) und fertige Ergebnis-PDFs liegen im Programmpaket. *Hilfe → Beispiele für Variable Daten holen …* (auch im
-  Arbeitsbereich Variable Daten) kopiert sie nach `~/Passermark-Beispiele/vdp`, trägt die Presets „Beispiel 1“ bis
-  „Beispiel 4“ mit vollem CSV-Pfad ein und öffnet die Vorlage
-- **Neue Anleitung „Variable Daten“ (PDF)** für Oberfläche und Kommandozeile, mit allen vier Beispielen Schritt für
-  Schritt: *Hilfe → Variable Daten – Anleitung (PDF)*
-- Kommandozeile: `passermark-cli beispiele [ordner]`; ein relativer `csv_path` im Preset wird auch neben der
-  Preset-Datei gesucht
-- Anleitung Kommandozeile: VDP-Texte auf den aktuellen Stand (jede Seite der nächste Datensatz, Arbeitsbereich)
-- Windows-/Linux-Build: der ganze Ordner `pdfdruck/docs` wird mitgeliefert
+
+- Variable data examples in the program: template, CSV, 4 presets (QR with number, QR from CSV, Code 128,
+  EAN-13) and finished result PDFs are included in the program package. Help → Get variable data examples …
+  (also in the Variable data workspace) copies them to ~/Passermark-Beispiele/vdp, registers the presets
+  "Beispiel 1" to "Beispiel 4" with the full CSV path and opens the template
+- New guide "Variable data" (PDF) for the UI and the command line, with all four examples step by step:
+  Help → Variable data – guide (PDF)
+- Command line: passermark-cli beispiele [folder]; a relative csv_path in a preset is also searched next to
+  the preset file
+- CLI guide: VDP texts brought up to date (each page the next record, workspace)
+- Windows/Linux build: the whole pdfdruck/docs folder is included
 
 ## 1.9.4
-- **Behoben: Code 128 – Klartextzeile verzerrt.** Die lesbare Zeile unter dem Strichcode wurde mit den Strichen
-  auf die Feldgröße gestreckt; jetzt steht sie in der eingestellten Schriftgröße darunter
-- Beispielpaket „passermark-vdp-beispiele“: Vorlage, CSV, Presets und fertige PDFs für QR-Code, Code 128 und EAN-13
+
+- Fixed: Code 128 – plain-text line distorted. The readable line under the barcode was stretched with the
+  bars to the field size; now it sits below in the configured font size
+- Example package "passermark-vdp-beispiele": template, CSV, presets and finished PDFs for QR code, Code 128
+  and EAN-13
 
 ## 1.9.3
-- **Behoben: Variable Daten setzten auf jede Seite dieselben Werte** (Nummer 1, gleicher Name, {{i}} = 1) – ein
-  Datensatz galt immer für eine Kopie des *ganzen* Dokuments. Neu und Standard: **jede Seite bekommt den nächsten
-  Datensatz** (Seite 1 → Datensatz 1, Seite 2 → 2 …; bei einseitiger Vorlage je Datensatz eine Seite). Die
-  bisherige Verteilung gibt es weiter als „Je Datensatz eine Kopie des ganzen Dokuments“ (z. B. Vorder- und
-  Rückseite einer Karte). Die Wahl steht jetzt als erste Frage unter „2. Woher kommen die Daten?“
-- Ohne CSV ist die Anzahl am Anfang die Seitenzahl des Dokuments; Seite und Datensatz in der Vorschau sind
-  gekoppelt (Seite 3 zeigt Datensatz 3)
+
+- Fixed: variable data put the same values on every page (number 1, same name, {{i}} = 1) – one record always
+  applied to a copy of the whole document. New and default: each page gets the next record (page 1 → record 1,
+  page 2 → 2 …; for a one-page template, one page per record). The previous distribution remains available as
+  "One copy of the whole document per record" (e.g. front and back of a card). The choice is now the first
+  question under "2. Where do the data come from?"
+- Without a CSV, the count at the start is the document's page count; page and record in the preview are
+  linked (page 3 shows record 3)
 
 ## 1.9.2
-- **Variable Daten verständlicher:** jede Einstellung mit Überschrift und kurzer Erklärung darüber, Gruppen in
-  der Reihenfolge der Arbeit (1. Felder, 2. Daten, 3. Nummerierung, 4. Ausgabe), Kurzanleitung oben; Lage/Größe,
-  Zählen mit beschrifteten Einzelfeldern (links, oben, Breite, Höhe – erste Nummer, Schrittweite, Stellen);
-  Anzeige, wo ein Zähler zum Weiterzählen gerade steht; CSV „Entfernen“
-- **Alles zurücksetzen** (Knopf oben): ein Textfeld mit der Nummer, keine CSV, Nummerierung ab 1
-- Variable Daten merken sich die letzten Einstellungen nur noch bis zum Programmende – nach einem Neustart
-  beginnt der Dialog frisch. Dauerhaft behalten: als Preset speichern
-- Neues EAN-13-Feld startet mit einer gültigen Beispielnummer statt mit {{nr}}
+
+- Variable data made easier to understand: every setting with a heading and a short explanation above it,
+  groups in the order of work (1. fields, 2. data, 3. numbering, 4. output), quick guide at the top;
+  position/size, counting with labelled individual fields (left, top, width, height – first number, step,
+  digits); indicator showing where a counter currently stands for continued counting; CSV "Remove"
+- Reset everything (button at the top): one text field with the number, no CSV, numbering from 1
+- Variable data now remember the last settings only until the program ends – after a restart the dialog starts
+  fresh. To keep them permanently: save as a preset
+- A new EAN-13 field starts with a valid sample number instead of {{nr}}
 
 ## 1.9.1
-- **Fenster mit vielen Optionen werden nicht mehr abgeschnitten:** Variable Daten, CutContour, Objekte trennen und
-  der Druckdialog haben zwischen Vorschau und Einstellungen einen verschiebbaren Teiler; der Einstellungsbereich
-  scrollt senkrecht und – wenn er schmaler als sein Inhalt ist – auch waagrecht. Dasselbe in CMYK/Beschneiden und
-  im Admin-Dialog. Dialoge werden nie größer als der Bildschirm geöffnet
-- Variable Daten: Knopf „CSV öffnen …“ (war bei schmalem Fenster abgeschnitten – sichtbar blieb nur der
-  Speichern-Knopf des Code-Protokolls, jetzt „Speichern unter…“); Enter in einem Eingabefeld startet nicht mehr
-  versehentlich „Erzeugen“
+
+- Windows with many options are no longer cut off: Variable data, CutContour, Separate objects and the print
+  dialog have a movable divider between preview and settings; the settings area scrolls vertically and – if
+  narrower than its content – also horizontally. The same in CMYK/Crop and in the admin dialog. Dialogs are
+  never opened larger than the screen
+- Variable data: button "Open CSV …" (was cut off in narrow windows – only the code log's save button
+  remained visible, now "Save as …"); Enter in an input field no longer accidentally starts "Generate"
 
 ## 1.9.0
-- **Variable Daten** (Dokument-Manipulation → Variable Daten …, Strg+Umschalt+D; eigener Arbeitsbereich):
-  Felder auf die Vorlage legen und mit der Maus platzieren – **Text**, **QR-Code**, **Code 128**, **EAN-13**,
-  alles als Vektor. Inhalt als Vorlage: `{{Spalte}}` aus einer CSV-Datei, `{{nr}}` (Nummer), `{{i}}` (laufend).
-  Schrift, Größe, Farbe, Ausrichtung, Drehung, nur auf bestimmten Seiten. Vorschau mit echtem Ergebnis für jeden
-  Datensatz. Ergebnis als neuer Reiter
-- **Nummerierung:** Start, Schrittweite, Stellen (mit Nullen), Vor-/Nachsatz, Prüfziffer (Luhn, GS1/EAN, Mod 11),
-  rückwärts für Abreißblöcke, **Weiterzählen** über Aufträge hinweg (Zählername)
-- **CSV:** Trennzeichen und Zeichensatz (UTF-8/Windows) werden erkannt; Spalten per Doppelklick einfügen;
-  Datensatzbereich; Reihenfolge je Datensatz alle Seiten oder je Seite alle Datensätze
-- **Platzhalter `{{…}}` im PDF** (z. B. aus InDesign) werden als Feldposition übernommen, der Platzhaltertext
-  entfernt
-- **Code-Protokoll** als CSV (Ausgabeseite, Datensatz, alle Werte)
-- **Nutzen mit eigenem Datensatz je Nutzen:** Druckdialog → Nutzen → „Je Nutzen die nächste Seite“, Reihenfolge
-  Bogen für Bogen oder **Schneiden und Stapeln** (jeder Stapel fortlaufend)
-- Kommandozeile: Auftrag `vdp` (Felder am bequemsten als Preset aus dem Programm), `impose` mit `sr_sequence`
-  und `sr_stack`; Anleitung mit Fallbeispielen
-- Endformat/Anschnitt der Vorlage bleibt bei variablen Daten erhalten (für das Ausschießen danach)
-- Neue Abhängigkeit: reportlab (Text, QR- und Barcodes als Vektor) – in Setup und AppImage enthalten
+
+- Variable data (Document manipulation → Variable data …, Ctrl+Shift+D; its own workspace): place fields on the
+  template and position them with the mouse – text, QR code, Code 128, EAN-13, all as vector. Content as a
+  template: {{column}} from a CSV file, {{nr}} (number), {{i}} (running index). Font, size, colour, alignment,
+  rotation, only on specific pages. Preview with the real result for every record. Result as a new tab
+- Numbering: start, step, digits (with zeros), prefix/suffix, check digit (Luhn, GS1/EAN, Mod 11), backwards
+  for tear-off pads, continued counting across jobs (counter name)
+- CSV: delimiter and character set (UTF-8/Windows) are detected; insert columns with a double-click; record
+  range; order all pages per record or all records per page
+- Placeholders {{…}} in the PDF (e.g. from InDesign) are taken over as field positions, the placeholder text
+  removed
+- Code log as CSV (output page, record, all values)
+- Use with an individual record per instance: print dialog → Instances → "The next page per instance", order
+  sheet by sheet or cut and stack (each stack continuous)
+- Command line: job vdp (fields most conveniently as a preset from the program), impose with sr_sequence and
+  sr_stack; guide with worked examples
+- The template's trim size/bleed is preserved for variable data (for imposition afterwards)
+- New dependency: reportlab (text, QR and barcodes as vector) – included in the setup and AppImage
 
 ## 1.8.5
-- **Sonderformate im Druckdialog:** neben „Papierformat“ der Knopf *Sonderformate …* – Name, Breite × Höhe in mm
-  anlegen oder löschen. Die Formate bleiben gespeichert und stehen bei allen Druckern und bei „Als PDF speichern“
-  zur Wahl (mit ★). Gespoolt werden sie als Sondergröße: CUPS `PageSize`/`media` = `Custom.BxHmm`, Windows
-  benutzerdefiniertes Papier (DMPAPER_USER mit Breite/Länge). Ob ein Gerät das Maß annimmt, entscheidet sein
-  Treiber; die Druckränder werden vom Standardformat des Druckers übernommen
-- Druck-Presets mit Sonderformat merken sich das Maß (für `passermark-cli impose`: `sheet=custom`)
+
+- Custom sizes in the print dialog: next to "Paper size" the button Custom sizes … – create or delete a name,
+  width × height in mm. The sizes stay saved and are available for all printers and for "Save as PDF" (marked
+  with ★). They are spooled as a custom size: CUPS PageSize/media = Custom.BxHmm, Windows custom paper
+  (DMPAPER_USER with width/length). Whether a device accepts the size is up to its driver; the print margins
+  are taken from the printer's default format
+- Print presets with a custom size remember the dimensions (for passermark-cli impose: sheet=custom)
 
 ## 1.8.4
-- **Behoben: Absturz-Meldung nach dem Schließen** eines Fensters/Reiters („expected LP_struct_fpdf_document …“ in
-  der Seitenanzeige) – die Ansicht greift auf das geschlossene Dokument nicht mehr zu
-- **CutContour Kreis:** Seitengriffe skalieren gleichmäßig (vorher kurz ein Oval, dann zurückgesprungen; die Felder
-  blieben z. B. auf 60 × 120). Beim Kreis gibt es nur noch einen Durchmesser (Höhe folgt der Breite)
-- CutContour: Knopf ↺ neben „Größe“ setzt Größe und Lage zurück (automatisch aus dem Motiv, mittig)
-- **Auf Format beschneiden:** neu „Weißen Rand vorher abschneiden“ (mm, Kommandozeile `crop_inset_mm`) – zuerst
-  wird die Vorlage rundum um diesen Wert verkleinert, dann wie eingestellt skaliert und beschnitten
+
+- Fixed: crash message after closing a window/tab ("expected LP_struct_fpdf_document …" in the page view) –
+  the view no longer accesses the closed document
+- CutContour circle: side handles scale uniformly (previously briefly an oval, then it snapped back; the
+  fields stayed e.g. at 60 × 120). For the circle there is now only one diameter (height follows width)
+- CutContour: the ↺ button next to "Size" resets size and position (automatic from the motif, centred)
+- Crop to format: new "Trim white margin first" (mm, command line crop_inset_mm) – the template is first
+  shrunk on all sides by this value, then scaled and cropped as configured
 
 ## 1.8.3
-- **Behoben: Nutzen „Überfüller an Überfüller“ ließ Abstände zwischen Objekten** – bei Einzelobjekten aus
-  CutContour bzw. „Objekte trennen“ wurde die ganze Seite samt weißem Rand gesetzt. Jetzt tragen diese Seiten ihr
-  Endformat mit: CutContour = Schnittlinie (Anschnitt = Überfüller), Objekte trennen = Objekt (Anschnitt = Rand).
-  Beim Ausschießen liegen die Überfüller aneinander
-- Nutzen „Überfüller an Überfüller“ mit Anschnitt 0: der Anschnitt aus dem Dokument (BleedBox) wird übernommen –
-  ein eingestellter Wert hat Vorrang. „Mit Abstand“ 0 setzt die Endformate (Schnittlinien) direkt aneinander
+
+- Fixed: the instance layout "filler against filler" left gaps between objects – for individual objects from
+  CutContour or "Separate objects", the whole page including the white margin was placed. These pages now
+  carry their trim size: CutContour = cut line (bleed = filler), Separate objects = object (bleed = margin).
+  In imposition, the fillers lie against each other
+- Instance layout "filler against filler" with 0 bleed: the bleed from the document (BleedBox) is taken over
+  – a configured value takes precedence. "With spacing" 0 places the trim sizes (cut lines) directly against
+  each other
 
 ## 1.8.2
-- **Dialoge sperren nur noch ihr eigenes Fenster:** Druckdialog, CutContour, CMYK … offen – in anderen
-  Passermark-Fenstern kann man weiter blättern, zoomen, arbeiten. (Reiter im selben Fenster gehören zum Fenster
-  und sind solange gesperrt; „In eigenem Fenster öffnen“ löst einen Reiter.)
-- Broschüre: „Bögen je Lage“ ist immer einstellbar; wer die Zahl ändert, bekommt automatisch „Gruppierte Lagen“
-  (bei Sammelheftung blieb die Zahl sonst ohne Wirkung). Test für 24 Seiten mit 3 Bögen je Lage ergänzt
+
+- Dialogs now lock only their own window: print dialog, CutContour, CMYK … open – in the other Passermark
+  windows you can keep browsing, zooming, working. (Tabs in the same window belong to the window and stay
+  locked meanwhile; "Open in own window" detaches a tab.)
+- Booklet: "Sheets per section" is always adjustable; changing the number automatically enables "Grouped
+  sections" (with saddle stitching the number otherwise had no effect). Added a test for 24 pages with
+  3 sheets per section
 
 ## 1.8.1
-- **Reiter (Tabs):** Was im Programm entsteht oder geöffnet wird, kommt als Reiter ins selbe Fenster – Öffnen-Knopf
-  bei offenem Dokument, Hineinziehen, Ergebnisse (CutContour, CMYK/Beschneiden, Objekte trennen …), „Jetzt in
-  Passermark öffnen“ nach „Als PDF speichern“, Hilfe-Anleitung. Programmstart ohne Datei und Doppelklick bzw.
-  „Öffnen mit“ im Dateimanager öffnen weiter ein eigenständiges Fenster. Jeder Reiter ist ein vollständiges
-  Fenster mit eigenen Menüs, Leisten und Seitenleisten; mit nur einem Dokument ist die Reiterleiste ausgeblendet
-- Reiter: verschieben per Ziehen, schließen mit ×, Rechtsklick → „In eigenem Fenster öffnen“ / „Andere
-  schließen“; Datei → Neuer Reiter (Strg+Umschalt+N), Reiter in eigenes Fenster lösen, Neues Fenster (Strg+N).
-  Beim Schließen eines Fensters mit mehreren Reitern wird für jedes ungespeicherte Dokument nachgefragt
-- Abschaltbar: Datei → Einstellungen → Fenster → „Im Programm Geöffnetes als Reiter im selben Fenster“
+
+- Tabs: whatever is created or opened in the program becomes a tab in the same window – the open button with
+  a document open, drag-and-drop, results (CutContour, CMYK/Crop, Separate objects …), "Open in Passermark
+  now" after "Save as PDF", help guides. Starting the program without a file and double-click/"Open with" in
+  the file manager still open a standalone window. Every tab is a complete window with its own menus, bars
+  and sidebars; with only one document the tab bar is hidden
+- Tabs: move by dragging, close with ×, right-click → "Open in own window" / "Close others"; File → New tab
+  (Ctrl+Shift+N), detach tab into own window, New window (Ctrl+N). When closing a window with several tabs,
+  each unsaved document is asked about
+- Can be disabled: File → Settings → Window → "Open what the program creates as tabs in the same window"
 
 ## 1.8.0
-- **Bindungsschemata** (Druckdialog → Broschüre): *Bindeart* Sammelheftung (alle Bögen ineinander), gruppierte
-  Lagen (z. B. 4 Bögen = 16 Seiten je Lage, Lagen hintereinander) oder Einzelbögen gestapelt (Klebebindung).
-  Vorschau beschriftet „Lage x · Bogen y – Vorder-/Rückseite“
-- **Leerseiten:** werden auf ein Vielfaches von 4 aufgefüllt – am Ende oder vor der letzten Seite (Rückseite des
-  Umschlags bleibt hinten); optional mit Hinweistext
-- **Bundzug** (mm je Bogen, ≈ Papierstärke): innere Bögen werden zum Falz verschoben
-- **Marken:** Falzmarken, Passermarken, Flattermarken am Rücken (Treppe beim Zusammentragen); dafür wird am
-  Bogenrand Platz freigehalten
-- **Bogenübersicht …:** alle Bögen als Miniaturen, Doppelklick springt in die Vorschau
-- **Kommandozeile `impose`:** Ausschießen wie im Druckdialog als PDF (Broschüre/Lagen, Nutzen, Mehrere, Poster),
-  Bogenformat mit `sheet` (z. B. SRA3). Druck-Presets aus dem Programm gelten direkt und merken sich das Papierformat
-  (`--preset "Name"`); vorhandene Druck-Presets aus 1.7 werden übernommen. Anleitung um Fallbeispiele ergänzt
-- **Anschnitt aus dem Dokument wird erkannt** (TrimBox/BleedBox, z. B. aus InDesign/Affinity/Scribus mit
-  „Anschnitt verwenden“): Ansicht zeigt das Endformat als rote Linie, den Anschnittbereich rot getönt, die BleedBox
-  gestrichelt (wird nicht gedruckt; Ansicht → Endformat und Anschnitt anzeigen, Strg+Umschalt+B); Statusleiste
-  nennt Endformat und Anschnitt. Beim Ausschießen (Nutzen, Broschüre, Schnittmarken, Anschnitt) wird das
-  Endformat platziert und skaliert – Schnittmarken sitzen am Endformat, der Anschnitt kommt echt aus dem
-  Dokument; nur wenn mehr Anschnitt eingestellt ist als vorhanden, wird der Rest an der Seitenkante gespiegelt.
-  Normaler Druck („Größe“) druckt weiter die ganze Seite
-- **Behoben: Passermark ein zweites Mal starten (Startmenü, Symbol) tat nichts**, solange schon ein Fenster offen
-  war – die laufende Instanz öffnet jetzt ein neues, leeres Fenster. Neu: Datei → Neues Fenster (Strg+N)
-- Druckdialog: Preset-Zeile steht über den Reitern (gilt für Allgemein und Weitere Optionen)
-- Test: Falz-Simulation (falzen, ineinanderstecken, Lagen stapeln) prüft für alle Bindearten, Bindung links/rechts
-  und Leerseiten-Lagen, dass die Seiten 1…N ergeben
+
+- Binding schemes (print dialog → Booklet): binding type saddle stitching (all sheets nested), grouped
+  sections (e.g. 4 sheets = 16 pages per section, sections in sequence) or single sheets stacked (perfect
+  binding). The preview labels "Section x · Sheet y – front/back"
+- Blank pages: padded to a multiple of 4 – at the end or before the last page (the back of the cover stays at
+  the back); optionally with a notice text
+- Shingling (mm per sheet, ≈ paper thickness): inner sheets are shifted towards the fold
+- Marks: fold marks, register marks, fan-out marks at the spine (staircase when gathering); space is kept
+  free at the sheet edge for this
+- Sheet overview …: all sheets as thumbnails, double-click jumps to the preview
+- Command line impose: imposition like in the print dialog as PDF (booklet/sections, instances, multiple,
+  poster), sheet size with sheet (e.g. SRA3). Print presets from the program apply directly and remember the
+  paper size (--preset "Name"); existing print presets from 1.7 are taken over. Guide extended with worked
+  examples
+- The bleed from the document is detected (TrimBox/BleedBox, e.g. from InDesign/Affinity/Scribus with "use
+  bleed"): the view shows the trim size as a red line, the bleed area tinted red, the BleedBox dashed (not
+  printed; View → Show trim size and bleed, Ctrl+Shift+B); the status bar names trim size and bleed. During
+  imposition (instances, booklet, cut marks, bleed) the trim size is placed and scaled – cut marks sit on the
+  trim size, the bleed genuinely comes from the document; only if more bleed is configured than present, the
+  rest is mirrored at the page edge. Normal printing ("Size") still prints the whole page
+- Fixed: starting Passermark a second time (start menu, icon) did nothing while a window was open – the
+  running instance now opens a new, empty window. New: File → New window (Ctrl+N)
+- Print dialog: the preset line sits above the tabs (applies to General and More options)
+- Test: folding simulation (fold, nest, stack sections) checks for all binding types, binding left/right and
+  blank-page sections that the pages come out as 1…N
 
 ## 1.7.1
-- **Beschneiden auf Format skaliert jetzt** (Standard): die passende Kante wird genau aufs Zielformat skaliert,
-  der Überstand der anderen Kante beidseitig gleich abgeschnitten – A4 → A6 = 50 %, ein schmales Plakat füllt die
-  Breite und verliert oben/unten gleich viel. Kleinere Seiten werden hochskaliert. Inhalt bleibt vektoriell.
-  Bisher wurde nur abgeschnitten; das gibt es weiter als Option (Häkchen „Skalieren, bis das Format ganz gefüllt
-  ist“ aus bzw. `--set crop_scale=false`) für Dateien, die schon in Endgröße mit Anschnitt kommen.
-- Kommandozeile/Ketten: `preflight_fix --set fix=flatten_layers` bricht bei Dateien ohne Ebenen nicht mehr ab,
-  sondern reicht die Datei unverändert durch (Hinweis „Keine Ebenen“)
+
+- Crop to format now scales (default): the fitting edge is scaled exactly onto the target format, the
+  overhang of the other edge cut off equally on both sides – A4 → A6 = 50 %, a narrow poster fills the width
+  and loses equally top and bottom. Smaller pages are scaled up. Content stays vector. Previously it only
+  cropped; that remains available as an option (untick "Scale until the format is completely filled" or
+  --set crop_scale=false) for files that already come at final size with bleed.
+- Command line/chains: preflight_fix --set fix=flatten_layers no longer aborts on files without layers but
+  passes the file through unchanged (note "No layers")
 
 ## 1.7.0
-- **Arbeitsbereiche:** zweite Leiste unter der Werkzeugleiste – *Anzeigen & Drucken*, *Druckaufbereitung*,
-  *Bearbeiten*, *Automatisierung*. Rechts daneben stehen die Werkzeuge des gewählten Bereichs (z. B. Prüfen, CMYK,
-  Beschneiden, CutContour, Objekte trennen, Reparieren). Druckaufbereitung öffnet die Prüfung, Bearbeiten die
-  Seitenleiste; wer den Bereich verlässt, beendet den Bearbeiten-Modus. Der zuletzt gewählte Bereich gilt beim
-  nächsten Start. Die Menüs bleiben vollständig.
-- **Presets:** in den Fenstern CutContour, CMYK/Beschneiden und im Druckdialog oben die Zeile *Preset* – wählen,
-  *Speichern…*, löschen, als Datei exportieren/laden, Standardwerte. Druck-Presets umfassen Seitenhandhabung,
-  Mehrere, Broschüre, Poster, Nutzen und weitere Optionen (ohne Drucker und Fach).
-  Ablage: Linux `~/.config/passermark/presets/`, Windows `%APPDATA%\Passermark\presets\`
-- CutContour merkt sich die zuletzt verwendeten Einstellungen (ohne Versatz der Form)
-- **Kommandozeile:** `--preset NAME` findet ein im Programm gespeichertes Preset; `passermark-cli presets [auftrag]`
-  listet sie. Anleitung ergänzt.
-- **Als PDF speichern mit Passwort** (Druckdialog, Ziel „Als PDF speichern“): Häkchen *PDF mit Passwort schützen*
-  (AES-256, Passwort zweimal eingeben)
-- **Windows-Setup:** optional *passermark-cli in jeder Eingabeaufforderung verfügbar machen* (Suchpfad PATH;
-  beim Deinstallieren wieder entfernt)
-- Tastenkürzel ohne Doppelbelegung: Messen jetzt Strg+Umschalt+L (Strg+Umschalt+M = CMYK und Beschneiden),
-  Text und Ebenen bearbeiten Strg+T (Strg+E = Auswahl exportieren), Text der Seite markieren Strg+Alt+A
-  (Strg+Umschalt+A = alle Seiten auswählen); ein Test prüft das künftig
-- Eigene Symbole für CutContour, CMYK, Beschneiden, Objekte trennen, Bearbeiten, Prüfen, Reparieren, Messen u. a.
-  (vorher teils doppelt vergebene Symbole)
+
+- Workspaces: a second bar below the toolbar – View & Print, Print preparation, Edit, Automation. To the
+  right, the tools of the chosen workspace appear (e.g. Check, CMYK, Crop, CutContour, Separate objects,
+  Repair). Print preparation opens the check, Edit the page sidebar; leaving the workspace ends the edit mode.
+  The last chosen workspace applies at the next start. The menus remain complete.
+- Presets: in the CutContour, CMYK/Crop windows and in the print dialog the preset line at the top – select,
+  Save …, delete, export/load as a file, default values. Print presets cover page handling, Multiple,
+  Booklet, Poster, Instances and more options (without printer and tray). Storage: Linux
+  ~/.config/passermark/presets/, Windows %APPDATA%\Passermark\presets\
+- CutContour remembers the most recently used settings (without the shape offset)
+- Command line: --preset NAME finds a preset saved in the program; passermark-cli presets [job] lists them.
+  Guide extended.
+- Save as PDF with a password (print dialog, destination "Save as PDF"): tick Protect PDF with password
+  (AES-256, enter the password twice)
+- Windows setup: optionally make passermark-cli available in every command prompt (search path PATH; removed
+  again on uninstall)
+- Keyboard shortcuts without double assignments: Measure now Ctrl+Shift+L (Ctrl+Shift+M = CMYK and Crop),
+  Edit text and layers Ctrl+T (Ctrl+E = Export selection), select the page's text Ctrl+Alt+A
+  (Ctrl+Shift+A = select all pages); a test checks this from now on
+- Own icons for CutContour, CMYK, Crop, Separate objects, Edit, Check, Repair, Measure and others (previously
+  partly duplicate icon assignments)
 
 ## 1.6.7
-- **Zeitbudget-Tests im GitHub-Build** (tests/test_performance.py): CutContour (Kontur + Überfüller, Rechteck),
-  Objekterkennung, PDF-Aufbau und Broschüre werden gemessen – relativ zu einer Eichaufgabe auf demselben Rechner,
-  damit unterschiedlich schnelle Build-Rechner keinen Fehlalarm auslösen. Ab 1,6× langsamer als bisher gelbe
-  Warnung am Build, ab 3× schlägt der Build fehl. Bezugswerte in tests/perf_baseline.json
-  (neu messen: `python3 tests/test_performance.py --messen`)
+
+- Time-budget tests in the GitHub build (tests/test_performance.py): CutContour (contour + filler,
+  rectangle), object detection, PDF assembly and booklet are measured – relative to a calibration task on
+  the same machine, so that build runners of different speeds do not trigger false alarms. From 1.6× slower
+  than before, a yellow warning on the build; from 3× the build fails. Reference values in
+  tests/perf_baseline.json (re-measure: python3 tests/test_performance.py --messen)
 
 ## 1.6.6
-- **Behoben: leere Blätter beim Drucken unter Windows** (verschiedene Geräte). „Automatisch“ rastert jetzt immer
-  ohne JPEG (300 dpi) – der verträglichste Weg. PostScript und JPEG-Durchreichen melden manche Treiber
-  als unterstützt und liefern dann leere Blätter; beide gibt es nur noch auf Wunsch (Datei → Einstellungen)
-- Neu: **Hilfe → Windows-Druck testen** – je Verfahren (Raster, Raster + JPEG, PostScript, Vektor) eine
-  beschriftete Testseite; zeigt, was der Treiber wirklich kann
-- Windows-Druck: Gerätekontext wird als 64-bit-Zeiger übergeben (vorher ctypes-Standard int), Halbton-Modus beim
-  Rastern; jeder Auftrag wird in `druck-windows.log` im Protokollordner festgehalten (Verfahren, Auflösung,
-  Treiber-Fähigkeiten)
-- **Behoben: rötliches Rechteck über dem Objekt (CutContour)**, wenn ein Programm oder Druckertreiber die
-  Transparenz der Überfüller-/Kantenbilder nicht auswertet (u. a. Windows-PostScript-Weg): unsichtbare Bereiche
-  sind jetzt papierweiß bzw. zeigen das Original-Motiv statt der ersten Vollfarbe
+
+- Fixed: blank sheets when printing under Windows (various devices). "Automatic" now always rasterises
+  without JPEG (300 dpi) – the most compatible way. Some drivers report PostScript and JPEG pass-through as
+  supported and then produce blank sheets; both are now available only on request (File → Settings)
+- New: Help → Test Windows printing – one labelled test page per method (raster, raster + JPEG, PostScript,
+  vector); shows what the driver really supports
+- Windows printing: the device context is passed as a 64-bit pointer (previously ctypes default int),
+  halftone mode when rasterising; every job is recorded in druck-windows.log in the log folder (method,
+  resolution, driver capabilities)
+- Fixed: reddish rectangle over the object (CutContour) when a program or printer driver does not evaluate
+  the transparency of the filler/edge images (including the Windows PostScript path): invisible areas are now
+  paper-white or show the original motif instead of the first spot colour
 
 ## 1.6.5
-- **Fehlerprotokoll:** jeder Fehler landet in einer Datei zum Mitschicken (mit Versionen und Systemangaben) –
-  Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`; Hilfe → Fehlerprotokolle öffnen
-  - unerwarteter Fehler: Meldung mit Pfad zum Protokoll, Passermark läuft weiter
-  - harter Absturz (z. B. in einer Bibliothek): beim nächsten Start einmalige Meldung mit dem Protokoll
-  - Fehler in Hintergrund-Aufträgen samt Details; Fehler in Threads
-  - ohne Fehler wird das Protokoll beim Beenden gelöscht; höchstens 10 werden aufgehoben
-- Paralleles Rechnen: Speicherbudget nach dem tatsächlichen Arbeitsspeicher des Rechners (40 %, mind. 1 GB)
+
+- Error log: every error ends up in a file to send along (with versions and system details) – Linux
+  ~/.local/state/passermark/logs, Windows %LOCALAPPDATA%\Passermark\logs; Help → Open error logs
+- Unexpected error: message with the path to the log, Passermark keeps running
+- Hard crash (e.g. in a library): a one-time message with the log at the next start
+- Errors in background jobs with details; errors in threads
+- Without errors the log is deleted on exit; at most 10 are kept
+- Parallel computing: memory budget based on the machine's actual RAM (40 %, at least 1 GB)
 
 ## 1.6.4
-- CutContour mit **mehreren Seiten: ganze Seiten parallel** – jeder Arbeitsprozess rechnet eine komplette Seite
-  (auch Rendern und Erkennen); kein Stocken mehr zwischen den Seiten. Eine Seite: weiterhin Objekte parallel
-- Speicherschutz: Anzahl gleichzeitiger Seiten nach geschätztem Speicherbedarf (z. B. A4: bis 8, A0: 1 – dann
-  Objekte parallel)
-- Fortschritt bei mehreren Seiten: „3 von 12 Seiten fertig“; Ergebnis bitgleich zum seriellen Rechnen
+
+- CutContour with several pages: whole pages in parallel – each worker process computes one complete page
+  (including rendering and detection); no more stalling between pages. One page: still objects in parallel
+- Memory protection: number of simultaneous pages based on the estimated memory requirement (e.g. A4: up to
+  8, A0: 1 – then objects in parallel)
+- Progress with several pages: "3 of 12 pages done"; result bit-identical to serial computation
 
 ## 1.6.3
-- **Paralleles Rechnen:** CutContour verteilt die Objekte einer Seite auf mehrere Rechenkerne (alle bis auf einen,
-  höchstens 8); Ergebnis bitgleich zum seriellen Rechnen. Arbeitsprozesse werden einmal je Auftrag gestartet und für
-  alle Seiten verwendet; kleine Aufgaben bleiben seriell (lohnt sich dort nicht). Begrenzen mit der Umgebungsvariable
-  `PASSERMARK_WORKERS` (1 = nicht parallel)
-- Fortschritt je Objekt („Seite 1/1 · Objekt 12/40“)
-- Abbrechen beendet auch die Arbeitsprozesse
-- Intern: Objektberechnung als eigene Funktion; Programmdateien rufen `multiprocessing.freeze_support()` auf
+
+- Parallel computing: CutContour distributes a page's objects across several CPU cores (all but one, at most
+  8); result bit-identical to serial computation. Worker processes are started once per job and used for all
+  pages; small tasks stay serial (not worth it there). Limit with the environment variable
+  PASSERMARK_WORKERS (1 = not parallel)
+- Progress per object ("Page 1/1 · object 12/40")
+- Cancel also terminates the worker processes
+- Internal: object computation as its own function; program executables call
+  multiprocessing.freeze_support()
 
 ## 1.6.2
-- **Kein Einfrieren mehr:** CutContour, Objekte trennen und CMYK/Beschneiden rechnen als eigener Prozess im
-  Hintergrund. Das Fenster bleibt bedienbar; unten in der Statusleiste Fortschritt und Abbrechen-Knopf (✕);
-  mehrere Aufträge gleichzeitig möglich; das Ergebnis öffnet sich wie gewohnt in einem neuen Fenster
-- Ein Absturz in der Berechnung reißt das Programm nicht mehr mit – es kommt eine Fehlermeldung mit Details
-- Beim Schließen eines Fensters werden laufende Aufträge abgebrochen und aufgeräumt
-- Anleitung: Beispiel „PDF/A mit Passwort“ korrigiert (PDF/A verbietet Verschlüsselung) – getrennt in „PDF/A“ und
-  „Mit Passwort schützen“; Test der Beispiele legt jetzt für jedes Beispiel eine Eingabe an (Build-Fehler unter Linux)
+
+- No more freezing: CutContour, Separate objects and CMYK/Crop compute as a separate process in the
+  background. The window stays usable; progress and a cancel button (✕) at the bottom of the status bar;
+  several jobs at once possible; the result opens as usual in a new window
+- A crash during computation no longer takes the program down – you get an error message with details
+- When a window is closed, running jobs are cancelled and cleaned up
+- Guide: example "PDF/A with password" corrected (PDF/A forbids encryption) – split into "PDF/A" and
+  "Protect with a password"; the example test now creates an input for each example (build error under
+  Linux)
 
 ## 1.6.1
-- **Anleitung zur Kommandozeile** (PDF, 6 Seiten) mit Fallbeispielen für alle Aufträge, Presets und ganze Ordner
-  (Linux und Windows); im Programm unter **Hilfe → Kommandozeile – Anleitung**
-- Die Fallbeispiele der Anleitung werden automatisch getestet (tests/test_cli_howto.py) – die Anleitung kann nicht
-  unbemerkt veralten; Erzeugen mit `python3 docs/make_cli_howto.py`
+
+- Guide to the command line (PDF, 6 pages) with worked examples for all jobs, presets and whole folders
+  (Linux and Windows); in the program under Help → Command line – guide
+- The guide's worked examples are tested automatically (tests/test_cli_howto.py) – the guide cannot silently
+  go stale; generated with python3 docs/make_cli_howto.py
 
 ## 1.6.0
-- **Kommandozeile** `passermark-cli`: CutContour, Objekte trennen, CMYK/Beschneiden, Reparieren und
-  Preflight-Reparaturen ohne Oberfläche; Einstellungen per `--preset datei.json` und `--set schlüssel=wert`
-  (auch verschachtelt), `--pages`, Fortschrittsbalken, Strg+C bricht sauber ab, `--json-progress` für Programme.
-  Linux: `passermark-cli` (install.sh), AppImage: `… --cli`, Windows: `passermark-cli.exe`
-- Intern: Kern-Schnittstelle `core.py` (Eingabe-PDF + Einstellungen → Ausgabe-PDF, Fortschritt, Abbrechen,
-  atomares Schreiben) – Grundlage für Aufträge im eigenen Prozess, Presets und Watcher
+
+- Command line passermark-cli: CutContour, Separate objects, CMYK/Crop, Repair and preflight fixes without
+  the UI; settings via --preset file.json and --set key=value (also nested), --pages, progress bar, Ctrl+C
+  cancels cleanly, --json-progress for programs. Linux: passermark-cli (install.sh), AppImage: … --cli,
+  Windows: passermark-cli.exe
+- Internal: core interface core.py (input PDF + settings → output PDF, progress, cancel, atomic writing) –
+  the basis for jobs in their own process, presets and the watcher
 
 ## 1.5.3
-- CutContour erzeugt schneller (ca. 17–20 %), Ergebnis bitgleich zu 1.5.2: Motiv-Erkennung rechnet ganzzahlig,
-  Vollfarb-Suche nur noch im Randstreifen, unnötige Abstandsberechnungen entfallen (u. a. eine pro Objekt bei der
-  Glättung, eine beim Aussparen unter 0,08 mm)
+
+- CutContour generates faster (approx. 17–20 %), result bit-identical to 1.5.2: motif detection computes with
+  integers, the spot-colour search only in the edge strip, unnecessary distance calculations removed (among
+  others one per object during smoothing, one for cut-outs below 0.08 mm)
 
 ## 1.5.2
-- CutContour-Grundformen: **Griffe** an der Form in der Vorschau – Ecken skalieren gleichmäßig ab der Mitte,
-  Seitengriffe nur Breite bzw. Höhe, **Verschiebe-Griff** über der Form verschiebt sie
-- Größe nur noch in **mm** („Größe (B × H)“, „auto“ = aus dem Motiv plus Abstand); Prozent entfällt.
-  Eine eingetragene Größe gilt exakt als Schnittlinie; Ziehen an den Griffen schreibt die mm-Werte in die Felder
-- Neu: **Versatz (X / Y)** in mm, mit Knopf zum Zurücksetzen
-- Behoben: Nach dem Skalieren mit der Maus wirkten eingegebene Größen nicht mehr (versteckter Prozentfaktor)
-- Anzeige unten: aktuelle Formgröße in mm, beim Ziehen live
+
+- CutContour basic shapes: handles on the shape in the preview – corner handles scale uniformly from the
+  centre, side handles only width or height, the move handle above the shape moves it
+- Size now only in mm ("Size (W × H)", "auto" = from the motif plus spacing); percent removed. An entered
+  size applies exactly as the cut line; dragging the handles writes the mm values into the fields
+- New: offset (X / Y) in mm, with a reset button
+- Fixed: after scaling with the mouse, entered sizes no longer had any effect (hidden percentage factor)
+- Display at the bottom: current shape size in mm, live while dragging
 
 ## 1.5.1
-- CutContour mit Grundform (Rechteck, Kreis, Herz …): **eine Form um das ganze Motiv** statt einer je erkanntem Teil;
-  sitzt mittig, Größe ändert sich ab der Mitte. Option „Eine Form je Objekt“ für Aufkleberbögen
-- CutContour: Form in der Vorschau **mit der Maus größer/kleiner ziehen** (Live-Anzeige in %, übernommen beim Loslassen)
-- Kreis umschließt das Motiv (größere Seite als Durchmesser), statt bei breiten Motiven hindurchzuschneiden
+
+- CutContour with a basic shape (rectangle, circle, heart …): one shape around the whole motif instead of
+  one per detected part; sits centred, size changes from the centre. Option "One shape per object" for
+  sticker sheets
+- CutContour: resize the shape in the preview with the mouse (live display in %, applied on release)
+- The circle encloses the motif (the larger side as diameter) instead of cutting through wide motifs
 
 ## 1.5.0
-- **Lineale und Messen** (Ansicht → Lineale anzeigen, Strg+R; Ansicht → Messen, Strg+Umschalt+M, auch in der
-  Werkzeugleiste): Lineale in mm oben und links an der Kante der Ansicht, bleiben beim Scrollen stehen, Nullpunkt =
-  linke obere Seitenecke, Mausposition markiert; Messen: 1. Klick Anfang, 2. Klick Ende, Umschalt rastet
-  waagrecht/senkrecht/45° ein, Esc bricht ab; Ergebnis (Länge, ΔX, ΔY, Winkel) rechts unten in der Statusleiste;
-  gemessen in echten Seitenmaßen, unabhängig von Zoom und Drehung
+
+- Rulers and measuring (View → Show rulers, Ctrl+R; View → Measure, Ctrl+Shift+M, also in the toolbar):
+  rulers in mm at the top and left at the edge of the view, stay in place while scrolling, origin = top-left
+  page corner, mouse position marked; measuring: 1st click start, 2nd click end, Shift snaps to
+  horizontal/vertical/45°, Esc cancels; result (length, ΔX, ΔY, angle) bottom right in the status bar;
+  measured in real page dimensions, independent of zoom and rotation
 
 ## 1.4.7
-- CutContour: Vorschau aktualisiert sich automatisch bei jeder Einstellung – vorher zeigte sie nach einem
-  Formwechsel (Rechteck, Kreis, Herz …) weiter die alte Kontur, bis man „Vorschau aktualisieren“ drückte
-- CutContour: Vorschau rechnet im Hintergrund, das Fenster bleibt bedienbar („Berechne Vorschau …“); schnelle
-  Änderungen hintereinander lösen nur eine Berechnung aus
-- Neuer Test (tests/test_cut_dialog.py): Formwechsel ändert die Vorschau
+
+- CutContour: the preview refreshes automatically with every setting – previously it kept showing the old
+  contour after a shape change (rectangle, circle, heart …) until you pressed "Refresh preview"
+- CutContour: the preview computes in the background, the window stays usable ("Computing preview …");
+  several quick changes in a row trigger only one computation
+- New test (tests/test_cut_dialog.py): a shape change changes the preview
 
 ## 1.4.6
-- Behoben: Programm startete unter Python 3.10/3.11 nicht (z. B. Ubuntu 22.04) – Syntax in convert.py, die erst ab
-  Python 3.12 erlaubt ist; das AppImage-Build prüft das jetzt als ersten Schritt
-- AppImage: installiertes Ghostscript hat Vorrang, das mitgelieferte dient als Reserve; startet es beim Bauen
-  nicht, wird es mit Warnung entfernt (Build bricht nicht ab)
-- **Fertige Programme über GitHub:** Windows-Setup.exe und Linux-AppImage werden bei jedem Push gebaut, bei
-  Tags `v*` als Release veröffentlicht; Abhängigkeiten (Python, Qt, alle Pakete, Ghostscript) sind enthalten
-- Selbsttest der fertigen Programmdatei im Build (`--selftest`); `--version`
-- Ghostscript wird neben der eigenen Programmdatei gefunden (Installer/AppImage bringen es mit)
-- AppImage: Admin-Standards speichern über pkexec mit demselben abgesicherten Helfer
-- Behoben: Admin-Fenster auf kleinen Bildschirmen nicht scrollbar (Reiter scrollen, Fenster passt sich an)
-- Behoben: Touchpad-Scrollen (Seitenwechsel/Zoom) unter Windows
-- `uninstall.sh`, `.gitignore`; Installer-Skript UTF-8 mit BOM; `build.ps1` reines ASCII; README auf Englisch
+
+- Fixed: the program did not start under Python 3.10/3.11 (e.g. Ubuntu 22.04) – syntax in convert.py that is
+  only allowed from Python 3.12; the AppImage build now checks this as a first step
+- AppImage: an installed Ghostscript takes precedence, the bundled one serves as a fallback; if it fails to
+  start at build time it is removed with a warning (the build does not fail)
+- Finished programs via GitHub: Windows setup.exe and Linux AppImage are built on every push and published as
+  a release for tags v*; dependencies (Python, Qt, all packages, Ghostscript) are included
+- Self-test of the finished executable in the build (--selftest); --version
+- Ghostscript is found next to the program's own executable (installer/AppImage include it)
+- AppImage: saving admin defaults via pkexec with the same hardened helper
+- Fixed: admin window not scrollable on small screens (tabs scroll, the window adapts)
+- Fixed: touchpad scrolling (page change/zoom) under Windows
+- uninstall.sh, .gitignore; installer script UTF-8 with BOM; build.ps1 plain ASCII; README in English
 
 ## 1.4.5
-- **Windows-Druck neu** (wie pdfToolkit 1.4.3): PostScript direkt für PS-Treiber, sonst eigenes Rastern in Streifen
-  mit JPEG – behebt langes Spoolen und Abbrüche (besonders bei Mehrfachnutzen); Einstellungen unter
-  Datei → Einstellungen → „Drucken unter Windows“. Linux-Druck unverändert
-- Behoben: mögliche Abstürze – die Dokumentprüfung nutzte pdfium in einem Hintergrund-Thread gleichzeitig mit der
-  Anzeige (pdfium ist nicht thread-sicher); diese Teile laufen jetzt im Hauptthread
+
+- Windows printing redone (as in pdfToolkit 1.4.3): PostScript directly for PS drivers, otherwise own
+  rasterising in strips with JPEG – fixes long spooling and aborted jobs (especially with multiple instances);
+  settings under File → Settings → "Printing under Windows". Linux printing unchanged
+- Fixed: possible crashes – the document check used pdfium in a background thread simultaneously with the
+  view (pdfium is not thread-safe); those parts now run in the main thread
 
 ## 1.4.4
-- **Ursache gefunden** (an einer Chrome-PDF): pdfium kann Seiten mit **Type3-Schriften** nicht neu schreiben –
-  bisher verschwand dabei aller Text. Bearbeiten kommt jetzt ganz ohne Neuerzeugung der Seite aus:
-  - Verschieben/Skalieren: Zeile wird aus ihrem Textblock herausgelöst (Zeilenmatrix wird mitgerechnet), auch wenn
-    sich viele Zeilen einen Block teilen
-  - Text/Schrift ändern: zuerst direkt; verliert die Seite dabei Inhalt, wird die alte Zeile entfernt und die neue
-    an gleicher Stelle und in gleicher Farbe darübergelegt
-  - Löschen: nur die Textbefehle der Zeile werden entfernt
-- Koordinatensystem wird mitgerechnet (Chrome: Maßstab 0,24 + gespiegelt; CAD: 0,12) – beim Verschieben von Text
-  und Ebenen, beim Ersetzen von Ebenen und bei der CutContour-Linie (Originalinhalt wird in q/Q eingeschlossen)
-- Zeilen werden besser erkannt (auch bei Schriftwechsel in der Zeile und einzeln gesetzten Buchstaben)
-- Nachprüfung empfindlicher (auch bei Seiten mit wenig Text)
-- Neue Tests: Chrome-artige Type3-Datei, CAD-Ebene in skaliertem Koordinatensystem
+
+- Root cause found (on a Chrome PDF): pdfium cannot rewrite pages with Type3 fonts – previously all text
+  disappeared. Editing now manages entirely without regenerating the page:
+  - Move/scale: the line is lifted out of its text block (the line matrix is carried along), even when many
+    lines share one block
+  - Change text/font: first directly; if the page loses content, the old line is removed and the new one placed
+    on top at the same position and in the same colour
+  - Delete: only the line's text commands are removed
+- The coordinate system is carried along (Chrome: scale 0.24 + mirrored; CAD: 0.12) – when moving text and
+  layers, when replacing layers and for the CutContour line (the original content is wrapped in q/Q)
+- Lines are recognised better (also with a font change within the line and individually placed letters)
+- The re-check is more sensitive (also on pages with little text)
+- New tests: a Chrome-like Type3 file, a CAD layer in a scaled coordinate system
 
 ## 1.4.3
-- Behoben: Nach Verschieben/Skalieren per Maus, Textänderung oder Schriftwechsel konnten alle Texte der Seite
-  verschwinden
-  - Verschieben/Skalieren von Text ändert jetzt nur noch die betroffenen Textblöcke im PDF (q/cm/Q), die übrige
-    Seite bleibt byte-gleich; pdfiums Neuerzeugung der Seite nur noch als Rückfall
-  - jede Textbearbeitung läuft auf einer Kopie und wird **nachgeprüft** (Zeichen und Bildpunkte außerhalb der
-    bearbeiteten Zeile); fehlt etwas, wird nichts übernommen und eine Meldung mit Details erscheint
-  - die Ansicht gibt vor der Bearbeitung ihre offenen Seiten frei
-- Start-Test deutlich strenger (fehlende eigene Methoden fallen sofort auf) und prüft jetzt auch Text ändern,
-  Schrift wechseln und Löschen – dabei bleiben alle anderen Zeilen erhalten
+
+- Fixed: after moving/scaling with the mouse, text changes or font changes, all the page's texts could
+  disappear
+- Moving/scaling text now changes only the affected text blocks in the PDF (q/cm/Q); the rest of the page
+  stays byte-identical; pdfium's regeneration of the page only as a fallback
+- Every text edit runs on a copy and is re-checked afterwards (characters and pixels outside the edited
+  line); if anything is missing, nothing is applied and a message with details appears
+- The view releases its open pages before the edit
+- The start test considerably stricter (missing own methods surface immediately) and now also checks change
+  text, change font and delete – all other lines being preserved
 
 ## 1.4.2
-- Behoben: „don't know how to encode value np.float64“ beim Skalieren von Ebenen (Bezug „Mitte der Ebene“)
-- Behoben: Mausauswahl im Bearbeiten-Modus fand nichts, wenn die Listen beim Einschalten nicht geladen waren
-- **Mit der Maus verschieben und skalieren:** Objekt (Textzeile/Ebene) greifen und ziehen; an den vier Eckgriffen
-  skalieren (gegenüberliegende Ecke bleibt fix); gestrichelte Vorschau, passende Mauszeiger, Rückgängig
-- Textzeilen verschieben/skalieren behält Schrift, Farbe und Ebene
-- Feinere Ebenen-Erkennung; Start-Test prüft jetzt auch die Mausbedienung
+
+- Fixed: "don't know how to encode value np.float64" when scaling layers (reference "centre of the layer")
+- Fixed: mouse selection in edit mode found nothing if the lists had not been loaded when it was switched on
+- Move and scale with the mouse: grab and drag the object (text line/layer); scale at the four corner handles
+  (the opposite corner stays fixed); dashed preview, matching cursors, undo
+- Moving/scaling text lines preserves font, colour and layer
+- Finer layer detection; the start test now also checks the mouse interaction
 
 ## 1.4.1
-- Behoben: Programm startete nicht (Namenskonflikt in der Seitenansicht durch die neue Textauswahl)
-- Behoben: Strg+C (Text kopieren) hätte einen Fehler ausgelöst (fehlender Import)
-- Neuer Start-Test (tests/test_gui_smoke.py): Programmstart, Fenster, Textauswahl, Bearbeiten-Modus – ohne Bildschirm
+
+- Fixed: the program did not start (name conflict in the page view caused by the new text selection)
+- Fixed: Ctrl+C (copy text) would have raised an error (missing import)
+- New start test (tests/test_gui_smoke.py): program start, window, text selection, edit mode – without a
+  screen
 
 ## 1.4.0
-- **Bearbeiten-Modus** (Dokument-Manipulation → Text und Ebenen bearbeiten, Strg+E): Seitenleiste „Bearbeiten“
-  - **Text:** Zeilen der Seite auflisten oder auf der Seite anklicken; Text, Schrift (Original, Standardschriften,
-    eigene Datei) und Größe ändern, Zeile löschen
-  - **Ebenen:** auflisten oder auf der Seite anklicken (wiederholter Klick wechselt durch übereinanderliegende);
-    ein-/ausblenden, entfernen, skalieren/verschieben (inkl. „Auf die Seite zurückholen“), durch eine Seite einer
-    anderen PDF ersetzen; Rückgängig
-- **Text markieren** in der Seitenansicht (ziehen, Doppelklick = Wort, Strg+C kopiert)
-- Schrift-Download: eigene Knöpfe unter der Tabelle, sichtbare Fehlermeldungen, Rückfall auf das fontsource-CDN
-- Übersetzungen: fehlende Texte ergänzt (Druckdialog, Admin, Zusammenführen, Dateifilter, Meldungen),
-  „&“ in Übersetzungen ausgeschrieben, deutsche Treiberbegriffe (deutsch installierte PPDs) werden übersetzt
+
+- Edit mode (Document manipulation → Edit text and layers, Ctrl+E): "Edit" page sidebar
+  - Text: list the page's lines or click them on the page; change text, font (original, standard fonts, your
+    own file) and size, delete a line
+  - Layers: list or click on the page (repeated clicking cycles through stacked ones); show/hide, remove,
+    scale/move (including "Bring back onto the page"), replace with a page of another PDF; undo
+  - Select text in the page view (drag, double-click = word, Ctrl+C copies)
+- Font download: own buttons under the table, visible error messages, fallback to the fontsource CDN
+- Translations: missing texts added (print dialog, admin, merge, file filters, messages), "&" spelled out in
+  translations, German driver terms (from German-installed PPDs) are translated
 
 ## 1.3.2
-- Behoben: Dialog „Freie Schrift herunterladen“ öffnete sich nicht
-- Ebenen festschreiben / Empfohlene Reparaturen: unterscheiden sich Ansicht und Druck, fragt Passermark, welcher
-  Zustand gelten soll („Wie beim Druck“ / „Wie am Bildschirm“) – statt still den Druck-Zustand zu nehmen
-- Einbetten: Warnung, wenn für eine fehlende Schrift kein Ersatz gewählt ist (Ghostscript nähme sonst eine eigene)
-- CAD-Normschriften (ISOCPEUR & Co.) ohne osifont: schmale Ausweichschrift (DejaVu Sans Condensed)
-- Schriften mit eigenen Zeichennamen (ohne Einbettung) werden als nicht reparierbar erkannt
+
+- Fixed: the "Download free font" dialog did not open
+- Flatten layers / recommended repairs: if view and print differ, Passermark asks which state should apply
+  ("As when printing" / "As on screen") – instead of silently taking the print state
+- Embedding: warning when no replacement is chosen for a missing font (otherwise Ghostscript uses its own)
+- CAD standard fonts (ISOCPEUR & co.) without osifont: narrow fallback font (DejaVu Sans Condensed)
+- Fonts with custom glyph names (without embedding) are recognised as not repairable
 
 ## 1.3.1
-- Schrift-Download: kommerzielle Schriften werden auf ihren freien, metrisch gleichen Zwilling umgeleitet
-  (Arial → Arimo, Times New Roman → Tinos, Courier New → Cousine, Calibri → Carlito, Cambria → Caladea,
-  Georgia → Gelasio); der Dialog schlägt ihn vor und erklärt warum
-- Unbekannter Name: Vorschläge ähnlicher freier Schriften („Meintest du …“) statt nur „404“
+
+- Font download: commercial fonts are redirected to their free, metrically identical twin (Arial → Arimo,
+  Times New Roman → Tinos, Courier New → Cousine, Calibri → Carlito, Cambria → Caladea, Georgia → Gelasio);
+  the dialog suggests it and explains why
+- Unknown name: suggestions of similar free fonts ("Did you mean …") instead of just "404"
 
 ## 1.3.0
-- **Neuer Name: Passermark** (vorher pdfToolbox – Namensgleichheit mit einem kommerziellen Preflight-Produkt);
-  eigene Pfade (/etc/passermark, /usr/local/lib/passermark), läuft neben pdfToolkit/pdfToolbox
-- **Dokumentprüfung (Preflight)** beim Öffnen: Schriften (Einbettung, Typ, Unicode, seltsame Zeichen), Ebenen
-  (Ansicht/Druck, verrutscht), Transparenzen; Statusknopf, Seitenleiste „Prüfung“, Bericht
-- Reparaturen: Ebenen-Zustand übernehmen, sichtbaren Zustand festschreiben, Ebenen entfernen, Schriften einbetten
-  mit metrisch kompatiblem Ersatz / eigener Datei / Download (fontsource.org), Text in Pfade, Transparenzen reduzieren
-- install.sh: freie Ersatzschriften (Liberation, Carlito, Caladea, URW, DejaVu)
+
+- New name: Passermark (previously pdfToolbox – name clash with a commercial preflight product); own paths
+  (/etc/passermark, /usr/local/lib/passermark), runs alongside pdfToolkit/pdfToolbox
+- Document check (preflight) on opening: fonts (embedding, type, Unicode, odd characters), layers
+  (view/print, misaligned), transparencies; status button, "Check" sidebar, report
+- Repairs: adopt the layer state, bake the visible state, remove layers, embed fonts with a
+  metrically compatible replacement / your own file / download (fontsource.org), text to paths, reduce
+  transparencies
+- install.sh: free replacement fonts (Liberation, Carlito, Caladea, URW, DejaVu)
 
 ## 1.2.5
-- CutContour: **Überfüller abschaltbar** („erzeugen“ bzw. 0 mm) – Motiv bleibt unverändert (kein Überfüller, kein
-  Ausstanzen), nur die Schnittlinie; mit positivem „Abstand zum Motiv“ entstehen weiße Ränder
+
+- CutContour: filler can be disabled ("generate" or 0 mm) – the motif stays unchanged (no filler, no
+  cut-out), only the cut line; with a positive "spacing to the motif" you get white margins
 
 ## 1.2.4
-- CutContour-Farben: **Entmischen** statt RGB-Abstand – Kantenpixel werden als Mischung Vollfarbe+Hintergrund
-  bzw. Vollfarbe+Vollfarbe gedeutet (helles Rosa = Rot, nicht Grün); behebt falschfarbige Keile im Überfüller
-- Überfüller-Farbe kommt aus dieser Zuordnung; innerhalb der Schnittform immer voll deckend
-- Aussparung: winzige Löcher geschlossen (keine weißen Pünktchen), engere Toleranz (kein heller Strich)
-- Neu: **Überfüller-Farbe fest wählbar** (gleichmäßiger Rand) für Motive, bei denen die Automatik nicht passt
-- Neu (optional): **Mischkanten im Motiv bereinigen** (schmale Säume bis ~1 mm zwischen Vollfarben)
+
+- CutContour colours: unmixing instead of RGB distance – edge pixels are interpreted as a mixture of
+  spot colour + background or spot colour + spot colour (light pink = red, not green); fixes wrongly coloured
+  wedges in the filler
+- The filler colour comes from this assignment; inside the cut shape always fully opaque
+- Cut-outs: tiny holes closed (no white dots), tighter tolerance (no light seam)
+- New: the filler colour can be fixed (uniform edge) for motifs where the automatic does not fit
+- New (optional): clean up mixed edges in the motif (narrow fringes up to ~1 mm between spot colours)
 
 ## 1.2.3
-- CutContour-Überfüller in **Vollfarben**: Farbe = rechnerisch nächste Vollfarbe des Objekts (exakter
-  Originalton), keine blassen Mischtöne mehr von Kantenglättung/skaliertem Raster
-- **Heller Saum entfernt:** Bei Motiven mit Hintergrund wird der Mischsaum am Rand ausgespart (flächige Motive:
-  adaptiv bis 1,5 mm, Fotos: 0,25 mm) – dort liegt der vollfarbige Überfüller
-- **Innenschnitt mit Überfüller:** ausgeschnittene Löcher werden im Original ausgespart, der Überfüller läuft
-  über die innere Schnittlinie; kleine Innenflächen (weiße Schrift) bleiben
+
+- CutContour filler in spot colours: colour = the object's computationally nearest spot colour (the exact
+  original tone), no more pale mixed tones from anti-aliasing/scaled screening
+- Light fringe removed: for motifs with a background, the mixed fringe at the edge is cut out (flat motifs:
+  adaptively up to 1.5 mm, photos: 0.25 mm) – the spot-colour filler lies there
+- Inner cut with filler: cut-out holes are cut out of the original, the filler runs over the inner cut line;
+  small inner areas (white lettering) remain
 
 ## 1.2.2
-- Behoben: Fehler „don't know how to encode value np.float64“ bei „Jedes Objekt als eigene Seite“ + Überfüller
-  (Seitenmaße werden jetzt als normale Zahlen an pikepdf übergeben)
-- Behoben: Überfüller unsichtbar bei Motiven mit Hintergrund (weiße Seite, Rasterbild) – das Original wird auf
-  die Objektform begrenzt (Hintergrund ausgestanzt), Innenflächen wie weiße Schrift bleiben; Vorschau ebenso
+
+- Fixed: error "don't know how to encode value np.float64" with "Each object as its own page" + filler (page
+  dimensions are now passed to pikepdf as plain numbers)
+- Fixed: filler invisible on motifs with a background (white page, raster image) – the original is clipped to
+  the object shape (background punched out), inner areas like white lettering remain; the preview likewise
 
 ## 1.2.1
-- Objekte trennen: **Rand wirkt sofort** (auch negativ, auch auf selbst gezogene Rahmen) – vorher nur nach
-  „neu erkennen“; gestrichelte Vorschau des Randes; übrige Regler erkennen automatisch neu
-- CutContour: **Überfüller füllt die ganze Fläche innerhalb der Schnittlinie** (Raum zwischen Objekt und
-  Linie, Einbuchtungen) plus Überfüller über die Linie – Randfarben (auch mehrfarbig) nach außen gezogen,
-  liegt hinter dem Objekt; Farben aus dem Kern (keine Mischfarben von der Kantenglättung)
-- Fehlermeldungen in den Objekt-Dialogen mit „Details“ (Ablauf zum Kopieren)
+
+- Separate objects: the margin applies immediately (also negative, also on self-drawn frames) – previously
+  only after "re-detect"; dashed preview of the margin; the other sliders re-detect automatically
+- CutContour: the filler fills the whole area inside the cut line (space between object and line,
+  indentations) plus filler beyond the line – edge colours (also multi-coloured) pulled outwards, lies behind
+  the object; colours from the core (no mixed colours from anti-aliasing)
+- Error messages in the object dialogs with "Details" (the sequence to copy)
 
 ## 1.2.0
-- CutContour: **Stickerformen** Rechteck, abgerundetes Rechteck, Kreis, Oval, Sechseck, Achteck, Herz, Stern,
-  Wappen, Torbogen – in Objektgröße, skalierbar (%) oder feste Größe (mm); Abstand auch negativ
-- CutContour: **Überfüller geht vom Objekt aus** (keine Rahmen in leeren Flächen); Schnitt am Motiv liegt
-  immer im Überfüller
-- CutContour: Ausgabe wahlweise **jedes Objekt als eigene Seite** mit Rand (Standard 6 mm), Nachbarn ausgeblendet
-- Erkennung: Motiv, das die ganze Seite füllt, wird als ein Objekt erkannt (Kontur hing vorher am Seitenrand);
-  Auto-Modus erkennt Hintergrund auch bei teilweise transparenten Seiten
-- Objekte trennen: Rand auch **negativ** (nach innen)
+
+- CutContour: sticker shapes rectangle, rounded rectangle, circle, oval, hexagon, octagon, heart, star,
+  crest, goal arch – at object size, scalable (%) or fixed size (mm); spacing also negative
+- CutContour: the filler starts from the object (no frames in empty areas); a cut through the motif always
+  lies inside the filler
+- CutContour: output optionally each object as its own page with a margin (default 6 mm), neighbours hidden
+- Detection: a motif filling the whole page is recognised as one object (the contour used to hang on the
+  page edge); auto mode recognises the background also on partially transparent pages
+- Separate objects: margin also negative (inwards)
 
 ## 1.1.0
-- **Objekte trennen:** Objekte (Visitenkarten, Fotos auf Scans …) erkennen und als Einzelseiten ohne Weißraum
-  öffnen; Vektor exakt über Transparenz, Raster über Hintergrundfarbe; Rahmen bearbeitbar
-- **CutContour** für Schneideplotter (Roland VersaWorks): Sonderfarbe „CutContour“, Abstand, Glättung zum
-  Entgittern, automatisch erzeugter Überfüller (Schnitt liegt immer darin), Innenkonturen, Vorschau
-- **SVG/SVGZ öffnen** (vektoriell, echte Größe; rsvg-convert > Inkscape > Qt), auch per Rechtsklick und Zusammenführen
-- Transparenz bei WebP/GIF/HEIC bleibt erhalten (statt auf Weiß geplättet)
-- Neue Abhängigkeiten: scipy, contourpy, librsvg2-bin
+
+- Separate objects: detect objects (business cards, photos on scans …) and open them as individual pages
+  without white space; vector exactly via transparency, raster via background colour; editable frame
+- CutContour for cutting plotters (Roland VersaWorks): special colour "CutContour", spacing, smoothing for
+  weeding, automatically generated filler (the cut always lies inside it), inner contours, preview
+- Open SVG/SVGZ (vector, true size; rsvg-convert > Inkscape > Qt), also via right-click and merge
+- Transparency in WebP/GIF/HEIC is preserved (instead of being flattened onto white)
+- New dependencies: scipy, contourpy, librsvg2-bin
 
 ## 1.0.1
-- Dokument-Manipulation jetzt als eigenes Menü neben „Dokument“ (CMYK-Umwandlung, Beschneiden, beides);
-  nicht mehr im Druckdialog
-- Ergebnis öffnet sich in einem neuen Fenster, abgelegt nur temporär im Zwischenspeicher (beim Beenden gelöscht)
-- Behoben: Beschneiden wirkte beim Druck nicht – gedruckt wird jetzt die beschnittene Datei selbst
-  (durchgehender Test: Beschneiden -> Zwischenspeicher -> Druck, Rand verschwindet)
-- Menü „Dokument“: Zusammenführen und Reparieren/Optimieren
 
-## 1.0.0 (Oktober 2026)
-Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen übernommen).
+- Document manipulation now as its own menu next to "Document" (CMYK conversion, cropping, both); no longer
+  in the print dialog
+- The result opens in a new window, stored only temporarily in the cache (deleted on exit)
+- Fixed: cropping did not apply when printing – the cropped file itself is now printed (end-to-end test:
+  crop → cache → print, the margin disappears)
+- "Document" menu: merge and repair/optimise
 
-- **Dokument-Manipulation** (Reiter im Druckdialog und Menü Dokument):
-  - CMYK-Umwandlung: RGB→CMYK mit unverändertem CMYK, komplette Neuseparation (Quell- → Zielprofil),
-    Graustufen; Intent, BPC, Grau/Schwarz nur mit K, Output Intent
-  - Farbvorschau vorher/nachher aus echten CMYK-Werten, Einzelauszüge, Farbauftrag (TAC), Papierweiß
-  - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
-- Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
-- Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch
+## 1.0.0 (October 2026)
+
+First version of Passermark, built on pdfToolkit 1.4.0 (all features taken over).
+
+- Document manipulation (tab in the print dialog and Document menu):
+  - CMYK conversion: RGB→CMYK with unchanged CMYK, complete re-separation (source → destination profile),
+    greyscale; intent, BPC, grey/black with K only, output intent
+  - Colour preview before/after from real CMYK values, individual separations, total area coverage (TAC),
+    paper white
+  - Crop to target format with an equal overhang on both sides, portrait/landscape follows the page
+- Installable independently alongside pdfToolkit (own paths, admin helper, polkit rule, single instance)
+- Own icon; all texts in German, English, Hungarian, Spanish, French
