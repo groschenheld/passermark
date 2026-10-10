@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "default_printer": "Buero_Laser",
+  "allow_user_profile_choice": true,
+  "layout": {
+    "mode": "fit", "custom_percent": 100.0, "nup": 1, "cols": 0, "rows": 0,
+    "order": "horizontal", "tile_mode": "fit", "tile_percent": 100.0, "gap_mm": 0.0,
+    "borders": false, "orientation": "auto", "autorotate": true, "center": true,
+    "use_margins": true
+  },
+  "printers": {
+    "Buero_Laser": { "options": { "Duplex": "DuplexNoTumble" }, "color_profile": "", "intent": "relative" },
+    "Foto_Tinte": { "options": {}, "color_profile": "", "intent": "perceptual" }
+  },
+  "color_profiles": []
+}

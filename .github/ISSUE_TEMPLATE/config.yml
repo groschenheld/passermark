@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Sicherheitslücke melden / Report a security vulnerability"
+    url: https://github.com/groschenheld/passermark/security/advisories/new
+    about: "Vertraulich, nicht öffentlich / privately, not in public"

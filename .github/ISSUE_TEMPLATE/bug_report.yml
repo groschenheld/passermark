@@ -1,0 +1,109 @@
+name: "Fehler melden / Bug report"
+description: "Etwas funktioniert nicht wie erwartet / Something does not work as expected"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Melden! Je genauer die Angaben, desto schneller lässt sich der Fehler finden.
+        Thanks for reporting! The more precise the details, the faster the bug can be found.
+
+        **Sicherheitslücken bitte nicht hier melden / Do not report security issues here** – siehe / see [SECURITY.md](https://github.com/groschenheld/passermark/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: "Passermark-Version / version"
+      description: "Steht in der Titelleiste / shown in the title bar"
+      placeholder: "1.10.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: "Installiert als / Installed as"
+      options:
+        - "Windows-Setup"
+        - "Linux AppImage"
+        - "Linux install.sh (Debian/Ubuntu)"
+        - "Aus dem Quellcode / from source"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: "Betriebssystem / Operating system"
+      placeholder: "z. B. Windows 11 23H2, Ubuntu 24.04, Fedora 41"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Bereich / Area"
+      options:
+        - "Anzeigen / Viewing"
+        - "Drucken, Druckdialog / Printing"
+        - "Ausschießen, Broschüre, Nutzen / Imposition"
+        - "Druckaufbereitung: Prüfen, CMYK, Beschneiden / Prepress"
+        - "CutContour, Objekte trennen / CutContour, separate objects"
+        - "Bearbeiten, Seiten teilen / Editing, split pages"
+        - "Variable Daten, Daten erfassen / Variable data"
+        - "Kommandozeile / Command line"
+        - "Installation, Start / Installation, start-up"
+        - "Anderes / Other"
+    validations:
+      required: true
+  - type: textarea
+    id: printer
+    attributes:
+      label: "Drucker und Treiber (bei Druckproblemen) / Printer and driver (for print problems)"
+      description: |
+        Hersteller/Modell, Treiber (CUPS-PPD, IPP ohne Treiber, Windows-Treiber), Druckserver ja/nein, Finisher.
+        Make/model, driver (CUPS PPD, IPP driverless, Windows driver), print server yes/no, finisher.
+      placeholder: "z. B. Tintenstrahl über CUPS (PPD des Herstellers), kein Druckserver"
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Schritte zum Nachstellen / Steps to reproduce"
+      placeholder: |
+        1. PDF öffnen …
+        2. Drucken → Weitere Optionen → …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Erwartet / Expected"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: "Tatsächlich / Actual"
+      description: "Fehlermeldung wörtlich, Bildschirmfoto hilft / exact error message, a screenshot helps"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: "Fehlerprotokoll / Error log"
+      description: |
+        Hilfe → Fehlerprotokolle öffnen → neueste Datei hier einfügen oder anhängen.
+        Help → Open error logs → paste or attach the newest file.
+      render: text
+  - type: textarea
+    id: file
+    attributes:
+      label: "Beispieldatei / Sample file"
+      description: |
+        Wenn möglich ein PDF anhängen, das den Fehler zeigt. **Vertrauliche Inhalte vorher entfernen!**
+        If possible attach a PDF that shows the problem. **Remove confidential content first!**
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: "Vorher geprüft / Checked first"
+      options:
+        - label: "Mit der neuesten Version getestet / tested with the latest version"
+          required: true
+        - label: "Keine vertraulichen Daten im Anhang / no confidential data attached"
+          required: true

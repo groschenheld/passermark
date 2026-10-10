@@ -1,0 +1,100 @@
+# Változásnapló – Passermark
+
+**English:** [CHANGELOG.md](CHANGELOG.md) · [Deutsch](CHANGELOG.de.md) · **Magyar** · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
+
+> Ez a változásnapló a **1.10.x verziókat** tartalmazza magyarul. A teljes változástörténet:
+> [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
+
+## 1.10.7
+- **CutContour: alapformák számítás nélkül.** Új elhelyezés „A végformára (számítás nélkül)”: téglalap,
+  lekerekített téglalap, kör … közvetlenül a végformára kerülnek (TrimBox, egyébként az oldalra) – nincs
+  renderelés, nincs motívumfelismerés, nincsenek munkafolyamatok, másodperc törtderekében. A távolság, a
+  méret, az eltolás és az egérrel húzás a megszokott módon működik. Számítás csak „Kontúr” esetén vagy ha a
+  forma a motívum köré illetve objektumonként kerül. Parancssor: `--set fit=trim`
+- **Alapértelmezés a CutContourban:** téglalap a végformára (amíg nincsenek tárolt, egyéni utoljára használt
+  beállítások)
+
+## 1.10.6
+- **Windows javítás: a CutContour 0 %-nál elakadt** (az 1.10.5 óta). A parancssori kimenet UTF-8-ra
+  váltását visszavontuk; a „Lapok felosztása” javítás megmarad (az állapotüzenetek tisztán ASCII-ben)
+- CutContour: nincs több hiba, ha az ablak bezárásakor még utolér egy előnézeti számítás
+  („expected LP_struct_fpdf_document_t … NoneType”)
+
+## 1.10.5
+- **Windows javítás:** a „Lapok felosztása” (és minden olyan feladat, melynek üzenete olyan karaktert tartalmaz, mint az „→”) a
+  `UnicodeEncodeError … cp1252` hibával megszakadt. A parancssor most maga állítja át a kimenetét UTF-8-ra, a
+  felhasználói felület felé menő állapotüzenetek tisztán ASCII-ben
+- `SECURITY.md`, `CONTRIBUTING.md` és a GitHub-sablonok hibajelentésekhez és javaslatokhoz a csomagban
+
+## 1.10.4
+- Kétnyelvű README: `README.md` (angol) és `README.de.md` (német), naprakészen (lapok felosztása, változó
+  adatok, adatok rögzítése, a parancssor összes feladata), a projekt állapotára vonatkozó megjegyzéssel
+- Példakonfiguráció `data/defaults.example.json` semleges nyomtatónevekkel
+
+## 1.10.3
+- **Lapok felosztása jobb egérgombbal:** lapok kijelölése az oldalsávban → jobb egérgomb → **Felosztás** →
+  „Felezés függőlegesen” / „Felezés vízszintesen” – azonnal, csak a kijelölt lapokon, összehasonlító lap
+  nélkül. A „Rács / további beállítások …” megnyitja a párbeszédablakot előre beállított kijelöléssel
+
+## 1.10.2
+- **Változó adatok – elő és hátlap:** új „Lapok rekordonként” (a 2. alatt): 2 = 1+2. lap → 1. rekord, 3+4 →
+  2. rekord … – függetlenül attól, hogy a sablon 2 oldalas vagy már az összes kártyát tartalmazza (pl. 200 lap
+  100 névjegykártyához). A „Csak ezeken a lapokon” mezők most ismerik a **páratlan** és **páros**
+  lapokat, tartományokkal is kombinálva („páratlan 1-50”). 7. példa: névjegykárlya névvel elöl és QR-névjegykártyával hátul
+- **További változók:** {{datum}}, {{zeit}}, {{jahr}}, {{monat}}, {{tag}}, {{wochentag}}, {{kw}},
+  {{datum_iso}}, {{datum:FORMAT}}, {{seite}}, {{seiten}}, {{vorlagenseite}}, {{datensatz}},
+  {{datensaetze}}, {{datei}}, {{zufall}}, {{zufall:N}}, {{code:N}}, {{uuid}}. A tartalom melletti **?**
+  gomb mindegyiket megjeleníti példaértékkel, dupla kattintással beszúrható. Az azonos nevű CSV-oszlopok
+  elsőbbséget élveznek
+- Egy oszlopra duplán kattintva az változatlan {{nr}} **cseréje** történik, nem eléhelyezése
+- **Lapok felosztása** (Lapok → Lapok felosztása …, Szerkesztés munkaterület): felezés függőlegesen/
+  vízszintesen vagy rács, összes/jelenlegi/kijelölt lap vagy tartomány, csak terjedelmek, sorrend
+  jobbról→balra; a vágási vonalak előnézetével. **Terjedelmek felosztása** egy kattintással a hibásan
+  exportált füzetekhez. Veszteségmentes (a tartalom nem kerül másolásra vagy raszterezésre), a forgatott
+  lapok úgy, ahogy látod őket; végformán belül van a felosztás, a levágás (Anschnitt) kívül marad.
+  Parancssor: `split` feladat
+- **Oldalsáv:** a miniatűrök együtt forognak a „Nézet forgatása balra/jobbra” funkcióval
+- **Javítva: a kívülről megnyitás zárt ablakba került** (Windows, jobb egérgomb/dupla kattintás, miközben
+  egy ablakban egy eszköz nyitva van) – most saját ablakba. Ok: a megnyitás az üres kezdőablakban láthatatlan
+  üres fület hagyott hátra; most maga az üres ablak használatos. A zárt ablak eredményei is saját ablakban
+  nyílnak meg
+
+## 1.10.1
+- **Saját CSV más oszlopnevekkel, közvetlenül:** Változó adatok → CSV megnyitása felismeri, mihez illik a
+  táblázat („A táblázat illik: QR – névjegykárlya”), a **Illeszkedő mező létrehozása** létrehozza a QR-kódot
+  ezzel a típussal. Az oszlopok automatikusan hozzárendelésre kerülnek – angol, magyar, spanyol, francia
+  nevek és az **Outlook, Google és Thunderbird** kapcsolatexportjainak fejlécei is. A CSV változatlan marad
+- **Oszlopok hozzárendelése …** a QR-mezőben típussal: oszlop választása adatonként, „üresen hagyás” vagy
+  automatikus; a kész tartalom előnézetével. A típus alatt áll, mi honnan jön és mi hiányzik. A hozzárendelés
+  a presetben tárolódik (`qr_map`) és a parancssoron is érvényes
+- Adatok rögzítése: a idegen nevű CSV nem kap többé dupla oszlopokat; a fejléc mutatja a hozzárendelést
+  („First Name → Vorname”). A `datencheck` szintén felismeri az idegen oszlopneveket
+- Példamappa: `kontakte-outlook.csv` (így néz ki egy Outlook-export); az útmutató kiegészítve a „Saját CSV
+  más oszlopnevekkel” résszel
+
+## 1.10.0
+- **Adatok rögzítése** (Változó adatok munkaterület, Dokumentummanipuláció menü vagy a Változó adatok
+  párbeszédablakban a 2. alatt): az adattáblázat közvetlenül a Passermarkban hozható létre. Típusonként a
+  megfelelő oszlopok – **QR-névjegykárlya (vCard), WLAN-hozzáférés, e-mail, webcím, hívás, SMS, időpont,
+  helyszín**, szabad QR-szöveg, **Code 128**, **EAN-13**, szöveg saját oszlopokkal. Minden sor azonnali
+  ellenőrzésen megy át (kötelező adatok, EAN-ellenőrző szám, umlautok a Code 128-ban, dátum …), jobbra a
+  kiválasztott sor kész kódja. Beszúrás Excelből Ctrl+V-vel, sorok duplikálása, oszlop kitöltése
+  számsorral (a sorokat is létrehozza), saját oszlopok. Mentés CSV-ként (UTF-8 BOM-mal, pontosvesszővel – az
+  Excel helyesen olvassa az umlautokat)
+- A **„Használat változó adatokban”** átveszi a táblázatot adatforrásként és létrehozza a megfelelő mezőt
+- **QR-mező „QR-kód típusa”:** a tartalom beírt módon vagy a táblaoszlopokból összeállítva (vCard, WLAN,
+  mailto, tel, SMS, időpont, geo). A CSV olvasható marad; a Passermark a kódtartalmat a létrehozáskor
+  építi fel
+- **Csendes zóna:** a QR-kód és a Code 128 most fehér szegéllyel rendelkezik a mezőben (kikapcsolható).
+  Nélküle a más tartalomhoz közeli kódok rosszul olvashatók voltak. *Meglévő presetek: a QR-kód ettől kicsit
+  kisebb lesz a mezőben*
+- **A 13 számjegyű, hibás ellenőrző számú EAN-13 most hiba** (a helyes számmal az üzenetben) – korábban az
+  utolsó számjegy csöndben cserélt
+- Parancssor: `datenarten`, `datenvorlage <típus> [fájl.csv]`, `datencheck <fájl.csv> [típus]` (1-es
+  visszatérési kód problémáknál); a presetben QR-mezőnként `qr_type`
+- 5. (névjegykárlya kapcsolatlistából) és 6. (WLAN-hozzáférés) példa; a „Változó adatok” útmutató új
+  „Adatok rögzítése” fejezettel, a CLI-útmutató kiegészítve
+- A tesztek most valóban visszabeolvassák a létrehozott kódokat: QR és EAN-13 OpenCV-vel (ha telepítve), a
+  Code 128 saját olvasóval, ellenőrző összeggel
+- Javítva: a változó adatok az elosztás kiválasztása nélkül „rekordonként a teljes dokumentum másolatát”
+  használták a „minden lapon a következő rekord” helyett

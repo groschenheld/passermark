@@ -1,0 +1,84 @@
+Passermark – Variable Data examples (QR code, business card, Wi-Fi, Code 128, EAN-13)
+====================================================================================
+
+In detail: passermark-vdp-anleitung.pdf (in the program: Help → Variable data – Manual)
+
+Contents
+  vorlage-a6.pdf     empty template (A6 landscape) – the fields are placed on it
+  daten.csv          3 records: Name;Ort;Artikelnummer;EAN (examples 2–4)
+  visitenkarten.csv  3 contacts (example 5)
+  wlan.csv           3 Wi-Fi networks (example 6)
+  kontakte-outlook.csv  what a contact export from Outlook looks like (English column names)
+  presets/           the settings for each example
+  ergebnis/          what the finished PDF looks like
+
+Fetch (copies this folder to ~/Passermark-Beispiele/vdp and registers the presets)
+  Program:        Help → Fetch variable-data examples …
+  Command line:   passermark-cli beispiele
+
+In the program
+  Open vorlage-a6.pdf, Variable data (Ctrl+Shift+D),
+  choose "Beispiel 1" … "Beispiel 7" in the preset bar, Generate.
+  Your own tables: Variable data workspace → Enter data.
+
+Command line (in this folder)
+  passermark-cli vdp vorlage-a6.pdf out.pdf --preset presets/beispiel-4-ean13.json
+  passermark-cli vdp vorlage-a6.pdf out.pdf --preset "Beispiel 4 – EAN-13"
+
+-----------------------------------------------------------------
+1  QR code with numbering (no CSV, 5 tickets)
+   QR    Content: https://deinefirma.at/ticket/{{nr}}
+   Text  Content: Ticket {{nr}}
+   Numbering: first number 1, digits 4  → 0001, 0002 …
+
+2  QR code from the CSV
+   QR    Content: {{Name}} – {{Ort}}   → "Anna Huber – Wien" (umlauts work)
+
+3  Code 128
+   top     Content: T{{nr}}             → T0001, T0002, T0003 (digits 4)
+   bottom  Content: {{Artikelnummer}}   → ART-1001 … from the CSV
+   Size 9 pt = plain-text line underneath, 0 = none. No umlauts.
+
+4  EAN-13
+   left   Content: {{EAN}} from the CSV – 13 digits, or 12 (the check digit is
+           calculated: 978316148410 → 9783161484100)
+   right  Content: {{nr}} with prefix 2012345, digits 5, check digit "none"
+           → 201234500001 → 2012345000018  (20–29 = number range for internal codes)
+
+5  QR business card (vCard) – visitenkarten.csv
+   QR field with "QR code type": Business card (vCard)
+   The content comes from the columns Vorname, Nachname, Firma, Position, Telefon,
+   Mobil, E-Mail, Straße, PLZ, Ort, Land, Web, Notiz
+   → when scanned, the phone offers "Save contact"
+
+6  QR Wi-Fi – wlan.csv
+   QR field with type "Wi-Fi network", columns Netzname, Passwort, Verschlüsselung
+   (empty = WPA), Versteckt; without a password = open network
+   → the phone connects after scanning
+
+7  Business card front/back – vorlage-karte-vorne-hinten.pdf + visitenkarten.csv
+   Pages per record: 2 (pages 1+2 = contact 1, 3+4 = contact 2 …)
+   Name, Position, Mobil, E-Mail: "Only on these pages" = odd (front)
+   QR code type business card:   "Only on these pages" = even (back)
+
+Variables: the "?" button next to the content in the Variable data dialog
+   {{datum}} {{zeit}} {{jahr}} {{kw}} {{wochentag}} {{seite}} {{seiten}}
+   {{datensaetze}} {{datei}} {{zufall:6}} {{code:8}} {{uuid}} {{datum:%d.%m.%y}}
+
+Foreign column names (e.g. exports from Outlook, Google, Thunderbird)
+   Variable data → Open CSV → kontakte-outlook.csv
+   → "This table matches: QR – business card" → Create matching field
+   Columns are mapped automatically; change them with "Map columns …" at the
+   QR field (e.g. Position from "Title" instead of "Job Title"). The CSV stays unchanged.
+
+Your own table on the command line
+  passermark-cli datenvorlage vcard kontakte.csv     (empty table)
+  passermark-cli datencheck kontakte.csv             (check)
+
+This does NOT work (the preview shows an error or wrong content)
+   EAN-13 content: ART-{{nr}}             → letters are dropped, too few digits
+   EAN-13 content: {{nr}} with digits 4   → only 4 digits
+   EAN-13 with 13 digits, last one wrong  → error, the correct digit is shown
+   Content: nr (without {{ }})            → it simply says "nr"
+
+Always check the readability of the codes on a printout with a scanner or phone.
