@@ -1,5 +1,20 @@
 # Änderungen – Passermark
 
+## 1.10.7
+- **CutContour: Grundformen ohne Berechnung.** Neue Lage „Auf das Endformat (ohne Berechnung)“: Rechteck,
+  abgerundetes Rechteck, Kreis … werden direkt aufs Endformat (TrimBox, sonst die Seite) gelegt – kein Rendern,
+  keine Motiv-Erkennung, keine Arbeitsprozesse, in Sekundenbruchteilen. Abstand, Größe, Versatz und Ziehen mit der
+  Maus gelten wie bisher. Gerechnet wird nur noch bei „Kontur“ oder wenn die Form ums Motiv bzw. je Objekt gelegt
+  wird. Kommandozeile: `--set fit=trim`
+- **Standard in CutContour:** Rechteck auf das Endformat (solange keine eigenen zuletzt verwendeten Einstellungen
+  gespeichert sind)
+
+## 1.10.6
+- **Fix Windows: CutContour blieb bei 0 % hängen** (seit 1.10.5). Die Umstellung der Kommandozeilen-Ausgabe auf
+  UTF-8 ist wieder entfernt; der Fix für „Seiten teilen“ bleibt (Fortschrittsmeldungen als reines ASCII)
+- CutContour: kein Fehler mehr, wenn beim Schließen des Fensters noch eine Vorschau-Berechnung nachkommt
+  („expected LP_struct_fpdf_document_t … NoneType“)
+
 ## 1.10.5
 - **Fix Windows:** „Seiten teilen“ (und jeder Auftrag, dessen Meldung Zeichen wie „→“ enthält) brach mit
   `UnicodeEncodeError … cp1252` ab. Die Kommandozeile stellt ihre Ausgabe jetzt selbst auf UTF-8 um, die

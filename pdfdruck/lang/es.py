@@ -1536,4 +1536,6 @@ MESSAGES = {
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} página(s) se dividirán → {1} trozos cada una.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} páginas divididas: {1} → {2} páginas.",
     "Raster / weitere Optionen …": "Cuadrícula / más opciones …",
+    "Auf das Endformat (ohne Berechnung)": "Sobre el formato final (sin cálculo)",
+    "Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "En formas básicas: «formato final» coloca la forma directamente sobre el formato final (TrimBox; si no, la página), al instante y sin detectar el motivo; el sangrado lo aporta el propio PDF. Si no, una forma centrada alrededor de todo el motivo o una por cada objeto detectado, p. ej. para hojas de pegatinas. En la vista previa la forma se puede redimensionar con el ratón.",
 }

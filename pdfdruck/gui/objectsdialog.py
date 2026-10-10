@@ -512,13 +512,13 @@ class _CutWorker(QThread):
     """Konturberechnung im Hintergrund (nur numpy/scipy – die Seite wurde vorher im Hauptthread gerendert)."""
     done = Signal(int, object, str)
 
-    def __init__(self, gen, s, rgba, size):
+    def __init__(self, gen, s, rgba, size, trim=None):
         super().__init__()
-        self.gen, self.s, self.rgba, self.size = gen, s, rgba, size
+        self.gen, self.s, self.rgba, self.size, self.trim = gen, s, rgba, size, trim
 
     def run(self):
         try:
-            self.done.emit(self.gen, cutcontour.compute(None, self.s, self.rgba, self.size), "")
+            self.done.emit(self.gen, cutcontour.compute(None, self.s, self.rgba, self.size, trim=self.trim), "")
         except Exception as e:
             import traceback
             self.done.emit(self.gen, None, f"{e}\n\n{traceback.format_exc()}")
@@ -538,7 +538,7 @@ class CutContourDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
         self.page = min(current, len(self.norm) - 1)
-        self.s = cutcontour.CutSettings()
+        self.s = cutcontour.CutSettings(shape="rect", fit="trim")   # Standard: Rechteck aufs Endformat (sofort)
         self.result = None
         self.count = 0
 
@@ -571,10 +571,13 @@ class CutContourDialog(QDialog):
         fill_combo(self.cmb_shape, SHAPES, self.s.shape)
         f.addRow(tr("Form:"), self.cmb_shape)
         self.cmb_single = QComboBox()
-        fill_combo(self.cmb_single, [(True, tr("Eine Form um das ganze Motiv")), (False, tr("Eine Form je Objekt"))],
-                   self.s.single_shape)
-        self.cmb_single.setToolTip(tr("Bei Grundformen: eine Form mittig um alle Teile des Motivs (Größe ab der Mitte) "
-                                      "oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. "
+        fill_combo(self.cmb_single, [("trim", tr("Auf das Endformat (ohne Berechnung)")),
+                                     ("motif", tr("Eine Form um das ganze Motiv")),
+                                     ("each", tr("Eine Form je Objekt"))], self._placement(self.s))
+        self.cmb_single.setToolTip(tr("Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, "
+                                      "sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF "
+                                      "selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je "
+                                      "erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. "
                                       "In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen."))
         f.addRow("", self.cmb_single)
 
@@ -752,7 +755,7 @@ class CutContourDialog(QDialog):
             wd.blockSignals(True)
         try:
             pick(self.cmb_shape, s.shape)
-            pick(self.cmb_single, bool(s.single_shape))
+            pick(self.cmb_single, self._placement(s))
             pick(self.cmb_out, bool(s.per_object))
             pick(self.cmb_dpi, int(s.dpi))
             self.spn_corner.setValue(s.corner_mm)
@@ -827,7 +830,9 @@ class CutContourDialog(QDialog):
     def _settings(self, preview=False):
         s = self.s
         s.shape = self.cmb_shape.currentData()
-        s.single_shape = bool(self.cmb_single.currentData())
+        place = self.cmb_single.currentData()
+        s.fit = "trim" if place == "trim" else "motif"
+        s.single_shape = place != "each"
         s.corner_mm = self.spn_corner.value()
         s.scale_pct = 100.0                          # Größe nur noch in mm (Feld bzw. Griffe)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
@@ -849,9 +854,25 @@ class CutContourDialog(QDialog):
         s.margin_mm = self.spn_margin.value()
         return s
 
+    @staticmethod
+    def _placement(s) -> str:
+        if s.shape != "contour" and getattr(s, "fit", "motif") == "trim":
+            return "trim"
+        return "motif" if s.single_shape else "each"
+
+    def _trim(self):
+        """Endformat der aktuellen Seite (Abstände links/unten/rechts/oben in pt) oder None."""
+        try:
+            from ..layout import page_trims_one
+            return page_trims_one(self.doc, self.page)
+        except Exception:
+            return None
+
     def _preview(self):
         """Seite im Hauptthread rendern (pdfium, wenige ms), Kontur im Hintergrund rechnen – Fenster bleibt bedienbar."""
         import copy
+        if getattr(self, "_closing", False):     # Fenster schließt bzw. Dokument schon zu: keine Vorschau mehr
+            return
         if self._pv_worker is not None and self._pv_worker.isRunning():
             self._pv_pending = True              # nach der laufenden Berechnung mit dem neuesten Stand nochmal
             return
@@ -870,11 +891,13 @@ class CutContourDialog(QDialog):
         self._pv_gen += 1
         self._pv_rgba, self._pv_size = rgba, size
         self.lbl_info.setText(tr("Berechne Vorschau …"))
-        self._pv_worker = _CutWorker(self._pv_gen, s, rgba.copy(), size)
+        self._pv_worker = _CutWorker(self._pv_gen, s, rgba.copy(), size, self._trim())
         self._pv_worker.done.connect(self._preview_done)
         self._pv_worker.start()
 
     def _preview_done(self, gen, r, err):
+        if getattr(self, "_closing", False):
+            return
         if self._pv_pending:                     # Einstellungen haben sich inzwischen geändert -> neu rechnen
             self._pv_pending = False
             QTimer.singleShot(0, self._preview)
@@ -958,6 +981,7 @@ class CutContourDialog(QDialog):
         self.accept()
 
     def done(self, r):
+        self._closing = True                     # verspätete Vorschau-Signale ignorieren (Dokument wird gleich geschlossen)
         if getattr(self, "_pv_timer", None) is not None:
             self._pv_timer.stop()
         w = getattr(self, "_pv_worker", None)

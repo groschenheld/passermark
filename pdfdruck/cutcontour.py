@@ -34,6 +34,8 @@ SHAPES = ["contour", "rect", "rounded", "circle", "oval", "hexagon", "octagon", 
 class CutSettings:
     dpi: int = 200
     shape: str = "contour"
+    fit: str = "motif"             # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
+                                   # "motif" = ums erkannte Motiv (gerechnet)
     offset_mm: float = 0.0         # Schnitt: + nach außen, − nach innen (vom Motiv bzw. von der Objektgröße)
     bleed: bool = True             # Überfüller erzeugen (aus = Motiv unverändert, z. B. für weiße Ränder)
     bleed_mm: float = 2.0          # Überfüller (ab Objekt, mindestens so weit über die Schnittlinie)
@@ -583,8 +585,33 @@ def _compute_object(ctx, job):
 
 
 
+def is_fast(s: CutSettings) -> bool:
+    """Grundform aufs Endformat: reine Geometrie – nichts rendern, nichts erkennen, kein Überfüller aus dem Motiv."""
+    return s.shape != "contour" and (s.fit or "motif") == "trim" and bool(s.single_shape)   # „je Objekt“ braucht Erkennung
+
+
+def fast_result(size, trim, s: CutSettings) -> CutResult:
+    """Schnittlinie als Grundform aufs Endformat. size = Seite (pt), trim = (links, unten, rechts, oben) Abstand
+    des Endformats vom Seitenrand in pt (layout.page_trims) oder None = ganze Seite. Größe/Abstand/Versatz wie sonst."""
+    W, H = size
+    l, b, r, t = trim or (0.0, 0.0, 0.0, 0.0)
+    x0, y0, x1, y1 = l, b, W - r, H - t
+    w, h = x1 - x0, y1 - y0
+    if s.shape == "circle" and not (s.width_mm > 0):
+        w = h = min(w, h)                         # Kreis ins Endformat
+    sw, sh = _offset_shape(s, w, h)
+    poly = shape_polygon(s.shape, (x0 + x1) / 2 + s.shift_x_mm * MM, (y0 + y1) / 2 + s.shift_y_mm * MM, sw, sh,
+                         s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
+    pts = poly.tolist()
+    px0, py0 = min(p[0] for p in pts), min(p[1] for p in pts)
+    px1, py1 = max(p[0] for p in pts), max(p[1] for p in pts)
+    obj = CutObject(paths=[(pts, False)], motif_box=(x0, y0, x1, y1),
+                    box=(min(px0, x0), min(py0, y0), max(px1, x1), max(py1, y1)))
+    return CutResult(objects=[obj], page_size=(W, H), dpi=s.dpi)
+
+
 def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progress=None,
-            cancel=None, pool=None) -> CutResult:
+            cancel=None, pool=None, trim=None) -> CutResult:
     """Schnitt + Überfüller für alle Objekte einer normalisierten Seite.
     rgba/size: schon gerenderte Seite (bei s.dpi) und Seitengröße in pt – dann wird pdfium hier nicht benutzt,
     und die Berechnung darf in einem Hintergrund-Thread laufen (pdfium ist nicht thread-sicher)."""
@@ -594,6 +621,8 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
     from scipy import ndimage as ndi
 
     W, H = size if size is not None else page.get_size()
+    if is_fast(s):
+        return fast_result((W, H), trim, s)
     px = s.dpi / 72.0
     if rgba is None:
         rgba = render_rgba(page, s.dpi)
@@ -800,6 +829,17 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     norm = normalized(doc)
     results, total = {}, 0
     todo = list(pages) if pages is not None else list(range(len(norm)))
+    if is_fast(s):                                        # Grundform aufs Endformat: keine Berechnung, kein Prozess
+        from .layout import page_trims
+        trims = page_trims(doc)
+        for k, i in enumerate(todo):
+            if progress is not None:
+                progress(k, len(todo), tr("Seite {0}/{1}").format(k + 1, len(todo)))
+            results[i] = fast_result(norm.get_page_size(i), trims[i], s)
+            total += 1
+        if progress is not None:
+            progress(len(todo), len(todo), tr("Schreibe PDF …"))
+        return _make_finish(norm, results, total, s, pages)
     pool = WorkerPool(workers) if workers > 1 else None
     try:
         at_once = _pages_at_once(norm, todo, s, workers) if (pool is not None and len(todo) >= 2) else 1

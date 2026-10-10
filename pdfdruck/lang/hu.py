@@ -1536,4 +1536,6 @@ MESSAGES = {
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} oldal szétvágva → egyenként {1} darab.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} oldal szétvágva: {1} → {2} oldal.",
     "Raster / weitere Optionen …": "Rács / további beállítások …",
+    "Auf das Endformat (ohne Berechnung)": "A vágott méretre (számítás nélkül)",
+    "Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "Alapformáknál: a „vágott méret” az alakzatot közvetlenül a vágott méretre teszi (TrimBox, egyébként az oldal) – azonnal, motívumfelismerés nélkül; a kifutót maga a PDF hozza. Egyébként egy alakzat a motívum összes része köré, vagy felismert objektumonként egy – pl. matricaívekhez. Az előnézetben az alakzat egérrel átméretezhető.",
 }

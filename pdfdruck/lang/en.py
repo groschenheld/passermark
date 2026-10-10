@@ -1536,4 +1536,6 @@ MESSAGES = {
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} page(s) will be split → {1} pieces each.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} pages split: {1} → {2} pages.",
     "Raster / weitere Optionen …": "Grid / more options …",
+    "Auf das Endformat (ohne Berechnung)": "On the trim size (no calculation)",
+    "Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "For basic shapes: “trim size” places the shape directly on the trim size (TrimBox, otherwise the page) – instantly, without motif detection; the bleed comes from the PDF itself. Otherwise one shape centred around all parts of the motif, or one per detected object – e.g. for sticker sheets. In the preview the shape can be resized with the mouse.",
 }

@@ -1536,4 +1536,6 @@ MESSAGES = {
     "{0} Seite(n) werden geteilt → je {1} Stück.": "{0} page(s) seront coupées → {1} morceaux chacune.",
     "{0} Seiten geteilt: {1} → {2} Seiten.": "{0} pages coupées : {1} → {2} pages.",
     "Raster / weitere Optionen …": "Grille / autres options …",
+    "Auf das Endformat (ohne Berechnung)": "Sur le format fini (sans calcul)",
+    "Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen.": "Pour les formes simples : « format fini » place la forme directement sur le format fini (TrimBox, sinon la page) – immédiatement, sans détection du motif ; le fond perdu vient du PDF lui-même. Sinon une forme centrée autour de tout le motif, ou une par objet détecté – p. ex. pour des planches d’autocollants. Dans l’aperçu, la forme se redimensionne à la souris.",
 }

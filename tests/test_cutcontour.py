@@ -285,6 +285,45 @@ def test_bleed_off_white_border():
         assert min(img.getpixel((x, y))[:3]) > 240                              # zwischen Motiv und Linie: weiß
 
 
+def test_fast_shape_on_trim_without_rendering():
+    """Grundform aufs Endformat: keine Seite rendern, kein Arbeitsprozess; Linie genau auf TrimBox (± Abstand)."""
+    import io, re
+    import pikepdf
+    from reportlab.pdfgen import canvas
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(91 * MM, 61 * MM))      # Visitenkarte 85 × 55 + 3 mm Anschnitt
+    c.setFillColorRGB(0.1, 0.4, 0.8); c.rect(0, 0, 91 * MM, 61 * MM, fill=1, stroke=0)
+    c.showPage(); c.save()
+    pk = pikepdf.open(io.BytesIO(buf.getvalue()))
+    pk.pages[0].TrimBox = [3 * MM, 3 * MM, 88 * MM, 58 * MM]
+    out = io.BytesIO(); pk.save(out)
+    doc = pdfium.PdfDocument(out.getvalue())
+    old = cutcontour.render_rgba
+    cutcontour.render_rgba = lambda *a, **k: (_ for _ in ()).throw(AssertionError("gerendert"))
+    old_pool = cutcontour.WorkerPool.get
+    cutcontour.WorkerPool.get = lambda self: (_ for _ in ()).throw(AssertionError("Arbeitsprozess"))
+    try:
+        for kw, box in (({"shape": "rect"}, (3, 3, 88, 58)),
+                        ({"shape": "rect", "offset_mm": -1}, (4, 4, 87, 57)),
+                        ({"shape": "circle"}, (18, 3, 73, 58))):
+            res, n = cutcontour.make(doc, cutcontour.CutSettings(fit="trim", **kw), workers=4)
+            b = io.BytesIO(); res.save(b)
+            pkr = pikepdf.open(io.BytesIO(b.getvalue()))
+            pg = pkr.pages[0]
+            data = b"".join(x.read_bytes() for x in (pg.Contents if isinstance(pg.Contents, pikepdf.Array) else [pg.Contents]))
+            tail = data.decode("latin1").split("/CSCut CS")[1]
+            pts = [(float(a), float(b_)) for a, b_ in re.findall(r"(-?[\d.]+) (-?[\d.]+) [ml]\b", tail)]
+            got = (min(x for x, _ in pts) / MM, min(y for _, y in pts) / MM, max(x for x, _ in pts) / MM, max(y for _, y in pts) / MM)
+            assert n == 1 and all(abs(g - e) < 0.05 for g, e in zip(got, box)), (kw, got)
+            assert b"PTBleed" not in data
+    finally:
+        cutcontour.render_rgba = old
+        cutcontour.WorkerPool.get = old_pool
+    # „je Objekt“ braucht Erkennung -> kein schneller Weg
+    assert not cutcontour.is_fast(cutcontour.CutSettings(shape="rect", fit="trim", single_shape=False))
+    assert not cutcontour.is_fast(cutcontour.CutSettings(shape="contour", fit="trim"))
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)
