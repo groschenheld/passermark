@@ -1,5 +1,15 @@
 # Änderungen – Passermark
 
+## 1.10.8
+
+- Internationalised the source-code documentation: translated all comments and
+  docstrings across the entire codebase (GUI, language packs, pdfdruck data
+  package, tests, platform scripts) from German to English; the GPL license
+  headers as well.
+- Added the missing "pdfdruck" data package (fixes the broken build).
+- No functional changes: strings, logic and behaviour are unchanged
+  (verified against the previous release via AST comparison).
+
 ## 1.10.7
 - **CutContour: Grundformen ohne Berechnung.** Neue Lage „Auf das Endformat (ohne Berechnung)“: Rechteck,
   abgerundetes Rechteck, Kreis … werden direkt aufs Endformat (TrimBox, sonst die Seite) gelegt – kein Rendern,
