@@ -74,13 +74,23 @@ def apply_sets(settings: dict, sets: list[str]) -> dict:
     return settings
 
 
+def _utf8_streams():
+    """Windows/PyInstaller ignoriert PYTHONIOENCODING -> stdout ist cp1252 und Zeichen wie „→“ brechen ab.
+    Darum selbst auf UTF-8 umstellen; nicht darstellbares wird ersetzt statt abzustürzen."""
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 class _Reporter:
     def __init__(self, json_mode: bool, quiet: bool):
         self.json, self.quiet = json_mode, quiet
         self.last = ""
 
     def emit(self, **ev):
-        sys.stdout.write(json.dumps(ev, ensure_ascii=False) + "\n")
+        sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")    # reines ASCII: egal welche Konsolen-Codepage
         sys.stdout.flush()
 
     def progress(self, done, total, text=""):
@@ -175,6 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     import faulthandler
     faulthandler.enable()                   # harter Absturz -> Ausgabe auf stderr (landet im Protokoll der Oberfläche)
+    _utf8_streams()
     from . import core
     from .l10n import tr
     parser = build_parser()

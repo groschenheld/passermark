@@ -1,4 +1,4 @@
-# Passermark 1.10.4
+# Passermark 1.10.5
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -102,7 +102,7 @@ nächste Start auf das Protokoll hin. Protokolle ohne Fehler werden beim Beenden
 ## Bauen
 
 Jeder Push auf `main` baut auf GitHub den Windows-Installer und das Linux-AppImage (**Actions**); beide werden
-mit `--selftest` geprüft. Ein Tag `v*` (z. B. `git tag v1.10.4 && git push origin v1.10.4`) hängt sie an ein
+mit `--selftest` geprüft. Ein Tag `v*` (z. B. `git tag v1.10.5 && git push origin v1.10.5`) hängt sie an ein
 GitHub-Release.
 
 Lokal: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, braucht Python 3.12 und

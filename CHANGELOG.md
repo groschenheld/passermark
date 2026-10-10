@@ -1,5 +1,11 @@
 # Änderungen – Passermark
 
+## 1.10.5
+- **Fix Windows:** „Seiten teilen“ (und jeder Auftrag, dessen Meldung Zeichen wie „→“ enthält) brach mit
+  `UnicodeEncodeError … cp1252` ab. Die Kommandozeile stellt ihre Ausgabe jetzt selbst auf UTF-8 um, die
+  Fortschrittsmeldungen an die Oberfläche sind reines ASCII
+- `SECURITY.md`, `CONTRIBUTING.md` und GitHub-Vorlagen für Fehlermeldungen und Vorschläge im Paket
+
 ## 1.10.4
 - README zweisprachig: `README.md` (Englisch) und `README.de.md` (Deutsch), auf aktuellem Stand (Seiten teilen,
   Variable Daten, Daten erfassen, alle Aufträge der Kommandozeile) und mit einem Hinweis zum Projektstatus
