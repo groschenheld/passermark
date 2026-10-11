@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Admin-Standards aus /etc/passermark/defaults.json.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Admin defaults from /etc/passermark/defaults.json.
 
-Das Programm liest diese Datei nur. Geschrieben wird sie ausschließlich über
-den Polkit-Helper /usr/libexec/passermark-admin (läuft als root).
-Benutzeränderungen leben nur im Speicher der laufenden Sitzung -> nach dem
-Beenden gelten automatisch wieder die Admin-Standards.
+The program only reads this file. It is written exclusively via the polkit helper
+/usr/libexec/passermark-admin (runs as root).
+User changes live only in the memory of the running session -> after quitting,
+the admin defaults automatically apply again.
 """
 from __future__ import annotations
 
@@ -53,9 +53,9 @@ BUILTIN = {
     #   "driver_options": {"<PPD-Key>": "<Wert>"}}]
     "color_profiles": [],
     "allow_user_profile_choice": True,
-    "image_default_dpi": 96,        # Bilder ohne DPI-Angabe: so groß wird 1 Pixel
+    "image_default_dpi": 96,        # images without a DPI value: this is how large 1 pixel becomes
     "office_converter": "auto",     # auto | libreoffice | onlyoffice | eurooffice
-    "language": "",                 # Standardsprache für alle Benutzer ("" = Systemsprache)
+    "language": "",                 # default language for all users ("" = system language)
 }
 
 

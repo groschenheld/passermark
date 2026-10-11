@@ -209,8 +209,97 @@ def test_more_variables():
     assert datakinds.mapped("event", {"Titel": "x", "_sys": {"datum": "1.1.2026"}})["Beginn"] == ""
 
 
+# --------------------------------------------------------------------------- #
+# 1.11 Fenster (Seitengruppen)
+# --------------------------------------------------------------------------- #
+def test_windows_migration_grouping():
+    """Altformat: Felder mit gleicher pages-Angabe landen gemeinsam in einem Fenster."""
+    s = vdp.VdpSettings(fields=[
+        dict(kind="text", content="{{Name}}", pages="ungerade"),
+        dict(kind="qr", content="{{nr}}", pages="ungerade"),
+        dict(kind="text", content="Rückseite", pages="gerade"),
+    ])
+    wins = vdp._windows(s)
+    assert len(wins) == 2, wins
+    assert wins[0].pages == "ungerade" and len(wins[0].fields) == 2
+    assert wins[1].pages == "gerade" and len(wins[1].fields) == 1
+    # Fenster geben die Seitenmenge vor; fester Bereich gewinnt vor ungerade/gerade
+    s2 = vdp.VdpSettings(windows=[dict(pages="5-8", fields=[dict(content="A")]),
+                                  dict(pages="ungerade", fields=[dict(content="B")]),
+                                  dict(pages="", fields=[dict(content="C")])])
+    res = vdp.windows_resolved(s2, 10)
+    assert [sorted(p) for p, _f in res] == [[4, 5, 6, 7], [0, 2, 8], list(range(10))], res
+    # Fenster mit „alle Seiten“ (Grundschicht) gelten überall – auch unter anderen Fenstern
+    # window_mode: nur gesetzt, wenn windows angegeben sind (Altformat bleibt Altformat)
+    assert vdp.window_mode(s) is False and vdp.window_mode(s2) is True
+
+
+def test_windows_pairing():
+    """Vorder-/Rückseite mit demselben Datensatz: 8 Datensätze x 2 Seiten -> 16 Seiten."""
+    s = vdp.VdpSettings(count=8, order="record", windows=[
+        vdp.VdpWindow(pages="ungerade", fields=[vdp.VdpField(content="Name {{i}}")]),
+        vdp.VdpWindow(pages="gerade", fields=[vdp.VdpField(kind="qr", content="{{i}}")]),
+    ])
+    assert vdp.window_mode(s) is True
+    seq = vdp.sequence("record", 8, [0, 1])
+    assert len(seq) == 16
+    assert seq[0] == (0, 0) and seq[1] == (0, 1)     # Datensatz 1: Seite 1 + 2
+    assert seq[2] == (1, 0) and seq[3] == (1, 1)     # Datensatz 2: Seite 1 + 2
+
+
+def test_output_info_warn():
+    """200 gestaltete Seiten, Fenster nur auf 2 Seiten, 8 Datensätze -> Warnung; 1 Datensatz: keine."""
+    s = vdp.VdpSettings(count=8, order="record", windows=[vdp.VdpWindow(pages="1,2", fields=[vdp.VdpField(content="{{nr}}")])])
+    info = vdp.output_info(s, 200, 8, 200)
+    assert info["pages"] == 1600 and info["warn"] is True and len(info["uncovered"]) == 198
+    assert vdp.output_info(s, 200, 1, 200)["warn"] is False
+    # Fenster decken alles ab: keine Warnung
+    s2 = vdp.VdpSettings(count=8, windows=[
+        vdp.VdpWindow(pages="ungerade", fields=[vdp.VdpField(content="A")]),
+        vdp.VdpWindow(pages="gerade", fields=[vdp.VdpField(content="B")])])
+    assert vdp.output_info(s2, 2, 8, 2)["warn"] is False
+    # Altformat: nie gewarnt (unverändertes Verhalten)
+    assert vdp.output_info(vdp.VdpSettings(count=3, fields=[dict(content="{{nr}}", pages="1")]), 6, 3, 6)["warn"] is False
+
+
+def test_build_windows_front_back(tmp_path=None):
+    """build() im Fenster-Modus: Ausgabe = Datensätze x Vorlagenseiten, Paar mit demselben Datensatz."""
+    from reportlab.lib.units import mm as _mm
+    from reportlab.pdfgen import canvas as _cv
+    tpl = os.path.join(TMP, "fw-tpl.pdf")
+    c = _cv.Canvas(tpl, pagesize=(85 * _mm, 55 * _mm))
+    c.drawString(5, 5, "VORNE")
+    c.showPage()
+    c.drawString(5, 5, "HINTEN")
+    c.showPage()
+    c.save()
+    s = vdp.VdpSettings(csv_path=CSV, order="record", windows=[
+        vdp.VdpWindow(pages="ungerade", fields=[
+            vdp.VdpField("text", "{{Name}} D{{datensatz}}", 2, 2, 80, 6, size_pt=6)]),
+        vdp.VdpWindow(pages="gerade", fields=[
+            vdp.VdpField("text", "QR {{Name}}", 2, 20, 80, 6, size_pt=6)]),
+    ])
+    out = os.path.join(TMP, "fw-out.pdf")
+    data, info = vdp.build(tpl, s)
+    open(out, "wb").write(data)
+    assert info["pages"] == 6, info                     # 3 Datensätze x 2 Seiten
+    t = [_text(out, i) for i in range(6)]
+    assert "Anna Müller D1" in t[0] and "VORNE" in t[0] and "QR" not in t[0], t[0]
+    assert "QR Anna Müller" in t[1] and "HINTEN" in t[1] and "D1" not in t[1], t[1]
+    assert "Béla Kovács D2" in t[2] and "QR Béla Kovács" in t[3]      # dasselbe Paar, derselbe Datensatz
+
+
+def test_legacy_settings_unchanged():
+    """Altformat ohne windows: Verhalten bleibt exakt wie bisher (order=each zählt Seiten reihum)."""
+    s = vdp.VdpSettings(count=2, order="each", pages_per_record=2)
+    assert vdp.window_mode(s) is False
+    seq = vdp.sequence(s.order, 2, [0, 1], s.pages_per_record)
+    assert seq == [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):
             f()
             print("ok", k)
+

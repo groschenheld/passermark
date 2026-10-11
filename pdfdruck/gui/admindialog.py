@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Verwaltung der Standards – speichert über pkexec + Helper (eine Passwortabfrage)."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Management of the defaults – saved via pkexec + helper (a single password prompt)."""
 from __future__ import annotations
 
 from ..l10n import tr
@@ -43,7 +43,7 @@ def _scroll(widget):
 
 
 def _fit_screen(dlg, want_w: int, want_h: int):
-    """Fenstergröße auf den verfügbaren Bildschirm begrenzen (Taskleiste/Skalierung berücksichtigt)."""
+    """Limit the window size to the available screen (taskbar/scaling accounted for)."""
     from PySide6.QtGui import QGuiApplication
     scr = dlg.screen() if hasattr(dlg, "screen") and dlg.screen() else QGuiApplication.primaryScreen()
     if scr is None:
@@ -63,7 +63,7 @@ class AdminDialog(QDialog):
         self.s = session
         self.cfg = copy.deepcopy(session.cfg)
         self.queue_changes: dict[tuple[str, str], str] = {}
-        self.touched: set[str] = set()          # Drucker, deren Standards geändert wurden
+        self.touched: set[str] = set()          # printers whose defaults were changed
         self.new_icc: dict[str, str] = {}       # id -> Quelldatei
         self.removed_icc: set[str] = set()
         try:
@@ -88,7 +88,7 @@ class AdminDialog(QDialog):
         bb.accepted.connect(self._save)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
-        _fit_screen(self, 900, 700)        # nie größer als der Bildschirm; der Rest scrollt
+        _fit_screen(self, 900, 700)        # never larger than the screen; the rest scrolls
 
     # ================================================================== #
     def _tab_general(self):
@@ -204,7 +204,7 @@ class AdminDialog(QDialog):
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
         n = self.l_nup.currentData()
-        L = dict(self.cfg["layout"])     # übrige Felder (Poster/Broschüre) erhalten
+        L = dict(self.cfg["layout"])     # remaining fields (poster/booklet) preserved
         L.update({
             "mode": self.l_mode.currentData(), "custom_percent": self.l_custom.value(),
             "nup": 1 if n == 0 else n,
@@ -340,7 +340,7 @@ class AdminDialog(QDialog):
         fit_width(inner)
         self.p_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-    # ---------------- Fächerbelegung ---------------- #
+    # ---------------- Tray assignment ---------------- #
     def _build_tray_table(self, v, name, caps, pc):
         from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableWidget
         skey, pkey, mkey = (caps.roles.get(r) for r in ("source", "pagesize", "mediatype"))
@@ -763,7 +763,7 @@ class AdminDialog(QDialog):
     def _save(self):
         self._collect_general()
         self._store_profile()
-        # leere Druckereinträge entfernen
+        # remove empty printer entries
         self.cfg["printers"] = {k: v for k, v in self.cfg.get("printers", {}).items()
                                 if v.get("options") or v.get("color_profile") or v.get("devmode") or v.get("presets")
                                 or v.get("trays")}
@@ -848,12 +848,12 @@ class AdminDialog(QDialog):
 
 
 def re_auto(choice) -> bool:
-    """„Automatisch“-Einträge gehören nicht in die Belegungstabelle."""
+    """"Automatic" entries do not belong in the assignment table."""
     return bool(re.search(r"^auto|automat", f"{choice.value} {choice.text}", re.I))
 
 
 class PresetDialog(QDialog):
-    """Neue Finisher-Vorlage: Name, Finisher-Optionen (nur geänderte zählen), Broschüre, ggf. Herstellerdialog."""
+    """New finisher template: name, finisher options (only changed ones count), booklet, optionally the vendor dialog."""
 
     def __init__(self, parent, caps, printer):
         super().__init__(parent)

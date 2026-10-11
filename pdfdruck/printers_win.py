@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Druckeranbindung unter Windows (pywin32).
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Printer integration on Windows (pywin32).
 
-Windows kennt keine PPD. Die Fähigkeiten eines Treibers stecken in zwei Teilen:
-  * öffentlich (DeviceCapabilities): Papierformate, Fächer, Duplex, Farbe, Medientypen
-    -> daraus baut Passermark die Basisfelder (alle Fächer immer wählbar)
-  * privat (DEVMODE-Treiberdaten): alles Herstellerspezifische – Finisher, Heften, Lochen, Falzen,
-    Beschnitt, Booklet, Stacker, Fiery-Optionen …
-    -> erreichbar über den ORIGINAL-Treiberdialog des Herstellers (DocumentProperties).
-       Passermark speichert das Ergebnis (Admin-Standard, Vorlage oder Sitzung) und setzt beim Druck
-       nur die Basisfelder darüber.
+Windows has no PPDs. A driver's capabilities live in two parts:
+  * public (DeviceCapabilities): paper sizes, trays, duplex, color, media types
+    -> Passermark builds the basic fields from these (all trays always selectable)
+  * private (DEVMODE driver data): everything vendor-specific – finishers, stapling, punching,
+    folding, trimming, booklet, stacker, Fiery options …
+    -> reachable via the vendor's ORIGINAL driver dialog (DocumentProperties).
+       Passermark stores the result (admin default, template or session) and only sets the
+       basic fields on top when printing.
 
-Gedruckt wird über GDI: PDFium zeichnet jede ausgeschossene Seite direkt in den Drucker-Gerätekontext
-(vektoriell; Rückfall: Rastern in Druckerauflösung).
+Printing goes through GDI: PDFium draws each imposed page directly into the printer device context
+(vectorial; fallback: rasterize at printer resolution).
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ PUBLIC_FIELDS = ("Orientation", "PaperSize", "PaperLength", "PaperWidth", "Scale
 
 
 # --------------------------------------------------------------------------- #
-# DEVMODE <-> Text (für Konfiguration und Sitzung)
+# DEVMODE <-> text (for configuration and session)
 # --------------------------------------------------------------------------- #
 def devmode_to_str(dm) -> str:
     d = {f: getattr(dm, f) for f in PUBLIC_FIELDS if hasattr(dm, f)}
@@ -54,7 +54,7 @@ def devmode_to_str(dm) -> str:
 
 
 def devmode_from_str(printer: str, s: str | None):
-    """Neuen DEVMODE des Druckers holen und gespeicherte Werte darüberlegen."""
+    """Fetch the printer's new DEVMODE and overlay the stored values."""
     import win32print
     h = win32print.OpenPrinter(printer)
     try:
@@ -72,7 +72,7 @@ def devmode_from_str(printer: str, s: str | None):
                 except Exception:
                     pass
         data = base64.b64decode(d.get("DriverData", "") or b"")
-        # private Treiberdaten nur übernehmen, wenn sie zum selben Treiber/Format passen
+        # take over private driver data only if they match the same driver/size
         if data and len(data) == len(bytes(dm.DriverData or b"")):
             try:
                 dm.DriverData = data
@@ -84,7 +84,7 @@ def devmode_from_str(printer: str, s: str | None):
 
 
 def driver_dialog(hwnd: int, printer: str, current: str | None) -> str | None:
-    """Original-Treiberdialog des Herstellers öffnen. Liefert neue Einstellungen oder None (Abbruch)."""
+    """Open the vendor's original driver dialog. Returns new settings or None (cancelled)."""
     import win32print
     h = win32print.OpenPrinter(printer)
     try:
@@ -98,7 +98,7 @@ def driver_dialog(hwnd: int, printer: str, current: str | None) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Drucker und Fähigkeiten
+# printers and capabilities
 # --------------------------------------------------------------------------- #
 def list_printers() -> list[PrinterInfo]:
     import win32print
@@ -172,7 +172,7 @@ def load_caps(name: str) -> PrinterCaps:
 
 
 def imageable_for(printer: str, values: dict):
-    """Bedruckbarer Bereich (pt) für das gewählte Papier – vom Treiber erfragt."""
+    """Printable area (pt) for the selected paper – queried from the driver."""
     import win32gui
     import win32print
     dm = _devmode_for_job(printer, values, 1, True)
@@ -207,7 +207,7 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
             pass
     from .printers import parse_custom
     cust = parse_custom(values.get("PageSize"))
-    if cust:                                             # Sonderformat: DMPAPER_USER mit Breite/Länge in 0,1 mm
+    if cust:                                             # custom size: DMPAPER_USER with width/length in 0.1 mm
         setf("PaperSize", DMPAPER_USER, DM_PAPERSIZE)
         setf("PaperWidth", round(cust[0] * 10), DM_PAPERWIDTH)
         setf("PaperLength", round(cust[1] * 10), DM_PAPERLENGTH)
@@ -221,7 +221,7 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
         setf("Color", values["ColorModel"], DM_COLOR)
     if values.get("MediaType"):
         setf("MediaType", values["MediaType"], DM_MEDIATYPE)
-    setf("Orientation", 1, DM_ORIENTATION)               # Blätter sind bereits physisch hochkant
+    setf("Orientation", 1, DM_ORIENTATION)               # sheets are already physically portrait
     setf("Copies", max(1, copies), DM_COPIES)
     setf("Collate", 1 if collate else 0, DM_COLLATE)
     dm.Fields = fields
@@ -238,15 +238,16 @@ DIB_RGB_COLORS = 0
 SRCCOPY = 0x00CC0020
 BI_RGB, BI_JPEG = 0, 4
 FPDF_PRINTMODE_EMF, FPDF_PRINTMODE_POSTSCRIPT3 = 0, 3
-BAND_BYTES = 24 * 1024 * 1024          # Speicher je Rasterstreifen (konstant, unabhängig von Seitengröße/Auflösung)
+BAND_BYTES = 24 * 1024 * 1024          # memory per raster strip (constant, independent of page size/resolution)
 
 
 HALFTONE = 4
 
 
 def _gdi32():
-    """gdi32 mit festen Argumenttypen: Gerätekontexte sind Zeiger (64 bit) – ohne argtypes gibt ctypes Ganzzahlen
-    als 32-bit-int weiter."""
+    """gdi32 with fixed argument types: device contexts are pointers (64 bit) – without argtypes, ctypes passes
+        integers as 32-bit ints.
+    """
     import ctypes
     from ctypes import c_int, c_uint, c_ulong, c_void_p
     g = ctypes.windll.gdi32
@@ -304,8 +305,9 @@ MODES = ("auto", "raster", "raster_jpeg", "postscript", "vector")
 
 
 def choose_mode(gdi, hdc, wanted: str) -> str:
-    """Automatisch = Raster ohne JPEG: der verträglichste Weg (nur StretchDIBits). PostScript und
-    JPEG-Durchreichen melden manche Treiber als „unterstützt“ und liefern dann leere Blätter – nur auf Wunsch."""
+    """Automatic = raster without JPEG: the most compatible path (StretchDIBits only). Some drivers report PostScript
+        and JPEG passthrough as "supported" and then produce blank sheets – only on request.
+    """
     if wanted == "auto":
         return "raster"
     if wanted == "postscript" and not _escape_supported(gdi, hdc, POSTSCRIPT_PASSTHROUGH):
@@ -314,7 +316,7 @@ def choose_mode(gdi, hdc, wanted: str) -> str:
 
 
 def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jpeg):
-    """Seite in waagrechten Streifen rastern und an den Treiber geben (BGR-DIB bzw. JPEG, wenn möglich)."""
+    """Rasterize the page in horizontal strips and hand it to the driver (BGR DIB or JPEG, if possible)."""
     import ctypes
     import io as _io
     dpx, dpy = dev_dpi
@@ -344,7 +346,7 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
                 data = jp
         if data is None:
             stride = (img.width * 3 + 3) & ~3
-            data = img.tobytes("raw", "BGR", stride, -1)          # unten-oben (positive Höhe)
+            data = img.tobytes("raw", "BGR", stride, -1)          # bottom-top (positive height)
             bih.biHeight, bih.biCompression, bih.biSizeImage = img.height, BI_RGB, len(data)
         buf = ctypes.create_string_buffer(data, len(data))
         r = gdi.StretchDIBits(hdc, -ox, -oy + dy0, dw, dy1 - dy0, 0, 0, img.width, img.height,
@@ -359,13 +361,13 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
 
 def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int = 1, collate: bool = True,
               force_mode: str | None = None) -> int:
-    """Das fertig ausgeschossene PDF Seite für Seite an den Windows-Treiber geben.
+    """Hand the fully imposed PDF to the Windows driver page by page.
 
-    Verfahren (Datei → Einstellungen → Drucken unter Windows):
-      auto       PostScript-Treiber -> postscript, sonst raster
-      postscript pdfium erzeugt PostScript für den Treiber (vektoriell, kompakt; Canon PS3, Fiery …)
-      raster     Seite selbst in Streifen rastern (konstanter Speicher; JPEG, wenn der Treiber es kann)
-      vector     früheres Verfahren: pdfium zeichnet per GDI (kann bei Transparenz/Mehrfachnutzen sehr groß werden)
+        Method (File → Settings → Printing on Windows):
+          auto       PostScript driver -> postscript, otherwise raster
+          postscript pdfium produces PostScript for the driver (vectorial, compact; Canon PS3, Fiery …)
+          raster     rasterize the page in strips ourselves (constant memory; JPEG if the driver can)
+          vector     former method: pdfium draws via GDI (can grow very large with transparency/multiple tiles)
     """
     import ctypes
 
@@ -408,7 +410,7 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
             for fn, args in (("SetStretchBltMode", (hdc, HALFTONE)), ("SetBrushOrgEx", (hdc, 0, 0, None))):
                 f = getattr(gdi, fn, None)
                 if f is not None:
-                    f(*args)                      # Halbton: saubere Verkleinerung, empfohlen für Drucker
+                    f(*args)                      # halftone: clean downscaling, recommended for printers
         job = win32print.StartDoc(hdc, (title[:120], None, None, 0))
         info["pages"] = 0
         info["bands"] = 0
@@ -451,8 +453,9 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
 
 
 def _log_job(info: dict):
-    """Jeden Windows-Druckauftrag kurz protokollieren (Verfahren, Auflösung, Treiber-Fähigkeiten) – hilft bei
-    leeren Blättern o. ä.: Datei druck-windows.log im Protokollordner, die letzten 200 Aufträge."""
+    """Briefly log every Windows print job (method, resolution, driver capabilities) – helps with
+        blank sheets and the like: file druck-windows.log in the log folder, the last 200 jobs.
+    """
     import datetime
     import os
     try:
@@ -467,7 +470,7 @@ def _log_job(info: dict):
         lines.append(datetime.datetime.now().isoformat(timespec="seconds") + " " + json.dumps(info, default=str, ensure_ascii=False))
         with open(p, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
-    except Exception:                                   # noqa: BLE001 – Protokoll darf den Druck nie stören
+    except Exception:                                   # noqa: BLE001 – logging must never disturb printing
         pass
 
 
@@ -478,7 +481,7 @@ TEST_MODES = (("raster", "Raster"), ("raster_jpeg", "Raster + JPEG"), ("postscri
 
 
 def test_page_pdf(label: str, printer: str) -> bytes:
-    """Eine A4-Testseite: großer Verfahrensname, Rahmen, Farbfelder (ohne Zusatzbibliotheken, mit pikepdf)."""
+    """An A4 test page: large method name, frame, color patches (no extra libraries, with pikepdf)."""
     import datetime
 
     import pikepdf
@@ -507,8 +510,9 @@ def test_page_pdf(label: str, printer: str) -> bytes:
 
 
 def test_print(printer: str, values: dict | None = None) -> list[tuple[str, str]]:
-    """Je Verfahren eine Testseite an den Drucker schicken. Ergebnis: [(Verfahren, „ok“ | Fehler)].
-    Welche Blätter mit Inhalt ankommen, zeigt, welches Verfahren der Treiber wirklich kann."""
+    """Send one test page per method to the printer. Result: [(method, "ok" | error)].
+        Which sheets arrive with content shows which method the driver really supports.
+    """
     import os
     import tempfile
     out = []

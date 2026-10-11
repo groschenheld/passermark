@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dunkles Design mit gelbem Akzent („Konsole“, aber sachlich) + globaler Mausrad-Schutz."""
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ BG = "#15171a"          # Fenster
 PANEL = "#1e2124"       # Leisten, Gruppen
 FIELD = "#0e1012"       # Eingabefelder
 VIEW = "#2a2d31"        # Hintergrund hinter den Seiten
-BORDER = "#5a6068"      # Rahmen (bewusst hell genug für Kontrast)
+BORDER = "#5a6068"      # border (deliberately light enough for contrast)
 TEXT = "#f3f4f5"
 MUTED = "#a9afb6"
 ACCENT = "#ffc62b"      # Gelb
@@ -118,7 +118,7 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
 
 
 def _indicator_qss() -> str:
-    """Schwarzes Häkchen bzw. Punkt auf gelbem Grund (QSS braucht dafür Bilddateien)."""
+    """Black check mark or dot on a yellow background (QSS needs image files for that)."""
     from .. import platform as _platform
     d = os.path.join(tempfile.gettempdir(), f"pdfdruck-theme-{_platform.user_id()}")
     os.makedirs(d, exist_ok=True)
@@ -130,7 +130,7 @@ def _indicator_qss() -> str:
     for name, svg in files.items():
         with open(os.path.join(d, name), "w") as f:
             f.write(svg)
-    chk = os.path.join(d, "check.svg").replace("\\", "/")      # QSS will Schrägstriche, auch unter Windows
+    chk = os.path.join(d, "check.svg").replace("\\", "/")      # QSS wants forward slashes, even on Windows
     dot = os.path.join(d, "dot.svg").replace("\\", "/")
     return f"""
 QCheckBox::indicator:checked, QListView::indicator:checked, QGroupBox::indicator:checked {{
@@ -142,8 +142,9 @@ QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled 
 
 
 class WheelGuard(QObject):
-    """Mausrad verändert NIE Auswahlfelder/Zahlenfelder – es scrollt immer die Umgebung.
-    Werte ändert man per Klick bzw. Tastatur."""
+    """The mouse wheel NEVER changes selection fields/spin boxes – it always scrolls the surroundings.
+        Values are changed by clicking or via the keyboard.
+    """
 
     TYPES = (QComboBox, QAbstractSpinBox, QSlider)
 

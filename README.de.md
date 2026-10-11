@@ -1,9 +1,9 @@
-# Passermark 1.10.8
+# Passermark 1.11.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
 
-**English:** [README.md](README.md)
+**English:** [README.md](README.md) · **Deutsch** · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
 
 > **Status:** ein privates Projekt, entwickelt neben der täglichen Arbeit in der Druckvorstufe. Rückmeldungen
 > sind willkommen – Antworten und neue Funktionen ohne Garantie. Getestet mit CUPS- und Windows-Treibern
@@ -29,12 +29,14 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Bearbeiten:** Textzeilen und Ebenen mit der Maus wählen; Text, Schrift und Größe ändern; Ebenen
   verschieben, skalieren, ausblenden, entfernen oder ersetzen; Rückgängig.
 - Lineale und Messen: Lineale in mm am Rand der Ansicht; Start und Ende anklicken zum Messen (Umschalt rastet
-  waagrecht/senkrecht/45° ein), Ergebnis in der Statusleiste.
+  waagrecht/senkrecht/45° ein), Ergebnis in der Statusleiste. Mit gedrückter Strg rastet das Fadenkreuz magnetisch an Schnitt- und Innenlinien (Seitenrand,
+  Endformat, Anschnitt), Bildkanten und Vektorlinien ein – nie an Text; es bleibt an der Kante kleben,
+  bis die Maus deutlich weiterzieht. Das Endformat-Overlay zeigt das Endformat grün und den Anschnitt als Punktlinie.
 - **Variable Daten:** Nummerierung (Start, Schrittweite, Stellen, Prüfziffern, rückwärts, Weiterzählen), Text
   aus CSV, QR-Codes, Code 128 und EAN-13 als Vektor (mit Ruhezone); Platzhalter `{{…}}` im PDF; Datum, Seite,
   Zufallszahl und weitere Variablen; mehrere Seiten je Datensatz (Vorder-/Rückseite) und Felder auf
   ungeraden/geraden Seiten; Code-Protokoll; Nutzen mit eigenem Datensatz je Nutzen (Bogen für Bogen oder
-  Schneiden und Stapeln). Auch auf der Kommandozeile (`passermark-cli vdp`).
+  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`).
 - **Daten erfassen:** die Datentabelle direkt in Passermark anlegen – QR-Visitenkarte (vCard), WLAN-Zugang,
   E-Mail, Webadresse, Anruf, SMS, Termin, Standort, Code 128, EAN-13 – mit passenden Spalten, sofortiger
   Prüfung und Einfügen aus Excel; gespeichert als CSV und direkt in Variable Daten verwendbar. Eigene CSV-Dateien
@@ -102,7 +104,7 @@ nächste Start auf das Protokoll hin. Protokolle ohne Fehler werden beim Beenden
 ## Bauen
 
 Jeder Push auf `main` baut auf GitHub den Windows-Installer und das Linux-AppImage (**Actions**); beide werden
-mit `--selftest` geprüft. Ein Tag `v*` (z. B. `git tag v1.10.8 && git push origin v1.10.8`) hängt sie an ein
+mit `--selftest` geprüft. Ein Tag `v*` (z. B. `git tag v1.10.7 && git push origin v1.10.7`) hängt sie an ein
 GitHub-Release.
 
 Lokal: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, braucht Python 3.12 und

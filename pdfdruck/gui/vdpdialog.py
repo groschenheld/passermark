@@ -38,6 +38,9 @@ class VdpCanvas(QWidget):
         self.page_mm = (210.0, 297.0)
         self.fields = []
         self.sel = -1
+        self.vis = None              # sichtbare Feldindizes (Fenster der aktuellen Seite) oder None = alle
+        self.trim = None             # Innenrahmen/Endformat (links, oben, rechts, unten) in mm – None = keiner
+        self.bleed = 0.0             # Anschnitt/Überfüller außen um den Innenrahmen, in mm
         self._drag = None
 
     def _geom(self):
@@ -58,7 +61,21 @@ class VdpCanvas(QWidget):
             p.drawPixmap(QRectF(ox, oy, W * s, H * s), self.pix, QRectF(self.pix.rect()))
         else:
             p.fillRect(QRectF(ox, oy, W * s, H * s), QColor("#ffffff"))
+        if self.trim is not None:
+            l, t, r, b = self.trim
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            pen = QPen(QColor("#2e9e4f"), 1)          # Innenrahmen: Endformat/Innenabstand
+            p.setPen(pen)
+            p.drawRect(QRectF(ox + l * s, oy + t * s, max(1.0, W - l - r) * s, max(1.0, H - t - b) * s))
+            if self.bleed > 0:                          # außen: Anschnitt/Überfüller
+                pen = QPen(QColor("#e04040"), 1)
+                pen.setStyle(Qt.PenStyle.DashLine)
+                p.setPen(pen)
+                p.drawRect(QRectF(ox + (l - self.bleed) * s, oy + (t - self.bleed) * s,
+                                  (W - l - r + 2 * self.bleed) * s, (H - t - b + 2 * self.bleed) * s))
         for i, f in enumerate(self.fields):
+            if self.vis is not None and i not in self.vis:
+                continue        # Feld gehört zu einem Fenster, das diese Seite nicht abdeckt
             col = QColor(theme.ACCENT if i == self.sel else "#ec008c")
             pen = QPen(col, 2 if i == self.sel else 1)
             pen.setStyle(Qt.PenStyle.SolidLine if i == self.sel else Qt.PenStyle.DashLine)
@@ -71,7 +88,9 @@ class VdpCanvas(QWidget):
 
     def mousePressEvent(self, e):
         pos = e.position()
-        hit = next((i for i in reversed(range(len(self.fields))) if self._rect(self.fields[i]).contains(pos)), -1)
+        hit = next((i for i in reversed(range(len(self.fields)))
+                    if (self.vis is None or i in self.vis)
+                    and self._rect(self.fields[i]).contains(pos)), -1)
         if hit >= 0:
             self.sel = hit
             self.picked.emit(hit)
@@ -110,6 +129,8 @@ class VdpDialog(QDialog):
         self._sample: dict = {}                # erster Datensatz der CSV (für Zuordnung/Vorschau)
         self._guess = "text"                   # erkannte Art der CSV (datakinds.guess_kind)
         self._csv = ""                         # gewählte CSV (vollständiger Pfad) – Quelle für die Einstellungen
+        self._trims = None                     # Endformat je Seite (layout.page_trims), lazily
+        self._doc_bleeds = []                  # Anschnitt je Seite (layout.page_doc_bleeds), lazily
         self.job = None
         self._loading = False
 
@@ -160,8 +181,42 @@ class VdpDialog(QDialog):
         # ---------------- 1. Felder ----------------
         g = QGroupBox(tr("1. Felder auf der Seite"))
         v = QVBoxLayout(g)
-        self._help(v, tr("Jedes Feld ist ein Kasten auf der Seite. In der Vorschau anklicken zum Auswählen, ziehen "
-                         "zum Verschieben."))
+        self._help(v, tr("Jedes Feld liegt in einem Fenster, und jedes Fenster gilt für bestimmte Seiten der "
+                         "Vorlage – z. B. Namen auf den ungeraden (Vorderseiten), QR-Code auf den geraden "
+                         "(Rückseiten)."))
+        self.windows: list[vdp.VdpWindow] = [vdp.VdpWindow()]
+        self.win = 0                                   # aktives Fenster
+        self._win_pending = False                      # „Seitenbereich …“ gewählt, aber noch nichts getippt
+        row_w = QHBoxLayout()
+        self.cmb_win = QComboBox()
+        self.cmb_win.currentIndexChanged.connect(self._win_changed)
+        row_w.addWidget(self.cmb_win, 1)
+        b = QPushButton("+ " + tr("Fenster"))
+        b.setToolTip(tr("Weiteres Fenster anlegen – z. B. Vorderseiten (Name), Rückseiten (QR-Code)"))
+        b.clicked.connect(self._win_add)
+        row_w.addWidget(b)
+        self.btn_win_del = QPushButton("−")
+        self.btn_win_del.setToolTip(tr("Aktuelles Fenster entfernen – seine Felder wandern ins erste Fenster"))
+        self.btn_win_del.clicked.connect(self._win_del)
+        row_w.addWidget(self.btn_win_del)
+        self._field(v, tr("Fenster (Seitengruppen)"),
+                    tr("Jedes Fenster legt fest, auf welchen Seiten der Vorlage seine Felder stehen. „Alle "
+                       "Seiten“ ist die Grundschicht und gilt überall (z. B. der Name der Veranstaltung auf "
+                       "jeder Karte) – weitere Fenster kommen zu ihren Seiten hinzu: ungerade (Vorderseiten), "
+                       "gerade (Rückseiten) oder ein fester Seitenbereich, der für seine Seiten vor "
+                       "ungerade/gerade gewinnt."), row_w)
+        row_p = QHBoxLayout()
+        self.cmb_winpages = QComboBox()
+        fill_combo(self.cmb_winpages, [("", tr("alle Seiten")), ("ungerade", tr("ungerade Seiten (Vorderseiten)")),
+                                       ("gerade", tr("gerade Seiten (Rückseiten)")),
+                                       ("bereich", tr("Seitenbereich …"))], "")
+        self.cmb_winpages.currentIndexChanged.connect(self._win_field_changed)
+        self.ed_winpages = QLineEdit()
+        self.ed_winpages.setPlaceholderText(tr("z. B. 1,3-5 oder ungerade 1-50"))
+        self.ed_winpages.editingFinished.connect(self._win_field_changed)
+        row_p.addWidget(self.cmb_winpages, 1)
+        row_p.addWidget(self.ed_winpages, 1)
+        self._field(v, tr("Seiten dieses Fensters"), "", row_p)
         self.lst = QListWidget()
         self.lst.setMaximumHeight(110)
         self.lst.currentRowChanged.connect(self._select)
@@ -178,6 +233,12 @@ class VdpDialog(QDialog):
         b.clicked.connect(self._delete)
         row.addWidget(b)
         v.addLayout(row)
+        self.cmb_fieldwin = QComboBox()
+        self.cmb_fieldwin.currentIndexChanged.connect(self._fieldwin_changed)
+        self._field(v, tr("Fenster des gewählten Feldes"),
+                    tr("Zeigt, zu welchem Fenster das gewählte Feld gehört – hier auswählen, um es in ein anderes "
+                       "Fenster umzuziehen. Neue Felder landen im Fenster, das oben gerade gewählt ist."),
+                    self.cmb_fieldwin)
 
         self.ed_content = QLineEdit()
         self.ed_content.setPlaceholderText("{{nr}}")
@@ -233,6 +294,19 @@ class VdpDialog(QDialog):
         self.spn_h.setMinimum(1)
         self._field(v, tr("Lage und Größe"), tr("Abstand von der linken oberen Seitenecke, dazu Breite und Höhe des "
                                                 "Kastens. Codes werden in den Kasten eingepasst."), row)
+        row_i = QHBoxLayout()
+        self.spn_inner = QDoubleSpinBox()
+        self.spn_inner.setRange(0, 100)
+        self.spn_inner.setDecimals(1)
+        self.spn_inner.setSuffix(" mm")
+        self.spn_inner.valueChanged.connect(self._update_boxes)
+        row_i.addWidget(self.spn_inner)
+        row_i.addStretch()
+        self._field(v, tr("Innenrahmen (Hilfslinie)"),
+                    tr("Vorschau: grüner Rahmen = deklariertes Endformat (TrimBox), roter gestrichelter Rahmen "
+                       "außen = Anschnitt (Überfüller). Deklariert die Vorlage beides nicht, zeigt dieser "
+                       "Abstand einen grünen Hilfsrahmen – nur eine Platzierungshilfe, die nicht mitgedruckt "
+                       "wird."), row_i)
         row = QHBoxLayout()
         self.cmb_font = QComboBox()
         for fn in vdp.STD_FONTS:
@@ -261,12 +335,6 @@ class VdpDialog(QDialog):
         row.addWidget(self.cmb_rot)
         self._field(v, tr("Ausrichtung und Drehung"), tr("Text links/mittig/rechts im Kasten; Drehung des Inhalts "
                                                          "im Kasten (90° = von unten nach oben lesbar)."), row)
-        self.ed_pages = QLineEdit()
-        self.ed_pages.setPlaceholderText(tr("alle Seiten"))
-        self._field(v, tr("Nur auf diesen Seiten der Vorlage"),
-                    tr("Leer = auf jeder Seite. Z. B. „1“, „1,3-4“, „ungerade“ (Vorderseiten), „gerade“ "
-                       "(Rückseiten) oder „ungerade 1-50“. Mit „Seiten je Datensatz“ 2 unter 2. gehören Vorder- und "
-                       "Rückseite zum selben Datensatz."), self.ed_pages)
         self.chk_ph = QCheckBox(tr("Platzhalter {{…}} aus dem PDF als Textfelder übernehmen"))
         self._field(v, "", tr("Steht in der Vorlage z. B. {{Name}}, wird dort der Wert eingesetzt und der "
                               "Platzhaltertext entfernt – dann braucht es dafür kein eigenes Feld."), self.chk_ph)
@@ -306,23 +374,11 @@ class VdpDialog(QDialog):
                                                      "Spaltennamen. Aus Excel/LibreOffice: „Speichern unter → CSV“. "
                                                      "Ohne CSV werden nur Nummern erzeugt."), row)
         v.addLayout(row_g)
-        self.cmb_order = QComboBox()
-        fill_combo(self.cmb_order, [
-            ("each", tr("Jede Seite bekommt den nächsten Datensatz")),
-            ("record", tr("Je Datensatz eine Kopie des ganzen Dokuments")),
-            ("page", tr("Je Datensatz eine Kopie – sortiert Seite für Seite"))], "each")
-        self._field(v, tr("Wie werden die Datensätze verteilt?"),
-                    tr("„Jede Seite …“: Seite 1 bekommt Datensatz 1, Seite 2 Datensatz 2 usw. – bei einer einseitigen "
-                       "Vorlage entsteht je Datensatz eine Seite. „Kopie des ganzen Dokuments“: alle Seiten mit "
-                       "demselben Datensatz, dann alle Seiten mit dem nächsten (z. B. Vorder- und Rückseite einer "
-                       "Karte)."), self.cmb_order)
-        self.spn_ppr = QSpinBox()
-        self.spn_ppr.setRange(1, 100)
-        self.spn_ppr.setValue(1)
-        self._field(v, tr("Seiten je Datensatz"),
-                    tr("Bei „Jede Seite …“: so viele aufeinanderfolgende Seiten gehören zu einem Datensatz. 2 = Vorder- "
-                       "und Rückseite: Seite 1+2 → Datensatz 1, Seite 3+4 → Datensatz 2 … – mit „ungerade“/„gerade“ "
-                       "beim Feld kommt z. B. der Name nach vorne und der QR-Code nach hinten."), self.spn_ppr)
+        self.lbl_result = QLabel()
+        self.lbl_result.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT};")
+        self._field(v, tr("Ergebnis"), tr("Jeder Datensatz bekommt eine eigene Runde über die Seiten der Vorlage – "
+                                          "die Seiten werden entsprechend dupliziert (Vorder- und Rückseite "
+                                          "gehören zum selben Datensatz)."), self.lbl_result)
         self.lst_cols = QListWidget()
         self.lst_cols.setMaximumHeight(80)
         self.lst_cols.itemDoubleClicked.connect(lambda it: self._insert("{{" + it.text() + "}}"))
@@ -338,6 +394,26 @@ class VdpDialog(QDialog):
         self.ed_records.setPlaceholderText(tr("alle"))
         self._field(v, tr("Nur diese Datensätze"), tr("Leer = alle. Z. B. „1-50“ für einen Probedruck oder "
                                                       "„51-“ für den Rest."), self.ed_records)
+        row_o = QHBoxLayout()
+        self.cmb_order = QComboBox()
+        fill_combo(self.cmb_order, [
+            ("record", tr("Bogen für Bogen: erst alle Seiten mit Datensatz 1")),
+            ("page", tr("Seite für Seite: erst Seite 1 mit allen Datensätzen")),
+            ("each", tr("Ohne Duplikate: je Datensatz die nächste(n) Seite(n) der Vorlage"))], "record")
+        self.spn_ppr = QSpinBox()
+        self.spn_ppr.setRange(1, 1000)
+        self.spn_ppr.setValue(2)
+        self.spn_ppr.setEnabled(False)
+        self.spn_ppr.valueChanged.connect(self._field_changed)
+        self.cmb_order.currentIndexChanged.connect(self._order_changed)
+        row_o.addWidget(self.cmb_order, 1)
+        row_o.addWidget(QLabel(tr("Seiten je Datensatz:")))
+        row_o.addWidget(self.spn_ppr)
+        self._field(v, tr("Erweitert: Sortierung der Ausgabe"),
+                    tr("„Ohne Duplikate“: die Vorlage wird nicht vervielfältigt – je Datensatz die nächsten "
+                       "„Seiten je Datensatz“ der Vorlage (2 = Vorder- und Rückseite). Z. B. 10 Kartenseiten, "
+                       "2 Seiten je Datensatz = 5 Datensätze, Ergebnis 10 Seiten. Die Reihenfolge der Seiten "
+                       "bleibt sonst unverändert."), row_o)
         right.addWidget(g)
 
         # ---------------- 3. Nummerierung ----------------
@@ -417,10 +493,11 @@ class VdpDialog(QDialog):
 
         # Änderungen -> Vorschau (verzögert)
         self._timer = QTimer(self, singleShot=True, interval=350, timeout=self._refresh)
-        for w_ in (self.ed_content, self.ed_records, self.ed_prefix, self.ed_suffix, self.ed_pages, self.ed_cont):
+        for w_ in (self.ed_content, self.ed_records, self.ed_prefix, self.ed_suffix, self.ed_winpages,
+                   self.ed_cont):
             w_.textChanged.connect(self._field_changed)
         for w_ in (self.spn_x, self.spn_y, self.spn_w, self.spn_h, self.spn_size, self.spn_start, self.spn_step,
-                   self.spn_digits, self.spn_count, self.spn_ppr):
+                   self.spn_digits, self.spn_count):
             w_.valueChanged.connect(self._field_changed)
         for w_ in (self.cmb_align, self.cmb_rot, self.cmb_check, self.cmb_order):
             w_.currentIndexChanged.connect(self._field_changed)
@@ -473,16 +550,43 @@ class VdpDialog(QDialog):
     def _sel(self) -> int:
         return self.lst.currentRow()
 
+    def _update_vis(self):
+        """Sichtbare Felder der aktuellen Vorschauseite – gleiche Logik wie beim Druck:
+        „alle Seiten“ (Grundschicht) zeigt überall; unter den Seiten-Angaben gewinnt der
+        festgelegte Bereich vor ungerade/gerade, bei Gleichrang das erste Fenster."""
+        npages = max(1, len(self.doc))
+        wins = []
+        for w in self.windows:
+            p = (w.pages or "").strip()
+            pgs = vdp._page_set(p, npages) if p else set(range(npages))
+            prec = 0 if not p else (1 if p in ("ungerade", "gerade") else 2)
+            wins.append((pgs, prec, list(w.fields or [])))
+        best = None
+        for i, (pgs, prec, _f) in enumerate(wins):
+            if self.page in pgs and prec >= 1 and (best is None or prec > wins[best][1]):
+                best = i
+        vis = set()
+        for i, (pgs, prec, flds) in enumerate(wins):
+            if (prec == 0 and pgs) or i == best:
+                vis |= {gi for gi, g in enumerate(self.fields) if any(g is x for x in flds)}
+        self.canvas.vis = vis or None
+        vis = self.canvas.vis
+        if vis is not None and self.canvas.sel not in vis and self.canvas.sel >= 0:
+            vis_sorted = sorted(vis)
+            if vis_sorted:
+                self.canvas.sel = vis_sorted[0]
+
     def _fill_list(self):
         self.lst.blockSignals(True)
         cur = self.lst.currentRow()
         self.lst.clear()
         for i, f in enumerate(self.fields):
-            self.lst.addItem(_item_text(i, f))
+            self.lst.addItem(_item_text(i, f, self._field_of(i) if len(self.windows) > 1 else -1))
         self.lst.setCurrentRow(min(max(cur, 0), len(self.fields) - 1))
         self.lst.blockSignals(False)
         self.canvas.fields = self.fields
         self.canvas.sel = self.lst.currentRow()
+        self._update_vis()
 
     def _add(self, kind):
         W, H = self._page_mm()
@@ -492,6 +596,7 @@ class VdpDialog(QDialog):
         n = len(self.fields)
         self.fields.append(vdp.VdpField(kind=kind, content=content, x_mm=min(10 + 5 * n, W - w), y_mm=min(10 + 5 * n, H - h),
                                         w_mm=w, h_mm=h))
+        self._assign_to_window(len(self.fields) - 1)
         self._fill_list()
         self.lst.setCurrentRow(len(self.fields) - 1)
         self._select(len(self.fields) - 1)
@@ -500,10 +605,130 @@ class VdpDialog(QDialog):
     def _delete(self):
         i = self._sel()
         if 0 <= i < len(self.fields):
+            f = self.fields[i]
             del self.fields[i]
+            for w_ in self.windows:
+                w_.fields = [x for x in (w_.fields or []) if x is not f]
             self._fill_list()
             self._select(self.lst.currentRow())
             self._timer.start()
+
+    # ---------------- Fenster (Seitengruppen) ----------------
+    def _order_changed(self, *_):
+        """„Seiten je Datensatz“ nur bei „Ohne Duplikate“ nötig."""
+        self.spn_ppr.setEnabled((self.cmb_order.currentData() or "") == "each")
+        self._field_changed()
+
+    def _win_titles(self):
+        out = []
+        for i, w in enumerate(self.windows):
+            if i == self.win and self._win_pending:
+                out.append(tr("Fenster {0}: {1}").format(i + 1, tr("Seitenbereich …")))
+                continue
+            t = {"": tr("alle Seiten"), "ungerade": tr("ungerade Seiten"),
+                 "gerade": tr("gerade Seiten")}.get((w.pages or "").strip())
+            if t is None:
+                t = (w.pages or "").strip() or tr("alle Seiten")
+            out.append(tr("Fenster {0}: {1}").format(i + 1, t))
+        return out
+
+    def _win_refresh(self):
+        """Fenster-Zeile nachführen; die Feldliste zeigt die Fenster-Kennung mit an."""
+        self.cmb_win.blockSignals(True)
+        self.cmb_win.clear()
+        self.cmb_win.addItems(self._win_titles())
+        self.cmb_win.setCurrentIndex(min(self.win, len(self.windows) - 1))
+        self.cmb_win.blockSignals(False)
+        self.btn_win_del.setEnabled(len(self.windows) > 1)
+        w = self.windows[self.win]
+        p = (w.pages or "").strip()
+        if not self._win_pending:                  # nicht zurücksetzen, während der Nutzer den Bereich eintippt
+            self.cmb_winpages.blockSignals(True)
+            self.cmb_winpages.setCurrentIndex(max(0, self.cmb_winpages.findData(
+                "bereich" if p and p not in ("ungerade", "gerade") else p)))
+            self.cmb_winpages.blockSignals(False)
+            self.ed_winpages.setText("" if p in ("", "ungerade", "gerade") else p)
+        self.ed_winpages.setEnabled(self.cmb_winpages.currentData() == "bereich")
+        self._fill_list()
+        i = self.lst.currentRow()
+        self._fill_fieldwin(self._field_of(i) if 0 <= i < len(self.fields) else -1)
+
+    def _win_changed(self, i):
+        if 0 <= i < len(self.windows):
+            self.win = i
+            self._win_pending = False
+            self._win_refresh()
+            self._timer.start()
+
+    def _win_add(self):
+        self.windows.append(vdp.VdpWindow())
+        self.win = len(self.windows) - 1
+        self._win_pending = False
+        self._win_refresh()
+
+    def _win_del(self):
+        if len(self.windows) <= 1:
+            return
+        gone = self.windows.pop(self.win)
+        for f in (gone.fields or []):
+            if not any(f is x for x in (self.windows[0].fields or [])):
+                self.windows[0].fields.append(f)
+        self.win = 0
+        self._win_refresh()
+        self._timer.start()
+
+    def _win_field_changed(self, *_):
+        w = self.windows[self.win]
+        mode = self.cmb_winpages.currentData() or ""
+        txt = self.ed_winpages.text().strip()
+        if mode == "bereich":
+            self._win_pending = not txt           # noch nichts getippt → Combo bleibt auf „Seitenbereich …“
+            w.pages = txt                          # leer = offen (gilt solange als „alle Seiten“)
+        else:
+            self._win_pending = False
+            w.pages = mode
+        self._win_refresh()
+        self._timer.start()
+
+    def _fill_fieldwin(self, cur: int = -1):
+        """Combo „Fenster des gewählten Feldes“ nachführen; cur = Fensterindex, der markiert sein soll."""
+        self.cmb_fieldwin.blockSignals(True)
+        self.cmb_fieldwin.clear()
+        for wi, t in enumerate(self._win_titles()):
+            self.cmb_fieldwin.addItem(t, wi)
+        if 0 <= cur < self.cmb_fieldwin.count():
+            self.cmb_fieldwin.setCurrentIndex(cur)
+        self.cmb_fieldwin.setEnabled(bool(self.fields))
+        self.cmb_fieldwin.blockSignals(False)
+
+    def _fieldwin_changed(self, *_):
+        """Gewähltes Feld in ein anderes Fenster umziehen."""
+        if self._loading:
+            return
+        i = self._sel()
+        wi = self.cmb_fieldwin.currentData()
+        if not (0 <= i < len(self.fields)) or not (0 <= wi < len(self.windows)):
+            return
+        f = self.fields[i]
+        for w in self.windows:
+            w.fields = [x for x in (w.fields or []) if x is not f]
+        self.windows[wi].fields.append(f)
+        self._fill_list()
+        self._timer.start()
+
+    def _field_of(self, i) -> int:
+        # Fensterindex des Feldes i – liegt das Feld in keinem Fenster (Sonderfall), gehört es zu Fenster 1
+        for wi, w in enumerate(self.windows):
+            if any(x is self.fields[i] for x in (w.fields or [])):
+                return wi
+        return 0
+
+    def _assign_to_window(self, i: int):
+        # Feld i in das aktive Fenster legen (aus allen anderen Fenstern heraus)
+        f = self.fields[i]
+        for w in self.windows:
+            w.fields = [x for x in (w.fields or []) if x is not f]
+        self.windows[self.win].fields.append(f)
 
     def _select(self, i):
         if not (0 <= i < len(self.fields)):
@@ -528,30 +753,20 @@ class VdpDialog(QDialog):
             self._paint_color()
             self.cmb_align.setCurrentIndex(max(0, self.cmb_align.findData(f.align)))
             self.cmb_rot.setCurrentIndex(max(0, self.cmb_rot.findData(int(f.rotate))))
-            self.ed_pages.setText(f.pages)
             text = f.kind == "text"
             for w_ in (self.cmb_font, self.cmb_align):
                 w_.setEnabled(text)
             self.cmb_qrtype.setCurrentIndex(max(0, self.cmb_qrtype.findData(f.qr_type or "text")))
             self.chk_quiet.setChecked(bool(getattr(f, "quiet", True)))
+            self._fill_fieldwin(self._field_of(i))
             self._qr_widgets(f)
         finally:
             self._loading = False
         self.canvas.sel = i
         self.canvas.update()
 
-    def _ppr(self) -> int:
-        v = self.spn_ppr.value()
-        return v if isinstance(v, int) and v > 0 else 1
-
     def _page_changed(self, v):
         self.page = v - 1
-        if (self.cmb_order.currentData() or "each") == "each":      # Seite n zeigt Datensatz zu Seite n
-            rec = (v - 1) // self._ppr() + 1
-            self.spn_rec.blockSignals(True)
-            self.spn_rec.setMaximum(max(self.spn_rec.maximum(), rec))
-            self.spn_rec.setValue(rec)
-            self.spn_rec.blockSignals(False)
         self._refresh()
 
     def _moved(self, i, x, y):
@@ -575,11 +790,10 @@ class VdpDialog(QDialog):
             f.color = self._color
             f.align = self.cmb_align.currentData() or "left"
             f.rotate = int(self.cmb_rot.currentData() or 0)
-            f.pages = self.ed_pages.text().strip()
             f.quiet = self.chk_quiet.isChecked()
             item = self.lst.item(i)
             if item is not None:
-                item.setText(_item_text(i, f))
+                item.setText(_item_text(i, f, self._field_of(i) if len(self.windows) > 1 else -1))
         self.canvas.update()
         self._timer.start()
 
@@ -627,7 +841,7 @@ class VdpDialog(QDialog):
             self._qr_widgets(self.fields[i])
             item = self.lst.item(i)
             if item is not None:
-                item.setText(_item_text(i, self.fields[i]))
+                item.setText(_item_text(i, self.fields[i], self._field_of(i) if len(self.windows) > 1 else -1))
             self._timer.start()
 
     def _open_data(self):
@@ -652,7 +866,10 @@ class VdpDialog(QDialog):
             # das unberührte Startfeld ({{nr}}-Text) ersetzen
             if len(self.fields) == 1 and self.fields[0].kind == "text" and self.fields[0].content == "{{nr}}":
                 self.fields = []
+                for w_ in self.windows:
+                    w_.fields = []
             self.fields.append(nf)
+            self._assign_to_window(len(self.fields) - 1)
             self._fill_list()
             self.lst.setCurrentRow(len(self.fields) - 1)
             self._select(len(self.fields) - 1)
@@ -747,6 +964,31 @@ class VdpDialog(QDialog):
         w, h = self.doc.get_page_size(self.page)
         return w / vdp.MM, h / vdp.MM
 
+    def _update_boxes(self, *_):
+        """Innenrahmen (grün) und Anschnitt (rot) der aktuellen Seite in der Vorschau nachführen.
+        Deklariert die Vorlage ein Endformat (TrimBox), gilt es samt Anschnitt (BleedBox);
+        sonst zeigt der eingestellte Abstand einen quadratischen Hilfsrahmen."""
+        if self._trims is None:
+            try:
+                from ..layout import page_trims, page_doc_bleeds
+                self._trims = page_trims(self.doc) or []
+                self._doc_bleeds = page_doc_bleeds(self.doc) or []
+            except Exception:
+                self._trims, self._doc_bleeds = [], []
+        t = self._trims[self.page] if self.page < len(self._trims) else None
+        b = self._doc_bleeds[self.page] if self.page < len(self._doc_bleeds) else 0.0
+        if t:
+            tm = (t[0] / vdp.MM, t[3] / vdp.MM, t[2] / vdp.MM, t[1] / vdp.MM)   # links, oben, rechts, unten
+            self.spn_inner.setEnabled(False)
+            self.canvas.bleed = b / vdp.MM
+        else:
+            m = self.spn_inner.value()
+            tm = (m, m, m, m) if m > 0 else None
+            self.spn_inner.setEnabled(True)
+            self.canvas.bleed = 0.0
+        self.canvas.trim = tm
+        self.canvas.update()
+
     # -------------------------------------------------------------- #
     def _settings(self) -> vdp.VdpSettings:
         nb = vdp.Numbering(start=self.spn_start.value(), step=self.spn_step.value(), digits=self.spn_digits.value(),
@@ -754,10 +996,16 @@ class VdpDialog(QDialog):
                            check=self.cmb_check.currentData() or "none", continue_key=_text(self.ed_cont).strip())
         log = _text(self.ed_log).strip()
         order = self.cmb_order.currentData()
+        order = order if order in ("record", "page", "each") else "record"
+        wins = [vdp.VdpWindow(pages=(w.pages or "").strip(),
+                              fields=[asdict(f) for f in (w.fields or [])]) for w in self.windows
+                if (w.fields or [])] or \
+               [vdp.VdpWindow(pages="", fields=[asdict(f) for f in self.fields])]
         return vdp.VdpSettings(fields=[asdict(f) for f in self.fields], csv_path=self._csv,
                                records=_text(self.ed_records).strip(), count=self.spn_count.value(), numbering=nb,
-                               order=order if order in ("each", "record", "page") else "each",
-                               pages_per_record=self._ppr(),
+                               order=order,
+                               pages_per_record=(max(1, self.spn_ppr.value()) if order == "each" else 1),
+                               windows=wins,
                                doc_name=getattr(self.parent(), "display_name", "") or "",
                                reverse=bool(self.chk_rev.isChecked()),
                                log_path=os.path.abspath(log) if log and self.chk_log.isChecked() else "",
@@ -779,16 +1027,30 @@ class VdpDialog(QDialog):
             self.ed_csv.setText(csvp)
             self.ed_records.setText(s.records)
             self.spn_count.setValue(max(1, int(s.count)))
-            self.cmb_order.setCurrentIndex(max(0, self.cmb_order.findData(s.order)))
-            self.spn_ppr.setValue(max(1, int(getattr(s, "pages_per_record", 1) or 1)))
+            self.cmb_order.setCurrentIndex(max(0, self.cmb_order.findData(
+                getattr(s, "order", "") if getattr(s, "order", "") in ("record", "page", "each") else "record")))
+            self.spn_ppr.setValue(max(1, int(getattr(s, "pages_per_record", 2) or 2)))
+            self.spn_ppr.setEnabled((getattr(s, "order", "") or "") == "each")
             self.chk_rev.setChecked(bool(s.reverse))
             self.chk_ph.setChecked(bool(s.placeholders))
             self.ed_log.setText(s.log_path)
             self.chk_log.setChecked(bool(s.log_path))
         finally:
             self._loading = False
+        # Fenster übernehmen bzw. aus dem alten Format (Feld-pages) migrieren
+        wins = vdp._windows(s)
+        if wins and any((w.fields or []) for w in wins):
+            self.windows = []
+            for w in wins:
+                nw = vdp.VdpWindow(pages=(w.pages or "").strip())
+                nw.fields = vdp._fields_of_list(w.fields)
+                self.windows.append(nw)
+            self.fields = [f for w in self.windows for f in (w.fields or [])]
+        else:
+            self.windows = [vdp.VdpWindow(pages="", fields=list(self.fields))]
+        self.win = 0
         self._csv_changed(csvp)
-        self._fill_list()
+        self._win_refresh()
         if self.fields:
             self.lst.setCurrentRow(0)
             self._select(0)
@@ -803,21 +1065,11 @@ class VdpDialog(QDialog):
                                   else tr("Zähler „{0}“ ist neu – beginnt bei der ersten Nummer.").format(key))
         else:
             self.lbl_cont.setText("")
-        self.spn_ppr.setEnabled((self.cmb_order.currentData() or "each") == "each")
-        if (self.cmb_order.currentData() or "each") == "each":
-            # jede Seite ein Datensatz (bzw. je „Seiten je Datensatz“): bleibt die Seite beim Datensatz, sonst
-            # dessen erste Seite zeigen
-            g, n, r = self._ppr(), len(self.doc), self.spn_rec.value() - 1
-            mine = {(r * g + j) % n for j in range(g)}
-            pg = self.page if self.page in mine else (r * g) % n
-            if pg != self.page:
-                self.page = pg
-                self.spn_page.blockSignals(True)
-                self.spn_page.setValue(pg + 1)
-                self.spn_page.blockSignals(False)
         W, H = self._page_mm()
         self.canvas.page_mm = (W, H)
         self.canvas.fields = self.fields
+        self._update_boxes()
+        self._update_vis()
         try:
             s = self._settings()
             s.log_path = ""
@@ -826,6 +1078,12 @@ class VdpDialog(QDialog):
             self.spn_rec.setMaximum(max(1, n))
             self.spn_rec.blockSignals(False)
             self.lbl_rec.setText(tr("von {0}").format(n))
+            info = vdp.output_info(s, len(self.doc), n, len(self.doc))
+            self.lbl_result.setText(tr("{0} Datensätze → {1} Seiten").format(info["records"], info["pages"])
+                                    + (tr("  –  {0} Seiten ohne Fenster!").format(len(info["uncovered"]))
+                                       if info["warn"] else "")
+                                    + (tr("  –  {0} Datensatz/Datensätze ohne eigene Seiten")
+                                       .format(info.get("unused", 0)) if info.get("unused") else ""))
             try:
                 pg = doc[0]
                 scale = 900 / max(pg.get_size())
@@ -854,6 +1112,19 @@ class VdpDialog(QDialog):
         if not recs:
             QMessageBox.warning(self, tr("Variable Daten"), tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
             return
+        info = vdp.output_info(s, len(self.doc), len(recs), len(self.doc))
+        if info["warn"]:
+            q = QMessageBox.question(
+                self, tr("Variable Daten"),
+                tr("Die Vorlage hat {0} Seiten, aber nur {1} davon liegen in einem Fenster. Bei {2} "
+                   "Datensätzen würden auch die {3} übrigen Seiten je Datensatz mitkopiert – insgesamt "
+                   "{4} Seiten.\n\nTrotzdem erzeugen?").format(
+                    len(self.doc), len(self.doc) - len(info["uncovered"]), info["records"],
+                    len(info["uncovered"]), info["pages"]),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if q != QMessageBox.StandardButton.Yes:
+                return
         from .. import core
         self._remember(s)
         self.job = ("vdp", core.settings_to_dict(s), None)
@@ -904,10 +1175,12 @@ def _text(w) -> str:
     return t if isinstance(t, str) else ""
 
 
-def _item_text(i: int, f) -> str:
+def _item_text(i: int, f, win: int = -1) -> str:
     if f.kind == "qr" and (f.qr_type or "text") != "text":
-        return f"{i + 1}. {kind_text(f.kind)}: {datakinds.qr_type_text(f.qr_type)}"
-    return f"{i + 1}. {kind_text(f.kind)}: {f.content}"
+        t = f"{i + 1}. {kind_text(f.kind)}: {datakinds.qr_type_text(f.qr_type)}"
+    else:
+        t = f"{i + 1}. {kind_text(f.kind)}: {f.content}"
+    return t + (f"  ·  {tr('Fenster')} {win + 1}" if win >= 0 else "")
 
 
 def _fields_of(s) -> list:
@@ -918,3 +1191,4 @@ def _fields_of(s) -> list:
         elif isinstance(f, dict):
             out.append(vdp.VdpField(**{k: v for k, v in f.items() if k in vdp.VdpField.__dataclass_fields__}))
     return out
+

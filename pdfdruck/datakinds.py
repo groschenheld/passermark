@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Datenarten für variable Daten: welche Spalten eine Tabelle braucht und wie daraus der Inhalt eines Codes wird.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Data kinds for variable data: which columns a table needs and how the content of a code is built from them.
 
-Eine Datentabelle (CSV) enthält lesbare Spalten – z. B. Vorname, Nachname, Telefon. Den eigentlichen QR-Inhalt
-(vCard, WLAN-Zugang, mailto: …) setzt Passermark erst beim Erzeugen zusammen. So bleibt die CSV in Excel lesbar und
-änderbar; mehrzeilige Inhalte mit Sonderzeichen landen nie in einer Tabellenzelle.
+A data table (CSV) contains readable columns – e.g. first name, last name, phone. The actual QR content
+(vCard, WLAN access, mailto: …) is only assembled by Passermark when generating. That way the CSV stays readable
+and editable in Excel; multi-line content with special characters never ends up in a table cell.
 
-Spaltennamen werden ohne Rücksicht auf Groß-/Kleinschreibung gesucht.
+Column names are searched regardless of case.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from .l10n import tr
 @dataclass
 class Col:
     key: str                     # Spaltenname in der CSV (= Platzhalter {{key}})
-    hint: str = ""               # kurze Erklärung (Kopfzeilen-Tooltip, Anleitung)
+    hint: str = ""               # short explanation (header tooltip, manual)
     required: bool = False
     example: str = ""
 
@@ -38,11 +38,11 @@ class Kind:
     field_kind: str              # passendes Feld in Variable Daten: qr | code128 | ean13 | text
     cols: list = field(default_factory=list)
     help: str = ""
-    free_cols: bool = False      # eigene Spalten erwünscht (Text)
+    free_cols: bool = False      # custom columns wanted (text)
 
 
 def _kinds() -> dict:
-    """Alle Datenarten (Texte bei jedem Aufruf übersetzt)."""
+    """All data kinds (texts translated on every call)."""
     K = [
         Kind("vcard", tr("QR – Visitenkarte (vCard)"), "qr", [
             Col("Vorname", tr("Vorname"), example="Anna"),
@@ -146,8 +146,8 @@ def _v(rec: dict, key: str) -> str:
 # --------------------------------------------------------------------------- #
 # Spalten zuordnen: fremde Kopfzeilen (Outlook, Google, Thunderbird, Kunden-CSV) auf die Felder einer Art
 # --------------------------------------------------------------------------- #
-# Synonyme je Feld; "art:Feld" gilt nur für diese Art (z. B. Ort = Stadt bei der Visitenkarte, Veranstaltungsort
-# beim Termin). Verglichen wird ohne Groß-/Kleinschreibung, Leer- und Satzzeichen, Umlaute als ae/oe/ue/ss.
+# synonyms per field; "kind:field" applies only to that kind (e.g. city = town on a business card, venue
+# for an event). Comparison ignores case, spaces and punctuation; umlauts as ae/oe/ue/ss.
 _EMAIL = ["E-mail Address", "Email Address", "E-Mail-Adresse", "Email", "Mail", "E-mail 1 - Value", "Primary Email",
           "E-Mail 1", "Emailadresse", "Correo", "Courriel", "E-mail cím"]
 SYNONYMS = {
@@ -226,7 +226,7 @@ def _auto(kind_id: str, cols: tuple) -> tuple:
                 out[c.key] = hit
                 used.add(hit)
                 break
-    # 2) Spaltenname beginnt mit dem Namen/Synonym (z. B. „E-Mail-Adresse privat“, „Telefon (Büro)“)
+    # 2) column name starts with the name/synonym (e.g. "private e-mail address", "phone (office)")
     for c in k.cols:
         if c.key in out:
             continue
@@ -269,7 +269,7 @@ def mapped(kind_id: str, rec: dict, mapping: dict | None = None) -> dict:
 
 
 def guess_kind(cols: list) -> str:
-    """Datenart aus den Spaltennamen einer CSV erraten – auch fremde Kopfzeilen (Outlook, Google …) über Synonyme."""
+    """Guess the data kind from a CSV's column names – including foreign headers (Outlook, Google …) via synonyms."""
     best, score = "text", 0
     for kid in IDS:
         k = get(kid)
@@ -280,7 +280,7 @@ def guess_kind(cols: list) -> str:
             continue
         n = sum(1 for c in k.cols if m.get(c.key))
         exact = sum(1 for c in k.cols if m.get(c.key, "").lower() == c.key.lower())
-        # Anteil zählt, damit „Telefon“ allein nicht zur Visitenkarte wird; eigene Namen leicht bevorzugt
+        # the share counts so that "phone" alone does not make it a business card; custom names slightly preferred
         sc = n * 10 - (len(k.cols) - n) + (5 if n == len(k.cols) else 0) + exact
         if n and sc > score:
             best, score = kid, sc
@@ -346,8 +346,9 @@ def _num(s: str) -> float:
 
 
 def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
-    """Inhalt des Codes für einen Datensatz. Fremde Spaltennamen werden über die Zuordnung (eigene Wahl, sonst
-    automatisch) gelesen. Fehlende Pflichtangaben -> ValueError mit verständlicher Meldung."""
+    """Content of the code for one record. Foreign column names are read via the mapping (your choice, otherwise
+        automatic). Missing mandatory entries -> ValueError with an understandable message.
+    """
     k = get(kind_id)
     if not k.free_cols:
         rec = mapped(kind_id, rec, mapping)
@@ -445,10 +446,10 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Prüfen
+# validate
 # --------------------------------------------------------------------------- #
 def ean_problem(value: str) -> str:
-    """Leer = in Ordnung; sonst Meldung. 13 Ziffern mit falscher Prüfziffer werden gemeldet."""
+    """Empty = fine; otherwise a message. 13 digits with a wrong check digit are reported."""
     from .vdp import check_digit
     raw = (value or "").strip()
     d = re.sub(r"\D", "", raw)
@@ -462,7 +463,7 @@ def ean_problem(value: str) -> str:
 
 
 def validate(kind_id: str, cols: list, rows: list, mapping: dict | None = None) -> list:
-    """Probleme als Liste (zeile0, spalte|"", meldung); leere Zeilen werden übersprungen."""
+    """Problems as a list (row0, column|"", message); empty rows are skipped."""
     k = get(kind_id)
     out = []
     m = resolve_map(kind_id, cols, mapping) if not k.free_cols else {c.key: c.key for c in k.cols}
@@ -509,7 +510,7 @@ def example_row(kind_id: str) -> dict:
 
 def series(n: int, start: int = 1, step: int = 1, digits: int = 0, prefix: str = "", suffix: str = "",
            check: str = "none") -> list:
-    """Nummernreihe für eine Spalte, z. B. T0001 … (gleiche Regeln wie die Nummerierung)."""
+    """Number series for a column, e.g. T0001 … (same rules as the numbering)."""
     from .vdp import Numbering, format_number
     nb = Numbering(start=start, step=step, digits=digits, prefix=prefix, suffix=suffix, check=check)
     return [format_number(start + i * step, nb) for i in range(n)]

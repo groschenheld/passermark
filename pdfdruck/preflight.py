@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Preflight: Dokument prüfen (Schriften, Ebenen, Transparenzen, Zeichen) und gezielt reparieren.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Preflight: check a document (fonts, layers, transparency, characters) and repair it in a targeted way.
 
-Das Original wird nie verändert – alle Funktionen arbeiten auf Bytes und liefern neue Bytes.
+The original is never modified – all functions work on bytes and return new bytes.
 
-Analyse:
-  Schriften     eingebettet / Teilmenge / nicht eingebettet, Typ (TrueType, Type1, CID, Type3), ToUnicode,
-                Standard-14, auf welchen Seiten; Ersatzvorschlag (metrisch kompatible freie Schriften)
-  Zeichen       Seiten mit unlesbaren Zeichen (keine gültige Unicode-Zuordnung)
-  Ebenen        Optional Content: Zustand für Ansicht und Druck, Seiten, Inhalt außerhalb der Seite
-  Transparenz   weiche Masken, Füllmethoden, Deckkraft, Transparenzgruppen, Überdrucken
-Reparaturen:
-  Ebenen-Zustand setzen, Ebenen festschreiben (sichtbarer Zustand, Marker entfernt), Ebenen entfernen,
-  Schriften einbetten (mit Ersatz), Text in Pfade, Transparenzen reduzieren (Ghostscript)
+Analysis:
+  Fonts        embedded / subset / not embedded, type (TrueType, Type1, CID, Type3), ToUnicode,
+               standard-14, on which pages; replacement suggestion (metrically compatible free fonts)
+  Characters   pages with unreadable characters (no valid Unicode mapping)
+  Layers       optional content: state for view and print, pages, content outside the page
+  Transparency soft masks, blend modes, opacity, transparency groups, overprint
+Repairs:
+  set the layer state, flatten layers (visible state, marker removed), remove layers,
+  embed fonts (with replacements), text to paths, reduce transparency (Ghostscript)
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ class Issue:
 @dataclass
 class FontInfo:
     key: str
-    name: str                  # ohne Teilmengen-Präfix
+    name: str                  # without subset prefix
     raw: str
     subtype: str
     embedded: bool
@@ -179,8 +179,9 @@ def _walk_resources(res, page_no, visit, seen):
 # Analyse
 # --------------------------------------------------------------------------- #
 def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
-    """Dokument prüfen. pdfium_parts=False: nur die Teile ohne pdfium (für Hintergrund-Threads – pdfium ist nicht
-    thread-sicher); den Rest danach im Hauptthread mit finish() ergänzen."""
+    """Check the document. pdfium_parts=False: only the parts without pdfium (for background threads – pdfium is not
+        thread-safe); complete the rest afterwards in the main thread with finish().
+    """
     import pikepdf
     rep = Report()
     pdf = pikepdf.open(io.BytesIO(data))
@@ -252,7 +253,7 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
 
 
 def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
-    """pdfium-Teile der Prüfung (seltsame Zeichen, Ebenen außerhalb der Seite) – im Hauptthread aufrufen."""
+    """pdfium parts of the check (strange characters, layers outside the page) – call in the main thread."""
     rep.garbled = _garbled(data)
     if deep_layers and rep.layers:
         try:
@@ -292,7 +293,7 @@ def _font_info(f, k) -> FontInfo:
 
 
 def _garbled(data: bytes) -> dict:
-    """Seiten mit Zeichen ohne gültige Unicode-Zuordnung (Ersatzzeichen, Privatbereich, Steuerzeichen)."""
+    """Pages with characters without a valid Unicode mapping (replacement characters, private use area, control characters)."""
     import pypdfium2 as pdfium
     out = {}
     doc = pdfium.PdfDocument(data)
@@ -395,7 +396,7 @@ def _oc_keys_in_stream(obj, props, res, seen) -> set:
 
 
 def _layers_outside(data: bytes, layers: list[LayerInfo], max_layers=40, max_pages=6):
-    """Je Ebene: wie viel ihres Inhalts liegt außerhalb der Seite? (Einzeln gerendert, Seite vergrößert)."""
+    """Per layer: how much of its content lies outside the page? (Rendered individually, page enlarged.)"""
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
@@ -533,7 +534,7 @@ def _apply_visibility(pdf, visible: set, strip: bool):
 
 
 def current_visible(pdf, use_print=True) -> set:
-    """Sichtbare Ebenen: für den Druck (Druck-Einstellung, sonst Ansicht) bzw. für die Ansicht."""
+    """Visible layers: for printing (print setting, otherwise view) or for the view."""
     vis = set()
     for L in _layers(pdf):
         on = L.print_on if (use_print and L.print_on is not None) else L.view_on
@@ -549,8 +550,9 @@ def has_layers(data: bytes) -> bool:
 
 
 def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
-    """Sichtbaren Zustand festschreiben: versteckte Ebeneninhalte entfernen, Ebenen auflösen.
-    Danach druckt jeder Drucker/Viewer genau das, was sichtbar ist."""
+    """Pin the visible state: remove hidden layer content, dissolve the layers.
+        Afterwards every printer/viewer prints exactly what is visible.
+    """
     import pikepdf
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -567,7 +569,7 @@ def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
 
 
 def remove_layers(data: bytes, keys: set) -> bytes:
-    """Ebenen samt Inhalt entfernen; die übrigen Ebenen bleiben erhalten."""
+    """Remove layers including their content; the remaining layers are preserved."""
     import pikepdf
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -605,7 +607,7 @@ def remove_layers(data: bytes, keys: set) -> bytes:
 
 
 def set_layer_states(data: bytes, states: dict) -> bytes:
-    """states: {Schlüssel: (Ansicht an, Druck an)} -> Standard-Zustand im Dokument setzen (Ebenen bleiben)."""
+    """states: {key: (view on, print on)} -> set the default state in the document (layers stay)."""
     import pikepdf
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -765,7 +767,7 @@ def _get_json(url):
 
 
 def similar_fonts(family: str, n: int = 6) -> list[str]:
-    """Ähnlich benannte freie Schriften auf fontsource.org (für „Meintest du …?“)."""
+    """Similarly named free fonts on fontsource.org (for "Did you mean …?")."""
     import difflib
     try:
         lst = _get_json(FONTSOURCE)
@@ -789,8 +791,9 @@ class FontNotFound(RuntimeError):
 
 
 def download_font(family: str, progress=None) -> tuple[list[str], str]:
-    """Freie Schrift (OFL/Apache) über fontsource.org laden -> (Dateipfade, tatsächlich geladene Familie).
-    Kommerzielle Namen (Arial, Calibri …) werden auf ihren freien Zwilling umgeleitet."""
+    """Fetch a free font (OFL/Apache) from fontsource.org -> (file paths, family actually loaded).
+        Commercial names (Arial, Calibri …) are redirected to their free twin.
+    """
     used = free_alternative(family) or family.strip()
     fid = re.sub(r"[^a-z0-9]+", "-", used.lower()).strip("-")
     cdn = "https://cdn.jsdelivr.net/fontsource/fonts/{0}@latest/latin-{1}-{2}.ttf"
@@ -869,7 +872,7 @@ def _ps_str(s: str) -> str:
 
 
 def embed_fonts(data: bytes, mapping: dict) -> bytes:
-    """Alle Schriften einbetten; fehlende über mapping {Schriftname: Pfad} ersetzen (Ghostscript-Fontmap)."""
+    """Embed all fonts; replace missing ones via the mapping {font name: path} (Ghostscript fontmap)."""
     tmp = tempfile.mkdtemp(prefix="passermark-fm-")
     try:
         fm = os.path.join(tmp, "Fontmap")
@@ -890,12 +893,12 @@ def embed_fonts(data: bytes, mapping: dict) -> bytes:
 
 
 def outline_text(data: bytes) -> bytes:
-    """Text in Pfade umwandeln (sieht überall gleich aus, ist aber nicht mehr durchsuchbar)."""
+    """Convert text to paths (looks the same everywhere, but is no longer searchable)."""
     return _gs(["-dCompatibilityLevel=1.7", "-dNoOutputFonts"], data)
 
 
 def flatten_transparency(data: bytes, dpi: int = 300) -> bytes:
-    """Transparenzen reduzieren (PDF 1.3) – für ältere Drucker/RIPs. Transparente Bereiche werden gerastert."""
+    """Reduce transparency (PDF 1.3) – for older printers/RIPs. Transparent areas are rasterized."""
     return _gs(["-dCompatibilityLevel=1.3", f"-r{dpi}"], data)
 
 

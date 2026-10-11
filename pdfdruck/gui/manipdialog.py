@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dokument-Manipulation: Bedienfeld (Reiter im Druckdialog + eigener Dialog) und Farbvorschau."""
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def pil_to_pixmap(img) -> QPixmap:
 
 
 class ManipPanel(QWidget):
-    """Einstellungen der Dokument-Manipulation. Signal `changed` bei jeder Änderung."""
+    """Document manipulation settings. `changed` signal on every change."""
     changed = Signal()
 
     def __init__(self, parent, settings: cmyk.ManipSettings, cfg: dict, doc=None, current: int = 0):
@@ -293,7 +293,7 @@ class _PreviewWorker(QThread):
 
 
 class ColorPreviewDialog(QDialog):
-    """Vorher/Nachher, Einzelauszüge und Farbauftrag – aus den echten CMYK-Werten berechnet."""
+    """Before/after, individual separations and total ink coverage – computed from the real CMYK values."""
 
     VIEWS = [("both", "Vorher | Nachher"), ("after", "Nur Nachher"), ("c", "Auszug Cyan"), ("m", "Auszug Magenta"),
              ("y", "Auszug Gelb"), ("k", "Auszug Schwarz"), ("tac", "Farbauftrag (TAC) – Warnung")]
@@ -426,9 +426,9 @@ class ColorPreviewDialog(QDialog):
 
 # --------------------------------------------------------------------------- #
 class ManipDialog(QDialog):
-    """Aus dem Menü Dokument-Manipulation: auf das ganze Dokument anwenden -> Ergebnis im neuen Fenster.
+    """From the Document manipulation menu: apply to the whole document -> result in a new window.
 
-    mode: "cmyk" (nur Umwandlung), "crop" (nur Beschneiden) oder "all" (beides).
+        mode: "cmyk" (conversion only), "crop" (cropping only) or "all" (both).
     """
 
     TITLES = {"cmyk": "CMYK-Umwandlung – Passermark", "crop": "Auf Format beschneiden – Passermark",

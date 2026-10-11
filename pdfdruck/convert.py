@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Beliebige Dateien -> PDF: PDF direkt, Bilder über img2pdf, Office über LibreOffice,
-OnlyOffice oder Euro-Office.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Any files -> PDF: PDFs directly, images via img2pdf, Office via LibreOffice,
+OnlyOffice or Euro-Office.
 
-* LibreOffice: offizielle Kopfmodus-Umwandlung (soffice --convert-to pdf), läuft mit EIGENEM Profil,
-  damit es auch geht, wenn gerade ein LibreOffice-Fenster offen ist.
-* OnlyOffice / Euro-Office (Fork von OnlyOffice): kein dokumentierter Kommandozeilenbefehl der
-  Desktop-Editoren – verwendet wird deren mitgelieferter Konverter „x2t“. Meist originalgetreuer bei
-  docx/xlsx/pptx, aber nicht offiziell als Schnittstelle zugesichert -> automatischer Rückfall.
+* LibreOffice: official headless conversion (soffice --convert-to pdf), runs with its OWN profile
+  so it works even while a LibreOffice window is open.
+* OnlyOffice / Euro-Office (fork of OnlyOffice): no documented command-line command of the
+  desktop editors – the bundled converter "x2t" is used. Usually more faithful for
+  docx/xlsx/pptx, but not officially guaranteed as an interface -> automatic fallback.
 """
 from __future__ import annotations
 
@@ -175,7 +175,7 @@ def _fonts_ready(d: str) -> bool:
 
 
 def _x2t_fonts(exe: str) -> str:
-    """Ordner mit AllFonts.js + font_selection.bin für x2t (vorhanden, zwischengespeichert oder neu erzeugt)."""
+    """Folder with AllFonts.js + font_selection.bin for x2t (existing, cached, or newly created)."""
     import hashlib
     home = os.path.expanduser("~")
     if _platform.IS_WIN:
@@ -222,7 +222,7 @@ def _x2t_fonts(exe: str) -> str:
 
 
 def _lib_env(conv: str) -> dict:
-    """Bibliothekspfad für die Konverter-Programme (Linux: LD_LIBRARY_PATH, Windows: PATH)."""
+    """Library path for the converter programs (Linux: LD_LIBRARY_PATH, Windows: PATH)."""
     var, sep = ("PATH", ";") if _platform.IS_WIN else ("LD_LIBRARY_PATH", ":")
     val = conv + sep + os.path.dirname(conv)
     if os.environ.get(var):
@@ -236,7 +236,7 @@ def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
     conv_dir = os.path.dirname(exe)
     fonts = _x2t_fonts(exe)
     params = os.path.join(outdir, "x2t-params.xml")
-    # Ausdrücke vorab berechnen: Backslashes/Anführungszeichen in f-String-Klammern gehen erst ab Python 3.12
+    # precompute expressions: backslashes/quotes in f-string brackets only work from Python 3.12
     font_dir = (os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts") if _platform.IS_WIN
                 else "/usr/share/fonts")
     all_fonts = os.path.join(fonts, "AllFonts.js")
@@ -262,7 +262,7 @@ def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
 
 
 def _msoffice(path: str, outdir: str, timeout: int) -> str:
-    """Word/Excel/PowerPoint per COM fernsteuern (nur Windows, unsichtbar, schreibgeschützt geöffnet)."""
+    """Remote-control Word/Excel/PowerPoint via COM (Windows only, invisible, opened read-only)."""
     import pythoncom
     import win32com.client
     out = os.path.join(outdir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
@@ -323,7 +323,7 @@ def conversion_order(path: str, preference: str, available: dict) -> list[str]:
 
 
 def office_to_pdf(path: str, outdir: str, preference: str = "auto", timeout: int = 300) -> tuple[str, str]:
-    """Office-Datei -> PDF. Liefert (pdf_pfad, verwendeter_konverter). Fällt automatisch zurück."""
+    """Office file -> PDF. Returns (pdf_path, converter_used). Falls back automatically."""
     available = detect()
     order = conversion_order(path, preference, available)
     if not order:
@@ -346,7 +346,7 @@ def office_to_pdf(path: str, outdir: str, preference: str = "auto", timeout: int
 
 def to_document(path: str, workdir: str, image_dpi: float = 96.0, password: str | None = None,
                 preference: str = "auto"):
-    """Beliebige unterstützte Datei -> (pypdfium2-Dokument, verwendeter Konverter oder "")."""
+    """Any supported file -> (pypdfium2 document, converter used or "")."""
     import pypdfium2 as pdfium
     if images.is_image(path):
         return images.images_to_document([path], image_dpi), ""

@@ -5,16 +5,24 @@
 > Ce journal contient les versions **1.10.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
-## 1.10.8
-
-- Internationalisation de la documentation du code source : tous les
-  commentaires et docstrings de l'ensemble du code (interface graphique,
-  paquets de langue, paquet de données pdfdruck, tests, scripts de plateforme)
-  ont été traduits de l'allemand vers l'anglais ; les en-têtes de licence GPL
-  également.
-- Ajout du paquet de données « pdfdruck » manquant (corrige l'échec du build).
-- Aucun changement fonctionnel : les chaînes, la logique et le comportement
-  sont inchangés (vérifié par comparaison AST avec la version précédente).
+## 1.11.0
+- **Données variables – fenêtres (groupes de pages).** Pour les gabarits multi-pages, chaque champ appartient
+  à une fenêtre (p. ex. « rectos (nom), versos (code QR) ») ; les fenêtres peuvent être créées, renommées et
+  supprimées – leurs champs rejoignent alors la première fenêtre. Sélection des pages par fenêtre : toutes,
+  impaires (rectos), paires (versos) ou plages (« 1,3-5 ou impaires 1-50 ») ; sans sélection propre, la couche
+  de base « toutes les pages » s'applique. Répartition « feuille par feuille » (d'abord toutes les pages avec
+  l'enregistrement 1) ou « page par page » (d'abord la page 1 avec tous les enregistrements) ; affichage
+  « {0} enregistrements → {1} pages » et avertissement « – {0} pages sans fenêtre ! »
+- **Aperçu VDP :** format final en vert, fond perdu en rouge ; cadre intérieur réglable (ligne guide)
+- **Indicateur de page « actuelle / total »** dans la barre d'outils ; saisir un numéro et Entrée pour y aller
+- **Règles, mesure et affichage du format final en permanence dans la barre d'outils principale** – dans
+  tous les espaces de travail
+- **Format final et fond perdu dans la vue principale :** bordure intérieure (format final) en vert au lieu
+  de rouge, fond perdu en pointillé rouge discret au lieu d'une surface pleine
+- **Mesure avec aimantation :** avec Ctrl maintenue, le réticule s'aimante aux lignes de coupe et intérieures
+  (bord de page, format final, fond perdu) ainsi qu'aux bords d'images et aux lignes vectorielles – jamais
+  au texte ; le réticule d'aperçu colle au bord tant que la souris ne s'en éloigne nettement ; Maj verrouille
+  toujours horizontal/vertical/45°
 
 ## 1.10.7
 - **CutContour : formes de base sans calcul.** Nouveau placement « Sur le format final (sans calcul) » :

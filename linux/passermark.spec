@@ -10,7 +10,7 @@ datas = [(os.path.join(root, "pdfdruck", "gui", "passermark.svg"), "pdfdruck/gui
          (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs")]
 datas += collect_data_files("pypdfium2") + collect_data_files("pypdfium2_raw") + collect_data_files("reportlab")
 binaries = collect_dynamic_libs("pypdfium2_raw") + collect_dynamic_libs("pikepdf")
-RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (dynamisch geladen)
+RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (loaded dynamically)
 LANGS = ["pdfdruck.lang.en", "pdfdruck.lang.hu", "pdfdruck.lang.es", "pdfdruck.lang.fr"]
 
 # root helper + validation rules as plain files (used by "--admin-helper" when running as AppImage)

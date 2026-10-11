@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Dialog „Daten erfassen“: eine Datentabelle für variable Daten direkt in Passermark anlegen.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Dialog "Enter data": create a data table for variable data right inside Passermark.
 
-Je Datenart (Visitenkarte, WLAN, E-Mail, Code 128, EAN-13 …) bringt die Tabelle die passenden Spalten mit; jede
-Zeile wird sofort geprüft, der fertige Code-Inhalt der gewählten Zeile ist rechts zu sehen. Gespeichert wird als CSV
-(UTF-8, Semikolon) – in Excel lesbar und in Variable Daten wieder verwendbar. „In Variable Daten verwenden“ übergibt
-die Tabelle samt passendem Feld.
+Each data kind (business card, WLAN, e-mail, Code 128, EAN-13 …) gives the table the matching columns; each
+row is validated immediately, and the finished code content of the selected row is shown on the right. It is saved
+as CSV (UTF-8, semicolon) – readable in Excel and reusable in Variable Data. "Use for variable data" hands over
+the table together with a matching field.
 
-Die Daten liegen in self.cols / self.rows (Liste von dicts); die Tabelle ist nur die Ansicht.
+The data lives in self.cols / self.rows (list of dicts); the table is just the view.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ class DataDialog(QDialog):
         self.rows: list[dict] = []
         self.path = ""
         self.dirty = False
-        self.use = False                 # True: „In Variable Daten verwenden“ gewählt
+        self.use = False                 # True: "Use for variable data" checked
         self._sync = False
 
         root = QHBoxLayout(self)
@@ -96,7 +96,7 @@ class DataDialog(QDialog):
         tip.setStyleSheet(f"color: {theme.MUTED};")
         left.addWidget(tip)
 
-        # rechts: gewählte Zeile, Prüfung
+        # right: selected row, validation
         right = QVBoxLayout()
         right.addWidget(QLabel(f"<b>{tr('Inhalt der gewählten Zeile')}</b>"))
         self.lbl_qr = QLabel()
@@ -134,14 +134,14 @@ class DataDialog(QDialog):
 
     # -------------------------------------------------------------- Modell
     def set_kind(self, kind: str, reset: bool = False):
-        """Datenart wechseln: fehlende Spalten ergänzen (vorhandene Daten bleiben)."""
+        """Switch data kind: add missing columns (existing data is kept)."""
         self.kind = kind
         k = datakinds.get(kind)
         if reset:
             self.cols = datakinds.columns(kind)
             self.rows = [{c: "" for c in self.cols} for _ in range(5)]
         else:
-            # nur Spalten ergänzen, für die es keine (auch keine fremd benannte) Entsprechung gibt
+            # only add columns that have no equivalent (including no differently named one)
             m = datakinds.auto_map(kind, self.cols) if not k.free_cols else {}
             low = {c.lower() for c in self.cols}
             add = [c for c in datakinds.columns(kind) if c.lower() not in low and not m.get(c)]
@@ -183,7 +183,7 @@ class DataDialog(QDialog):
         return True
 
     def fill_column(self, col: str, start=1, step=1, digits=0, prefix="", suffix="", only_empty=False, count=0):
-        """Spalte mit einer Nummernreihe füllen; count = so viele Zeilen sollen es mindestens werden."""
+        """Fill a column with a number series; count = at least this many rows."""
         while len(self.rows) < count:
             self.rows.append({c: "" for c in self.cols})
         vals = datakinds.series(len(self.rows), start, step, digits, prefix, suffix)
@@ -194,7 +194,7 @@ class DataDialog(QDialog):
         self._render()
 
     def paste_text(self, text: str, row: int, col: int):
-        """Tabellentext (Tab-getrennt, z. B. aus Excel) ab Zeile/Spalte einfügen; Zeilen werden angehängt."""
+        """Insert table text (tab-separated, e.g. from Excel) starting at a row/column; rows are appended."""
         lines = [ln for ln in (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")]
         while lines and lines[-1] == "":
             lines.pop()
@@ -306,14 +306,14 @@ class DataDialog(QDialog):
         self.txt_value.setPlainText(value)
         try:
             self.lbl_qr.setPixmap(self._code_pixmap(value))
-        except Exception as e:                            # noqa: BLE001 – Vorschau darf nie stören
+        except Exception as e:                            # noqa: BLE001 – the preview must never get in the way
             self.txt_value.setPlainText(value + "\n\n⚠ " + str(e))
 
     def content_of(self, rec: dict) -> str:
         return datakinds.build(self.kind, rec)
 
     def _code_pixmap(self, value: str):
-        """Code der gewählten Zeile als Bild (wie er gedruckt wird)."""
+        """The code of the selected row as an image (the way it will be printed)."""
         import pypdfium2 as pdfium
         from reportlab.pdfgen import canvas
         fk = datakinds.get(self.kind).field_kind
@@ -367,7 +367,7 @@ class DataDialog(QDialog):
     def _selected_rows(self) -> list:
         return sorted({ix.row() for ix in self.tbl.selectedIndexes()} or {self.tbl.currentRow()})
 
-    # -------------------------------------------------------------- Knöpfe
+    # -------------------------------------------------------------- Buttons
     def _kind_changed(self, _i):
         k = self.cmb_kind.currentData()
         if k and k != self.kind:
@@ -466,7 +466,7 @@ class DataDialog(QDialog):
 
 
 class _FillDialog(QDialog):
-    """Spalte mit Nummernreihe füllen."""
+    """Fill a column with a number series."""
 
     def __init__(self, parent, cols, current, rows=0):
         super().__init__(parent)
@@ -507,7 +507,7 @@ class _FillDialog(QDialog):
 
 
 def field_for(kind: str, page_w_mm: float, page_h_mm: float) -> vdp.VdpField:
-    """Passendes Feld für eine Datenart (wird bei „In Variable Daten verwenden“ angelegt)."""
+    """A matching field for a data kind (created by "Use for variable data")."""
     k = datakinds.get(kind)
     fk = k.field_kind
     w, h = {"qr": (30, 30), "code128": (55, 18), "ean13": (38, 26), "text": (70, 10)}[fk]

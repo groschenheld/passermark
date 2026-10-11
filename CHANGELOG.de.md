@@ -2,15 +2,24 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-## 1.10.8
-
-- Quellcode-Dokumentation internationalisiert: Sämtliche Kommentare und
-  Docstrings im gesamten Codebase (GUI, Sprachpakete, pdfdruck-Datenpaket,
-  Tests, Plattform-Skripte) von Deutsch auf Englisch übersetzt; die
-  GPL-Lizenzköpfe ebenfalls.
-- Fehlendes Datenpaket „pdfdruck“ ergänzt (behebt den fehlgeschlagenen Build).
-- Keine funktionalen Änderungen: Strings, Logik und Verhalten sind unverändert
-  (per AST-Abgleich mit der Vorversion verifiziert).
+## 1.11.0
+- **Variable Daten – Fenster (Seitengruppen).** Bei Vorlagen mit mehreren Seiten gehört jedes Feld zu einem
+  Fenster (z. B. „Vorderseiten (Name), Rückseiten (QR-Code)“); Fenster lassen sich anlegen, umbenennen und
+  entfernen – ihre Felder wandern dann ins erste Fenster. Seitenauswahl je Fenster: alle Seiten, ungerade
+  (Vorderseiten), gerade (Rückseiten) oder Bereiche („1,3-5 oder ungerade 1-50“); ohne eigene Auswahl gilt
+  die Grundschicht „alle Seiten“. Datensatz-Verteilung „Bogen für Bogen“ (erst alle Seiten mit Datensatz 1)
+  oder „Seite für Seite“ (erst Seite 1 mit allen Datensätzen); Anzeige „{0} Datensätze → {1} Seiten“ und
+  Warnung „– {0} Seiten ohne Fenster!“
+- **VDP-Vorschau:** Endformat grün, Anschnitt rot; einstellbarer Innenrahmen (Hilfslinie) zwischen Endformat und Anschnitt
+- **Seitenanzeige „aktuell / gesamt“** in der Werkzeugleiste; Seitenzahl eintippen und Enter springt direkt zur Seite
+- **Lineale, Messen und Endformat-Anzeige dauerhaft in der Haupt-Werkzeugleiste** – in jedem Arbeitsbereich,
+  nicht mehr nur unter „Anzeigen & Drucken“
+- **Endformat und Anschnitt in der Hauptansicht:** innere Grenze (Endformat) grün statt rot, Anschnitt als
+  dezente rote Punktlinie statt roter Vollfläche
+- **Messen mit Einrasten:** Steuerung (Strg) gedrückt halten und das Fadenkreuz rastet magnetisch an Schnitt-
+  und Innenlinien (Seitenrand, Endformat, Anschnitt) sowie an Bildkanten und Vektorlinien ein – nie an Text.
+  Das Vorschau-Fadenkreuz bleibt an der Kante kleben, bis die Maus deutlich weiterzieht; Umschalt sperrt
+  weiterhin waagrecht/senkrecht/45°
 
 ## 1.10.7
 - **CutContour: Grundformen ohne Berechnung.** Neue Lage „Auf das Endformat (ohne Berechnung)“: Rechteck,

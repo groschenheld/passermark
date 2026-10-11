@@ -1,0 +1,84 @@
+Passermark – Exemples de données variables (code QR, carte de visite, Wi-Fi, Code 128, EAN-13)
+====================================================================================
+
+En détail : passermark-vdp-anleitung.pdf (dans le programme : Aide → Données variables – Manuel)
+
+Contenu
+  vorlage-a6.pdf     gabarit vide (A6 paysage) – les champs y sont placés
+  daten.csv          3 enregistrements : Name;Ort;Artikelnummer;EAN (exemples 2–4)
+  visitenkarten.csv  3 contacts (exemple 5)
+  wlan.csv           3 réseaux Wi-Fi (exemple 6)
+  kontakte-outlook.csv  à quoi ressemble un export de contacts depuis Outlook (colonnes en anglais)
+  presets/           les réglages de chaque exemple
+  ergebnis/          à quoi ressemble le PDF terminé
+
+Récupérer (copie ce dossier vers ~/Passermark-Beispiele/vdp et enregistre les préréglages)
+  Programme :    Aide → Récupérer les exemples de données variables …
+  Ligne de commande :  passermark-cli beispiele
+
+Dans le programme
+  Ouvrir vorlage-a6.pdf, Données variables (Ctrl+Shift+D),
+  choisir « Beispiel 1 » … « Beispiel 7 » dans la barre de préréglages, Générer.
+  Vos propres tableaux : espace de travail Données variables → Saisir les données.
+
+Ligne de commande (dans ce dossier)
+  passermark-cli vdp vorlage-a6.pdf sortie.pdf --preset presets/beispiel-4-ean13.json
+  passermark-cli vdp vorlage-a6.pdf sortie.pdf --preset "Beispiel 4 – EAN-13"
+
+-----------------------------------------------------------------
+1  Code QR avec numérotation (sans CSV, 5 billets)
+   QR    contenu : https://deinefirma.at/ticket/{{nr}}
+   Texte contenu : Billet {{nr}}
+   Numérotation : premier numéro 1, 4 chiffres  → 0001, 0002 …
+
+2  Code QR depuis le CSV
+   QR    contenu : {{Name}} – {{Ort}}   → « Anna Huber – Wien » (les umlauts fonctionnent)
+
+3  Code 128
+   en haut    contenu : T{{nr}}             → T0001, T0002, T0003 (4 chiffres)
+   en bas     contenu : {{Artikelnummer}}   → ART-1001 … du CSV
+   Taille 9 pt = ligne de texte lisible en dessous, 0 = aucune. Pas d'umlauts.
+
+4  EAN-13
+   gauche   contenu : {{EAN}} du CSV – 13 chiffres, ou 12 (la clé de contrôle est
+            calculée : 978316148410 → 9783161484100)
+   droite   contenu : {{nr}} avec le préfixe 2012345, 5 chiffres, clé de contrôle « aucune »
+            → 201234500001 → 2012345000018  (20–29 = plage de numéros pour codes internes)
+
+5  QR carte de visite (vCard) – visitenkarten.csv
+   Champ QR avec « Type de code QR » : Carte de visite (vCard)
+   Le contenu provient des colonnes Vorname, Nachname, Firma, Position, Telefon,
+   Mobil, E-Mail, Straße, PLZ, Ort, Land, Web, Notiz
+   → après le scan, le téléphone propose « Enregistrer le contact »
+
+6  QR Wi-Fi – wlan.csv
+   Champ QR de type « Réseau Wi-Fi », colonnes Netzname, Passwort, Verschlüsselung
+   (vide = WPA), Versteckt ; sans mot de passe = réseau ouvert
+   → le téléphone se connecte après le scan
+
+7  Carte de visite recto/verso – vorlage-karte-vorne-hinten.pdf + visitenkarten.csv
+   Pages par enregistrement : 2 (pages 1+2 = contact 1, 3+4 = contact 2 …)
+   Name, Position, Mobil, E-Mail : « Seulement sur ces pages » = impaires (recto)
+   QR type carte de visite :            « Seulement sur ces pages » = paires (verso)
+
+Variables : le bouton « ? » à côté du contenu dans la boîte de dialogue Données variables
+   {{datum}} {{zeit}} {{jahr}} {{kw}} {{wochentag}} {{seite}} {{seiten}}
+   {{datensaetze}} {{datei}} {{zufall:6}} {{code:8}} {{uuid}} {{datum:%d.%m.%y}}
+
+Noms de colonnes étrangers (p. ex. exports d'Outlook, Google, Thunderbird)
+   Données variables → Ouvrir le CSV → kontakte-outlook.csv
+   → « Ce tableau correspond à : QR – carte de visite » → Créer le champ adapté
+   Les colonnes sont associées automatiquement ; modification via « Associer les colonnes … »
+   au champ QR (p. ex. Position depuis « Title » au lieu de « Job Title »). Le CSV reste inchangé.
+
+Votre propre tableau en ligne de commande
+  passermark-cli datenvorlage vcard kontakte.csv     (tableau vide)
+  passermark-cli datencheck kontakte.csv             (vérifier)
+
+Ainsi, cela ne fonctionne PAS (l'aperçu montre une erreur ou un contenu erroné)
+   Contenu EAN-13 : ART-{{nr}}             → les lettres disparaissent, trop peu de chiffres
+   Contenu EAN-13 : {{nr}} avec 4 chiffres  → seulement 4 chiffres
+   EAN-13 avec 13 chiffres, le dernier faux → erreur, le bon est indiqué
+   Contenu : nr (sans {{ }})                → il s'affiche simplement « nr »
+
+Vérifiez toujours la lisibilité des codes sur une impression, avec un scanner ou un téléphone.

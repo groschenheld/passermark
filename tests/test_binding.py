@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Bindungsschemata: Falz-Simulation (falzen, ineinanderstecken, Lagen stapeln -> muss 1…N ergeben),
-Leerseiten, Bundzug, Marken, Ausschießen per Kommandozeile."""
+"""Binding schemes: folding simulation (fold, nest, stack sections -> must yield 1…N),
+blank pages, shingling, marks, imposition via the command line."""
 import os, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -14,10 +14,10 @@ A4 = (210 * MM, 297 * MM)
 
 
 def fold_read(sheets, binding="left"):
-    """Physikalisches Modell, unabhängig von der Ausschieß-Formel: Bögen einer Lage (0 = außen) liegen
-    ineinander, Rückseite über die kurze Kante gewendet (hinten-links liegt hinter vorne-rechts).
-    Gelesen wird außen vorne beginnend, Blatt für Blatt bis zur Mitte und auf der anderen Hälfte zurück."""
-    a, b = (1, 0) if binding == "left" else (0, 1)        # erste sichtbare Hälfte der Vorderseite
+    """Physical model, independent of the imposition formula: the sheets of one section (0 = outermost)
+    are nested inside each other, the back is turned over the short edge (back-left lies behind front-right).
+    Read starting from the outside front, sheet by sheet to the middle and back on the other half."""
+    a, b = (1, 0) if binding == "left" else (0, 1)        # first visible half of the front side
     first, second = [], []
     for front, back in sheets:
         first += [front[a], back[b]]
@@ -27,7 +27,7 @@ def fold_read(sheets, binding="left"):
 
 
 def lagen_from_plans(plans, n_sheets_per_sig):
-    """Aus den fertigen Bogenplänen (Platzierungen) wieder Bögen [vorne(l,r), hinten(l,r)] machen."""
+    """Turn the finished sheet plans (placements) back into sheets [front(l,r), back(l,r)]."""
     out = []
     LW = A3.height                                        # Querbogen: logische Breite = lange Kante
     for i in range(0, len(plans), 2):
@@ -75,15 +75,15 @@ def test_known_orders():
     # Stapel: jede Lage ein Bogen mit 4 aufeinanderfolgenden Seiten
     lay, _, nsig = layout.booklet_layout(8, LayoutSettings(booklet_kind="stack"))
     assert [f for (*_x, f) in lay] == [([3, 0], [1, 2]), ([7, 4], [5, 6])] and nsig == 2
-    # gruppiert 2 Bögen/Lage, 16 Seiten: Lage 2 beginnt mit Seite 9
+    # groups 2 sheets/section, 16 pages: section 2 starts with page 9
     lay, _, nsig = layout.booklet_layout(16, LayoutSettings(booklet_kind="grouped", booklet_per_sig=2))
     assert nsig == 2 and lay[2][3] == ([15, 8], [9, 14])
-    # Leerseiten vor der Rückseite: 6 Seiten -> 1 2 3 4 5 _ _ 6
+    # blank pages before the back: 6 pages -> 1 2 3 4 5 _ _ 6
     assert layout.booklet_sequence(6, "before_back") == [0, 1, 2, 3, 4, None, None, 5]
 
 
 def test_three_sheets_per_signature_24_pages():
-    """Gemeldet: 3 Bögen ineinander, gefalzt; die nächsten 3 Bögen darunter. Seite 24 darf nicht neben Seite 1."""
+    """Reported: 3 sheets nested, folded; the next 3 sheets underneath. Page 24 must not sit next to page 1."""
     lay, _b, nsig = layout.booklet_layout(24, LayoutSettings(booklet_kind="grouped", booklet_per_sig=3))
     faces = [[[x + 1 for x in side] for side in f] for (*_x, f) in lay]
     assert nsig == 2
@@ -95,7 +95,7 @@ def test_creep_shifts_inner_sheets_to_fold():
     s = LayoutSettings(handling="booklet", booklet_creep_mm=0.2, use_margins=False)
     plans = layout.plan_booklet([A4] * 16, list(range(16)), A3, s)
     LW = A3.height
-    # Bogen 1 (außen) liegt am Falz, Bogen 4 (innen) 3 × 0,2 mm weiter hinein
+    # sheet 1 (outermost) sits at the fold, sheet 4 (innermost) 3 × 0.2 mm further in
     def right_x(sp):
         return min(pl.x for pl in sp.placements if pl.x + pl.w / 2 > LW / 2)
     assert abs(right_x(plans[0]) - LW / 2) < 0.01
@@ -132,7 +132,7 @@ def test_cli_impose():
     d = pdfium.PdfDocument(out)
     assert len(d) == 4 and [round(v / MM) for v in d.get_page_size(0)] == [297, 420]
     d.close()
-    # Nutzen: A4 auf lange Kante 148 mm, 8× auf SRA3, Überfüller an Überfüller
+    # step & repeat: A4 on long edge 148 mm, 8× on SRA3, bleed against bleed
     out2 = os.path.join(tmp, "nutzen.pdf")
     r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "impose", src, out2, "--pages", "1",
                         "--set", "sheet=SRA3", "--set", "step_repeat=true", "--set", "sr_by=long",
@@ -155,7 +155,7 @@ def test_cli_impose():
 
 
 def _trim_pdf(path):
-    """216×303 mm: rote 3 mm Anschnittfläche, blaues Endformat 210×297, TrimBox/BleedBox gesetzt; Seite 2 gedreht."""
+    """216×303 mm: red 3 mm bleed area, blue trim size 210×297, TrimBox/BleedBox set; page 2 rotated."""
     import pikepdf
     from reportlab.pdfgen import canvas
     c = canvas.Canvas(path, pagesize=(216 * MM, 303 * MM))
@@ -201,20 +201,20 @@ def test_trimbox_recognized():
     inside_bleed = px(x0 - 1.5 * MM * pl.scale, y0)
     assert inside_bleed[0] > 200 and inside_bleed[2] < 80, inside_bleed  # Anschnitt: rot aus dem Dokument
     out.close()
-    # ohne Ausschießen (normaler Druck „Größe“) bleibt die ganze Seite
+    # without imposition (normal "size" printing) the whole page remains
     plain = layout.plan(sizes, [0], sh, LayoutSettings(), layout.page_trims(d))
     assert plain[0].placements[0].trim is None
 
 
 def test_cutcontour_objects_bleed_to_bleed():
-    """Gemeldet: Nutzen „Überfüller an Überfüller“ aus CutContour-Einzelobjekten hatte Abstände (weißer Seitenrand).
-    Jetzt: Endformat = Schnittlinie, Anschnitt = Überfüller -> die Überfüller liegen aneinander."""
+    """Reported: step & repeat "bleed against bleed" from individual CutContour objects had gaps (white page margin).
+    Now: trim size = cut line, bleed area = bleed -> the bleeds touch each other."""
     sys.path.insert(0, HERE)
     import test_cutcontour as tc
     from pdfdruck import cutcontour
     out, _n = cutcontour.make(tc.stickers(), cutcontour.CutSettings(per_object=True, bleed_mm=2, margin_mm=6, dpi=150))
     trims, bleeds = layout.page_trims(out), layout.page_doc_bleeds(out)
-    assert all(t and min(t) > 7 * MM for t in trims)                 # 6 mm Rand + Überfüller außerhalb des Endformats
+    assert all(t and min(t) > 7 * MM for t in trims)                 # 6 mm margin + bleed outside the trim size
     assert all(1.5 * MM < b < 2.6 * MM for b in bleeds), bleeds
     sizes = [out.get_page_size(i) for i in range(len(out))]
     for s, want_gap in ((LayoutSettings(step_repeat=True, sr_join="bleed"), 2 * bleeds[0]),        # aus dem Dokument

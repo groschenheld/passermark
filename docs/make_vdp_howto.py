@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Erzeugt pdfdruck/docs/passermark-vdp-anleitung.pdf (Variable Daten: Oberfläche und Kommandozeile, mit Beispielen).
+"""Generates pdfdruck/docs/passermark-vdp-anleitung.pdf (variable data: GUI and command line, with examples).
 
-    python3 docs/make_vdp_examples.py     (zuerst: Beispiele und Ergebnis-PDFs)
+    python3 docs/make_vdp_examples.py     (first: examples and result PDFs)
     python3 docs/make_vdp_howto.py
 
-Stil und Hilfsfunktionen kommen aus make_cli_howto.py.
+Style and helper functions come from make_cli_howto.py.
 """
 import os
 
-os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
+os.environ["PASSERMARK_LANG"] = os.environ.get("PM_HOWTO_LANG", "de")   # de, en, es, fr, hu – wie make_cli_howto
 import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import make_cli_howto as H  # noqa: E402  (registriert auch die Schriften)
+import make_cli_howto as H  # noqa: E402  (also registers the fonts)
 from reportlab.lib.pagesizes import A4  # noqa: E402
 from reportlab.lib.units import mm  # noqa: E402
 from reportlab.platypus import Image, PageBreak, SimpleDocTemplate, Spacer  # noqa: E402
@@ -32,7 +32,7 @@ TMP = tempfile.mkdtemp(prefix="pm-howto-")
 
 
 def result_image(stem, width=82 * mm):
-    """Erste Seite des Ergebnis-PDFs als Bild (mit dünnem Rand)."""
+    """First page of the result PDF as an image (with a thin border)."""
     import pypdfium2 as pdfium
     d = pdfium.PdfDocument(os.path.join(VDP_DIR, "ergebnis", stem + ".pdf"))
     try:
@@ -46,7 +46,7 @@ def result_image(stem, width=82 * mm):
 
 
 def steps(items):
-    return [P(f"<b>{i}.</b> {t}") for i, t in enumerate(items, 1)]
+    return [P(f"<b>{i}.</b> {H.T(t)}") for i, t in enumerate(items, 1)]
 
 
 def example_block(stem, title, intro, rows, gui, cli):
@@ -54,10 +54,10 @@ def example_block(stem, title, intro, rows, gui, cli):
     s.append(table([["Feld", "Inhalt", "Lage (links, oben, B × H in mm)"]] + rows, [24 * mm, 80 * mm, W - 104 * mm]))
     s.append(Spacer(1, 4))
     s.append(result_image(stem))
-    s.append(P("Ergebnis Seite 1 (ergebnis/" + stem + ".pdf)", NOTE))
+    s.append(P(H.T("Ergebnis Seite 1 (ergebnis/") + stem + ".pdf)", NOTE))
     s.append(P("<b>In der Oberfläche selbst anlegen</b>"))
     s += steps(gui)
-    s.append(P("<b>Fertiges Preset verwenden:</b> in der Preset-Leiste oben im Dialog „" + NAMES[stem] + "“ wählen.", NOTE))
+    s.append(P(H.T("<b>Fertiges Preset verwenden:</b> in der Preset-Leiste oben im Dialog „") + NAMES[stem] + H.T("“ wählen."), NOTE))
     s.append(P("<b>Kommandozeile</b> (im Ordner der Beispiele)"))
     s.append(code(cli))
     return s
@@ -66,13 +66,13 @@ def example_block(stem, title, intro, rows, gui, cli):
 def build():
     s = []
     s += [P("Passermark – Variable Daten", H1),
-          P(f"Nummern, Texte aus einer Tabelle, QR-Code (auch Visitenkarte, WLAN, E-Mail …), Code 128 und EAN-13 – "
-            f"in der Oberfläche und auf der Kommandozeile · Passermark {__version__}", SUB)]
+          P(H.T("Nummern, Texte aus einer Tabelle, QR-Code (auch Visitenkarte, WLAN, E-Mail …), Code 128 und "
+                "EAN-13 – in der Oberfläche und auf der Kommandozeile · Passermark") + f" {__version__}", SUB)]
     s.append(P("Variable Daten legen Felder auf ein PDF und füllen sie für jede Seite neu: fortlaufende Nummern, "
                "Namen aus einer Tabelle, QR- und Strichcodes. Die Vorlage bleibt, wie sie ist; alles wird als "
                "Vektor darübergelegt."))
 
-    # ------------------------------------------------------------------ 1 Prinzip
+    # ------------------------------------------------------------------ 1 principle
     s.append(P("1 · So funktioniert es", H2))
     s.append(P("Jedes Feld ist ein Kasten auf der Seite mit einem <b>Inhalt</b>. Der Inhalt ist fester Text, "
                "gemischt mit Platzhaltern in doppelten geschweiften Klammern. Das gilt gleich für Text, QR-Code, "
@@ -127,7 +127,34 @@ def build():
                "im Bereich, mehrere mit Komma. Beispiel 100 Visitenkarten: „Seiten je Datensatz“ 2, Feld "
                + c("{{Name}}") + " auf " + c("ungerade") + ", QR-Code auf " + c("gerade") + " (Beispiel 7)."))
 
-    # ------------------------------------------------------------------ 2 Beispiele holen
+    # ------------------------------------------------------------------ 1.11 windows
+    s.append(P("Fenster (Seitengruppen) – ab Passermark 1.11", H3))
+    s.append(P("Jedes Feld gehört zu einem Fenster, und jedes Fenster legt fest, auf welchen Seiten der Vorlage "
+               "seine Felder stehen. „Alle Seiten“ ist die Grundschicht und gilt überall (z. B. der Name der "
+               "Veranstaltung auf jeder Karte); weitere Fenster kommen zu ihren Seiten hinzu: " + c("ungerade")
+               + " (Vorderseiten), " + c("gerade") + " (Rückseiten) oder ein fester Seitenbereich wie "
+               + c("5-8") + ", der für seine Seiten vor ungerade/gerade gewinnt. Ein Fenster erzeugt man mit "
+               "<b>+ Weiteres Fenster anlegen</b> (z. B. „Vorderseiten (Name)“, „Rückseiten (QR-Code)“), Umbenennen "
+               "direkt im Kasten; <b>Aktuelles Fenster entfernen</b> zieht seine Felder ins erste Fenster."))
+    s.append(table([
+        ["Im Dialog (links, 1. Fenster)", "Bedeutung"],
+        ["Seiten dieses Fensters", "leer = alle Seiten (Grundschicht); " + c("ungerade") + ", " + c("gerade")
+         + " oder Bereich wie " + c("1,3-5 oder ungerade 1-50")],
+        ["Fenster des gewählten Feldes", "zeigt das Fenster des Feldes; hier auswählen, um es in ein anderes "
+         "Fenster umzuziehen. Neue Felder landen im oben gewählten Fenster"],
+        ["Ergebniszeile", "„{0} Datensätze → {1} Seiten“ – und Warnung, wenn Seiten in keinem Fenster liegen "
+         "(„– {0} Seiten ohne Fenster!“)"],
+        ["Erweitert: Sortierung der Ausgabe", c("Bogen für Bogen") + " = erst alle Seiten mit Datensatz 1 (wie der "
+         "Drucker stapelt) · " + c("Seite für Seite") + " = erst Seite 1 mit allen Datensätzen · "
+         "<b>Ohne Duplikate</b>: je Datensatz die nächsten „Seiten je Datensatz“ der Vorlage, ohne Vervielfältigung"],
+    ], [55 * mm, W - 55 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(P("Vorschau: grüner Rahmen = deklariertes Endformat (TrimBox), roter gestrichelter Rahmen außen = "
+               "Anschnitt (Überfüller); der einstellbare Innenrahmen ist eine Platzierungshilfe. Alte Presets und "
+               "die Kommandozeile laufen unverändert weiter: Felder mit „Nur auf diesen Seiten“ werden beim Laden "
+               "automatisch zu Fenstern migriert (gleiche Seitenangabe = ein Fenster).", NOTE))
+
+    # ------------------------------------------------------------------ 2 fetch the examples
     s.append(P("2 · Die Beispiele holen", H2))
     s.append(P("Passermark bringt sieben fertige Beispiele mit. „Holen“ kopiert sie in den Ordner "
                + c("Passermark-Beispiele/vdp") + " in deinem Benutzerordner und trägt sie als Presets "
@@ -155,7 +182,7 @@ def build():
     s.append(P("Inhalt von " + c("daten.csv") + ":", NOTE))
     s.append(code(open(os.path.join(VDP_DIR, "daten.csv"), encoding="utf-8").read()))
 
-    # ------------------------------------------------------------------ 3 Oberfläche allgemein
+    # ------------------------------------------------------------------ 3 GUI basics
     s.append(PageBreak())
     s.append(P("3 · In der Oberfläche – der Ablauf", H2))
     s += steps([
@@ -177,8 +204,11 @@ def build():
     s.append(P("Einstellungen behalten: in der Preset-Leiste oben im Dialog speichern. Ohne Preset merkt sich "
                "der Dialog die Einstellungen nur bis zum Schließen von Passermark. <b>Alles zurücksetzen</b> "
                "fängt mit einem leeren Textfeld " + c("{{nr}}") + " neu an.", NOTE))
+    s.append(P("Mehrseitige Vorlagen: in 1. sind die Felder nach <b>Fenstern (Seitengruppen)</b> gruppiert – jedes "
+               "Fenster mit seiner eigenen Seitenauswahl (siehe Abschnitt 1). Vorder- und Rückseite: zwei Fenster "
+               "mit " + c("ungerade") + " und " + c("gerade") + ".", NOTE))
 
-    # ------------------------------------------------------------------ 4 Daten erfassen
+    # ------------------------------------------------------------------ 4 enter data
     s.append(PageBreak())
     s.append(P("4 · Daten erfassen – die Tabelle in Passermark", H2))
     s.append(P("Statt die Tabelle in Excel anzulegen, geht es auch direkt in Passermark: Arbeitsbereich "
@@ -227,7 +257,7 @@ def build():
                + c("24.10.2026 18:00") + " oder " + c("2026-10-24 18:00") + "; nur Datum = ganztägig. WLAN: "
                "Verschlüsselung leer = WPA; ohne Passwort = offenes Netz.", NOTE))
 
-    # ------------------------------------------------------------------ 5 Beispiele
+    # ------------------------------------------------------------------ 5 examples
     s.append(PageBreak())
     s.append(P("5 · Die sieben Beispiele", H2))
     s.append(P("Die Beispiele 1–6 verwenden " + c("vorlage-a6.pdf") + ", Beispiel 7 "
@@ -336,11 +366,11 @@ def build():
              ["QR-Code", "Art „Visitenkarte (vCard)“, Seiten " + c("gerade"), "27.5, 10, 30 × 30"],
              ["Text", "„Kontakt speichern“, mittig, Seiten " + c("gerade"), "8, 43, 69 × 5"]],
             [c("vorlage-karte-vorne-hinten.pdf") + " öffnen, Variable Daten, <b>Alles zurücksetzen</b>.",
-             "2.: <b>CSV öffnen …</b> → " + c("visitenkarten.csv") + " · <b>Seiten je Datensatz: 2</b>.",
-             "Textfeld " + c("{{Vorname}} {{Nachname}}") + " (Doppelklick auf Vorname, Leerzeichen, Nachname), "
-             "unter „Nur auf diesen Seiten“ " + c("ungerade") + "; ebenso die weiteren Zeilen.",
-             "<b>Passendes Feld anlegen</b> (QR-Code mit Art Visitenkarte), Seiten " + c("gerade") + ", Lage 27.5 / 10 / "
-             "30 / 30.",
+             "2.: <b>CSV öffnen …</b> → " + c("visitenkarten.csv") + ".",
+             "Textfeld " + c("{{Vorname}} {{Nachname}}") + " (Doppelklick auf Vorname, Leerzeichen, Nachname); "
+             "„Seiten dieses Fensters“ " + c("ungerade") + " (Vorderseiten); ebenso die weiteren Zeilen.",
+             "<b>+ Weiteres Fenster anlegen</b> für die Rückseiten, „Seiten dieses Fensters“ " + c("gerade")
+             + ", dann <b>Passendes Feld anlegen</b> (QR-Code mit Art Visitenkarte), Lage 27.5 / 10 / 30 / 30.",
              "Datensatz 1–3 durchblättern: Seite und Datensatz laufen mit (Datensatz 2 = Seite 3), <b>Erzeugen</b>."],
             'passermark-cli vdp vorlage-karte-vorne-hinten.pdf karten.pdf \\\n'
             '    --preset presets/beispiel-7-karte-vorne-hinten.json\n'
@@ -355,7 +385,7 @@ def build():
     s.append(P("EAN-13 für den Handel braucht eine bei GS1 registrierte Nummer. Für rein interne Codes "
                "(Lager, Inventar) sind die Nummernbereiche 20–29 vorgesehen.", NOTE))
 
-    # ------------------------------------------------------------------ 6 Kommandozeile
+    # ------------------------------------------------------------------ 6 command line
     s.append(P("6 · Auf der Kommandozeile", H2))
     s.append(P("Die Felder legt man im Programm an und speichert ein Preset; die Kommandozeile verwendet es und ändert "
                "nur, was sich je Auftrag ändert. Ein Preset geht als Datei oder als Name aus der Preset-Leiste."))
@@ -396,7 +426,7 @@ def build():
     s.append(P("In der Oberfläche dasselbe: Ergebnis drucken → Weitere Optionen → Nutzen → „Je Nutzen die nächste "
                "Seite“.", NOTE))
 
-    # ------------------------------------------------------------------ 7 Fehler
+    # ------------------------------------------------------------------ 7 errors
     s.append(P("7 · Typische Fehler", H2))
     s.append(table([
         ["Was passiert", "Ursache / Lösung"],
@@ -426,14 +456,17 @@ def on_page(canvas, doc):
     canvas.saveState()
     canvas.setFont("DV", 7.5)
     canvas.setFillColor(H.MUTED)
-    canvas.drawString(20 * mm, 12 * mm, f"Passermark {__version__} · Variable Daten")
+    canvas.drawString(20 * mm, 12 * mm, f"Passermark {__version__} · {H.T('Variable Daten')}")
     canvas.drawRightString(A4[0] - 20 * mm, 12 * mm, str(doc.page))
     canvas.restoreState()
 
 
 if __name__ == "__main__":
-    doc = SimpleDocTemplate(VDP_HOWTO, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm,
-                            bottomMargin=20 * mm, title="Passermark – Variable Daten", author="Passermark",
-                            subject="Anleitung Variable Daten: Oberfläche und Kommandozeile")
+    out = VDP_HOWTO
+    if H.LANG != "de":                          # passermark-vdp-anleitung.<lang>.pdf next to the German one
+        out = out[:-4] + f".{H.LANG}.pdf"
+    doc = SimpleDocTemplate(out, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm,
+                           bottomMargin=20 * mm, title=H.T("Passermark – Variable Daten"), author="Passermark",
+                           subject=H.T("Anleitung Variable Daten: Oberfläche und Kommandozeile"))
     doc.build(build(), onFirstPage=on_page, onLaterPages=on_page)
-    print(VDP_HOWTO)
+    print(out)

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Selbsttest der fertigen Programmdatei (EXE/AppImage): prüft, dass alle mitgelieferten Abhängigkeiten laden.
-Aufruf: passermark --selftest   (Rückgabe 0 = OK; Protokoll in <Temp>/passermark-selftest.log)"""
+"""Self-test of the finished program file (EXE/AppImage): checks that all bundled dependencies load.
+Call: passermark --selftest   (return 0 = OK; log in <temp>/passermark-selftest.log)
+"""
 import os
 import re
 import subprocess
@@ -102,8 +103,9 @@ def run() -> int:
 
 
 def admin_helper(args: list) -> int:
-    """Linux-AppImage: den mitgelieferten Root-Helfer ausführen (aufgerufen über pkexec, siehe admindialog).
-    Der Helfer prüft wie gewohnt: Prüfregeln nur aus einem root-eigenen Ordner (beim AppImage: entpackt durch root)."""
+    """Linux AppImage: run the bundled root helper (invoked via pkexec, see admindialog).
+        As usual, the helper only accepts validation rules from a root-owned folder (for the AppImage: extracted by root).
+    """
     base = getattr(sys, "_MEIPASS", None) or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     path = os.path.join(base, "admin", "passermark-admin")
     with open(path, encoding="utf-8") as f:

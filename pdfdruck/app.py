@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Programmweiter Zustand + Einzelinstanz.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Program-wide state + single instance.
 
-Läuft pdfdruck bereits, schicken weitere Aufrufe (Rechtsklick „Drucken“ / „Als PDF öffnen“)
-ihren Auftrag per QLocalSocket an die laufende Instanz. Dadurch gelten für den
-Rechtsklick-Druck die im Druckdialog gesetzten Sitzungseinstellungen – bis das letzte
-Fenster geschlossen wird. Läuft nichts, wird mit den Admin-Standards gedruckt.
+If pdfdruck is already running, further calls (right-click "Print" / "Open as PDF")
+send their job via QLocalSocket to the running instance. That way, right-click
+printing uses the session settings made in the print dialog – until the last
+window is closed. If nothing is running, printing uses the admin defaults.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def notify(title: str, body: str, error: bool = False):
 
 
 def send_to_running(cmd: str, files: list[str], timeout_ms: int = 400) -> bool:
-    """True, wenn eine laufende Instanz den Auftrag übernommen hat."""
+    """True if a running instance accepted the job."""
     sock = QLocalSocket()
     sock.connectToServer(server_name())
     if not sock.waitForConnected(timeout_ms):
@@ -62,7 +62,7 @@ class Controller(QObject):
 
     # ---------------------------------------------------------------- #
     # ---------------------------------------------------------------- #
-    # Zwischenspeicher für Manipulations-Ergebnisse (wird beim Beenden geleert)
+    # cache for manipulation results (emptied on exit)
     # ---------------------------------------------------------------- #
     def cache_dir(self) -> str:
         if not hasattr(self, "_cache"):
@@ -70,7 +70,7 @@ class Controller(QObject):
             self._cache = os.path.join(_platform.user_cache_dir(), "dokumente")
             os.makedirs(self._cache, exist_ok=True)
             self._cache_files = []
-            for f in os.listdir(self._cache):          # Reste früherer Sitzungen (älter als 2 Tage)
+            for f in os.listdir(self._cache):          # leftovers from earlier sessions (older than 2 days)
                 p = os.path.join(self._cache, f)
                 try:
                     if time.time() - os.path.getmtime(p) > 2 * 86400:
@@ -104,7 +104,7 @@ class Controller(QObject):
                 pass
 
     def reload_config(self):
-        """Nach Admin-Änderung: neue Standards sofort für alle Fenster."""
+        """After an admin change: new defaults immediately for all windows."""
         self.cfg = config.load()
         self.session = Session(self.cfg)
 
@@ -120,7 +120,7 @@ class Controller(QObject):
         self.server.newConnection.connect(self._on_connection)
         if self.server.listen(server_name()):
             return True
-        # Belegt: läuft wirklich jemand? Sonst verwaiste Socketdatei nach Absturz entfernen.
+        # In use: is someone really running? Otherwise remove an orphaned socket file left by a crash.
         probe = QLocalSocket()
         probe.connectToServer(server_name())
         if probe.waitForConnected(200):
@@ -147,13 +147,13 @@ class Controller(QObject):
         sock.flush()
         sock.disconnected.connect(sock.deleteLater)
         if cmd in (None, "open") and not files:
-            # Programm nochmal gestartet (Startmenü, Symbol) -> neues, leeres Fenster statt nichts
+            # program started again (start menu, icon) -> a new, empty window instead of nothing
             self.new_window()
             return
         self.queue_request(cmd, files)
 
     # ---------------------------------------------------------------- #
-    # Aufträge kurz sammeln: Explorer/Nautilus starten bei Mehrfachauswahl teils einen Prozess je Datei
+    # collect jobs briefly: Explorer/Nautilus sometimes start one process per file on multi-selection
     # ---------------------------------------------------------------- #
     BATCH_MS = 700
 
@@ -166,7 +166,7 @@ class Controller(QObject):
         for f in files:
             if f not in lst:
                 lst.append(f)
-        self._batch.start()                     # jede neue Datei verlängert das Sammelfenster
+        self._batch.start()                     # each new file extends the collection window
 
     def _flush(self):
         pending, self._pending = self._pending, {}
@@ -198,8 +198,9 @@ class Controller(QObject):
         return h
 
     def new_window(self, tab_of=None):
-        """Neues Dokumentfenster. tab_of = Fenster, aus dem heraus es entsteht: dann als Reiter daneben
-        (Einstellung „Im Programm Geöffnetes als Reiter“). Sonst eigenständiges Fenster."""
+        """New document window. tab_of = window it originates from: then as a tab next to it
+                (setting "Open inside the program as a tab"). Otherwise a standalone window.
+        """
         from .gui.viewer import MainWindow
         w = MainWindow(self)
         self.windows.append(w)
@@ -236,20 +237,21 @@ class Controller(QObject):
             return False
 
     def _target_window(self, tab_of=None):
-        if tab_of is None:                       # von außen (Doppelklick, „Öffnen mit“): leeres Fenster nutzen –
+        if tab_of is None:                       # from outside (double-click, "Open with"): use an empty window –
             for w in self.windows:               # aber nicht in einem Rahmen, in dem gerade ein Werkzeug offen ist
                 if w.doc is None and not self.blocked(w):
                     return w
             return self.new_window()
-        if self.blocked(tab_of):                 # Ergebnis/Öffnen aus einem gesperrten Fenster: eigenes Fenster
+        if self.blocked(tab_of):                 # result/open from a locked window: its own window
             return self.new_window()
         if getattr(tab_of, "doc", 1) is None and tab_of in self.windows:
             return tab_of                        # leeres Fenster selbst nutzen (kein unsichtbarer leerer Reiter)
         return self.new_window(tab_of)
 
     def open_paths(self, paths: list[str], tab_of=None):
-        """Dateien öffnen. tab_of = Fenster im Programm (Öffnen-Knopf, Ziehen, Ergebnis) -> als Reiter;
-        sonst (Programmstart, Doppelklick im Dateimanager) eigenständige Fenster."""
+        """Open files. tab_of = window inside the program (Open button, drag & drop, result) -> as a tab;
+                otherwise (program start, double-click in the file manager) standalone windows.
+        """
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p)]
         imgs = [p for p in paths if images.is_image(p)]
         rest = [p for p in paths if not images.is_image(p)]
@@ -265,7 +267,7 @@ class Controller(QObject):
         self.show_window(last or self.windows[-1])
 
     def merge_paths(self, paths: list[str]):
-        """Rechtsklick „Als ein PDF zusammenführen“: Reihenfolge prüfen, dann zusammenführen."""
+        """Right-click "Merge into one PDF": check the order, then merge."""
         from . import convert
         from .gui.viewer import MergeDialog
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p) and convert.is_supported(p)]

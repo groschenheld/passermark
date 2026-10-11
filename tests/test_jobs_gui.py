@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Aufträge aus der Oberfläche (Qt-Ersatz, aber echte Hintergrundprozesse): Ergebnis, Abbrechen, Fehler."""
+"""Jobs from the UI (Qt stub, but real background processes): result, cancel, error."""
 import os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +38,7 @@ viewer.QMessageBox = lambda *a, **k: types.SimpleNamespace(setDetailedText=lambd
 viewer.QMessageBox.Icon = types.SimpleNamespace(Critical=0)
 
 def run_sync(entry_index=-1):
-    w._jobs[entry_index]["reader"].run()          # Qt-Ersatz startet keine Threads: Lese-Schleife direkt ausführen
+    w._jobs[entry_index]["reader"].run()          # the Qt stub starts no threads: run the read loop directly
 
 # 1) Erfolg: Ergebnis in neuem Fenster, Eingabe-Kopie weg, Liste leer
 w.start_job("cutcontour", {"shape": "rect", "single_shape": False}, None, suffix="_CutContour", title="CutContour",
@@ -78,7 +78,7 @@ dlg.accept = lambda: None
 dlg._apply()
 assert dlg.job[0] == "cutcontour" and dlg.job[1]["shape"] == "heart" and dlg.job[2] == [0], dlg.job
 from pdfdruck.objects import Box
-sd = od.SeparateDialog.__new__(od.SeparateDialog)      # ohne Erkennung beim Öffnen (Qt-Ersatz hat keine Werte)
+sd = od.SeparateDialog.__new__(od.SeparateDialog)      # without detection on open (the Qt stub has no values)
 sd.page, sd.boxes = 0, {}
 sd.canvas = types.SimpleNamespace(boxes=[Box(0, 0, 100, 100)])
 sd.w = {"margin": types.SimpleNamespace(value=lambda: 2.0)}; sd.accept = lambda: None

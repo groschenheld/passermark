@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# Public License, Version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 import sys, os
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
 from pdfdruck.layout import *
@@ -81,10 +81,10 @@ def test_booklet_plan():
 
 
 def test_poster():
-    # A4-Seite auf A2 hochskaliert, auf A4 gedruckt, 10 mm Überlappung
+    # A4 page upscaled to A2, printed on A4, 10 mm overlap
     s = LayoutSettings(handling="poster", poster_mode="target", poster_target="A2")
     ps = plan(sizes, [0], A4, s)
-    assert len(ps) == 8, len(ps)            # 2x4 quer: Rand + 10 mm Überlappung kosten Platz
+    assert len(ps) == 8, len(ps)            # 2x4 landscape: margin + 10 mm overlap cost space
     s = LayoutSettings(handling="poster", poster_mode="sheets", poster_cols=2, poster_rows=2)
     assert len(plan(sizes, [0], A4, s)) == 4
     s = LayoutSettings(handling="poster", poster_percent=100, poster_large_only=True)
@@ -140,7 +140,7 @@ def test_custom_edge():
     assert abs(p.h / MM - 420) < 0.05 and abs(p.w / MM - 297) < 0.2        # lange Kante 420 -> A3
     q = plan([(841.89, 595.28)], [0], A3, LayoutSettings(mode="custom", custom_by="short", custom_mm=100))[0]
     pl = q.placements[0]
-    assert abs(min(pl.w, pl.h) / MM - 100) < 0.05                            # Querformat: kurze Kante = Höhe
+    assert abs(min(pl.w, pl.h) / MM - 100) < 0.05                            # landscape: short edge = height
     p = plan([a4], [0], A3, LayoutSettings(mode="custom", custom_percent=50))[0].placements[0]
     assert abs(p.scale - 0.5) < 1e-9
 

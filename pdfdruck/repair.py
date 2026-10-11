@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""PDF reparieren und für die Weitergabe optimieren.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Repair PDFs and optimize them for sharing.
 
-Modi:
-  repair  – nur Struktur reparieren (qpdf/pikepdf): Querverweise, Objektströme, Metadaten.
-            Inhalt bleibt Byte-für-Byte gleich – das Mittel bei „Datei ist beschädigt“.
-  print   – mit Ghostscript neu schreiben: alle Schriften eingebettet, PDF 1.7, Bilder in Druckqualität.
-            Behebt die meisten „öffnet im Browser, aber nicht in Acrobat / druckt nicht“-Fälle.
-  screen  – wie print, Bilder auf 150 dpi – kleine Dateien für Mail und Bildschirm.
-  pdfa    – PDF/A-2b (Archiv, Behörden, E-Rechnungs-Anhänge): Schriften eingebettet, sRGB-OutputIntent.
+Modes:
+  repair – repair the structure only (qpdf/pikepdf): cross-references, object streams, metadata.
+           Content stays byte-for-byte identical – the remedy for "file is damaged".
+  print  – re-write with Ghostscript: all fonts embedded, PDF 1.7, images at print quality.
+           Fixes most "opens in the browser but not in Acrobat / does not print" cases.
+  screen – like print, images at 150 dpi – small files for e-mail and screen.
+  pdfa   – PDF/A-2b (archiving, authorities, e-invoice attachments): fonts embedded, sRGB output intent.
 
-Passwort: Eingabe-Passwort zum Öffnen geschützter Dateien; optional neues Passwort (AES-256) für die
-Ausgabe. Ohne neues Passwort wird die Ausgabe ungeschützt gespeichert.
+Password: input password to open protected files; optionally a new password (AES-256) for the
+output. Without a new password, the output is saved unprotected.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ SUFFIX = {"repair": "_repariert", "print": "_optimiert", "screen": "_klein", "pd
 
 
 class PasswordRequired(Exception):
-    """Datei ist verschlüsselt und das (richtige) Passwort fehlt."""
+    """The file is encrypted and the (correct) password is missing."""
 
 
 @dataclass
@@ -108,7 +108,7 @@ def _srgb_icc(tmp: str) -> str:
 
 
 def _pdfa_def(tmp: str, icc: str) -> str:
-    """OutputIntent-Definition für Ghostscript (entspricht Ghostscripts PDFA_def.ps)."""
+    """OutputIntent definition for Ghostscript (equivalent to Ghostscript's PDFA_def.ps)."""
     p = os.path.join(tmp, "PDFA_def.ps")
     esc = icc.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
     with open(p, "w") as f:
@@ -161,7 +161,7 @@ def _pike_save(src: str, dst: str, password: str | None, new_password: str | Non
     pdf = _open(src, password)
     try:
         enc = None
-        if new_password and not pdfa:            # PDF/A verbietet Verschlüsselung
+        if new_password and not pdfa:            # PDF/A forbids encryption
             perms = pikepdf.Permissions(print_lowres=allow_print, print_highres=allow_print,
                                         extract=True, modify_annotation=True, modify_form=True,
                                         modify_other=True, modify_assembly=True, accessibility=True)
@@ -174,7 +174,7 @@ def _pike_save(src: str, dst: str, password: str | None, new_password: str | Non
 
 
 def encrypt_file(src: str, dst: str, password: str, allow_print: bool = True) -> None:
-    """Fertige PDF mit Passwort (AES-256) schützen – zum Öffnen und Bearbeiten dasselbe Passwort."""
+    """Protect the finished PDF with a password (AES-256) – the same password for opening and editing."""
     if not password:
         raise ValueError(tr("Bitte ein Passwort eingeben."))
     _pike_save(src, dst, None, password, allow_print=allow_print)
@@ -182,14 +182,14 @@ def encrypt_file(src: str, dst: str, password: str, allow_print: bool = True) ->
 
 def process(src: str, dst: str, mode: str = "print", password: str | None = None,
             new_password: str | None = None, allow_print: bool = True) -> Result:
-    """Verarbeitet eine Datei. Wirft PasswordRequired, wenn ein Passwort nötig/falsch ist."""
+    """Processes one file. Raises PasswordRequired if a password is needed/wrong."""
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError(tr("Ziel darf nicht die Quelldatei sein."))
     notes = []
     pages_in = _pages(src, password)          # wirft PasswordRequired
     tmp = tempfile.mkdtemp(prefix="passermark-rep-")
     try:
-        # 1) immer zuerst die Struktur reparieren und entschlüsseln -> sauberer Zwischenstand
+        # 1) always repair and decrypt the structure first -> clean intermediate state
         clean = os.path.join(tmp, "clean.pdf")
         try:
             _pike_save(src, clean, password, None)
@@ -203,7 +203,7 @@ def process(src: str, dst: str, mode: str = "print", password: str | None = None
         else:
             stage = os.path.join(tmp, "gs.pdf")
             _ghostscript(clean, stage, mode, password if clean == src else None, tmp)
-        # 2) abschließend speichern (ggf. verschlüsseln, linearisieren für schnelles Öffnen im Web)
+        # 2) save at the end (optionally encrypt, linearize for fast opening on the web)
         _pike_save(stage, dst, None, new_password, allow_print, pdfa=(mode == "pdfa"))
         if new_password and mode == "pdfa":
             notes.append(tr("PDF/A erlaubt keine Verschlüsselung – Passwort wurde nicht gesetzt."))

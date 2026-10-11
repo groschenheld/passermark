@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Deutsche Bezeichnungen für typische (englische) Treiberoptionen und -werte.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""German names for typical (English) driver options and values.
 
-Viele Hersteller-PPDs (z. B. Epson escpr2) liefern nur Englisch bzw. interne Kürzel.
-Unbekanntes bleibt unverändert – es geht nichts verloren, der Originalwert steht im Tooltip.
+Many vendor PPDs (e.g. Epson escpr2) provide only English or internal abbreviations.
+Unknown values stay unchanged – nothing is lost, the original value is in the tooltip.
 """
 import re
 
@@ -56,7 +56,7 @@ CHOICE_DE = {
     "twosidedshortedge": "Beidseitig, kurze Kante",
 }
 
-# Epson-Medienkürzel (MediaType z. B. PLAIN_HIGH)
+# Epson media abbreviations (MediaType e.g. PLAIN_HIGH)
 EPSON_MEDIA = {
     "PLAIN": "Normalpapier", "LETTERHEAD": "Briefkopfpapier", "SFINE": "Matt, Superfine",
     "PMMATT": "Premium Matt", "PLATINA": "Ultra Glossy (Platinum)", "PMPHOTO": "Premium Glossy",
@@ -66,10 +66,10 @@ EPSON_MEDIA = {
 EPSON_QUAL = {"HIGH": "hohe Qualität", "NORMAL": "Standard", "DRAFT": "Entwurf"}
 
 
-# Endverarbeitung (Canon imagePRESS / imageRUNNER, Fiery, allgemein): Wort-/Phrasen-Übersetzung
+# finishing (Canon imagePRESS / imageRUNNER, Fiery, generic): word/phrase translation
 FINISH_RX = re.compile(r"stapl|saddle|punch|hole|fold|trim|booklet|finish|stack|offset|insert|bind|"
                        r"cnsaddle|cnpunch|cnfold|cntrim|heft|loch|falz|beschnitt|broschüre", re.I)
-# (Muster im englischen Treibertext, {Sprache: Ersatz}) – längere Phrasen zuerst
+# (patterns in the English driver text, {language: replacement}) – longer phrases first
 PHRASES = [
     (r"accordion\s*z[- ]?fold", {"de": "Leporellofalz", "fr": "Pli accordéon", "es": "Plegado en acordeón", "hu": "Harmonikahajtás"}),
     (r"double\s*parallel\s*fold", {"de": "Doppelparallelfalz", "fr": "Pli double parallèle", "es": "Plegado paralelo doble", "hu": "Dupla párhuzamos hajtás"}),
@@ -116,7 +116,7 @@ PHRASES = [
 
 
 def _phrase_de(text: str) -> str:
-    """Englischen Finisher-Text in die Oberflächensprache übertragen (Englisch: Original behalten)."""
+    """Translate an English finisher text into the interface language (English: keep the original)."""
     lang = current()
     out = text
     if lang != "en":
@@ -127,7 +127,7 @@ def _phrase_de(text: str) -> str:
     return out[:1].upper() + out[1:] if out else text
 
 
-# Deutsche Begriffe aus deutsch installierten Treibern (PPD) -> Oberflächensprache (längere zuerst)
+# German terms from German-installed drivers (PPD) -> interface language (longer first)
 DE_DRIVER = [
     ("Hintere Papierzufuhr", {"en": "Rear paper feed", "hu": "Hátsó papíradagoló", "es": "Alimentación trasera", "fr": "Alimentation arrière"}),
     ("Papierkassette", {"en": "Paper cassette", "hu": "Papírkazetta", "es": "Casete de papel", "fr": "Cassette papier"}),
@@ -172,7 +172,7 @@ _DE_HINT = re.compile(r"[äöüÄÖÜß]|Randlos|randlos|Zoll|Umschlag|Papier|Ka
 
 
 def localize_driver(text: str) -> str:
-    """Deutsche Treibertexte in die Oberflächensprache übertragen (Deutsch: unverändert)."""
+    """Translate German driver texts into the interface language (German: unchanged)."""
     lang = current()
     if lang == "de" or not text or not _DE_HINT.search(text):
         return text
@@ -213,7 +213,7 @@ def choice_text(keyword: str, value: str, text: str, option_label: str = "") -> 
     if m and m.group(1) in EPSON_MEDIA:
         return f"{tr(EPSON_MEDIA[m.group(1)])} – {tr(EPSON_QUAL[m.group(2)])}"
     if (text or "") in ("", value):
-        # Kürzel wie A3+, TA4 (T = randlos bei Epson)
+        # abbreviations like A3+, TA4 (T = borderless at Epson)
         m = re.fullmatch(r"T(A\d\+?|Letter|4X6FULL|2L|L|8x10|4X7|Postcard)", value)
         if m:
             return f"{m.group(1)} {tr('randlos')}"

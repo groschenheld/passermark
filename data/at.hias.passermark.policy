@@ -4,8 +4,8 @@
 <policyconfig>
   <vendor>Passermark</vendor>
   <action id="at.hias.passermark.admin">
-    <description>Passermark: Druck-Standardeinstellungen ändern</description>
-    <message>Zum Ändern der Druck-Standards (Drucker, Fächer, Farbprofile) ist eine Authentifizierung als Administrator erforderlich.</message>
+    <description>Passermark: change printing defaults</description>
+    <message>Changing the printing defaults (printers, trays, color profiles) requires authentication as administrator.</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

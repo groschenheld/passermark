@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Dialog „Spalten zuordnen“: welche Spalte der eigenen CSV liefert welche Angabe eines QR-Codes mit Art
-(Visitenkarte, WLAN …). Vorbelegt mit der automatischen Zuordnung; die eigene Wahl landet im Feld (qr_map) und damit
-im Preset. Die CSV selbst bleibt unverändert."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Dialog "Map columns": which column of your CSV provides which piece of a QR code with a kind
+    (business card, WLAN …). Pre-filled with the automatic mapping; your choice ends up in the field (qr_map) and thus
+    in the preset. The CSV itself stays unchanged.
+"""
 from __future__ import annotations
 
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QPlainTextEdit,
@@ -94,7 +95,7 @@ class MapDialog(QDialog):
 
 
 def summary(kind: str, cols: list, mapping: dict | None) -> str:
-    """Kurztext für den Dialog Variable Daten: was woher kommt, was fehlt."""
+    """Short text for the Variable Data dialog: what comes from where, what is missing."""
     k = datakinds.get(kind)
     if not cols:
         return tr("Inhalt kommt aus den Spalten: {0}").format(

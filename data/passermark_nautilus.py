@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Nautilus-Kontextmenü für Passermark.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+# General Public License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the LICENSE file.
+"""Nautilus context menu for Passermark.
 
-* Nur Bilder ausgewählt   -> „Als PDF öffnen“ (mehrere Bilder = ein Dokument)
-* Nur PDFs ausgewählt     -> „Drucken“ ohne Dialog (Sitzungs- bzw. Admin-Standards)
-Installiert nach /usr/share/nautilus-python/extensions/ (Paket python3-nautilus).
+* Only images selected   -> "Open as PDF" (several images = one document)
+* Only PDFs selected     -> "Print" without a dialog (session or admin defaults)
+Installed into /usr/share/nautilus-python/extensions/ (package python3-nautilus).
 """
 import subprocess
 
@@ -53,7 +53,7 @@ LABELS = {
 
 
 def _lang():
-    """Sprache wie in Passermark: Datei → Einstellungen > Admin-Standard > Systemsprache > Englisch."""
+    """Language as in Passermark: File → Preferences > Admin default > System language > English."""
     import json
     import os
     for path, key in ((os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),

@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Prüfung der Admin-Konfiguration – gemeinsam für den Linux-Helfer (pkexec) und den
-Windows-Helfer (UAC). Wirft ValueError bei allem, was nicht exakt erwartet wird.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Validation of the admin configuration – shared by the Linux helper (pkexec) and the
+Windows helper (UAC). Raises ValueError for anything that is not exactly as expected.
 
-Absichtlich ohne Abhängigkeiten außer der Standardbibliothek.
+Deliberately without dependencies beyond the standard library.
 """
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def check_opts(d, where):
 
 
 def check_devmode(s, where):
-    """Windows-Treibereinstellungen (DEVMODE) als Base64 – nur Größe und Kodierung prüfen."""
+    """Windows driver settings (DEVMODE) as Base64 – only check size and encoding."""
     if s in (None, ""):
         return
     if not isinstance(s, str) or len(s) > MAX_DEVMODE * 4 // 3 + 8:

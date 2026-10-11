@@ -4,8 +4,8 @@ pycups>=2.0
 img2pdf
 pikepdf
 Pillow
-pillow-heif   # optional, für HEIC/HEIF
+pillow-heif   # optional, for HEIC/HEIF
 numpy
 scipy
 contourpy
-reportlab        # variable Daten: Text, QR- und Barcodes als Vektor
+reportlab        # variable data: text, QR and barcodes as vectors

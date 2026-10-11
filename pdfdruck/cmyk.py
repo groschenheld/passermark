@@ -1,23 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""CMYK-Umwandlung von PDFs und farbverbindliche Vorschau.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""CMYK conversion of PDFs and color-accurate preview.
 
-Umwandlung: Ghostscript (pdfwrite) mit Zielprofil (z. B. PSO Coated v3 / FOGRA51), Render-Intent und
-Tiefenkompensierung. Vektoren und Schriften bleiben erhalten.
+Conversion: Ghostscript (pdfwrite) with the destination profile (e.g. PSO Coated v3 / FOGRA51), rendering
+intent and black point compensation. Vectors and fonts are preserved.
 
-Methoden:
-  rgb_only – RGB/Graustufen -> CMYK; vorhandenes CMYK bleibt unverändert (Quell-CMYK = Zielprofil,
-             dadurch rechnet Ghostscript CMYK 1:1 durch)
-  all      – alles neu separieren: CMYK-Daten werden als Quellprofil interpretiert (z. B. FOGRA39)
-             und ins Zielprofil (z. B. FOGRA52 ungestrichen) umgerechnet
-  gray     – alles in Graustufen (druckt nur mit Schwarz)
+Methods:
+  rgb_only – RGB/grayscale -> CMYK; existing CMYK stays unchanged (source CMYK = destination profile,
+             so Ghostscript passes CMYK through 1:1)
+  all      – separate everything anew: CMYK data are interpreted with the source profile (e.g. FOGRA39)
+             and converted to the destination profile (e.g. FOGRA52 uncoated)
+  gray     – everything to grayscale (prints with black only)
 
-Vorschau: Ghostscript rendert die Seite mit DENSELBEN Einstellungen als CMYK-Raster (tiff32nc);
-LittleCMS rechnet das CMYK mit dem Zielprofil auf den Bildschirm (sRGB) – so wie es gedruckt aussieht.
-Zusätzlich: Farbauftrag (TAC) und Einzelauszüge C/M/Y/K aus genau diesen CMYK-Werten.
+Preview: Ghostscript renders the page with the VERY SAME settings as a CMYK raster (tiff32nc);
+LittleCMS converts that CMYK with the destination profile to the screen (sRGB) – the way it will look
+when printed. Additionally: total ink coverage (TAC) and the individual separations C/M/Y/K from exactly
+these CMYK values.
 """
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ from .l10n import tr
 
 INTENT_NUM = {"perceptual": 0, "relative": 1, "saturation": 2, "absolute": 3}
 
-# Bekannte Standard-Druckbedingungen (Bezug: www.eci.org bzw. idealliance.org) – zur Erklärung/Erkennung
+# known standard printing conditions (see www.eci.org and idealliance.org) – for explanation/detection
 KNOWN = [
     ("PSOcoated_v3", "PSO Coated v3 (FOGRA51) – Offset, gestrichen"),
     ("PSOuncoated_v3", "PSO Uncoated v3 (FOGRA52) – Offset, ungestrichen"),
@@ -60,18 +61,18 @@ class ManipSettings:
     cmyk: bool = False
     cmyk_mode: str = "rgb_only"        # rgb_only | all | gray
     target: str = ""                   # Pfad Zielprofil (CMYK)
-    source: str = ""                   # Pfad Quellprofil für vorhandenes CMYK (Modus „all“)
+    source: str = ""                   # source profile path for existing CMYK (mode "all")
     intent: str = "relative"
     bpc: bool = True
     gray_to_k: bool = True             # Grau/Schwarz nur mit K drucken
     output_intent: bool = True         # Zielprofil als Output Intent einbetten
     crop: bool = False
-    crop_size: str = "A4"              # Schlüssel aus FORMATS oder "custom"
+    crop_size: str = "A4"              # key from FORMATS or "custom"
     crop_w_mm: float = 210.0
     crop_h_mm: float = 297.0
     crop_follow: bool = True           # Hoch-/Querformat der Seite folgen
-    crop_scale: bool = True            # zuerst skalieren, bis das Ziel ganz bedeckt ist, dann Überstand beschneiden
-    crop_inset_mm: float = 0.0         # vorher rundum so viel abschneiden (weiße Ränder der Vorlage)
+    crop_scale: bool = True            # first scale until the target is fully covered, then trim the overhang
+    crop_inset_mm: float = 0.0         # trim this much all around beforehand (white margins of the original)
 
     @classmethod
     def from_dict(cls, d):
@@ -153,7 +154,7 @@ def ghostscript() -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Ghostscript-Argumente (gemeinsam für Umwandlung und Vorschau -> identisches Ergebnis)
+# Ghostscript arguments (shared by conversion and preview -> identical result)
 # --------------------------------------------------------------------------- #
 def color_args(s: ManipSettings) -> list[str]:
     if s.cmyk_mode == "gray":
@@ -190,7 +191,7 @@ def convert_pdf(src: str, dst: str, s: ManipSettings):
         raise RuntimeError(tr("Für die CMYK-Umwandlung wird Ghostscript benötigt."))
     cmd = [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7",
            "-dAutoRotatePages=/None", "-dEmbedAllFonts=true", "-dSubsetFonts=true",
-           # keine Bildverkleinerung – nur die Farben sollen sich ändern
+           # no image downscaling – only the colors should change
            "-dDownsampleColorImages=false", "-dDownsampleGrayImages=false", "-dDownsampleMonoImages=false",
            *_permit(s), *color_args(s), "-o", dst, src]
     r = _run(cmd)
@@ -284,7 +285,7 @@ def separation(cmyk, channel: int):
 
 
 def tac(cmyk, limit_pct: float = 300.0):
-    """Farbauftrag: (Maximum in %, Flächenanteil über Grenze in %, Warnbild RGB)."""
+    """Ink coverage: (maximum in %, area share above the limit in %, warning image RGB)."""
     import numpy as np
     from PIL import Image
     a = np.asarray(cmyk, dtype=np.uint16)

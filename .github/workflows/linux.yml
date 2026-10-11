@@ -27,7 +27,7 @@ jobs:
       - name: Tests
         run: |
           .venv/bin/pip install reportlab numpy
-          # nur zum Testen (nach dem AppImage-Bau, kommt nicht ins Paket): erzeugte QR-/EAN-Codes wirklich lesen
+          # for testing only (after AppImage build, not shipped in the package): actually read the generated QR/EAN codes
           .venv/bin/pip install opencv-python-headless || echo "OpenCV nicht installierbar – Lese-Tests übersprungen"
           .venv/bin/python tests/test_layout.py
           .venv/bin/python tests/test_l10n.py

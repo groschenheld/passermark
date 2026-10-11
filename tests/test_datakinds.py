@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Daten erfassen (1.10): Datenarten, Inhalt der Codes, Prüfung, CSV, QR-Feld mit „Art“, Ruhezone – und die
-erzeugten Codes werden wirklich gelesen (QR/EAN mit OpenCV, falls installiert; Code 128 mit eigenem Leser)."""
+"""Data capture (1.10): data kinds, code contents, validation, CSV, QR field with "kind", quiet zone – and the
+generated codes are actually read (QR/EAN with OpenCV if installed; Code 128 with a custom reader)."""
 import os, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -33,7 +33,7 @@ def test_kinds_complete():
     assert tuple(ks) == D.IDS
     for kid, k in ks.items():
         assert k.cols and k.field_kind in vdp.KINDS, kid
-        D.build(kid, D.example_row(kid))           # Beispielzeile ist gültig
+        D.build(kid, D.example_row(kid))           # example row is valid
         assert D.validate(kid, D.columns(kid), [D.example_row(kid)]) == [], kid
     for t in D.QR_TYPES[1:]:
         assert D.get(t).field_kind == "qr"
@@ -41,7 +41,7 @@ def test_kinds_complete():
 
 def test_build_contents():
     assert D.build("url", {"Adresse": "huber.at/x"}) == "https://huber.at/x"
-    assert D.build("url", {"adresse": "mailto:a@b.at"}) == "mailto:a@b.at"        # Groß/klein egal
+    assert D.build("url", {"adresse": "mailto:a@b.at"}) == "mailto:a@b.at"        # upper/lower case irrelevant
     assert D.build("phone", {"Telefon": "0043 316 / 12 34-56"}) == "tel:+4331612345" + "6"
     assert D.build("email", {"E-Mail": "a@b.at", "Betreff": "A & B"}) == "mailto:a@b.at?subject=A%20%26%20B"
     assert D.build("wifi", {"Netzname": "N;1", "Passwort": 'p:"x'}) == 'WIFI:T:WPA;S:N\\;1;P:p\\:\\"x;;'
@@ -83,7 +83,7 @@ def test_csv_roundtrip_excel_safe():
     D.write_csv(p, D.columns("vcard"), rows)
     assert open(p, "rb").read(3) == b"\xef\xbb\xbf"                 # BOM: Excel erkennt UTF-8
     cols, back = vdp.read_csv(p)
-    assert cols == D.columns("vcard") and len(back) == 1             # leere Zeile fällt weg
+    assert cols == D.columns("vcard") and len(back) == 1             # empty row is dropped
     assert back[0]["Nachname"] == "Müller; Söhne" and back[0]["Notiz"] == "zwei\nZeilen"
 
 
@@ -206,7 +206,7 @@ def test_auto_map_contact_exports():
     assert D.auto_map("wifi", ["ssid", "Kennwort"]) == {"Netzname": "ssid", "Passwort": "Kennwort",
                                                        "Verschlüsselung": "", "Versteckt": ""}
     assert D.auto_map("ean13", ["GTIN", "Bezeichnung"])["EAN"] == "GTIN"
-    # eigene Namen gehen vor Synonymen; startswith für „E-Mail-Adresse privat“
+    # custom names take precedence over synonyms; startswith for "private e-mail address"
     assert D.auto_map("vcard", ["Telefon", "Phone"])["Telefon"] == "Telefon"
     assert D.auto_map("vcard", ["E-Mail-Adresse privat"])["E-Mail"] == "E-Mail-Adresse privat"
 
@@ -224,7 +224,7 @@ def test_mapping_override_and_validate():
 
 
 def test_outlook_export_to_vcard_qr():
-    """Outlook-Export unverändert als Datenquelle: QR-Feld Art Visitenkarte, Zuordnung automatisch bzw. im Preset."""
+    """Outlook export as an unchanged data source: QR field kind business card, mapping automatic or via preset."""
     from pdfdruck import core, presets
     csvp = _outlook_csv(os.path.join(TMP, "outlook.csv"))
     f = vdp.VdpField("qr", "", 40, 10, 60, 60, qr_type="vcard", qr_map={"Position": "Title"})
@@ -266,7 +266,7 @@ assert dlg.rows[0]["Tisch"] == "T01" and dlg.rows[2]["Tisch"] == "T03"
 p = os.path.join(tmp, "wlan.csv"); dlg.save(p)
 assert not dlg.dirty and dlg.path == p
 d2 = DataDialog(None, p)
-assert d2.kind == "wifi" and len(d2.data_rows()) == 5 and "Tisch" in d2.cols   # Füllen nimmt alle 5 Zeilen
+assert d2.kind == "wifi" and len(d2.data_rows()) == 5 and "Tisch" in d2.cols   # fill takes all 5 rows
 d5 = DataDialog(None, "", "code128"); d5.fill_column("Code", 1, 1, 4, "T", count=100)
 assert len(d5.data_rows()) == 100 and d5.rows[99]["Code"] == "T0100" and d5.problems() == []
 d2.set_kind("vcard")                                     # Art wechseln: Spalten dazu, Daten bleiben
@@ -287,8 +287,8 @@ vd.use_data(p, "wifi")                                   # zweimal: kein zweites
 assert len(vd.fields) == 1
 vd._qr_widgets(vd.fields[0]); vd._refresh()
 s = vd._settings()
-assert s.fields[0]["qr_type"] == "wifi" and s.csv_path == p and s.order == "each", s
-# Hauptfenster: Daten erfassen (ohne und mit Dokument), Variable Daten mit übergebener Tabelle
+assert s.fields[0]["qr_type"] == "wifi" and s.csv_path == p and s.order == "record" and s.windows, s
+# main window: data capture (without and with a document), variable data with a passed table
 from pdfdruck.gui import viewer
 from pdfdruck import config
 from pdfdruck.gui.common import Session
@@ -300,7 +300,7 @@ w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 w.data_dialog()
 w.vdp_dialog((p, "wifi"))
 w.set_workspace("vdp")
-# Fremde Kopfzeilen: Art erkannt, passendes Feld, Zuordnung ändern
+# foreign header row: kind recognised, matching field, change the mapping
 import csv as _csv
 op = os.path.join(tmp, "ol.csv")
 with open(op, "w", newline="", encoding="utf-8") as fh:
@@ -323,7 +323,7 @@ vd2.set_qr_map(qi[0], {"Position": "Title"})
 assert vd2._settings().fields[qi[0]]["qr_map"] == {"Position": "Title"}
 t = summary("vcard", vd2.cols, {"Position": "Title"}); assert "Vorname ← First Name" in t and "Position ← Title" in t, t
 t = summary("wifi", ["Name"], {}); assert "Netzname*" in t, t
-# Doppelklick ersetzt das unberührte {{nr}} statt es davor stehen zu lassen
+# double-click replaces the untouched {{nr}} instead of leaving it in place
 vd3 = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
 vd3.ed_content.text = lambda: "{{nr}}"
 got = []

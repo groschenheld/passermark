@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Gemeinsame GUI-Hilfen und der (nur im RAM gehaltene) Sitzungszustand."""
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def render_pixmap(page, scale: float, rotation: int = 0, dpr: float = 1.0) -> QP
 
 
 def fill_combo(combo: QComboBox, choices, current):
-    """choices: Liste (wert, text). Alle Einträge bleiben IMMER wählbar."""
+    """choices: list of (value, text). All entries remain selectable ALWAYS."""
     combo.blockSignals(True)
     combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
     combo.setMinimumContentsLength(8)
@@ -44,8 +44,9 @@ def fill_combo(combo: QComboBox, choices, current):
 
 
 def fit_width(root):
-    """Keine horizontale Scrollleiste: Formulare brechen um (Beschriftung über das Feld),
-    Auswahlfelder dürfen schmaler werden als ihr längster Eintrag."""
+    """No horizontal scrollbar: forms wrap (label above the field),
+        selection fields may become narrower than their longest entry.
+    """
     from PySide6.QtWidgets import QAbstractScrollArea, QFormLayout, QSizePolicy
     for f in root.findChildren(QFormLayout):
         f.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
@@ -56,7 +57,7 @@ def fit_width(root):
         cb.setSizePolicy(QSizePolicy.Policy.Expanding, cb.sizePolicy().verticalPolicy())
     from PySide6.QtWidgets import QAbstractSpinBox
     for sp in root.findChildren(QAbstractSpinBox):
-        # Wert erst bei Enter/Feldwechsel/Pfeiltasten übernehmen – nicht nach jeder getippten Ziffer
+        # apply the value only on Enter/field change/arrow keys – not after every typed digit
         # (sonst entstehen beim Tippen kurz Zwischenwerte wie „1 mm“ -> zehntausende Nutzen)
         sp.setKeyboardTracking(False)
     for sa in root.findChildren(QAbstractScrollArea):
@@ -66,15 +67,15 @@ def fit_width(root):
 
 
 def guard_wheel(root):
-    """Mausrad-Schutz läuft global (theme.WheelGuard) – hier bewusst nichts mehr zu tun."""
+    """Mouse-wheel protection runs globally (theme.WheelGuard) – deliberately nothing to do here."""
     return None
 
 
 class Session:
-    """Benutzeränderungen dieser Programmsitzung. Wird NIE gespeichert.
+    """User changes of this program session. NEVER saved.
 
-    Beim nächsten Start werden wieder die Admin-Standards aus /etc geladen –
-    das ist das "Zurückstellen beim Beenden", absturzsicher ohne Cleanup.
+        On the next start, the admin defaults from /etc are loaded again –
+        that is the "reset on exit", crash-safe without cleanup.
     """
 
     def __init__(self, cfg: dict):
@@ -142,7 +143,7 @@ def window_modal_dialogs():
                 self.setWindowModality(_Qt.WindowModality.WindowModal)
         except Exception:
             pass
-        try:                                     # nie größer als der Bildschirm (kleine Notebooks)
+        try:                                     # never larger than the screen (small notebooks)
             scr = (self.parentWidget() or self).screen().availableGeometry()
             w, h = min(self.width(), scr.width() - 40), min(self.height(), scr.height() - 60)
             if (w, h) != (self.width(), self.height()):
@@ -185,7 +186,7 @@ def split_panels(root, left, right, right_width: int = 420):
 
 
 def no_enter_default(dialog):
-    """Enter in einem Eingabefeld löst nicht den Standardknopf aus (z. B. „Erzeugen“) – nur ein Klick."""
+    """Enter in an input field does not trigger the default button (e.g. "Create") – only a click does."""
     from PySide6.QtWidgets import QPushButton
     for b in dialog.findChildren(QPushButton):
         b.setAutoDefault(False)

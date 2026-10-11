@@ -62,6 +62,12 @@ class Numbering:
 
 
 @dataclass
+class VdpWindow:
+    pages: str = ""            # Seitengruppe des Fensters: "" = alle | "ungerade" | "gerade" | "1,3-5" | "ungerade 1-50" …
+    fields: list = field(default_factory=list)   # Felder dieses Fensters (VdpField bzw. dicts)
+
+
+@dataclass
 class VdpSettings:
     fields: list = field(default_factory=list)       # Liste von VdpField bzw. dicts
     csv_path: str = ""            # Datenquelle; leer = nur Nummerierung
@@ -78,6 +84,9 @@ class VdpSettings:
     log_path: str = ""            # Code-Protokoll als CSV (leer = keins)
     doc_name: str = ""            # Name der Vorlage für {{datei}} (leer = Dateiname der Eingabe)
     placeholders: bool = False    # {{…}} im PDF als Feldposition übernehmen
+    windows: list = field(default_factory=list)  # Fenster (Seitengruppen, 1.11) – ersetzen in der Oberfläche
+                                 # "Nur auf diesen Seiten", "Verteilung" und "Seiten je Datensatz".
+                                 # Leer = Altformat: Feld-pages/order/pages_per_record gelten unverändert.
 
 
 # --------------------------------------------------------------------------- #
@@ -438,6 +447,104 @@ def _page_set(text: str, n: int) -> set:
     return out if (text or "").strip() else set(range(n))
 
 
+def _fields_of_list(items: list) -> list:
+    """Feldliste (VdpField) aus gemischten Einträgen (VdpField oder dict); unbekannte Schlüssel fallen weg."""
+    out = []
+    for f in items or []:
+        if isinstance(f, VdpField):
+            out.append(f)
+        elif isinstance(f, dict):
+            out.append(VdpField(**{k: v for k, v in f.items() if k in VdpField.__dataclass_fields__}))
+    return out
+
+
+def _windows(s: "VdpSettings") -> list:
+    """Fenster des Auftrags; Altformat (Felder mit pages-Angabe, ohne windows) wird zu Fenstern migriert:
+    Felder mit gleicher Seiten-Angabe kommen gemeinsam in ein Fenster, Reihenfolge wie angelegt."""
+    out = []
+    for w in getattr(s, "windows", None) or []:
+        if isinstance(w, VdpWindow):
+            out.append(VdpWindow(pages=(w.pages or "").strip(), fields=list(w.fields or [])))
+        elif isinstance(w, dict):
+            known = {k: v for k, v in w.items() if k in VdpWindow.__dataclass_fields__}
+            out.append(VdpWindow(**known))
+    if out:
+        return out
+    groups: dict = {}
+    order: list = []
+    for f in _fields(s):
+        key = (f.pages or "").strip()
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(f)
+    return [VdpWindow(pages=key, fields=groups[key]) for key in order]
+
+
+def window_mode(s: "VdpSettings") -> bool:
+    """True, wenn Fenster (neues Format) angegeben sind – dann ersetzen sie die alte Verteilung.
+    Presets ohne windows (alte Dateien, Kommandozeile) laufen unverändert im Altformat weiter."""
+    return bool(getattr(s, "windows", None) or [])
+
+
+def windows_resolved(s: "VdpSettings", npages: int) -> list:
+    """[(Seitenmenge (0-basiert), Felder)] – Fenster in ihrer Reihenfolge. „alle Seiten“ ist die
+    Grundschicht: ihre Felder gelten überall und konkurrieren mit keinem Fenster (mehrere solche
+    Fenster zeigen ihre Felder gemeinsam). Ungerade/gerade sind gleichrangig (sie überlappen sich
+    nicht); ein fester Seitenbereich (z. B. "5-8") gewinnt für seine Seiten vor ungerade/gerade –
+    bei gleichem Rang gewinnt das erste Fenster. Nur Fenster mit Feldern kommen in die Liste."""
+    wins = []
+    for w in _windows(s):
+        p = (w.pages or "").strip()
+        if p:
+            pgs = _page_set(p, npages)
+            prec = 1 if p in ("ungerade", "gerade") else 2
+        else:
+            pgs = set(range(npages))
+            prec = 0                                   # Grundschicht: gilt überall, ohne Vorrang-Streit
+        flds = _fields_of_list(w.fields)
+        if flds:
+            wins.append([pgs, prec, flds])
+    out = []
+    for i, (pgs, prec, flds) in enumerate(wins):
+        if prec == 0:
+            mine = pgs
+        else:
+            mine = {p for p in pgs
+                    if not any(j != i and p in wins[j][0] and wins[j][1] > prec for j in range(len(wins)))}
+        out.append((mine, flds))
+    return [(p, f) for p, f in out if f]
+
+
+def window_pages_used(s: "VdpSettings", npages: int) -> set:
+    """Von Fenstern abgedeckte Vorlagenseiten (für Ergebniszeile und Warnung)."""
+    used = set()
+    for pgs, _f in windows_resolved(s, npages):
+        used |= pgs
+    return used
+
+
+def output_info(s: "VdpSettings", npages: int, n_records: int, tpl_len: int) -> dict:
+    """Ergebniszeile und Warnbedingung. Standard: jeder Datensatz eine komplette Runde über die
+    Vorlagenseiten (Seiten werden dupliziert). warn = True, wenn Vorlagenseiten von keinem Fenster
+    abgedeckt sind und dadurch bei mehr als einem Datensatz leere Duplikate entstünden.
+    order == "each" (Fenster-Modus, ohne Duplikate): Ausgabe = npages Seiten, je pages_per_record
+    Vorlagenseiten ein Datensatz; "unused" = Datensätze ohne eigene Seiten."""
+    out_pages = n_records * tpl_len
+    unused = 0
+    if window_mode(s):
+        used = window_pages_used(s, npages)
+        uncovered = sorted(set(range(npages)) - used)
+        if getattr(s, "order", "") == "each":
+            g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
+            out_pages = npages
+            unused = max(0, n_records - -(-npages // g))    # ceil(npages / g)
+    else:
+        uncovered = []
+    return {"records": n_records, "pages": out_pages,
+            "uncovered": uncovered, "warn": bool(uncovered) and n_records > 1, "unused": unused}
+
+
 def sequence(order: str, n_records: int, tpl: list, per_record: int = 1) -> list:
     """Ausgabeseiten als Liste (Datensatz, Vorlagenseite)."""
     if order == "each":       # Seite 1 -> Datensatz 1 … (reihum); mit per_record > 1 gehören so viele Seiten zusammen
@@ -592,24 +699,51 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     finally:
         src_doc.close()
     try:
+        ph_extra = []
         if s.placeholders:
-            fields = fields + placeholder_fields(norm)
+            ph_extra = placeholder_fields(norm)
+            if not window_mode(s):
+                fields = fields + ph_extra
         sizes = [norm.get_page_size(i) for i in range(len(norm))]
         buf = io.BytesIO()
         norm.save(buf)
     finally:
         norm.close()
-    if not fields:
+    if not fields and not window_mode(s):
         raise ValueError(tr("Keine Felder angelegt."))
     cols, recs = records(s)
     if not recs:
         raise ValueError(tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
     npages = len(sizes)
-    pages_of = [(_page_set(f.pages, npages) if f.pages.strip() else set(range(npages))) for f in fields]
+    if window_mode(s):
+        # Fenster-Modus: die Seitenmenge kommt vom Fenster, nicht vom einzelnen Feld
+        fields = []
+        pages_of = []
+        for _pgs, wf in windows_resolved(s, npages):
+            for f in wf:
+                fields.append(f)
+                pages_of.append(_pgs)
+        if ph_extra:
+            fields = fields + ph_extra
+            pages_of = pages_of + [_page_set(f.pages, npages) for f in ph_extra]
+        if not fields and not window_mode(s):
+            raise ValueError(tr("Keine Felder angelegt."))
+    else:
+        pages_of = [(_page_set(f.pages, npages) if f.pages.strip() else set(range(npages))) for f in fields]
     tpl = [p for p in (pages if pages else range(npages)) if 0 <= p < npages]
     if not tpl:
         raise ValueError(tr("Keine Seiten ausgewählt."))
-    seq = sequence(s.order, len(recs), tpl, s.pages_per_record)
+    if window_mode(s):
+        # Fenster-Modus: jeder Datensatz eine komplette Runde über die Vorlagenseiten;
+        # "Seite für Seite" bleibt als Sortierung über order == "page" erreichbar.
+        # order == "each": keine Duplikate – je Datensatz die nächsten pages_per_record Seiten der Vorlage.
+        if getattr(s, "order", "") == "each":
+            g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
+            seq = [(min(p // g, len(recs) - 1), p) for p in tpl]
+        else:
+            seq = sequence("page" if s.order == "page" else "record", len(recs), tpl)
+    else:
+        seq = sequence(s.order, len(recs), tpl, s.pages_per_record)
     # 1) alle Überlagerungen in einem PDF (eine Seite je Ausgabeseite)
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
@@ -709,18 +843,35 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     s2.count = 1
     # festen Datensatz einsetzen: Nummer/Spalten als Vorlage-Konstanten
     rec = dict(recs[record])
-    seq = sequence(s.order, len(recs), list(range(len(src_doc))), s.pages_per_record)
+    g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
+    if window_mode(s) and getattr(s, "order", "") == "each":
+        seq = [(min(p // g, len(recs) - 1), p) for p in range(len(src_doc))]
+    elif window_mode(s):
+        seq = sequence("page" if s.order == "page" else "record", len(recs), list(range(len(src_doc))))
+    else:
+        seq = sequence(s.order, len(recs), list(range(len(src_doc))), s.pages_per_record)
     k = next((i for i, (r, p) in enumerate(seq) if r == record and p == page), 0)
     rec["_sys"] = dict(rec.get("_sys") or {}, seite=str(k + 1), seiten=str(len(seq)), vorlagenseite=str(page + 1))
     fl = []
-    for f in _fields(s):
-        if f.pages.strip() and page not in _page_set(f.pages, len(src_doc)):
-            continue
-        g = VdpField(**asdict(f))
-        g.content = field_value(f, rec)
-        g.qr_type = "text"
-        g.pages = ""
-        fl.append(g)
+    if window_mode(s):
+        for pgs, wf in windows_resolved(s, len(src_doc)):
+            if page not in pgs:
+                continue
+            for f in wf:
+                g = VdpField(**asdict(f))
+                g.content = field_value(f, rec)
+                g.qr_type = "text"
+                g.pages = ""
+                fl.append(g)
+    else:
+        for f in _fields(s):
+            if f.pages.strip() and page not in _page_set(f.pages, len(src_doc)):
+                continue
+            g = VdpField(**asdict(f))
+            g.content = field_value(f, rec)
+            g.qr_type = "text"
+            g.pages = ""
+            fl.append(g)
     if s.placeholders:
         for g in placeholder_fields(src_doc):
             if g.pages == str(page + 1):
@@ -728,8 +879,12 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
                 g.pages = ""
                 fl.append(g)
     s2.fields = fl
+    s2.windows = []          # Felder sind bereits nach Fenster/Seite gefiltert und vorausgefüllt –
+                             # sonst würde build() die Fenster gegen das 1-Seiten-Zwischen-PDF erneut
+                             # auflösen (ungerade = Seite 1, gerade = nichts) und die Ausgabe verfälschen.
     s2.placeholders = False
     if not fl:
         return pdfium.PdfDocument(one), len(recs)
     data, _info = build(one, s2, strip=s.placeholders)
     return pdfium.PdfDocument(data), len(recs)
+

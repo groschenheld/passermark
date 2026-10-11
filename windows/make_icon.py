@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Erzeugt windows/passermark.ico aus dem SVG-Icon (beim Bauen)."""
+"""Generates windows/passermark.ico from the SVG icon (at build time)."""
 import io
 import os
 import sys

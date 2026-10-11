@@ -1,4 +1,4 @@
-# Passermark 1.10.8
+# Passermark 1.11.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -31,12 +31,14 @@ Logiciel libre (GPL-3.0-or-later).
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et
   taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler.
 - Règles et mesure : règles en mm au bord de la vue ; cliquer début et fin pour mesurer (Maj s'aligne
-  horizontalement/verticalement/45°), résultat dans la barre d'état.
+  horizontalement/verticalement/45°), résultat dans la barre d'état. Avec Ctrl maintenue, le réticule s'aimante aux lignes de coupe et intérieures (bord de page,
+  format final, fond perdu), aux bords d'images et aux lignes vectorielles – jamais au texte ; il colle
+  au bord tant que la souris ne s'en éloigne nettement. L'affichage du format final le montre en vert, avec le fond perdu en pointillés.
 - **Données variables :** numérotation (départ, pas, chiffres, clés de contrôle, à l'envers, compteur qui
   continue), texte depuis CSV, codes QR, Code 128 et EAN-13 en vecteurs (avec zone de silence) ;
   placeholders `{{…}}` dans le PDF ; date, page, nombre aléatoire et autres variables ; plusieurs pages par
   enregistrement (recto/verso) et champs sur pages impaires/paires ; journal de codes ; step & repeat avec
-  son propre enregistrement par copie (feuille par feuille ou couper et empiler). Aussi en ligne de commande
+  son propre enregistrement par copie (feuille par feuille ou couper et empiler) ; **fenêtres (groupes de pages)** pour les gabarits multi-pages – p. ex. recto avec le nom, verso avec un code QR – avec sélection des pages par fenêtre (toutes/impaires/paires ou plages) et répartition des enregistrements feuille par feuille ou page par page. Aussi en ligne de commande
   (`passermark-cli vdp`).
 - **Saisie des données :** créer le tableau de données directement dans Passermark – carte de visite QR
   (vCard), accès Wi-Fi, e-mail, adresse web, appel, SMS, rendez-vous, lieu, Code 128, EAN-13 – avec les
@@ -107,7 +109,7 @@ démarrage suivant pointe vers le journal. Les journaux sans erreur sont supprim
 ## Compilation
 
 Chaque push sur `main` compile sur GitHub l'installateur Windows et l'AppImage Linux (**Actions**) ; les
-deux sont vérifiés avec `--selftest`. Un tag `v*` (p. ex. `git tag v1.10.8 && git push origin v1.10.8`) les
+deux sont vérifiés avec `--selftest`. Un tag `v*` (p. ex. `git tag v1.10.7 && git push origin v1.10.7`) les
 joint à une Release GitHub.
 
 En local : `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, nécessite Python 3.12 et

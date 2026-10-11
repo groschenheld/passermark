@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Dialoge „Objekte trennen“ (Einzelseiten ohne Weißraum) und „CutContour erzeugen“ (Schneideplotter)."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters)."""
 from __future__ import annotations
 
 import dataclasses
@@ -36,7 +36,7 @@ def fmt_mm(v: float) -> str:
 
 
 def show_error(parent, title, exc):
-    """Fehlermeldung mit Details (Ablauf zum Kopieren) – damit Fehler eindeutig gemeldet werden können."""
+    """Error message with details (steps to copy) – so errors can be reported unambiguously."""
     box = QMessageBox(QMessageBox.Icon.Critical, title, str(exc) or type(exc).__name__, parent=parent)
     box.setDetailedText(traceback.format_exc())
     box.exec()
@@ -51,7 +51,7 @@ def rgba_to_pixmap(arr) -> QPixmap:
 
 
 class PageCanvas(QWidget):
-    """Zeigt eine (normalisierte) Seite; Rahmen anzeigen/auswählen/aufziehen; optional Konturen."""
+    """Shows a (normalized) page; display/select/draw frames; optionally contours."""
     changed = Signal()
 
     def __init__(self, editable=True):
@@ -65,9 +65,9 @@ class PageCanvas(QWidget):
         self.selected: set[int] = set()
         self.paths = []           # Konturen in pt
         self.shape_box = None     # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
-        self.on_shape = None      # Rückruf (sx, sy, dx_pt, dy_pt) beim Loslassen
-        self.keep_aspect = False  # Kreis: Seitengriffe skalieren gleichmäßig
-        self.on_shaping = None    # Rückruf (sx, sy, dx_pt, dy_pt) während des Ziehens (Anzeige)
+        self.on_shape = None      # callback (sx, sy, dx_pt, dy_pt) on release
+        self.keep_aspect = False  # circle: side handles scale uniformly
+        self.on_shaping = None    # callback (sx, sy, dx_pt, dy_pt) while dragging (display)
         self.live = (1.0, 1.0, 0.0, 0.0)
         self._sdrag = None
         self.margin_pt = 0.0      # Vorschau des Randes (gestrichelt)
@@ -144,11 +144,11 @@ class PageCanvas(QWidget):
             p.drawRect(QRectF(self._drag[0], self._drag[1]).normalized())
 
     # Griffe der Grundform ------------------------------------------------ #
-    HANDLE = 5          # halbe Griffgröße (px)
-    GRIP_OFF = 18       # Verschiebe-Griff: Abstand über der Form (px)
+    HANDLE = 5          # half handle size (px)
+    GRIP_OFF = 18       # move handle: distance above the shape (px)
 
     def _box_now(self):
-        """Rahmen der Form inkl. laufender Änderung (pt)."""
+        """Frame of the shape including the live change (pt)."""
         x0, y0, x1, y1 = self.shape_box
         sx, sy, dx, dy = self.live
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
@@ -156,7 +156,7 @@ class PageCanvas(QWidget):
         return cx - hw + dx, cy - hh + dy, cx + hw + dx, cy + hh + dy
 
     def _transformed(self, poly):
-        """Punkte der Form mit laufender Änderung: jede Form um ihre eigene Mitte skaliert, dann verschoben."""
+        """Points of the shape with the live change: every shape scales around its own center, then is moved."""
         sx, sy, dx, dy = self.live
         xs = [x for x, _y in poly]
         ys = [y for _x, y in poly]
@@ -164,7 +164,7 @@ class PageCanvas(QWidget):
         return [(cx + (x - cx) * sx + dx, cy + (y - cy) * sy + dy) for x, y in poly]
 
     def _handles(self):
-        """{Name: Bildschirmpunkt} – Ecken (gleichmäßig), Seiten (nur Breite/Höhe), Verschiebe-Griff."""
+        """{name: screen point} – corners (uniform), sides (width/height only), move handle."""
         x0, y0, x1, y1 = self._box_now()
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         h = {"c00": (x0, y0), "c10": (x1, y0), "c01": (x0, y1), "c11": (x1, y1),
@@ -239,7 +239,7 @@ class PageCanvas(QWidget):
             elif name.startswith("sx"):
                 sx = max(0.05, min(20.0, abs(pos.x() - c.x()) / (abs(p0.x() - c.x()) or 1.0)))
                 if self.keep_aspect:
-                    sy = sx                              # Kreis: Seitengriff skaliert gleichmäßig
+                    sy = sx                              # circle: side handle scales uniformly
             else:
                 sy = max(0.05, min(20.0, abs(pos.y() - c.y()) / (abs(p0.y() - c.y()) or 1.0)))
                 if self.keep_aspect:
@@ -267,7 +267,7 @@ class PageCanvas(QWidget):
             sx, sy, dx, dy = self.live
             changed = abs(sx - 1) > 0.002 or abs(sy - 1) > 0.002 or abs(dx) > 0.2 or abs(dy) > 0.2
             if self.on_shape is not None and changed:
-                self.on_shape(sx, sy, dx, dy)            # Größe/Versatz in mm übernehmen -> neu rechnen
+                self.on_shape(sx, sy, dx, dy)            # apply size/offset in mm -> recompute
             else:
                 self.live = (1.0, 1.0, 0.0, 0.0)
                 self.update()
@@ -355,7 +355,7 @@ def _read_detect(w, ds: objects.DetectSettings):
 
 # --------------------------------------------------------------------------- #
 class SeparateDialog(QDialog):
-    """Objekte (z. B. Visitenkarten auf einem Bogen) erkennen und als Einzelseiten ohne Weißraum ausgeben."""
+    """Detect objects (e.g. business cards on a sheet) and output them as individual pages without white space."""
 
     def __init__(self, parent, doc, current=0):
         super().__init__(parent)
@@ -525,7 +525,7 @@ class _CutWorker(QThread):
 
 
 class CutContourDialog(QDialog):
-    """Schnittkontur (Sonderfarbe CutContour) mit Überfüller für Schneideplotter, z. B. Roland VersaWorks."""
+    """Cut contour (spot color CutContour) with bleed for cutting plotters, e.g. Roland VersaWorks."""
 
     def __init__(self, parent, doc, current=0):
         super().__init__(parent)
@@ -732,7 +732,7 @@ class CutContourDialog(QDialog):
         fit_width(wrap)
         from .. import presets
         last = presets.load_last("cutcontour")
-        if last is not None:                     # zuletzt verwendete Einstellungen – Versatz gehört zum alten Motiv
+        if last is not None:                     # most recently used settings – the offset belongs to the old artwork
             last.shift_x_mm = last.shift_y_mm = 0.0
             try:
                 self._load_settings(last, preview=False)
@@ -834,7 +834,7 @@ class CutContourDialog(QDialog):
         s.fit = "trim" if place == "trim" else "motif"
         s.single_shape = place != "each"
         s.corner_mm = self.spn_corner.value()
-        s.scale_pct = 100.0                          # Größe nur noch in mm (Feld bzw. Griffe)
+        s.scale_pct = 100.0                          # size only in mm now (field or handles)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
         if s.shape == "circle" and s.width_mm > 0:
             s.height_mm = s.width_mm                         # Kreis bleibt Kreis
@@ -861,7 +861,7 @@ class CutContourDialog(QDialog):
         return "motif" if s.single_shape else "each"
 
     def _trim(self):
-        """Endformat der aktuellen Seite (Abstände links/unten/rechts/oben in pt) oder None."""
+        """Trim size of the current page (margins left/bottom/right/top in pt) or None."""
         try:
             from ..layout import page_trims_one
             return page_trims_one(self.doc, self.page)
@@ -871,7 +871,7 @@ class CutContourDialog(QDialog):
     def _preview(self):
         """Seite im Hauptthread rendern (pdfium, wenige ms), Kontur im Hintergrund rechnen – Fenster bleibt bedienbar."""
         import copy
-        if getattr(self, "_closing", False):     # Fenster schließt bzw. Dokument schon zu: keine Vorschau mehr
+        if getattr(self, "_closing", False):     # window closing or document already gone: no more preview
             return
         if self._pv_worker is not None and self._pv_worker.isRunning():
             self._pv_pending = True              # nach der laufenden Berechnung mit dem neuesten Stand nochmal
@@ -898,7 +898,7 @@ class CutContourDialog(QDialog):
     def _preview_done(self, gen, r, err):
         if getattr(self, "_closing", False):
             return
-        if self._pv_pending:                     # Einstellungen haben sich inzwischen geändert -> neu rechnen
+        if self._pv_pending:                     # settings have changed in the meantime -> recompute
             self._pv_pending = False
             QTimer.singleShot(0, self._preview)
             return
@@ -921,7 +921,7 @@ class CutContourDialog(QDialog):
         y0 = min([0.0] + [o.box[1] for o in r.objects])
         x1 = max([w] + [o.box[2] for o in r.objects])
         y1 = max([h] + [o.box[3] for o in r.objects])
-        # Ansicht auf die neue Seitengröße (inkl. Überfüller) ausrichten
+        # align the view to the new page size (including bleed)
         self.canvas.page_w, self.canvas.page_h = x1 - x0, y1 - y0
         shift = [(pm, (a - x0, b - y0, c - x0, d - y0)) for pm, (a, b, c, d) in layers]
         self.canvas.paths = [[(x - x0, y - y0) for x, y in p] for p, _smooth in r.paths]
@@ -930,7 +930,7 @@ class CutContourDialog(QDialog):
         if self.cmb_shape.currentData() != "contour" and self.canvas.paths:
             boxes = [(min(x for x, _y in p), min(y for _x, y in p), max(x for x, _y in p), max(y for _x, y in p))
                      for p in self.canvas.paths]
-            self.canvas.shape_box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))   # größte Form
+            self.canvas.shape_box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))   # largest shape
             self.canvas.on_shape = self._apply_drag
             self.canvas.on_shaping = self._show_drag
             bx = self.canvas.shape_box
@@ -958,7 +958,7 @@ class CutContourDialog(QDialog):
         self._pv_timer.start()
 
     def _apply_drag(self, sx, sy, dx, dy):
-        """Griff losgelassen: Größe (B × H) und Versatz in mm in die Felder – Felder und Maus bleiben im Einklang."""
+        """Handle released: put size (W × H) and offset in mm into the fields – fields and mouse stay in sync."""
         bx = self.canvas.shape_box
         w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
         if self.cmb_shape.currentData() == "circle":
@@ -981,11 +981,11 @@ class CutContourDialog(QDialog):
         self.accept()
 
     def done(self, r):
-        self._closing = True                     # verspätete Vorschau-Signale ignorieren (Dokument wird gleich geschlossen)
+        self._closing = True                     # ignore late preview signals (the document is about to close)
         if getattr(self, "_pv_timer", None) is not None:
             self._pv_timer.stop()
         w = getattr(self, "_pv_worker", None)
         if w is not None and w.isRunning():
-            w.wait(30000)                        # Thread nicht mitten in der Berechnung zerstören
+            w.wait(30000)                        # do not destroy the thread in the middle of a computation
         self.norm.close()
         super().done(r)

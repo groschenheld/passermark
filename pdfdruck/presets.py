@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Presets: benannte Einstellungen je Auftrag – dieselben Dateien für Programm, Kommandozeile und (später) Watcher.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Presets: named settings per job – the same files for the GUI, the command line and (later) the watcher.
 
-Ablage (je Benutzer):
-  Linux    ~/.config/passermark/presets/<auftrag>/<name>.json
-  Windows  %APPDATA%\\Passermark\\presets\\<auftrag>\\<name>.json
-Format wie `passermark-cli settings <auftrag>`: {"job": "<auftrag>", "settings": {…}}.
-Zusätzlich je Auftrag die zuletzt verwendeten Einstellungen (Datei „.zuletzt.json“, nicht in der Liste).
+Storage (per user):
+  Linux    ~/.config/passermark/presets/<job>/<name>.json
+  Windows  %APPDATA%\\Passermark\\presets\\<job>\\<name>.json
+Format like `passermark-cli settings <job>`: {"job": "<job>", "settings": {…}}.
+Additionally, per job the most recently used settings (file ".zuletzt.json", not in the list).
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from . import core
 from .l10n import tr
 
 LAST = ".zuletzt"
-PRINT = "impose"                                 # Druck-Layout (Größe, Mehrere, Broschüre, Poster, Nutzen) = CLI-Auftrag impose
+PRINT = "impose"                                 # print layout (size, multiple, booklet, poster, step & repeat) = CLI job impose
 _BAD = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
@@ -52,7 +52,7 @@ def job_dir(kind: str) -> str:
 
 
 def clean_name(name: str) -> str:
-    """Erlaubter Preset-Name (wird Dateiname): ohne Pfadzeichen, ohne Punkt am Anfang, höchstens 80 Zeichen."""
+    """Allowed preset name (becomes the file name): no path characters, no leading dot, at most 80 characters."""
     n = _BAD.sub("", (name or "").strip()).strip(". ")
     if not n:
         raise ValueError(tr("Ungültiger Preset-Name."))
@@ -114,7 +114,7 @@ def load_last(kind: str):
 
 
 def resolve(kind: str, ref: str) -> str:
-    """Für die Kommandozeile: Pfad zu einer Datei oder Name eines gespeicherten Presets -> Dateipfad."""
+    """For the command line: path to a file or name of a saved preset -> file path."""
     if os.path.isfile(ref):
         return ref
     try:

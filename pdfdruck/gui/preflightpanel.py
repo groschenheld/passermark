@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Seitenleiste „Prüfung“: Befunde, Schriften, Ebenen, Transparenz – mit Reparaturen (Ergebnis im neuen Fenster)."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window)."""
 from __future__ import annotations
 
 import os
@@ -40,7 +40,7 @@ class _Worker(QThread):
 
 
 class PreflightPanel(QWidget):
-    """Prüfergebnis anzeigen und reparieren. Signale: Ergebnis öffnen, Seite anspringen, neu prüfen."""
+    """Show the check result and repair. Signals: open result, jump to page, recheck."""
     result_ready = Signal(bytes, str, list)      # PDF-Bytes, Namenszusatz, Hinweise
     goto_page = Signal(int)
     recheck = Signal()
@@ -297,7 +297,7 @@ class PreflightPanel(QWidget):
                   [tr("{0} Ebene(n) entfernt.").format(len(keys))])
 
     def _font_action(self, what):
-        """Knöpfe unter der Tabelle: wirken auf die markierte Zeile."""
+        """Buttons below the table: act on the highlighted row."""
         row = self.tbl_fonts.currentRow()
         cb = self.tbl_fonts.cellWidget(row, 3) if row >= 0 else None
         if not isinstance(cb, QComboBox):

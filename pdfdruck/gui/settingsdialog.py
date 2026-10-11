@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Datei → Einstellungen: persönliche Einstellungen des Benutzers (derzeit: Sprache)."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""File → Settings: the user's personal settings (currently: language)."""
 from __future__ import annotations
 
 import sys
@@ -104,7 +104,7 @@ class SettingsDialog(QDialog):
 
 
 def restart(window):
-    """Alle Fenster schließen (mit Speichern-Rückfrage), Einzelinstanz freigeben, neu starten."""
+    """Close all windows (with a save prompt), release the single instance, restart."""
     ctl = getattr(window, "ctl", None)
     for w in list(getattr(ctl, "windows", [])):
         if not w.close():

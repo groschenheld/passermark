@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Seiten teilen (1.10.2): Doppelseiten einer falsch exportierten Broschüre, Hälften, Raster, gedrehte Seiten,
-Endformat/Anschnitt, Reihenfolge rechts→links, verlustfrei (Inhalt geteilt, nicht kopiert), Kommandozeile."""
+"""Splitting pages (1.10.2): double pages of a wrongly exported booklet, halves, raster, rotated pages,
+trim size/bleed, right→left order, lossless (content split, not copied), command line."""
 import os, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -19,7 +19,7 @@ COLORS = [(1, 0, 0), (0, 0.6, 0), (0, 0, 1), (1, 0.6, 0), (0.6, 0, 0.6), (0, 0.6
 
 
 def _booklet(path, bleed=0.0):
-    """S. 1 A4 · S. 2+3 und 4+5 als Doppelseite A3 quer · S. 6 A4 – jede logische Seite vollflächig eigene Farbe."""
+    """P. 1 A4 · P. 2+3 and 4+5 as an A3 landscape double page · P. 6 A4 – each logical page filled with its own colour."""
     c = canvas.Canvas(path)
     layout = [[0], [1, 2], [3, 4], [5]]
     for pages in layout:
@@ -57,7 +57,7 @@ def test_spreads_detected_and_split_in_order():
     exp = [tuple(round(x, 1) for x in c) for c in COLORS]
     assert got == exp, (got, exp)
     d.close()
-    # rechts → links: auf den Doppelseiten kommt die rechte Hälfte zuerst
+    # right → left: on the double pages the right half comes first
     data, _ = split.split(src, split.SplitSettings(only_spreads=True, rtl=True))
     d = pdfium.PdfDocument(data)
     assert _color(d[1]) == exp[2] and _color(d[2]) == exp[1]
@@ -65,7 +65,7 @@ def test_spreads_detected_and_split_in_order():
 
 
 def test_lossless_shared_content():
-    """Inhalt wird nicht kopiert: beide Hälften zeigen auf denselben Inhaltsstrom."""
+    """Content is not copied: both halves point to the same content stream."""
     src = _booklet(os.path.join(TMP, "b2.pdf"))
     data, _ = split.split(src, split.SplitSettings(only_spreads=True))
     with pikepdf.open(__import__("io").BytesIO(data)) as pdf:
@@ -75,7 +75,7 @@ def test_lossless_shared_content():
 
 
 def test_trim_and_bleed_kept_outside():
-    """Mit Endformat: Teilung in der Mitte des Endformats, Anschnitt nur außen, TrimBox je Hälfte A4."""
+    """With trim size: split in the middle of the trim size, bleed only outside, TrimBox per A4 half."""
     b = 3 * mm
     src = _booklet(os.path.join(TMP, "b3.pdf"), bleed=b)
     data, _ = split.split(src, split.SplitSettings(only_spreads=True))
@@ -84,7 +84,7 @@ def test_trim_and_bleed_kept_outside():
         lt, rt = [float(x) for x in left.TrimBox], [float(x) for x in right.TrimBox]
         assert abs((lt[2] - lt[0]) - A4[0]) < 0.5 and abs((rt[2] - rt[0]) - A4[0]) < 0.5, (lt, rt)
         lm, rm = [float(x) for x in left.MediaBox], [float(x) for x in right.MediaBox]
-        assert abs(lt[0] - lm[0] - b) < 0.5 and abs(lm[2] - lt[2]) < 0.5      # links: Anschnitt außen, innen keiner
+        assert abs(lt[0] - lm[0] - b) < 0.5 and abs(lm[2] - lt[2]) < 0.5      # left: bleed on the outside, none inside
         assert abs(rt[0] - rm[0]) < 0.5 and abs(rm[2] - rt[2] - b) < 0.5
 
 

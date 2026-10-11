@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Bilder als PDF öffnen – in tatsächlicher Größe (aus der DPI-Angabe des Bildes).
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Opening images as PDFs – at their actual size (from the image's DPI value).
 
-JPEG/PNG/TIFF werden von img2pdf verlustfrei eingebettet (keine Neukomprimierung),
-EXIF-Drehung wird berücksichtigt. HEIC/HEIF über pillow-heif (optional).
-Ohne DPI-Angabe im Bild gilt der Admin-Standard (image_default_dpi).
+JPEG/PNG/TIFF are embedded losslessly by img2pdf (no recompression),
+EXIF rotation is honored. HEIC/HEIF via pillow-heif (optional).
+Without a DPI value in the image, the admin default applies (image_default_dpi).
 """
 from __future__ import annotations
 
@@ -45,11 +45,11 @@ def _dpi_of(img) -> float | None:
         x = float(dpi[0])
     except (TypeError, ValueError, IndexError):
         return None
-    return x if x > 1.5 else None      # (1,1) = nur Seitenverhältnis, keine echte Angabe
+    return x if x > 1.5 else None      # (1,1) = aspect ratio only, no real value
 
 
 def _svg_size_mm(path: str):
-    """Breite/Höhe aus width/height (mm, cm, in, pt, pc, px = 1/96 in) bzw. viewBox. None = unbekannt."""
+    """Width/height from width/height (mm, cm, in, pt, pc, px = 1/96 in) or the viewBox. None = unknown."""
     import gzip
     import re
     opener = gzip.open if path.lower().endswith(".svgz") else open
@@ -108,7 +108,7 @@ def svg_to_pdf_bytes(path: str) -> bytes:
             errors.append(f"{tool}: {e}")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
-    # Rückfall: Qt (benötigt laufende Qt-Anwendung – im Programm immer der Fall)
+    # fallback: Qt (needs a running Qt application – always the case inside the program)
     from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QMarginsF, QRectF, QSizeF
     from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
     from PySide6.QtSvg import QSvgRenderer

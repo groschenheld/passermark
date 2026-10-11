@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Druckauftrag erzeugen und abschicken – gemeinsam für Druckdialog und Rechtsklick-Druck."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Build and send a print job – shared by the print dialog and right-click printing."""
 from __future__ import annotations
 
 import os
@@ -17,7 +17,7 @@ from .l10n import tr
 
 def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bool = False, trims=None, bleeds=None):
     plans = layout.plan(sizes, pages, sheet, settings, trims, bleeds)
-    if settings.handling == "booklet" and reverse:     # bei Broschüre die Bögen umkehren
+    if settings.handling == "booklet" and reverse:     # for booklets, reverse the sheets
         step = 2 if settings.booklet_sides == "both" else 1
         groups = [plans[i:i + step] for i in range(0, len(plans), step)]
         plans = [p for g in reversed(groups) for p in g]
@@ -25,7 +25,7 @@ def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bo
 
 
 def short_edge_choice(caps: printers.PrinterCaps):
-    """(Optionsname, Wert) für Duplex an der kurzen Kante – oder None."""
+    """(option name, value) for duplex on the short edge – or None."""
     key = caps.roles.get("duplex") if caps else None
     if not key:
         return None
@@ -38,8 +38,9 @@ def short_edge_choice(caps: printers.PrinterCaps):
 
 
 def resolve_tray(session, printer: str, values: dict, weight: int = 0, live: bool = True):
-    """Automatische Fachwahl anwenden (falls für den Drucker hinterlegt und aktiv).
-    Liefert (values, Hinweis, warnung). values wird nicht verändert, sondern kopiert."""
+    """Apply automatic tray selection (if stored and active for the printer).
+        Returns (values, hint, warning). values is not modified but copied.
+    """
     from . import trays
     pc = session.cfg.get("printers", {}).get(printer, {})
     tl = trays.trays_of(pc)
@@ -73,12 +74,12 @@ def default_printer(session) -> str | None:
 def submit_document(doc, title: str, session, printer: str, pages: list[int],
                     settings: layout.LayoutSettings, copies: int = 1, collate: bool = True,
                     reverse: bool = False, values: dict | None = None, manip=None) -> int:
-    """Ausschießen, ggf. Farbkonvertierung, Optionen zusammenstellen, an CUPS senden."""
+    """Impose, optional color conversion, assemble the options, send to CUPS."""
     caps = session.caps_for(printer)
     if values is None:
         values = session.values_for(printer)
     flat = layout.flattened(doc)          # Formularwerte/Kommentare mit auf das Blatt
-    if manip is not None and manip.active:     # nur noch auf ausdrücklichen Wunsch (z. B. Skripte)  # Dokument-Manipulation: beschneiden, CMYK
+    if manip is not None and manip.active:     # only on explicit request any more (e.g. scripts)  # document manipulation: crop, CMYK
         from . import pdfmanip
         changed, _notes = pdfmanip.apply(flat, manip)
         if flat is not doc:
@@ -96,12 +97,12 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
     if not plans:
         raise RuntimeError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
 
-    if caps.backend == "pdf":            # Als PDF speichern: unverändert, ohne Farbprofil
+    if caps.backend == "pdf":            # Save as PDF: unchanged, without a color profile
         try:
             out = layout.impose_with(doc, sheet, plans, settings)
             dst = values["__out__"]
             pw = values.get("__password__")
-            if pw:                               # erst unverschlüsselt in den Zwischenspeicher, dann geschützt ans Ziel
+            if pw:                               # first unencrypted into the cache, then protected to the destination
                 tmpd = tempfile.mkdtemp(prefix="pdfdruck-")
                 try:
                     plain = os.path.join(tmpd, "plain.pdf")
@@ -141,7 +142,7 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
             colorconv.convert(job, conv, prof["file"], intent, bool(prof.get("bpc", True)))
             job = conv
             opts.update({k: str(v) for k, v in (prof.get("driver_options") or {}).items()})
-        if caps.backend == "win":              # Windows: über GDI an den Herstellertreiber
+        if caps.backend == "win":              # Windows: via GDI to the vendor driver
             from .printers_win import print_pdf
             return print_pdf(printer, job, title, job_values, copies, collate)
         opts.update({

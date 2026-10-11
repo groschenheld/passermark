@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Automatische Fachwahl: Format (+ Grammatur) -> erste passende, nicht leere Lade.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Automatic tray selection: size (+ grammage) -> first matching, non-empty tray.
 
-Grundlage ist die vom Admin hinterlegte Belegung (Reihenfolge = Vorrang). Optional liefert der Drucker
-per IPP live, welche Lade leer ist; leere Laden werden übersprungen. Ohne Live-Daten gilt die Reihenfolge.
+Based on the assignment stored by the admin (order = priority). Optionally, the printer
+reports live via IPP which tray is empty; empty trays are skipped. Without live data,
+the order applies.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ class Tray:
     size: str            # Treiberwert des Formats (PageSize / Windows-Papier-ID)
     weight: int = 0      # g/m², 0 = nicht angegeben
     media: str = ""      # Treiberwert Medientyp ("" = nicht setzen)
-    ipp: str = ""        # Ladenname am Gerät (IPP media-source), für Füllstand
+    ipp: str = ""        # tray name on the device (IPP media-source), for the fill level
 
     @classmethod
     def from_dict(cls, d: dict) -> "Tray":
@@ -52,7 +53,7 @@ def weights_of(pc: dict, size: str | None = None) -> list[int]:
 
 
 def pick(trays: list[Tray], size: str, weight: int = 0, live=None, labels: dict | None = None) -> Pick:
-    """Erste Lade mit passendem Format (und Grammatur), die laut Gerät nicht leer ist."""
+    """First tray with a matching size (and grammage) that the device reports as not empty."""
     lab = (labels or {}).get
     same = [t for t in trays if t.size == size]
     if not same:
@@ -101,10 +102,10 @@ def live_status(host: str, force: bool = False):
 
 
 # --------------------------------------------------------------------------- #
-# Hilfen für „Vom Gerät lesen“ (Admin)
+# helpers for "Read from device" (admin)
 # --------------------------------------------------------------------------- #
 def size_for_mm(caps, mm: tuple) -> str | None:
-    """Treiberwert des Papierformats mit diesen Maßen (±2 mm, randlose Varianten nachrangig)."""
+    """Driver value of the paper size with these dimensions (±2 mm, borderless variants ranked lower)."""
     if not mm:
         return None
     w, h = sorted(mm)

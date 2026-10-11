@@ -1,8 +1,8 @@
 ﻿; SPDX-License-Identifier: GPL-3.0-or-later
-; Passermark – Windows-Installer (Inno Setup 6). Aufruf: iscc windows\passermark.iss
+; Passermark – Windows installer (Inno Setup 6). Run: iscc windows\passermark.iss
 #define AppVersion GetEnv("PASSERMARK_VERSION")
 #if AppVersion == ""
-  #define AppVersion "1.10.8"
+  #define AppVersion "1.11.0"
 #endif
 
 [Setup]
@@ -91,14 +91,14 @@ Name: "desktopicon"; Description: "{cm:Desktop}"; Flags: unchecked
 Name: "addtopath"; Description: "{cm:AddPath}"; Flags: unchecked
 
 [Run]
-; Admin-Standards: nur Administratoren und SYSTEM dürfen schreiben, Benutzer nur lesen (SIDs = sprachunabhängig)
+; Admin defaults: only Administrators and SYSTEM may write, users read-only (SIDs = language-independent)
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark"" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX"; Flags: runhidden waituntilterminated
 Filename: "{app}\passermark.exe"; Description: "{cm:Launch}"; Flags: postinstall nowait skipifsilent unchecked
 
 [Registry]
-; Kommandozeile: Programmordner zum System-Suchpfad (optional, beim Deinstallieren wieder entfernt – siehe [Code])
+; CLI: add program folder to the system PATH (optional, removed again on uninstall – see [Code])
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
-; Explorer-Kontextmenü in der Installationssprache (Windows 11: unter „Weitere Optionen anzeigen“)
+; Explorer context menu in the installation language (Windows 11: under "Show more options")
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\passermark.print"; ValueType: string; ValueName: ""; ValueData: "{cm:Print}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\passermark.print"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\passermark.exe"",0"
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.pdf\shell\passermark.print"; ValueType: string; ValueName: "MultiSelectModel"; ValueData: "Player"

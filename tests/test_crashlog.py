@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fehlerprotokoll mit echten Prozessen: sauberer Lauf, Python-Fehler, harter Absturz, Thread, Aufräumen, Aufträge."""
+"""Crash log with real processes: clean run, Python error, hard crash, thread, cleanup, jobs."""
 import glob, os, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -42,7 +42,7 @@ def test_hard_crash_reported_once():
     logs = _logs(st)
     assert len(logs) == 1 and "Fatal Python error" in open(logs[0], encoding="utf-8").read(), logs
     code = "from pdfdruck import crashlog\ncrashlog.install('gui')\np=crashlog.pending_crashes()\nprint(len(p))\ncrashlog.mark_seen(p)"
-    assert _run(code, st).stdout.strip() == "1"                   # nächster Start meldet ihn
+    assert _run(code, st).stdout.strip() == "1"                   # the next start reports it
     assert _run(code, st).stdout.strip() == "0"                   # und danach nicht mehr
 
 

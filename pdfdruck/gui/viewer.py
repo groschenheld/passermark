@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Acrobat-ähnliches Hauptfenster: Miniaturen links, Endlos-Ansicht, Toolbar, Seitenoperationen."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations."""
 from __future__ import annotations
 
 from ..l10n import tr
@@ -99,7 +99,7 @@ def load_any(parent, ctl, path, workdir=None, notes=None):
             QApplication.restoreOverrideCursor()
         if notes is not None:
             notes.append(tr("{0}: umgewandelt mit {1}").format(os.path.basename(path), used))
-        # in den Speicher laden, damit der Arbeitsordner gelöscht werden darf
+        # load into memory so the working folder may be deleted
         with open(pdf, "rb") as f:
             return pdfium.PdfDocument(f.read())
     return load_pdf(parent, path)
@@ -122,7 +122,7 @@ def page_size_text(w_pt: float, h_pt: float) -> str:
 
 
 def load_pdf(parent, path: str):
-    """PDF öffnen, bei Bedarf Passwort abfragen. None bei Abbruch/Fehler."""
+    """Open a PDF, asking for a password if needed. None on cancel/error."""
     password = None
     while True:
         try:
@@ -182,14 +182,15 @@ class PageWidget(QWidget):
 
 
 class Ruler(QWidget):
-    """Lineal in mm an der Kante der Seitenansicht; Nullpunkt = linke obere Ecke der aktuellen Seite.
-    Bleibt beim Scrollen stehen, die Skala läuft mit (Zoom, Seite, Drehung)."""
+    """Ruler in mm at the edge of the page view; origin = top left corner of the current page.
+        It stays put while scrolling, and the scale follows (zoom, page, rotation).
+    """
     SIZE = 22
 
     def __init__(self, view, horizontal: bool):
         super().__init__()
         self.view, self.horizontal = view, horizontal
-        self.cursor_px = None            # Mausposition (Bildschirm, global) für den Markierungsstrich
+        self.cursor_px = None            # mouse position (screen, global) for the selection stroke
         if horizontal:
             self.setFixedHeight(self.SIZE)
         else:
@@ -245,19 +246,19 @@ class Ruler(QWidget):
 
 
 class PageView(QScrollArea):
-    """Seitenansicht.
+    """Page view.
 
-    single=True  (Standard): immer genau eine Seite, zentriert. Innerhalb der Seite wird
-                 gescrollt; am Seitenende springt das nächste Mausrad-/Bild-runter zur
-                 nächsten Seite (Anfang), am Seitenanfang zur vorherigen (Ende).
-    single=False: fortlaufend wie bisher.
+        single=True  (default): always exactly one page, centered. Inside the page it
+                     scrolls; at the end of the page the next wheel-/page-down jumps to
+                     the next page (start), at the start of the page to the previous one (end).
+        single=False: continuous as before.
     """
     pageChanged = Signal(int)
     zoomChanged = Signal(float)
     viewMoved = Signal()                 # Scrollen/Zoom/Seite -> Lineale neu zeichnen
 
     JUMP_THRESHOLD = 120       # eine Mausrad-Raste; Touchpad-Bruchteile werden gesammelt
-    JUMP_COOLDOWN = 0.30       # s – verhindert, dass Schwung-Scrollen mehrere Seiten überspringt
+    JUMP_COOLDOWN = 0.30       # s – prevents kinetic scrolling from skipping several pages
 
     def __init__(self, single: bool = True):
         super().__init__()
@@ -268,7 +269,7 @@ class PageView(QScrollArea):
         self.sizes = []
         self.base = "page"        # width | page | actual – Bezug je Seite
         self.factor = 1.0         # Zoom relativ zum Bezug (Strg+Mausrad, +/-)
-        self.zoom = 1.0           # tatsächlicher Maßstab der aktuellen Seite (nur Anzeige)
+        self.zoom = 1.0           # actual scale of the current page (display only)
         self.rotation = 0
         self.current = 0
         self.single = single
@@ -279,13 +280,16 @@ class PageView(QScrollArea):
         self._drag = None
         self._tp = {}             # Seite -> (PdfPage, PdfTextPage)
         self.imode = "text"       # Maus: text = Textauswahl; edit = Bearbeiten-Modus (Klicks an edit_click)
-        self.edit_click = None    # Rückruf (Seite, x, y in Seitenkoordinaten, Umschalt)
+        self.edit_click = None    # callback (page, x, y in page coordinates, shift)
         self.meas = None          # Messung: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
-        self.on_measure = None    # Rückruf (Text für die Statusleiste)
-        self.on_cursor = None     # Rückruf (Seiten-Widget, Mausposition) für die Lineale
+        self.on_measure = None    # callback (text for the status bar)
+        self.on_cursor = None     # callback (page widget, mouse position) for the rulers
         self.editor = None        # Bearbeiten-Seitenleiste: press/drag/release/cursor (Seitenkoordinaten)
         self._edrag = False
         self.overlay = {}         # Seite -> [(x0, y0, x1, y1, Farbe)] in Seitenkoordinaten
+        self._snap = {}           # Seite -> ([X-Kanten], [Y-Kanten]) – Einrasten beim Messen
+        self._snap_prev = None    # Strg-Vorschau: (Seite, x, y, gerastet?) – Fadenkreuz vor dem 1. Klick
+        self._snap_stuck = None   # Hysterese: {"x": Kante, "y": Kante} – wo das Fadenkreuz gerade klebt
         self.container = QWidget()
         self.container.setObjectName("pages")
         self.setWidget(self.container)
@@ -301,6 +305,9 @@ class PageView(QScrollArea):
         self._close_textpages()
         self.sel, self._drag = None, None
         self.meas = None
+        self._snap = {}
+        self._snap_prev = None
+        self._snap_stuck = None
         self.doc = doc
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         try:
@@ -330,12 +337,13 @@ class PageView(QScrollArea):
 
     @property
     def mode(self) -> str:
-        """Für die Zoom-Anzeige: width/page nur ohne Zusatzfaktor, sonst fixed."""
+        """For the zoom display: width/page only without an extra factor, otherwise fixed."""
         return self.base if self.base != "actual" and abs(self.factor - 1) < 1e-3 else "fixed"
 
     def page_zoom(self, i: int) -> float:
-        """Maßstab (1.0 = tatsächliche Größe) für Seite i. Bei width/page wird JEDE Seite
-        für sich eingepasst -> alle Seiten erscheinen gleich groß, egal wie groß sie wirklich sind."""
+        """Scale (1.0 = actual size) for page i. With width/page EVERY page is
+                fitted on its own -> all pages appear equally large, no matter how large they really are.
+        """
         pw, ph = self._rot_size(i)
         s = self._dpi_scale()
         vw = max(50, self.viewport().width() - 2 * PAGE_GAP - 4)
@@ -448,7 +456,7 @@ class PageView(QScrollArea):
         self.goto(self.current - 1, at_end=at_end)
 
     def set_zoom(self, mode: str, value: float | None = None):
-        """mode: width | page  (Faktor 1)  oder  fixed + value (Maßstab, 1.0 = tatsächliche Größe)."""
+        """mode: width | page  (factor 1)  or  fixed + value (scale, 1.0 = actual size)."""
         cur = self.current
         if mode in ("width", "page"):
             self.base, self.factor = mode, 1.0
@@ -475,7 +483,7 @@ class PageView(QScrollArea):
         if page is not None:
             fx = (cx - page.x()) / max(1, page.width())
             fy = (cy - page.y()) / max(1, page.height())
-        self.factor = new_factor            # Bezug bleibt -> Seiten bleiben untereinander gleich groß
+        self.factor = new_factor            # reference stays -> pages keep the same size relative to each other
         self.relayout()
         if page is not None:
             hb.setValue(int(page.x() + fx * page.width() - pos.x()))
@@ -616,13 +624,116 @@ class PageView(QScrollArea):
         py = self.to_widget(w, x0, y0 + far)
         return ((px[0] - p0[0]) / far, (px[1] - p0[1]) / far, (py[0] - p0[0]) / far, (py[1] - p0[1]) / far)
 
-    def _measure_point(self, w, pos, shift):
+    def _snap_candidates(self, w):
+        """Einrast-Kandidaten der Seite (pt), getrennt nach Priorität:
+        1) Schnitt-/Innenlinien (Seitenrand, TrimBox, BleedBox) – Vorrang,
+        2) Bildkanten und Vektorlinien-Punkte.
+        Text/Buchstaben werden bewusst NICHT einrastbar. Je Seite gecacht."""
+        if w.index in self._snap:
+            return self._snap[w.index]
+        bx, by, ox, oy = set(), set(), set(), set()
+        try:
+            pg, _tp = self._textpage(w.index)
+            crop = pg.get_cropbox()
+            bx |= {crop[0], crop[2]}
+            by |= {crop[1], crop[3]}
+            if w.index < len(self.boxes):
+                for b in self.boxes[w.index]:
+                    if b is not None:
+                        bx |= {b[0], b[2]}
+                        by |= {b[1], b[3]}
+            try:                          # Objekte: Bilder und Vektorpfade – kein Text
+                import pypdfium2.raw as _r
+                import ctypes as _ct
+                for obj in pg.get_objects():
+                    try:
+                        t = obj.type
+                        if t == _r.FPDF_PAGEOBJ_IMAGE:
+                            l, b, r, t_ = obj.get_pos()
+                            if r - l < 2000 and t_ - b < 2000:
+                                ox |= {l, r}
+                                oy |= {b, t_}
+                        elif t == _r.FPDF_PAGEOBJ_PATH:
+                            # einzelne Pfadsegmente: Linienenden, Kurven-Stützpunkte –
+                            # präzises Einrasten an echten Vektorlinien
+                            l, b, r, t_ = obj.get_pos()
+                            if r - l < 2000 and t_ - b < 2000:
+                                ox |= {l, r}
+                                oy |= {b, t_}
+                                n_seg = 0
+                                try:
+                                    n_seg = _r.FPDFPath_CountSegments(obj.raw)
+                                except Exception:
+                                    pass
+                                for si in range(min(n_seg, 4000)):
+                                    try:
+                                        seg = _r.FPDFPath_GetSegment(obj.raw, si)
+                                        sx_, sy_ = _ct.c_float(), _ct.c_float()
+                                        if _r.FPDFPath_GetSegmentPoint(seg, _ct.byref(sx_), _ct.byref(sy_)):
+                                            ox.add(sx_.value)
+                                            oy.add(sy_.value)
+                                    except Exception:
+                                        pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+        out = (sorted(bx), sorted(by), sorted(ox), sorted(oy))
+        self._snap[w.index] = out
+        # Diagnose (einmal je Seite im Terminal): zeigt, ob Kandidaten gefunden wurden
+        print(f"[Passermark] Einrasten Seite {w.index + 1}: {len(out[0])} Schnitt-/Innen-X, "
+              f"{len(out[1])} -Y, {len(out[2])} Bild-/Vektor-X, {len(out[3])} -Y", flush=True)
+        return out
+
+    def _snap_point(self, w, x, y, ctrl):
+        """Fadenkreuz einrasten – nur mit Steuerung (Strg) gedrückt. Priorität:
+        1) Schnitt-/Innenlinien (Seitenrand/TrimBox/BleedBox) fixieren zuerst,
+        2) sonst Bildkanten/Vektorlinien-Punkte.
+        Magnetisch mit Hysterese: einrasten ab ~8 Bildschirmpixeln Nähe, aber
+        erst wieder loslassen, wenn die Maus ~24 px weit weg ist – so „klebt“ das
+        Fadenkreuz während eines leichten Mausschwungs an der Kante und rollt
+        erst bei richtigem Schwung weiter."""
+        if not ctrl:
+            self._snap_stuck = None
+            return x, y
+        bxs, bys, oxs, oys = self._snap_candidates(w)
+        pw, ph = self._rot_size(w.index)
+        sx = 10.0 * pw / max(1, w.width())
+        sy = 10.0 * ph / max(1, w.height())
+
+        def near(vals_pri, vals_obj, v, tol, key):
+            release = tol * 8.0                    # Loslass-Schwelle: 8× Einrast-Toleranz
+                                                       # (~80 px) – das Kreuz soll wirklich
+                                                       # auf der Kante stehenbleiben
+            stuck = self._snap_stuck or {}
+            old = stuck.get(key)
+            if old is not None and abs(old - v) <= release:
+                return old                         # hängt an der Kante fest
+            best, bd = None, tol
+            for c in vals_pri:                     # zuerst Schnitt-/Innenlinien
+                d = abs(c - v)
+                if d <= bd:
+                    best, bd = c, d
+            if best is None:                        # sonst Bild-/Vektorkanten
+                for c in vals_obj:
+                    d = abs(c - v)
+                    if d <= bd:
+                        best, bd = c, d
+            stuck[key] = best                       # None = nicht gerastet (auch merken)
+            self._snap_stuck = stuck
+            return best if best is not None else v
+
+        return near(bxs, oxs, x, sx, "x"), near(bys, oys, y, sy, "y")
+
+    def _measure_point(self, w, pos, shift, ctrl):
         """Mausposition -> Seitenpunkt; mit Umschalt waagrecht/senkrecht/45° zum Startpunkt eingerastet."""
         from .. import measure as ms
         if shift and self.meas and self.meas["a"] is not None and not self.meas["done"]:
             sx, sy = self.to_widget(w, *self.meas["a"])
             vx, vy = ms.snap(pos.x() - sx, pos.y() - sy, True)
-            # eingerasteten Bildschirmvektor exakt in Seitenmaße umrechnen (nicht über ganze Pixel)
+            # convert the snapped screen vector exactly into page measures (not via whole pixels)
             a, b, c, d = self.page_matrix(w)
             det = a * d - b * c
             if abs(det) > 1e-12:
@@ -630,7 +741,8 @@ class PageView(QScrollArea):
                 py = (-b * vx + a * vy) / det
                 ax, ay = self.meas["a"]
                 return ax + px, ay + py
-        return self.to_page(w, pos)
+        x, y = self.to_page(w, pos)
+        return self._snap_point(w, x, y, ctrl)   # Strg = Einrasten an Schnitt-/Bild-/Vektorlinien
 
     def _measure_report(self, w):
         from .. import l10n
@@ -653,10 +765,12 @@ class PageView(QScrollArea):
         shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
         m = self.meas
         if m is None or m["done"] or m["page"] != w.index:
-            a = self.to_page(w, e.position())
-            self.meas = {"page": w.index, "a": a, "b": None, "done": False}       # 1. Klick: Anfang
+            ctrl = bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier)
+            a = self._measure_point(w, e.position(), False, ctrl)   # 1. Klick: Anfang
+            self.meas = {"page": w.index, "a": a, "b": None, "done": False}
         else:
-            m["b"] = self._measure_point(w, e.position(), shift)                    # 2. Klick: Ende
+            m["b"] = self._measure_point(w, e.position(), shift,
+                                          bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier))  # 2. Klick: Ende
             m["done"] = True
             self._measure_report(w)
         w.update()
@@ -669,7 +783,8 @@ class PageView(QScrollArea):
         m = self.meas
         if m is not None and not m["done"] and m["page"] == w.index:
             shift = bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier)
-            m["b"] = self._measure_point(w, e.position(), shift)                   # Gummiband
+            m["b"] = self._measure_point(w, e.position(), shift,
+                                         bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier))  # Gummiband
             self._measure_report(w)
             w.update()
         elif self.on_measure is not None and (m is None or m["done"]):
@@ -678,6 +793,17 @@ class PageView(QScrollArea):
                 ppm = geo[1]
                 if m is None:
                     self.on_measure(ms.describe_pos(e.position().x() / ppm, e.position().y() / ppm, l10n.current()))
+            # Strg gehalten: Vorschau-Fadenkreuz, das auf der nächsten Kante einrastet
+            # (schon vor dem 1. Klick sichtbar – danach rastet das Gummiband-Ende)
+            ctrl = bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier)
+            if ctrl and w.index == self.current:
+                x, y = self.to_page(w, e.position())
+                sx, sy = self._snap_point(w, x, y, True)
+                self._snap_prev = (w.index, sx, sy, x != sx or y != sy)
+            elif self._snap_prev is not None:
+                self._snap_prev = None
+            if self._snap_prev is not None or not ctrl:
+                w.update()
 
     def mouse_press(self, w, e):
         self.setFocus()
@@ -800,24 +926,39 @@ class PageView(QScrollArea):
                 p.setPen(QPen(QColor(theme.ACCENT), 2))
                 p.drawLine(ax - 6, ay, ax + 6, ay)
                 p.drawLine(ax, ay - 6, ax, ay + 6)
+            sp = self._snap_prev
+            if sp is not None and sp[0] == w.index:
+                # Strg-Vorschau-Fadenkreuz; fett + Kreis, wenn auf einer Kante eingerastet
+                px, py = self.to_widget(w, sp[1], sp[2])
+                col = QColor("#2e9e4f") if sp[3] else QColor(theme.MUTED)
+                pen = QPen(col, 2 if sp[3] else 1)
+                if not sp[3]:
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                p.setPen(pen)
+                p.drawLine(px - 10, py, px + 10, py)
+                p.drawLine(px, py - 10, px, py + 10)
+                if sp[3]:
+                    p.setBrush(Qt.BrushStyle.NoBrush)
+                    p.drawEllipse(QPointF(px, py), 4, 4)
             bx = self.boxes[w.index] if getattr(self, "show_boxes", True) and w.index < len(self.boxes) else None
             if bx and bx[0] is not None:
-                # Endformat rot durchgezogen, Anschnittbereich rot getönt, BleedBox rot gestrichelt (nicht gedruckt)
+                # Endformat = grüne innere Grenze, Anschnitt = dezente rote Umrandung
+                # (keine rote Vollfläche mehr); BleedBox rot gestrichelt (wird nicht mitgedruckt)
                 trim, bleed = bx
                 pg_, _tp = self._textpage(w.index)
                 crop = pg_.get_cropbox()
+                green = QColor("#2e9e4f")
                 red = QColor("#e0301e")
                 outer = self._rect_widget(w, crop[0], crop[1], crop[2], crop[3])
                 inner = self._rect_widget(w, trim[0], trim[1], trim[2], trim[3])
-                from PySide6.QtGui import QPainterPath
-                path = QPainterPath()
-                path.addRect(outer)
-                path.addRect(inner)
-                tint = QColor(red)
-                tint.setAlpha(45)
-                p.fillPath(path, tint)                   # Ring zwischen Seitenrand und Endformat
+                # Ring zwischen Seitenrand und Endformat: nur ein feiner roter Rahmen
+                ring_pen = QPen(red, 1.0)
+                ring_pen.setStyle(Qt.PenStyle.DotLine)
                 p.setBrush(Qt.BrushStyle.NoBrush)
-                p.setPen(QPen(red, 1.5))
+                p.setPen(ring_pen)
+                p.drawRect(outer)
+                # innere Grenze (Endformat) kräftig grün – wie in der VDP-Vorschau
+                p.setPen(QPen(green, 1.5))
                 p.drawRect(inner)
                 if bleed is not None:
                     pen = QPen(red, 1.2)
@@ -862,8 +1003,9 @@ class ThumbList(QListWidget):
 
 
 class ThumbDelegate(QStyledItemDelegate):
-    """Alle Miniaturen gleich groß: feste Kachel, Bild darin eingepasst.
-    Rest der Kachel grau, ausgewählt gelb hinterlegt mit gelbem Rahmen."""
+    """All thumbnails the same size: fixed tile, image fitted inside.
+        The rest of the tile gray, selected with a yellow background and border.
+    """
     PAD, LABEL, BOX_ASPECT = 8, 20, 1.30
 
     def __init__(self, view):
@@ -918,7 +1060,7 @@ class ThumbDelegate(QStyledItemDelegate):
 
 
 class MergeDialog(QDialog):
-    """Mehrere PDFs/Bilder in gewünschter Reihenfolge zu einem Dokument zusammenführen."""
+    """Merge several PDFs/images in the desired order into one document."""
 
     def __init__(self, parent, start: list[str] | None = None):
         super().__init__(parent)
@@ -976,6 +1118,76 @@ class MergeDialog(QDialog):
         return [self.lst.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.lst.count())]
 
 
+class PageEdit(QLineEdit):
+    """Seitenanzeige „aktuell / gesamt“ in EINEM Feld. QLineEdit statt QSpinBox:
+    wird vom Theme überall zuverlässig dargestellt (der QSpinBox wurde z. T. leer
+    gerendert). Einfach die Seitenzahl eintippen und Enter – oder woanders hinklicken."""
+    gotoRequested = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        self._n = 0
+        self._cur = 0
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFont(theme.mono_font(10))
+        self.setFixedWidth(64)
+        self.setClearButtonEnabled(False)
+        self.setStyleSheet(
+            "QLineEdit { border: 1px solid #3a3e43; border-radius: 3px; padding: 1px 4px;"
+            " background: " + theme.PANEL + "; color: " + theme.TEXT + "; }"
+            "QLineEdit:focus { border-color: #8a9099; }")
+
+    # ---- Anzeige nachführen ----
+    def set_count(self, n: int):
+        self._n = max(0, n)
+        self._refresh()
+
+    def set_current(self, i: int):
+        self._cur = i
+        self._refresh()
+
+    def _refresh(self):
+        if not self.hasFocus():
+            self.setText(f"{self._cur + 1} / {self._n}" if self._n else "")
+        fm = self.fontMetrics()
+        self.setFixedWidth(max(56, fm.horizontalAdvance(f"{self._n} / {self._n}") + 24))
+
+    # ---- Eingabe: führende Zahl, Enter/Verlassen springt zur Seite ----
+    def _page_from_text(self) -> int | None:
+        digits = ""
+        for ch in self.text():
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        if not digits:
+            return None
+        p = int(digits)
+        return min(max(p, 1), max(1, self._n)) if self._n else None
+
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            p = self._page_from_text()
+            self.clearFocus()
+            if p is not None and p - 1 != self._cur:
+                self.gotoRequested.emit(p - 1)
+            self._refresh()
+            return
+        super().keyPressEvent(e)
+
+    def focusOutEvent(self, e):
+        super().focusOutEvent(e)
+        p = self._page_from_text()
+        if p is not None and self._n and p - 1 != self._cur:
+            self.gotoRequested.emit(p - 1)
+        self._refresh()
+
+    def focusInEvent(self, e):
+        super().focusInEvent(e)
+        self.setText(str(self._cur + 1))            # beim Reinschreiben nur die nackte Zahl
+        self.selectAll()
+
+
 class MainWindow(QMainWindow):
     def __init__(self, ctl):
         super().__init__()
@@ -989,7 +1201,7 @@ class MainWindow(QMainWindow):
         self.modified = False
 
         self.view = PageView(single=getattr(ctl, "view_single", True))
-        self._jobs = []                      # laufende Aufträge (eigene Prozesse)
+        self._jobs = []                      # running jobs (separate processes)
         # Lineale oben/links an der Kante der Ansicht (bleiben beim Scrollen stehen)
         from PySide6.QtWidgets import QGridLayout
         central = QWidget()
@@ -1014,7 +1226,7 @@ class MainWindow(QMainWindow):
         self.view.pageChanged.connect(self._page_changed)
         self.view.zoomChanged.connect(self._zoom_changed)
 
-        # Miniaturen (Mehrfachauswahl für Seitenoperationen)
+        # thumbnails (multi-selection for page operations)
         self.thumbs = ThumbList()
         self.thumbs.setViewMode(QListWidget.ViewMode.ListMode)
         self.thumbs.setResizeMode(QListWidget.ResizeMode.Adjust)
@@ -1052,7 +1264,7 @@ class MainWindow(QMainWindow):
         self.lbl_measure.setContentsMargins(8, 0, 8, 0)
         self.lbl_measure.setFont(theme.mono_font(9.5))
         self.lbl_measure.setToolTip(tr("Messung: Länge, waagrechter und senkrechter Abstand, Winkel"))
-        self.statusBar().addPermanentWidget(self.lbl_measure)     # ganz rechts unten, stört die Arbeit nicht
+        self.statusBar().addPermanentWidget(self.lbl_measure)     # bottom far right, does not get in the way
         self.view.on_measure = self.lbl_measure.setText
         self._update_title()
 
@@ -1060,17 +1272,15 @@ class MainWindow(QMainWindow):
     WORKSPACES = ("view", "prep", "edit", "vdp", "auto")
 
     def _build_workspaces(self, pages_dock):
-        """Zweite Leiste: Arbeitsbereich wählen; rechts daneben die Werkzeuge dieses Bereichs."""
+        """Second bar: choose the work area; the tools of that area to its right."""
         from PySide6.QtGui import QActionGroup
         self._pages_dock = pages_dock
         self.a_presets = self._act(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
         self.a_cli = self._act(tr("Kommandozeile – Anleitung (PDF)"), self._open_cli_howto, None, "terminal")
         self.a_vdp_howto = self._act(tr("Variable Daten – Anleitung (PDF)"), self._open_vdp_howto, None, "book")
         self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
-        tools = {"view": [(self.a_rulers, tr("Lineale")), (self.a_measure, tr("Messen")),
-                          (self.a_boxes, tr("Endformat")),
-                          (self.a_copy, tr("Text kopieren"))],
-                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_boxes, tr("Endformat")), (self.a_manip_cmyk, tr("CMYK")),
+        tools = {"view": [(self.a_copy, tr("Text kopieren"))],
+                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_manip_cmyk, tr("CMYK")),
                           (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
                           (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
                  "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
@@ -1111,7 +1321,7 @@ class MainWindow(QMainWindow):
         for key, acts in tools.items():
             holders = []
             for a, text in acts:
-                a.setIconText(text)                    # Kurztext für Leisten; Menüs zeigen weiter den vollen Text
+                a.setIconText(text)                    # short text for bars; menus keep showing the full text
                 b = QToolButton()
                 b.setDefaultAction(a)
                 b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
@@ -1129,7 +1339,7 @@ class MainWindow(QMainWindow):
             for h in holders:
                 h.setVisible(k == key)
         if key != "edit" and self.a_edit.isChecked():
-            self.a_edit.setChecked(False)                  # Bearbeiten-Modus gehört zum Bereich Bearbeiten
+            self.a_edit.setChecked(False)                  # edit mode belongs to the Edit area
         if key == "prep":
             self.pf_dock.show()
             self.pf_dock.raise_()
@@ -1161,7 +1371,7 @@ class MainWindow(QMainWindow):
         from .editpanel import EditPanel
         self.edit_panel = EditPanel(self)
         class _Dock(QDockWidget):
-            def closeEvent(dock_self, e):          # Schließen-Knopf beendet den Bearbeiten-Modus
+            def closeEvent(dock_self, e):          # the close button ends edit mode
                 self.a_edit.setChecked(False)
                 e.accept()
         self.edit_dock = _Dock(tr("Bearbeiten"), self)
@@ -1215,7 +1425,7 @@ class MainWindow(QMainWindow):
     def _measure_mode(self, on: bool):
         if on:
             if self.a_edit.isChecked():
-                self.a_edit.setChecked(False)              # Bearbeiten und Messen schließen sich aus
+                self.a_edit.setChecked(False)              # Edit and Measure are mutually exclusive
             self.view.imode = "measure"
             self.view.sel = None
             if not self.a_rulers.isChecked():
@@ -1245,7 +1455,7 @@ class MainWindow(QMainWindow):
             for w in self.view.pages:
                 w.update()
 
-    # ---------------- Preflight (Dokumentprüfung) ---------------- #
+    # ---------------- Preflight (document check) ---------------- #
     def _build_preflight(self, pages_dock):
         from .preflightpanel import PreflightPanel
         self.pf_panel = PreflightPanel(self)
@@ -1294,12 +1504,12 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.pf_panel.set_error(str(e))
             return
-        # Hintergrund: nur pikepdf-Teile (pdfium ist nicht thread-sicher – sonst gelegentliche Abstürze)
+        # background: pikepdf parts only (pdfium is not thread-safe – otherwise occasional crashes)
         w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
 
         def done(rep, err, gen=gen, w=w):
             if gen != self._pf_gen:
-                return                                  # veraltet (Dokument inzwischen geändert)
+                return                                  # outdated (document has changed in the meantime)
             if err:
                 self.pf_panel.set_error(err)
                 self.btn_pf.setText("⚠ " + tr("Prüfung fehlgeschlagen"))
@@ -1329,7 +1539,7 @@ class MainWindow(QMainWindow):
         return self.ctl.session
 
     # ================================================================ #
-    # Aktionen / Menüs / Toolbar
+    # actions / menus / toolbar
     # ================================================================ #
     def _act(self, text, slot, shortcut=None, icon=None):
         if isinstance(icon, str):
@@ -1480,19 +1690,15 @@ class MainWindow(QMainWindow):
         tb.addAction(dock_act)
         tb.addSeparator()
         tb.addAction(A(tr("Vorherige Seite"), lambda: self.view.goto(self.view.current - 1), None, "prev"))
-        self.page_spin = QSpinBox()
-        self.page_spin.setMinimum(1)
-        self.page_spin.setKeyboardTracking(False)
-        self.page_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
-        self.page_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.page_spin.setFixedWidth(52)
-        self.page_spin.setFont(theme.mono_font(10))
-        self.page_spin.valueChanged.connect(lambda v: self.view.goto(v - 1))
-        tb.addWidget(self.page_spin)
-        self.page_total = QLabel(" / 0 ")
-        self.page_total.setFont(theme.mono_font(10))
-        tb.addWidget(self.page_total)
+        self.page_edit = PageEdit()
+        self.page_edit.gotoRequested.connect(lambda p: self.view.goto(p))
+        tb.addWidget(self.page_edit)
         tb.addAction(A(tr("Nächste Seite"), lambda: self.view.goto(self.view.current + 1), None, "next"))
+        tb.addSeparator()
+        # Lineale/Maßband/Endformat immer verfügbar – nicht nur im Arbeitsbereich „Anzeigen“
+        tb.addAction(self.a_rulers)
+        tb.addAction(self.a_measure)
+        tb.addAction(self.a_boxes)
         tb.addSeparator()
         tb.addAction(A(tr("Verkleinern"), lambda: self.view.step_zoom(1 / 1.2), QKeySequence.StandardKey.ZoomOut, "zoom_out"))
         self.zoom_combo = QComboBox()
@@ -1520,7 +1726,7 @@ class MainWindow(QMainWindow):
 
     def _toggle_single(self, checked=None):
         single = self.a_single.isChecked()
-        self.ctl.view_single = single           # gilt für neue Fenster dieser Sitzung
+        self.ctl.view_single = single           # applies to new windows of this session
         self.view.set_single(single)
         self.view.setFocus()
 
@@ -1555,7 +1761,7 @@ class MainWindow(QMainWindow):
             host.update_tab(self)
 
     # ================================================================ #
-    # Öffnen
+    # Open
     # ================================================================ #
     def open_dialog(self):
         paths, _ = QFileDialog.getOpenFileNames(self, tr("Öffnen"), os.path.dirname(self.path or ""), OPEN_FILTER)
@@ -1583,16 +1789,13 @@ class MainWindow(QMainWindow):
         self.doc, self.path, self.display_name, self.modified = doc, path, display, modified
         self.view.set_document(doc, keep_page)
         n = len(doc)
-        self.page_spin.blockSignals(True)
-        self.page_spin.setMaximum(max(1, n))
-        self.page_spin.blockSignals(False)
-        self.page_total.setText(f" / {n} ")
+        self.page_edit.set_count(n)
         self._rebuild_thumbs()
         self._update_actions()
         self._update_title()
         self._page_changed(self.view.current)
         if hasattr(self, "_pf_timer"):
-            self._pf_timer.start()                       # Dokumentprüfung im Hintergrund
+            self._pf_timer.start()                       # document check in the background
 
     def open(self, path: str):
         doc = load_pdf(self, path)
@@ -1600,7 +1803,7 @@ class MainWindow(QMainWindow):
             self._set_doc(doc, path, os.path.basename(path), False)
 
     def open_any(self, path: str):
-        """PDF direkt öffnen, Office-Datei umwandeln und als (ungespeichertes) PDF öffnen."""
+        """Open PDFs directly, convert Office files and open them as (unsaved) PDFs."""
         if not _convert.is_office(path):
             self.open(path)
             return
@@ -1636,7 +1839,7 @@ class MainWindow(QMainWindow):
     # Speichern / Exportieren
     # ================================================================ #
     def _write(self, doc, path):
-        """Sicher speichern – auch über die gerade geöffnete Datei."""
+        """Save safely – even over the file that is just open."""
         tmp = path + ".pdfdruck-tmp"
         doc.save(tmp)
         return tmp
@@ -1840,7 +2043,7 @@ class MainWindow(QMainWindow):
     # Miniaturen / Anzeige
     # ================================================================ #
     def rotate_view(self, delta: int):
-        """Ansicht drehen – die Miniaturen in der Seitenleiste drehen mit (das Dokument bleibt unverändert)."""
+        """Rotate the view – the thumbnails in the sidebar rotate along (the document stays unchanged)."""
         self.view.rotate(delta)
         if self.doc is not None:
             self._rebuild_thumbs()
@@ -1902,9 +2105,7 @@ class MainWindow(QMainWindow):
         if self.doc is None:
             self.lbl_size.setText("")
             return
-        self.page_spin.blockSignals(True)
-        self.page_spin.setValue(i + 1)
-        self.page_spin.blockSignals(False)
+        self.page_edit.set_current(i)
         if len(self.thumbs.selectedItems()) <= 1 and 0 <= i < self.thumbs.count():
             self.thumbs.blockSignals(True)
             self.thumbs.setCurrentRow(i)
@@ -1966,7 +2167,7 @@ class MainWindow(QMainWindow):
                            notes=lambda info: [tr("{0} Objekt(e) als Einzelseiten.").format(info.get("objects", 0))])
 
     def split_selected(self, mode: str):
-        """Rechtsklick → Teilen: die ausgewählten Seiten sofort halbieren (ohne Dialog, ohne Vergleichsseite)."""
+        """Right-click → Split: immediately halve the selected pages (no dialog, no comparison page)."""
         if self.doc is None:
             return
         from .. import core, split
@@ -1986,7 +2187,7 @@ class MainWindow(QMainWindow):
             self.start_job(*dlg.job, suffix=tr("_geteilt"), title=tr("Seiten teilen"))
 
     def split_spreads(self):
-        """Ein Klick: alle Doppelseiten senkrecht halbieren (z. B. Broschüre als Druckbögen exportiert)."""
+        """One click: halve all double pages vertically (e.g. a booklet exported as press sheets)."""
         if self.doc is None:
             return
         from .. import core, split
@@ -2014,7 +2215,7 @@ class MainWindow(QMainWindow):
                            notes=lambda info: [tr("{0} Schnittkontur(en) erzeugt.").format(info.get("cuts", 0))])
 
     def vdp_dialog(self, data=None):
-        """data = (csv_pfad, datenart) aus „Daten erfassen“: Tabelle gleich als Datenquelle samt Feld übernehmen."""
+        """data = (csv_path, data kind) from "Enter data": adopt the table right away as the data source with a field."""
         if self.doc is None:
             return
         from .vdpdialog import VdpDialog
@@ -2032,7 +2233,7 @@ class MainWindow(QMainWindow):
                                info.get("records", 0), info.get("pages", 0))])
 
     def data_dialog(self):
-        """Datentabelle anlegen; „In Variable Daten verwenden“ öffnet Variable Daten mit dieser Tabelle."""
+        """Create a data table; "Use for variable data" opens Variable Data with this table."""
         from .datadialog import DataDialog
         dlg = DataDialog(self)
         if not (dlg.exec() and dlg.use and dlg.path):
@@ -2044,7 +2245,7 @@ class MainWindow(QMainWindow):
             return
         self.vdp_dialog((dlg.path, dlg.kind))
 
-    # ---------------- Aufträge im Hintergrund (eigener Prozess) ---------------- #
+    # ---------------- Background jobs (separate process) ---------------- #
     def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):
         """Dokument in den Zwischenspeicher, Kommandozeile als eigenen Prozess starten, Fortschritt unten anzeigen."""
         from .. import jobproc, l10n
@@ -2053,8 +2254,8 @@ class MainWindow(QMainWindow):
         src = self.ctl.cache_file(base + "_eingabe.pdf")
         dst = self.ctl.cache_file(base + suffix + ".pdf")
         try:
-            self.doc.save(src)                                   # aktueller Stand (auch ungespeicherte Änderungen)
-            open(dst, "wb").close()                              # Namen reservieren (mehrere Aufträge gleichzeitig)
+            self.doc.save(src)                                   # current state (including unsaved changes)
+            open(dst, "wb").close()                              # reserve names (several jobs at once)
             job = jobproc.JobProcess(kind, src, dst, settings, pages, lang=l10n.current())
             job.start()
         except Exception as e:
@@ -2108,14 +2309,14 @@ class MainWindow(QMainWindow):
         box.exec()
 
     def _stop_jobs(self):
-        """Fenster wird geschlossen: laufende Aufträge abbrechen."""
+        """Window is closing: cancel running jobs."""
         for entry in list(self._jobs):
             entry["job"].cancel()
         for entry in list(self._jobs):
             entry["reader"].wait(5000)
 
     def _open_result(self, new_doc, suffix: str, notes=()):
-        """Ergebnis in den Zwischenspeicher schreiben und von dort in einem neuen Fenster öffnen."""
+        """Write the result to the cache and open it from there in a new window."""
         base = os.path.splitext(self.display_name or "Dokument")[0]
         path = self.ctl.cache_file(base + suffix + ".pdf")
         try:
@@ -2129,12 +2330,12 @@ class MainWindow(QMainWindow):
         self._open_result_path(path, notes)
 
     def _open_result_path(self, path: str, notes=()):
-        """Fertige Datei aus dem Zwischenspeicher in einem neuen Fenster öffnen (temporär, „Speichern unter“)."""
+        """Open the finished file from the cache in a new window (temporary, "Save as")."""
         doc = load_pdf(self, path)
         if doc is None:
             return
         w = self.ctl.new_window(tab_of=self)
-        # temporär: kein fester Speicherort -> „Speichern“ fragt nach, Schließen erinnert ans Speichern
+        # temporary: no fixed location -> "Save" asks, closing reminds to save
         w._set_doc(doc, None, os.path.basename(path), True)
         w._temp_path = path
         w._suggest_dir = os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", "")
@@ -2145,10 +2346,23 @@ class MainWindow(QMainWindow):
         w.statusBar().showMessage(msg, 20000)
 
     @staticmethod
+    def _lang_pdf(path: str) -> str:
+        """Sprachversion einer Anleitung (z. B. …-anleitung.en.pdf), sonst die deutsche."""
+        from .. import l10n
+        lang = l10n.current()
+        for code in (lang, "en"):                # UI-Sprache, dann Englisch statt Deutsch
+            if code and code != "de":
+                root, ext = os.path.splitext(path)
+                p = f"{root}.{code}{ext}"
+                if os.path.isfile(p):
+                    return p
+        return path
+
+    @staticmethod
     def cli_howto_path() -> str:
         """Anleitung zur Kommandozeile im Programmpaket (Linux-Installation, AppImage, Windows-Setup)."""
         from .. import __file__ as pkg
-        return os.path.join(os.path.dirname(pkg), "docs", "passermark-cli-anleitung.pdf")
+        return MainWindow._lang_pdf(os.path.join(os.path.dirname(pkg), "docs", "passermark-cli-anleitung.pdf"))
 
     def _open_cli_howto(self):
         p = self.cli_howto_path()
@@ -2159,14 +2373,14 @@ class MainWindow(QMainWindow):
 
     def _open_vdp_howto(self):
         from .. import examples
-        p = examples.VDP_HOWTO
+        p = MainWindow._lang_pdf(examples.VDP_HOWTO)
         if not os.path.isfile(p):
             QMessageBox.warning(self, tr("Hilfe"), tr("Anleitung nicht gefunden: {0}").format(p))
             return
         self.ctl.open_paths([p], tab_of=self)
 
     def _get_examples(self):
-        """Beispiele in den Benutzerordner kopieren, Presets eintragen, Vorlage in einem Reiter öffnen."""
+        """Copy the examples to the user folder, register the presets, open the template in a tab."""
         from .. import examples
         try:
             d = examples.install()
@@ -2180,7 +2394,7 @@ class MainWindow(QMainWindow):
             "Im Ordner „ergebnis“ liegen die fertigen PDFs zum Vergleich, die Anleitung liegt daneben.").format(d))
 
     def _win_print_test(self):
-        """Je Verfahren eine Testseite drucken – zeigt, was der Treiber wirklich kann (leere Blätter?)."""
+        """Print one test page per method – shows what the driver can really do (blank sheets?)."""
         from PySide6.QtWidgets import QInputDialog
         from .. import printers, printers_win
         try:
@@ -2229,7 +2443,7 @@ class MainWindow(QMainWindow):
         elif self.path and not self.modified and not repair.needs_password(self.path):
             files = [self.path]
         else:
-            # aktueller Stand (bearbeitet, aus Bildern oder entsperrt) -> unverschlüsselte Arbeitskopie
+            # current state (edited, from images, or unlocked) -> unencrypted working copy
             tmp = os.path.join(tempfile.mkdtemp(prefix="passermark-"), "dokument.pdf")
             self.doc.save(tmp, flags=pdfium_r.FPDF_REMOVE_SECURITY)
             files = [tmp]
@@ -2259,7 +2473,7 @@ class MainWindow(QMainWindow):
         if not paths:
             return
         if self.doc is not None and e.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            # Strg + Ablegen = an das aktuelle Dokument anhängen
+            # Ctrl + drop = append to the current document
             start = len(self.doc)
             for p in paths:
                 part = self._load_any(p)

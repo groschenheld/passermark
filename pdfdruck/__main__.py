@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""passermark [--print] [--open] [DATEIEN …]
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""passermark [--print] [--open] [FILES …]
 
-  passermark a.pdf b.jpg      öffnen (Bilder werden als PDF in tatsächlicher Größe geöffnet)
-  passermark --merge a.pdf b.docx c.jpg   alles zu einem PDF (Reihenfolge im Dialog änderbar)
-  passermark --repair *.pdf   reparieren / für Weitergabe optimieren / Passwortschutz
-  passermark --print *.pdf    ohne Dialog drucken – mit den Einstellungen einer laufenden
-                            Instanz, sonst mit den Admin-Standards
+  passermark a.pdf b.jpg      open (images are opened as PDFs at actual size)
+  passermark --merge a.pdf b.docx c.jpg   everything into one PDF (order changeable in the dialog)
+  passermark --repair *.pdf   repair / optimize for sharing / password protection
+  passermark --print *.pdf    print without a dialog – with the settings of a running
+                            instance, otherwise with the admin defaults
 """
 import argparse
 import os
@@ -18,8 +18,8 @@ import sys
 
 def main():
     import multiprocessing
-    multiprocessing.freeze_support()       # gebündelte Programmdatei: Arbeitsprozess starten statt Programm
-    # fertige Programmdatei prüfen (GitHub-Build) bzw. AppImage-Root-Helfer (über pkexec)
+    multiprocessing.freeze_support()       # bundled program file: start the worker process instead of the program
+    # check the finished program file (GitHub build) or AppImage root helper (via pkexec)
     if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
         from . import selftest
         return selftest.run()
@@ -27,13 +27,13 @@ def main():
         from . import selftest
         return selftest.admin_helper(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "--cli":
-        from .cli import main as cli_main                      # Aufträge ohne Oberfläche (AppImage: … --cli)
+        from .cli import main as cli_main                      # jobs without a GUI (AppImage: … --cli)
         return cli_main(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "--version":
         from . import __version__
         print(__version__)
         return 0
-    # Windows: erhöhter Admin-Helfer (über UAC gestartet) – ohne Oberfläche
+    # Windows: elevated admin helper (started via UAC) – without a GUI
     if len(sys.argv) == 3 and sys.argv[1] == "--admin-apply":
         from . import winadmin
         return winadmin.apply(sys.argv[2])
@@ -60,7 +60,7 @@ def main():
     _tr = QTranslator(app)
     if _lang != "en" and _tr.load(QLocale(_lang), "qtbase", "_",
                                   QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
-        app.installTranslator(_tr)     # Qt-Standardtexte (Ja/Nein, Abbrechen, Dateidialog) in der Oberflächensprache
+        app.installTranslator(_tr)     # Qt standard texts (Yes/No, Cancel, file dialog) in the interface language
     from .gui import theme
     theme.apply(app)                 # dunkles Design, gelber Akzent, Mausrad-Schutz
     from .gui.common import window_modal_dialogs
@@ -74,7 +74,7 @@ def main():
 
     cmd = "print" if args.do_print else "repair" if args.repair else "merge" if args.merge else "open"
 
-    # Einzelinstanz: an laufende Instanz übergeben – oder selbst Server werden. Mehrere gleichzeitig
+    # single instance: hand over to the running instance – or become the server yourself. Several at once
     # gestartete Prozesse (Explorer-Mehrfachauswahl) einigen sich so auf genau einen Server.
     import time
     ctl = None

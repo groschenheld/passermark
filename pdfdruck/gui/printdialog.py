@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Eigener Druckdialog (Acrobat-Layout): Einstellungen links, Live-Vorschau rechts."""
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ class PrintDialog(QDialog):
         self.tabs = QTabWidget()
         self.tabs.setMinimumWidth(360)
         left = QVBoxLayout()
-        # Preset über den Reitern: gilt für Allgemein UND Weitere Optionen (ohne Drucker/Fach)
+        # preset above the tabs: applies to General AND More Options (without printer/tray)
         from .presetbar import PresetBar
         self.presetbar = PresetBar(self, "impose", self._preset_settings, self._load_layout)
         self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
@@ -248,7 +248,7 @@ class PrintDialog(QDialog):
         gl.addWidget(self.chk_reverse, 4, 0, 1, 2)
         v.addWidget(g)
 
-        # Seitengröße und -handhabung
+        # page size and handling
         L = self.s.layout
         g = QGroupBox(tr("Seitengröße und -handhabung"))
         gv = QVBoxLayout(g)
@@ -269,7 +269,7 @@ class PrintDialog(QDialog):
         self.stack = QStackedWidget()
         gv.addWidget(self.stack)
 
-        # -- Größe
+        # -- Size
         pg = QWidget()
         pl = QGridLayout(pg)
         self.rb_fit = QRadioButton(tr("Anpassen"))
@@ -350,7 +350,7 @@ class PrintDialog(QDialog):
         ml.addRow("", self.chk_borders)
         self.stack.addWidget(mg)
 
-        # -- Broschüre
+        # -- Booklet
         bw = QWidget()
         bl = QFormLayout(bw)
         self.cmb_bkind = QComboBox()
@@ -367,7 +367,7 @@ class PrintDialog(QDialog):
         self.spn_persig.setValue(L.booklet_per_sig)
         self.spn_persig.setSuffix(tr(" Bögen je Lage"))
         bl.addRow("", self.spn_persig)
-        # „Bögen je Lage“ ändern = gruppierte Lagen (sonst würde die Zahl bei Sammelheftung nichts bewirken)
+        # changing "sheets per signature" = grouped signatures (otherwise the number would have no effect with saddle stitching)
         self.spn_persig.valueChanged.connect(
             lambda _v: self.cmb_bkind.currentData() == "saddle"
             and self.cmb_bkind.setCurrentIndex(max(0, self.cmb_bkind.findData("grouped"))))
@@ -505,7 +505,7 @@ class PrintDialog(QDialog):
         hb.setChecked(True)
         self.stack.setCurrentIndex(hb.property("page"))
 
-        # Papier (wird je Drucker befüllt)
+        # paper (filled per printer)
         self.paper_group = QGroupBox(tr("Papier und Ausgabe"))
         self.paper_form = QFormLayout(self.paper_group)
         v.addWidget(self.paper_group)
@@ -779,7 +779,7 @@ class PrintDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, tr("CUPS"), tr("Drucker können nicht abgefragt werden:\n{0}").format(e))
             plist = []
-        plist = list(plist) + [printers.pdf_target_info()]      # immer verfügbar: Als PDF speichern
+        plist = list(plist) + [printers.pdf_target_info()]      # always available: Save as PDF
         self.cmb_printer.blockSignals(True)
         for p in plist:
             label = (f"{p.info}  ({p.name})" if p.info != p.name else p.name)
@@ -873,7 +873,7 @@ class PrintDialog(QDialog):
             return
         self.s.refresh_custom_sizes()
         key = self.caps.roles.get("pagesize") if self.caps else None
-        if key and dlg.chosen:                     # neu angelegtes/gewähltes Format gleich einstellen
+        if key and dlg.chosen:                     # apply a newly created/selected format right away
             self.values[key] = dlg.chosen
         self._build_paper()
         self._changed()
@@ -1102,7 +1102,7 @@ class PrintDialog(QDialog):
         key = cb.property("key")
         self.values[key] = cb.currentData()
         if self.caps and key == self.caps.roles.get("pagesize"):
-            self._auto_tray()            # Format geändert -> passende Lade wählen
+            self._auto_tray()            # format changed -> select a matching tray
         self._changed()
 
     def _build_profiles(self):
@@ -1115,7 +1115,7 @@ class PrintDialog(QDialog):
                    [(p["id"], p.get("name") or p["id"]) for p in profs], pid)
         self._fill_intents(intent)
         user = bool(self.cfg.get("allow_user_profile_choice", True))
-        if self._is_pdf_target():                   # PDF-Ausgabe: Farben bleiben unverändert
+        if self._is_pdf_target():                   # PDF output: colors stay unchanged
             fill_combo(self.cmb_profile, [("", tr("Keins – Farben bleiben unverändert"))], "")
             user = False
         self.cmb_profile.setEnabled(user and bool(profs))
@@ -1308,7 +1308,7 @@ class PrintDialog(QDialog):
         return printjob.short_edge_choice(self.caps)
 
     def _preset_settings(self) -> layout.ImposeSettings:
-        """Layout + aktuelles Papierformat – so passt ein Druck-Preset auch für `passermark-cli impose`."""
+        """Layout + current paper size – so a print preset also fits `passermark-cli impose`."""
         import dataclasses
         imp = layout.ImposeSettings(**dataclasses.asdict(self._settings()))
         try:
@@ -1386,7 +1386,7 @@ class PrintDialog(QDialog):
         self.sheet_index = min(self.sheet_index, max(0, len(self.plans) - 1))
         try:
             self._render_sheet()
-        except Exception as e:          # Vorschau darf das Programm nie mitreißen
+        except Exception as e:          # the preview must never take the program down with it
             self.lbl_warn.setText(tr("Vorschau nicht möglich: {0}").format(e))
 
     def _goto_sheet(self, i):
@@ -1395,7 +1395,7 @@ class PrintDialog(QDialog):
             self._render_sheet()
 
     def _sheet_overview(self):
-        """Alle Bögen als Miniaturen (Leserichtung) – zeigt die Verteilung der Seiten auf einen Blick."""
+        """All sheets as thumbnails (reading order) – shows the distribution of the pages at a glance."""
         from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem
         from PySide6.QtCore import QSize
         from PySide6.QtGui import QIcon
@@ -1499,7 +1499,7 @@ class PrintDialog(QDialog):
         self.lbl_warn.setText("\n".join(warns[:4]) + (" …" if len(warns) > 4 else ""))
 
     def _proof_params(self):
-        """(Anpassungen, ICC-Pfad, Intent, BPC, Profilname) für die aktuelle Auswahl."""
+        """(adjustments, ICC path, intent, BPC, profile name) for the current selection."""
         adj = proof.adjustments(self.caps, self.values)
         pid = self.cmb_profile.currentData() or ""
         prof = config.profile_by_id(self.cfg, pid) if pid else None

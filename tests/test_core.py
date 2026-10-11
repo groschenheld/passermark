@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Kern-Schnittstelle: Aufträge Datei -> Datei, Einstellungen als JSON, Fortschritt, Abbrechen, atomares Schreiben."""
+"""Core interface: jobs file -> file, settings as JSON, progress, cancelling, atomic writing."""
 import json, os, sys, tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
@@ -25,14 +25,14 @@ def test_settings_json_roundtrip():
     d = json.loads(json.dumps(core.settings_to_dict(s)))
     s2 = core.settings_from_dict(cutcontour.CutSettings, d)
     assert s2 == s and isinstance(s2.detect, objects.DetectSettings) and s2.detect.tolerance == 40
-    # unbekannte Schlüssel werden ignoriert, fehlende bekommen den Standard, int -> float
+    # unknown keys are ignored, missing ones get the default, int -> float
     s3 = core.settings_from_dict(cutcontour.CutSettings, {"shape": "rect", "bleed_mm": 2, "gibts_nicht": 1})
     assert s3.shape == "rect" and s3.bleed_mm == 2.0 and isinstance(s3.bleed_mm, float) and s3.offset_mm == 0.0
     p = os.path.join(TMP, "preset.json")
     core.save_settings(p, "cutcontour", s)
     kind, d = core.load_settings(p)
     assert kind == "cutcontour" and core.settings_from_dict(cutcontour.CutSettings, d) == s
-    for kind in core.JOBS:                           # jede Auftragsart: Standard-Einstellungen sind JSON-fähig
+    for kind in core.JOBS:                           # every job type: default settings are JSON-compatible
         cls = core.settings_class(kind)
         assert core.settings_from_dict(cls, json.loads(json.dumps(core.settings_to_dict(cls())))) == cls()
 
@@ -58,7 +58,7 @@ def test_cancel_leaves_no_file():
         pass
     assert not os.path.exists(dst) and not os.path.exists(dst + ".part")
     calls = []
-    def cancel_later():                               # Abbruch erst während der Arbeit
+    def cancel_later():                               # cancel only while working
         calls.append(1)
         return len(calls) > 2
     try:
@@ -121,7 +121,7 @@ def test_preflight_fix_job():
     pk = pikepdf.open(dst)
     assert "/OCProperties" not in pk.Root
     pk.close()
-    # ohne Ebenen: nicht abbrechen (Ketten/Ordner), Datei unverändert durchreichen + Hinweis
+    # without layers: do not abort (chains/folders), pass the file through unchanged + hint
     r = core.run_job("preflight_fix", dst, os.path.join(TMP, "nochmal.pdf"), {"fix": "flatten_layers"})
     assert open(r.output, "rb").read() == open(dst, "rb").read() and r.notes
 

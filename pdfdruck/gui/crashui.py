@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Fehlerprotokoll in der Oberfläche: Meldung bei unerwartetem Fehler, Hinweis nach einem Absturz."""
+"""Error log in the interface: message on unexpected errors, notice after a crash."""
 from __future__ import annotations
 
 import os
@@ -22,8 +22,8 @@ def open_log_dir():
 
 
 def show_error(summary: str, details: str):
-    """Unerwarteter Python-Fehler: Programm läuft weiter, Meldung mit Pfad zum Protokoll."""
-    if _showing["on"]:                                   # nicht mehrere Meldungen übereinander
+    """Unexpected Python error: the program keeps running, message with the path to the log."""
+    if _showing["on"]:                                   # do not stack several messages on top of each other
         return
     _showing["on"] = True
     try:
@@ -42,7 +42,7 @@ def show_error(summary: str, details: str):
 
 
 def notify_previous_crashes():
-    """Beim Start: frühere harte Abstürze melden (einmal)."""
+    """At startup: report earlier hard crashes (once)."""
     paths = crashlog.pending_crashes()
     if not paths:
         return

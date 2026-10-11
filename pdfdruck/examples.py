@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Mitgelieferte Beispiele (Variable Daten) und Anleitungen.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Bundled examples (variable data) and manuals.
 
-Die Beispiele liegen im Programmpaket (pdfdruck/docs/beispiele/vdp) – dort oft schreibgeschützt. „Beispiele holen“
-kopiert sie in einen Ordner des Benutzers und trägt die Presets mit vollem CSV-Pfad im Preset-Ordner ein, damit sie
-in der Oberfläche in der Preset-Leiste und auf der Kommandozeile per Name zur Verfügung stehen.
+The examples live in the program package (pdfdruck/docs/beispiele/vdp) – often read-only there. "Get examples"
+copies them to a folder of the user and registers the presets with the full CSV path in the preset folder, so
+they are available in the GUI preset bar and on the command line by name.
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def install(target: str | None = None, presets_too: bool = True) -> str:
         p = os.path.join(dest, "presets", stem + ".json")
         kind, data = core.load_settings(p)
         if data.get("csv_path") and not os.path.isabs(data["csv_path"]):
-            data["csv_path"] = os.path.join(dest, data["csv_path"])     # voller Pfad: funktioniert von überall
+            data["csv_path"] = os.path.join(dest, data["csv_path"])     # full path: works from anywhere
         core.save_settings(p, kind, data)
         if presets_too:
             presets.save(kind, name, core.settings_from_dict(presets.settings_class(kind), data))

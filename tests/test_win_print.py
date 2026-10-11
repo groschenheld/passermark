@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Windows-Druckweg ohne Windows: win32gui/win32print/gdi32 nachgebaut (tests/_winstub), der „Treiber“ zeichnet
-alle Streifen auf eine Leinwand. Prüft Raster (lückenlos, pixelgenau), JPEG, PostScript-Wahl und Fehlerfall."""
+"""Windows print path without Windows: win32gui/win32print/gdi32 rebuilt (tests/_winstub), the "driver" draws
+all bands onto a canvas. Checks raster (gapless, pixel-exact), JPEG, PostScript selection and the error case."""
 import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
@@ -36,7 +36,7 @@ def test_raster_bands_exact_and_jpeg_smaller():
         bands = [c for c in g.calls if c[0] == "band"]
         assert len(bands) > len(g.pages)                                  # wirklich in Streifen
         for a, b in zip(bands, bands[1:]):
-            assert b[1] in (a[1] + a[2], 0)                               # lückenlos
+            assert b[1] in (a[1] + a[2], 0)                               # gapless
         diff = np.abs(np.asarray(g.pages[0].resize(ref.size), int) - np.asarray(ref, int)).mean()
         assert diff < 6, diff
         assert all(c[3] == (4 if jpeg else 0) for c in bands)
@@ -73,7 +73,7 @@ def test_error_aborts_job():
 
 
 def test_auto_is_plain_raster_even_if_driver_claims_more():
-    """Automatisch: nie PostScript/JPEG – die führten bei manchen Treibern zu leeren Blättern."""
+    """Automatic: never PostScript/JPEG – those led to blank sheets with some drivers."""
     g = _setup(dpi=300, ps=True, jpeg=True)
     pw.print_settings = lambda: ("auto", 0)
     pw.BAND_BYTES = 24 * 1024 * 1024
@@ -121,7 +121,7 @@ def test_test_print_all_modes():
 
 
 def test_custom_paper_size_devmode():
-    """Sonderformat: DMPAPER_USER mit Breite/Länge in 0,1 mm; normale Formate wie bisher."""
+    """Custom format: DMPAPER_USER with width/length in 0.1 mm; standard formats as before."""
     class DM:
         Fields = 0
     pw.devmode_from_str = lambda printer, s: DM()

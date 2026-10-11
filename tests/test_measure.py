@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Lineal und Messen: Einrasten, Längen, Bildschirmachsen bei Zoom/Drehung, Linealteilung."""
+"""Ruler and measuring: snapping, lengths, screen axes under zoom/rotation, ruler divisions."""
 import math, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import measure as m

@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Erzeugt pdfdruck/docs/passermark-cli-anleitung.pdf (Kommandozeile mit Fallbeispielen).
+"""Generates pdfdruck/docs/passermark-cli-anleitung.pdf (command line with case studies).
 
     python3 docs/make_cli_howto.py
 
-Bei jeder neuen Version neu erzeugen; die Fallbeispiele werden in tests/test_cli_howto.py ausgeführt.
-Benötigt reportlab und die Schriften DejaVu Sans / DejaVu Sans Mono.
+Regenerate on every new version; the case studies are executed in tests/test_cli_howto.py.
+Requires reportlab and the DejaVu Sans / DejaVu Sans Mono fonts.
 """
 import os
 
-os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
+LANG = os.environ.get("PM_HOWTO_LANG", "de")     # language of the manual: de, en, es, fr, hu
+os.environ["PASSERMARK_LANG"] = LANG          # runtime strings from the program (datakinds, vdp) follow it
 import sys
 
 from reportlab.lib import colors
@@ -27,6 +28,8 @@ sys.path.insert(0, ROOT)
 from pdfdruck import __version__  # noqa: E402
 
 OUT = os.path.join(ROOT, "pdfdruck", "docs", "passermark-cli-anleitung.pdf")
+if LANG != "de":
+    OUT = OUT[:-4] + f".{LANG}.pdf"            # e.g. passermark-cli-anleitung.en.pdf
 FONT_DIRS = ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", "C:/Windows/Fonts"]
 
 
@@ -43,6 +46,30 @@ _font("DV", "DejaVuSans.ttf")
 _font("DV-B", "DejaVuSans-Bold.ttf")
 _font("DVM", "DejaVuSansMono.ttf")
 pdfmetrics.registerFontFamily("DV", normal="DV", bold="DV-B", italic="DV", boldItalic="DV-B")
+
+MSG = {}                                        # translation catalog docs/howto_<LANG>.py (key = German)
+
+
+def _load_howto(lang):
+    """Katalog docs/howto_<lang>.py laden (fehlende Datei = leerer Katalog)."""
+    import importlib.util
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"howto_{lang}.py")
+    if not os.path.exists(p):
+        return {}
+    spec = importlib.util.spec_from_file_location(f"howto_{lang}", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return getattr(mod, "MESSAGES", {})
+
+
+if LANG != "de":
+    MSG.update(_load_howto("en"))                # fallback language English …
+    MSG.update(_load_howto(LANG))                # … complete/override with the manual language
+
+
+def T(t):
+    """Translate a manual string; missing entries stay German."""
+    return MSG.get(t, t)
 
 ACCENT = colors.HexColor("#c2185b")
 INK = colors.HexColor("#1d1d1f")
@@ -63,11 +90,11 @@ CODE = ParagraphStyle("code", fontName="DVM", fontSize=8.3, leading=11.2, textCo
 
 
 def P(t, st=BODY):
-    return Paragraph(t, st)
+    return Paragraph(T(t), st)
 
 
 def code(t):
-    return Preformatted(t.strip("\n"), CODE)
+    return Preformatted(T(t.strip("\n")), CODE)
 
 
 def c(t):
@@ -75,7 +102,7 @@ def c(t):
 
 
 def table(rows, widths, head=True):
-    data = [[Paragraph(str(x), CELLB if (head and i == 0) else CELL) for x in r] for i, r in enumerate(rows)]
+    data = [[Paragraph(T(str(x)), CELLB if (head and i == 0) else CELL) for x in r] for i, r in enumerate(rows)]
     t = Table(data, colWidths=widths, repeatRows=1 if head else 0)
     st = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.HexColor("#d9d9de")),
           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -96,12 +123,13 @@ W = A4[0] - 40 * mm
 def build():
     s = []
     s += [P("Passermark – Kommandozeile", H1),
-          P(f"Anleitung zu {c('passermark-cli')} mit Fallbeispielen · Passermark {__version__}", SUB)]
+          P(T("Anleitung zu") + " " + c("passermark-cli") + " " + T("mit Fallbeispielen · Passermark")
+            + f" {__version__}", SUB)]
     s.append(P("Mit der Kommandozeile laufen die schweren Funktionen von Passermark ohne Oberfläche: in Skripten, "
                "für ganze Ordner auf einmal oder später automatisch im Hintergrund. Alles, was hier steht, macht "
                "dasselbe wie die entsprechenden Dialoge im Programm."))
 
-    # ------------------------------------------------------------------ Grundlagen
+    # ------------------------------------------------------------------ basics
     s.append(P("1 · Aufruf", H2))
     s.append(code("passermark-cli <auftrag> <eingabe.pdf> <ausgabe.pdf> [optionen]"))
     s.append(table([
@@ -157,9 +185,10 @@ def build():
     ], [42 * mm, W - 42 * mm]))
 
     s.append(P("Rückgabewerte und Abbrechen", H3))
-    s.append(P(f"{c('0')} = fertig · {c('1')} = Fehler (z. B. Datei fehlt, kein Motiv gefunden) · {c('2')} = falscher "
-               f"Aufruf · {c('130')} = abgebrochen. <b>Strg+C</b> bricht sauber ab, ohne Ausgabedatei. In Skripten "
-               f"kann man so auf Fehler reagieren (Abschnitt 4)."))
+    _rc = (f"{c('0')} = fertig · {c('1')} = Fehler (z. B. Datei fehlt, kein Motiv gefunden) · {c('2')} = falscher "
+           f"Aufruf · {c('130')} = abgebrochen. <b>Strg+C</b> bricht sauber ab, ohne Ausgabedatei. In Skripten "
+           f"kann man so auf Fehler reagieren (Abschnitt 4).")
+    s.append(P(T(_rc)))
 
     # ------------------------------------------------------------------ CutContour
     s.append(PageBreak())
@@ -308,9 +337,10 @@ def build():
     s.append(example("Alter RIP: Transparenzen reduzieren", "",
                      "passermark-cli preflight_fix plakat.pdf plakat-flach.pdf \\\n"
                      "    --set fix=flatten_transparency --set dpi=300"))
-    s.append(P(f"{c('embed_fonts')}, {c('outline_text')}, {c('flatten_transparency')}, {c('repair')} und die "
-               f"CMYK-Umwandlung brauchen Ghostscript. Windows-Setup und AppImage bringen es mit; bei der "
-               f"Linux-Installation installiert es {c('install.sh')}.", NOTE))
+    _gs = (f"{c('embed_fonts')}, {c('outline_text')}, {c('flatten_transparency')}, {c('repair')} und die "
+           f"CMYK-Umwandlung brauchen Ghostscript. Windows-Setup und AppImage bringen es mit; bei der "
+           f"Linux-Installation installiert es {c('install.sh')}.")
+    s.append(P(T(_gs), NOTE))
 
     # ------------------------------------------------------------------ impose
     s.append(PageBreak())
@@ -470,7 +500,7 @@ def build():
                + ". Im Programm: Arbeitsbereich <b>Automatisierung</b> → <b>Presets</b> öffnet den Ordner. "
                "Druck-Presets (Broschüre, Poster, Nutzen) gehören zum Auftrag " + c("impose") + ".", NOTE))
 
-    # ------------------------------------------------------------------ Stapel
+    # ------------------------------------------------------------------ batch
     s.append(P("4 · Ganze Ordner auf einmal", H2))
     s.append(P("Linux (Terminal): alle PDFs aus " + c("eingang") + " schneiden, Ergebnisse nach " + c("fertig")
                + ", Fehler werden gemeldet."))
@@ -488,7 +518,7 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
     if ($LASTEXITCODE -ne 0) { Write-Host "FEHLER: $($_.Name)" }
 }'''))
 
-    # ------------------------------------------------------------------ Tipps
+    # ------------------------------------------------------------------ tips
     s.append(P("5 · Tipps und Fehler", H2))
     s.append(table([
         ["Meldung / Problem", "Lösung"],
@@ -520,7 +550,7 @@ def on_page(canvas, doc):
     canvas.saveState()
     canvas.setFont("DV", 7.5)
     canvas.setFillColor(MUTED)
-    canvas.drawString(20 * mm, 12 * mm, f"Passermark {__version__} · Kommandozeile")
+    canvas.drawString(20 * mm, 12 * mm, f"Passermark {__version__} · {T('Kommandozeile')}")
     canvas.drawRightString(A4[0] - 20 * mm, 12 * mm, str(doc.page))
     canvas.restoreState()
 
@@ -528,7 +558,7 @@ def on_page(canvas, doc):
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     doc = SimpleDocTemplate(OUT, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm, topMargin=18 * mm,
-                            bottomMargin=20 * mm, title="Passermark – Kommandozeile", author="Passermark",
-                            subject="Anleitung passermark-cli")
+                            bottomMargin=20 * mm, title=T("Passermark – Kommandozeile"), author="Passermark",
+                            subject=T("Anleitung passermark-cli"))
     doc.build(build(), onFirstPage=on_page, onLaterPages=on_page)
     print(OUT)

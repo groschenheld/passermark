@@ -1,8 +1,8 @@
-# Passermark 1.10.8
+# Passermark 1.11.0
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
-**Deutsch:** [README.de.md](README.de.md)
+**English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
 
 > **Status:** a private project, developed alongside daily prepress work. Feedback is
 > welcome – answers and new features come without any guarantee. Tested with CUPS and Windows drivers
@@ -26,11 +26,13 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Edit mode:** select text lines and layers with the mouse; change text, font and size; move, scale,
   hide, remove or replace layers; undo.
 - Rulers and measuring: rulers in mm at the edge of the view; click start and end to measure (Shift snaps to
-  horizontal/vertical/45°), result in the status bar.
+  horizontal/vertical/45°), result in the status bar. Holding Ctrl, the crosshair snaps magnetically to trim and inner lines (page edge,
+  trim size, bleed), image edges and vector lines – never to text; it sticks to the edge until the
+  mouse pulls clearly away. The trim-size overlay shows the trim in green and the bleed as a dotted line.
 - **Variable data:** numbering (start, step, padding, check digits, reverse, continue counter), text from CSV,
   QR codes, Code 128 and EAN-13 as vectors (with quiet zone); placeholders `{{…}}` in the PDF; date, page,
   random and other variables; several pages per record (front/back) and fields on odd/even pages; code log;
-  step & repeat with a different record per copy (row by row or cut & stack). Also on the command line
+  step & repeat with a different record per copy (row by row or cut & stack); **windows (page groups)** for multi-page templates – e.g. front sides with the name, back sides with a QR code – with page selection per window (all/odd/even pages or ranges) and record distribution sheet by sheet or page by page. Also on the command line
   (`passermark-cli vdp`).
 - **Enter data:** build the data table inside Passermark – QR business card (vCard), Wi-Fi access, e-mail, web
   address, phone, SMS, event, location, Code 128, EAN-13 – with matching columns, instant checks and paste from
@@ -95,7 +97,7 @@ points to the log. Logs without errors are deleted on exit.
 ## Build
 
 Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.10.8 && git push origin v1.10.8`) attaches them
+checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.10.7 && git push origin v1.10.7`) attaches them
 to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and

@@ -10,7 +10,7 @@ datas = [(os.path.join(root, "pdfdruck", "gui", "passermark.svg"), "pdfdruck/gui
          (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs")]
 datas += collect_data_files("pypdfium2") + collect_data_files("pypdfium2_raw") + collect_data_files("reportlab")
 binaries = collect_dynamic_libs("pypdfium2_raw") + collect_dynamic_libs("pikepdf")
-RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (dynamisch geladen)
+RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (loaded dynamically)
 LANGS = ["pdfdruck.lang.en", "pdfdruck.lang.hu", "pdfdruck.lang.es", "pdfdruck.lang.fr"]
 
 HIDDEN = ["win32print", "win32gui", "win32con", "win32event", "win32process", "pywintypes",
@@ -21,7 +21,7 @@ a = Analysis([os.path.join(SPECPATH, "launcher.py")], pathex=[root], binaries=bi
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="passermark", console=False,
           icon=os.path.join(SPECPATH, "passermark.ico"), version=None)
-# Kommandozeile: eigene Konsolen-EXE im selben Ordner (gleiche Bibliotheken)
+# CLI: separate console EXE in the same folder (shared libraries)
 b = Analysis([os.path.join(SPECPATH, "cli_launcher.py")], pathex=[root], binaries=binaries, datas=datas,
              hiddenimports=HIDDEN, excludes=["cups", "tkinter"],
              noarchive=False)

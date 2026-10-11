@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Admin-Änderungen unter Windows: Gegenstück zu Polkit/pkexec.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Admin changes on Windows: counterpart to polkit/pkexec.
 
-Ablauf: Die GUI schreibt ein Bündel (Konfiguration, ICC-Importe, Drucker-Standards) in eine
-temporäre Datei und startet passermark.exe --admin-apply <datei> über UAC („Als Administrator“).
-Der erhöhte Prozess prüft ALLES mit denselben Regeln wie unter Linux (cfgvalidate), schreibt
-atomar nach %ProgramData%\\Passermark (nur Administratoren dürfen dort schreiben – setzt der
-Installer) und legt das Ergebnis in <datei>.result ab.
+Sequence: the GUI writes a bundle (configuration, ICC imports, printer defaults) to a
+temporary file and starts passermark.exe --admin-apply <file> via UAC ("Run as administrator").
+The elevated process validates EVERYTHING with the same rules as on Linux (cfgvalidate),
+writes atomically to %ProgramData%\\Passermark (only administrators may write there – set by
+the installer) and puts the result in <file>.result.
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _import_icc(src: str, pid: str, icc_dir: str):
 
 
 def apply(bundle_path: str) -> int:
-    """Läuft ERHÖHT. Rückgabe 0 = ok."""
+    """Runs ELEVATED. Return 0 = ok."""
     result = {"ok": False, "error": "", "printer_defaults": 0}
     try:
         if os.path.getsize(bundle_path) > MAX_BUNDLE:
@@ -82,7 +82,7 @@ def apply(bundle_path: str) -> int:
                 if q not in known:
                     raise ValueError(tr("Unbekannter Drucker: {0}").format(q))
                 cfgvalidate.check_devmode(dm, f"Drucker {q}")
-        # erst alles geprüft – jetzt schreiben
+        # everything checked first – now write
         for it in b.get("import_icc", []):
             _import_icc(str(it["src"]), str(it["id"]), icc_dir)
         for pid in b.get("remove_icc", []):
@@ -112,7 +112,7 @@ def apply(bundle_path: str) -> int:
 
 
 def run_elevated(bundle: dict) -> tuple[int, str, dict]:
-    """Aus der GUI: Bündel schreiben, UAC-Abfrage, warten. (code, meldung, ergebnis); 126 = abgebrochen."""
+    """From the GUI: write the bundle, UAC prompt, wait. (code, message, result); 126 = cancelled."""
     import pywintypes
     import win32con
     import win32event

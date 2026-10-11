@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Codes in erzeugten PDFs wirklich lesen – für Tests.
+"""Actually read the codes in generated PDFs – for tests.
 
-QR-Code und EAN-13 mit OpenCV (wenn installiert: pip install opencv-python-headless; sonst werden die Lese-Tests
-übersprungen). Code 128 kann OpenCV nicht: dafür ein kleiner eigener Leser, der eine Bildzeile in Balkenbreiten
-zerlegt und mit der Code-128-Tabelle vergleicht (inkl. Prüfsumme).
+QR codes and EAN-13 with OpenCV (if installed: pip install opencv-python-headless; otherwise the reading
+is skipped). OpenCV cannot handle Code 128: for that, a small custom reader splits an image line into
+bar widths and compares them against the Code 128 table (including the check digit).
 """
 import numpy as np
 
@@ -21,7 +21,7 @@ def page_gray(page, scale=6.0):
 
 
 def crop_mm(img, scale, x, y, w, h, pad_px=40):
-    """Ausschnitt (mm ab links oben) mit weißem Rand."""
+    """Crop (mm from top left) with a white border."""
     import cv2
     x0, y0 = int(x * MM * scale), int(y * MM * scale)
     x1, y1 = int((x + w) * MM * scale), int((y + h) * MM * scale)
@@ -60,7 +60,7 @@ def _table():
 
 
 def _runs(row):
-    """Lauflängen ab dem ersten Balken: [(ist_balken, breite_px), …]."""
+    """Run lengths from the first bar: [(is_bar, width_px), …]."""
     dark = row < 128
     out = []
     i, n = 0, len(dark)
@@ -73,7 +73,7 @@ def _runs(row):
         out.append((bool(dark[i]), j - i))
         i = j
     if out and not out[-1][0]:
-        out.pop()                                     # weißer Rest rechts
+        out.pop()                                     # white remainder on the right
     return out
 
 
@@ -92,7 +92,7 @@ def read_code128(img) -> str:
             grp = runs[k:k + 6]
             mod = sum(grp) / 11.0
             widths = tuple(max(1, min(4, int(round(w / mod)))) for w in grp)
-            if k + 7 <= len(runs) and len(runs) - k == 7:    # Stopzeichen: 7 Läufe, 13 Module
+            if k + 7 <= len(runs) and len(runs) - k == 7:    # stop pattern: 7 runs, 13 modules
                 vals.append(106)
                 break
             v = tab.get(widths)
