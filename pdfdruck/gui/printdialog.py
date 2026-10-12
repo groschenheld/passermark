@@ -851,14 +851,17 @@ class PrintDialog(QDialog):
                 label = tr(label)
                 text = label if drv.lower() in (label.lower(), key.lower()) else f"{label}\n({drv})"
                 if role == "pagesize":
-                    row = QHBoxLayout()
-                    row.addWidget(cb, 1)
-                    b = QPushButton(tr("Sonderformate …"))
-                    b.setToolTip(tr("Eigene Papierformate anlegen – bleiben gespeichert und stehen bei allen Druckern "
-                                    "und bei „Als PDF speichern“ zur Wahl (mit ★)"))
-                    b.clicked.connect(self._custom_sizes)
-                    row.addWidget(b)
-                    self.paper_form.addRow(text + ":", row)
+                    if self.caps.backend == "pdf":          # NEU: Layout nur fürs PDF-Ziel
+                        row = QHBoxLayout()
+                        row.addWidget(cb, 1)
+                        b = QPushButton(tr("Sonderformate …"))
+                        b.setToolTip(tr("Eigene Papierformate anlegen – bleiben gespeichert und stehen "
+                        "bei „Als PDF speichern“ zur Wahl (mit ★)"))
+                        b.clicked.connect(self._custom_sizes)
+                        row.addWidget(b)
+                        self.paper_form.addRow(text + ":", row)
+                    else:                                    # Gerät: schlicht ohne Button
+                        self.paper_form.addRow(text + ":", cb)
                     continue
                 self.paper_form.addRow(text + ":", cb)
         if not self.role_combos:
@@ -873,7 +876,7 @@ class PrintDialog(QDialog):
             return
         self.s.refresh_custom_sizes()
         key = self.caps.roles.get("pagesize") if self.caps else None
-        if key and dlg.chosen:                     # apply a newly created/selected format right away
+        if key and dlg.chosen and self.caps.backend == "pdf":   # NEU: nur PDF-Ziel
             self.values[key] = dlg.chosen
         self._build_paper()
         self._changed()

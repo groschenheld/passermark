@@ -309,9 +309,12 @@ def save_custom_sizes(sizes: list[dict]) -> None:
 
 
 def apply_custom_sizes(caps: "PrinterCaps", sizes: list[dict] | None = None) -> None:
-    """Hook custom sizes into a printer's paper list or "Save as PDF" (replacing previous ones).
-        Printing uses PageSize/media = Custom.BxHmm (CUPS) or DMPAPER_USER (Windows).
+    """Hook custom sizes into "Save as PDF" (replacing previous ones).
+        Custom paper sizes are for PDF export only – devices reject them
+        (no fallback to a standard size on some printers, e.g. Canon).
     """
+    if caps.backend != "pdf":
+        return                              # NEU: Geräte bekommen keine ★-Formate mehr
     sizes = load_custom_sizes() if sizes is None else sizes
     key = caps.roles.get("pagesize")
     if not key or key not in caps.options:

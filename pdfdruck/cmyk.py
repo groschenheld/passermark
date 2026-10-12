@@ -73,7 +73,13 @@ class ManipSettings:
     crop_follow: bool = True           # Hoch-/Querformat der Seite folgen
     crop_scale: bool = True            # first scale until the target is fully covered, then trim the overhang
     crop_inset_mm: float = 0.0         # trim this much all around beforehand (white margins of the original)
-
+    crop_mode: str = "format"          # format | trim | whiteout
+    trim_l_mm: float = 0.0             # trim: links/oben/rechts/unten abschneiden
+    trim_t_mm: float = 0.0
+    trim_r_mm: float = 0.0
+    trim_b_mm: float = 0.0
+    white_margin_mm: float = 0.0       # whiteout: Rand um erkannten Inhalt (negativ = hineinschneiden)
+    
     @classmethod
     def from_dict(cls, d):
         s = cls()
