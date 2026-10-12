@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.1
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -21,7 +21,9 @@ Logiciel libre (GPL-3.0-or-later).
   Aussi en ligne de commande (`passermark-cli impose`).
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
-  redimensionner et déplacer les formes avec des poignées).
+  redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
+  bords » (mm par côté, sans format cible) et « supprimer l'espace blanc » (détecter le contenu, nouveau
+  cadre de page ± marge, le contenu reste 1:1).
 - **Diviser les pages :** moitiés ou grille en pages séparées – p. ex. une brochure exportée en doubles
   pages ; sélectionner des pages, clic droit → Diviser. Sans perte (rien n'est tramé), format final et fond
   perdu respectés.

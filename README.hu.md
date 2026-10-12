@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.1
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -20,7 +20,8 @@ szoftver (GPL-3.0-or-later).
   (`passermark-cli impose`).
 - **Dokumentummanipuláció:** CMYK-átalakítás színelőnézettel, formátumra vágás, objektumok szétválasztása,
   **CutContour** vágóplotterekhez (kontúr, formák, túlnyúlás, belső vágások; formák méretezése és mozgatása
-  fogantyúkkal).
+  fogantyúkkal). A vágás most már „szélek levágásával” (mm oldalonként, célformátum nélkül) és „fehér tér
+  eltávolításával” (tartalom felismerése, új lapkeret ± margó, a tartalom 1:1 marad) is.
 - **Lapok felosztása:** felezés vagy rács külön lapokként – pl. terjedémesként exportált füzet; lapok
   kijelölése, jobb egérgomb → Felosztás. Veszteségmentes (semmi nem rasztereződik), a végformatum és a
   túlnyúlás figyelembe vételével.

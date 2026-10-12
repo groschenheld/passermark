@@ -5,6 +5,14 @@
 > Ce journal contient les versions **1.10.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.11.1
+- **Formats personnalisés : uniquement « Enregistrer en PDF ».** Les formats créés soi-même ne sont plus
+  envoyés aux imprimantes – les pilotes et spoolers Windows n'acceptent souvent pas les tailles personnalisées
+  (feuilles blanches, abandons) ; avec « Enregistrer en PDF » (★), ils restent entièrement utilisables
+- **Rognage : deux nouveaux modes.** « Rogner les bords » : rogner la page sur les quatre côtés en mm, sans
+  format cible ; « Supprimer l'espace blanc » : détecte le contenu visible (bruit JPEG compris), le nouveau
+  format de page résulte du cadre du contenu ± marge (négative possible), le contenu reste 1:1 (seulement déplacé)
+
 ## 1.11.0
 - **Données variables – fenêtres (groupes de pages).** Pour les gabarits multi-pages, chaque champ appartient
   à une fenêtre (p. ex. « rectos (nom), versos (code QR) ») ; les fenêtres peuvent être créées, renommées et

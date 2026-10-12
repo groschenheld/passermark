@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.1
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -19,7 +19,8 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`).
 - **Dokument-Manipulation:** CMYK-Umwandlung mit Farbvorschau, auf Format beschneiden, Objekte trennen,
   **CutContour** für Schneideplotter (Kontur, Formen, Überfüller, Innenschnitte; Formen mit Griffen skalieren
-  und verschieben).
+  und verschieben). Beschneiden zusätzlich mit „Kanten abschneiden“ (mm je Seite, ohne Zielformat) und
+  „Weißraum entfernen“ (Inhalt erkennen, neuer Seitenrahmen ± Rand, Inhalt bleibt 1:1).
 - **Seiten teilen:** Hälften oder Raster als Einzelseiten – z. B. eine als Doppelseiten exportierte Broschüre;
   Seiten markieren, Rechtsklick → Teilen. Verlustfrei (nichts wird gerastert), Endformat und Anschnitt werden
   berücksichtigt.

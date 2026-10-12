@@ -5,6 +5,14 @@
 > Ez a változásnapló a **1.10.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.11.1
+- **Egyedi formátumok: csak «Mentés PDF-ként».** A saját formátumok többé nem kerülnek elküldésre a nyomtatóknak –
+  a Windows-illesztők és spoolerek gyakran nem fogadják el az egyedi méreteket (üres lapok, megszakítások);
+  «Mentés PDF-ként» (★) esetén továbbra is teljesen használhatók
+- **Vágás: két új mód.** „Szélek levágása”: a lap levágása mind a négy oldalon mm-ben, célformátum nélkül;
+  „Fehér tér eltávolítása”: felismeri a látható tartalmat (JPEG-zajjal együtt), az új lapméret a tartalomkeret
+  ± margóból adódik (negatív is lehet), a tartalom 1:1 marad (csak eltolva)
+
 ## 1.11.0
 - **Változó adatok – ablakok (oldalcsoportok).** Több oldalas sablonoknál minden mező egy ablakhoz tartozik
   (pl. „elölapok (név), hátlapok (QR-kód)”); az ablakok létrehozhatók, átnevezhetők és eltávolíthatók –

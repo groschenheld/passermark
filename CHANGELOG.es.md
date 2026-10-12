@@ -5,6 +5,14 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.11.1
+- **Formatos especiales: solo «Guardar como PDF».** Los formatos propios ya no se envían a las impresoras –
+  los controladores y spoolers de Windows a menudo no aceptan tamaños especiales (hojas en blanco, cancelaciones);
+  con «Guardar como PDF» (★) siguen siendo plenamente utilizables
+- **Recortar: dos modos nuevos.** «Recortar bordes»: recortar la página por los cuatro lados en mm, sin formato
+  destino; «Eliminar el espacio blanco»: detecta el contenido visible (incluido el ruido JPEG), el nuevo tamaño
+  de página resulta del marco del contenido ± margen (también negativo), el contenido queda 1:1 (solo movido)
+
 ## 1.11.0
 - **Datos variables – ventanas (grupos de páginas).** En plantillas de varias páginas, cada campo pertenece
   a una ventana (p. ej. «anversos (nombre), reversos (código QR)»); las ventanas se pueden crear, renombrar

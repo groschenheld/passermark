@@ -2,6 +2,14 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.1
+- **Custom paper sizes: only "Save as PDF" any more.** Self-defined sizes are no longer sent to printers –
+  Windows drivers and spoolers often reject custom sizes (blank sheets, aborts); with "Save as PDF" (★)
+  they remain fully usable
+- **Crop: two new modes.** "Trim edges": trim the page on all four sides in mm, without a target format;
+  "Remove white space": detects the visible content (JPEG noise included), the new page size results from
+  the content frame ± margin (negative allowed), the content stays 1:1 (only moved)
+
 ## 1.11.0
 - **Variable data – windows (page groups).** For templates with several pages every field belongs to a
   window (e.g. "front sides (name), back sides (QR code)"); windows can be created, renamed and removed –

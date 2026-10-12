@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.1
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -18,6 +18,8 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   and a sheet overview. Also on the command line (`passermark-cli impose`).
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
+  Cropping now also with "trim edges" (mm per side, without a target format) and "remove white space"
+  (detect the content, new page frame ± margin, content stays 1:1).
 - **Split pages:** halves or a grid as single pages – e.g. a booklet exported as spreads; select pages,
   right-click → Split. Lossless (content is not rasterised), trim box and bleed respected.
 - **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute

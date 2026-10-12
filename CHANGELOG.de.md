@@ -2,6 +2,14 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.1
+- **Sonderformate: nur noch „Als PDF speichern“.** Selbst angelegte Formate werden nicht mehr an Drucker
+  gesendet – Windows-Treiber und Spooler nehmen Sondergrößen oft nicht an (leere Blätter, Abbrüche);
+  bei „Als PDF speichern“ (★) bleiben sie voll nutzbar
+- **Beschneiden: zwei neue Modi.** „Kanten abschneiden“: die Seite ohne Zielformat an allen vier Seiten
+  in mm beschneiden; „Weißraum entfernen“: erkennt den sichtbaren Inhalt (inkl. JPEG-Rauschen), das neue
+  Seitenformat ergibt sich aus dem Inhaltsrahmen ± Rand (auch negativ), der Inhalt bleibt 1:1 (nur verschoben)
+
 ## 1.11.0
 - **Variable Daten – Fenster (Seitengruppen).** Bei Vorlagen mit mehreren Seiten gehört jedes Feld zu einem
   Fenster (z. B. „Vorderseiten (Name), Rückseiten (QR-Code)“); Fenster lassen sich anlegen, umbenennen und

@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.1
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -22,7 +22,9 @@ Software libre (GPL-3.0-or-later).
   hojas. También en la línea de comandos (`passermark-cli impose`).
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
-  y mover formas con tiradores).
+  y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
+  destino) y «eliminar el espacio blanco» (detectar el contenido, nuevo marco de página ± margen, el
+  contenido queda 1:1).
 - **Dividir páginas:** mitades o rejilla como páginas separadas – p. ej. un folleto exportado como páginas
   dobles; seleccionar páginas, botón derecho → Dividir. Sin pérdida (no se rasteriza nada), se respetan el
   formato final y el sangrado.
