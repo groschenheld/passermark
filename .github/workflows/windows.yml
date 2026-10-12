@@ -3,9 +3,6 @@
 # for tags v* also attached to a GitHub Release. Start manually: Actions -> Windows installer -> Run workflow.
 name: Windows installer
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 permissions:
   contents: write
