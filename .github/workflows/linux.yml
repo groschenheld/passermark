@@ -3,9 +3,6 @@
 # Result: "Artifacts" of the run; for tags v* also attached to a GitHub Release.
 name: Linux AppImage
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 permissions:
   contents: write
