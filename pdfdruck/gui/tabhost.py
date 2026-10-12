@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Fensterrahmen mit Reitern: jedes Dokument ist ein vollständiges Passermark-Fenster (Menüs, Leisten,
-Seitenleisten) – hier als Reiter. Mit nur einem Reiter ist die Reiterleiste ausgeblendet; es sieht dann aus
-wie ein einzelnes Fenster."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Window frame with tabs: every document is a full Passermark window (menus, bars,
+sidebars) – here as a tab. With only one tab, the tab bar is hidden; it then looks
+like a single window.
+"""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer
@@ -39,7 +40,7 @@ class TabHost(QMainWindow):
         w._host = self
         w.setWindowFlags(Qt.WindowType.Widget)
         try:
-            w.menuBar().setNativeMenuBar(False)       # Menü im Reiter, nicht in einer globalen Menüleiste
+            w.menuBar().setNativeMenuBar(False)       # menu in the tab, not in a global menu bar
         except Exception:
             pass
         self.tabs.addTab(w, w.windowTitle() or "Passermark")
@@ -76,21 +77,21 @@ class TabHost(QMainWindow):
     def close_tab(self, i):
         w = self.tabs.widget(i)
         if w is not None:
-            w.close()                    # fragt bei ungespeicherten Änderungen; danach wird der Reiter entfernt
+            w.close()                    # asks about unsaved changes; afterwards the tab is removed
 
     def tab_closed(self):
-        """Vom Dokumentfenster nach dem Schließen gerufen: letzter Reiter weg -> Rahmen schließen."""
+        """Called by the document window after closing: last tab gone -> close the frame."""
         QTimer.singleShot(60, self._check_empty)
 
     def _check_empty(self):
         try:
             if self.tabs.count() == 0:
                 self.close()
-        except RuntimeError:             # schon gelöscht
+        except RuntimeError:             # already deleted
             pass
 
     def detach(self, w):
-        """Reiter in ein eigenes Fenster lösen."""
+        """Detach a tab into its own window."""
         i = self.tabs.indexOf(w)
         if i < 0 or self.tabs.count() < 2:
             return
@@ -132,7 +133,7 @@ class TabHost(QMainWindow):
     def closeEvent(self, e):
         for w in self.windows():
             self.tabs.setCurrentWidget(w)
-            if not w.close():            # Abbrechen bei „Änderungen speichern?“
+            if not w.close():            # cancelled at "Save changes?"
                 e.ignore()
                 return
         hosts = getattr(self.ctl, "hosts", None)

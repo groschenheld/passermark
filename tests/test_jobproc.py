@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Aufträge als eigener Prozess (echte Prozesse): Erfolg, Fehler, Abbrechen, Absturz, Aufräumen."""
+"""Jobs as a separate process (real processes): success, error, cancel, crash, cleanup."""
 import glob, os, sys, tempfile, time, threading
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -30,7 +30,7 @@ def test_done_with_progress():
     r = jobproc.JobProcess("cutcontour", stickers(), dst, {"shape": "rect", "single_shape": False}).run(evs.append)
     assert r["event"] == "done" and r["returncode"] == 0 and r["info"]["cuts"] == 3, r
     assert any(e["event"] == "progress" for e in evs) and os.path.exists(dst)
-    assert set(presets_left()) == before                         # temporäre Einstellungen aufgeräumt
+    assert set(presets_left()) == before                         # temporary settings cleaned up
 
 
 def test_error_reported():
@@ -65,7 +65,7 @@ def test_cancel_midway():
 
 
 def test_crash_without_message():
-    """Prozess stirbt ohne Abschlussmeldung (z. B. Absturz in einer Bibliothek) -> Fehler mit Code, kein Hängen."""
+    """Process dies without a final message (e.g. a crash in a library) -> error with code, no hanging."""
     orig = jobproc.cli_command
     jobproc.cli_command = lambda: ([sys.executable, "-c",
                                     "import sys, os; sys.stderr.write('Speicherzugriffsfehler\\n'); os._exit(3)"], {})
@@ -78,7 +78,7 @@ def test_crash_without_message():
 
 
 def test_noise_and_parallel_jobs():
-    """Mehrere Aufträge gleichzeitig (eigene Prozesse), jeder mit eigenem Ergebnis."""
+    """Several jobs at once (separate processes), each with its own result."""
     res = {}
     def go(name, shape):
         res[name] = jobproc.JobProcess("cutcontour", stickers(), os.path.join(TMP, f"{name}.pdf"),

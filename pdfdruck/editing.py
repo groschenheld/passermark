@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Bearbeiten-Modus: Textzeilen ändern (Text, Schrift, Größe) und Ebenen bearbeiten.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Edit mode: change text rows (text, font, size) and edit layers.
 
-Text (pdfium, direkt im geöffneten Dokument):
-  Textobjekte einer Seite werden zu Zeilen gruppiert (gleiche Schrift/Größe, gleiche Grundlinie, kleiner Abstand).
-  Nur Text ändern: das erste Objekt behält Schrift, Farbe, Lage und Ebene; die übrigen Objekte der Zeile entfallen.
-  Schrift ändern: neues Textobjekt an gleicher Stelle (pdfium kann die Schrift eines Objekts nicht tauschen) –
-  liegt die Zeile in einer Ebene, ist der neue Text danach nicht mehr Teil dieser Ebene (wird gemeldet).
-Ebenen (pikepdf, Bytes -> Bytes): Lage/Ausdehnung je Seite, Treffer an einer Stelle, ein-/ausblenden,
-  entfernen, skalieren/verschieben, Inhalt durch eine Seite aus einer anderen PDF ersetzen.
+Text (pdfium, directly in the open document):
+  A page's text objects are grouped into rows (same font/size, same baseline, small gap).
+  Text only: the first object keeps font, color, position and layer; the row's other objects are dropped.
+  Font change: a new text object at the same place (pdfium cannot swap an object's font) –
+  if the row lies in a layer, the new text is no longer part of that layer afterwards (reported).
+Layers (pikepdf, bytes -> bytes): position/extent per page, hit test at a point, show/hide,
+  remove, scale/move, replace content with a page from another PDF.
 """
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
         if lines:
             L = lines[-1]
             h = max(1.0, L.bbox[3] - L.bbox[1])
-            # liegt das Objekt im Zeilenband? (auch kleine Zeichen wie „.“ oder „-“, die nicht die volle Höhe haben)
+            # is the object inside the row band? (including small characters like "." or "-" that are not full height)
             same_line = (y0 >= L.bbox[1] - 0.35 * h and y1 <= L.bbox[3] + 0.35 * h
                          and min(y1, L.bbox[3]) - max(y0, L.bbox[1]) > -0.1 * h)
             near = -0.5 * h < x0 - L.bbox[2] < 2.5 * h
@@ -128,7 +128,7 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
                 L.bbox = (min(L.bbox[0], x0), min(L.bbox[1], y0), max(L.bbox[2], x1), max(L.bbox[3], y1))
                 continue
         lines.append(TextLine(len(lines), [i], t, font, size, (x0, y0, x1, y1), mk, "+" in font[:8], [ordn]))
-    # Zeilentext aus pdfiums Textauswertung über den Zeilenbereich (echte Wortabstände statt geratener;
+    # row text from pdfium text analysis over the row area (real word gaps instead of guessed ones;
     # wichtig z. B. bei Chrome-PDFs, die jeden Buchstaben einzeln setzen)
     page = doc[page_index]
     tp = page.get_textpage()
@@ -172,7 +172,7 @@ _wide_keep = []
 
 
 def _wide(text: str):
-    """UTF-16-Zeiger für pdfium (Puffer bleibt bis zum nächsten Aufruf erhalten)."""
+    """UTF-16 pointer for pdfium (the buffer stays alive until the next call)."""
     buf = ctypes.create_string_buffer((text + "\0").encode("utf-16-le"))
     _wide_keep[:] = [buf]
     return ctypes.cast(buf, ctypes.POINTER(ctypes.c_ushort))
@@ -180,8 +180,9 @@ def _wide(text: str):
 
 def edit_line(doc, page_index: int, line: TextLine, new_text: str, font: tuple | None = None,
               size: float | None = None) -> list[str]:
-    """Zeile ändern. font: None (Originalschrift) | ("std", "Helvetica") | ("file", "/pfad/schrift.ttf").
-    Liefert Hinweise. Ändert das Dokument direkt (danach neu rendern)."""
+    """Change a row. font: None (original font) | ("std", "Helvetica") | ("file", "/path/font.ttf").
+        Returns hints. Modifies the document directly (re-render afterwards).
+    """
     import pypdfium2.raw as r
     notes = []
     page = doc[page_index]
@@ -189,7 +190,7 @@ def edit_line(doc, page_index: int, line: TextLine, new_text: str, font: tuple |
         objs = [r.FPDFPage_GetObject(page.raw, i) for i in line.objs]
         first = objs[0]
         if font is None and (size is None or abs(size - line.size) < 0.01):
-            # nur Text: erstes Objekt behält Schrift, Farbe, Lage, Ebene
+            # text only: the first object keeps font, color, position, layer
             if line.subset and any(ch not in line.text for ch in new_text if not ch.isspace()):
                 notes.append(tr("Die Originalschrift ist nur als Teilmenge eingebettet – neue Zeichen fehlen evtl. "
                                 "in der Darstellung. Dann bitte eine andere Schrift wählen."))
@@ -269,7 +270,7 @@ def _minv(m):
 
 
 def _local_cm(ctm, page_cm):
-    """Seiten-Transformation in das an dieser Stelle gültige Koordinatensystem umrechnen: CTM · T · CTM⁻¹."""
+    """Convert a page transformation into the coordinate system valid at that point: CTM · T · CTM⁻¹."""
     return [float(v) for v in _mmul(_mmul(ctm, page_cm), _minv(ctm))]
 
 
@@ -293,12 +294,13 @@ def _mul_td(m, tx, ty):
 
 def transform_line_blocks(data: bytes, page_index: int, line: TextLine, scale=1.0, dx=0.0, dy=0.0,
                           origin=(0.0, 0.0)) -> bytes | None:
-    """Zeile verschieben/skalieren OHNE die Seite neu zu erzeugen.
+    """Move/scale a row WITHOUT re-creating the page.
 
-    Die Textbefehle der Zeile werden aus ihrem Textblock (BT…ET) herausgelöst und mit q/cm/Q umschlossen; davor und
-    danach wird der Block an exakt derselben Textposition fortgesetzt (Zeilenmatrix wird mitgerechnet). Alles andere
-    bleibt unverändert. Funktioniert auch mit Type3-Schriften (z. B. Chrome-PDFs), die pdfium nicht neu schreiben kann.
-    None, wenn ein Teil ohne eigene Positionierung direkt an fremden Text anschließt (dann Rückfall)."""
+        The row's text operators are lifted out of their text block (BT…ET) and wrapped with q/cm/Q; before and
+        after, the block continues at exactly the same text position (the row matrix is carried along). Everything else
+        stays unchanged. Also works with Type3 fonts (e.g. Chrome PDFs), which pdfium cannot re-write.
+        None if a part continues directly at foreign text without its own positioning (then fallback).
+    """
     import pikepdf
     ox, oy, s = float(origin[0]), float(origin[1]), float(scale)
     page_cm = (s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
@@ -348,7 +350,7 @@ def transform_line_blocks(data: bytes, page_index: int, line: TextLine, scale=1.
             info.append((op, ordn, before, tlm, in_bt, ctm))
         if not targets <= {x[1] for x in info if x[1] is not None}:
             return None
-        # 2) Abschnitte bilden: zusammenhängende Läufe mit Zieltext innerhalb eines BT-Blocks
+        # 2) build sections: contiguous runs with target text within one BT block
         segs, k = [], 0
         while k < len(info):
             op, ordn, _b, _a, in_bt, _c = info[k]
@@ -366,7 +368,7 @@ def transform_line_blocks(data: bytes, page_index: int, line: TextLine, scale=1.
                 # erste Ausgabe im Abschnitt braucht eine Positionierung (oder Blockanfang)
                 first_show = next(i for i in range(st, en + 1) if info[i][1] is not None)
                 has_pos = any(info[i][0] in POS_OPS | {"'", '"'} for i in range(st, first_show + 1)) or info[st - 1][0] == "BT"
-                # nach dem Abschnitt: nächste Ausgabe braucht eine eigene Positionierung
+                # after the section: the next output needs its own positioning
                 nxt_ok = True
                 for i in range(en + 1, len(info)):
                     if info[i][0] in POS_OPS or info[i][0] in ("'", '"') or info[i][0] == "ET":
@@ -406,8 +408,9 @@ def transform_line_blocks(data: bytes, page_index: int, line: TextLine, scale=1.
 
 
 def verify_edit(before: bytes, after: bytes, page_index: int, ignore_boxes: list) -> str:
-    """Prüfen, dass außerhalb der bearbeiteten Bereiche nichts verloren ging (Bildpunkte und Zeichen).
-    Liefert "" oder eine Fehlerbeschreibung."""
+    """Verify that nothing outside the edited areas was lost (image pixels and characters).
+        Returns "" or an error description.
+    """
     import numpy as np
     import pypdfium2 as pdfium
 
@@ -479,7 +482,7 @@ def remove_line_ops(data: bytes, page_index: int, line: TextLine) -> bytes:
 
 
 def _line_style(data: bytes, page_index: int, line: TextLine):
-    """Lage (Seitenkoordinaten, inkl. Schriftgröße-Bezug) und Farbe des ersten Objekts der Zeile."""
+    """Position (page coordinates, including the font-size reference) and color of the row's first object."""
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
     d = pdfium.PdfDocument(data)
@@ -499,11 +502,11 @@ def _line_style(data: bytes, page_index: int, line: TextLine):
 
 
 def overlay_text(data: bytes, page_index: int, text: str, font: tuple, size: float, matrix, color) -> bytes:
-    """Neue Textzeile ÜBER die Seite legen (eigene kleine Form), ohne den Seiteninhalt neu zu erzeugen."""
+    """Place a new text row OVER the page (its own small form), without re-creating the page content."""
     import pikepdf
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
-    # 1) Zeile in einer leeren Hilfsseite gleicher Größe erzeugen (pdfium darf hier frei schreiben)
+    # 1) create the row on an empty scratch page of the same size (pdfium may write freely here)
     pdf0 = pikepdf.open(io.BytesIO(data))
     try:
         mb = [float(v) for v in pdf0.pages[page_index].MediaBox]
@@ -549,7 +552,7 @@ def overlay_text(data: bytes, page_index: int, text: str, font: tuple, size: flo
 
 
 def line_zone(data: bytes, page_index: int, line: TextLine) -> tuple:
-    """Bereich, in dem sich eine geänderte Zeile verändern darf: ihre Höhe (+30 %), ganze Seitenbreite."""
+    """Area in which a changed row may vary: its height (+30 %), full page width."""
     import pypdfium2 as pdfium
     d = pdfium.PdfDocument(data)
     try:
@@ -562,8 +565,9 @@ def line_zone(data: bytes, page_index: int, line: TextLine) -> tuple:
 
 def edit_line_bytes(data: bytes, page_index: int, line: TextLine, new_text: str, font: tuple | None = None,
                     size: float | None = None) -> tuple[bytes, list]:
-    """Zeile ändern, sicher: zuerst direkt (pdfium); verliert die Seite dabei Inhalt (z. B. Type3-Schriften aus
-    Chrome), wird die alte Zeile entfernt und die neue darübergelegt – die übrige Seite bleibt unverändert."""
+    """Change a row, safely: first directly (pdfium); if the page loses content that way (e.g. Type3 fonts
+        from Chrome), the old row is removed and the new one placed on top – the rest of the page stays unchanged.
+    """
     import pypdfium2 as pdfium
     d = pdfium.PdfDocument(data)
     try:
@@ -575,7 +579,7 @@ def edit_line_bytes(data: bytes, page_index: int, line: TextLine, new_text: str,
         d.close()
     if not verify_edit(data, new, page_index, [line_zone(data, page_index, line)]):
         return new, notes
-    # Rückfall: überlagern
+    # fallback: overlay
     matrix, color, _size = _line_style(data, page_index, line)
     use = font or ("std", "Helvetica-Bold" if "bold" in line.font.lower() else "Helvetica")
     out = overlay_text(remove_line_ops(data, page_index, line), page_index, new_text, use, size or line.size,
@@ -606,16 +610,16 @@ def delete_line(doc, page_index: int, line: TextLine):
 # --------------------------------------------------------------------------- #
 @dataclass
 class LayerMap:
-    """Je Ebene: Ausdehnung auf der Seite und Deckungsmaske (für Mausauswahl)."""
+    """Per layer: extent on the page and coverage mask (for mouse selection)."""
     page: int
     scale: float
-    boxes: dict = field(default_factory=dict)     # Schlüssel -> (x0, y0, x1, y1) pt
-    masks: dict = field(default_factory=dict)     # Schlüssel -> numpy bool (Seitenbereich)
+    boxes: dict = field(default_factory=dict)     # key -> (x0, y0, x1, y1) pt
+    masks: dict = field(default_factory=dict)     # key -> numpy bool (page area)
     page_box: tuple = (0, 0, 0, 0)
 
 
 def layer_map(data: bytes, page_index: int, keys: list[str] | None = None, max_side: int = 900) -> LayerMap:
-    """Jede Ebene einzeln rendern (Seite großzügig erweitert) -> Lage und Deckung je Ebene."""
+    """Render every layer separately (page generously enlarged) -> position and coverage per layer."""
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
@@ -661,7 +665,7 @@ def layer_map(data: bytes, page_index: int, keys: list[str] | None = None, max_s
         finally:
             doc.close()
 
-    # Grundinhalt (keine Ebene sichtbar) als Vergleich – gezählt wird nur, was die Ebene ändert
+    # base content (no layer visible) as reference – only what the layer changes is counted
     base = render(set())
     for g_key in [preflight._key(g) for g in ocgs]:
         img = render({g_key})
@@ -774,8 +778,9 @@ def transform_layer(data: bytes, key: str, scale: float = 1.0, dx: float = 0.0, 
 
 def replace_layer(data: bytes, key: str, page_index: int, src: bytes, src_page: int = 0,
                   box: tuple | None = None) -> bytes:
-    """Ebeneninhalt dieser Seite durch eine Seite einer anderen PDF ersetzen (eingepasst in box bzw. Seite).
-    Der neue Inhalt gehört wieder zur Ebene (bleibt ein-/ausblendbar)."""
+    """Replace this page's layer content with a page from another PDF (fitted into the box or the page).
+        The new content belongs to the layer again (stays toggleable).
+    """
     import pikepdf
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -802,7 +807,7 @@ def replace_layer(data: bytes, key: str, page_index: int, src: bytes, src_page: 
                     skip = 1
                     continue
             out.append(ins)
-        # Eigenschaftsname für die Ebene
+        # property name for the layer
         ocg = next(g for g in pdf.Root.OCProperties.OCGs if preflight._key(g) == key)
         name = next(iter(sorted(names)), None)
         if name is None:

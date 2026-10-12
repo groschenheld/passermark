@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Dokument-Manipulation: Beschneiden auf Zielformat und CMYK-Umwandlung.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Document manipulation: cropping to a target size and CMYK conversion.
 
-Beschneiden (Standard, crop_scale): Die Seite wird so skaliert, dass sie das Zielformat ganz bedeckt – die im
-Verhältnis passende Kante genau auf das Ziel –, und der Überstand der anderen Kante wird je zur Hälfte auf
-beiden Seiten weggeschnitten (zentriert). Beispiel: A4 auf A6 = 50 %, nichts weg; ein schmales Plakat auf A4 =
-Breite auf 210 mm, oben und unten gleich viel weg. Inhalt bleibt vektoriell.
+Crop (default, crop_scale): the page is scaled so it fully covers the target size – the matching
+edge exactly onto the target – and the overhang of the other edge is cut away half on each
+side (centered). Example: A4 to A6 = 50 %, nothing cut; a narrow poster onto A4 =
+width to 210 mm, the same amount cut top and bottom. Content stays vectorial.
 
-Nur beschneiden (crop_scale = False): ohne Skalieren; steht eine Kante über, wird der Überstand beidseitig
-weggenommen, ist die Seite kleiner als das Ziel, bleibt sie in dieser Richtung unverändert (Hinweis) – für Dateien,
-die schon in der richtigen Größe mit Anschnitt kommen. Es werden nur die Seitenboxen gesetzt.
+Crop only (crop_scale = False): without scaling; if an edge sticks out, the overhang is trimmed
+on both sides; if the page is smaller than the target, it stays unchanged in that direction (hint) –
+for files that already come at the right size with bleed. Only the page boxes are set.
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def target_pt(s: _cmyk.ManipSettings) -> tuple[float, float]:
 
 
 def _inset_box(box, s) -> tuple:
-    """Weißen Rand der Vorlage zuerst rundum abziehen (crop_inset_mm); nie kleiner als 1 mm."""
+    """First subtract the original's white margin all around (crop_inset_mm); never smaller than 1 mm."""
     m = max(0.0, getattr(s, "crop_inset_mm", 0.0)) * MM
     l, b, r, t = box
     m = min(m, (r - l - MM) / 2, (t - b - MM) / 2)
@@ -58,7 +58,7 @@ def _oriented(W: float, H: float, target, follow: bool):
 
 
 def fill_geometry(W: float, H: float, target, follow: bool):
-    """Sichtbare Seite W×H (pt) -> (Ziel tw, th, Faktor k, Überstand je Seite links/rechts, oben/unten in pt)."""
+    """Visible page W×H (pt) -> (target tw, th, factor k, overhang per side left/right, top/bottom in pt)."""
     tw, th = _oriented(W, H, target, follow)
     k = max(tw / W, th / H)
     return tw, th, k, max(W * k - tw, 0) / 2, max(H * k - th, 0) / 2
@@ -87,7 +87,7 @@ def crop_box_for(box, rotation: int, target, follow: bool):
 
 
 def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
-    """Kurzinfo für die Oberfläche: was mit Seite x passiert."""
+    """Brief info for the GUI: what happens to page x."""
     pg = doc[page]
     try:
         box, rot = pg.get_cropbox(), pg.get_rotation()
@@ -118,7 +118,7 @@ def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
 
 
 def fill_doc(doc, s: _cmyk.ManipSettings):
-    """Kopie: jede Seite skaliert, bis sie das Ziel bedeckt, Überstand beidseitig beschnitten (vektoriell)."""
+    """Copy: every page scaled until it covers the target, overhang trimmed on both sides (vectorial)."""
     import pypdfium2 as pdfium
     from .layout import flattened
     from .objects import normalized
@@ -179,7 +179,7 @@ def crop_doc(doc, s: _cmyk.ManipSettings):
 
 
 def apply(doc, s: _cmyk.ManipSettings):
-    """Alle aktiven Manipulationen anwenden. Liefert (neues Dokument, Hinweise). Original bleibt unverändert."""
+    """Apply all active manipulations. Returns (new document, hints). The original stays unchanged."""
     import pypdfium2 as pdfium
     notes = []
     cur = doc

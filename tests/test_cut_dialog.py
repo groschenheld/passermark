@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""CutContour-Dialog ohne Bildschirm (Qt-Ersatz): Formwechsel ändert die Vorschau; Berechnung läuft im Worker."""
+"""CutContour dialog without a screen (Qt stub): switching the shape changes the preview; calculation runs in the worker."""
 import os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -11,7 +11,7 @@ sys.path.insert(0, sys.argv[1])
 from pdfdruck.gui import objectsdialog as od
 import test_cutcontour as tc
 ran = []
-def sync_start(self):           # Worker im Test sofort ausführen (Qt-Ersatz startet keine Threads)
+def sync_start(self):           # run the worker immediately in the test (the Qt stub starts no threads)
     ran.append(self.s.shape)
     self.run()
 od._CutWorker.start = sync_start
@@ -20,18 +20,18 @@ od.QDialog.done = lambda self, r: None       # Qt-Ersatz: Basismethode bereitste
 dlg = od.CutContourDialog(None, tc.stickers(), 0)
 from pdfdruck import cutcontour
 def run(shape, single=True):
-    # echte Standard-Einstellungen (der Qt-Ersatz liefert für Zahlenfelder nur Platzhalter)
+    # real default settings (the Qt stub only provides placeholders for numeric fields)
     dlg._settings = lambda preview=False: cutcontour.CutSettings(shape=shape, single_shape=single, dpi=100)
     dlg.cmb_shape.currentData = lambda: shape
     dlg._preview()
     return [tuple(round(v, 1) for pt in p for v in pt)[:12] for p in dlg.canvas.paths]
 shapes = {sh: run(sh) for sh in ("contour", "rect", "heart")}
-assert len(ran) == 4 and ran[1:] == ["contour", "rect", "heart"], ran      # 1x beim Öffnen + 3 Formen
+assert len(ran) == 4 and ran[1:] == ["contour", "rect", "heart"], ran      # once on open + 3 shapes
 assert shapes["contour"] != shapes["rect"] != shapes["heart"], "Vorschau ändert sich nicht mit der Form"
 assert len(shapes["contour"]) == 3, len(shapes["contour"])                 # Kontur: je Aufkleber
 assert len(shapes["rect"]) == 1 and len(shapes["heart"]) == 1, (len(shapes["rect"]), len(shapes["heart"]))
 assert len(run("rect", single=False)) == 3                                 # Option: eine Form je Objekt
-# Griffe: Ecke = gleichmäßig, Seite = nur Breite, Verschiebe-Griff = Versatz; Felder bekommen mm-Werte
+# handles: corner = uniform, side = width only, move handle = offset; fields get mm values
 run("rect")
 class P:
     def __init__(s, x, y): s._x, s._y = x, y
@@ -67,7 +67,7 @@ sx, sy, dx, dy = drag("sx1", 2, 1)
 assert abs(sx - 2) < 1e-6 and sy == 1.0, (sx, sy)
 sx, sy, dx, dy = drag("move", 30, -20)
 assert sx == sy == 1.0 and abs(dx - 30) < 1e-6 and abs(dy - 20) < 1e-6, (dx, dy)   # Bildschirm-y nach unten = Seite nach oben
-# Übernahme in die Felder (mm)
+# applied to the fields (mm)
 class Spin:
     def __init__(s, v=0.0): s.v = v
     def value(s): return s.v
@@ -81,7 +81,7 @@ bw, bh = (x1 - x0) / MM, (y1 - y0) / MM
 dlg._apply_drag(1.5, 1.0, 10 * MM, -4 * MM)
 assert abs(dlg.spn_fw.v - round(bw * 1.5, 1)) < 0.11 and abs(dlg.spn_fh.v - round(bh, 1)) < 0.11, (dlg.spn_fw.v, bw)
 assert abs(dlg.spn_sx.v - 15.0) < 0.01 and abs(dlg.spn_sy.v + 4.0) < 0.01, (dlg.spn_sx.v, dlg.spn_sy.v)
-# danach eingetippte Größe wirkt direkt (kein versteckter Prozentfaktor mehr)
+# a size typed afterwards takes effect directly (no hidden percentage factor anymore)
 dlg._settings = lambda preview=False: cutcontour.CutSettings(shape="rect", width_mm=100, height_mm=40, dpi=100)
 dlg._preview()
 bb = dlg.canvas.shape_box

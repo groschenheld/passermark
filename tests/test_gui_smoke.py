@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Start-Test ohne Bildschirm: Qt wird durch einen Ersatz (tests/_qtstub) ersetzt, der alle Aufrufe annimmt.
-Findet Python-Fehler beim Programmstart, Fensteraufbau und in Menü-/Mausfunktionen."""
+"""Startup test without a screen: Qt is replaced by a stub (tests/_qtstub) that accepts all calls.
+Finds Python errors at program start, window construction and in menu/mouse functions."""
 import os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +35,7 @@ w.view.mouse_press(pw, E(100, 100)); w.view.mouse_move(pw, E(200, 110)); w.view.
 w.view.mouse_double(pw, E(100, 100)); w.view.select_page_text(); w.copy_text()
 w.view.paint_overlay(pw, viewer.QPainter())
 if "edit_panel" in w.__dict__:
-    # Bearbeiten-Modus mit Maus: Text greifen + ziehen, Ebene greifen + ziehen, Eckgriff, Rückgängig
+    # edit mode with the mouse: grab + drag text, grab + drag a layer, corner handle, undo
     from pdfdruck import editing, preflight
     import test_preflight as tp
     w._set_doc(pdfium.PdfDocument(tp.problem_pdf()), "/tmp/x.pdf", "x.pdf", False)
@@ -52,7 +52,7 @@ if "edit_panel" in w.__dict__:
     w.view.mouse_press(pg(), E(100, 434)); w.view.mouse_move(pg(), E(200, 384)); w.view.mouse_release(pg(), E(200, 384))
     L = next(l for l in editing.text_lines(w.doc, 0) if l.text.startswith("Hallo"))
     assert abs(L.bbox[0] - 152) < 2 and abs(L.bbox[1] - 450) < 2, L.bbox
-    # Text ändern, Schrift wechseln, löschen – die anderen Zeilen müssen erhalten bleiben
+    # change text, switch font, delete – the other lines must be preserved
     def others(exclude):
         return sorted(l.text.strip() for l in editing.text_lines(w.doc, 0) if not l.text.startswith(exclude))
     keep = others("Hallo")

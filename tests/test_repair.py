@@ -2,7 +2,7 @@
 # Passermark – Copyright (C) 2026 Hias
 import os, sys, io, zipfile
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pikepdf
 from pdfdruck import repair, iccfetch

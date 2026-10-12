@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Fehlerprotokoll: jede Fehlerart landet in einer Datei, die man mitschicken kann.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Error log: every kind of error ends up in a file you can send along.
 
-- pro Programmstart eine Datei mit Systemangaben; läuft alles glatt, wird sie beim Beenden gelöscht
-- erfasst: Python-Fehler (Oberfläche läuft weiter), Fehler in Threads, harte Abstürze (faulthandler),
-  Fehler aus Hintergrund-Aufträgen (record)
-- nach einem harten Absturz meldet der nächste Start das Protokoll (pending_crashes)
-- es bleiben höchstens MAX_LOGS Protokolle mit Fehler erhalten
+- one file per program start with system information; if everything runs smoothly, it is deleted on exit
+- captures: Python errors (the GUI keeps running), errors in threads, hard crashes (faulthandler),
+  errors from background jobs (record)
+- after a hard crash, the next start reports the log (pending_crashes)
+- at most MAX_LOGS logs containing errors are kept
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def _prune():
 
 
 def install(kind: str = "gui", on_error=None) -> str | None:
-    """Protokoll für diesen Programmstart einrichten. on_error(text, pfad): Anzeige (nur im Hauptthread)."""
+    """Set up the log for this program start. on_error(text, path): display (main thread only)."""
     if _state["file"] is not None:
         return _state["path"]
     d = log_dir()
@@ -79,12 +79,12 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         path = os.path.join(d, f"passermark-{kind}-{stamp}-{os.getpid()}.log")
         f = open(path, "w", encoding="utf-8", buffering=1)
     except OSError:
-        return None                                        # kein Protokoll möglich – Programm läuft trotzdem
+        return None                                        # no log possible – the program still runs
     f.write(f"== Passermark-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")
     f.write(system_info() + "\n\n")
     f.flush()
     _state.update(file=f, path=path, error=False, on_error=on_error, kind=kind)
-    faulthandler.enable(file=f, all_threads=True)          # harte Abstürze (z. B. in pdfium) -> Datei
+    faulthandler.enable(file=f, all_threads=True)          # hard crashes (e.g. in pdfium) -> file
     prev_hook = sys.excepthook
 
     def excepthook(et, ev, tb):
@@ -97,7 +97,7 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         if cb is not None and threading.current_thread() is threading.main_thread():
             try:
                 cb(f"{et.__name__}: {ev}", text)
-            except Exception:                              # noqa: BLE001 – Anzeige darf nie selbst abstürzen
+            except Exception:                              # noqa: BLE001 – the display must never crash itself
                 pass
     sys.excepthook = excepthook
 
@@ -141,7 +141,7 @@ def current_path() -> str | None:
 
 
 def _finish():
-    """Normales Programmende: Protokoll ohne Fehler wieder löschen."""
+    """Normal program end: delete the log again if it contains no errors."""
     f, path = _state["file"], _state["path"]
     if f is None:
         return
@@ -167,7 +167,7 @@ def _finish():
 
 
 def pending_crashes() -> list[str]:
-    """Protokolle früherer Starts mit Fehler/Absturz, die noch nicht gemeldet wurden (ohne den laufenden)."""
+    """Logs of earlier starts with errors/crashes not yet reported (not the current one)."""
     d = log_dir()
     out = []
     try:

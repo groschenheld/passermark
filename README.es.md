@@ -1,4 +1,4 @@
-# Passermark 1.10.8
+# Passermark 1.11.0
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -32,13 +32,15 @@ Software libre (GPL-3.0-or-later).
 - **Edición:** seleccionar líneas de texto y capas con el ratón; cambiar texto, fuente y tamaño; mover,
   escalar, ocultar, eliminar o sustituir capas; deshacer.
 - Reglas y medición: reglas en mm al borde de la vista; clic en inicio y fin para medir (Mayús se alinea en
-  horizontal/vertical/45°), resultado en la barra de estado.
+  horizontal/vertical/45°), resultado en la barra de estado. Con Control pulsado, la cruceta se imanta a las líneas de corte e interiores (borde de página,
+  formato final, sangrado), a los bordes de imágenes y a las líneas vectoriales – nunca al texto; se pega
+  al borde hasta que el ratón se aleja claramente. La visualización del formato final lo muestra en verde, con el sangrado en línea de puntos.
 - **Datos variables:** numeración (inicio, paso, dígitos, dígitos de control, hacia atrás, contador que
   continúa), texto desde CSV, códigos QR, Code 128 y EAN-13 como vectores (con zona de silencio);
   marcadores `{{…}}` en el PDF; fecha, página, número aleatorio y otras variables; varias páginas por
   registro (anverso/reverso) y campos en páginas impares/pares; registro de códigos; step & repeat con su
   propio registro por copia (hoja por hoja o cortar y apilar). También en la línea de comandos
-  (`passermark-cli vdp`).
+  **ventanas (grupos de páginas)** para plantillas de varias páginas – p. ej. anverso con el nombre, reverso con un código QR – con selección de páginas por ventana (todas/impares/pares o intervalos) y distribución de registros hoja por hoja o página por página (`passermark-cli vdp`).
 - **Introducir datos:** crear la tabla de datos directamente en Passermark – tarjeta de visita QR (vCard),
   acceso WLAN, correo electrónico, dirección web, llamada, SMS, cita, ubicación, Code 128, EAN-13 – con las
   columnas adecuadas, comprobación inmediata y pegado desde Excel; guardado como CSV y utilizable
@@ -107,7 +109,7 @@ inicio señala el registro. Los registros sin errores se eliminan al salir.
 ## Compilación
 
 Cada push a `main` compila en GitHub el instalador de Windows y el AppImage de Linux (**Actions**); ambos se
-comprueban con `--selftest`. Una etiqueta `v*` (p. ej. `git tag v1.10.8 && git push origin v1.10.8`) los
+comprueban con `--selftest`. Una etiqueta `v*` (p. ej. `git tag v1.10.7 && git push origin v1.10.7`) los
 adjunta a una Release de GitHub.
 
 Localmente: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, necesita Python 3.12 e

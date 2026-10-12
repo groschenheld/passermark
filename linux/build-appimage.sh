@@ -48,12 +48,17 @@ ldd "$GSBIN" | awk '/=> \// {print $3}' | while read -r lib; do
 done
 patchelf --set-rpath '$ORIGIN' AppDir/usr/lib/gs/gs.bin
 cp -a /usr/share/ghostscript AppDir/usr/share/
+# ICC profiles (Debian/Ubuntu keep them outside /usr/share/ghostscript and
+# leave a dangling symlink at iccprofiles -> ../../color/icc/ghostscript):
+[ -L "AppDir/usr/share/ghostscript/$GSVER/iccprofiles" ] && rm "AppDir/usr/share/ghostscript/$GSVER/iccprofiles"
+mkdir -p "AppDir/usr/share/ghostscript/$GSVER/iccprofiles"
+cp -a /usr/share/color/icc/ghostscript/. "AppDir/usr/share/ghostscript/$GSVER/iccprofiles/" 2>/dev/null || true
 [ -d /usr/share/fonts/type1/urw-base35 ] && mkdir -p AppDir/usr/share/fonts && cp -a /usr/share/fonts/type1/urw-base35 AppDir/usr/share/fonts/
 [ -d "/usr/share/ghostscript/$GSVER" ] || { echo "Ghostscript resources not found: /usr/share/ghostscript/$GSVER"; ls /usr/share/ghostscript; exit 1; }
 # wrapper: resource paths as separate, quoted arguments (safe with spaces in paths)
 cat > AppDir/usr/bin/gs <<EOF
 #!/bin/sh
-D="\$(dirname "\$(readlink -f "\$0")")/.."
+D="\$(cd "\$(dirname "\$0")/.." && pwd)"
 R="\$D/share/ghostscript/$GSVER"
 export GS_LIB="\$R/Resource/Init:\$R/lib:\$R/Resource/Font:\$D/share/ghostscript/fonts:\$D/share/fonts/urw-base35"
 export LD_LIBRARY_PATH="\$D/lib/gs\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"

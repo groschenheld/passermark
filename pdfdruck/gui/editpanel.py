@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Seitenleiste „Bearbeiten“: Textzeilen (Text, Schrift, Größe) und Ebenen (ein/aus, entfernen, ersetzen,
-skalieren/verschieben). Auswahl über die Liste oder per Mausklick auf der Seite."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace,
+scale/move). Selection via the list or by clicking on the page.
+"""
 from __future__ import annotations
 
 import io
@@ -43,7 +44,7 @@ class EditPanel(QWidget):
         self._cycle = []
         self._dstate = None
         self.sel_box = None          # Auswahlrahmen (Seitenkoordinaten)
-        self._loaded = None          # (Seite, Reiter), für die die Listen gefüllt sind
+        self._loaded = None          # (page, tab) for which the lists are filled
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
         hint = QLabel(tr("Bearbeiten-Modus: auf der Seite klicken wählt eine Textzeile bzw. Ebene aus."))
@@ -123,7 +124,7 @@ class EditPanel(QWidget):
         return self.win.view.current
 
     def refresh(self):
-        """Listen für die aktuelle Seite neu aufbauen."""
+        """Rebuild the lists for the current page."""
         if self.win.doc is None or not self.win.a_edit.isChecked():
             return
         try:
@@ -176,7 +177,7 @@ class EditPanel(QWidget):
         w = self.win.view.pages[self.page] if 0 <= self.page < len(self.win.view.pages) else None
         return self.win.view._tol_pt(w) * 0.55 if w is not None else 3.0
 
-    # ---------------- Maus: auswählen, verschieben, skalieren ---------------- #
+    # ---------------- Mouse: select, move, scale ---------------- #
     def _ensure_loaded(self, page):
         if self._loaded != (page, self.tabs.currentIndex()):
             self.refresh()
@@ -216,7 +217,7 @@ class EditPanel(QWidget):
             if self._inside(box, x, y, tol):
                 self._dstate = {"kind": "move", "box": box, "start": (x, y)}
                 return
-        self.page_click(page, x, y, False)          # neu auswählen …
+        self.page_click(page, x, y, False)          # reselect …
         box = self.sel_box
         if box is not None and self._inside(box, x, y, tol):
             self._dstate = {"kind": "move", "box": box, "start": (x, y)}   # … und gleich greifen
@@ -235,7 +236,7 @@ class EditPanel(QWidget):
         return s, 0.0, 0.0, (min(nb[0], nb[2]), min(nb[1], nb[3]), max(nb[0], nb[2]), max(nb[1], nb[3]))
 
     def drag(self, page, x, y):
-        """Maus mit gedrückter Taste bewegt: gestrichelte Vorschau der neuen Lage."""
+        """Mouse moved with the button held: dashed preview of the new position."""
         if self._dstate is None or page != self.page or self.sel_box is None:
             return
         _s, _dx, _dy, nb = self._preview(x, y)
@@ -243,7 +244,7 @@ class EditPanel(QWidget):
         self._overlay([(*self._dstate["box"], col)], preview=nb)
 
     def release(self, page, x, y):
-        """Loslassen: Verschieben/Skalieren anwenden (Ebene bzw. Textzeile), mit Rückgängig."""
+        """Release: apply move/scale (layer or text row), with undo."""
         d, self._dstate = self._dstate, None
         if d is None or page != self.page:
             return
@@ -260,7 +261,7 @@ class EditPanel(QWidget):
                 L = self.lines[row]
 
                 def run(data):
-                    # bevorzugt: nur die Textblöcke umschließen (Seite bleibt sonst unverändert)
+                    # preferred: enclose only the text blocks (otherwise the page stays unchanged)
                     new = editing.transform_line_blocks(data, self.page, L, s, dx, dy, origin)
                     if new is None:
                         new = self._pdfium_edit(data, self.page,
@@ -283,7 +284,7 @@ class EditPanel(QWidget):
             _err(self, e)
 
     def _reselect_text(self, box):
-        """Nach dem Neuladen die verschobene Zeile wieder auswählen (nächste zur neuen Lage)."""
+        """After reloading, select the moved row again (the one nearest the new position)."""
         if not self.lines:
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
@@ -364,8 +365,8 @@ class EditPanel(QWidget):
             _err(self, e)
 
     def _text_edit(self, fn, ignore_boxes, notes=None) -> bool:
-        """fn(daten) -> neue Daten. Läuft auf einer Kopie, wird nachgeprüft, erst dann übernommen."""
-        self.win.view._close_textpages()                 # keine offenen Seiten der Ansicht während der Änderung
+        """fn(data) -> new data. Runs on a copy, is verified, then adopted."""
+        self.win.view._close_textpages()                 # no open pages of the view during the change
         data = self.win._doc_bytes()
         new = fn(data)
         err = editing.verify_edit(data, new, self.page, ignore_boxes)
@@ -388,7 +389,7 @@ class EditPanel(QWidget):
 
     @staticmethod
     def _pdfium_edit(data, page, fn):
-        """pdfium-Änderung an einer frisch geladenen Kopie ausführen -> (neue Daten, Hinweise)."""
+        """Apply a pdfium change to a freshly loaded copy -> (new data, hints)."""
         import pypdfium2 as pdfium
         d = pdfium.PdfDocument(data)
         try:
@@ -400,15 +401,15 @@ class EditPanel(QWidget):
             d.close()
 
     def _wide_box(self, L):
-        """Bereich, in dem sich eine geänderte Zeile verändern darf (Zeilenhöhe, ganze Seitenbreite)."""
+        """Area in which a changed row may vary (row height, full page width)."""
         pw = self.win.doc.get_page_size(self.page)[0]
         h = L.bbox[3] - L.bbox[1]
         size = self.spn_size.value() if hasattr(self, "spn_size") else L.size
-        grow = max(0.0, (float(size) / max(L.size, 0.1) - 1.0)) * h     # größere Schrift darf nach oben wachsen
+        grow = max(0.0, (float(size) / max(L.size, 0.1) - 1.0)) * h     # a larger font may grow upward
         return (0, L.bbox[1] - 0.3 * h, pw, L.bbox[3] + 0.3 * h + grow)
 
     def _after_edit(self, notes):
-        # Dokument neu laden (Darstellung aktualisieren), geändert markieren
+        # reload the document (refresh the display), mark as changed
         self._replace_doc(self.win._doc_bytes())
         if notes:
             QMessageBox.information(self, tr("Hinweis"), "\n\n".join(notes))
@@ -531,7 +532,7 @@ class EditPanel(QWidget):
             hits = editing.layers_at(self.lmap, x, y)
             if not hits:
                 return
-            # wiederholter Klick an derselben Stelle wechselt durch übereinanderliegende Ebenen
+            # a repeated click at the same spot cycles through overlapping layers
             if self._cycle and self._cycle[0] == hits:
                 self._cycle[1] = (self._cycle[1] + 1) % len(hits)
             else:

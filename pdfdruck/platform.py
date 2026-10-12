@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Betriebssystem-Unterschiede an einer Stelle: Pfade, Benutzerkennung, Benachrichtigungen, Programme."""
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ IS_WIN = sys.platform == "win32"
 
 
 def user_id() -> str:
-    """Kennung für benutzereigene Sockets/Profile (Linux: UID, Windows: Benutzername)."""
+    """Identifier for user-owned sockets/profiles (Linux: UID, Windows: user name)."""
     if hasattr(os, "getuid"):
         return str(os.getuid())
     return "".join(c for c in (os.environ.get("USERNAME") or "user") if c.isalnum()) or "user"
@@ -79,7 +79,7 @@ def app_dirs() -> list[str]:
 
 
 def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
-    """Programm im PATH oder (Windows) unter den üblichen Installationsorten finden."""
+    """Find the program in PATH or (Windows) in the usual install locations."""
     for n in names:
         p = shutil.which(n)
         if p:
@@ -127,7 +127,7 @@ def notify(title: str, body: str, error: bool = False):
 
 
 def hidden_subprocess_kwargs() -> dict:
-    """Unter Windows kein Konsolenfenster für Hilfsprogramme aufblitzen lassen."""
+    """On Windows, do not let a console window flash up for helper programs."""
     if IS_WIN:
         return {"creationflags": 0x08000000}        # CREATE_NO_WINDOW
     return {}

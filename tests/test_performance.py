@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Zeitbudgets: schlägt an, wenn eine Änderung etwas spürbar langsamer macht.
+"""Time budgets: triggers when a change makes something noticeably slower.
 
-Die Rechner im GitHub-Build sind unterschiedlich schnell. Deshalb wird zuerst eine feste Eichaufgabe gemessen und jedes
-Budget als Vielfaches davon angegeben („Eichfaktor“). Je Messung der beste von mehreren Läufen.
-  über WARN × Bezug  -> Warnung (Build gelb, läuft weiter)
-  über FAIL × Bezug  -> Fehler (Build rot)
-Bezugswerte neu bestimmen: python3 tests/test_performance.py --messen
+The machines in the GitHub build vary in speed. Therefore a fixed calibration task is measured first and
+each budget is given as a multiple of it ("calibration factor"). The best of several runs per measurement.
+  above WARN × baseline -> warning (build yellow, continues)
+  above FAIL × baseline -> error (build red)
+Re-determine baselines: python3 tests/test_performance.py --messen
 """
 import io, json, os, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,7 +66,7 @@ def judge(res: dict, cal: float, baseline: dict):
 
 
 def _poster():
-    """A4-Plakat wie im Alltag: fleckiger Papierhintergrund, mehrere Motive (fest, ohne Zufall von außen)."""
+    """A4 poster like in everyday use: blotchy paper background, several motifs (fixed, no external randomness)."""
     from PIL import Image, ImageDraw, ImageFilter
     import pypdfium2 as pdfium
     import img2pdf
@@ -137,9 +137,9 @@ def test_time_budgets():
         else:
             print(f"  {k:32s} {t:6.3f} s  Faktor {ratio:5.2f}  Bezug {ref:5.2f}  -> {rel:4.2f}×  {flag}")
         if flag == "WARNUNG":
-            # GitHub: gelbe Anmerkung am Lauf (Build bleibt grün)
+            # GitHub: yellow annotation on the run (build stays green)
             print(f"::warning title=Zeitbudget::{k} ist {rel:.1f}× langsamer als bisher")
-    # gemessene Werte als fertige Zeile – zum Übernehmen in tests/perf_baseline.json, falls der Build-Rechner abweicht
+    # measured values as a ready-made line – to copy into tests/perf_baseline.json if the build machine differs
     print("Messwerte (Faktor):", json.dumps({x[0]: round(x[2], 3) for x in rows}))
     fails = [x[0] for x in rows if x[5] == "FEHLER"]
     assert not fails, f"deutlich langsamer (> {FAIL}× Bezug): {fails}"

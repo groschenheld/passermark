@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Preset-Leiste für Dialoge: gespeicherte Einstellungen wählen, speichern, löschen, als Datei weitergeben."""
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Preset bar for dialogs: pick saved settings, save, delete, share as a file."""
 from __future__ import annotations
 
 import os
@@ -68,7 +68,7 @@ class PresetBar(QWidget):
     def _apply(self, s, name=None):
         try:
             self.set_settings(s)
-        except Exception as e:                   # z. B. Wert außerhalb des Bereichs – lieber melden als abstürzen
+        except Exception as e:                   # e.g. a value out of range – better to report than to crash
             QMessageBox.warning(self, tr("Preset"), tr("Preset konnte nicht vollständig übernommen werden:") + f"\n{e}")
 
     def _chosen(self, _i):

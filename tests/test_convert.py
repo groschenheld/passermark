@@ -2,7 +2,7 @@
 # Passermark – Copyright (C) 2026 Hias
 import os, sys, shutil, subprocess, tempfile
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import convert
 

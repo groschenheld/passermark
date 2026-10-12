@@ -5,16 +5,24 @@
 > Ez a változásnapló a **1.10.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
-## 1.10.8
+## 1.11.0
+- **Változó adatok – ablakok (oldalcsoportok).** Több oldalas sablonoknál minden mező egy ablakhoz tartozik
+  (pl. „elölapok (név), hátlapok (QR-kód)”); az ablakok létrehozhatók, átnevezhetők és eltávolíthatók –
+  mezőik ekkor az első ablakba kerülnek. Oldalkiválasztás ablakonként: minden oldal, páratlan (elölapok),
+  páros (hátlapok) vagy tartományok („1,3-5 vagy páratlan 1-50”); saját kiválasztás nélkül a „minden oldal”
+  alapréteg érvényes. Rekord-elosztás „lapról lapra” (először az összes oldal az 1. rekorddal) vagy
+  „oldalról oldalra” (először az 1. oldal az összes rekorddal); kijelzés „{0} rekord → {1} oldal”, figyelmeztetés
+  „– {0} oldal ablak nélkül!”
+- **VDP-előnézet:** vágott formátum zöld, vérzés piros; állítható belső keret (segédvonal) a kettő között
+- **„aktuális / összesen” oldaljelző** az eszközsávban; oldalszám beírása és Enter – azonnali ugrás
+- **Vonalzók, mérés és vágott-formátum-megjelenítés állandóan a fő eszközsávban** – minden munkaterületen
+- **Vágott formátum és vérzés a fő nézetben:** belső határvonal (vágott formátum) zöld, vérzés diszkrét piros
+  pontvonalként teljes piros felület helyett
+- **Mérés illesztéssel:** Control lenyomva a célkereszt mágnesesen illeszkedik a vágó- és belső vonalakhoz
+  (oldalszél, vágott formátum, vérzés), képszélekhez és vektorvonalakhoz – szövegre soha. Az előnézeti
+  célkeresett addig tapad az élhez, amíg az egér határozottan el nem húzza; a Shift továbbra is
+  vízszintes/függőleges/45°-ra zárol
 
-- A forráskód dokumentációjának nemzetközivé tétele: a teljes kódbázisban
-  (grafikus felület, nyelvi csomagok, pdfdruck adatcsomag, tesztek,
-  platformszkriptek) az összes megjegyzés és docstring németről angolra
-  lett fordítva; a GPL licencfejlécek szintúgy.
-- A hiányzó „pdfdruck" adatcsomag hozzáadva (ez javítja a sikertelen buildet).
-- Nincs funkcionális változás: a szövegek, a logika és a viselkedés változatlan
-  (AST-összehasonlítással ellenőrizve az előző verzióval szemben).
-  
 ## 1.10.7
 - **CutContour: alapformák számítás nélkül.** Új elhelyezés „A végformára (számítás nélkül)”: téglalap,
   lekerekített téglalap, kör … közvetlenül a végformára kerülnek (TrimBox, egyébként az oldalra) – nincs

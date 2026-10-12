@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Vorschau so, wie es aus dem Drucker kommt (so weit vorhersagbar).
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Preview the way it comes out of the printer (as far as predictable).
 
-* ICC-Ausgabeprofil gewählt  -> echter Softproof mit LittleCMS (Pillow.ImageCms):
-                                sRGB -> Druckerprofil -> Bildschirm, mit Intent und Tiefenkompensierung.
-* Treiberregler Helligkeit / Kontrast / Sättigung / Graustufen -> Annäherung. Die genaue
-  Rechenweise der Hersteller (z. B. Epson escpr2) ist nicht dokumentiert.
+* ICC output profile selected -> real soft proof with LittleCMS (Pillow.ImageCms):
+                                sRGB -> printer profile -> screen, with intent and black point compensation.
+* Driver sliders brightness / contrast / saturation / grayscale -> approximation. The manufacturers'
+  exact math (e.g. Epson escpr2) is not documented.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ RX = {
 RX_GRAY = re.compile(r"mono|gr[ae]y|grau|schwarz|black|\bk\b|\bbw\b", re.I)
 RX_COLOR = re.compile(r"colou?r|farb|rgb|cmyk", re.I)
 
-# Stärke der Annäherung bei Reglerendanschlag (t = ±1)
+# strength of the approximation at the end of a slider (t = ±1)
 STRENGTH = {"brightness": 0.35, "contrast": 0.45, "saturation": 0.60}
 
 INTENT_CMS = {"perceptual": 0, "relative": 1, "saturation": 2, "absolute": 3}
@@ -103,7 +103,7 @@ def apply(img, adj: dict, icc: str | None = None, intent: str = "relative", bpc:
     if adj.get("gray"):
         img = ImageOps.grayscale(img).convert("RGB")
     t = adj.get("saturation", 0.0)
-    if t and not adj.get("gray"):            # Sättigung verändert Weiß/Grau ohnehin nicht
+    if t and not adj.get("gray"):            # saturation does not change white/gray anyway
         img = ImageEnhance.Color(img).enhance(max(0.0, 1.0 + STRENGTH["saturation"] * t))
     lut = tone_curve(adj.get("brightness", 0.0), adj.get("contrast", 0.0))
     if lut is not None:
@@ -112,8 +112,9 @@ def apply(img, adj: dict, icc: str | None = None, intent: str = "relative", bpc:
 
 
 def tone_curve(brightness: float, contrast: float):
-    """Gradationskurve wie in Druckertreibern: Weiß (Papier) und Schwarz bleiben fix,
-    verändert werden die Mitteltöne. Liefert eine 256er-LUT oder None."""
+    """Gradation curve like in printer drivers: white (paper) and black stay fixed,
+        the midtones change. Returns a 256-entry LUT or None.
+    """
     if not brightness and not contrast:
         return None
     g = 1.0 / (1.0 + STRENGTH["brightness"] * 1.6 * brightness) if brightness > -0.6 else 2.5

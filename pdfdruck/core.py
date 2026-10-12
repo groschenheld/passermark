@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Kern-Schnittstelle: jede schwere Funktion als „Eingabe-PDF + Einstellungen → Ausgabe-PDF“.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Core interface: every heavy function as "input PDF + settings → output PDF".
 
-    run_job("cutcontour", "ein.pdf", "aus.pdf", {"shape": "rect", "bleed_mm": 2}, progress=…, cancel=…)
+    run_job("cutcontour", "in.pdf", "out.pdf", {"shape": "rect", "bleed_mm": 2}, progress=…, cancel=…)
 
-- gleich für alle Funktionen (CutContour, Objekte trennen, CMYK/Beschneiden, Reparieren, Preflight-Reparaturen)
-- Einstellungen als dict/JSON (Grundlage für Presets, CLI, Aufträge in eigenem Prozess, Watcher)
-- Fortschritt: progress(erledigt, gesamt, text); Abbrechen: cancel() -> True löst Cancelled aus
-- die Ausgabe wird atomar geschrieben: erst fertig in eine temporäre Datei, dann umbenannt – nach Fehler oder
-  Abbruch bleibt nie eine halbe Datei liegen
-- ohne Oberfläche (kein Qt) – läuft auch in einem eigenen Prozess oder auf der Kommandozeile
+- identical for all functions (CutContour, separate objects, CMYK/crop, repair, preflight repairs)
+- settings as dict/JSON (the basis for presets, CLI, jobs in a separate process, watcher)
+- progress: progress(done, total, text); cancel: cancel() -> True raises Cancelled
+- the output is written atomically: finished in a temporary file first, then renamed – after an
+  error or cancel there is never a half-written file left
+- without a GUI (no Qt) – also runs in a separate process or on the command line
 """
 from __future__ import annotations
 
@@ -34,11 +34,11 @@ class Cancelled(Exception):
 class JobResult:
     output: str
     info: dict = field(default_factory=dict)       # z. B. {"pages": 3, "cuts": 12}
-    notes: list = field(default_factory=list)      # Hinweise für den Benutzer
+    notes: list = field(default_factory=list)      # hints for the user
 
 
 # --------------------------------------------------------------------------- #
-# Einstellungen <-> dict/JSON (auch verschachtelt, unbekannte Schlüssel werden ignoriert)
+# settings <-> dict/JSON (nested too, unknown keys are ignored)
 # --------------------------------------------------------------------------- #
 def settings_to_dict(obj) -> dict:
     return dataclasses.asdict(obj)
@@ -135,7 +135,7 @@ def _doc_bytes(doc) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Aufträge
+# jobs
 # --------------------------------------------------------------------------- #
 def _job_cutcontour(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
@@ -256,7 +256,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
 
 
 def _job_impose(src, dst, s, opts, progress, cancel):
-    """Ausschießen wie im Druckdialog (Größe, Mehrere, Broschüre/Lagen, Poster, Nutzen) – Ergebnis als PDF."""
+    """Imposition as in the print dialog (size, multiple, booklet/signatures, poster, step & repeat) – result as PDF."""
     import pypdfium2 as pdfium
     from . import layout
     sheet = s.sheet_obj()
@@ -301,7 +301,7 @@ def _job_vdp(src, dst, s, opts, progress, cancel):
 
 
 def _job_split(src, dst, s, opts, progress, cancel):
-    """Seiten teilen (Hälften/Raster, optional nur Doppelseiten) – verlustfrei über Ausschnitte."""
+    """Split pages (halves/grid, optionally double pages only) – lossless via clips."""
     from . import split
     data, info = split.split(src, s, pages=opts.get("pages"), progress=progress, cancel=cancel)
     _check(cancel)
@@ -335,7 +335,7 @@ def _manip_settings():
     return ManipSettings
 
 
-# Name -> (Einstellungs-Klasse (bzw. Funktion, die sie liefert), Ausführung)
+# name -> (settings class (or a function returning it), execution)
 JOBS = {
     "cutcontour": (_cut_settings, _job_cutcontour),
     "separate": (lambda: SeparateSettings, _job_separate),
@@ -356,8 +356,9 @@ def settings_class(kind: str):
 
 def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None = None,
             progress=None, cancel=None) -> JobResult:
-    """Einen Auftrag ausführen. settings: dict (z. B. aus JSON) oder die passende Einstellungs-Klasse.
-    options: {"pages": [0, 2, …]} (nur diese Seiten, wo sinnvoll)."""
+    """Run a job. settings: dict (e.g. from JSON) or the matching settings class.
+        options: {"pages": [0, 2, …]} (only these pages, where sensible).
+    """
     cls = settings_class(kind)
     s = settings_from_dict(cls, settings) if not isinstance(settings, cls) else settings
     if os.path.abspath(src) == os.path.abspath(dst):

@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Objekterkennung auf PDF-Seiten (Vektor und Raster) und Trennen in Einzelseiten.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Object detection on PDF pages (vector and raster) and splitting into individual pages.
 
-Motivmaske:
-  transparent – Seite ohne Hintergrund rendern; alles, was deckt, ist Motiv (exakt bei Vektorgrafik,
-                auch weiße Flächen im Motiv zählen dazu)
-  color       – Hintergrundfarbe (häufigste Randfarbe) mit Toleranz abziehen (Scans, Seiten mit Fläche)
-  auto        – transparent, außer die Seite ist praktisch vollflächig deckend -> color
+Artwork mask:
+  transparent – render the page without a background; everything that covers is artwork (exact for vector
+                graphics; white areas inside the artwork count as well)
+  color       – subtract the background color (most frequent edge color) with a tolerance (scans, pages with a solid area)
+  auto        – transparent, unless the page is practically fully opaque -> color
 
-Trennen: Objekte mit Abstand < „Zusammenfassen“ gelten als eines; jedes Objekt wird per Beschnittrahmen zur
-eigenen Seite – vektoriell, Bilder in Originalauflösung (nichts wird neu gerechnet).
-Koordinaten: Seiten werden zuerst „normalisiert“ (Seitendrehung vektoriell eingerechnet), danach gilt
-x nach rechts, y nach oben, Ursprung unten links, Einheit pt.
+Splitting: objects less than "merge" apart count as one; each object becomes its own page via a
+clip box – vectorial, images at original resolution (nothing is recomputed).
+Coordinates: pages are first "normalized" (page rotation applied vectorially), then
+x to the right, y up, origin bottom left, unit pt.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class DetectSettings:
     mode: str = "auto"            # auto | transparent | color
     tolerance: int = 28           # 0–255 Abstand zur Hintergrundfarbe
     min_size_mm: float = 5.0      # kleinere Objekte (Staub, Schmutz) ignorieren
-    gap_mm: float = 1.0           # Teile, die näher beisammen liegen, gehören zusammen
+    gap_mm: float = 1.0           # parts lying closer together belong together
     margin_mm: float = 0.0        # Rand um jedes Objekt (negativ = nach innen)
 
 
@@ -72,7 +72,7 @@ def normalized(doc):
 
 
 def render_rgba(page, dpi: int):
-    """Seite ohne Hintergrund als RGBA-numpy-Array (Höhe, Breite, 4)."""
+    """Page without a background as an RGBA numpy array (height, width, 4)."""
     import numpy as np
     bmp = page.render(scale=dpi / 72.0, fill_color=(255, 255, 255, 0), may_draw_forms=True, draw_annots=True)
     arr = bmp.to_numpy().copy()
@@ -99,7 +99,7 @@ def motif_mask(rgba, s: DetectSettings):
     # Hintergrund = Median der Randpixel (robust gegen einzelne Objekte am Rand)
     border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
     bg = np.median(border, axis=0)
-    # Rand nicht einheitlich -> es gibt keinen Hintergrund: das Motiv füllt die ganze Seite
+    # border not uniform -> there is no background: the artwork fills the entire page
     # (z. B. Visitenkarte/Sticker im Endformat) -> die ganze Seite ist ein Objekt
     if (np.abs(border - bg).max(axis=1) <= s.tolerance).mean() < 0.6:
         return alpha > 96, "page"
@@ -120,7 +120,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
     gap = max(0, int(round(s.gap_mm * MM * px / 2)))
     work = mask
     if gap:
-        # Lücken < gap_mm schließen: Abstand zur Maske <= gap/2 -> verbunden
+        # close gaps < gap_mm: distance to mask <= gap/2 -> connected
         work = ndi.distance_transform_edt(~mask) <= gap
     lab, n = ndi.label(work)
     boxes = []
@@ -152,7 +152,7 @@ def reading_order(boxes: list[Box]) -> list[Box]:
     out = []
     while rest:
         top = rest[0]
-        row = [b for b in rest if b.y1 > top.y1 - top.h / 2]       # überlappt die obere Hälfte -> gleiche Zeile
+        row = [b for b in rest if b.y1 > top.y1 - top.h / 2]       # overlaps the upper half -> same row
         row.sort(key=lambda b: b.x0)
         out += row
         rest = [b for b in rest if b not in row]
@@ -160,7 +160,7 @@ def reading_order(boxes: list[Box]) -> list[Box]:
 
 
 def with_margin(b: Box, margin_mm: float, page_w: float, page_h: float) -> Box:
-    """Rand anwenden: positiv = größer (bis zum Seitenrand), negativ = nach innen."""
+    """Apply a margin: positive = larger (up to the page edge), negative = inward."""
     m = margin_mm * MM
     return Box(max(0.0, b.x0 - m), max(0.0, b.y0 - m), min(page_w, b.x1 + m), min(page_h, b.y1 + m))
 
@@ -179,7 +179,7 @@ def separate(norm_doc, boxes_by_page: dict[int, list[Box]], margin_mm: float = 0
             pg = out[len(out) - 1]
             for setter in (pg.set_mediabox, pg.set_cropbox, pg.set_bleedbox):
                 setter(b.x0, b.y0, b.x1, b.y1)
-            # Endformat = Objekt selbst; ein positiver Rand ist Anschnitt (beim Ausschießen erkannt)
+            # trim size = the object itself; a positive margin is bleed area (detected during imposition)
             t = Box(max(b.x0, b0.x0), max(b.y0, b0.y0), min(b.x1, b0.x1), min(b.y1, b0.y1)) if margin_mm > 0 else b
             pg.set_trimbox(t.x0, t.y0, t.x1, t.y1)
             pg.close()

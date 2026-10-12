@@ -5,16 +5,24 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
-## 1.10.8
-
-- Documentación del código fuente internacionalizada: todos los comentarios y
-  docstrings de todo el código (interfaz gráfica, paquetes de idioma, paquete de
-  datos pdfdruck, pruebas, scripts de plataforma) se han traducido del alemán al
-  inglés; también las cabeceras de licencia GPL.
-- Añadido el paquete de datos «pdfdruck» que faltaba (corrige la compilación
-  fallida).
-- Sin cambios funcionales: las cadenas, la lógica y el comportamiento no han
-  cambiado (verificado mediante comparación AST con la versión anterior).
+## 1.11.0
+- **Datos variables – ventanas (grupos de páginas).** En plantillas de varias páginas, cada campo pertenece
+  a una ventana (p. ej. «anversos (nombre), reversos (código QR)»); las ventanas se pueden crear, renombrar
+  y eliminar – sus campos pasan entonces a la primera ventana. Selección de páginas por ventana: todas,
+  impares (anversos), pares (reversos) o intervalos («1,3-5 o impares 1-50»); sin selección propia se aplica
+  la capa base «todas las páginas». Distribución «hoja por hoja» (primero todas las páginas con el registro 1)
+  o «página por página» (primero la página 1 con todos los registros); indicador «{0} registros → {1} páginas»
+  y aviso «– {0} páginas sin ventana!»
+- **Vista previa VDP:** formato final en verde, sangrado en rojo; marco interior ajustable (línea guía)
+- **Indicador de página «actual / total»** en la barra de herramientas; escribir un número y Enter para ir directo
+- **Reglas, medición y formato final permanentes en la barra de herramientas principal** – en todas las
+  áreas de trabajo
+- **Formato final y sangrado en la vista principal:** borde interior (formato final) en verde en lugar de
+  rojo, sangrado como línea de puntos roja discreta en lugar de superficie plena
+- **Medición con imán:** con Control pulsado, la cruceta se imanta a las líneas de corte e interiores (borde
+  de página, formato final, sangrado) así como a los bordes de imágenes y líneas vectoriales – nunca al
+  texto; la cruceta de previsualización se pega al borde hasta que el ratón se aleja claramente; Mayús
+  sigue bloqueando horizontal/vertical/45°
 
 ## 1.10.7
 - **CutContour: formas básicas sin cálculo.** Nueva colocación «Sobre el formato final (sin cálculo)»:

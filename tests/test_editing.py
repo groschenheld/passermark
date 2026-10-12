@@ -42,7 +42,7 @@ def test_layer_map_click_transform_replace():
     lm = editing.layer_map(data, 0)
     b = lm.boxes[K["Verrutscht"]]
     assert b[0] > 595                                             # liegt rechts neben der Seite
-    assert K["Bemaßung"] in editing.layers_at(lm, 150, 625)       # rotes Rechteck der Bemaßung
+    assert K["Bemaßung"] in editing.layers_at(lm, 150, 625)       # red rectangle of the dimension layer
     out = editing.transform_layer(data, K["Verrutscht"], dx=-500)
     b2 = editing.layer_map(out, 0, [K["Verrutscht"]]).boxes[K["Verrutscht"]]
     assert abs(b2[0] - (b[0] - 500)) < 8
@@ -88,7 +88,7 @@ def test_chrome_like_type3_edits():
     lines = editing.text_lines(pdfium.PdfDocument(data), 0)
     assert [l.text for l in lines] == ["ABC", "CABA"], [l.text for l in lines]
     L, other = lines
-    # Verschieben/Skalieren: Zeile wird aus dem gemeinsamen Textblock herausgelöst, in Seitenkoordinaten
+    # moving/scaling: the line is detached from the shared text block, into page coordinates
     new = editing.transform_line_blocks(data, 0, L, 1.0, 40, -30)
     assert new is not None
     after = editing.text_lines(pdfium.PdfDocument(new), 0)
@@ -100,12 +100,12 @@ def test_chrome_like_type3_edits():
     big = editing.transform_line_blocks(data, 0, L, 2.0, 0, 0, (L.bbox[0], L.bbox[1]))
     b2 = next(l for l in editing.text_lines(pdfium.PdfDocument(big), 0) if l.text == "ABC")
     assert abs((b2.bbox[2] - b2.bbox[0]) - 2 * (L.bbox[2] - L.bbox[0])) < 2
-    # Text ändern: direkter Weg verliert den Type3-Text -> Rückfall überlagert, Rest bleibt
+    # changing text: the direct route loses the Type3 text -> fallback overlays, the rest remains
     out, notes = editing.edit_line_bytes(data, 0, L, "NEU")
     t = pdfium.PdfDocument(out)[0].get_textpage().get_text_range()
     assert "NEU" in t and "CABA" in t.replace(" ", "") and "ABC" not in t.replace(" ", "")
     assert editing.verify_edit(data, out, 0, [(0, L.bbox[1] - 40, 595, L.bbox[3] + 40)]) == ""
-    # Löschen ohne Neuerzeugung
+    # deleting without regeneration
     gone = editing.remove_line_ops(data, 0, L)
     rest = [l.text for l in editing.text_lines(pdfium.PdfDocument(gone), 0)]
     assert rest == ["CABA"], rest

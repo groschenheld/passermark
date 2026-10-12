@@ -81,7 +81,7 @@ def test_cli_beispiele_and_run_by_name():
 
 
 def test_cli_relative_csv_next_to_preset():
-    """Mitgelieferte Preset-Datei mit csv_path=daten.csv läuft auch aus einem anderen Ordner."""
+    """The bundled preset file with csv_path=daten.csv also works from a different folder."""
     p = os.path.join(examples.VDP_DIR, "presets", "beispiel-2-qr-csv.json")
     assert json.load(open(p, encoding="utf-8"))["settings"]["csv_path"] == "daten.csv"
     out = os.path.join(TMP, "qr.pdf")

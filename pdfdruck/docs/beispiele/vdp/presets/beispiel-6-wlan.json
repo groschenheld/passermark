@@ -90,6 +90,7 @@
     "reverse": false,
     "log_path": "",
     "doc_name": "",
-    "placeholders": false
+    "placeholders": false,
+    "windows": []
   }
 }

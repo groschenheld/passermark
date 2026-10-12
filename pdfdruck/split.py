@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Seiten teilen: eine Seite senkrecht/waagrecht halbieren oder in ein Raster schneiden – jedes Stück wird eine
-eigene Seite. Typischer Fall: eine Broschüre wurde als Doppelseiten exportiert (Seite 1 einzeln A4, Seiten 2+3
-nebeneinander auf A3 …) – „nur Doppelseiten“ teilt genau diese.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Splitting pages: halve a page vertically/horizontally or cut it into a grid – every piece becomes its
+own page. Typical case: a booklet was exported as double pages (page 1 alone on A4, pages 2+3
+side by side on A3 …) – "double pages only" splits exactly those.
 
-Verlustfrei: der Seiteninhalt wird nicht verändert oder gerastert, jedes Stück zeigt nur einen anderen Ausschnitt
-(MediaBox/CropBox). Gemeinsame Inhalte werden nicht kopiert. Gedrehte Seiten werden so geteilt, wie man sie sieht.
-Hat die Seite ein Endformat (TrimBox), liegen die Teilungslinien im Endformat und der Anschnitt bleibt außen erhalten.
+Lossless: the page content is not modified or rasterized; each piece just shows a different
+section (MediaBox/CropBox). Shared content is not copied. Rotated pages are split the way you
+see them. If the page has a trim size (TrimBox), the split lines lie in the trim size and the bleed
+area is preserved outside.
 """
 from __future__ import annotations
 
@@ -25,9 +26,9 @@ class SplitSettings:
     mode: str = "halves_v"        # halves_v = links|rechts · halves_h = oben|unten · grid = Spalten × Zeilen
     cols: int = 2                 # nur bei grid
     rows: int = 2                 # nur bei grid
-    only_spreads: bool = False    # nur Seiten teilen, die doppelt so breit (bzw. hoch) wie die übrigen sind
+    only_spreads: bool = False    # only split pages that are twice as wide (or tall) as the others
     rtl: bool = False             # Reihenfolge rechts nach links (Bindung rechts)
-    use_trim: bool = True         # Teilung im Endformat (TrimBox), Anschnitt außen behalten
+    use_trim: bool = True         # split at the trim size (TrimBox), keep the bleed area outside
 
 
 def grid_of(s: SplitSettings) -> tuple[int, int]:
@@ -80,13 +81,13 @@ def _vis_rect(box, rot, r):
 
 
 def _cuts(lo, hi, n):
-    """Teilungslinien im Bereich lo…hi (sichtbar, 0…1); die äußeren Kanten bleiben 0 und 1."""
+    """Split lines in the range lo…hi (visible, 0…1); the outer edges stay 0 and 1."""
     inner = [lo + (hi - lo) * k / n for k in range(1, n)]
     return [0.0] + inner + [1.0], [lo] + inner + [hi]
 
 
 def cells(box, rot, trim, cols, rows, rtl=False):
-    """Stücke einer Seite in Lesereihenfolge: Liste (Ausschnitt, Endformat|None) in PDF-Koordinaten."""
+    """Pieces of a page in reading order: list of (clip, trim size|None) in PDF coordinates."""
     if trim:
         tu0, tu1, tv0, tv1 = _vis_rect(box, rot, trim)
     else:
@@ -130,7 +131,7 @@ def _intersect(a, b):
 
 
 def page_info(obj):
-    """(sichtbarer Ausschnitt, Drehung, Endformat|None, sichtbare Breite, sichtbare Höhe)."""
+    """(visible clip, rotation, trim size|None, visible width, visible height)."""
     media = _box(obj, "/MediaBox") or [0, 0, 612, 792]
     crop = _box(obj, "/CropBox")
     box = _intersect(media, crop) if crop else media
@@ -145,8 +146,9 @@ def page_info(obj):
 
 
 def spreads(sizes: list, cols: int, rows: int) -> set:
-    """Seiten (0-basiert), die so groß wie cols × rows der übrigen Seiten sind – z. B. Doppelseiten bei 2 × 1.
-    Bezug ist das kleinste vorkommende Format."""
+    """Pages (0-based) that are as large as cols × rows of the other pages – e.g. double pages at 2 × 1.
+        The reference is the smallest size occurring.
+    """
     if not sizes:
         return set()
     bw = min(w for w, h in sizes)
@@ -161,7 +163,7 @@ def spreads(sizes: list, cols: int, rows: int) -> set:
 
 
 def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) -> tuple[bytes, dict]:
-    """Teilt die gewählten Seiten (pages, 0-basiert; None = alle bzw. alle Doppelseiten). Ergebnis-PDF + Infos."""
+    """Split the selected pages (pages, 0-based; None = all or all double pages). Result PDF + info."""
     import io
     import pikepdf
     cols, rows = grid_of(s)

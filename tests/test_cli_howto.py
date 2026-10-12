@@ -31,7 +31,7 @@ def test_tables_consistent():
 
 
 def _examples():
-    """Alle Befehle aus den Code-Kästen der Anleitung (Fortsetzungszeilen zusammengefügt)."""
+    """All commands from the manual's code boxes (continuation lines joined)."""
     tree = ast.parse(open(GEN, encoding="utf-8").read())
     out = []
     for n in ast.walk(tree):
@@ -50,7 +50,7 @@ def _examples():
 
 
 def _prepare_inputs(tmp, examples):
-    """Für jedes Beispiel eine Eingabedatei anlegen (Name wie in der Anleitung); Liste der ausführbaren Beispiele."""
+    """Create an input file for each example (name as in the manual); list of runnable examples."""
     import test_cutcontour as tc, test_preflight as tp
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
@@ -68,19 +68,19 @@ def _prepare_inputs(tmp, examples):
         src = os.path.join(tmp, args[1])
         if args[0] == "split" and not os.path.exists(src) and args[1] != "bogen.pdf":
             import test_split
-            test_split._booklet(src)                 # Broschüre mit Doppelseiten
-        if not os.path.exists(src):                  # Motiv-Aufträge: Bogen, sonst Problem-PDF (Ebenen, Formular)
+            test_split._booklet(src)                 # booklet with double pages
+        if not os.path.exists(src):                  # motif jobs: sheet, otherwise problem PDF (layers, form)
             data = (open(os.path.join(tmp, "bogen.pdf"), "rb").read() if args[0] in ("cutcontour", "separate")
                     else tp.problem_pdf())
             open(src, "wb").write(data)
-        if "--pages" in args:                        # Seitenauswahl auf die vorhandene Seite beschränken
+        if "--pages" in args:                        # restrict page selection to the existing page
             args[args.index("--pages") + 1] = "1"
         runnable.append((cmd, args))
     return runnable
 
 
 def test_every_example_has_input():
-    """Unabhängig von Ghostscript: jedes ausführbare Beispiel hat seine Eingabedatei (Fehler aus dem Build 1.6.2)."""
+    """Independent of Ghostscript: every runnable example has its input file (bug from build 1.6.2)."""
     tmp = tempfile.mkdtemp(prefix="pm-howto-in-")
     runnable = _prepare_inputs(tmp, _examples())
     assert len(runnable) >= 15, len(runnable)
@@ -89,7 +89,7 @@ def test_every_example_has_input():
 
 
 def test_examples_run():
-    """Jedes Beispiel echt ausführen; die mit Ghostscript nur, wenn es da ist (GitHub-Build)."""
+    """Really run every example; those needing Ghostscript only if it is present (GitHub build)."""
     from pdfdruck import platform as pl
     tmp = tempfile.mkdtemp(prefix="pm-howto-")
     runnable = _prepare_inputs(tmp, _examples())
@@ -120,7 +120,7 @@ def test_examples_run():
 
 
 def test_bash_loop_verbatim():
-    """Das Ordner-Beispiel (Linux) wörtlich aus der Anleitung in einer Bash ausführen."""
+    """Run the folder example (Linux) literally from the manual in a bash shell."""
     import shutil
     if not shutil.which("bash"):
         return

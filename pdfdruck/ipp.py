@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Minimaler IPP-Client (RFC 8010/8011): fragt beim Drucker direkt ab, was in welcher Lade liegt.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Minimal IPP client (RFC 8010/8011): asks the printer directly what lies in which tray.
 
-Unabhängig von CUPS – funktioniert unter Linux und Windows und auch dann, wenn die Druckerwarteschlange
-einen Herstellertreiber (UFR II, PS) verwendet. Ausgewertet werden:
-  * media-col-ready     – geladene Medien je Lade: Quelle, Format, Grammatur, Papiertyp
-  * printer-input-tray  – Laden mit Füllstand (PWG 5100.13): leer / nicht leer
+Independent of CUPS – works on Linux and Windows and even when the print queue
+uses a vendor driver (UFR II, PS). Evaluated:
+  * media-col-ready     – loaded media per tray: source, size, grammage, paper type
+  * printer-input-tray  – trays with fill level (PWG 5100.13): empty / not empty
 """
 from __future__ import annotations
 
@@ -36,12 +36,12 @@ WANTED = ["media-col-ready", "media-ready", "printer-input-tray", "media-source-
 @dataclass
 class TrayState:
     source: str                 # z. B. tray-1, tray-2, by-pass-tray, main
-    size_mm: tuple | None = None    # (Breite, Höhe) in mm
+    size_mm: tuple | None = None    # (width, height) in mm
     size_name: str = ""         # PWG-Name, falls gemeldet (iso_a4_210x297mm)
     weight: int | None = None   # g/m²
     media_type: str = ""        # stationery, cardstock …
-    level: int | None = None    # Füllstand in %; 0 = leer; None = unbekannt
-    name: str = ""              # Anzeigename des Geräts (z. B. „Kassette 1“)
+    level: int | None = None    # fill level in %; 0 = empty; None = unknown
+    name: str = ""              # display name of the device (e.g. "Cassette 1")
 
     @property
     def empty(self) -> bool:

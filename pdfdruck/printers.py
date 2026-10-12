@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Druckeranbindung über CUPS (pycups).
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Printer integration via CUPS (pycups).
 
-Strategie:
-  * Queue mit PPD (Herstellertreiber wie escpr2 / Canon UFR II): ALLE PPD-Optionen
-    generisch auslesen -> komplette Treiberfunktionalität ohne Einzelimplementierung.
-  * Queue ohne PPD (reines IPP / CUPS 3): *-supported-Attribute als Optionen.
+Strategy:
+  * Queue with a PPD (vendor driver like escpr2 / Canon UFR II): read ALL PPD options
+    generically -> full driver functionality without per-driver implementations.
+  * Queue without a PPD (pure IPP / CUPS 3): *-supported attributes as options.
 
-Die Queue-Defaults in CUPS werden von diesem Modul NIE verändert. Optionen werden
-pro Job vollständig mitgeschickt.
+The queue defaults in CUPS are NEVER changed by this module. Options are sent
+in full with every job.
 """
 from __future__ import annotations
 
@@ -31,11 +31,11 @@ except ImportError:  # erlaubt Import ohne CUPS (Tests, Doku)
 
 INSTALLABLE_GROUP = "InstallableOptions"
 
-# Optionen, die das Programm selbst regelt bzw. die nie mitgeschickt werden dürfen
+# options the program handles itself or that must never be sent along
 SKIP_KEYS = {"PageRegion", "number-up", "fit-to-page", "print-scaling",
              "copies", "collate", "page-ranges", "orientation-requested"}
 
-# Kandidaten für die "Basis"-Felder (Hersteller benennen unterschiedlich)
+# candidates for the "basic" fields (manufacturers name them differently)
 ROLE_KEYS = {
     "pagesize": ["PageSize", "media"],
     "source": ["InputSlot", "MediaSource", "media-source", "CNInputSlot", "EPIJ_FdSo"],
@@ -52,8 +52,8 @@ ROLE_TEXT = {
     "color": re.compile(r"farb(modus|e)|colou?r\s*mode|grayscale|graustufen|\bink\b", re.I),
 }
 
-# Rückfall-Tabelle (mm, Hochformat) für Papiernamen, falls der Treiber keine Maße liefert.
-# Präfix "T" bzw. ".Borderless"/"FULL" = randlos (gleiches Maß, kein Rand).
+# fallback table (mm, portrait) for paper names if the driver provides no sizes.
+# prefix "T" or ".Borderless"/"FULL" = borderless (same size, no margin).
 STD_SIZES_MM = {
     "A0": (841, 1189), "A1": (594, 841), "A2": (420, 594), "A3": (297, 420), "A4": (210, 297),
     "A5": (148, 210), "A6": (105, 148), "A3+": (329, 483), "SRA3": (320, 450), "B4": (257, 364),
@@ -68,7 +68,7 @@ STD_SIZES_MM = {
 
 
 def std_size(name: str):
-    """(w, h, randlos) in pt für einen Papiernamen wie 'A3', 'TA4', 'A4.Borderless' – oder None."""
+    """(w, h, borderless) in pt for a paper name like 'A3', 'TA4', 'A4.Borderless' – or None."""
     n = name.upper().replace(" ", "")
     borderless = False
     for suf in (".BORDERLESS", ".FULLBLEED", ".FB", "_BORDERLESS"):
@@ -93,7 +93,7 @@ _PPD_DIM = re.compile(r'^\*(PaperDimension|ImageableArea)\s+([^/:\s]+)(?:/[^:]*)
 
 
 def parse_ppd_dimensions(path: str):
-    """Liest *PaperDimension / *ImageableArea direkt aus der PPD-Datei (zuverlässiger als pycups)."""
+    """Reads *PaperDimension / *ImageableArea directly from the PPD file (more reliable than pycups)."""
     dims, areas = {}, {}
     try:
         with open(path, "rb") as f:
@@ -149,7 +149,7 @@ class PrinterInfo:
     state: int
     state_message: str
     is_default: bool
-    uri: str = ""                 # Geräteadresse (Linux: device-uri, Windows: Anschluss)
+    uri: str = ""                 # device address (Linux: device-uri, Windows: port)
 
     @property
     def state_text(self) -> str:
@@ -172,12 +172,12 @@ class PrinterCaps:
         return {k: o.default for k, o in self.options.items() if not o.installable}
 
     def sheet_for(self, values: dict[str, str]):
-        """(breite, höhe, imageable) für die aktuell gewählte Papiergröße."""
+        """(width, height, imageable) for the currently selected paper size."""
         w, h, ia, _exact = self.sheet_info(values)
         return w, h, ia
 
     def sheet_info(self, values: dict[str, str]):
-        """Wie sheet_for, plus ob das Maß wirklich bekannt ist (False = Notlösung A4)."""
+        """Like sheet_for, plus whether the size is really known (False = fallback A4)."""
         key = self.roles.get("pagesize")
         val = values.get(key) if key else None
         if self.backend == "win" and val is not None and not str(val).startswith(CUSTOM_PREFIX):
@@ -196,7 +196,7 @@ class PrinterCaps:
             return w, h, self.imageable.get(val), True
         if val is not None:
             std = std_size(val)
-            if std is None and key in self.options:      # über den Anzeigetext versuchen ("DIN A3")
+            if std is None and key in self.options:      # try via the display text ("DIN A3")
                 txt = next((c.text for c in self.options[key].choices if c.value == val), "")
                 std = std_size(txt.replace("DIN", "").strip())
             if std:
@@ -223,10 +223,10 @@ class PrinterCaps:
         return bad
 
     def job_options(self, values: dict[str, str]) -> dict[str, str]:
-        """Vollständiger, deterministischer Optionssatz für den Job.
+        """Complete, deterministic set of options for the job.
 
-        Es werden ALLE Treiberoptionen mitgeschickt (nicht nur geänderte), damit
-        weder ~/.cups/lpoptions noch spätere Queue-Änderungen hineinpfuschen.
+                ALL driver options are sent (not only changed ones), so that
+                neither ~/.cups/lpoptions nor later queue changes can interfere.
         """
         out = {}
         for k, opt in self.options.items():
@@ -272,7 +272,7 @@ _MMPT = 72.0 / 25.4
 
 
 def custom_value(w_mm: float, h_mm: float) -> str:
-    """Papierwert wie bei CUPS/PPD: Custom.85x55mm (Breite × Höhe)."""
+    """Paper value as in CUPS/PPD: Custom.85x55mm (width × height)."""
     return f"{CUSTOM_PREFIX}{w_mm:g}x{h_mm:g}mm"
 
 
@@ -309,8 +309,9 @@ def save_custom_sizes(sizes: list[dict]) -> None:
 
 
 def apply_custom_sizes(caps: "PrinterCaps", sizes: list[dict] | None = None) -> None:
-    """Sonderformate in die Papierliste eines Druckers bzw. „Als PDF speichern“ einhängen (vorherige ersetzen).
-    Gedruckt wird mit PageSize/media = Custom.BxHmm (CUPS) bzw. DMPAPER_USER (Windows)."""
+    """Hook custom sizes into a printer's paper list or "Save as PDF" (replacing previous ones).
+        Printing uses PageSize/media = Custom.BxHmm (CUPS) or DMPAPER_USER (Windows).
+    """
     sizes = load_custom_sizes() if sizes is None else sizes
     key = caps.roles.get("pagesize")
     if not key or key not in caps.options:
@@ -320,7 +321,7 @@ def apply_custom_sizes(caps: "PrinterCaps", sizes: list[dict] | None = None) -> 
     for k in [k for k in caps.page_sizes if str(k).startswith(CUSTOM_PREFIX)]:
         caps.page_sizes.pop(k, None)
         caps.imageable.pop(k, None)
-    # Ränder des Druckers vom Standardformat übernehmen (Sonderformate kennt der Treiber oft nicht im Voraus)
+    # take the printer margins from the standard size (the driver often does not know custom sizes in advance)
     margins = None
     if caps.backend != "pdf":
         ref = opt.default if opt.default in caps.imageable else next(iter(caps.imageable), None)

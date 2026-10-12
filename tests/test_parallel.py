@@ -56,7 +56,7 @@ def test_multipage_one_pool_same_result():
     finally:
         cutcontour.WorkerPool.get = orig
     ser, n_ser = cutcontour.make(two, cutcontour.CutSettings(), workers=1)
-    assert len(starts) == 1, starts                         # einmal gestartet, für beide Seiten verwendet
+    assert len(starts) == 1, starts                         # started once, used for both pages
     assert n_par == n_ser == 160 and len(par) == len(ser) == 2
     for i in range(2):
         a = np.asarray(par[i].render(scale=0.5).to_pil())
@@ -65,7 +65,7 @@ def test_multipage_one_pool_same_result():
 
 
 def test_pages_parallel_equals_serial():
-    """Mehrere Seiten gleichzeitig (jeder Arbeitsprozess eine ganze Seite) – bitgleich zu seriell, Seite für Seite."""
+    """Several pages at once (each worker process one whole page) – bit-identical to serial, page by page."""
     import test_cli as tcl
     norm = objects.normalized(pdfium.PdfDocument(tcl._slow_input()))
     s = cutcontour.CutSettings(clean_seams=True)
@@ -97,7 +97,7 @@ def test_cancel_leaves_no_workers():
     except core.Cancelled:
         pass
     assert not multiprocessing.active_children(), multiprocessing.active_children()
-    # Seiten-Modus (mehrere Seiten gleichzeitig): Abbruch ebenfalls ohne übrige Arbeitsprozesse
+    # page mode (several pages at once): cancellation also without leftover worker processes
     calls.clear()
     try:
         cutcontour.make(pdfium.PdfDocument(tcl._slow_input()), cutcontour.CutSettings(), pages=[0, 1, 2, 3],

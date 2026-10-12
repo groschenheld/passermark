@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v6
       - name: Build dependencies
         run: |
           sudo apt-get update
@@ -24,7 +23,7 @@ jobs:
       - name: Tests
         run: |
           .venv/bin/pip install reportlab numpy
-          # nur zum Testen (nach dem AppImage-Bau, kommt nicht ins Paket): erzeugte QR-/EAN-Codes wirklich lesen
+          # for testing only (after AppImage build, not shipped in the package): actually read the generated QR/EAN codes
           .venv/bin/pip install opencv-python-headless || echo "OpenCV nicht installierbar – Lese-Tests übersprungen"
           .venv/bin/python tests/test_layout.py
           .venv/bin/python tests/test_l10n.py
@@ -56,6 +55,7 @@ jobs:
           name: Passermark-Linux-AppImage
           path: dist/*.AppImage
           if-no-files-found: error
+          retention-days: 3
       - name: Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

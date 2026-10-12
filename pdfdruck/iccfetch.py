@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""ICC-Profile beschaffen: Download per Link, Entpacken (ZIP, Treiberpakete via 7z), Prüfen.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Obtaining ICC profiles: download via link, unpacking (ZIP, driver packages via 7z), validation.
 
-Es gibt keinen zentralen Profil-Server – Hersteller und Papierfirmen bieten Profile auf
-Download-Seiten (meist als ZIP) bzw. im Windows-/Mac-Treiberpaket an. Darum:
-Bezugsquellen öffnen -> Datei laden -> hier importieren (Datei, ZIP, .exe/.dmg/.cab oder direkter Link).
+There is no central profile server – manufacturers and paper companies offer profiles on
+download pages (mostly as ZIP) or inside the Windows/Mac driver package. Therefore:
+open the sources -> download a file -> import here (file, ZIP, .exe/.dmg/.cab or a direct link).
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 
-MAX_DOWNLOAD = 400 << 20          # Treiberpakete können groß sein
+MAX_DOWNLOAD = 400 << 20          # driver packages can be large
 ICC_EXT = (".icc", ".icm")
 
 # Bezugsquellen (Stand 10/2026). "match": Teilstrings im Druckermodell (klein), leer = immer zeigen.
@@ -164,7 +164,7 @@ def _seven_zip(path: str, dest: str) -> list[str]:
 
 
 def extract_icc(path: str, dest: str) -> list[IccInfo]:
-    """Datei/Archiv -> Liste gültiger ICC-Profile (doppelte Profile werden zusammengefasst)."""
+    """File/archive -> list of valid ICC profiles (duplicate profiles are merged)."""
     low = path.lower()
     files: list[str] = []
     if low.endswith(ICC_EXT) or icc_info(path):

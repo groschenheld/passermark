@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Übersetzungen: vollständig, Platzhalter identisch, Rückfall auf Deutsch."""
+"""Translations: complete, placeholders identical, fallback to German."""
 import ast, glob, importlib, os, re, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ["PASSERMARK_LANG"] = "de"
@@ -41,7 +41,7 @@ def test_catalogs_complete_and_consistent():
 def test_switch_and_fallback():
     l10n.set_language("fr")
     assert l10n.tr("Drucken…") == "Imprimer…"
-    assert l10n.tr("gibt es nicht") == "gibt es nicht"        # unbekannt -> unverändert
+    assert l10n.tr("gibt es nicht") == "gibt es nicht"        # unknown -> unchanged
     l10n.set_language("de")
     assert l10n.tr("Drucken…") == "Drucken…"
 

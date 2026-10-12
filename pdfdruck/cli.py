@@ -1,23 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Kommandozeile: Aufträge ohne Oberfläche ausführen.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Command line: run jobs without a GUI.
 
     passermark-cli list
-    passermark-cli settings cutcontour                       (Standard-Einstellungen als JSON = Preset-Vorlage)
-    passermark-cli cutcontour ein.pdf aus.pdf --set shape=rect --set bleed_mm=2
-    passermark-cli cutcontour ein.pdf aus.pdf --preset sticker.json --pages 1,3-5
-    passermark-cli cutcontour ein.pdf aus.pdf --preset Sticker               (im Programm gespeichertes Preset)
-    passermark-cli presets [auftrag]                         (gespeicherte Presets auflisten)
-    passermark-cli beispiele [zielordner]                   (Beispiele für Variable Daten holen + Presets)
-    passermark-cli datenarten                                (Datenarten für Tabellen: vcard, wifi, email …)
-    passermark-cli datenvorlage vcard karten.csv             (leere Tabelle mit den passenden Spalten)
-    passermark-cli datencheck karten.csv [art]               (Tabelle prüfen; Rückgabe 1 bei Problemen)
-    passermark-cli … --json-progress                         (Fortschritt als JSON-Zeilen, für die Oberfläche)
+    passermark-cli settings cutcontour                       (default settings as JSON = preset template)
+    passermark-cli cutcontour in.pdf out.pdf --set shape=rect --set bleed_mm=2
+    passermark-cli cutcontour in.pdf out.pdf --preset sticker.json --pages 1,3-5
+    passermark-cli cutcontour in.pdf out.pdf --preset Sticker               (preset saved in the program)
+    passermark-cli presets [auftrag]                         (list saved presets)
+    passermark-cli beispiele [zielordner]                   (fetch examples for variable data + presets)
+    passermark-cli datenarten                                (data kinds for tables: vcard, wifi, email …)
+    passermark-cli datenvorlage vcard karten.csv             (empty table with the matching columns)
+    passermark-cli datencheck karten.csv [art]               (validate a table; return code 1 on problems)
+    passermark-cli … --json-progress                         (progress as JSON lines, for the GUI)
 
-Rückgabe: 0 = ok, 1 = Fehler, 2 = falscher Aufruf, 130 = abgebrochen (Strg+C).
+Return value: 0 = ok, 1 = error, 2 = wrong invocation, 130 = cancelled (Ctrl+C).
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def parse_pages(text: str | None) -> list[int] | None:
 
 
 def _value(text: str):
-    """Wert aus --set: JSON, wenn möglich (Zahlen, true/false, Listen), sonst Text."""
+    """Value from --set: JSON if possible (numbers, true/false, lists), otherwise text."""
     try:
         return json.loads(text)
     except ValueError:
@@ -61,7 +61,7 @@ def _value(text: str):
 
 
 def apply_sets(settings: dict, sets: list[str]) -> dict:
-    """--set a=1 --set detect.tolerance=40 in ein (verschachteltes) dict übernehmen."""
+    """Apply --set a=1 --set detect.tolerance=40 to a (nested) dict."""
     for item in sets or []:
         if "=" not in item:
             raise ValueError(item)
@@ -101,8 +101,9 @@ class _Reporter:
 
 
 def _rebase_paths(settings: dict, base: str) -> None:
-    """Relative Datei-Angaben im Preset (z. B. csv_path) gelten relativ zur Preset-Datei, wenn es sie im aktuellen
-    Ordner nicht gibt – so laufen mitgelieferte Presets von überall."""
+    """Relative file references in the preset (e.g. csv_path) are relative to the preset file if it does not
+        exist in the current folder – so bundled presets work from anywhere.
+    """
     for key in ("csv_path",):
         v = settings.get(key)
         if isinstance(v, str) and v and not os.path.isabs(v) and not os.path.exists(v):
@@ -113,7 +114,7 @@ def _rebase_paths(settings: dict, base: str) -> None:
 
 
 def _data_cmd(a) -> int:
-    """Datentabellen für variable Daten: Arten anzeigen, leere Vorlage schreiben, Tabelle prüfen."""
+    """Data tables for variable data: show kinds, write an empty template, validate a table."""
     from . import datakinds, vdp
     from .l10n import tr
     if a.job == "datenarten":
@@ -149,7 +150,7 @@ def _data_cmd(a) -> int:
         return EXIT_ERROR
     print(tr("{0}: {1} Datensätze, Art {2}").format(a.input, len(rows), kind))
     for r, col, msg in probs:
-        where = tr("Zeile {0}").format(r + 2) if r >= 0 else tr("Tabelle")      # +2: Kopfzeile, ab 1 gezählt
+        where = tr("Zeile {0}").format(r + 2) if r >= 0 else tr("Tabelle")      # +2: header line, counted from 1
         print(f"  {where}{' · ' + col if col else ''}: {msg}")
     if not probs:
         print("  " + tr("Alles in Ordnung"))
@@ -174,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     import faulthandler
-    faulthandler.enable()                   # harter Absturz -> Ausgabe auf stderr (landet im Protokoll der Oberfläche)
+    faulthandler.enable()                   # hard crash -> output to stderr (ends up in the GUI log)
     from . import core
     from .l10n import tr
     parser = build_parser()
@@ -232,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def fail(msg, code, raw=None):
         rep.finish_line()
-        if a.json_progress:                     # für Programme ohne „Fehler:“-Vorsatz (das Fenster heißt schon so)
+        if a.json_progress:                     # for programs without an "Error:" prefix (the window is already titled that way)
             rep.emit(event="cancelled" if code == EXIT_CANCELLED else "error", message=raw or msg)
         else:
             print(msg, file=sys.stderr)
@@ -258,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, KeyError) as e:
         return fail(tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
 
-    # Abbrechen: Strg+C (KeyboardInterrupt) bzw. SIGTERM (Oberfläche) -> sauber, ohne halbe Datei
+    # cancel: Ctrl+C (KeyboardInterrupt) or SIGTERM (GUI) -> clean, without a half-written file
     stop = {"flag": False}
 
     def on_term(_sig, _frm):

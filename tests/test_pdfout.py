@@ -3,7 +3,7 @@
 """Als PDF speichern + Formularwerte beim Druck (Flatten)."""
 import os, sys
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
 from pdfdruck import config, layout, printers, printjob

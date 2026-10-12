@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Installation (als root): sudo ./install.sh
-# Legt ein eigenes venv an (PEP 668), python3-cups kommt aus apt (--system-site-packages).
+# Installation (as root): sudo ./install.sh
+# Creates its own venv (PEP 668), python3-cups comes from apt (--system-site-packages).
 set -eu
 [ "$(id -u)" -eq 0 ] || { echo "Bitte mit sudo ausführen."; exit 1; }
 cd "$(dirname "$0")"
@@ -27,12 +27,12 @@ cp -r pdfdruck "$LIB/"
 
 chown -R root:root "$LIB"; chmod -R go-w "$LIB"
 
-# Root-Helper braucht keine Fremdpakete -> System-Python
+# Root helper needs no third-party packages -> system Python
 install -D -m 755 -o root -g root admin/passermark-admin /usr/libexec/passermark-admin
 install -D -m 644 data/at.hias.passermark.policy /usr/share/polkit-1/actions/at.hias.passermark.policy
 install -D -m 644 data/passermark.desktop /usr/share/applications/passermark.desktop
 install -D -m 644 data/passermark.svg /usr/share/icons/hicolor/scalable/apps/passermark.svg
-# Nautilus-Kontextmenü (Bilder: „Als PDF öffnen“, PDFs: „Drucken“)
+# Nautilus context menu (images: "Open as PDF", PDFs: "Print")
 install -D -m 644 data/passermark_nautilus.py /usr/share/nautilus-python/extensions/passermark_nautilus.py
 
 

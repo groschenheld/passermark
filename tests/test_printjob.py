@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# Public License, Version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 import os, sys
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # Tests prüfen deutsche Texte
+_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 import test_backend as tb                      # Fake-pycups
@@ -40,7 +40,7 @@ def test_print_pdf_defaults():
     assert opts["print-scaling"] == "none" and opts["InputSlot"] == "Auto"
 
 def test_custom_size_pdf_and_cups():
-    """Sonderformate: dauerhaft gespeichert, bei „Als PDF speichern“ und bei CUPS-Druckern wählbar und gespoolt."""
+    """Custom formats: stored permanently, selectable and spooled with "Save as PDF" and with CUPS printers."""
     import tempfile
     os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
     os.environ["APPDATA"] = os.environ["XDG_CONFIG_HOME"]

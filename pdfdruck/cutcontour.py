@@ -1,22 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""CutContour für Schneideplotter (Roland VersaWorks u. a.) mit automatisch erzeugtem Überfüller.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""CutContour for cutting plotters (Roland VersaWorks and others) with automatically generated bleed.
 
-Ablauf je Objekt (Seite normalisiert, siehe objects.py):
-  1. Objekt aus dem Bogen herauslösen (Motivmaske, nahe Teile zusammengefasst)
-  2. Schnittform festlegen:
-       contour – folgt dem Motiv (Abstand + Glättung zum Entgittern; folgt dann bewusst nicht exakt)
-       rect, rounded, circle, oval, hexagon, octagon, heart, star, shield, arch – klassische Stickerformen
-       in Objektgröße (ohne Überfüller), skalierbar oder in fester Größe, zentriert über dem Objekt
-  3. Überfüller: Die Randfarben des Objekts werden nach außen gezogen (nächster Motivpunkt) und füllen die
-     ganze Fläche innerhalb der Schnittlinie (auch Einbuchtungen und den Raum zwischen Objekt und Linie) plus
-     „Überfüller“ über die Linie hinaus. Er liegt HINTER dem Objekt; der Schnitt liegt immer darin.
-  4. Ausgabe: Überfüller als Bild unter dem unveränderten (vektoriellen) Motiv, Schnitt als Pfad in der
-     Sonderfarbe „CutContour“ (Separation, Ersatzfarbe 100 % Magenta), Überdrucken.
-     Wahlweise auf dem Originalbogen oder jedes Objekt als eigene Seite mit Rand.
+Per-object sequence (page normalized, see objects.py):
+  1. Extract the object from the sheet (artwork mask, nearby parts merged)
+  2. Define the cut shape:
+       contour – follows the artwork (distance + smoothing for weeding; deliberately not exact afterwards)
+       rect, rounded, circle, oval, hexagon, octagon, heart, star, shield, arch – classic sticker shapes
+       at object size (without bleed), scalable or at a fixed size, centered over the object
+  3. Bleed: the object's edge colors are pulled outward (nearest artwork point) and fill the
+     entire area inside the cut line (including bays and the space between object and line) plus
+     "bleed" beyond the line. It lies BEHIND the object; the cut line always sits inside it.
+  4. Output: bleed as an image under the unchanged (vector) artwork, cut as a path in the
+     spot color "CutContour" (separation, alternate color 100 % magenta), overprint.
+     Optionally on the original sheet, or each object as its own page with a margin.
 """
 from __future__ import annotations
 
@@ -36,23 +36,23 @@ class CutSettings:
     shape: str = "contour"
     fit: str = "motif"             # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
                                    # "motif" = ums erkannte Motiv (gerechnet)
-    offset_mm: float = 0.0         # Schnitt: + nach außen, − nach innen (vom Motiv bzw. von der Objektgröße)
-    bleed: bool = True             # Überfüller erzeugen (aus = Motiv unverändert, z. B. für weiße Ränder)
-    bleed_mm: float = 2.0          # Überfüller (ab Objekt, mindestens so weit über die Schnittlinie)
-    smooth_mm: float = 1.5         # nur Kontur: Buchten < 2× werden überbrückt, Kanten gerundet
-    inner: bool = False            # nur Kontur: Innenkonturen (Löcher) mitschneiden
+    offset_mm: float = 0.0         # cut: + outward, − inward (from the artwork or the object size)
+    bleed: bool = True             # create bleed (off = artwork unchanged, e.g. for white margins)
+    bleed_mm: float = 2.0          # bleed (from the object, at least this far beyond the cut line)
+    smooth_mm: float = 1.5         # contour only: bays < 2× are bridged, edges rounded
+    inner: bool = False            # contour only: also cut inner contours (holes)
     corner_mm: float = 3.0         # abgerundetes Rechteck: Eckenradius
-    scale_pct: float = 100.0       # Formen: Größe relativ zum Objekt
-    width_mm: float = 0.0          # Formen: Größe der Schnittlinie in mm (0 = aus dem Objekt + Abstand)
+    scale_pct: float = 100.0       # shapes: size relative to the object
+    width_mm: float = 0.0          # shapes: cut line size in mm (0 = from the object + distance)
     height_mm: float = 0.0
-    shift_x_mm: float = 0.0        # Formen: Versatz der Form gegenüber der Motivmitte (+ rechts)
+    shift_x_mm: float = 0.0        # shapes: offset of the shape from the artwork center (+ is right)
     shift_y_mm: float = 0.0        # (+ oben)
     min_size_mm: float = 3.0
-    bleed_color: str = ""          # "" = automatisch aus dem Motiv, sonst feste Farbe "#rrggbb" (gleichmäßiger Rand)
-    clean_seams: bool = False      # schmale Mischkanten im Motiv durch Vollfarben ersetzen (nur flächige Motive)
+    bleed_color: str = ""          # "" = automatic from the artwork, otherwise a fixed color "#rrggbb" (uniform border)
+    clean_seams: bool = False      # replace narrow blend edges inside the artwork with solid colors (flat artwork only)
     single_shape: bool = True      # Grundformen: EINE Form um das ganze Motiv (False = eine Form je Objekt)
     per_object: bool = False       # jedes Objekt als eigene Seite
-    margin_mm: float = 6.0         # Rand der Einzelseiten um Überfüller/Schnitt
+    margin_mm: float = 6.0         # margin of the individual pages around bleed/cut
     spot: str = "CutContour"
     stroke_pt: float = 0.25
     detect: DetectSettings = field(default_factory=lambda: DetectSettings(gap_mm=1.0))
@@ -64,9 +64,9 @@ class CutObject:
     bleed_rgba: object = None      # numpy (h, w, 4)
     bleed_box: tuple | None = None # (x0, y0, x1, y1) pt
     motif_box: tuple = (0, 0, 0, 0)
-    box: tuple = (0, 0, 0, 0)      # Ausdehnung von Schnitt + Überfüller
+    box: tuple = (0, 0, 0, 0)      # extent of cut + bleed
     clip: list = field(default_factory=list)   # Umriss des Objekts (nur bei Motiven mit Hintergrund)
-    overlay_rgba: object = None    # bereinigte Mischkanten (über dem Motiv)
+    overlay_rgba: object = None    # cleaned blend edges (above the artwork)
     overlay_box: tuple | None = None
 
 
@@ -78,7 +78,7 @@ class CutResult:
     dpi: int = 0
 
     @property
-    def paths(self):               # alle Schnittpfade (für Vorschau/Zählung)
+    def paths(self):               # all cut paths (for preview/counting)
         return [p for o in self.objects for p in o.paths]
 
 
@@ -116,7 +116,7 @@ def shape_polygon(kind: str, cx: float, cy: float, w: float, h: float, corner: f
         return np.array(pts)
     if kind in ("circle", "oval"):
         if kind == "circle":
-            w = h = max(w, h)                  # um das ganze Motiv herum (größere Seite), nicht hindurch
+            w = h = max(w, h)                  # around the entire artwork (larger side), not through it
         n = max(48, int(math.pi * (w + h) / 2 / step))
         t = np.linspace(0, 2 * math.pi, n, endpoint=False)
         return np.column_stack([cx + w / 2 * np.cos(t), cy + h / 2 * np.sin(t)])
@@ -136,7 +136,7 @@ def shape_polygon(kind: str, cx: float, cy: float, w: float, h: float, corner: f
         y = 13 * np.cos(t) - 5 * np.cos(2 * t) - 2 * np.cos(3 * t) - np.cos(4 * t)
         return _fit(np.column_stack([x, y]), cx, cy, w, h)
     if kind == "shield":
-        # Wappen: oben gerade, Seiten senkrecht, unten in zwei Bögen zur Spitze
+        # crest: straight top, vertical sides, two bottom arcs meeting at the tip
         right = [(1 - tt, 0.15 - 1.15 * math.sin(tt * math.pi / 2)) for tt in np.linspace(0, 1, 60)]
         left = [(-x, y) for x, y in reversed(right)]
         return _fit([(-1, 1), (1, 1)] + right + left[1:], cx, cy, w, h)
@@ -153,7 +153,7 @@ SMOOTH_KINDS = {"contour"}
 
 # --------------------------------------------------------------------------- #
 def _resample(pts, step):
-    """Geschlossene Punktfolge gleichmäßig nach Bogenlänge neu verteilen (verhindert Überschwinger)."""
+    """Redistribute a closed point sequence evenly by arc length (prevents overshoot)."""
     import numpy as np
     closed = np.vstack([pts, pts[:1]])
     seg = np.hypot(*np.diff(closed, axis=0).T)
@@ -185,9 +185,10 @@ def line_ops(poly) -> str:
 
 
 def _offset_shape(s: CutSettings, w, h):
-    """Formgröße: angegebene Größe gilt EXAKT als Schnittlinie; ohne Angabe Objektgröße + Abstand.
-    Nur eine Angabe (Breite oder Höhe): das Seitenverhältnis des Objekts bleibt."""
-    k = s.scale_pct / 100.0                      # nur noch für Aufrufer der Programmschnittstelle (Oberfläche: 100)
+    """Shape size: the given size applies EXACTLY as the cut line; without a value, object size + distance.
+        With only one value (width or height): the object's aspect ratio is kept.
+    """
+    k = s.scale_pct / 100.0                      # only for API callers any more (GUI: 100)
     if s.width_mm > 0 and s.height_mm > 0:
         return max(1.0, s.width_mm * MM * k), max(1.0, s.height_mm * MM * k)
     off = 2 * s.offset_mm * MM
@@ -200,7 +201,7 @@ def _offset_shape(s: CutSettings, w, h):
 
 # --------------------------------------------------------------------------- #
 def _solid_palette(core_px, bg, tol):
-    """Vollfarben eines Objekts (häufige Farben im Kern) und Anteil der Kernpixel, die einer davon entsprechen."""
+    """Solid colors of an object (frequent colors in the core) and the share of core pixels matching one of them."""
     import numpy as np
     from PIL import Image
     pix = core_px.reshape(-1, 3)
@@ -211,7 +212,7 @@ def _solid_palette(core_px, bg, tol):
     q = Image.fromarray(pix.reshape(-1, 1, 3).astype(np.uint8), "RGB").quantize(
         colors=24, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     raw = q.getpalette() or []
-    n = max(1, len(raw) // 3)                          # bei wenigen Farben liefert Pillow eine kürzere Palette
+    n = max(1, len(raw) // 3)                          # with few colors, Pillow returns a shorter palette
     pal = np.asarray(raw[:n * 3], dtype=np.int16).reshape(n, 3)
     counts = np.bincount(np.asarray(q).ravel(), minlength=n)[:n]
     keep = counts >= max(1, 0.01 * len(pix))
@@ -220,7 +221,7 @@ def _solid_palette(core_px, bg, tol):
     pal = pal[keep]
     if len(pal) == 0:
         return None, 0.0
-    # exakte Farbtöne: Median der echten Pixel je Farbgruppe (bei Flächenfarben = Originalwert)
+    # exact hues: median of the real pixels per color group (for solid colors = original value)
     p16 = pix.astype(np.int16)
     lab = _nearest_idx(p16, pal)
     for i in range(len(pal)):
@@ -250,11 +251,12 @@ def _nearest_dist(flat, pal):
 
 
 def _unmix_labels(px, pal, bg, solid_tol):
-    """Jedem Pixel die Vollfarbe zuordnen, aus der es durch Mischung entstanden ist.
+    """Assign every pixel to the solid color it was mixed from.
 
-    Ein Kantenpixel liegt (physikalisch) auf der Linie Vollfarbe–Hintergrund bzw. Vollfarbe–Vollfarbe. Gewählt
-    wird die Linie mit dem kleinsten Abstand; bei zwei Vollfarben die nähere Seite. So wird helles Rosa eindeutig
-    Rot – auch wenn es im einfachen RGB-Abstand näher an Grün läge."""
+        An edge pixel lies (physically) on the line solid color–background or solid color–solid color. The line
+        with the smallest distance is chosen; between two solid colors, the nearer side. That way light pink is
+        unambiguously red – even if by simple RGB distance it would be closer to green.
+    """
     import numpy as np
     P = px.reshape(-1, 3).astype(np.float32)
     C = pal.astype(np.float32)
@@ -265,7 +267,7 @@ def _unmix_labels(px, pal, bg, solid_tol):
         return lab
     d0 = ((P[:, None, :] - C[None, :, :]) ** 2).sum(axis=2)
     lab = d0.argmin(axis=1)
-    rest = np.where(d0.min(axis=1) > solid_tol ** 2)[0]          # nur Misch-/Kantenpixel genauer prüfen
+    rest = np.where(d0.min(axis=1) > solid_tol ** 2)[0]          # examine only blend/edge pixels closely
     if len(rest) == 0:
         return lab
     Q = P[rest]
@@ -286,7 +288,7 @@ def _unmix_labels(px, pal, bg, solid_tol):
         bl = np.where(upd, pick, bl)
     for k in range(K):
         line(B, C[k], -1, k)                                       # Hintergrund–Vollfarbe
-    top = np.argsort(-np.bincount(lab, minlength=K))[:8]           # Vollfarbe–Vollfarbe (häufigste)
+    top = np.argsort(-np.bincount(lab, minlength=K))[:8]           # solid–solid (most common)
     for i in range(len(top)):
         for j in range(i + 1, len(top)):
             line(C[top[i]], C[top[j]], int(top[i]), int(top[j]))
@@ -295,8 +297,9 @@ def _unmix_labels(px, pal, bg, solid_tol):
 
 
 def _snap_to_solid(fill, core_px, bg, tol):
-    """Jede Überfüller-Farbe auf die nächste Vollfarbe des Objekts setzen (siehe _solid_palette).
-    Bei Fotos (viele Töne) bleiben die Farben ähnlich – sie liegen hinter dem Objekt bzw. außerhalb des Schnitts."""
+    """Set every bleed color to the object's nearest solid color (see _solid_palette).
+        For photos (many tones) the colors stay similar – they lie behind the object or outside the cut.
+    """
     import numpy as np
     pal, _share = _solid_palette(core_px, bg, tol)
     if pal is None:
@@ -307,7 +310,7 @@ def _snap_to_solid(fill, core_px, bg, tol):
 
 @dataclass
 class _ObjCtx:
-    """Seitenweite Werte, die jedes Objekt braucht (klein, wird an Arbeitsprozesse übergeben)."""
+    """Page-wide values every object needs (small, passed to the worker processes)."""
     s: CutSettings
     pad: int
     px: float
@@ -325,8 +328,9 @@ PARALLEL_MIN_PIXELS = 1_500_000     # Summe der Arbeitsfenster (Bildpunkte)
 
 
 def default_workers() -> int:
-    """Arbeitsprozesse für paralleles Rechnen: alle Kerne bis auf einen (für die Oberfläche), höchstens 8.
-    Begrenzen mit der Umgebungsvariable PASSERMARK_WORKERS (z. B. 2; 1 = nicht parallel)."""
+    """Worker processes for parallel computation: all cores but one (for the GUI), at most 8.
+        Limit with the environment variable PASSERMARK_WORKERS (e.g. 2; 1 = not parallel).
+    """
     import os
     env = os.environ.get("PASSERMARK_WORKERS", "").strip()
     if env.isdigit() and int(env) >= 1:
@@ -335,7 +339,7 @@ def default_workers() -> int:
 
 
 class WorkerPool:
-    """Arbeitsprozesse einmal pro Auftrag starten und für alle Seiten verwenden (Start kostet ~1 s je Prozess)."""
+    """Start the worker processes once per job and use them for all pages (starting costs ~1 s per process)."""
 
     def __init__(self, workers: int):
         self.workers = workers
@@ -345,7 +349,7 @@ class WorkerPool:
         if self._ex is None:
             import multiprocessing as mp
             from concurrent.futures import ProcessPoolExecutor
-            # „spawn“: frische Prozesse (kein Erbe von pdfium/Threads), überall gleich (Linux, Windows, AppImage)
+            # "spawn": fresh processes (no inherited pdfium/threads), identical everywhere (Linux, Windows, AppImage)
             self._ex = ProcessPoolExecutor(max_workers=self.workers, mp_context=mp.get_context("spawn"))
         return self._ex
 
@@ -403,8 +407,9 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
 
 
 def _compute_object(ctx, job):
-    """Ein Objekt berechnen (Schnitt, Überfüller, Aussparung). Unabhängig von anderen Objekten -> auch in einem
-    eigenen Arbeitsprozess lauffähig. Liefert (CutObject | None, Aussparung im Fenster | None)."""
+    """Compute one object (cut, bleed, cutout). Independent of other objects -> can also run in its own
+        worker process. Returns (CutObject | None, cutout in the window | None).
+    """
     import numpy as np
     from contourpy import LineType, contour_generator
     from PIL import Image, ImageDraw
@@ -426,7 +431,7 @@ def _compute_object(ctx, job):
         if off >= 0:
             d_out = ndi.distance_transform_edt(~obj)
             region = d_out <= off if off > 0 else obj.copy()
-            # Glättung (Schließen um sm): Abstand zur Region = Abstand zum Objekt − Abstand -> ein Feld weniger
+            # smoothing (closing by sm): distance to region = distance to object − distance -> one field fewer
             dil = (d_out <= off + sm) if sm > 0 else None
         else:
             region = ndi.distance_transform_edt(obj) > -off
@@ -460,12 +465,12 @@ def _compute_object(ctx, job):
     if not paths:
         return None, None
 
-    # 3. Überfüller: die GANZE Fläche innerhalb der Schnittlinie (auch Einbuchtungen, Freiräume zwischen
-    #    Objekt und Linie) plus „Überfüller“ über die Linie hinaus – gefüllt mit den nach außen gezogenen
+    # 3. bleed: the ENTIRE area inside the cut line (including bays, gaps between
+    #    object and line) plus "bleed" beyond the line – filled with the outward-extended
     #    Randfarben des Objekts. Liegt HINTER dem Objekt, Verzerrungen sind dadurch unsichtbar bzw. werden
-    #    abgeschnitten. Der Schnitt liegt so immer im Überfüller.
+    #    trimmed. The cut line thus always sits inside the bleed.
     bleed = (cut | (ndi.distance_transform_edt(~cut) <= bl)) if use_bleed else np.zeros_like(cut)
-    # Überfüller-Farbe
+    # bleed color
     bg_vec = bg_rgb if bg_rgb is not None else np.array([255, 255, 255])
     core = obj
     for it in (max(2, int(round(0.5 * MM * px))), max(1, int(round(0.25 * MM * px))), 1):
@@ -477,22 +482,22 @@ def _compute_object(ctx, job):
     flat = pal is not None and solid_share > 0.85
     labels = None
     if s.bleed_color:
-        # feste Farbe: gleichmäßiger Rand (für Motive, bei denen die automatische Farbe nicht passt)
+        # fixed color: uniform border (for artwork where the automatic color does not fit)
         c = s.bleed_color.lstrip("#")
         fill = np.empty(obj.shape + (3,), np.uint8)
         fill[:] = (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
     elif flat:
-        # jedes Objektpixel seiner Vollfarbe zuordnen (Entmischen), dann vom nächsten Objektpixel übernehmen
+        # assign every object pixel to its solid color (unmixing), then take over from the nearest object pixel
         labels = np.full(obj.shape, -1, np.int32)
         labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
         _d, (iy, ix) = ndi.distance_transform_edt(~obj, return_indices=True)
         fill = pal[labels[iy, ix]].astype(np.uint8)
     else:
-        # Foto (keine Vollfarben): Farbe vom nächsten Kernpixel (~0,5 mm innen, ohne Mischsaum)
+        # photo (no solid colors): color from the nearest core pixel (~0.5 mm inside, without blend fringe)
         _d, (iy, ix) = ndi.distance_transform_edt(~core, return_indices=True)
         fill = rgbw[iy, ix]
     alpha = np.clip(ndi.gaussian_filter(bleed.astype(np.float32), 0.7), 0, 1)
-    alpha[cut] = 1.0                                   # innerhalb der Schnittform immer deckend (keine Löcher)
+    alpha[cut] = 1.0                                   # always opaque inside the cut shape (no holes)
     alpha = (alpha * 255).astype(np.uint8)
     img = bbox = None
     if bleed.any():
@@ -500,45 +505,45 @@ def _compute_object(ctx, job):
         by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
         rgb_b = fill[by0:by1, bx0:bx1].astype(np.uint8).copy()
         al_b = alpha[by0:by1, bx0:bx1]
-        # unsichtbare Pixel weiß: liest ein Programm/Treiber die Transparenz (SMask) nicht, erscheint sonst ein
-        # farbiges Rechteck – so bleibt es papierweiß
+        # invisible pixels white: if a program/driver cannot read the transparency (SMask), otherwise a
+        # colored rectangle appears – this way it stays paper white
         rgb_b[al_b == 0] = 255
         img = np.dstack([rgb_b, al_b])
         p0 = to_pt(bx0 + wx0, by0 + wy0)
         p1 = to_pt(bx1 + wx0, by1 + wy0)
         bbox = (p0[0], p1[1], p1[0], p0[1])
-    # Motiv mit Hintergrund (weiße Seite, Rasterbild): Original auf die Objektform begrenzen, sonst deckt
-    # der Hintergrund den Überfüller zu. Innenflächen (weiße Schrift, Löcher) bleiben erhalten.
+    # artwork with a background (white page, raster image): clip the original to the object shape, otherwise
+    # the background covers the bleed. Interior areas (white text, holes) are preserved.
     clip = []
     if ctx.has_knock:
         vis = ndi.binary_fill_holes(obj)
         if s.shape == "contour" and s.inner:
-            # Löcher, die ausgeschnitten werden, aus dem Original aussparen -> Überfüller läuft ins Loch;
-            # kleine Innenflächen (weiße Schrift u. ä.) bleiben sichtbar
+            # knock holes that will be cut out out of the original -> the bleed runs into the hole;
+            # small interior areas (white text and the like) stay visible
             holes, nh = ndi.label(vis & ~obj)
             if nh:
                 sizes = ndi.sum(np.ones_like(holes), holes, range(1, nh + 1))
                 big = np.isin(holes, np.where(sizes >= (s.min_size_mm * MM * px) ** 2 * 0.25)[0] + 1)
                 vis &= ~big
-        # Mischsaum an der Kante (Kantenglättung, weichgezeichnetes Raster) nicht zeigen – dort liegt der
-        # vollfarbige Überfüller. Flächige Motive: alles am Rand aussparen, was keiner Vollfarbe entspricht
+        # do not show the blend fringe at the edge (edge smoothing, blurred raster) – the
+        # solid-color bleed lies there. Flat artwork: knock out everything at the edge that matches no solid color
         # (max. 1,5 mm tief); Fotos (keine Vollfarben): fester kleiner Abstand.
         d_in = ndi.distance_transform_edt(vis)
         if flat:
             # am Rand nur echte Vollfarb-Pixel zeigen (enge Toleranz -> kein heller Strich an der Linie)
             tol2 = max(12, s.detect.tolerance * 0.6) ** 2
-            # nur der Randstreifen (bis 1,5 mm) wird gebraucht -> nur dort die nächste Vollfarbe suchen
+            # only the border strip (up to 1.5 mm) is needed -> search for the nearest solid color only there
             cand = vis & (d_in <= 1.5 * MM * px)
             nonsolid = np.zeros_like(vis)
             if cand.any():
                 nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
             vis &= ~nonsolid
             vis = ndi.binary_opening(vis, iterations=1)
-            # winzige Löcher (vereinzelte Mischpixel) schließen – sonst weiße Pünktchen
+            # close tiny holes (scattered blend pixels) – otherwise white speckles
             close = max(1, int(round(0.15 * MM * px)))
             vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
             thr = 0.08 * MM * px
-            if thr >= 1.0:                       # darunter ist die Bedingung für jeden Motivpunkt erfüllt
+            if thr >= 1.0:                       # beneath it, the condition is met for every artwork point
                 vis = ndi.distance_transform_edt(vis) > thr
         else:
             vis = d_in > 0.25 * MM * px
@@ -549,7 +554,7 @@ def _compute_object(ctx, job):
                 clip.append([[float((c + wx0 - pad) / px), float(H - (r_ + wy0 - pad) / px)] for c, r_ in line])
     ov_img = ov_box = None
     if s.clean_seams and flat:
-        # schmale Mischsäume IM Motiv (z. B. Rot/Grün-Kante) durch die zugeordnete Vollfarbe ersetzen
+        # replace narrow blend fringes INSIDE the artwork (e.g. a red/green edge) with the assigned solid color
         if labels is None:
             labels = np.full(obj.shape, -1, np.int32)
             labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
@@ -557,18 +562,18 @@ def _compute_object(ctx, job):
         nonsolid = np.zeros_like(obj)
         if obj.any():
             nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
-        # Säume bis ~1 mm Breite gelten als Mischkante; breitere Bereiche = gewollter Verlauf/Foto -> bleiben
+        # fringes up to ~1 mm wide count as blend edges; wider areas = intentional gradient/photo -> kept
         thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
         seam = nonsolid & ~thick
         if knock_patch is not None:
-            seam &= knock_patch           # Aussparung dieses Objekts (Objekte überlappen sich nicht)
+            seam &= knock_patch           # cutout of this object (objects do not overlap)
         if seam.any():
             yy, xx = np.where(seam)
             sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
             col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
             sm_ = seam[sy0:sy1, sx0:sx1]
-            # außerhalb der Säume das Original-Motiv: ignoriert ein Programm/Treiber die Transparenz (SMask),
-            # sieht man so nur das Motiv statt eines farbigen Rechtecks über dem Objekt
+            # outside the fringes the original artwork: if a program/driver ignores the transparency (SMask),
+            # you only see the artwork instead of a colored rectangle above the object
             col[~sm_] = rgbw[sy0:sy1, sx0:sx1][~sm_].astype(np.uint8)
             al = (sm_ * 255).astype(np.uint8)
             ov_img = np.dstack([col, al])
@@ -586,13 +591,14 @@ def _compute_object(ctx, job):
 
 
 def is_fast(s: CutSettings) -> bool:
-    """Grundform aufs Endformat: reine Geometrie – nichts rendern, nichts erkennen, kein Überfüller aus dem Motiv."""
+    """Base shape onto the trim size: pure geometry – nothing rendered, nothing detected, no bleed from the artwork."""
     return s.shape != "contour" and (s.fit or "motif") == "trim" and bool(s.single_shape)   # „je Objekt“ braucht Erkennung
 
 
 def fast_result(size, trim, s: CutSettings) -> CutResult:
-    """Schnittlinie als Grundform aufs Endformat. size = Seite (pt), trim = (links, unten, rechts, oben) Abstand
-    des Endformats vom Seitenrand in pt (layout.page_trims) oder None = ganze Seite. Größe/Abstand/Versatz wie sonst."""
+    """Cut line as a base shape onto the trim size. size = page (pt), trim = (left, bottom, right, top) distance
+        of the trim size from the page edge in pt (layout.page_trims) or None = whole page. Size/distance/offset as elsewhere.
+    """
     W, H = size
     l, b, r, t = trim or (0.0, 0.0, 0.0, 0.0)
     x0, y0, x1, y1 = l, b, W - r, H - t
@@ -612,9 +618,10 @@ def fast_result(size, trim, s: CutSettings) -> CutResult:
 
 def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progress=None,
             cancel=None, pool=None, trim=None) -> CutResult:
-    """Schnitt + Überfüller für alle Objekte einer normalisierten Seite.
-    rgba/size: schon gerenderte Seite (bei s.dpi) und Seitengröße in pt – dann wird pdfium hier nicht benutzt,
-    und die Berechnung darf in einem Hintergrund-Thread laufen (pdfium ist nicht thread-sicher)."""
+    """Cut + bleed for all objects of a normalized page.
+        rgba/size: already rendered page (at s.dpi) and page size in pt – then pdfium is not used here,
+        and the computation may run in a background thread (pdfium is not thread-safe).
+    """
     import numpy as np
     from contourpy import LineType, contour_generator
     from PIL import Image, ImageDraw
@@ -637,7 +644,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
     bl = max(0.0, s.bleed_mm * MM * px) if use_bleed else 0.0
     grow_shape = 0.0
     if s.shape != "contour":
-        # feste Größe / Skalierung kann die Form über das Objekt hinaus vergrößern
+        # fixed size / scaling can enlarge the shape beyond the object
         grow_shape = max(0.0, (s.scale_pct / 100.0 - 1) * max(mask.shape) / 2, (s.width_mm + s.height_mm) * MM * px)
         grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px     # Versatz braucht Platz
     pad = int(math.ceil(max(off, 0) + sm + bl + grow_shape + 6))
@@ -662,7 +669,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
         lab = np.isin(lab, keep).astype(np.int32) if keep else np.zeros_like(lab, dtype=np.int32)
         n = 1 if keep else 0
     out_objects = []
-    # Hintergrund nur ausstanzen, wenn ein Überfüller darunter liegt – ohne Überfüller bleibt das Motiv unverändert
+    # punch out the background only if bleed lies underneath – without bleed the artwork stays unchanged
     knock = np.zeros_like(mask) if (mode == "color" and use_bleed) else None
     jobs = []
     for k, sl in enumerate(ndi.find_objects(lab), start=1):
@@ -678,7 +685,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
         ox0, ox1 = xs.start + cols[0], xs.start + cols[-1] + 1
         if (ox1 - ox0) < minpx or (oy1 - oy0) < minpx:
             continue
-        # Arbeitsfenster um das Objekt (Platz für Abstand, Glättung, Überfüller, Formgröße)
+        # working window around the object (room for distance, smoothing, bleed, shape size)
         g = pad
         wy0, wy1 = max(0, oy0 - g), min(mask.shape[0], oy1 + g)
         wx0, wx1 = max(0, ox0 - g), min(mask.shape[1], ox1 + g)
@@ -704,9 +711,10 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
 
 # --------------------------------------------------------------------------- #
 def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
-    """Normalisiertes Dokument + Ergebnisse -> PDF mit Überfüller (unter dem Motiv) und CutContour-Pfaden.
+    """Normalized document + results -> PDF with bleed (under the artwork) and CutContour paths.
 
-    results: {Seitenindex: CutResult}. Bei per_object wird jedes Objekt eine eigene Seite."""
+        results: {page index: CutResult}. With per_object, every object becomes its own page.
+    """
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
@@ -755,8 +763,8 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
             if k in page.obj:
                 del page.obj[k]
         if single:
-            # Endformat = Schnittlinie, Anschnitt = Überfüller: beim Ausschießen (Nutzen „Überfüller an
-            # Überfüller“) liegen dann die Überfüller aneinander statt der weißen Seitenränder
+            # trim size = cut line, bleed area = bleed: when imposing (step & repeat "bleed against
+            # bleed"), the bleeds then touch each other instead of the white page margins
             pts = [pt for poly, _sm in objs[0].paths for pt in poly]
             if pts:
                 tx0, ty0 = max(box[0], min(p_[0] for p_ in pts)), max(box[1], min(p_[1] for p_ in pts))
@@ -790,10 +798,10 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
                 under.append(image(o.bleed_rgba, f"/PTBleed{j}", o.bleed_box))
             if o.overlay_rgba is not None:
                 over.append(image(o.overlay_rgba, f"/PTSeam{j}", o.overlay_box))
-        pre = "\n".join(under) + "\nq\n"        # Original einschließen: es kann das Koordinatensystem verstellen
+        pre = "\n".join(under) + "\nq\n"        # include the original: it may throw off the coordinate system
         nq = 1
         if single:
-            # nur dieses Objekt zeigen (Nachbarn auf dem Bogen ausblenden): Inhalt auf Überfüller/Objekt begrenzen
+            # show only this object (hide neighbors on the sheet): clip the content to bleed/object
             o = objs[0]
             cb = o.bleed_box or o.motif_box
             x0, y0 = min(cb[0], o.motif_box[0]), min(cb[1], o.motif_box[1])
@@ -845,7 +853,7 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
         at_once = _pages_at_once(norm, todo, s, workers) if (pool is not None and len(todo) >= 2) else 1
         if at_once >= 2:
             results, total = _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once)
-        else:                                             # eine Seite (oder zu groß): Objekte parallel
+        else:                                             # one page (or too large): objects in parallel
             results, total = _make_pages(norm, s, todo, progress, cancel, pool)
     except BaseException:
         norm.close()
@@ -858,12 +866,12 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     return _make_finish(norm, results, total, s, pages)
 
 
-PAGE_MEMORY_SHARE = 0.4             # Anteil des Arbeitsspeichers für gleichzeitig gerechnete Seiten
+PAGE_MEMORY_SHARE = 0.4             # share of RAM for pages computed simultaneously
 PAGE_MEMORY_FALLBACK = 3_000_000_000  # wenn der Arbeitsspeicher nicht ermittelbar ist
 
 
 def page_memory_budget() -> int:
-    """Bytes für gleichzeitig gerechnete Seiten (alle Arbeitsprozesse zusammen) – nach dem Rechner, mind. 1 GB."""
+    """Bytes for pages computed simultaneously (all worker processes together) – scaled by the machine, at least 1 GB."""
     from . import platform as _platform
     total = _platform.total_memory()
     return max(1_000_000_000, int(total * PAGE_MEMORY_SHARE)) if total else PAGE_MEMORY_FALLBACK
@@ -885,7 +893,7 @@ def _page_worker(path: str, i: int, s: CutSettings):
 
 
 def _pages_at_once(norm, todo, s, workers: int) -> int:
-    """Wie viele Seiten gleichzeitig gerechnet werden dürfen (nach geschätztem Speicherbedarf der größten Seite)."""
+    """How many pages may be computed simultaneously (based on the estimated memory need of the largest page)."""
     px = s.dpi / 72.0
     biggest = 0
     for i in todo:
@@ -903,7 +911,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
     fd, path = tempfile.mkstemp(prefix="passermark-cut-", suffix=".pdf")
     os.close(fd)
     try:
-        norm.save(path)                                   # normalisierte Seiten für die Arbeitsprozesse
+        norm.save(path)                                   # normalized pages for the worker processes
         ex = pool.get()
         results, total, waiting = {}, 0, list(todo)
         running = {}
@@ -915,7 +923,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
                 if cancel is not None and cancel():
                     from .core import Cancelled
                     raise Cancelled(tr("Abgebrochen."))
-                while waiting and len(running) < at_once:  # höchstens so viele Seiten, wie in den Speicher passen
+                while waiting and len(running) < at_once:  # at most as many pages as fit into memory
                     i = waiting.pop(0)
                     running[ex.submit(_page_worker, path, i, s)] = i
                 finished, _ = wait(list(running), timeout=0.2, return_when=FIRST_COMPLETED)
@@ -938,7 +946,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
 
 
 def _make_pages(norm, s, todo, progress, cancel, pool):
-    """Alle gewählten Seiten berechnen; Fortschritt je Seite und je Objekt."""
+    """Compute all selected pages; progress per page and per object."""
     results, total = {}, 0
     for k, i in enumerate(todo):
         if cancel is not None and cancel():
@@ -961,13 +969,13 @@ def _make_pages(norm, s, todo, progress, cancel, pool):
 
 
 def _make_finish(norm, results, total, s, pages):
-    """Ergebnisse zum PDF zusammensetzen (Überfüller unter dem Motiv, CutContour-Pfade)."""
+    """Assemble the results into the PDF (bleed under the artwork, CutContour paths)."""
     import pypdfium2 as pdfium
     if not total:
         norm.close()
         raise ValueError(tr("Kein Motiv gefunden – Hintergrund/Toleranz prüfen."))
     if pages is not None and s.per_object:
-        # nur gewählte Seiten -> nur deren Objekte ausgeben
+        # only selected pages -> output only their objects
         keep = sorted(results)
         tmp = pdfium.PdfDocument.new()
         tmp.import_pages(norm, keep)

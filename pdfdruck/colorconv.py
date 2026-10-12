@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Farbkonvertierung des fertigen Druck-PDFs auf ein Ausgabeprofil.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Color conversion of the finished print PDF to an output profile.
 
-Ghostscript (pdfwrite) rechnet mit dem Admin-Profil in Gerätefarben um; Vektoren
-und Text bleiben erhalten. Damit nicht doppelt konvertiert wird, kann der Admin
-pro Profil Treiberoptionen hinterlegen (z. B. Farbabgleich des Treibers AUS).
+Ghostscript (pdfwrite) converts to device colors with the admin profile; vectors
+and text are preserved. To avoid double conversion, the admin can store driver
+options per profile (e.g. the driver color matching OFF).
 """
 from __future__ import annotations
 

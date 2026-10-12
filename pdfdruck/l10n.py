@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Oberflächensprache: Deutsch (Ausgangssprache), Englisch, Ungarisch, Spanisch, Französisch.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Interface language: German (source language), English, Hungarian, Spanish, French.
 
-tr("deutscher Text") liefert den Text in der eingestellten Sprache; fehlt eine Übersetzung, bleibt der
-deutsche Text stehen. Platzhalter: tr("Seite {0} von {1}").format(a, b).
+tr("German text") returns the text in the configured language; if a translation is missing,
+the German text stays. Placeholders: tr("Page {0} of {1}").format(a, b).
 
-Sprache: Benutzereinstellung (Datei → Einstellungen) > Admin-Standard > Systemsprache > Englisch.
-Nur Standardbibliothek – auch vom Admin-Helfer importierbar.
+Language: user setting (File → Settings) > admin default > system language > English.
+Standard library only – also importable by the admin helper.
 """
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def current() -> str:
 
 
 def set_language(code: str):
-    """Für Tests/Neustart: Sprache sofort umstellen (die Oberfläche wird beim Neustart neu aufgebaut)."""
+    """For tests/restart: switch the language immediately (the GUI is rebuilt on restart)."""
     global _lang, _catalog
     _lang = code if code in LANGS else "en"
     _catalog = None
@@ -111,7 +111,7 @@ def _cat() -> dict:
 
 
 def tr(text):
-    """Deutschen Text in die eingestellte Sprache übersetzen (fehlt er, bleibt er deutsch)."""
+    """Translate a German text into the configured language (if missing, it stays German)."""
     if not isinstance(text, str) or current() == "de":
         return text
     return _cat().get(text, text)

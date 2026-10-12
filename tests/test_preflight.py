@@ -66,13 +66,13 @@ def test_analyze():
 
 def test_flatten_layers_print_state():
     data = problem_pdf()
-    assert px(data, 100, 625)[:3] == (255, 255, 255)          # Bemaßung (aus) ist ausgeblendet
+    assert px(data, 100, 625)[:3] == (255, 255, 255)          # dimension layer (off) is hidden
     out = preflight.flatten_layers(data)
     pk = pikepdf.open(io.BytesIO(out))
     assert "/OCProperties" not in pk.Root
     content = pk.pages[0].Contents.read_bytes()
     assert b"/OC" not in content and b"BDC" not in content
-    assert b"1 0 0 rg" not in content                         # Bemaßung entfernt
+    assert b"1 0 0 rg" not in content                         # dimension layer removed
     assert b"0 0 1 rg 50 500" not in content                  # Hilfslinien: Druck aus -> entfernt
     assert b"0 1 0 rg" in content                             # Verrutscht: sichtbar -> bleibt (ohne Marker)
     assert px(out, 100, 725)[:3] == (0, 0, 0)                 # Grundinhalt bleibt
@@ -94,7 +94,7 @@ def test_set_layer_states():
     st = {l.key: (True, True) for l in rep.layers}
     out = preflight.set_layer_states(data, st)
     r = px(out, 100, 625)[:3]
-    assert r[0] > 200 and r[1] < 60                           # Bemaßung jetzt sichtbar (rot)
+    assert r[0] > 200 and r[1] < 60                           # dimension layer now visible (red)
     rep2 = preflight.analyze(out, deep_layers=False)
     assert all(l.view_on and l.print_on for l in rep2.layers)
 
@@ -106,7 +106,7 @@ def test_font_name_normalize():
 
 
 def test_download_alias_and_suggestions(tmp_dir="/tmp/_pm_fonts"):
-    """fontsource.org nachgebaut: Arial -> Arimo; unbekannter Name -> Vorschläge statt nur 404."""
+    """A replica of fontsource.org: Arial -> Arimo; unknown name -> suggestions instead of just 404."""
     import json, shutil, urllib.error, urllib.request
     shutil.rmtree(tmp_dir, ignore_errors=True)
     assert preflight.free_alternative("ArialMT") == "Arimo"
@@ -148,7 +148,7 @@ def test_download_alias_and_suggestions(tmp_dir="/tmp/_pm_fonts"):
 
 
 def test_testfile_findings():
-    """Das ausgelieferte Test-PDF: alle Schriftfälle richtig eingeordnet."""
+    """The shipped test PDF: all font cases classified correctly."""
     path = "/mnt/user-data/outputs/passermark-test-fehlerhaft.pdf"
     if not os.path.exists(path):
         return

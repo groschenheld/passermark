@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Aufträge als eigener Prozess: die Oberfläche startet die Kommandozeile im Hintergrund.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Jobs as a separate process: the GUI starts the command line in the background.
 
-- kein Einfrieren der Oberfläche, echte Parallelität (eigener Prozess, eigenes pdfium)
-- ein Absturz in der Berechnung reißt das Programm nicht mit
-- Fortschritt über --json-progress, Abbrechen sauber (SIGTERM; Windows: beenden + aufräumen)
-- ohne Qt – die Oberfläche liest die Meldungen in einem Lese-Thread (nur Text, kein pdfium)
+- no GUI freeze, real parallelism (separate process, its own pdfium)
+- a crash in the computation does not take the program down with it
+- progress via --json-progress, clean cancelling (SIGTERM; Windows: terminate + clean up)
+- without Qt – the GUI reads the messages in a reader thread (text only, no pdfium)
 """
 from __future__ import annotations
 
@@ -23,26 +23,26 @@ from .l10n import tr
 
 
 def cli_command() -> tuple[list[str], dict]:
-    """Aufruf der Kommandozeile für diese Installation: (Befehl, zusätzliche Umgebung)."""
+    """Command-line invocation for this installation: (command, extra environment)."""
     if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(sys.executable)
         cli_exe = os.path.join(exe_dir, "passermark-cli.exe")
         if _platform.IS_WIN and os.path.isfile(cli_exe):
             return [cli_exe], {}                  # Windows: Konsolen-EXE (die Fenster-EXE hat keine Ausgabe)
-        return [sys.executable, "--cli"], {}      # AppImage / gebündelt: Programmdatei mit --cli
+        return [sys.executable, "--cli"], {}      # AppImage / bundled: program file with --cli
     pkg_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     pp = os.environ.get("PYTHONPATH", "")
     return [sys.executable, "-m", "pdfdruck.cli"], {"PYTHONPATH": pkg_parent + (os.pathsep + pp if pp else "")}
 
 
 class JobProcess:
-    """Einen Auftrag als eigenen Prozess ausführen.
+    """Run a job as a separate process.
 
-        job = JobProcess("cutcontour", "ein.pdf", "aus.pdf", {"shape": "rect"})
-        job.start()
-        for ev in job.events():          # {"event": "progress", "done": 1, "total": 3, "text": …}
-            …
-        result = job.wait()              # {"event": "done" | "error" | "cancelled", …}
+            job = JobProcess("cutcontour", "in.pdf", "out.pdf", {"shape": "rect"})
+            job.start()
+            for ev in job.events():          # {"event": "progress", "done": 1, "total": 3, "text": …}
+                …
+            result = job.wait()              # {"event": "done" | "error" | "cancelled", …}
     """
 
     def __init__(self, kind: str, src: str, dst: str, settings: dict | None = None,
@@ -95,7 +95,7 @@ class JobProcess:
             yield ev
 
     def cancel(self):
-        """Abbrechen: Unix sauber per SIGTERM (die Kommandozeile räumt selbst auf), Windows beenden."""
+        """Cancel: cleanly via SIGTERM on Unix (the command line cleans up itself); on Windows, terminate."""
         self.cancelled = True
         if self.proc is None or self.proc.poll() is not None:
             return
@@ -136,7 +136,7 @@ class JobProcess:
         return res
 
     def run(self, on_event=None) -> dict:
-        """Alles in einem (für Skripte/Tests): starten, Meldungen weiterreichen, Ergebnis liefern."""
+        """Everything in one (for scripts/tests): start, forward messages, return the result."""
         self.start()
         for ev in self.events():
             if on_event is not None:

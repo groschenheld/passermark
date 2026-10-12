@@ -1,0 +1,85 @@
+Passermark – Változó adatok példái (QR-kód, névjegykártya, Wi-Fi, Code 128, EAN-13)
+====================================================================================
+
+Részletesen: passermark-vdp-anleitung.pdf (a programban: Súgó → Változó adatok – Kézikönyv)
+
+Tartalom
+  vorlage-a6.pdf     üres sablon (A6 fekvő) – erre kerülnek a mezők
+  daten.csv          3 adatsor: Name;Ort;Artikelnummer;EAN (2–4. példa)
+  visitenkarten.csv  3 névjegykártya (5. példa)
+  wlan.csv           3 Wi-Fi hálózat (6. példa)
+  kontakte-outlook.csv  így néz ki egy Outlookból exportált névjegy (angol oszlopnevek)
+  presets/           az egyes példák beállításai
+  ergebnis/          így néz ki a kész PDF
+
+Letöltés (ezt a mappát a ~/Passermark-Beispiele/vdp könyvtárba másolja, és beregisztrálja a preseteket)
+  Program:        Súgó → Változó adatos példák letöltése …
+  Parancssor:     passermark-cli beispiele
+
+A programban
+  vorlage-a6.pdf megnyitása, Változó adatok (Ctrl+Shift+D),
+  a preset-sávon a „Beispiel 1" … „Beispiel 7" kiválasztása, Létrehozás.
+  Saját táblázatok: Változó adatok munkaterület → Adatok rögzítése.
+
+Parancssor (ebben a mappában)
+  passermark-cli vdp vorlage-a6.pdf ki.pdf --preset presets/beispiel-4-ean13.json
+  passermark-cli vdp vorlage-a6.pdf ki.pdf --preset "Beispiel 4 – EAN-13"
+
+-----------------------------------------------------------------
+1  QR-kód számozással (CSV nélkül, 5 jegy)
+   QR    tartalom:  https://deinefirma.at/ticket/{{nr}}
+   Szöveg tartalom: Jegy {{nr}}
+   Számozás: első szám 1, számjegyek 4  → 0001, 0002 …
+
+2  QR-kód a CSV-ből
+   QR    tartalom: {{Name}} – {{Ort}}   → „Anna Huber – Wien" (ékezetes betűk működnek)
+
+3  Code 128
+   felül   tartalom: T{{nr}}             → T0001, T0002, T0003 (4 számjegy)
+   alul    tartalom: {{Artikelnummer}}   → ART-1001 … a CSV-ből
+   9 pt méret = olvasható szövegsor alatta, 0 = nincs. Ékezet nélkül.
+
+4  EAN-13
+   balra   tartalom: {{EAN}} a CSV-ből – 13 számjegy, vagy 12 (az ellenőrző számjegy
+            kiszámítódik: 978316148410 → 9783161484100)
+   jobbra  tartalom: {{nr}} 2012345 előtaggal, 5 számjegy, ellenőrző számjegy „nincs"
+            → 201234500001 → 2012345000018  (20–29 = belső kódok számtartománya)
+
+5  QR névjegykártya (vCard) – visitenkarten.csv
+   QR-mező „QR-kód típusa": Névjegykártya (vCard)
+   A tartalom a Vorname, Nachname, Firma, Position, Telefon, Mobil, E-Mail,
+   Straße, PLZ, Ort, Land, Web, Notiz oszlopokból származik
+   → beolvasás után a telefon „Névjegy mentése" lehetőséget kínálja
+
+6  QR Wi-Fi – wlan.csv
+   QR-mező „Wi-Fi hálózat" típussal, oszlopok: Netzname, Passwort, Verschlüsselung
+   (üres = WPA), Versteckt; jelszó nélkül = nyitott hálózat
+   → a telefon beolvasás után csatlakozik
+
+7  Névjegykártya előlap/hátlap – vorlage-karte-vorne-hinten.pdf + visitenkarten.csv
+   Oldal adatsoronként: 2 (1+2. oldal = 1. névjegy, 3+4. = 2. névjegy …)
+   Name, Position, Mobil, E-Mail: „Csak ezeken az oldalakon" = páratlan (előlap)
+   QR-kód típus névjegykártya:        „Csak ezeken az oldalakon" = páros (hátlap)
+
+Változók: a tartalom melletti „?" gomb a Változó adatok párbeszédablakban
+   {{datum}} {{zeit}} {{jahr}} {{kw}} {{wochentag}} {{seite}} {{seiten}}
+   {{datensaetze}} {{datei}} {{zufall:6}} {{code:8}} {{uuid}} {{datum:%d.%m.%y}}
+
+Idegen oszlopnevek (pl. Outlook, Google, Thunderbird exportból)
+   Változó adatok → CSV megnyitása → kontakte-outlook.csv
+   → „Ez a táblázat illik hozzá: QR – névjegykártya" → Megfelelő mező létrehozása
+   Az oszlopok automatikusan hozzárendelődnek; módosítás a „Oszlopok hozzárendelése …"
+   gombbal a QR-mezőnél (pl. Position a „Title" oszlopból a „Job Title" helyett).
+   A CSV változatlan marad.
+
+Saját táblázat a parancssorban
+  passermark-cli datenvorlage vcard kontakte.csv     (üres táblázat)
+  passermark-cli datencheck kontakte.csv             (ellenőrzés)
+
+Így NEM működik (az előnézet hibát vagy hibás tartalmat mutat)
+   EAN-13 tartalom: ART-{{nr}}             → a betűk elvesznek, túl kevés számjegy
+   EAN-13 tartalom: {{nr}} 4 számjeggyel   → csak 4 számjegy
+   EAN-13 13 számjegyvel, az utolsó hibás   → hiba, a helyes számjegy megjelenik
+   Tartalom: nr ({{ }} nélkül)              → egyszerűen annyi áll ott: „nr"
+
+A kódok olvashatóságát mindig nyomtatott papíron ellenőrizze szkennelvel vagy telefonnal.

@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Lineal und Messen – reine Rechenlogik (ohne Oberfläche, daher genau testbar).
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Ruler and measuring – pure computation logic (no GUI, therefore precisely testable).
 
-Koordinaten: „Seite“ = PDF-Punkte (1/72 Zoll, y nach oben); „Bildschirm“ = Pixel der Seitenansicht (y nach unten).
-Die Umrechnung Seite -> Bildschirm (inkl. Zoom und Drehung) wird als lineare Abbildung `M` übergeben:
-M = (a, b, c, d) mit  px_x = a*dx + c*dy,  px_y = b*dx + d*dy  für einen Seitenvektor (dx, dy).
+Coordinates: "page" = PDF points (1/72 inch, y up); "screen" = pixels of the page view (y down).
+The page -> screen conversion (including zoom and rotation) is passed as a linear map `M`:
+M = (a, b, c, d) with  px_x = a*dx + c*dy,  px_y = b*dx + d*dy  for a page vector (dx, dy).
 """
 from __future__ import annotations
 
@@ -19,8 +19,9 @@ STEPS_MM = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000]
 
 
 def snap(dx: float, dy: float, enabled: bool = True) -> tuple[float, float]:
-    """Bildschirmvektor auf waagrecht / senkrecht / 45° einrasten (nächste Richtung; Grenze jeweils bei 22,5°).
-    Die Länge entlang der eingerasteten Richtung bleibt die Projektion des Mauswegs."""
+    """Snap the screen vector to horizontal / vertical / 45° (nearest direction; the boundary at 22.5° each).
+        The length along the snapped direction is the projection of the mouse path.
+    """
     if not enabled or (dx == 0 and dy == 0):
         return dx, dy
     step = math.pi / 4
@@ -67,7 +68,7 @@ def fmt(v: float, lang: str = "de", digits: int = 1) -> str:
 
 
 def describe(m: Measurement, lang: str = "de") -> str:
-    """Kurzer Text für die Statusleiste."""
+    """Short text for the status bar."""
     return (f"↔ {fmt(m.length_mm, lang)} mm   ΔX {fmt(m.dx_mm, lang)}   ΔY {fmt(m.dy_mm, lang)}   "
             f"{fmt(m.angle_deg, lang)}°")
 

@@ -11,7 +11,7 @@ MM = 72 / 25.4
 
 
 def stickers(path="/tmp/_stickers.pdf"):
-    """Kreis, „C“ mit 1 mm Schlitz, fünfzackiger Stern – ohne Seitenhintergrund (Vektor)."""
+    """Circle, "C" with a 1 mm slit, five-pointed star – without page background (vector)."""
     from reportlab.pdfgen import canvas
     c = canvas.Canvas(path, pagesize=(210 * MM, 297 * MM))
     c.setFillColorRGB(0.9, 0.2, 0.1); c.circle(50 * MM, 240 * MM, 25 * MM, fill=1, stroke=0)
@@ -80,11 +80,11 @@ def test_cut_inside_bleed_and_bleed_from_object():
         for poly, _ in o.paths:
             for x, y in poly[:: max(1, len(poly) // 50)]:
                 assert _alpha_at(o, x, y) > 200, "Schnittlinie nicht im Überfüller"
-    # Überfüller geht vom Objekt aus: 1,5 mm außerhalb des Kreismotivs (Radius 26,5) gedeckt, 4 mm außerhalb nicht
+    # bleed extends from the object: covered 1.5 mm outside the circle motif (radius 26.5), not 4 mm outside
     circ = r.objects[0]
     assert _alpha_at(circ, 50 * MM + 26.5 * MM, 240 * MM) > 200
     assert _alpha_at(circ, 50 * MM + 29 * MM, 240 * MM) < 30
-    # Schnitt 4 mm außerhalb: Zwischenraum Objekt–Linie UND 2 mm über die Linie gefüllt, mit Objektfarbe (Rot)
+    # cut 4 mm outside: the gap between object and line AND 2 mm beyond the line filled, in the object colour (red)
     r = cutcontour.compute(norm[0], cutcontour.CutSettings(offset_mm=4, bleed_mm=2, smooth_mm=0.5))
     circ = r.objects[0]
     for d in (26, 27.5, 29, 30.5):
@@ -112,27 +112,27 @@ def test_shapes_sized_to_object():
         p = near(pts(r), 50 * MM, 240 * MM)                      # Kreismotiv 50 × 50 mm
         w, h = (p[:, 0].max() - p[:, 0].min()) / MM, (p[:, 1].max() - p[:, 1].min()) / MM
         assert abs(w - 50) < 0.6 and abs(h - 50) < 0.6, (kind, w, h)
-    # Skalierung und feste Größe
+    # scaling and fixed size
     r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", scale_pct=80, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 40) < 0.6
     r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="circle", width_mm=60, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 60) < 0.6
-    # Rechteck mit -2 mm Abstand: 46 mm, Ecken scharf (Polylinie, nicht geglättet)
+    # rectangle with -2 mm offset: 46 mm, sharp corners (polyline, not smoothed)
     r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="rect", offset_mm=-2, single_shape=False))
     p = near(pts(r), 50 * MM, 240 * MM)
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 46) < 0.6 and r.paths[0][1] is False
 
 
 def test_single_shape_around_whole_motif():
-    """Standard bei Grundformen: EINE Form mittig um alle Teile des Motivs, Skalierung ab der Mitte;
-    der Kreis umschließt das Motiv (größere Seite), statt hindurchzuschneiden."""
+    """Default for basic shapes: ONE shape centred around all parts of the motif, scaled from the centre;
+    the circle encloses the motif (larger side) instead of cutting through it."""
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     c = canvas.Canvas("/tmp/_logo.pdf", pagesize=(150 * mm, 100 * mm))
     c.setFillColorRGB(0.8, 0.1, 0.1)
-    for x in (30, 60, 90):                                   # drei getrennte Teile, 8 mm Lücke
+    for x in (30, 60, 90):                                   # three separate parts, 8 mm gap
         c.rect(x * mm, 40 * mm, 22 * mm, 22 * mm, fill=1, stroke=0)
     c.showPage(); c.save()
     norm = objects.normalized(pdfium.PdfDocument("/tmp/_logo.pdf"))
@@ -163,16 +163,16 @@ def test_pdf_output_on_sheet_and_per_object():
     assert str(cs[0]) == "/Separation" and str(cs[1]) == "/CutContour"
     doc2, n2 = cutcontour.make(stickers(), cutcontour.CutSettings(per_object=True, margin_mm=6, shape="circle", single_shape=False))
     assert len(doc2) == 3
-    w, h = doc2.get_page_size(0)                                           # Kreis 50 + 2×2 Überfüller + 2×6 Rand
+    w, h = doc2.get_page_size(0)                                           # circle 50 + 2×2 bleed + 2×6 margin
     assert abs(w / MM - 66) < 1.0 and abs(h / MM - 66) < 1.0, (w / MM, h / MM)
     doc2.save("/tmp/_cut_per_object.pdf")
-    # Nachbarobjekte sind ausgeblendet: Ecke der Einzelseite ist weiß/leer
+    # neighbouring objects are hidden: the corner of the single page is white/empty
     im = pdfium.PdfDocument("/tmp/_cut_per_object.pdf")[1].render(scale=1).to_pil()
     assert min(im.getpixel((2, 2))[:3]) > 240
 
 
 def test_full_page_motif():
-    """Visitenkarte im Endformat (Motiv füllt die Seite) -> ganze Seite ist das Objekt, Überfüller nach außen."""
+    """Business card at trim size (motif fills the page) -> the whole page is the object, bleed outward."""
     from reportlab.pdfgen import canvas
     c = canvas.Canvas("/tmp/_vk.pdf", pagesize=(85 * MM, 55 * MM))
     c.setFillColorRGB(0.1, 0.3, 0.6); c.rect(0, 0, 85 * MM, 55 * MM, fill=1, stroke=0)
@@ -184,11 +184,11 @@ def test_full_page_motif():
     p = pts(r)[0]
     assert abs((p[:, 0].max() - p[:, 0].min()) / MM - 85) < 0.6 and abs((p[:, 1].max() - p[:, 1].min()) / MM - 55) < 0.6
     o = r.objects[0]
-    assert o.bleed_box[0] < -1.5 * MM and o.bleed_box[2] > 86.5 * MM      # Überfüller über den Seitenrand hinaus
+    assert o.bleed_box[0] < -1.5 * MM and o.bleed_box[2] > 86.5 * MM      # bleed beyond the page edge
 
 
 def test_bleed_visible_on_opaque_background():
-    """Rasterbild mit weißem Hintergrund: Überfüller darf nicht vom Hintergrund verdeckt werden (Bogen + Einzelseiten)."""
+    """Raster image with white background: bleed must not be covered by the background (sheet + single pages)."""
     from PIL import Image, ImageDraw
     from pdfdruck import images
     im = Image.new("RGB", (900, 900), "white")
@@ -204,15 +204,15 @@ def test_bleed_visible_on_opaque_background():
         img = d[0].render(scale=scale).to_pil()
         cx, cy = 450 / 150 * 72, (900 - 450) / 150 * 72                      # Kreismitte in pt (Seitensystem)
         r = 150 / 150 * 72
-        for dmm in (1.0, 2.0):                                              # 1 und 2 mm außerhalb des Kreises
+        for dmm in (1.0, 2.0):                                              # 1 and 2 mm outside the circle
             x = (cx + r + dmm * MM - x0) * scale
             y = (y1 - cy) * scale
             px_ = img.getpixel((int(x), int(y)))
-            assert px_[0] > 150 and px_[1] < 120, (per, dmm, px_)            # rot, nicht weiß
+            assert px_[0] > 150 and px_[1] < 120, (per, dmm, px_)            # red, not white
 
 
 def test_soft_raster_solid_bleed_and_inner_hole():
-    """Weichgezeichnetes Raster auf Weiß: Überfüller in Vollfarbe (kein Mischton), Innenschnitt bekommt Überfüller."""
+    """Blurred raster on white: bleed in full colour (no mixed tone), inner cut gets bleed."""
     from PIL import Image, ImageDraw, ImageFilter
     from pdfdruck import images
     im = Image.new("RGB", (900, 700), "white"); d = ImageDraw.Draw(im)
@@ -232,7 +232,7 @@ def test_soft_raster_solid_bleed_and_inner_hole():
     out.save("/tmp/_soft_out.pdf")
     dd = pdfium.PdfDocument("/tmp/_soft_out.pdf"); x0, y0, x1, y1 = dd[0].get_mediabox()
     img = dd[0].render(scale=3).to_pil()
-    # 1 mm innerhalb des Lochrands (Loch: x 300..450 px @150 dpi) muss Überfüller (Grün) liegen
+    # 1 mm inside the hole edge (hole: x 300..450 px @150 dpi) must have bleed (green)
     hx = (300 / 150 * 72 + 1 * MM - x0) * 3
     hy = (y1 - (700 - 315) / 150 * 72) * 3
     pxl = img.getpixel((int(hx), int(hy)))
@@ -240,14 +240,14 @@ def test_soft_raster_solid_bleed_and_inner_hole():
 
 
 def test_unmix_pale_pink_is_red():
-    """Fehler aus der Praxis: helles Rosa (Rot + Weiß) lag im RGB-Abstand näher an Grün -> grüne Keile."""
+    """Bug from practice: light pink (red + white) was closer to green in RGB distance -> green wedges."""
     pal = np.array([[105, 140, 40], [205, 40, 40]], np.int16)
     pink = np.array([[240, 200, 200], [225, 150, 150], [250, 235, 235]], np.int16)
     d = ((pink[:, None, :] - pal[None]) ** 2).sum(axis=2)
-    assert d.argmin(axis=1)[0] == 0                                   # alter Weg: falsch (Grün)
+    assert d.argmin(axis=1)[0] == 0                                   # old approach: wrong (green)
     lab = cutcontour._unmix_labels(pink, pal, np.array([255, 255, 255]), 40)
     assert list(lab) == [1, 1, 1]                                     # Entmischen: Rot
-    seam = np.array([[160, 85, 40], [130, 115, 40]], np.int16)        # Mischung Rot/Grün -> nähere Seite
+    seam = np.array([[160, 85, 40], [130, 115, 40]], np.int16)        # red/green mixture -> nearer side
     assert list(cutcontour._unmix_labels(seam, pal, np.array([255, 255, 255]), 20)) == [1, 0]
 
 
@@ -260,7 +260,7 @@ def test_fixed_bleed_color():
 
 
 def test_bleed_off_white_border():
-    """Überfüller aus: Motiv unverändert (kein Überfüller, kein Ausstanzen), nur Schnittlinie – z. B. weißer Rand."""
+    """Bleed off: motif unchanged (no bleed, no punching), only the cut line – e.g. a white border."""
     import pikepdf
     from PIL import Image, ImageDraw
     from pdfdruck import images
@@ -273,7 +273,7 @@ def test_bleed_off_white_border():
         r = cutcontour.compute(norm[0], cutcontour.CutSettings(offset_mm=3, **kw))
         assert r.objects[0].bleed_rgba is None and not r.objects[0].clip and r.knockout is None
         rad = np.hypot(*(pts(r)[0] - [450 / 150 * 72, 450 / 150 * 72]).T).mean() / MM
-        assert abs(rad - (150 / 150 * 25.4 + 3)) < 0.4, rad                  # Linie 3 mm außerhalb
+        assert abs(rad - (150 / 150 * 25.4 + 3)) < 0.4, rad                  # line 3 mm outside
         out, _ = cutcontour.make(doc, cutcontour.CutSettings(offset_mm=3, **kw))
         out.save("/tmp/_wb_out.pdf")
         pk = pikepdf.open("/tmp/_wb_out.pdf")
@@ -282,7 +282,7 @@ def test_bleed_off_white_border():
         pk.close()
         img = pdfium.PdfDocument("/tmp/_wb_out.pdf")[0].render(scale=2).to_pil()
         x = int((450 / 150 * 72 + (25.4 + 1.5) * MM) * 2); y = int(450 / 150 * 72 * 2)
-        assert min(img.getpixel((x, y))[:3]) > 240                              # zwischen Motiv und Linie: weiß
+        assert min(img.getpixel((x, y))[:3]) > 240                              # between motif and line: white
 
 
 def test_fast_shape_on_trim_without_rendering():

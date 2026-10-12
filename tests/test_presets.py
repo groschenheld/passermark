@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Presets (speichern/laden/löschen, zuletzt verwendet, Kommandozeile mit Preset-Namen), PDF mit Passwort,
-Arbeitsbereiche im Fenster (Qt-Ersatz) und eindeutige Tastenkürzel."""
+"""Presets (save/load/delete, recently used, command line with preset names), password-protected PDF,
+window workspaces (Qt stub) and unique keyboard shortcuts."""
 import json, os, re, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -59,7 +59,7 @@ def test_print_layout_kind():
 
 
 def test_migrate_print_presets_from_17():
-    """1.7 legte Druck-Presets unter „druck“ ab – werden übernommen und gelten für `impose`."""
+    """Version 1.7 stored print presets under "druck" – they are adopted and apply to `impose`."""
     import shutil
     shutil.rmtree(presets.job_dir(presets.PRINT), ignore_errors=True)
     old = os.path.join(presets.root_dir(), "druck")
@@ -132,7 +132,7 @@ viewer.PageView._dpi_scale = lambda self: 1.0
 viewer.PageView.page_zoom = lambda self, i: 1.0
 from pdfdruck import config, l10n
 from pdfdruck.gui.common import Session, window_modal_dialogs
-window_modal_dialogs(); window_modal_dialogs()      # zweimal: darf nicht doppelt einhängen
+window_modal_dialogs(); window_modal_dialogs()      # twice: must not hook in twice
 import pypdfium2 as pdfium
 w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
@@ -142,12 +142,12 @@ for k in ("prep", "edit", "auto", "view", "prep"):
     assert w.workspace == k
 assert l10n.load_settings()["workspace"] == "prep"
 w2 = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
-assert w2.workspace == "prep"                       # neues Fenster startet im zuletzt gewählten Bereich
+assert w2.workspace == "prep"                       # a new window starts in the most recently chosen workspace
 # Bearbeiten einschalten wechselt in den Bereich Bearbeiten
 w._edit_mode(True)
 assert w.workspace == "edit"
 w._open_presets_dir()
-# Dialoge mit Preset-Leiste lassen sich bauen und Presets übernehmen
+# dialogs with a preset bar can be built and adopt presets
 from pdfdruck.gui import objectsdialog as od, manipdialog as md
 from pdfdruck import cutcontour, cmyk, presets
 od._CutWorker.start = lambda self: None
@@ -155,7 +155,7 @@ od._CutWorker.isRunning = lambda self: False
 presets.save_last("cutcontour", cutcontour.CutSettings(shape="heart", bleed_color="#ff0000"))
 dlg = od.CutContourDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
 dlg._load_settings(cutcontour.CutSettings(shape="rect"))
-assert dlg._bcol == "#ff0000"                       # zuletzt verwendete Überfüller-Farbe übernommen
+assert dlg._bcol == "#ff0000"                       # most recently used bleed colour adopted
 dlg.presetbar.refresh()
 s = Session(config.BUILTIN)
 md_dlg = md.ManipDialog(None, pdfium.PdfDocument(sys.argv[1]), s, 0, "all")
@@ -169,7 +169,7 @@ imp = pdlg._preset_settings()
 from pdfdruck.gui.vdpdialog import VdpDialog
 vd = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
 vd._add("qr"); vd._add("ean13"); vd._select(0); vd._delete(); vd._refresh(); n_before = len(vd.fields); vd._reset(); vd._add("qr"); vd._add("ean13")
-assert len(vd.fields) >= 2 and vd.fields[-1].kind == "ean13"      # Qt-Ersatz: Löschen ohne echte Auswahl
+assert len(vd.fields) >= 2 and vd.fields[-1].kind == "ean13"      # Qt stub: deleting without a real selection
 w._open_presets_dir()
 from pdfdruck.gui.customsizes import CustomSizesDialog
 CustomSizesDialog(None)
@@ -192,7 +192,7 @@ class Sock:
     disconnected = types.SimpleNamespace(connect=lambda f: None)
 ctl._on_ready(Sock({"cmd": "open", "files": []}))
 assert made == [1], made
-# Reiter: aus dem Programm heraus -> gleicher Rahmen; von außen / Neues Fenster -> eigener Rahmen
+# tabs: from within the program -> same frame; from outside / new window -> its own frame
 ctl2 = appmod.Controller()
 w1 = ctl2.new_window()
 w2 = ctl2.new_window(tab_of=w1)
@@ -203,11 +203,11 @@ w4 = ctl2.new_window(tab_of=w1)
 assert w4._host is not w1._host                     # Reiter abgeschaltet -> eigenes Fenster
 st["open_in_tabs"] = True; l10n.save_settings(st)
 n_win = len(ctl2.windows)
-ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf im leeren Fenster: dieses Fenster nutzen
+ctl2.open_paths([sys.argv[1]], tab_of=w1)           # open button in an empty window: use this window
 assert w1.doc is not None and len(ctl2.windows) == n_win, (w1.doc, len(ctl2.windows), n_win)
-ctl2.open_paths([sys.argv[1]], tab_of=w1)           # Öffnen-Knopf bei offenem Dokument: Reiter daneben
+ctl2.open_paths([sys.argv[1]], tab_of=w1)           # open button with a document open: tab next to it
 assert ctl2.windows[-1]._host is w1._host and len(ctl2.windows) == n_win + 1
-# Fenster mit offenem Werkzeug (gesperrt): von außen und als Ergebnis -> eigenes Fenster
+# window with an open (locked) tool: from outside and as a result -> its own window
 ctl2.blocked = lambda w: w._host is w1._host
 for w_ in ctl2.windows:
     if w_._host is w1._host and w_ is not w1:
@@ -231,7 +231,7 @@ def test_gui_workspaces_and_presetbars():
 
 
 def test_shortcuts_unique():
-    """Jedes Tastenkürzel im Hauptfenster nur einmal (sonst löst Qt keines von beiden aus)."""
+    """Every keyboard shortcut in the main window only once (otherwise Qt triggers neither of the two)."""
     src = open(os.path.join(ROOT, "pdfdruck", "gui", "viewer.py"), encoding="utf-8").read()
     keys = re.findall(r'\bA\(tr\("[^"]*"\),\s*[^\n]*?,\s*"((?:Ctrl|Alt|Shift|F\d|Home|End)[^"]*)"', src)
     seen = {}

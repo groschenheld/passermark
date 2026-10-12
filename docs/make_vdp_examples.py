@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Erzeugt die Beispiele für Variable Daten in pdfdruck/docs/beispiele/vdp (Vorlage, CSV, Presets, Ergebnisse).
+"""Generates the variable-data examples in pdfdruck/docs/beispiele/vdp (template, CSV, presets, results).
 
     python3 docs/make_vdp_examples.py
 
-Die Presets verweisen relativ auf daten.csv; „Beispiele holen“ (Programm bzw. passermark-cli beispiele) kopiert den
-Ordner zum Benutzer und trägt die Presets mit vollem Pfad ein.
+The presets refer to daten.csv by relative path; "fetch examples" (program or passermark-cli beispiele)
+copies the folder to the user and registers the presets with their full path.
 """
 import os
 
-os.environ["PASSERMARK_LANG"] = "de"          # Handbuch ist deutsch – unabhängig von der Systemsprache
+os.environ["PASSERMARK_LANG"] = "de"          # manual is German – independent of the system language
 import shutil
 import sys
 
@@ -39,7 +39,7 @@ WLAN = ("Netzname;Passwort;Verschlüsselung;Versteckt\n"
         "Huber-Werkstatt;Druck-3x;WPA;\n"
         "Huber-Cafe;;keine;\n")
 
-# so sieht ein Kontakt-Export aus Outlook aus (englische Kopfzeilen, Komma) – Passermark ordnet die Spalten zu
+# this is what a contact export from Outlook looks like (English headers, comma) – Passermark maps the columns
 OUTLOOK = ("Title,First Name,Middle Name,Last Name,Company,Job Title,Business Street,Business City,"
            "Business Postal Code,Business Country/Region,Business Phone,Mobile Phone,E-mail Address,Web Page,Notes\n"
            "Mag.,Anna,,Huber,Druckerei Huber,Geschäftsführerin,Hauptplatz 1,Graz,8010,Österreich,+43 316 123456,"
@@ -110,7 +110,7 @@ def main():
     c.drawString(10 * mm, h - 15 * mm, "Beispiel-Vorlage (Passermark VDP)")
     c.showPage()
     c.save()
-    # Visitenkarte 85 × 55 mm: Seite 1 vorne, Seite 2 hinten
+    # business card 85 × 55 mm: page 1 front, page 2 back
     c = canvas.Canvas(os.path.join(out, "vorlage-karte-vorne-hinten.pdf"), pagesize=(85 * mm, 55 * mm))
     c.setTitle("Passermark – Visitenkarte vorne/hinten")
     for side in ("VORDERSEITE", "RÜCKSEITE"):

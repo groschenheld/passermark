@@ -53,7 +53,7 @@ def test_describe():
 
 
 def test_fill_scale_and_crop():
-    """Standard: skalieren bis das Ziel gefüllt ist, Überstand der anderen Kante beidseitig weg (A4 → A6 = 50 %)."""
+    """Default: scale until the target is filled, overhang of the other edge trimmed on both sides (A4 → A6 = 50 %)."""
     from reportlab.pdfgen import canvas
     c = canvas.Canvas("/tmp/_fill.pdf")
     c.setPageSize((210 * MM, 297 * MM)); c.setFillColorRGB(1, 0, 0)
@@ -69,16 +69,16 @@ def test_fill_scale_and_crop():
     assert small == [] and [tuple(round(v / MM) for v in out.get_page_size(i)) for i in range(2)] == [(105, 148)] * 2
     a = out[0].render(scale=1).to_pil().convert("RGB")
     assert a.getpixel((5, 5))[0] > 200 and a.getpixel((5, 5))[1] < 60          # Quadrat oben links mitskaliert
-    assert a.getpixel((40, 40)) == (255, 255, 255)                              # 10 mm * 50 % ≈ 14 px -> dahinter weiß
+    assert a.getpixel((40, 40)) == (255, 255, 255)                              # 10 mm * 50 % ≈ 14 px -> white behind
     b = out[1].render(scale=1).to_pil().convert("RGB")
-    assert b.getpixel((b.width // 2, b.height // 2))[1] > 200                   # grüne Mitte des Plakats
-    assert b.getpixel((b.width // 2, b.height - 3)) == (255, 255, 255)          # blauer Fuß ist abgeschnitten
+    assert b.getpixel((b.width // 2, b.height // 2))[1] > 200                   # green centre of the poster
+    assert b.getpixel((b.width // 2, b.height - 3)) == (255, 255, 255)          # blue foot is cut off
     big, _ = pdfmanip.crop_doc(_pdf([(105, 148)], "/tmp/_small.pdf"), cmyk.ManipSettings(crop=True, crop_size="A4"))
     assert tuple(round(v / MM) for v in big.get_page_size(0)) == (210, 297)    # kleiner -> hochskaliert
 
 
 def test_fill_with_inset():
-    """Weißer Rand der Vorlage wird vorher abgeschnitten: 10 mm weiß um A4 -> danach erst auf A6 skaliert."""
+    """The template's white border is trimmed first: 10 mm of white around A4 -> only then scaled to A6."""
     from reportlab.pdfgen import canvas
     c = canvas.Canvas("/tmp/_inset.pdf", pagesize=(210 * MM, 297 * MM))
     c.setFillColorRGB(0, 0, 1); c.rect(10 * MM, 10 * MM, 190 * MM, 277 * MM, fill=1, stroke=0); c.showPage(); c.save()
@@ -110,13 +110,13 @@ def test_softproof_and_tac():
     img = Image.new("CMYK", (4, 1)); img.putdata([(0, 0, 0, 0), (255, 255, 255, 255), (255, 0, 0, 0), (200, 200, 200, 255)])
     rgb = cmyk.cmyk_to_screen(img, FOGRA)
     white, black, cyan, rich = rgb.getpixel((0, 0)), rgb.getpixel((1, 0)), rgb.getpixel((2, 0)), rgb.getpixel((3, 0))
-    assert min(white) > 245                             # Papierweiß (relativ) = Weiß
+    assert min(white) > 245                             # paper white (relative) = white
     assert max(black) < 60                              # 400 % ≈ tiefes Schwarz
-    assert cyan[2] > cyan[0] + 100                      # Cyan wirkt blau-grün
+    assert cyan[2] > cyan[0] + 100                      # cyan appears blue-green
     paper = cmyk.cmyk_to_screen(img, FOGRA, paper_white=True).getpixel((0, 0))
     assert paper != (255, 255, 255)                     # absolut: Papierton sichtbar
     mx, pct, warn = cmyk.tac(img, 300)
-    assert round(mx) == 400 and abs(pct - 50) < 0.1     # 2 von 4 Pixeln über 300 %
+    assert round(mx) == 400 and abs(pct - 50) < 0.1     # 2 of 4 pixels above 300 %
     assert warn.getpixel((1, 0)) == (255, 0, 64)
     assert cmyk.separation(img, 0).getpixel((2, 0))[0] == 0   # volles Cyan = schwarz im Auszug
 
@@ -128,7 +128,7 @@ def test_find_profiles():
 
 
 def test_crop_file_then_print_end_to_end():
-    """Ablauf wie in der Oberfläche: beschneiden -> Datei im Zwischenspeicher -> öffnen -> normal drucken."""
+    """Flow as in the UI: crop -> file in the clipboard -> open -> print normally."""
     from reportlab.pdfgen import canvas
     from pdfdruck import config, layout, printers, printjob
     c = canvas.Canvas("/tmp/_rand.pdf", pagesize=(216 * MM, 303 * MM))

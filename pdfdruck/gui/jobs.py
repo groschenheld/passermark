@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Aufträge in der Oberfläche: Anzeige in der Statusleiste mit Fortschritt und Abbrechen.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
+"""Jobs in the interface: shown in the status bar with progress and cancel.
 
-Die Berechnung läuft als eigener Prozess (jobproc.JobProcess). Ein Lese-Thread reicht nur dessen Textmeldungen
-als Qt-Signale weiter – er fasst kein pdfium an.
+The computation runs as a separate process (jobproc.JobProcess). A reader thread only forwards its text
+messages as Qt signals – it never touches pdfium.
 """
 from __future__ import annotations
 

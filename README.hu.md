@@ -1,4 +1,4 @@
-# Passermark 1.10.8
+# Passermark 1.11.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -30,12 +30,14 @@ szoftver (GPL-3.0-or-later).
 - **Szerkesztés:** szövegsorok és rétegek kiválasztása egérrel; szöveg, betű és méret változtatása; rétegek
   mozgatása, méretezése, elrejtése, eltávolítása vagy cseréje; visszavonás.
 - Vonalzók és mérés: mm-vonalzók a nézet szélén; kezdő- és végpont kattintása a méréshez (a Shift
-  vízszintes/függőleges/45°-os irányba illeszt), az eredmény az állapotsorban.
+  vízszintes/függőleges/45°-os irányba illeszt), az eredmény az állapotsorban. Control lenyomva a célkereszt mágnesesen illeszkedik a vágó- és belső vonalakhoz (oldalszél,
+  vágott formátum, vérzés), képszélekhez és vektorvonalakhoz – szövegre soha; addig tapad az élhez,
+  amíg az egér határozottan el nem húzza. A vágott-formátum-megjelenítés zölddel mutatja a vágott formátumot, pontvonallal a vértést.
 - **Változó adatok:** számozás (kezdet, lépés, számjegyek, ellenőrző számok, visszafelé, továbbszámolás),
   CSV-ből származó szöveg, QR-kódok, Code 128 és EAN-13 vektorként (csendes zónával); `{{…}}`
   helyőrzők a PDF-ben; dátum, lap, véletlenszám és további változók; több lap rekordonként (elől/hátul) és
   mezők páratlan/páros lapokon; kódnapló; haszonminták saját rekorddal mintánként (ívről ívre vagy vágás és
-  pakolás). Parancssorból is (`passermark-cli vdp`).
+  pakolás); **ablakok (oldalcsoportok)** több oldalas sablonokhoz – pl. elölap a névvel, hátlap QR-kóddal – ablakonkénti oldalkiválasztással (minden/páratlan/páros oldal vagy tartomány) és rekord-elosztással lapról lapra vagy oldalról oldalra. Parancssorból is (`passermark-cli vdp`).
 - **Adatok rögzítése:** az adattáblázat közvetlenül a Passermarkban hozható létre – QR-névjegykárlya (vCard),
   WLAN-hozzáférés, e-mail, webcím, hívás, SMS, időpont, helyszín, Code 128, EAN-13 – megfelelő oszlopokkal,
   azonnali ellenőrzéssel és Excelből történő beszúrással; CSV-ként mentve és közvetlenül használható a változó
@@ -102,8 +104,8 @@ következő indítás a naplóra mutat. A hibátlan naplók kilépéskor törlő
 ## Fordítás (Build)
 
 Minden `main` ágra történt push GitHubon felépíti a Windows-telepítőt és a Linux-AppImage-ot
-(**Actions**); mindkettőt `--selftest`-tel ellenőrzi. Egy `v*` címke (pl. `git tag v1.10.8 && git push origin
-v1.10.8`) GitHub-Release-hez csatolja őket.
+(**Actions**); mindkettőt `--selftest`-tel ellenőrzi. Egy `v*` címke (pl. `git tag v1.10.7 && git push origin
+v1.10.7`) GitHub-Release-hez csatolja őket.
 
 Helyben: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, Python 3.12 és Inno Setup 6
 kell) vagy `./linux/build-appimage.sh` (Linux, a szükséges csomagok a szkript fejében).

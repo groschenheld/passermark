@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Kommandozeile als echter Prozess: list, settings, Aufträge, Presets, JSON-Fortschritt, Rückgabewerte, Abbruch."""
+"""Command line as a real process: list, settings, jobs, presets, JSON progress, return codes, cancellation."""
 import json, os, signal, subprocess, sys, tempfile, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -73,7 +73,7 @@ def test_exit_codes():
 
 
 def _slow_input():
-    """Mehrseitiges PDF mit vielen Objekten (dauert einige Sekunden) für den Abbruch-Test."""
+    """Multi-page PDF with many objects (takes a few seconds) for the cancellation test."""
     p = os.path.join(TMP, "slow.pdf")
     if not os.path.exists(p):
         from reportlab.lib.pagesizes import A4

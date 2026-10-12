@@ -10,7 +10,7 @@ MM = 72 / 25.4
 
 
 def card_sheet(path="/tmp/_cards.pdf", rotate=False):
-    """A4 mit 2×5 Visitenkarten 85×55 (5 mm Abstand), mit weißer Fläche und Text in jeder Karte."""
+    """A4 with 2×5 business cards 85×55 (5 mm gap), with a white area and text on every card."""
     from reportlab.pdfgen import canvas
     c = canvas.Canvas(path, pagesize=(210 * MM, 297 * MM))
     for r in range(5):
@@ -44,7 +44,7 @@ def test_separate_pages():
     w, h = out.get_page_size(3)
     assert abs(w / MM - 85) < 0.6 and abs(h / MM - 55) < 0.6
     img = out[0].render(scale=1).to_pil()
-    assert img.getpixel((2, 2))[2] > 100            # Rand der Seite = Kartenblau, kein Weiß
+    assert img.getpixel((2, 2))[2] > 100            # edge of the page = card blue, no white
 
 
 def test_rotated_page():
@@ -57,7 +57,7 @@ def test_rotated_page():
 def test_gap_merges_parts():
     from reportlab.pdfgen import canvas
     c = canvas.Canvas("/tmp/_parts.pdf", pagesize=(210 * MM, 297 * MM))
-    c.rect(20 * MM, 200 * MM, 30 * MM, 30 * MM, fill=1); c.rect(51 * MM, 200 * MM, 30 * MM, 30 * MM, fill=1)  # 1 mm Lücke
+    c.rect(20 * MM, 200 * MM, 30 * MM, 30 * MM, fill=1); c.rect(51 * MM, 200 * MM, 30 * MM, 30 * MM, fill=1)  # 1 mm gap
     c.rect(20 * MM, 50 * MM, 30 * MM, 30 * MM, fill=1); c.showPage(); c.save()
     n = objects.normalized(pdfium.PdfDocument("/tmp/_parts.pdf"))
     assert len(objects.detect(n[0], objects.DetectSettings(gap_mm=2))) == 2
@@ -96,7 +96,7 @@ def test_full_page_motif_is_one_object():
 
 
 def test_margin_applied_at_output():
-    """Rand wird beim Ausgeben angewendet (auch nachträglich geändert, auch für eigene Rahmen)."""
+    """The margin is applied on output (also when changed later, also for custom frames)."""
     n = objects.normalized(card_sheet())
     boxes = objects.detect(n[0], objects.DetectSettings())            # ohne Rand erkannt
     out = objects.separate(n, {0: boxes[:2] + [objects.Box(10 * MM, 10 * MM, 50 * MM, 40 * MM)]}, margin_mm=-3)
