@@ -5,6 +5,31 @@
 > Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.11.3
+- **Nyomtatási párbeszédpanel fülek nélkül.** A fenti módválasztó („Mit nyomtassunk?") egyetlen,
+  folytonos oszlopban vezet végig a párbeszédpanelen: preset, mód, módpanel, skálázás („Hogyan
+  az ívre?"), vágójel, papír/kimenet, finisher, színkezelés. A korábbi fül-navigáció megszűnt.
+- **A Step & Repeat saját mód.** A „Nutzen" a többi mód mellett áll az választóban (egyedi ívek,
+  több íven, füzet, poszter) – a többi módhoz hasonló magyarázó szöveggel. A régi jelölőnégyzetet a
+  mód-gomb váltotta ki; a Nutzen-panel ott jelenik meg, ahol a többi módpanel.
+- **„Hogyan az ívre?"** a skálázás és a tájolás most egy csoport: illesztés/eredeti méret/kicsinyítés/
+  egyéni, forgatás, automatikus forgatás, középre igazítás, margók. A skálázásválasztás minden
+  nyomtatási módban látható és hatásos: illesztés = mód-alapérték, eredeti méret/kicsinyítés/egyéni
+  felülírja a mód skálázását – a módmezők (kachel-skálázás, Nutzen-mérték, poszter) megmaradnak.
+- **Tükrözés és meghajtó-beállítások összecsukhatók.** Mindkét szakasz jól látható címmel megmarad,
+  és csak szükség esetén nyitható ki – minden beállítás változatlanul.
+- **Füzetkötés: „Standard" először.** A klasszikus gerinctűzés („minden ív egymásba, egyszeri
+  behajtás") a „Standard" néven vezeti a kötésmód-listát – az „ív művenként" számláló csak a
+  „Csoportos ívműveknél" jelenik meg, így nem sugallhat értelmetlen beállítást.
+- **Egységes összecsukható szakaszok.** Az új oszlop minden blokkja – preset, módválasztó
+  („Mit nyomtassunk?"), „Hogyan az íre?", vágójel, papír/kimenet, finisher, színkezelés, tükrözés,
+  meghajtó – azonos méretű, összecsukható címsort kap. A mód-gombok egymás alatt állnak, így minden
+  felirat olvasható maradt; a módpanel a látható mód méretére zsugorodik (nincs üres hely). A Nutzen
+  módból bármikor más módra váltható.
+- **Fordítások:** 26 új/kiegészített üzenet nyelvenként (EN/DE/ES/FR/HU); az ES/FR/HU/EN
+  üzenetkatalógusokból hiányzó 1.11.1-sztringek utánapótlása. A régi presetek teljesen kompatibilisek
+  maradnak (size/multiple/sr handling továbbra is betölt).
+
 ## 1.11.2
 - **2. lépés: az ív újra montírozása.** Az elkészült 1. lépés ív másodszor is egy szabadon választott
   célformátumra kerül (eszközformátumok vagy saját méretek mm-ben) – sorról sorra, mindig középre, a

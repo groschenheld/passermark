@@ -2,6 +2,36 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.3
+- **Druckdialog ohne Reiter.** Die Moduswahl oben („Was soll gedruckt werden?") führt nun in
+  einer einzigen, durchlaufenden Spalte durch den ganzen Dialog: Preset, Modus, Modus-Panel,
+  Skalierung („Wie aufs Blatt?"), Schnittmarken, Papier/Ausgabe, Finisher, Farbmanagement. Die
+  frühere Reiter-Navigation ist weg.
+- **Nutzen (Step & Repeat) ist ein eigener Modus.** „Nutzen" steht im Drehkreuz neben Einzelblätter,
+  Mehrere pro Blatt, Broschüre und Poster – mit Erklärtext wie die anderen Modi. Das alte Häkchen
+  ersetzt der Modus-Knopf; das Nutzen-Panel erscheint dort, wo auch die anderen Modus-Panels
+  liegen.
+- **„Wie aufs Blatt?"** Skalierung und Ausrichtung sind jetzt eine Gruppe: Einpassen/Originalgröße/
+  Verkleinern/Eigene, Drehung, automatisches Drehen, Zentrieren, Ränder. Die Skalierungswahl
+  (Anpassen/Tatsächlich/…) ist in jedem Druckmodus sichtbar und wirksam: Anpassen = Modus-Standard,
+  Originalgröße/Verkleinern/Benutzerdefiniert überschreiben die Modus-Skalierung – die Modus-Felder
+  (Kachel-Skalierung, Nutzen-Maßstab, Poster) bleiben daneben erhalten.
+- **Spiegeln und Treiber einklappbar.** Beide Abschnitte bleiben mit deutlich sichtbarem Titel
+  erhalten und lassen sich erst bei Bedarf aufklappen – alle Optionen unverändert.
+- **Broschüre: „Standard" zuerst.** Die klassische Sattelheftung („alle Bögen ineinander, einmal
+  falzen") führt die Bindeart-Liste jetzt unter dem klaren Namen „Standard" – der Spinner
+  „Bögen je Lage" erscheint nur noch bei „Gruppierte Lagen" und kann keine scheinbar
+  wirkungslose Einstellung mehr nahelegen.
+- **Einheitliche einklappbare Abschnitte.** Jeder Block der neuen Spalte – Preset, Moduswahl
+  („Was soll gedruckt werden?"), „Wie aufs Blatt?", Schnittmarken, Papier/Ausgabe, Finisher,
+  Farbmanagement, Spiegeln, Treiber – hat dieselbe einklappbare Überschrift in gleicher Größe.
+  Die Modi-Knöpfe liegen untereinander, alle Beschriftungen bleiben lesbar; das Modus-Panel
+  schrumpft auf den sichtbaren Modus (kein Leerraum mehr). Aus dem Nutzen-Modus lässt sich
+  jederzeit in jeden anderen Modus wechseln.
+- **Übersetzungen:** 26 neue/nachgepflegte Meldungen je Sprache (EN/DE/ES/FR/HU); fehlende
+  1.11.1-Strings in den Meldungskatalogen ES/FR/HU/EN wurden nachgepflegt. Alte Presets bleiben
+  voll kompatibel (handling „size"/„multiple"/„sr" laden weiterhin).
+
 ## 1.11.2
 - **Schritt 2: Nutzen erneut montieren.** Der fertig montierte Nutzen-Bogen (Schritt 1) wird ein zweites
   Mal auf ein frei wählbares Zielformat gesetzt (Geräteformate oder eigene Maße in mm) – zeilenweise,

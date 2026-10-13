@@ -5,6 +5,35 @@
 > Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.11.3
+- **Boîte de dialogue d'impression sans onglets.** Le sélecteur de mode en haut (« Que faut-il
+  imprimer ? ») guide désormais dans une seule colonne continue : préréglage, mode, panneau du
+  mode, mise à l'échelle (« Comment sur la feuille ? »), traits de coupe, papier/sortie, finisseur,
+  gestion des couleurs. L'ancienne navigation par onglets disparaît.
+- **Le pas répété (Step & Repeat) devient un mode à part.** « Nutzen » rejoint le sélecteur de mode
+  à côté des pages simples, plusieurs par feuille, livret et affiche – avec un texte explicatif
+  comme les autres modes. L'ancienne case à cocher est remplacée par le bouton de mode ; le panneau
+  Nutzen apparaît au même endroit que les autres panneaux de mode.
+- **« Comment sur la feuille ? »** mise à l'échelle et orientation forment un seul groupe :
+  ajuster/taille d'origine/réduire/personnalisé, rotation, rotation automatique, centrage, marges.
+  Le choix d'échelle (ajuster/taille réelle/…) est visible et effectif dans tous les modes : ajuster = valeur par défaut du mode, taille réelle/réduire/personnalisé
+  remplace la mise à l'échelle du mode – les champs du mode (échelle par tuile, échelle Nutzen, affiche) restent en place.
+- **Miroir et options du pilote repliables.** Les deux sections restent bien visibles avec un
+  titre clair et ne se déplient qu'au besoin – toutes les options inchangées.
+- **Reliure livret : « Standard » en premier.** La piqûre à cheval classique (« toutes les feuilles
+  imbriquées, pliées une fois ») ouvre désormais la liste des types sous le nom clair « Standard » –
+  le compteur « feuilles par cahier » n'apparaît que pour les cahiers groupés et ne peut plus
+  suggérer un réglage sans effet.
+- **Sections repliables uniformes.** Chaque bloc de la nouvelle colonne – préréglage, sélecteur de
+  mode (« Que faut-il imprimer ? »), « Comment sur la feuille ? », traits de coupe, papier/sortie,
+  finisseur, gestion des couleurs, miroir, pilote – porte le même en-tête repliable, à taille
+  identique. Les boutons de mode sont empilés verticalement : toutes les étiquettes restent
+  lisibles ; le panneau du mode se réduit au mode visible (plus d'espace vide). On peut toujours
+  quitter le mode « Nutzen ».
+- **Traductions :** 26 messages nouveaux/complétés par langue (EN/DE/ES/FR/HU) ; les chaînes
+  1.11.1 manquantes dans les catalogues ES/FR/HU/EN ont été complétées. Les anciens préréglages
+  restent entièrement compatibles (handling size/multiple/sr se chargent toujours).
+
 ## 1.11.2
 - **Étape 2 : monter la feuille à nouveau.** La feuille terminée de l'étape 1 est montée une seconde fois
   sur un format cible librement choisi (formats de l'appareil ou dimensions personnalisées en mm) –
