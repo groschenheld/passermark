@@ -5,6 +5,35 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.11.3
+- **Diálogo de impresión sin pestañas.** El selector de modo superior («¿Qué se va a imprimir?»)
+  guía ahora en una sola columna continua: preset, modo, panel del modo, escalado («¿Cómo a la
+  hoja?»), marcas de corte, papel/salida, finisher, gestión de color. La antigua navegación por
+  pestañas desaparece.
+- **El Step & Repeat es un modo propio.** «Nutzen» se une al selector de modo junto a hojas
+  individuales, varias por hoja, folleto y póster – con texto explicativo como los demás modos.
+  La antigua casilla se sustituye por el botón de modo; el panel Nutzen aparece donde los demás
+  paneles de modo.
+- **«¿Cómo a la hoja?»** el escalado y la orientación forman ahora un grupo: ajustar/tamaño
+  original/reducir/personalizado, rotación, rotación automática, centrado, márgenes. La elección de
+  escalado es visible y efectiva en todos los modos: ajustar = valor estándar del modo, tamaño original/reducir/personalizado
+  anula el escalado del modo – los campos del modo (escalado por celda, escala Nutzen, póster) se mantienen.
+- **Espejo y opciones del controlador plegables.** Ambas secciones siguen bien visibles con un
+  título claro y solo se despliegan cuando hace falta – todas las opciones sin cambios.
+- **Encuadernación de folleto: «Estándar» primero.** El clásico grapado por el lomo («todas las
+  hojas intercaladas, plegadas una vez») encabeza ahora la lista de tipos con el nombre claro
+  «Estándar» – el contador «hojas por pliezo» solo aparece con «Pliezos agrupados» y ya no sugiere
+  un ajuste sin efecto.
+- **Secciones plegables uniformes.** Cada bloque de la nueva columna – preset, selector de modo
+  («¿Qué se va a imprimir?», «¿Cómo a la hoja?»), marcas de corte, papel/salida, finisher, gestión de
+  color, espejo, controlador – lleva el mismo encabezado plegable y del mismo tamaño. Los botones de
+  modo van uno debajo del otro: todas las etiquetas se mantienen legibles; el panel del modo se
+  reduce al modo visible (sin espacios vacíos). Desde el modo «Nutzen» siempre se puede cambiar a
+  otro.
+- **Traducciones:** 26 mensajes nuevos/completados por idioma (EN/DE/ES/FR/HU); las cadenas de
+  1.11.1 que faltaban en los catálogos ES/FR/HU/EN se han completado. Los presets antiguos siguen
+  siendo totalmente compatibles (handling size/multiple/sr se siguen cargando).
+
 ## 1.11.2
 - **Paso 2: montar la hoja de nuevo.** La hoja terminada del paso 1 se monta una segunda vez en un formato
   destino de libre elección (formatos del dispositivo o medidas propias en mm) – fila por fila, siempre

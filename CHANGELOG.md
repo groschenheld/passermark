@@ -2,6 +2,34 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.3
+- **Print dialog without tabs.** The mode selector at the top ("What should be printed?") now leads
+  through the whole dialog in a single, continuous column: preset, mode, mode panel, scaling
+  ("How onto the sheet?"), crop marks, paper/output, finisher, colour management. Old tab
+  navigation is gone.
+- **Step & Repeat is a mode of its own.** "Nutzen" joins the mode selector next to single sheets,
+  multiple per sheet, booklet and poster – with an explanation text like the other modes. The old
+  checkbox is replaced by the mode button; the S&R panel appears exactly where the other mode
+  panels are.
+- **"How onto the sheet?"** scaling and orientation are now one group: fit/original size/shrink/
+  custom, rotation, auto-rotate, centring, margins. The scaling choice (fit/actual/…) is
+  visible and effective in every print mode: fit = the mode's default, original size/shrink/custom
+  override the mode scaling – the mode fields (tile scaling, Nutzen scale, poster) remain alongside.
+- **Mirror and driver options collapsible.** Both sections stay visible with a clear title and can
+  be folded open only when needed – all options unchanged.
+- **Booklet binding: "Standard" first.** The classic saddle stitch ("all sheets nested together,
+  folded once") now leads the binding list under the clear name "Standard" – the "sheets per
+  signature" spinner only appears for grouped signatures, so it can no longer suggest a wrong
+  setting.
+- **Uniform collapsible sections.** Every block of the new column – preset, mode selection
+  ("What should be printed?"), "How onto the sheet?", crop marks, paper/output, finisher, colour
+  management, mirror, driver – carries the same collapsible header in the same size. The mode
+  buttons sit one below the other so every label stays readable, and the mode panel shrinks to the
+  visible mode (no empty placeholder space any more). Switching away from "Nutzen" always works.
+- **Localisation:** 26 new/reworked messages per language (EN/DE/ES/FR/HU); missing 1.11.1 strings
+  in ES/FR/HU/EN message catalogues were backfilled. Old presets remain fully compatible
+  (handling "size"/"multiple"/"sr" still load).
+
 ## 1.11.2
 - **Step 2: mount the sheet again.** The finished step-1 sheet is mounted a second time onto a freely
   chosen target format (device formats or custom sizes in mm) – row by row, always centred, content

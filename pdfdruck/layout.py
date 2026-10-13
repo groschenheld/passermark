@@ -347,6 +347,19 @@ def custom_scale(pw: float, ph: float, s: LayoutSettings) -> float:
     return edge_scale(pw, ph, s.custom_by, s.custom_mm, s.custom_percent)
 
 
+def global_scale(s: LayoutSettings, pw: float, ph: float, base: float) -> float:
+    """Global scaling ("How onto the sheet?") applies in EVERY print mode.
+    fit = the mode's own default (base, previous behaviour), actual = original size,
+    shrink = at most 100 %, custom = scale / custom size."""
+    if s.mode == "actual":
+        return 1.0
+    if s.mode == "custom":
+        return max(0.001, custom_scale(pw, ph, s))
+    if s.mode == "shrink":
+        return min(1.0, base)
+    return base                       # fit: Modus-Standard unverändert
+
+
 def plan_single(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
     plans = []
     for p in pages:
@@ -413,6 +426,7 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
                 sc = s.tile_percent / 100.0
             else:
                 sc = fit
+            sc = global_scale(s, pw, ph, sc)   # globale Skalierung wirkt auch hier
             w, h = pw * sc, ph * sc
             x = cx + (cw - w) / 2
             y = cy + (ch - h) / 2
@@ -566,6 +580,7 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
                 if s.autorotate and (pw > ph) != (cw > ch) and abs(pw - ph) > 1:
                     rot, pw, ph = 90, ph, pw
                 sc = min(cw / pw, ch / ph)
+                sc = global_scale(s, pw, ph, sc)   # globale Skalierung wirkt auch bei Broschüre
                 w, h = pw * sc, ph * sc
                 x, y = cx + (cw - w) / 2, cy + (ch - h) / 2
                 # move toward the fold (+ creep: beyond the fold, trimmed at the cell)
@@ -578,6 +593,9 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
                 else:
                     y = cy + ch - h + shift
                 sp.placements.append(Placement(p, rot, sc, x, y, w, h, (cx, cy, cw, ch)))
+                if w > cw + 0.5 or h > ch + 0.5:
+                    sp.warnings.append(tr("Seite {0} größer als die Bogenhälfte – wird beschnitten. "
+                                          "Skalierung verkleinern oder größeres Papier wählen.").format(p + 1))
             _booklet_marks(sp, s, land, LW, LH, area, li, n_sigs, j, side)
             plans.append(sp)
     if blanks and plans:
@@ -639,6 +657,7 @@ def _poster_geometry(pw, ph, sheet: Sheet, s: LayoutSettings, land: bool):
         sc = min(tw / pw, th / ph)
     else:
         sc = s.poster_percent / 100.0
+    sc = global_scale(s, pw, ph, sc)       # globale Skalierung wirkt auch beim Poster
     W, H = pw * sc, ph * sc
     cols = max(1, -(-(W - ov - 0.01) // sw)) if W > aw else 1
     rows = max(1, -(-(H - ov - 0.01) // sh)) if H > ah else 1
@@ -740,6 +759,7 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
     for p in pages:
         pw0, ph0 = sizes[p]
         sc = edge_scale(pw0, ph0, s.sr_by, s.sr_mm, s.sr_percent)   # per page (the edge measure applies per tile)
+        sc = global_scale(s, pw0, ph0, sc)      # globale Skalierung wirkt auch bei Nutzen
         best = None
         for land in orients:
             _, _, area, printable = _area(sheet, land, s.use_margins)
