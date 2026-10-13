@@ -1,4 +1,4 @@
-# Passermark 1.11.1
+# Passermark 1.11.2
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -18,7 +18,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Imposition :** ajuster/mettre à l'échelle, N pages par feuille, poster, pas de répétition (step & repeat) ;
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
-  Aussi en ligne de commande (`passermark-cli impose`).
+  Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2).
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les

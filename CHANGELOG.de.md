@@ -2,6 +2,20 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.2
+- **Schritt 2: Nutzen erneut montieren.** Der fertig montierte Nutzen-Bogen (Schritt 1) wird ein zweites
+  Mal auf ein frei wählbares Zielformat gesetzt (Geräteformate oder eigene Maße in mm) – zeilenweise,
+  immer mittig, inhaltlich unverändert; das Ergebnis lässt sich per Button als neues Dokument ausgeben
+  (neuer Reiter), die Vorschau zeigt es wie bei Schritt 1 und der Dialog schließt danach. Drehung und
+  Ausrichtung aus Schritt 1 gelten auch für Schritt 2. Raster: 0 × 0 = automatisch (so oft wie möglich).
+- **Vorhandene Schnittmarken verwenden.** Bei Dokumenten mit Endformat (TrimBox) zeigen die Außenseiten
+  des Nutzenblocks den echten Dokumentrand – vorhandene Schnittmarken bleiben sichtbar; eigene Marken
+  bleiben wie gehabt per Häkchen zuschaltbar.
+- **Raster exakt montieren.** Ein definiertes Raster (z. B. 3 × 3) bleibt in Schritt 1 und Schritt 2 immer
+  exakt – passt es nicht aufs Blatt, wird symmetrisch am Rand beschnitten und gewarnt, nie abgebrochen.
+- **Zielformat randlos geplant:** z. B. passen zwei A4-Bögen aus Schritt 1 sauber auf ein A3.
+- Schritt-1-Druckpfad und Ausrichtung unverändert.
+
 ## 1.11.1
 - **Sonderformate: nur noch „Als PDF speichern“.** Selbst angelegte Formate werden nicht mehr an Drucker
   gesendet – Windows-Treiber und Spooler nehmen Sondergrößen oft nicht an (leere Blätter, Abbrüche);

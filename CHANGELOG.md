@@ -2,6 +2,20 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.11.2
+- **Step 2: mount the sheet again.** The finished step-1 sheet is mounted a second time onto a freely
+  chosen target format (device formats or custom sizes in mm) – row by row, always centred, content
+  unchanged; the result can be output as a new document via a button (new tab), the preview shows it
+  like step 1 and the dialog closes afterwards. Rotation and orientation from step 1 also apply to
+  step 2. Grid: 0 × 0 = automatic (as many as fit).
+- **Use existing crop marks.** With documents that have a trim size (TrimBox), the outer sides of the
+  item block show the real document edge – existing crop marks stay visible; own marks remain
+  switchable via a checkbox as before.
+- **Mount the grid exactly.** A defined grid (e.g. 3 × 3) always stays exact in step 1 and step 2 – if it
+  does not fit the sheet, it is clipped symmetrically at the edge with a warning, never aborted.
+- **Target format planned without margins:** e.g. two A4 sheets from step 1 fit neatly onto one A3.
+- Step-1 print path and orientation unchanged.
+
 ## 1.11.1
 - **Custom paper sizes: only "Save as PDF" any more.** Self-defined sizes are no longer sent to printers –
   Windows drivers and spoolers often reject custom sizes (blank sheets, aborts); with "Save as PDF" (★)

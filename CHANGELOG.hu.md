@@ -2,8 +2,22 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · [Deutsch](CHANGELOG.de.md) · **Magyar** · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-> Ez a változásnapló a **1.10.x verziókat** tartalmazza magyarul. A teljes változástörténet:
+> Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
+
+## 1.11.2
+- **2. lépés: az ív újra montírozása.** Az elkészült 1. lépés ív másodszor is egy szabadon választott
+  célformátumra kerül (eszközformátumok vagy saját méretek mm-ben) – sorról sorra, mindig középre, a
+  tartalom változatlanul; az eredmény gombbal új dokumentumként adható ki (új lap), az előnézet az
+  1. lépéshez hasonlóan mutatja, és a párbeszédablak ezután bezárul. Az 1. lépés elfordítása és tájolása
+  a 2. lépésre is érvényes. Rács: 0 × 0 = automatikus (amennyi csak fér).
+- **Meglévő vágójelölések használata.** Vágott formátumú (TrimBox) dokumentumoknál a haszonmintablokk
+  külső oldalai a dokumentum valódi szélét mutatják – a meglévő vágójelölések láthatóak maradnak; a saját
+  jelölések továbbra is jelölőnégyzettel kapcsolhatók be.
+- **A rács pontos montírozása.** Egy definiált rács (pl. 3 × 3) az 1. és a 2. lépésben is pontos marad –
+  ha nem fér az ívre, szimmetrikusan a szélén levágásra kerül figyelmeztetéssel, sosem szakad meg.
+- **Margók nélkül tervezett célformátum:** pl. két A4-es ív az 1. lépésből tisztán fér egy A3-ra.
+- Az 1. lépés nyomtatási útvonala és tájolása változatlan marad.
 
 ## 1.11.1
 - **Egyedi formátumok: csak «Mentés PDF-ként».** A saját formátumok többé nem kerülnek elküldésre a nyomtatóknak –

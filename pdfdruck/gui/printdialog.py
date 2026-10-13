@@ -84,6 +84,8 @@ class PrintDialog(QDialog):
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         self.caps: printers.PrinterCaps | None = None
         self.plans: list[layout.SheetPlan] = []
+        self.plans1 = None            # Schritt 1: Pläne auf dem gewählten Papier (bei Schritt 2)
+        self.plans2 = None            # Schritt 2: Pläne auf dem Zielformat (für Vorschau/Ausgabe)
         self.sheet_index = 0
         self._preview_timer = QTimer(self, singleShot=True, interval=150, timeout=self._update_preview)
 
@@ -640,6 +642,54 @@ class PrintDialog(QDialog):
         self.cmb_srstack.setToolTip(tr("Schneiden und Stapeln: Bögen übereinanderlegen, schneiden – jeder Stapel ist "
                                        "fortlaufend nummeriert (1, 2, 3 … im ersten Stapel, dann der zweite)."))
         f.addRow(tr("Reihenfolge:"), self.cmb_srstack)
+        self.chk_sr2 = QCheckBox(tr("Schritt 2 (optional): den montierten Bogen erneut auf ein Zielformat setzen"))
+        self.chk_sr2.setChecked(L.sr_pass2)
+        self.chk_sr2.setToolTip(tr("Erst wird wie oben eingestellt auf das gewählte Papier montiert (Schritt 1), "
+                                   "dann wird dieses Ergebnis nochmals aufs hier gewählte Zielformat gesetzt – "
+                                   "aneinandergereiht und mittig, inhaltlich unverändert. Schritt 2 fügt nie "
+                                   "Überfüller oder Schnittmarken hinzu: was der montierte Bogen schon hat, "
+                                   "bleibt erhalten – Schnittmarken und Überfüller aus Schritt 1 also mit "
+                                   "dabei. Der fertige Schritt-1-Bogen wird dabei so oft wie möglich (oder im "
+                                   "eingestellten Raster) aufs Zielformat gesetzt, immer mittig. Passt er (auch "
+                                   "gedreht) nicht, wird trotzdem montiert und gewarnt – beschnitten wird am Rand. "
+                                   "Die Vorschau zeigt das Ergebnis wie bei Schritt 1. Der Button gibt es als "
+                                   "neues Dokument aus (neuer Reiter) und schließt diesen Dialog."))
+        f.addRow(self.chk_sr2)
+        self.cmb_sr2fmt = QComboBox()
+        f.addRow(tr("Zielformat (Schritt 2):"), self.cmb_sr2fmt)
+        row = QHBoxLayout()
+        self.spn_sr2w = QDoubleSpinBox()
+        self.spn_sr2w.setRange(10, 5000)
+        self.spn_sr2w.setDecimals(1)
+        self.spn_sr2w.setSuffix(tr(" mm"))
+        self.spn_sr2w.setValue(L.sr2_w_mm)
+        self.spn_sr2h = QDoubleSpinBox()
+        self.spn_sr2h.setRange(10, 5000)
+        self.spn_sr2h.setDecimals(1)
+        self.spn_sr2h.setSuffix(tr(" mm"))
+        self.spn_sr2h.setValue(L.sr2_h_mm)
+        row.addWidget(self.spn_sr2w)
+        row.addWidget(QLabel("×"))
+        row.addWidget(self.spn_sr2h)
+        row.addStretch()
+        f.addRow(tr("Eigene Maße:"), row)
+        row = QHBoxLayout()
+        self.spn_sr2cols = QSpinBox()
+        self.spn_sr2cols.setRange(0, 10)
+        self.spn_sr2cols.setSpecialValueText(tr("Automatisch"))
+        self.spn_sr2cols.setValue(L.sr2_cols)
+        self.spn_sr2rows = QSpinBox()
+        self.spn_sr2rows.setRange(0, 10)
+        self.spn_sr2rows.setSpecialValueText(tr("Automatisch"))
+        self.spn_sr2rows.setValue(L.sr2_rows)
+        row.addWidget(self.spn_sr2cols)
+        row.addWidget(QLabel("×"))
+        row.addWidget(self.spn_sr2rows)
+        row.addStretch()
+        f.addRow(tr("Wie oft (0 × 0 = automatisch):"), row)
+        self.btn_sr2 = QPushButton(tr("Als neues Dokument ausgeben (Schritt 1 + 2)"))
+        self.btn_sr2.clicked.connect(self._sr2_output)
+        f.addRow("", self.btn_sr2)
         note = QLabel(tr("Ersetzt die Seitenhandhabung (Größe/Mehrere/…), solange aktiv. Bei „Automatisch“ wird "
                       "zuerst eine Lage gesucht, in der das Raster aufs Blatt passt, dann die mit den meisten "
                       "Nutzen. Kante an Kante: zwischen den Nutzen kein Weißraum, die Schnittmarken liegen "
@@ -670,13 +720,93 @@ class PrintDialog(QDialog):
         v.addWidget(g)
         v.addStretch()
 
-        for w in (self.chk_sr, self.chk_marks, self.chk_srseq):
+        for w in (self.chk_sr, self.chk_sr2, self.chk_marks, self.chk_srseq):
             w.toggled.connect(self._changed)
         for w in (self.cmb_srmode, self.cmb_srorient, self.cmb_srrot, self.cmb_srjoin, self.cmb_srstack):
             w.currentIndexChanged.connect(self._changed)
         self.cmb_srby.currentIndexChanged.connect(self._changed)
-        for w in (self.spn_srcols, self.spn_srrows, self.spn_srpct, self.spn_srmm, self.spn_srgap, self.spn_bleed):
+        self.cmb_sr2fmt.currentIndexChanged.connect(self._sr2_format_changed)
+        self.cmb_sr2fmt.currentIndexChanged.connect(self._changed)
+        for w in (self.spn_srcols, self.spn_srrows, self.spn_srpct, self.spn_srmm, self.spn_srgap, self.spn_bleed,
+                  self.spn_sr2w, self.spn_sr2h, self.spn_sr2cols, self.spn_sr2rows):
             w.valueChanged.connect(self._changed)
+
+    def _fill_sr2_formats(self):
+        """Zielformat-Liste für Schritt 2: die Formate des gewählten Geräts + eigene Maße."""
+        if not hasattr(self, "cmb_sr2fmt"):
+            return
+        cur = self.cmb_sr2fmt.currentData() or getattr(self.s.layout, "sr2_format", "") or "custom"
+        self.cmb_sr2fmt.blockSignals(True)
+        self.cmb_sr2fmt.clear()
+        items = []
+        if self.caps:
+            key = self.caps.roles.get("pagesize")
+            if key and key in self.caps.options:
+                items = [(c.value, c.text) for c in self.caps.options[key].choices]
+        items.append(("custom", tr("Eigene Maße (mm)")))
+        for v, t in items:
+            self.cmb_sr2fmt.addItem(t, v)
+        idx = next((i for i in range(self.cmb_sr2fmt.count()) if self.cmb_sr2fmt.itemData(i) == cur), -1)
+        self.cmb_sr2fmt.setCurrentIndex(idx if idx >= 0 else self.cmb_sr2fmt.count() - 1)
+        self.cmb_sr2fmt.blockSignals(False)
+        self._sr2_format_changed()
+
+    def _sr2_format_changed(self, *_):
+        """Zielformat gewählt: die mm-Felder aus dem Gerät übernehmen (bei „Eigene Maße“ frei)."""
+        if not hasattr(self, "spn_sr2w"):
+            return
+        v = self.cmb_sr2fmt.currentData()
+        if v and v != "custom" and self.caps:
+            key = self.caps.roles.get("pagesize")
+            if key:
+                try:
+                    w, h, _ia = self.caps.sheet_for({key: v})
+                    self.spn_sr2w.setValue(w / layout.MM)
+                    self.spn_sr2h.setValue(h / layout.MM)
+                except Exception:
+                    pass
+        self._sync_enabled()
+
+    def _sr2_output(self):
+        """Schritt 1 + Schritt 2 im Speicher montieren und als neues Dokument öffnen."""
+        if not self.caps:
+            return
+        try:
+            pages = self._pages()
+        except ValueError as e:
+            QMessageBox.warning(self, tr("Seitenbereich"), str(e))
+            return
+        s = self._settings()
+        if not layout.is_step2(s):
+            QMessageBox.warning(self, tr("Schritt 2"),
+                                tr("Bitte „Jede Seite mehrfach …“ und „Schritt 2“ aktivieren "
+                                   "und ein Zielformat wählen."))
+            return
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            if getattr(self, "trims", None) is None:
+                self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
+            sheet = self._sheet()
+            plans1 = printjob.make_plans(self.sizes, pages, sheet, s, self.chk_reverse.isChecked(),
+                                         self.trims, self.doc_bleeds)
+            if not plans1:
+                raise RuntimeError(tr("Nichts zu montieren (Seiten-/Bogenbereich leer?)"))
+            plans2 = layout.plan_step2((sheet.width, sheet.height), len(plans1), s)
+            out = layout.impose_step2(self._print_doc(), sheet, plans1, s, plans2=plans2)
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(self, tr("Schritt 2"), str(e))
+            return
+        QApplication.restoreOverrideCursor()
+        opener = getattr(self.parent(), "_open_result", None)
+        if opener is None:
+            out.close()
+            QMessageBox.critical(self, tr("Schritt 2"),
+                                tr("Kein Fenster zum Öffnen des Ergebnisses gefunden."))
+            return
+        notes = [w for p in plans1 for w in p.warnings] + [w for p in plans2 for w in p.warnings]
+        opener(out, "_nutzen2", notes)
+        self.accept()          # wie beim Drucken: Dialog schließen, Ergebnis liegt im neuen Reiter
 
     def _show_admin_info(self, name):
         if name == printers.PDF_TARGET:
@@ -706,6 +836,7 @@ class PrintDialog(QDialog):
         self._build_paper()
         self._build_driver_tab()
         self._build_profiles()
+        self._fill_sr2_formats()
         fit_width(self)
         self._changed()
 
@@ -752,6 +883,15 @@ class PrintDialog(QDialog):
             self.cmb_srstack.setEnabled(sr and self.chk_srseq.isChecked())
             self.spn_srcols.setEnabled(sr and grid)
             self.spn_srrows.setEnabled(sr and grid)
+            sr2 = sr and self.chk_sr2.isChecked()
+            self.chk_sr2.setEnabled(sr)
+            self.cmb_sr2fmt.setEnabled(sr2)
+            custom2 = self.cmb_sr2fmt.currentData() == "custom"
+            self.spn_sr2w.setEnabled(sr2 and custom2)
+            self.spn_sr2h.setEnabled(sr2 and custom2)
+            self.spn_sr2cols.setEnabled(sr2)
+            self.spn_sr2rows.setEnabled(sr2)
+            self.btn_sr2.setEnabled(sr2 and self.spn_sr2w.value() > 0 and self.spn_sr2h.value() > 0)
             for b in self.handling_btns.values():
                 b.setEnabled(not sr)
         booklet = self._handling() == "booklet"
@@ -827,6 +967,7 @@ class PrintDialog(QDialog):
         self._build_paper()
         self._build_driver_tab()
         self._build_profiles()
+        self._fill_sr2_formats()
         fit_width(self)
         self._changed()
 
@@ -1205,6 +1346,10 @@ class PrintDialog(QDialog):
         L.sr_join = self.cmb_srjoin.currentData()
         L.sr_sequence = self.chk_srseq.isChecked()
         L.sr_stack = self.cmb_srstack.currentData() or "row"
+        L.sr_pass2 = self.chk_sr2.isChecked()
+        L.sr2_format = self.cmb_sr2fmt.currentData() or "custom"
+        L.sr2_w_mm, L.sr2_h_mm = self.spn_sr2w.value(), self.spn_sr2h.value()
+        L.sr2_cols, L.sr2_rows = self.spn_sr2cols.value(), self.spn_sr2rows.value()
         L.crop_marks = self.chk_marks.isChecked()
         L.bleed_mm = self.spn_bleed.value()
         L.order = self.cmb_order.currentData()
@@ -1285,6 +1430,14 @@ class PrintDialog(QDialog):
         pick(self.cmb_srjoin, L.sr_join)
         self.chk_srseq.setChecked(L.sr_sequence)
         pick(self.cmb_srstack, L.sr_stack)
+        self.chk_sr2.setChecked(bool(L.sr_pass2))
+        if self.cmb_sr2fmt.count():
+            i = self.cmb_sr2fmt.findData(L.sr2_format or "custom")
+            self.cmb_sr2fmt.setCurrentIndex(i if i >= 0 else self.cmb_sr2fmt.count() - 1)
+        self.spn_sr2w.setValue(L.sr2_w_mm)
+        self.spn_sr2h.setValue(L.sr2_h_mm)
+        self.spn_sr2cols.setValue(L.sr2_cols)
+        self.spn_sr2rows.setValue(L.sr2_rows)
         self.chk_marks.setChecked(L.crop_marks)
         self.spn_bleed.setValue(L.bleed_mm)
         self.handling_btns.get(L.handling, self.handling_btns["size"]).setChecked(True)
@@ -1304,8 +1457,17 @@ class PrintDialog(QDialog):
                 self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
             except Exception:
                 self.trims, self.doc_bleeds = [], []
-        return printjob.make_plans(self.sizes, pages, self._sheet(), self._settings(),
-                                   self.chk_reverse.isChecked(), self.trims, self.doc_bleeds)
+        s = self._settings()
+        sheet = self._sheet()
+        plans = printjob.make_plans(self.sizes, pages, sheet, s,
+                                    self.chk_reverse.isChecked(), self.trims, self.doc_bleeds)
+        if layout.is_step2(s) and plans:
+            # Vorschau zeigt Schritt 2: die fertigen Bögen aufs Zielformat montiert
+            self.plans1 = plans
+            self.plans2 = layout.plan_step2((sheet.width, sheet.height), len(plans), s)
+            return self.plans2
+        self.plans1 = self.plans2 = None
+        return plans
 
     def _short_edge_choice(self):
         return printjob.short_edge_choice(self.caps)
@@ -1408,8 +1570,13 @@ class PrintDialog(QDialog):
             return
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            sheet = self._sheet()
-            out = layout.impose_with(self._print_doc(), sheet, self.plans, self._settings())
+            s = self._settings()
+            if layout.is_step2(s) and getattr(self, "plans2", None):
+                out, sheet = layout.impose_step2(self._print_doc(), self._sheet(),
+                                                  self.plans1, s, plans2=self.plans2), layout.step2_sheet(s)
+            else:
+                sheet = self._sheet()
+                out = layout.impose_with(self._print_doc(), sheet, self.plans, s)
             thumbs = []
             for i, sp in enumerate(self.plans[:400]):
                 pg = out[i]
@@ -1442,7 +1609,50 @@ class PrintDialog(QDialog):
         v.addWidget(bb)
         dlg.exec()
 
+    def _render_sheet2(self, s):
+        """Vorschau des Schritt-2-Bogens: fertig montierte Bögen aufs Zielformat, mittig."""
+        n = len(self.plans)
+        if n:
+            lab = self.plans[self.sheet_index].label
+            self.lbl_sheet.setText(tr("Zielformat (Schritt 2): Blatt {0} von {1}").format(self.sheet_index + 1, n)
+                                  + (f"\n{lab}" if lab else ""))
+        else:
+            self.lbl_sheet.setText(tr("Keine Seiten"))
+        self.btn_prev.setEnabled(self.sheet_index > 0)
+        self.btn_next.setEnabled(self.sheet_index < n - 1)
+        if not n:
+            self.preview.set_content(None, None, False)
+            return
+        sheet = layout.step2_sheet(s)
+        sp = self.plans[self.sheet_index]
+        # derselbe Weg wie bei der Ausgabe: Schritt-1-Bogen flach zwischenspeichern,
+        # dann montieren – Vorschau und Ergebnis sind identisch
+        out = layout.impose_step2(self._print_doc(), self._sheet(), self.plans1, s,
+                                  plans2=self.plans2, only=[self.sheet_index])
+        page = out[0]
+        target_h = max(200, self.preview.height() - 32)
+        ph = sheet.width if sp.landscape else sheet.height
+        scale = target_h / ph
+        dpr = self.devicePixelRatioF()
+        pm = self._proofed_pixmap(page, scale, 90 if sp.landscape else 0, dpr)
+        page.close()
+        out.close()
+        self.preview.set_content(pm, sheet, sp.landscape)
+        cols = len({round(pl.x, 1) for pl in sp.placements}) or 1
+        rows = len({round(pl.y, 1) for pl in sp.placements}) or 1
+        sw, sh = self._sheet().width / layout.MM, self._sheet().height / layout.MM
+        self.lbl_info.setText(
+            tr("Schritt 2 – Zielformat: {0:.0f} × {1:.0f} mm · {2} × {3} Bögen ({4:.0f} × {5:.0f} mm) je Blatt{6}").format(
+                sheet.width / layout.MM, sheet.height / layout.MM, cols, rows, sw, sh,
+                tr(" · quer") if sp.landscape else ""))
+        warns = sorted({w for p in self.plans for w in p.warnings}
+                       | {w for p in (self.plans1 or []) for w in p.warnings})
+        self.lbl_warn.setText("\n".join(warns[:4]) + (" …" if len(warns) > 4 else ""))
+
     def _render_sheet(self):
+        s = self._settings()
+        if layout.is_step2(s) and getattr(self, "plans2", None):
+            return self._render_sheet2(s)
         n = len(self.plans)
         if n:
             lab = self.plans[self.sheet_index].label
@@ -1612,3 +1822,4 @@ class PrintDialog(QDialog):
         QApplication.restoreOverrideCursor()
         self.parent().statusBar().showMessage(tr("Auftrag {0} an {1} gesendet.").format(jid, name), 8000)
         self.accept()
+
