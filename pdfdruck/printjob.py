@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark – Copyright (C) 2026 Hias
+# Passermark â Copyright (C) 2026 Hias
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Build and send a print job – shared by the print dialog and right-click printing."""
+"""Build and send a print job â shared by the print dialog and right-click printing."""
 from __future__ import annotations
 
 import os
@@ -25,7 +25,7 @@ def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bo
 
 
 def short_edge_choice(caps: printers.PrinterCaps):
-    """(option name, value) for duplex on the short edge – or None."""
+    """(option name, value) for duplex on the short edge â or None."""
     key = caps.roles.get("duplex") if caps else None
     if not key:
         return None
@@ -185,3 +185,4 @@ def print_file(path: str, session, password: str | None = None) -> tuple[str, in
         return printer, jid
     finally:
         doc.close()
+

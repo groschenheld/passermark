@@ -170,6 +170,137 @@ def test_step_repeat_guard():
         pass
 
 
+def test_step2_nutzen():
+    from pdfdruck.layout import (is_step2, step2_sheet, plan_step2, _logical)
+    A4s = Sheet(595.28, 841.89, None)                       # Schritt-1-Blatt = gewähltes Papier (A4)
+    s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=3, sr_rows=3, sr_join="bleed",
+                       bleed_mm=2.0, crop_marks=True, sr_pass2=True,
+                       sr2_w_mm=320, sr2_h_mm=450, sr2_cols=0, sr2_rows=0)
+    assert is_step2(s)
+    assert not is_step2(LayoutSettings(step_repeat=True))   # ohne Häkchen: aus
+    t = step2_sheet(s)
+    assert abs(t.width - 320 * MM) < 0.01 and abs(t.height - 450 * MM) < 0.01
+    # Schritt 1: 9 Visitenkarten auf A4 (wie immer, mit Überfüller + Marken)
+    plans1 = plan([(240.94, 155.91)], [0], A4s, s)
+    assert len(plans1[0].placements) == 9
+    assert plans1[0].marks and any(pl.bleed > 0 for pl in plans1[0].placements)
+    # Schritt 2 automatisch: der fertige A4-Bogen, unverändert, aufs Zielformat
+    plans2 = plan_step2((A4s.width, A4s.height), len(plans1), s)
+    assert len(plans2) == len(plans1)                       # je Schritt-1-Bogen ein Zielblatt
+    assert len(plans2[0].placements) >= 2                  # automatisch: mehrfach drauf
+    for sp in plans2:
+        assert not sp.marks                                 # nie zusätzliche Marken/Überfüller
+        for pl in sp.placements:
+            assert abs(pl.scale - 1.0) < 1e-9 and pl.bleed <= 0 and pl.src < len(plans1)
+            assert pl.trim is None                          # Bogen bleibt komplett (Marken bleiben!)
+    # Rasterblock liegt immer mittig (gleicher Rand links/rechts wie rechts, oben/unten)
+    sp = plans2[0]
+    LW, LH, area = _logical(step2_sheet(s), sp.landscape)
+    xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
+    ys = [v for pl in sp.placements for v in (pl.y, pl.y + pl.h)]
+    assert abs(min(xs) - (LW - max(xs))) < 1.0
+    assert abs(min(ys) - (LH - max(ys))) < 1.0
+    # Raster fest: 2 × 1 -> genau 2
+    s.sr2_cols, s.sr2_rows = 2, 1
+    plans2 = plan_step2((A4s.width, A4s.height), len(plans1), s)
+    assert len(plans2[0].placements) == 2
+    # Drehung aus Schritt 1 wird übernommen: sr_rotate=0 -> nie gedreht
+    s.sr2_cols, s.sr2_rows = 0, 0
+    s.sr_rotate = "0"
+    plans2 = plan_step2((A4s.width, A4s.height), 1, s)
+    assert all(pl.rot == 0 for sp in plans2 for pl in sp.placements)
+    s.sr_rotate = "auto"
+    # Zielformat zu klein -> KEIN Fehler: trotzdem montieren, mit Warnung
+    s.sr2_w_mm, s.sr2_h_mm = 100, 100
+    plans2 = plan_step2((A4s.width, A4s.height), 1, s)
+    assert len(plans2) == 1 and len(plans2[0].placements) == 1
+    assert plans2[0].warnings and "beschnitten" in plans2[0].warnings[0]
+    # Raster zu groß fürs Zielformat -> ebenfalls Warnung statt Fehler
+    s.sr2_w_mm, s.sr2_h_mm, s.sr2_cols, s.sr2_rows = 320, 450, 3, 3
+    plans2 = plan_step2((A4s.width, A4s.height), 1, s)
+    assert len(plans2[0].placements) == 9 and plans2[0].warnings
+    # ... und der Block trotzdem mittig (symmetrischer Überhang)
+    sp = plans2[0]
+    LW, LH, area = _logical(step2_sheet(s), sp.landscape)
+    xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
+    assert abs(min(xs) - (LW - max(xs))) < 1.0
+    s.sr2_cols, s.sr2_rows = 0, 0
+
+
+
+def test_step_repeat_trim_show_edge():
+    """Nutzen + TrimBox: Außenseiten des Blocks zeigen den echten Dokumentrand
+    (vorhandene Schnittmarken werden verwendet, nicht abgeschnitten)."""
+    sizes = [(302.05, 216.91)]                       # 106.5 x 76.5 mm
+    trims = [(30.5039, 30.5039, 30.5040, 30.5040)]   # Endformat 85 x 55 mm
+    bleeds = [8.5039]                                # Dokument-Anschnitt 3 mm
+    sheet = Sheet(595.28, 841.89, None)              # A4
+    s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=3, sr_rows=3, sr_join="bleed")
+    plans = plan(sizes, [0], sheet, s, trims, bleeds)
+    assert len(plans[0].placements) == 9
+    for pl in plans[0].placements:
+        c = round((pl.x - min(p.x for p in plans[0].placements)) // (pl.w + 17.0))
+        c = min(2, int(round((pl.x - min(p.x for p in plans[0].placements)) / (pl.w + 17.001))))
+        # trim_show_edge nur auf Block-Außenseiten
+        assert pl.trim_show_edge[0] == (pl.x == min(p.x for p in plans[0].placements))
+        assert pl.trim_show_edge[2] == (pl.x + pl.w == max(p.x + p.w for p in plans[0].placements))
+        assert pl.trim_show_edge[3] == (pl.y + pl.h == max(p.y + p.h for p in plans[0].placements))
+        assert pl.trim_show_edge[1] == (pl.y == min(p.y for p in plans[0].placements))
+    # Kachel-Ausdehnung: außen bis zum echten Rand, innen nur konfigurierter Überfüller
+    for pl in plans[0].placements:
+        b = pl.bleed
+        eL = pl.trim[0] * pl.scale
+        bL = max(b if pl.bleed_sides[0] else 0.0, eL if pl.trim_show_edge[0] else 0.0)
+        if pl.trim_show_edge[0]:
+            assert bL >= eL - 0.01      # ganzer Dokumentrand sichtbar (Marken!)
+        else:
+            assert bL == (b if pl.bleed_sides[0] else 0.0)
+    # ohne TrimBox: keine Änderung (trim_show_edge bleibt ohne Wirkung)
+    plans2 = plan(sizes, [0], sheet, s, None, None)
+    for pl in plans2[0].placements:
+        assert pl.trim is None           # kein Endformat -> Fast-Pfad wie bisher
+
+
+
+def test_step2_raster_exakt():
+    """Definiertes Raster wird immer exakt montiert (Schritt 1 + 2) – passt es
+    nicht, wird symmetrisch beschnitten und gewarnt, aber nie verkleinert.
+    Auto im Schritt 2 setzt so viele Bögen wie aufs Zielformat passen
+    (2 × A4 auf A3)."""
+    from pdfdruck.layout import plan_step2, _logical
+    A4t = (595.28, 841.89)
+    A3 = Sheet(297 * MM, 420 * MM, None)
+    s = LayoutSettings(step_repeat=True, sr_pass2=True, sr2_w_mm=297, sr2_h_mm=420)
+    # Auto: 2 A4 passen auf A3 (quer, nebeneinander)
+    plans = plan_step2(A4t, 1, s, target=A3)
+    assert len(plans[0].placements) == 2 and not plans[0].warnings
+    # fest 2 x 1: identisch
+    s.sr2_cols, s.sr2_rows = 2, 1
+    plans = plan_step2(A4t, 1, s, target=A3)
+    assert len(plans[0].placements) == 2 and not plans[0].warnings
+    # fest 3 x 3 auf zu kleines A3: 9 bleiben 9, Warnung, symmetrischer Überhang
+    s.sr2_cols, s.sr2_rows = 3, 3
+    plans = plan_step2(A4t, 1, s, target=A3)
+    sp = plans[0]
+    assert len(sp.placements) == 9 and sp.warnings
+    xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
+    LW, LH, area = _logical(A3, sp.landscape)
+    assert abs(min(xs) - (LW - max(xs))) < 1.0
+    # Drehung aus Schritt 1: sr_rotate=90 -> Bogen gedreht, 2 untereinander auf A3 hoch
+    s.sr2_cols, s.sr2_rows = 0, 0
+    s.sr_rotate = "90"
+    plans = plan_step2(A4t, 1, s, target=A3)
+    assert len(plans[0].placements) == 2 and all(pl.rot == 90 for pl in plans[0].placements)
+    s.sr_rotate = "auto"
+    # Schritt 1: festes Raster bleibt exakt, auch wenn zu klein (nur Warnung)
+    small = Sheet(100 * MM, 150 * MM, None)
+    s1 = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=3, sr_rows=3,
+                        sr_join="bleed", bleed_mm=3.0)
+    p1 = plan([(241, 156)], [0], small, s1, [(30.5, 30.5, 30.5, 30.5)], [8.5])
+    assert len(p1[0].placements) == 9 and p1[0].warnings
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)
+

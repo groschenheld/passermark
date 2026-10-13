@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.2
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -19,10 +19,12 @@ Software libre (GPL-3.0-or-later).
 - **Imposición (Ausschießen):** ajustar/escalar, varias páginas por hoja, póster, step & repeat; folletos
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de
-  hojas. También en la línea de comandos (`passermark-cli impose`).
+  hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2).
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
-  y mover formas con tiradores).
+  y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
+  destino) y «eliminar el espacio blanco» (detectar el contenido, nuevo marco de página ± margen, el
+  contenido queda 1:1).
 - **Dividir páginas:** mitades o rejilla como páginas separadas – p. ej. un folleto exportado como páginas
   dobles; seleccionar páginas, botón derecho → Dividir. Sin pérdida (no se rasteriza nada), se respetan el
   formato final y el sangrado.

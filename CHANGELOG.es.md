@@ -5,6 +5,29 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.11.2
+- **Paso 2: montar la hoja de nuevo.** La hoja terminada del paso 1 se monta una segunda vez en un formato
+  destino de libre elección (formatos del dispositivo o medidas propias en mm) – fila por fila, siempre
+  centrada, contenido sin cambios; el resultado se puede emitir con un botón como documento nuevo
+  (pestaña nueva), la vista previa lo muestra como en el paso 1 y el diálogo se cierra después. El giro
+  y la orientación del paso 1 también valen para el paso 2. Rejilla: 0 × 0 = automática (tantas como quepan).
+- **Usar las marcas de corte existentes.** En documentos con formato final (TrimBox), los lados
+  exteriores del bloque de copias muestran el borde real del documento – las marcas de corte existentes
+  permanecen visibles; las marcas propias siguen siendo activables con una casilla como siempre.
+- **Montar la rejilla exactamente.** Una rejilla definida (p. ej. 3 × 3) siempre permanece exacta en el
+  paso 1 y en el paso 2 – si no cabe en la hoja, se recorta simétricamente por el borde y se avisa,
+  nunca se cancela.
+- **Formato destino planificado sin márgenes:** p. ej. dos hojas A4 del paso 1 caben limpiamente en un A3.
+- La ruta de impresión y la orientación del paso 1 permanecen sin cambios.
+
+## 1.11.1
+- **Formatos especiales: solo «Guardar como PDF».** Los formatos propios ya no se envían a las impresoras –
+  los controladores y spoolers de Windows a menudo no aceptan tamaños especiales (hojas en blanco, cancelaciones);
+  con «Guardar como PDF» (★) siguen siendo plenamente utilizables
+- **Recortar: dos modos nuevos.** «Recortar bordes»: recortar la página por los cuatro lados en mm, sin formato
+  destino; «Eliminar el espacio blanco»: detecta el contenido visible (incluido el ruido JPEG), el nuevo tamaño
+  de página resulta del marco del contenido ± margen (también negativo), el contenido queda 1:1 (solo movido)
+
 ## 1.11.0
 - **Datos variables – ventanas (grupos de páginas).** En plantillas de varias páginas, cada campo pertenece
   a una ventana (p. ej. «anversos (nombre), reversos (código QR)»); las ventanas se pueden crear, renombrar

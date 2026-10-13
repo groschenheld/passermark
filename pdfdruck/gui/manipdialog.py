@@ -90,9 +90,12 @@ class ManipPanel(QWidget):
         self.chk_crop.setChecked(settings.crop)
         f.addRow(self.chk_crop)
         self.cmb_size = QComboBox()
-        fill_combo(self.cmb_size, [(k, f"{k}  ({w:g} × {h:g} mm)") for k, (w, h) in pdfmanip.FORMATS.items()]
-                   + [("custom", tr("Benutzerdefiniert"))], settings.crop_size)
-        f.addRow(tr("Zielformat:"), self.cmb_size)
+        items = [(k, f"{k}  ({w:g} × {h:g} mm)") for k, (w, h) in pdfmanip.FORMATS.items()]
+        items += [("custom", tr("Benutzerdefiniert")),
+                  (pdfmanip.TRIM_MODE, tr("Kanten abschneiden (kein Zielformat)")),
+                  (pdfmanip.WHITEOUT_MODE, tr("Weißraum entfernen"))]
+        fill_combo(self.cmb_size, items, settings.crop_size)
+        f.addRow(tr("Modus:"), self.cmb_size)
         row = QHBoxLayout()
         self.spn_w = QDoubleSpinBox()
         self.spn_h = QDoubleSpinBox()
@@ -105,7 +108,9 @@ class ManipPanel(QWidget):
         row.addWidget(QLabel("×"))
         row.addWidget(self.spn_h)
         row.addStretch()
-        f.addRow(tr("Breite × Höhe:"), row)
+        self.row_wh = QWidget()
+        self.row_wh.setLayout(row)
+        f.addRow(tr("Breite × Höhe:"), self.row_wh)
         self.chk_follow = QCheckBox(tr("Hoch-/Querformat der jeweiligen Seite folgen"))
         self.chk_follow.setChecked(settings.crop_follow)
         f.addRow(self.chk_follow)
@@ -125,6 +130,35 @@ class ManipPanel(QWidget):
                                      "Scans oder einer Datei ohne Anschnitt. Danach wird wie eingestellt skaliert "
                                      "und beschnitten."))
         f.addRow(tr("Weißen Rand vorher abschneiden:"), self.spn_inset)
+        self.lbl_trim = QLabel(tr("Kanten abschneiden:"))
+        f.addRow(self.lbl_trim)
+        row = QHBoxLayout()
+        self.spn_tl = QDoubleSpinBox(); self.spn_tt = QDoubleSpinBox()
+        self.spn_tr = QDoubleSpinBox(); self.spn_tb = QDoubleSpinBox()
+        for sp, val, lbl in ((self.spn_tl, settings.trim_l_mm, tr("links")),
+                             (self.spn_tt, settings.trim_t_mm, tr("oben")),
+                             (self.spn_tr, settings.trim_r_mm, tr("rechts")),
+                             (self.spn_tb, settings.trim_b_mm, tr("unten"))):
+            sp.setRange(0, 500); sp.setDecimals(1); sp.setSuffix(" mm"); sp.setValue(val)
+            cell = QWidget()
+            col = QVBoxLayout(cell)
+            col.setContentsMargins(0, 0, 0, 0)
+            lab = QLabel(lbl)
+            lab.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            col.addWidget(lab)
+            col.addWidget(sp)
+            row.addWidget(cell)
+        row.addStretch()
+        self.row_trim = QWidget()
+        self.row_trim.setLayout(row)
+        f.addRow(self.row_trim)
+        self.lbl_wm = QLabel(tr("Rand um den erkannten Inhalt:"))
+        f.addRow(self.lbl_wm)
+        self.spn_wm = QDoubleSpinBox()
+        self.spn_wm.setRange(-10, 50); self.spn_wm.setDecimals(1); self.spn_wm.setSuffix(" mm")
+        self.spn_wm.setValue(settings.white_margin_mm)
+        self.spn_wm.setToolTip(tr("Abstand rund um den erkannten Inhalt. Negativ = zusätzlich in den Inhalt hineinschneiden."))
+        f.addRow(self.spn_wm)
         self.lbl_crop = QLabel()
         self.lbl_crop.setWordWrap(True)
         self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT};")
@@ -137,7 +171,8 @@ class ManipPanel(QWidget):
             w.toggled.connect(self._changed)
         for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
             w.currentIndexChanged.connect(self._changed)
-        for w in (self.spn_w, self.spn_h, self.spn_inset):
+        for w in (self.spn_w, self.spn_h, self.spn_inset,
+                  self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb, self.spn_wm):
             w.valueChanged.connect(self._changed)
         self._sync()
         fit_width(self)
@@ -180,11 +215,32 @@ class ManipPanel(QWidget):
         if on and not cmyk.ghostscript():
             self.lbl_cmyk.setText(tr("⚠ Ghostscript fehlt – ohne Ghostscript ist keine CMYK-Umwandlung möglich."))
         crop = self.chk_crop.isChecked()
-        custom = self.cmb_size.currentData() == "custom"
-        for w in (self.cmb_size, self.chk_follow, self.chk_scale, self.spn_inset):
-            w.setEnabled(crop)
-        self.spn_w.setEnabled(crop and custom)
-        self.spn_h.setEnabled(crop and custom)
+        mode = self.cmb_size.currentData()
+        custom = mode == "custom"
+        trim = mode == pdfmanip.TRIM_MODE
+        whiteout = mode == pdfmanip.WHITEOUT_MODE
+        fmt = not (trim or whiteout)
+        f = self.grp_crop.layout()
+
+        def show(w, on):
+            w.setVisible(on)
+            w.setEnabled(on)
+            lab = f.labelForField(w)
+            if lab is not None:
+                lab.setVisible(on)
+
+        self.cmb_size.setVisible(crop)            # Modus-Auswahl bleibt immer erreichbar
+        self.cmb_size.setEnabled(crop)
+        show(self.row_wh, crop and custom and fmt)
+        for w in (self.chk_follow, self.chk_scale):
+            show(w, crop and fmt)
+        show(self.spn_inset, crop and fmt)
+        self.lbl_trim.setVisible(crop and trim)
+        self.row_trim.setVisible(crop and trim)
+        for w in (self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb):
+            w.setEnabled(crop and trim)
+        self.lbl_wm.setVisible(crop and whiteout)
+        show(self.spn_wm, crop and whiteout)
         self.lbl_crop.setVisible(crop)
         if crop and self.doc is not None:
             try:
@@ -218,6 +274,9 @@ class ManipPanel(QWidget):
         s.crop_follow = self.chk_follow.isChecked()
         s.crop_scale = self.chk_scale.isChecked()
         s.crop_inset_mm = self.spn_inset.value()
+        s.trim_l_mm, s.trim_t_mm = self.spn_tl.value(), self.spn_tt.value()
+        s.trim_r_mm, s.trim_b_mm = self.spn_tr.value(), self.spn_tb.value()
+        s.white_margin_mm = self.spn_wm.value()
         return s
 
     def load_settings(self, s: cmyk.ManipSettings):
@@ -235,7 +294,8 @@ class ManipPanel(QWidget):
                 self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(p), p, "file"))
         self._fill_profiles()
         ws = [self.chk_cmyk, self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.chk_bpc, self.chk_k,
-              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale, self.spn_inset]
+              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale,
+              self.spn_inset, self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb, self.spn_wm]
         for w in ws:
             w.blockSignals(True)
         try:
@@ -258,6 +318,9 @@ class ManipPanel(QWidget):
             self.chk_follow.setChecked(bool(s.crop_follow))
             self.chk_scale.setChecked(bool(s.crop_scale))
             self.spn_inset.setValue(s.crop_inset_mm)
+            self.spn_tl.setValue(s.trim_l_mm); self.spn_tt.setValue(s.trim_t_mm)
+            self.spn_tr.setValue(s.trim_r_mm); self.spn_tb.setValue(s.trim_b_mm)
+            self.spn_wm.setValue(s.white_margin_mm)
         finally:
             for w in ws:
                 w.blockSignals(False)

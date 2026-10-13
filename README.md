@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.2
 
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
@@ -15,9 +15,11 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options.
 - **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
   or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
-  and a sheet overview. Also on the command line (`passermark-cli impose`).
+  and a sheet overview. Also on the command line (`passermark-cli impose`). Step & repeat can mount the finished sheet a second time onto a freely chosen target format (step 2).
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
+  Cropping now also with "trim edges" (mm per side, without a target format) and "remove white space"
+  (detect the content, new page frame ± margin, content stays 1:1).
 - **Split pages:** halves or a grid as single pages – e.g. a booklet exported as spreads; select pages,
   right-click → Split. Lossless (content is not rasterised), trim box and bleed respected.
 - **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute

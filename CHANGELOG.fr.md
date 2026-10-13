@@ -2,8 +2,32 @@
 
 **English :** [CHANGELOG.md](CHANGELOG.md) · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · **Français** · [Español](CHANGELOG.es.md)
 
-> Ce journal contient les versions **1.10.x** en français. L'historique complet :
+> Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
+
+## 1.11.2
+- **Étape 2 : monter la feuille à nouveau.** La feuille terminée de l'étape 1 est montée une seconde fois
+  sur un format cible librement choisi (formats de l'appareil ou dimensions personnalisées en mm) –
+  ligne par ligne, toujours centrée, contenu inchangé ; le résultat peut être émis comme nouveau document
+  via un bouton (nouvel onglet), l'aperçu le montre comme à l'étape 1 et le dialogue se ferme ensuite.
+  La rotation et l'orientation de l'étape 1 s'appliquent aussi à l'étape 2. Grille : 0 × 0 = automatique
+  (autant que possible).
+- **Utiliser les traits de coupe existants.** Avec les documents dotés d'un format final (TrimBox), les
+  côtés extérieurs du bloc de poses montrent le vrai bord du document – les traits de coupe existants
+  restent visibles ; les traits propres restent activables par case à cocher comme avant.
+- **Monter la grille exactement.** Une grille définie (p. ex. 3 × 3) reste toujours exacte à l'étape 1 et
+  à l'étape 2 – si elle ne tient pas sur la feuille, elle est rognée symétriquement au bord avec un
+  avertissement, jamais annulée.
+- **Format cible planifié sans marges :** p. ex. deux feuilles A4 de l'étape 1 tiennent proprement sur un A3.
+- Le chemin d'impression et l'orientation de l'étape 1 restent inchangés.
+
+## 1.11.1
+- **Formats personnalisés : uniquement « Enregistrer en PDF ».** Les formats créés soi-même ne sont plus
+  envoyés aux imprimantes – les pilotes et spoolers Windows n'acceptent souvent pas les tailles personnalisées
+  (feuilles blanches, abandons) ; avec « Enregistrer en PDF » (★), ils restent entièrement utilisables
+- **Rognage : deux nouveaux modes.** « Rogner les bords » : rogner la page sur les quatre côtés en mm, sans
+  format cible ; « Supprimer l'espace blanc » : détecte le contenu visible (bruit JPEG compris), le nouveau
+  format de page résulte du cadre du contenu ± marge (négative possible), le contenu reste 1:1 (seulement déplacé)
 
 ## 1.11.0
 - **Données variables – fenêtres (groupes de pages).** Pour les gabarits multi-pages, chaque champ appartient

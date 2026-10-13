@@ -1,4 +1,4 @@
-# Passermark 1.11.0
+# Passermark 1.11.2
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -7,7 +7,7 @@ szoftver (GPL-3.0-or-later).
 
 > **Állapot:** egy magánprojekt, a napi nyomdai előkészítési munka mellett fejlesztve. Észrevételeket
 > szívesen fogadok – a válaszok és az új funkciók garancia nélkül érkeznek. CUPS- és Windows-illesztőprogramokkal
-> tesztelve (tintasugaras, irodai és termelési nyomtatók finisherrel, nyomtatószerveren keresztül); a
+> tesztelve (intasugaras, irodai és termelési nyomtatók finisherrel, nyomtatószerveren keresztül); a
 > ritkább illesztőprogramok és finisher-beállítások módosítást igényelhetnek.
 
 ## Funkciók
@@ -17,10 +17,11 @@ szoftver (GPL-3.0-or-later).
 - **Kiosztás (Ausschießen):** igazítás/skálázás, több lap egy ívre, plakátfelosztás, haszonminták (Nutzen);
   füzetek tűzött kötésként, csoportos ívekként vagy egymásra helyezett ívekként (ragasztott kötés), bundzug
   ( creep) üres lapokkal, hajtási-, passer- és flapjelölésekkel és íváttekintéssel. Parancssorból is
-  (`passermark-cli impose`).
+  (`passermark-cli impose`). A haszonminták másodszor is szabadon választott célformátumra helyezhetők (2. lépés).
 - **Dokumentummanipuláció:** CMYK-átalakítás színelőnézettel, formátumra vágás, objektumok szétválasztása,
   **CutContour** vágóplotterekhez (kontúr, formák, túlnyúlás, belső vágások; formák méretezése és mozgatása
-  fogantyúkkal).
+  fogantyúkkal). A vágás most már „szélek levágásával” (mm oldalonként, célformátum nélkül) és „fehér tér
+  eltávolításával” (tartalom felismerése, új lapkeret ± margó, a tartalom 1:1 marad) is.
 - **Lapok felosztása:** felezés vagy rács külön lapokként – pl. terjedémesként exportált füzet; lapok
   kijelölése, jobb egérgomb → Felosztás. Veszteségmentes (semmi nem rasztereződik), a végformatum és a
   túlnyúlás figyelembe vételével.
@@ -86,7 +87,7 @@ passermark-cli presets                                # a programban mentett pre
 
 Feladatok: `cutcontour`, `separate`, `manip` (CMYK/vágás), `repair`, `preflight_fix`, `impose`, `vdp`,
 `split`; továbbá `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (adattáblázatok). Beágyazott
-beállítások ponttal (`--set detect.tolerance=40`). A Ctrl+C tisztán megszakít (nincs félbeszúrt fájl).
+beállítások ponttal (`--set detect.tolerance=40`). A Ctrl+C tisztán megszakít (nincs félbesúrt fájl).
 Visszatérési értékek: 0 kész, 1 hiba, 2 hibás megadás, 130 megszakítva. A `--json-progress` a haladást és az
 eredményt JSON-sorokként írja ki. A nagy feladatok több magot használnak; korlátozás a `PASSERMARK_WORKERS`
 környezeti változóval (1 = nem párhuzamos).

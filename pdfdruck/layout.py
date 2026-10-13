@@ -118,6 +118,12 @@ class LayoutSettings:
     sr_join: str = "bleed"        # edge = edge to edge | bleed = bleed to bleed | gap = gap
     sr_sequence: bool = False     # the next page per tile (variable data) instead of repeating one page
     sr_stack: str = "row"         # row = sheet by sheet | stack = cut and stack (stacks stay in sequence)
+    sr_pass2: bool = False        # Schritt 2: das montierte Ergebnis erneut auf ein Zielformat setzen
+    sr2_format: str = "custom"    # Zielformat (Wert aus der Formatliste des Geräts oder "custom")
+    sr2_w_mm: float = 320.0       # Zielformat, Breite in mm (bei "custom" einstellbar)
+    sr2_h_mm: float = 450.0      # Zielformat, Höhe in mm
+    sr2_cols: int = 0             # Schritt 2: Raster (Spalten × Zeilen); 0 × 0 = automatisch so viele wie passen
+    sr2_rows: int = 0
     crop_marks: bool = False      # Schnittmarken
     bleed_mm: float = 0.0         # bleed area/bleed by mirroring the edges
 
@@ -177,6 +183,8 @@ class Placement:
     mirror_h: bool = False
     mirror_v: bool = False
     trim: tuple | None = None     # Endformat im Dokument: (links, unten, rechts, oben) pt -> echter Anschnitt
+    trim_show_edge: tuple = (False, False, False, False)   # Nutzen-Blockaußenseiten: echten
+                                 # Dokumentrand (inkl. vorhandener Schnittmarken) mit zeigen
 
 
 @dataclass
@@ -725,6 +733,7 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
                 w, h = pw * sc, ph * sc
                 pl = Placement(p, cell.rot, sc, cell.x + (cell.w - w) / 2, cell.y + (cell.h - h) / 2, w, h, None)
                 pl.bleed_sides = cell.bleed_sides
+                pl.trim_show_edge = cell.trim_show_edge
                 sp.placements.append(pl)
             plans.append(sp)
         return plans
@@ -768,6 +777,9 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
                 pl = Placement(p, rot, sc, x, y, w, h, None)
                 if s.sr_join == "edge":   # bleed area only on the outer edges of the block
                     pl.bleed_sides = (c == 0, r == rows - 1, c == cols - 1, r == 0)
+                # Außenseiten des Nutzenblocks: bis zum echten Dokumentrand zeigen
+                # (im Dokument vorhandene Schnittmarken werden damit unverändert verwendet)
+                pl.trim_show_edge = (c == 0, r == rows - 1, c == cols - 1, r == 0)
                 sp.placements.append(pl)
         if bw > aw + 0.5 or bh > ah + 0.5:
             sp.warnings.append(tr("Seite {0}: {1} × {2} passt nicht aufs Blatt – wird beschnitten. Blatt drehen, Nutzen drehen oder Maßstab verkleinern.").format(p + 1, cols, rows))
@@ -806,6 +818,117 @@ def _apply_extras(plans, s: LayoutSettings):
 def uses_trim(s: LayoutSettings) -> bool:
     """Use the trim size (TrimBox) instead of the whole page: for imposition in post-processing."""
     return bool(s.step_repeat or s.handling == "booklet" or s.crop_marks or s.bleed_mm > 0)
+
+
+# --------------------------------------------------------------------------- #
+# Schritt 2: Der fertig montierte Bogen wird erneut auf ein Zielformat gesetzt
+# --------------------------------------------------------------------------- #
+def is_step2(s: LayoutSettings) -> bool:
+    """Schritt 2 aktiv: Nutzen aktiv, Schritt-2-Häkchen gesetzt und Zielformat vorhanden."""
+    return bool(s.step_repeat and s.sr_pass2 and s.sr2_w_mm > 0 and s.sr2_h_mm > 0)
+
+
+def step2_sheet(s: LayoutSettings) -> Sheet:
+    """Zielformat des zweiten Durchlaufs – physisch, ohne bedruckbaren Bereich."""
+    return Sheet(s.sr2_w_mm * MM, s.sr2_h_mm * MM, None)
+
+
+def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None = None):
+    """Schritt-2-Pläne: die fertig montierten Schritt-1-Bögen erneut aufs Zielformat.
+
+    Jeder Schritt-1-Bogen wird so oft wie möglich (oder im eingestellten Raster)
+    auf einen eigenen Schritt-2-Bogen gesetzt – Kante an Kante, unverändert
+    (100 %, nie zusätzliche Überfüller/Schnittmarken). Der Rasterblock liegt
+    immer mittig, auch wenn er übersteht (symmetrisch). Kein stiller Notfallpfad
+    wie in plan_step_repeat: Passt der Bogen (auch gedreht) nicht aufs Zielformat,
+    wird trotzdem montiert und eine klare Warnung in den Plan geschrieben –
+    das kann durchaus gewollt sein. Drehung/Ausrichtung folgen den
+    Schritt-1-Einstellungen (auto = beide Varianten ausprobieren).
+    """
+    tw, th = tile_size
+    target = target or step2_sheet(s)
+    n_sheets = max(1, int(n_sheets))
+    gap = 0.0                       # Kante an Kante
+    orients = {"portrait": [False], "landscape": [True]}.get(s.sr_orientation, [False, True])
+    rots = {"0": [0], "90": [90]}.get(s.sr_rotate, [0, 90])
+    best = None
+    for land in orients:
+        _, _, area, _ = _area(target, land, False)   # Zielformat: ohne Rand planen (kein Druckerblatt, sondern Schneideformat)
+        ax, ay, aw, ah = area
+        for rot in rots:
+            w, h = (th, tw) if rot else (tw, th)
+            if s.sr2_cols > 0 and s.sr2_rows > 0:
+                cols, rows = s.sr2_cols, s.sr2_rows          # Raster wie eingestellt
+            else:
+                cols = int((aw + gap + 0.01) // (w + gap))   # automatisch: so viele wie passen
+                rows = int((ah + gap + 0.01) // (h + gap))
+            cols, rows = max(1, cols), max(1, rows)           # nie 0: mindestens 1, mit Warnung
+            bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
+            over = max(bw - aw, bh - ah, 0.0)
+            # passt > mehr Bögen > weniger Überhang > ungedreht > Zielformat hochkant
+            key = (over <= 0.5, cols * rows, -over, rot == 0, not land)
+            if best is None or key > best[0]:
+                best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
+    _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best
+    n = cols * rows
+    if n > MAX_PER_SHEET:
+        raise ValueError(tr("{0} Bögen pro Zielformat – das ist sicher nicht gewollt (Grenze {1}). "
+                             "Zielformat vergrößern.").format(n, MAX_PER_SHEET))
+    x0, y0 = ax + (aw - bw) / 2, ay + (ah - bh) / 2           # Rasterblock immer mittig
+    plans = []
+    for p in range(n_sheets):
+        sp = SheetPlan(land, label=tr("Schritt-2-Bogen {0}/{1} – {2} × {3} montiert{4}{5}").format(
+            p + 1, n_sheets, cols, rows,
+            tr(", Bogen gedreht") if rot else "",
+            tr(", Zielformat quer") if land else ""))
+        for r in range(rows):
+            for c in range(cols):
+                x = x0 + c * (w + gap)
+                y = y0 + bh - (r + 1) * h - r * gap
+                sp.placements.append(Placement(p, rot, 1.0, x, y, w, h, None))
+        if bw > aw + 0.5 or bh > ah + 0.5:
+            sp.warnings.append(tr("Schritt 2: Der montierte Bogen ({0:.0f} × {1:.0f} mm) samt Raster "
+                                   "{2} × {3} passt nicht aufs Zielformat ({4:.0f} × {5:.0f} mm) – "
+                                   "am Rand wird beschnitten.").format(tw / MM, th / MM, cols, rows,
+                                                                      aw / MM, ah / MM))
+        plans.append(sp)
+    return plans
+
+
+def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None, only=None):
+    """Zwei Durchläufe: Schritt 1 aufs gewählte Blatt, Ergebnis flach zwischengespeichert
+    und neu geladen, dann unverändert mittig aufs Zielformat.
+
+    Das Zwischenspeichern ist wichtig: impose() bettet die Kacheln als Form-XObjects
+    ein. Würde das Ergebnis direkt nochmal als Xobject in den zweiten Lauf geschachtelt,
+    gingen bei echtem PDFium Inhalte verloren (z. B. Schnittmarken des ersten Laufs) und
+    die Platzierung verschob sich. Nach dem Neuladen ist der Bogen eine ganz normale
+    PDF-Seite – Schritt 2 montiert sie exakt wie jede Dokumentseite.
+    """
+    if plans2 is None:
+        plans2 = plan_step2((sheet.width, sheet.height), len(plans1), s)
+    import os
+    import tempfile
+    import pypdfium2 as pdfium
+    mid = impose(src, sheet, plans1)
+    fd, tmp = tempfile.mkstemp(prefix="passermark-sr2-", suffix=".pdf")
+    os.close(fd)
+    flat = None
+    try:
+        mid.save(tmp)
+        mid.close()
+        mid = None
+        flat = pdfium.PdfDocument(tmp)     # neu geladen: verschachtelte XObjects sind aufgelöst
+        return impose(flat, step2_sheet(s), plans2, only)
+    finally:
+        if mid is not None:
+            mid.close()
+        if flat is not None:
+            flat.close()
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None) -> list[SheetPlan]:
@@ -934,9 +1057,23 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
                 page.insert_obj(obj)
                 continue
             # Kachel: Bereich, der sichtbar sein soll (Seite + Anschnitt, ggf. auf Zelle begrenzt)
-            sl, sb, sr_, st = pl.bleed_sides if b > 0 else (False,) * 4
-            bx, by = pl.x - (b if sl else 0), pl.y - (b if sb else 0)
-            bw, bh = pl.w + b * (sl + sr_), pl.h + b * (sb + st)
+            sl, sb, sr_, st = pl.bleed_sides
+            # Abstand Endformat -> echte Seitenkante (für trim_show_edge) vorab berechnen
+            eL0 = eB0 = eR0 = eT0 = 0.0
+            if pl.trim:
+                tL, tB, tR, tT = pl.trim
+                if pl.rot == 90:
+                    tL, tB, tR, tT = tT, tL, tB, tR
+                eL0, eB0, eR0, eT0 = tL * pl.scale, tB * pl.scale, tR * pl.scale, tT * pl.scale
+            show = pl.trim_show_edge
+            # je Seite: konfigurierter Anschnitt; auf Block-Außenseiten zusätzlich
+            # bis zum echten Dokumentrand (vorhandene Schnittmarken verwenden statt schneiden)
+            bL = max(b if sl else 0.0, eL0 if show[0] else 0.0)
+            bB = max(b if sb else 0.0, eB0 if show[1] else 0.0)
+            bR = max(b if sr_ else 0.0, eR0 if show[2] else 0.0)
+            bT = max(b if st else 0.0, eT0 if show[3] else 0.0)
+            bx, by = pl.x - bL, pl.y - bB
+            bw, bh = pl.w + bL + bR, pl.h + bB + bT
             if pl.clip is not None:
                 cx, cy, cw, ch = pl.clip
                 nx, ny = max(bx, cx), max(by, cy)
@@ -950,14 +1087,9 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
             X1, Y1 = X0 + pl.w, Y0 + pl.h
             # bleed area from the document (TrimBox): real content up to the page edge; only what goes beyond
             # gebraucht wird, wird an der Seitenkante gespiegelt
-            eL = eB = eR = eT = 0.0
-            if pl.trim:
-                tL, tB, tR, tT = pl.trim
-                if pl.rot == 90:
-                    tL, tB, tR, tT = tT, tL, tB, tR
-                eL, eB, eR, eT = tL * pl.scale, tB * pl.scale, tR * pl.scale, tT * pl.scale
-            xs_ = [0] + ([-1] if sl and b > eL + 0.05 else []) + ([1] if sr_ and b > eR + 0.05 else [])
-            ys_ = [0] + ([-1] if sb and b > eB + 0.05 else []) + ([1] if st and b > eT + 0.05 else [])
+            eL, eB, eR, eT = eL0, eB0, eR0, eT0
+            xs_ = [0] + ([-1] if sl and bL > eL + 0.05 else []) + ([1] if sr_ and bR > eR + 0.05 else [])
+            ys_ = [0] + ([-1] if sb and bB > eB + 0.05 else []) + ([1] if st and bT > eT + 0.05 else [])
             offsets = [(dx, dy) for dx in xs_ for dy in ys_]
             for dx, dy in offsets:
                 mm = local
@@ -1192,3 +1324,4 @@ def build_pdf(src, sheet: Sheet, pages: list[int], settings: LayoutSettings, pat
     doc.save(path)
     doc.close()
     return plans
+
