@@ -3,6 +3,11 @@
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
 ## 1.11.3
+- **VDP dialog facelift.** Variable data uses the same look as the print dialog: four numbered,
+  collapsible sections (fields, data, numbering, output) plus a collapsed "Guide" section on top.
+  Field explanations are tooltips now and only appear under the fields via the new "Show help
+  texts" switch. The outdated output hint points to the print dialog's Step & Repeat order now.
+  The CollapsibleSection widget lives in common.py, shared by both dialogs.
 - **Print dialog without tabs.** The mode selector at the top ("What should be printed?") now leads
   through the whole dialog in a single, continuous column: preset, mode, mode panel, scaling
   ("How onto the sheet?"), crop marks, paper/output, finisher, colour management. Old tab

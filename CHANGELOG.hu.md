@@ -6,6 +6,12 @@
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
 ## 1.11.3
+- **VDP-párbeszédablak felfrissítve.** A változó adatok ugyanúgy néznek ki, mint a nyomtatási
+  párbeszédablak: négy számozott, összecsukható szakasz (mezők, adatok, számozás, kimenet),
+  felül pedig egy összecsukott „Útmutató”. A mezőmagyarázatok most tooltipként élnek, és csak az
+  új „Súgószövegek megjelenítése” kapcsolóval jelennek meg a mező alatt. Az elavult kimeneti
+  útmutató most a nyomtatási párbeszédablak sorrendjére mutat (Haszonminták, „Minden haszonra a
+  következő oldal”). A CollapsibleSection widget közösen a common.py-ban él.
 - **Nyomtatási párbeszédpanel fülek nélkül.** A fenti módválasztó („Mit nyomtassunk?") egyetlen,
   folytonos oszlopban vezet végig a párbeszédpanelen: preset, mód, módpanel, skálázás („Hogyan
   az ívre?"), vágójel, papír/kimenet, finisher, színkezelés. A korábbi fül-navigáció megszűnt.

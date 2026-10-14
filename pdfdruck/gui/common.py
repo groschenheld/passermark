@@ -8,11 +8,40 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QComboBox, QToolButton, QVBoxLayout, QWidget
 
 from .. import printers
 from ..l10n import tr
 from ..layout import LayoutSettings
+from . import theme
+
+
+class CollapsibleSection(QWidget):
+    """Einklappbare Gruppe: die Titelzeile bleibt immer sichtbar, der Inhalt nur bei Bedarf.
+    Einheitlicher Abschnitts-Stil (fett, Akzentfarbe) – Druckdialog und VDP-Dialog."""
+
+    def __init__(self, title: str, parent=None, expanded: bool = False):
+        super().__init__(parent)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+        self.btn = QToolButton()
+        self.btn.setText(title)
+        self.btn.setCheckable(True)
+        self.btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn.setArrowType(Qt.ArrowType.RightArrow)
+        self.btn.setStyleSheet(f"QToolButton {{ font-weight: bold; border: none; color: {theme.ACCENT}; }}")
+        self.btn.toggled.connect(self._toggle)
+        v.addWidget(self.btn)
+        self.body = QWidget()
+        self.body_layout = QVBoxLayout(self.body)
+        self.body_layout.setContentsMargins(2, 8, 2, 0)
+        v.addWidget(self.body)
+        self._toggle(expanded)
+
+    def _toggle(self, on: bool):
+        self.body.setVisible(on)
+        self.btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
 
 
 def render_pixmap(page, scale: float, rotation: int = 0, dpr: float = 1.0) -> QPixmap:

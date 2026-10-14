@@ -6,6 +6,13 @@
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
 ## 1.11.3
+- **Boîte de dialogue VDP relookée.** Les données variables affichent le même visage que le
+  dialogue d'impression : quatre sections numérotées repliables (champs, données, numérotation,
+  sortie) et, en haut, une « Guide » repliée. Les explications des champs deviennent des
+  info-bulles et n'apparaissent sous le champ que via le nouveau commutateur « Afficher les
+  textes d'aide ». L'ancienne note de sortie renvoie désormais à l'ordre du dialogue
+  d'impression (Poses, « Page suivante sur chaque pose »). Le widget CollapsibleSection vit
+  dans common.py, partagé par les deux dialogues.
 - **Boîte de dialogue d'impression sans onglets.** Le sélecteur de mode en haut (« Que faut-il
   imprimer ? ») guide désormais dans une seule colonne continue : préréglage, mode, panneau du
   mode, mise à l'échelle (« Comment sur la feuille ? »), traits de coupe, papier/sortie, finisseur,

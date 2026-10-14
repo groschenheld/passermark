@@ -3,6 +3,12 @@
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
 ## 1.11.3
+- **VDP-Dialog aufgehübscht.** Variable Daten bekam das gleiche Gesicht wie der Druckdialog: vier
+  nummerierte, einklappbare Abschnitte (Felder, Daten, Nummerierung, Ausgabe) plus oben eine
+  zugeklappte „Anleitung“. Feld-Erklärungen stehen jetzt als Tooltip am Feld und erscheinen nur
+  mit dem neuen Schalter „Hilfetexte anzeigen“ unter dem Feld. Der veraltete Ausgabe-Hinweis
+  zeigt jetzt auf den Druckdialog (Nutzen, Reihenfolge „Je Nutzen die nächste Seite“). Das
+  CollapsibleSection-Widget liegt zentral in common.py (beide Dialoge nutzen es).
 - **Druckdialog ohne Reiter.** Die Moduswahl oben („Was soll gedruckt werden?") führt nun in
   einer einzigen, durchlaufenden Spalte durch den ganzen Dialog: Preset, Modus, Modus-Panel,
   Skalierung („Wie aufs Blatt?"), Schnittmarken, Papier/Ausgabe, Finisher, Farbmanagement. Die
