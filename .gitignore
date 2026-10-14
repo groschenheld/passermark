@@ -12,3 +12,4 @@ __pycache__/
 *.tar.gz
 windows/*.ico
 linux/tools/
+*.bak
