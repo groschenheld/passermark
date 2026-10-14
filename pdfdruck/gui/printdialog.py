@@ -16,44 +16,17 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QComboBox,
                                QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGridLayout,
                                QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
                                QPushButton, QRadioButton, QScrollArea, QSpinBox, QStackedWidget,
-                               QToolButton, QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget)
 
 from .. import config, layout, printers, printjob, proof, trays
 from . import theme
-from .common import Session, fill_combo, fit_width, guard_wheel, render_pixmap
+from .common import CollapsibleSection, Session, fill_combo, fit_width, guard_wheel, render_pixmap
 
 ROLE_LABELS = [("pagesize", "Papierformat"), ("source", "Papierzufuhr / Fach"),
                ("mediatype", "Medientyp"), ("duplex", "Beidseitig"), ("color", "Farbmodus"),
                ("quality", "Qualität"), ("outputbin", "Ausgabefach")]
 FINISH_LABELS = [("saddle", "Sattelheftung / Broschüre"), ("staple", "Heften"), ("punch", "Lochen"),
                  ("fold", "Falzen"), ("trim", "Beschnitt"), ("stacker", "Stapler / Versatz")]
-
-
-class CollapsibleSection(QWidget):
-    """Einklappbare Gruppe: die Titelzeile bleibt immer sichtbar, der Inhalt nur bei Bedarf."""
-
-    def __init__(self, title: str, parent=None, expanded: bool = False):
-        super().__init__(parent)
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-        self.btn = QToolButton()
-        self.btn.setText(title)
-        self.btn.setCheckable(True)
-        self.btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.btn.setArrowType(Qt.ArrowType.RightArrow)
-        self.btn.setStyleSheet(f"QToolButton {{ font-weight: bold; border: none; color: {theme.ACCENT}; }}")
-        self.btn.toggled.connect(self._toggle)
-        v.addWidget(self.btn)
-        self.body = QWidget()
-        self.body_layout = QVBoxLayout(self.body)
-        self.body_layout.setContentsMargins(2, 8, 2, 0)
-        v.addWidget(self.body)
-        self._toggle(expanded)
-
-    def _toggle(self, on: bool):
-        self.body.setVisible(on)
-        self.btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
 
 
 class PageBox(QWidget):

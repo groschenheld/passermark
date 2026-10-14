@@ -14,13 +14,13 @@ from dataclasses import asdict
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-                               QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                               QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 
 from .. import datakinds, vdp
 from ..l10n import tr
 from . import theme
-from .common import fill_combo, fit_width, no_enter_default, split_panels
+from .common import CollapsibleSection, fill_combo, fit_width, no_enter_default, split_panels
 
 def kind_text(k: str) -> str:
     return {"text": tr("Text"), "qr": tr("QR-Code"), "code128": "Code 128", "ean13": "EAN-13"}.get(k, k)
@@ -170,20 +170,29 @@ class VdpDialog(QDialog):
         btn_reset.setToolTip(tr("Felder, Datenquelle und Nummerierung auf den Anfang: ein Textfeld mit der Nummer"))
         btn_reset.clicked.connect(self._reset)
         right.addWidget(btn_reset)
-        intro = QLabel(tr("So geht’s: 1. Felder anlegen und in der Vorschau an ihren Platz ziehen. 2. Festlegen, was "
-                          "drinsteht – eine Nummer, eine Spalte aus einer CSV-Datei oder fester Text. 3. Mit "
-                          "„Datensatz“ unter der Vorschau durchblättern. 4. Erzeugen: für jeden Datensatz eine Kopie "
-                          "der Seite(n)."))
-        intro.setWordWrap(True)
-        intro.setStyleSheet(f"color: {theme.MUTED};")
+        self.chk_help = QCheckBox(tr("Hilfetexte anzeigen"))
+        self.chk_help.setToolTip(tr("Zeigt die Erklärungen unter den Feldern an – sonst stehen sie "
+                                     "als Tooltip an jedem Feld."))
+        self._helps: list[QLabel] = []
+        self.chk_help.toggled.connect(self._toggle_help)
+        right.addWidget(self.chk_help)
+        intro = CollapsibleSection(tr("Anleitung"), expanded=False)
+        intro_lbl = QLabel(tr("So geht’s: 1. Felder anlegen und in der Vorschau an ihren Platz ziehen. 2. Festlegen, was "
+                              "drinsteht – eine Nummer, eine Spalte aus einer CSV-Datei oder fester Text. 3. Mit "
+                              "„Datensatz“ unter der Vorschau durchblättern. 4. Erzeugen: für jeden Datensatz eine Kopie "
+                              "der Seite(n)."))
+        intro_lbl.setWordWrap(True)
+        intro_lbl.setStyleSheet(f"color: {theme.MUTED};")
+        intro.body_layout.addWidget(intro_lbl)
         right.addWidget(intro)
 
         # ---------------- 1. Felder ----------------
-        g = QGroupBox(tr("1. Felder auf der Seite"))
-        v = QVBoxLayout(g)
+        g = CollapsibleSection(tr("1. Felder auf der Seite"), expanded=True)
+        right.addWidget(g)
+        v = g.body_layout
         self._help(v, tr("Jedes Feld liegt in einem Fenster, und jedes Fenster gilt für bestimmte Seiten der "
                          "Vorlage – z. B. Namen auf den ungeraden (Vorderseiten), QR-Code auf den geraden "
-                         "(Rückseiten)."))
+                         "(Rückseiten)."), register=True)
         self.windows: list[vdp.VdpWindow] = [vdp.VdpWindow()]
         self.win = 0                                   # aktives Fenster
         self._win_pending = False                      # „Seitenbereich …“ gewählt, aber noch nichts getippt
@@ -338,11 +347,10 @@ class VdpDialog(QDialog):
         self.chk_ph = QCheckBox(tr("Platzhalter {{…}} aus dem PDF als Textfelder übernehmen"))
         self._field(v, "", tr("Steht in der Vorlage z. B. {{Name}}, wird dort der Wert eingesetzt und der "
                               "Platzhaltertext entfernt – dann braucht es dafür kein eigenes Feld."), self.chk_ph)
-        right.addWidget(g)
-
         # ---------------- 2. Daten ----------------
-        g = QGroupBox(tr("2. Woher kommen die Daten?"))
-        v = QVBoxLayout(g)
+        g = CollapsibleSection(tr("2. Woher kommen die Daten?"), expanded=True)
+        right.addWidget(g)
+        v = g.body_layout
         row = QHBoxLayout()
         self.ed_csv = QLineEdit()
         self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
@@ -414,11 +422,10 @@ class VdpDialog(QDialog):
                        "„Seiten je Datensatz“ der Vorlage (2 = Vorder- und Rückseite). Z. B. 10 Kartenseiten, "
                        "2 Seiten je Datensatz = 5 Datensätze, Ergebnis 10 Seiten. Die Reihenfolge der Seiten "
                        "bleibt sonst unverändert."), row_o)
-        right.addWidget(g)
-
         # ---------------- 3. Nummerierung ----------------
-        g = QGroupBox(tr("3. Nummerierung – was {{nr}} ergibt"))
-        v = QVBoxLayout(g)
+        g = CollapsibleSection(tr("3. Nummerierung – was {{nr}} ergibt"), expanded=True)
+        right.addWidget(g)
+        v = g.body_layout
         row = QHBoxLayout()
         self.spn_start, self.spn_step, self.spn_digits = QSpinBox(), QSpinBox(), QSpinBox()
         self.spn_start.setRange(-10 ** 9, 10 ** 9)
@@ -459,11 +466,11 @@ class VdpDialog(QDialog):
                     tr("Einen Namen eingeben (z. B. „Tickets“): Passermark merkt sich, wo dieser Auftrag aufhört, und "
                        "der nächste Auftrag mit demselben Namen zählt dort weiter."), self.ed_cont)
         v.addWidget(self.lbl_cont)
-        right.addWidget(g)
 
         # ---------------- 4. Ausgabe ----------------
-        g = QGroupBox(tr("4. Ausgabe"))
-        v = QVBoxLayout(g)
+        g = CollapsibleSection(tr("4. Ausgabe"), expanded=True)
+        right.addWidget(g)
+        v = g.body_layout
         row = QHBoxLayout()
         self.chk_log = QCheckBox(tr("Protokoll schreiben:"))
         self.ed_log = QLineEdit()
@@ -474,9 +481,8 @@ class VdpDialog(QDialog):
         row.addWidget(b)
         self._field(v, tr("Code-Protokoll (CSV)"), tr("Liste aller erzeugten Nummern und Codes je Seite – zum "
                                                       "Nachweis oder Abgleich."), row)
-        self._help(v, tr("Mehrere verschiedene Karten auf einem Bogen: das Ergebnis drucken → Weitere Optionen → "
-                         "Nutzen → „Je Nutzen die nächste Seite“."))
-        right.addWidget(g)
+        self._help(v, tr("Mehrere verschiedene Karten auf einem Bogen: das Ergebnis drucken → Druckdialog → "
+                         "Nutzen (Step & Repeat) → Reihenfolge „Je Nutzen die nächste Seite“."), register=True)
         right.addStretch()
         bb = QDialogButtonBox()
         ok = bb.addButton(tr("Erzeugen (neuer Reiter)"), QDialogButtonBox.ButtonRole.AcceptRole)
@@ -513,24 +519,39 @@ class VdpDialog(QDialog):
         self._paint_color()
 
     # -------------------------------------------------------------- #
-    def _help(self, layout, text):
+    def _toggle_help(self, on: bool):
+        """Checkbox „Hilfetexte anzeigen“: alle Erklärungen ein-/ausblenden."""
+        for lab in self._helps:
+            lab.setVisible(on)
+
+    def _help(self, layout, text, register: bool = False):
         lab = QLabel(text)
         lab.setWordWrap(True)
         lab.setStyleSheet(f"color: {theme.MUTED};")
         layout.addWidget(lab)
+        if register:                 # nur die Feld-Erklärungen hängen am Umschalter
+            lab.setVisible(self.chk_help.isChecked())
+            self._helps.append(lab)
         return lab
 
     def _field(self, layout, title, text, widget):
-        """Überschrift, kurze Erklärung, darunter das Eingabeelement."""
+        """Überschrift, Erklärung (immer als Tooltip; sichtbar nur mit „Hilfetexte anzeigen“),
+        darunter das Eingabeelement."""
         box = QVBoxLayout()
         box.setSpacing(2)
         if title:
             t = QLabel(f"<b>{title}</b>")
             box.addWidget(t)
+        w = widget if isinstance(widget, QWidget) else None
         if text:
-            self._help(box, text)
-        if isinstance(widget, QWidget):
-            box.addWidget(widget)
+            if w is None:            # Layout -> in ein Widget wickeln (Tooltip braucht eines)
+                w = QWidget()
+                w.setLayout(widget)
+            tip = w.toolTip()
+            w.setToolTip(text if not tip else tip + "\n\n" + text)
+            self._help(box, text, register=True)
+        if w is not None:
+            box.addWidget(w)
         else:
             box.addLayout(widget)
         layout.addSpacing(6)
