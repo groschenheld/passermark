@@ -6,6 +6,15 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    ' (davon {0:.1f} mm sichtbar weiß)': ' (of which {0:.1f} mm visible white)',
+    ' · Anordnung: {0} · Zellabstand: {1:.1f} mm': ' · Arrangement: {0} · Cell spacing: {1:.1f} mm',
+    'Abstand zwischen Nutzen:': 'Spacing between items:',
+    'Abstand zwischen den Kacheln bei „Mit Abstand“ – gilt für Nutzen UND für „Mehrere pro Blatt“ (überschreibt dort den Abstand des Mehrere-Abschnitts; z. B. Mindestabstand für einen Multifinisher). Nie kleiner als 2 × Anschnitt, damit der Überfüller Platz hat.': 'Spacing between the tiles with “With spacing” – applies to items AND to “Several per sheet” (overrides the spacing of the several-per-sheet section there; e.g. minimum spacing for a multifinisher). Never smaller than 2 × bleed, so the bleed has room.',
+    'Abstand zwischen den Kacheln. Wird von der „Nutzen-Anordnung“ im Abschnitt „Schnittmarken und Anschnitt“ übersteuert, sobald dort eine Anordnung gewählt ist (Kante an Kante / Überfüller an Überfüller / Mit Abstand).': 'Spacing between the tiles. Overridden by the “Item arrangement” in the “Crop marks and bleed” section as soon as an arrangement is chosen there (Edge to edge / Bleed to bleed / With spacing).',
+    'Automatisch (Nutzen bleiben aufrecht, das Blatt dreht mit)': 'Automatic (items stay upright, the sheet rotates)',
+    'Kante an Kante': 'Edge to edge',
+    'Nutzen-Anordnung:': 'Item arrangement:',
+    'Wie die Kacheln auf dem Blatt liegen – gilt für „Nutzen (Step & Repeat)“ UND für „Mehrere pro Blatt“; überschreibt dort den Abstand des Mehrere-Abschnitts. Kante an Kante: 0 mm Abstand, der Anschnitt liegt nur außen – ein Schnitt teilt zwei Kacheln. Überfüller an Überfüller: 2 × Anschnitt als Abstand, wird in der Mitte geschnitten. Mit Abstand: der Abstand unten in diesem Abschnitt (z. B. Mindestabstand für einen Multifinisher), nie unter 2 × Anschnitt.': 'How the tiles lie on the sheet – applies to “Items (Step & Repeat)” AND to “Several per sheet”; overrides the spacing of the several-per-sheet section there. Edge to edge: 0 mm spacing, bleed only on the outside – one cut separates two tiles. Bleed to bleed: 2 × bleed as spacing, cut in the middle. With spacing: the spacing below in this section (e.g. minimum spacing for a multifinisher), never below 2 × bleed.',
     'Eine Spalte – Vorschau füllt die Breite': 'Single column – preview fills the width',
     'Raster – mehrere Seiten nebeneinander': 'Grid – several pages side by side',
     'Vorschau verkleinern (Strg + Mausrad)': 'Smaller previews (Ctrl + mouse wheel)',

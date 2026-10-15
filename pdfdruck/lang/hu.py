@@ -6,6 +6,15 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    ' (davon {0:.1f} mm sichtbar weiß)': ' (ebből {0:.1f} mm látható fehér)',
+    ' · Anordnung: {0} · Zellabstand: {1:.1f} mm': ' · Elrendezés: {0} · Cellatérköz: {1:.1f} mm',
+    'Abstand zwischen Nutzen:': 'Térköz a haszonminták között:',
+    'Abstand zwischen den Kacheln bei „Mit Abstand“ – gilt für Nutzen UND für „Mehrere pro Blatt“ (überschreibt dort den Abstand des Mehrere-Abschnitts; z. B. Mindestabstand für einen Multifinisher). Nie kleiner als 2 × Anschnitt, damit der Überfüller Platz hat.': 'A csempék közötti térköz „Térközzel” beállításnál – érvényes a haszonmintákra ÉS a „Több oldal egy íven” módra (ott felülírja annak a szakasznak a térközét; pl. minimális térköz egy multifinisherhez). Soha nem kisebb, mint 2 × kifutó, hogy a kifutónak legyen helye.',
+    'Abstand zwischen den Kacheln. Wird von der „Nutzen-Anordnung“ im Abschnitt „Schnittmarken und Anschnitt“ übersteuert, sobald dort eine Anordnung gewählt ist (Kante an Kante / Überfüller an Überfüller / Mit Abstand).': 'A csempék közötti térköz. A „Vágójelek és kifutó” szakasz „Haszonminták elrendezése” beállítása felülírja, amint ott elrendezést választ (Élre élre / Kifutó a kifutóhoz / Térközzel).',
+    'Automatisch (Nutzen bleiben aufrecht, das Blatt dreht mit)': 'Automatikus (a haszonminták állva maradnak, az ív fordul)',
+    'Kante an Kante': 'Élre élre',
+    'Nutzen-Anordnung:': 'Haszonminták elrendezése:',
+    'Wie die Kacheln auf dem Blatt liegen – gilt für „Nutzen (Step & Repeat)“ UND für „Mehrere pro Blatt“; überschreibt dort den Abstand des Mehrere-Abschnitts. Kante an Kante: 0 mm Abstand, der Anschnitt liegt nur außen – ein Schnitt teilt zwei Kacheln. Überfüller an Überfüller: 2 × Anschnitt als Abstand, wird in der Mitte geschnitten. Mit Abstand: der Abstand unten in diesem Abschnitt (z. B. Mindestabstand für einen Multifinisher), nie unter 2 × Anschnitt.': 'Hogyan helyezkednek el a csempék az íven – érvényes a „Haszonminták (Step & Repeat)” ÉS a „Több oldal egy íven” módra; ott felülírja annak a szakasznak a térközét. Élre élre: 0 mm térköz, kifutó csak kívül – egy vágás két csempét választ el. Kifutó a kifutóhoz: 2 × kifutó a térköz, középen vágva. Térközzel: az alábbi térköz ebben a szakaszban (pl. minimális térköz egy multifinisherhez), soha nem kevesebb, mint 2 × kifutó.',
     'Eine Spalte – Vorschau füllt die Breite': 'Egy oszlop – az előnézet kitölti a szélességet',
     'Raster – mehrere Seiten nebeneinander': 'Rács – több oldal egymás mellett',
     'Vorschau verkleinern (Strg + Mausrad)': 'Kisebb előnézet (Ctrl + egérgörgő)',
