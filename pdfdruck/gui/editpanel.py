@@ -13,7 +13,7 @@ import os
 import traceback
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
                                QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QMessageBox, QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget)
 
@@ -37,6 +37,7 @@ class EditPanel(QWidget):
         super().__init__(win)
         self.win = win
         self.lines: list[editing.TextLine] = []
+        self.objects: list = []
         self.lmap: editing.LayerMap | None = None
         self.lmap_key = None
         self.layers = []
@@ -59,7 +60,8 @@ class EditPanel(QWidget):
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lst_text = QListWidget()
-        self.lst_text.currentRowChanged.connect(self._text_selected)
+        self.lst_text.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.lst_text.itemSelectionChanged.connect(self._text_selection)
         lv.addWidget(self.lst_text, 1)
         f = QFormLayout()
         self.ed_text = QLineEdit()
@@ -87,7 +89,47 @@ class EditPanel(QWidget):
         b.clicked.connect(self._text_delete)
         row.addWidget(b)
         lv.addLayout(row)
+        row = QHBoxLayout()
+        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._text_z_up),
+                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._text_z_down),
+                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._text_z_front),
+                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._text_z_back)):
+            b = QPushButton(text)
+            b.setToolTip(tip)
+            b.clicked.connect(fn)
+            row.addWidget(b)
+        lv.addLayout(row)
         self.tabs.addTab(w, tr("Text"))
+
+        # ---- Objekte ----
+        w = QWidget()
+        lv = QVBoxLayout(w)
+        self.lst_objects = QListWidget()
+        self.lst_objects.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.lst_objects.itemSelectionChanged.connect(self._object_selection)
+        lv.addWidget(self.lst_objects, 1)
+        self.lbl_object = QLabel()
+        self.lbl_object.setWordWrap(True)
+        self.lbl_object.setStyleSheet(f"color: {theme.MUTED};")
+        lv.addWidget(self.lbl_object)
+        grid = QHBoxLayout()
+        for text, fn in ((tr("Skalieren / Verschieben …"), self._object_transform),
+                         (tr("Objekt löschen"), self._object_delete)):
+            b = QPushButton(text)
+            b.clicked.connect(fn)
+            grid.addWidget(b)
+        lv.addLayout(grid)
+        grid = QHBoxLayout()
+        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._object_z_up),
+                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._object_z_down),
+                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._object_z_front),
+                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._object_z_back)):
+            b = QPushButton(text)
+            b.setToolTip(tip)
+            b.clicked.connect(fn)
+            grid.addWidget(b)
+        lv.addLayout(grid)
+        self.tabs.addTab(w, tr("Objekte"))
 
         # ---- Ebenen ----
         w = QWidget()
@@ -111,6 +153,16 @@ class EditPanel(QWidget):
             b.clicked.connect(fn)
             grid.addWidget(b)
         lv.addLayout(grid)
+        grid = QHBoxLayout()
+        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._layer_z_up),
+                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._layer_z_down),
+                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._layer_z_front),
+                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._layer_z_back)):
+            b = QPushButton(text)
+            b.setToolTip(tip)
+            b.clicked.connect(fn)
+            grid.addWidget(b)
+        lv.addLayout(grid)
         self.tabs.addTab(w, tr("Ebenen"))
 
         self.btn_undo = QPushButton(tr("Rückgängig"))
@@ -130,6 +182,8 @@ class EditPanel(QWidget):
         try:
             if self.tabs.currentIndex() == 0:
                 self._fill_text()
+            elif self.tabs.currentIndex() == 1:
+                self._fill_objects()
             else:
                 self._fill_layers()
             self._loaded = (self.page, self.tabs.currentIndex())
@@ -203,7 +257,7 @@ class EditPanel(QWidget):
             return "move"
         return None
 
-    def press(self, page, x, y, tol):
+    def press(self, page, x, y, tol, ctrl=False):
         if page != self.page:
             return
         self._ensure_loaded(page)
@@ -214,17 +268,29 @@ class EditPanel(QWidget):
             if hit:
                 self._dstate = {"kind": "scale", "box": box, "corner": hit[0], "anchor": hit[1], "start": (x, y)}
                 return
+            if self._inside(box, x, y, tol) and ctrl:
+                cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+                self._dstate = {"kind": "scale_radial", "box": box, "anchor": (cx, cy), "start": (x, y)}
+                return
             if self._inside(box, x, y, tol):
                 self._dstate = {"kind": "move", "box": box, "start": (x, y)}
                 return
-        self.page_click(page, x, y, False)          # reselect …
+        self.page_click(page, x, y, ctrl)          # reselect (Strg = zur Auswahl hinzufügen) …
         box = self.sel_box
         if box is not None and self._inside(box, x, y, tol):
             self._dstate = {"kind": "move", "box": box, "start": (x, y)}   # … und gleich greifen
 
     def _preview(self, x, y, d=None):
+        import math
         d = d or self._dstate
         x0, y0, x1, y1 = d["box"]
+        if d["kind"] == "scale_radial":
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+            r0 = math.hypot(d["start"][0] - cx, d["start"][1] - cy)
+            r1 = math.hypot(x - cx, y - cy)
+            s = max(0.05, r1 / r0) if r0 > 1e-3 else 1.0
+            w, h = (x1 - x0) / 2 * s, (y1 - y0) / 2 * s
+            return s, 0.0, 0.0, (cx - w, cy - h, cx + w, cy + h)
         if d["kind"] == "move":
             dx, dy = x - d["start"][0], y - d["start"][1]
             return 1.0, dx, dy, (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
@@ -239,9 +305,19 @@ class EditPanel(QWidget):
         """Mouse moved with the button held: dashed preview of the new position."""
         if self._dstate is None or page != self.page or self.sel_box is None:
             return
-        _s, _dx, _dy, nb = self._preview(x, y)
+        s, _dx, _dy, nb = self._preview(x, y)
         col = SEL_TEXT if self.tabs.currentIndex() == 0 else SEL_LAYER
         self._overlay([(*self._dstate["box"], col)], preview=nb)
+        if self._dstate["kind"] in ("scale", "scale_radial"):
+            if self.tabs.currentIndex() == 0 and self.lines:
+                L = self.lines[self.lst_text.currentRow()] if 0 <= self.lst_text.currentRow() < len(self.lines) else None
+                if L is not None:
+                    self.win.statusBar().showMessage(tr("Neue Größe: {0:.1f} pt").format(L.size * s), 2000)
+            elif self.tabs.currentIndex() == 1 and self.objects:
+                O = self.objects[self.lst_objects.currentRow()] if 0 <= self.lst_objects.currentRow() < len(self.objects) else None
+                if O is not None:
+                    self.win.statusBar().showMessage(tr("Neue Größe: {0:.1f} × {1:.1f} mm").format(
+                        (O.bbox[2] - O.bbox[0]) / MM * s, (O.bbox[3] - O.bbox[1]) / MM * s), 2000)
 
     def release(self, page, x, y):
         """Release: apply move/scale (layer or text row), with undo."""
@@ -255,20 +331,35 @@ class EditPanel(QWidget):
         origin = d.get("anchor", (0.0, 0.0))
         try:
             if self.tabs.currentIndex() == 0:
-                row = self.lst_text.currentRow()
-                if not (0 <= row < len(self.lines)):
+                lines = self._selected_lines()
+                if not lines:
                     return
-                L = self.lines[row]
 
                 def run(data):
                     # preferred: enclose only the text blocks (otherwise the page stays unchanged)
-                    new = editing.transform_line_blocks(data, self.page, L, s, dx, dy, origin)
-                    if new is None:
-                        new = self._pdfium_edit(data, self.page,
-                                                lambda d: editing.transform_line(d, self.page, L, s, dx, dy, origin))[0]
+                    new, pending = data, []
+                    for L in lines:
+                        b = editing.transform_line_blocks(new, self.page, L, s, dx, dy, origin)
+                        if b is not None:
+                            new = b
+                        else:
+                            pending.append(L)
+                    if pending:                    # pdfium-Rest Durchlauf (einmal speichern)
+                        new = self._pdfium_edit(new, self.page,
+                                                lambda d: editing.transform_lines_bulk(d, self.page, pending, s, dx, dy, origin))[0]
                     return new
-                if self._text_edit(run, [L.bbox, nb]):
+                if self._text_edit(run, [L.bbox for L in lines] + [nb]):
                     self._reselect_text(nb)
+            elif self.tabs.currentIndex() == 1:
+                objs = self._selected_objects()
+                if not objs:
+                    return
+
+                def run_obj(data):
+                    return self._pdfium_edit(data, self.page,
+                                             lambda d: editing.transform_objects_bulk(d, self.page, objs, s, dx, dy, origin))[0]
+                if self._text_edit(run_obj, [O.bbox for O in objs] + [nb]):
+                    self._reselect_object(nb)
             else:
                 L = self._layer_key()
                 if L is None:
@@ -289,7 +380,22 @@ class EditPanel(QWidget):
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
         best = min(self.lines, key=lambda L: abs((L.bbox[0] + L.bbox[2]) / 2 - cx) + abs((L.bbox[1] + L.bbox[3]) / 2 - cy))
-        self.lst_text.setCurrentRow(best.index)
+        if self.lst_text.currentRow() == best.index:
+            self._text_selected(best.index)          # gleiche Zeile: kein Signal -> direkt anwählen
+        else:
+            self.lst_text.setCurrentRow(best.index)
+
+    def _reselect_object(self, box):
+        """After reloading, select the moved object again (nearest to the new position)."""
+        if not self.objects:
+            return
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        best = min(self.objects, key=lambda O: abs((O.bbox[0] + O.bbox[2]) / 2 - cx)
+                   + abs((O.bbox[1] + O.bbox[3]) / 2 - cy))
+        if self.lst_objects.currentRow() == best.index:
+            self._object_selected(best.index)        # gleiche Zeile: kein Signal -> direkt anwählen
+        else:
+            self.lst_objects.setCurrentRow(best.index)
 
     def _reselect_layer(self, key):
         for i, L in enumerate(self.layers):
@@ -298,15 +404,149 @@ class EditPanel(QWidget):
                 self._layer_selected(i)
                 break
 
+    # ---------------- Auswahl (Mehrfach, Bild + Liste synchron) ---------------- #
+    def _selected_lines(self) -> list:
+        return [self.lines[i.row()] for i in self.lst_text.selectedIndexes()
+                if 0 <= i.row() < len(self.lines)]
+
+    def _selected_objects(self) -> list:
+        return [self.objects[i.row()] for i in self.lst_objects.selectedIndexes()
+                if 0 <= i.row() < len(self.objects)]
+
+    @staticmethod
+    def _union(boxes) -> tuple:
+        return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+                max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+    def _text_selection(self):
+        """Mehrfachauswahl Text: Rahmen um alle gewählten Zeilen (Union = Griffrahmen)."""
+        sel = self._selected_lines()
+        if not sel:
+            self.sel_box = None
+            self._overlay()
+            return
+        boxes = [(L.bbox[0] - 1, L.bbox[1] - 1, L.bbox[2] + 1, L.bbox[3] + 1, SEL_TEXT) for L in sel]
+        u = self._union([b[:4] for b in boxes])
+        self._overlay([(u[0], u[1], u[2], u[3], SEL_TEXT)] + boxes)
+        row = self.lst_text.currentRow()
+        if 0 <= row < len(sel) and sel[0].index == row or any(L.index == row for L in sel):
+            L = next(L for L in sel if L.index == row)
+            self.ed_text.setText(L.text)
+            self.spn_size.setValue(L.size)
+
+    def _object_selection(self):
+        """Mehrfachauswahl Objekte: Rahmen um alle gewählten Objekte (Union = Griffrahmen)."""
+        sel = self._selected_objects()
+        if not sel:
+            self.sel_box = None
+            self._overlay()
+            if not self.objects:
+                self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
+            return
+        boxes = [(O.bbox[0] - 1, O.bbox[1] - 1, O.bbox[2] + 1, O.bbox[3] + 1, SEL_TEXT) for O in sel]
+        u = self._union([b[:4] for b in boxes])
+        self._overlay([(u[0], u[1], u[2], u[3], SEL_TEXT)] + boxes)
+        row = self.lst_objects.currentRow()
+        if any(O.index == row for O in sel):
+            O = next(O for O in sel if O.index == row)
+            self.lbl_object.setText(tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
+                (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM))
+
+    # ---------------- Z-Ordnung ---------------- #
+    def _zorder(self, items, where, layer_key=None) -> None:
+        """Zeichenreihenfolge ändern (Objekte/Zeilen oder Ebene) – ohne Neuaufbau (pikepdf)."""
+        data = self.win._doc_bytes()
+        try:
+            if layer_key is not None:
+                new = editing.reorder_layer_blocks(data, self.page, layer_key, where)
+            else:
+                new = editing.reorder_objects(data, self.page, items, where)
+        except Exception as e:
+            _err(self, e)
+            return
+        if new is None:
+            QMessageBox.information(self, tr("Bearbeiten"),
+                                    tr("Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher "
+                                       "umordnen (Struktur der Seite nicht erkannt)."))
+            return
+        if new == data:
+            return                                    # schon an der Position
+        self.undo.append(data)
+        del self.undo[:-20]
+        self.btn_undo.setEnabled(True)
+        self._replace_doc(new)
+
+    def _text_z_up(self):
+        sel = self._selected_lines()
+        if sel:
+            self._zorder(sel, "up")
+
+    def _text_z_down(self):
+        sel = self._selected_lines()
+        if sel:
+            self._zorder(sel, "down")
+
+    def _text_z_front(self):
+        sel = self._selected_lines()
+        if sel:
+            self._zorder(sel, "front")
+
+    def _text_z_back(self):
+        sel = self._selected_lines()
+        if sel:
+            self._zorder(sel, "back")
+
+    def _object_z_up(self):
+        sel = self._selected_objects()
+        if sel:
+            self._zorder(sel, "up")
+
+    def _object_z_down(self):
+        sel = self._selected_objects()
+        if sel:
+            self._zorder(sel, "down")
+
+    def _object_z_front(self):
+        sel = self._selected_objects()
+        if sel:
+            self._zorder(sel, "front")
+
+    def _object_z_back(self):
+        sel = self._selected_objects()
+        if sel:
+            self._zorder(sel, "back")
+
+    def _layer_z_up(self):
+        L = self._layer_key()
+        if L is not None:
+            self._zorder(None, "up", layer_key=L.key)
+
+    def _layer_z_down(self):
+        L = self._layer_key()
+        if L is not None:
+            self._zorder(None, "down", layer_key=L.key)
+
+    def _layer_z_front(self):
+        L = self._layer_key()
+        if L is not None:
+            self._zorder(None, "front", layer_key=L.key)
+
+    def _layer_z_back(self):
+        L = self._layer_key()
+        if L is not None:
+            self._zorder(None, "back", layer_key=L.key)
+
     # ---------------- Text ---------------- #
     def _fill_text(self):
         cur = self.lst_text.currentRow()
-        self.lines = editing.text_lines(self.win.doc, self.page)
+        self.lines = editing.text_lines(self.win.doc, self.page, include_undecodable=True)
         self.lst_text.blockSignals(True)
         self.lst_text.clear()
         for L in self.lines:
-            it = QListWidgetItem(f"{L.text[:60]}\n{L.font.split('+')[-1]} · {L.size:.1f} pt" +
-                                 (" · " + tr("Ebene") if L.in_layer else ""))
+            shown = L.text[:60] if L.text.strip() and not L.no_text else "(" + tr("ohne Textinhalt") + ")"
+            it = QListWidgetItem(f"{shown}\n{L.font.split('+')[-1]} · {L.size:.1f} pt" +
+                                 (" · " + tr("Ebene") if L.in_layer else "") +
+                                 (" · " + tr("Pfadtext") if L.path_center else ""))
             self.lst_text.addItem(it)
         self.lst_text.blockSignals(False)
         if 0 <= cur < len(self.lines):
@@ -413,6 +653,71 @@ class EditPanel(QWidget):
         self._replace_doc(self.win._doc_bytes())
         if notes:
             QMessageBox.information(self, tr("Hinweis"), "\n\n".join(notes))
+
+    # ---------------- Objekte ---------------- #
+    def _fill_objects(self):
+        cur = self.lst_objects.currentRow()
+        self.objects = editing.page_objects(self.win.doc, self.page)
+        self.lst_objects.blockSignals(True)
+        self.lst_objects.clear()
+        for O in self.objects:
+            w_mm = (O.bbox[2] - O.bbox[0]) / MM
+            h_mm = (O.bbox[3] - O.bbox[1]) / MM
+            self.lst_objects.addItem(QListWidgetItem(
+                f"{O.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if O.in_layer else "")))
+        self.lst_objects.blockSignals(False)
+        if not self.objects:
+            self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
+        if 0 <= cur < len(self.objects):
+            self.lst_objects.setCurrentRow(cur)
+
+    def _object_selected(self, row):
+        if not (0 <= row < len(self.objects)):
+            return
+        O = self.objects[row]
+        self._overlay([(O.bbox[0] - 1, O.bbox[1] - 1, O.bbox[2] + 1, O.bbox[3] + 1, SEL_TEXT)])
+        self.lbl_object.setText(tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
+            (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM))
+
+    def _object_transform(self):
+        row = self.lst_objects.currentRow()
+        if not (0 <= row < len(self.objects)):
+            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            return
+        O = self.objects[row]
+        dlg = _TransformDialog(self, O.text, O.bbox, what=tr("Objekt"), with_pages=False)
+        if not dlg.exec():
+            return
+        pb = self.win.doc.get_page_size(self.page)
+        pb = (0.0, 0.0, pb[0], pb[1])
+        scale, dx, dy, origin, _all = dlg.values(O.bbox, pb)
+        try:
+            if self._text_edit(lambda data: self._pdfium_edit(
+                    data, self.page, lambda d: editing.transform_object(d, self.page, O, scale, dx, dy, origin))[0],
+                    [O.bbox, self._grow_box(O.bbox, scale)]):
+                self._reselect_object(self._grow_box(O.bbox, scale))
+        except Exception as e:
+            _err(self, e)
+
+    def _object_delete(self):
+        row = self.lst_objects.currentRow()
+        if not (0 <= row < len(self.objects)):
+            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            return
+        O = self.objects[row]
+        try:
+            if self._text_edit(lambda data: self._pdfium_edit(
+                    data, self.page, lambda d: editing.delete_object(d, self.page, O))[0], [O.bbox]):
+                self._overlay(None)
+        except Exception as e:
+            _err(self, e)
+
+    @staticmethod
+    def _grow_box(bbox, scale):
+        s = max(1.0, float(scale))
+        cx, cy = (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+        w, h = (bbox[2] - bbox[0]) * s, (bbox[3] - bbox[1]) * s
+        return (cx - w, cy - h, cx + w, cy + h)
 
     # ---------------- Ebenen ---------------- #
     def _fill_layers(self):
@@ -527,7 +832,26 @@ class EditPanel(QWidget):
         if self.tabs.currentIndex() == 0:
             L = editing.line_at(self.lines, x, y)
             if L is not None:
-                self.lst_text.setCurrentRow(L.index)
+                if additive:
+                    it = self.lst_text.item(L.index)
+                    it.setSelected(not it.isSelected())
+                    if it.isSelected():
+                        self.lst_text.setCurrentRow(L.index)
+                else:
+                    self.lst_text.setCurrentRow(L.index)
+        elif self.tabs.currentIndex() == 1:
+            hits = [O for O in self.objects if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3]]
+            if hits:
+                O = min(hits, key=lambda o: (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))
+                if additive:
+                    it = self.lst_objects.item(O.index)
+                    it.setSelected(not it.isSelected())
+                    if it.isSelected():
+                        self.lst_objects.setCurrentRow(O.index)
+                elif self.lst_objects.currentRow() == O.index:
+                    self._object_selected(O.index)
+                else:
+                    self.lst_objects.setCurrentRow(O.index)
         elif self.lmap is not None:
             hits = editing.layers_at(self.lmap, x, y)
             if not hits:
@@ -552,9 +876,10 @@ def _overlap(b, pb) -> float:
 
 
 class _TransformDialog(QDialog):
-    def __init__(self, parent, name, box):
+    def __init__(self, parent, name, box, what=None, with_pages=True):
         super().__init__(parent)
-        self.setWindowTitle(tr("Ebene „{0}“ skalieren / verschieben").format(name))
+        self._with_pages = with_pages
+        self.setWindowTitle(tr("{0} „{1}“ skalieren / verschieben").format(what or tr("Ebene"), name))
         f = QFormLayout(self)
         self.spn_scale = QDoubleSpinBox()
         self.spn_scale.setRange(1, 1000)
@@ -575,9 +900,10 @@ class _TransformDialog(QDialog):
         self.cmb_origin.addItem(tr("Seitenursprung (unten links)"), "origin")
         f.addRow(tr("Bezugspunkt fürs Skalieren:"), self.cmb_origin)
         self.cmb_pages = QComboBox()
-        self.cmb_pages.addItem(tr("Nur diese Seite"), False)
-        self.cmb_pages.addItem(tr("Alle Seiten"), True)
-        f.addRow(tr("Seiten:"), self.cmb_pages)
+        if self._with_pages:
+            self.cmb_pages.addItem(tr("Nur diese Seite"), False)
+            self.cmb_pages.addItem(tr("Alle Seiten"), True)
+            f.addRow(tr("Seiten:"), self.cmb_pages)
         b = QPushButton(tr("Auf die Seite zurückholen"))
         b.setToolTip(tr("Verschiebung so setzen, dass die Ebene mittig auf der Seite liegt"))
         b.setEnabled(box is not None)
@@ -605,4 +931,4 @@ class _TransformDialog(QDialog):
         else:
             origin = (0.0, 0.0)
         return (self.spn_scale.value() / 100.0, self.spn_dx.value() * MM, self.spn_dy.value() * MM, origin,
-                bool(self.cmb_pages.currentData()))
+                bool(self.cmb_pages.currentData()) if self._with_pages else False)

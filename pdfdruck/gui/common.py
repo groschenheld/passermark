@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-# License, version 3 or (at your option) any later version.
+# License, Version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Gemeinsame GUI-Hilfen und der (nur im RAM gehaltene) Sitzungszustand."""
 from __future__ import annotations
@@ -44,13 +44,36 @@ class CollapsibleSection(QWidget):
         self.btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
 
 
+# Render-Limit: Riesen-/fehlerhafte Seiten blockieren die Ansicht nicht mehr.
+# Höchstens 8192 px je Kante bzw. 40 Megapixel rendern, dann weich hochskalieren.
+MAX_RENDER_EDGE = 8192
+MAX_RENDER_PIXELS = 40_000_000
+
+
 def render_pixmap(page, scale: float, rotation: int = 0, dpr: float = 1.0) -> QPixmap:
-    """Rendert eine pdfium-Seite als QPixmap (BGRX -> QImage.Format.Format_RGB32)."""
-    bmp = page.render(scale=scale * dpr, rotation=rotation % 360, prefer_bgrx=True,
+    """Rendert eine pdfium-Seite als QPixmap (BGRX -> QImage.Format.Format_RGB32).
+
+    Größenlimit: Seiten, die im Zoom gigapiselig würden (oder kaputte Massangaben
+    haben), werden höchstens 8192 px je Kante bzw. 40 Megapixel gerendert und
+    anschließend weich auf die Zielgröße hochskaliert – das Zoomen bleibt flüssig."""
+    rot = rotation % 360
+    w, h = page.get_size()
+    if rot % 180:
+        w, h = h, w
+    sc = scale * dpr
+    lim = min(1.0,
+              MAX_RENDER_EDGE / max(1.0, w * sc),
+              MAX_RENDER_EDGE / max(1.0, h * sc),
+              (MAX_RENDER_PIXELS / max(1.0, w * sc * h * sc)) ** 0.5)
+    bmp = page.render(scale=sc * lim, rotation=rot, prefer_bgrx=True,
                       may_draw_forms=True, draw_annots=True)
     fmt = QImage.Format.Format_RGB32 if bmp.n_channels == 4 else QImage.Format.Format_BGR888
     img = QImage(bytes(bmp.buffer), bmp.width, bmp.height, bmp.stride, fmt).copy()
     bmp.close()
+    if lim < 1.0:                                   # Renderlimit erreicht: weich hochskalieren
+        img = img.scaled(max(1, round(w * sc)), max(1, round(h * sc)),
+                         Qt.AspectRatioMode.IgnoreAspectRatio,
+                         Qt.TransformationMode.SmoothTransformation)
     pm = QPixmap.fromImage(img)
     pm.setDevicePixelRatio(dpr)
     return pm
@@ -105,7 +128,7 @@ class Session:
 
         On the next start, the admin defaults from /etc are loaded again –
         that is the "reset on exit", crash-safe without cleanup.
-    """
+        """
 
     def __init__(self, cfg: dict):
         self.cfg = cfg

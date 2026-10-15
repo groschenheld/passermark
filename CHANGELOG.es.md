@@ -5,6 +5,43 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.12.0
+- **Edición: editar objetos de forma estructurada.** Nueva pestaña «Objetos»: los vectores e
+  imágenes de la página se listan con su tamaño en mm o se seleccionan con un clic en la página;
+  escalar, mover, eliminar. Selección múltiple con Ctrl/Mayús en la lista y en la página, ambas
+  vinculadas – los cambios (mover, escalar, eliminar) actúan a la vez sobre todos los objetos
+  elegidos. Ctrl+arrastrar escala alrededor del origen del marco de selección, con indicación en
+  mm en vivo. Red de seguridad: tras cada cambio Passermark comprueba que nada cambie fuera de
+  los objetos elegidos – en caso contrario, el cambio se revierte y se avisa
+- **Orden Z para objetos y capas:** un paso adelante/atrás, del todo al frente/fondo – para líneas
+  de texto, vectores, imágenes y capas
+- **Texto en trayectoria reconocido correctamente:** las letras giradas individualmente sobre un
+  arco (p. ej. de Affinity) se agrupan en una línea y se editan en conjunto; el tamaño de letra se
+  puede cambiar sin romper la página (corrige un error desde 1.10.4). Las líneas sin texto legible
+  (fuentes subset) aparecen como «(sin contenido de texto)» y se pueden mover, escalar y eliminar
+- **Folleto: páginas una junto a otra o una sobre otra.** «Páginas juntas» es seleccionable: una
+  junto a otra (encuadernación lateral) o una sobre otra (encuadernación superior). El sangrado
+  solo en los lados exteriores, nunca en el lomo. La vista previa muestra el resultado real, el
+  dúplex pasa por parejas («Pliego X de Y – anverso y reverso»), el aviso del canto de giro sigue
+  la orientación del pliego. «Generar pliegos …» abre los pliegos impuestos como pestaña nueva
+- **Step & Repeat como ventana propia.** Ya no es un modo de impresión: libremente movible y
+  minimizable, se muestra y oculta mediante la lengüeta amarilla en el borde izquierdo del diálogo
+  (punto = multiuso activo); cerrar no descarta los ajustes. Los pliegos del folleto se pueden
+  colocar varias veces por hoja con el multiuso – sin él, cada pliego se coloca exactamente una
+  vez. La disposición (canto con canto / sangrado contra sangrado / con separación) y la
+  separación son ajustables en todos los modos; con «con separación» el valor introducido es la
+  separación blanca visible, el sangrado se añade por lado
+- **Barra lateral renovada:** ancho libremente ajustable; vistas «una columna» y «rejilla»,
+  tamaño de mosaico con Ctrl+rueda del ratón o botones −/+ (60–600 px); la vista se guarda
+- **Corregido: «Eliminar el espacio blanco»** tomaba el color del contenido como fondo cuando el
+  contenido llenaba más de la mitad de la página – el margen blanco permanecía. El fondo se
+  determina ahora a partir de las franjas del borde de la página
+- **Corregido: la vista previa del folleto** pasaba hoja por hoja en lugar de por parejas (mostraba
+  demasiados pliegos); la barra lateral no se podía estrechar porque los paneles de
+  comprobación/edición imponían su ancho mínimo – ahora cada panel recuerda su propio ancho
+- Guías (de/en) ampliadas con el modo de edición; nueva plantilla de ejemplo «texto en arco» en
+  la carpeta de ejemplos
+
 ## 1.11.3
 - **Diálogo VDP renovado.** Los datos variables lucen ahora como el diálogo de impresión: cuatro
   secciones numeradas plegables (campos, datos, numeración, salida) y arriba una «Guía» plegada.

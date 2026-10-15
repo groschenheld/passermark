@@ -87,6 +87,15 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
         flat = changed
     src_doc = doc
     doc = flat
+    spread_from = None
+    if layout.is_booklet_spreads(settings):
+        spread_from = settings
+        # Broschüre als Druckbögen: erst aufgeklappte Bögen bilden, dann mit der Nutzen-Logik montieren
+        spreads, pages, settings, _notes = layout.spread_source(doc, pages, settings, layout.page_trims(doc))
+        if doc is not src_doc:
+            doc.close()
+        doc = flat = spreads
+        reverse = False
     w, h, ia = caps.sheet_for(values)
     if caps.backend == "pdf" and values.get("PageSize") == "DOC" and pages:
         w, h = doc.get_page_size(pages[0])
@@ -94,6 +103,8 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
     sheet = layout.Sheet(w, h, ia)
     sizes = [doc.get_page_size(i) for i in range(len(doc))]
     plans = make_plans(sizes, pages, sheet, settings, reverse, layout.page_trims(doc), layout.page_doc_bleeds(doc))
+    if spread_from is not None:
+        layout.mark_spread_duplex(plans, spread_from)
     if not plans:
         raise RuntimeError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
 

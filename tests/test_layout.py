@@ -300,6 +300,47 @@ def test_step2_raster_exakt():
     assert len(p1[0].placements) == 9 and p1[0].warnings
 
 
+def test_booklet_spreads():
+    """Broschüre -> Druckbögen (1.12): Endformat aufgeklappt, Reihenfolge, Anschnitt nur außen,
+    nebeneinander/übereinander; danach montiert der Nutzen-Modus sie ohne Warnung."""
+    import io
+    import pikepdf
+    from reportlab.pdfgen import canvas
+    MMx = 72 / 25.4
+    cols = [(1, 0, 0), (0, 0.6, 0), (0, 0, 1), (1, 0.8, 0), (0.6, 0, 0.6), (0, 0.7, 0.7), (0.3, 0.3, 0.3), (1, 0.5, 0)]
+    b = io.BytesIO(); c = canvas.Canvas(b)
+    for i in range(8):                                   # 210 × 210 mm + 3 mm Anschnitt, je Seite eigene Farbe
+        c.setPageSize((216 * MMx, 216 * MMx))
+        c.setFillColorRGB(*cols[i]); c.rect(0, 0, 216 * MMx, 216 * MMx, fill=1, stroke=0); c.showPage()
+    c.save()
+    pk = pikepdf.open(io.BytesIO(b.getvalue()))
+    for pg in pk.pages:
+        pg.TrimBox = [3 * MMx, 3 * MMx, 213 * MMx, 213 * MMx]
+    o = io.BytesIO(); pk.save(o)
+    src = pdfium.PdfDocument(o.getvalue())
+    px = lambda img, x, y: img.getpixel((int(x), int(y)))[:3]
+    for mode, size in (("side", (426, 216)), ("top", (216, 426))):
+        out, notes = booklet_spreads(src, list(range(8)), LayoutSettings(handling="booklet", booklet_spread=mode))
+        w, h = out.get_page_size(0)
+        assert len(out) == 4 and (round(w / MMx), round(h / MMx)) == size, (mode, w / MMx, h / MMx)
+        img = out[0].render(scale=1).to_pil().convert("RGB")
+        W, H = img.size
+        # Bogen 1 vorne: Seite 8 | Seite 1 (bzw. 8 oben, 1 unten); Anschnitt außen echt, am Falz geschnitten
+        if mode == "side":
+            a, z, fa, fz = (1, H / 2), (W - 2, H / 2), (W / 2 - 2, H / 2), (W / 2 + 2, H / 2)
+        else:
+            a, z, fa, fz = (W / 2, 1), (W / 2, H - 2), (W / 2, H / 2 - 2), (W / 2, H / 2 + 2)
+        assert px(img, *a) == px(img, *fa) == (255, 128, 0)          # Seite 8
+        assert px(img, *z) == px(img, *fz) == (255, 0, 0)            # Seite 1
+        t = page_trims(out)[0]
+        assert t and all(abs(v - 3 * MMx) < 0.5 for v in t)          # TrimBox gesetzt, 3 mm Anschnitt
+        # Nutzen montiert die Druckbögen ohne Warnung
+        sz = [out.get_page_size(i) for i in range(len(out))]
+        ps = plan(sz, list(range(len(out))), Sheet(320 * MMx, 450 * MMx, None),
+                  LayoutSettings(step_repeat=True, sr_join="bleed", bleed_mm=3), page_trims(out), page_doc_bleeds(out))
+        assert ps and ps[0].placements and not ps[0].warnings
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)

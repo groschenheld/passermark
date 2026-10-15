@@ -166,6 +166,16 @@ pdlg = pd.PrintDialog(None, pdfium.PdfDocument(sys.argv[1]), sys.argv[1], 0, s)
 pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kind="grouped", booklet_per_sig=2,
                                  booklet_fold_marks=True))
 imp = pdlg._preset_settings()
+# Broschüre als Druckbögen (1.12): Preset laden, Anordnung freischalten, Montage über die Druckbögen
+pdlg._load_layout(LayoutSettings(handling="booklet", booklet_nutzen=True, booklet_spread="top", sr_join="bleed"))
+pdlg._sync_enabled()
+from pdfdruck import layout as _lay
+_s = _lay.LayoutSettings(handling="booklet", booklet_nutzen=True)
+pdlg.trims = _lay.page_trims(pdlg.doc)
+_ss = pdlg._spreads(list(range(len(pdlg.doc))), _s)
+assert _ss.step_repeat and pdlg._spr_doc is not None and len(pdlg._spr_pages) >= 1
+pdlg._spr_active = True
+assert pdlg._print_doc() is pdlg._spr_doc and pdlg._base_print_doc() is not pdlg._spr_doc
 from pdfdruck.gui.vdpdialog import VdpDialog
 vd = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
 vd._add("qr"); vd._add("ean13"); vd._select(0); vd._delete(); vd._refresh(); n_before = len(vd.fields); vd._reset(); vd._add("qr"); vd._add("ean13")

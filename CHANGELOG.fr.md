@@ -5,6 +5,47 @@
 > Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.12.0
+- **Édition : modifier les objets de façon structurée.** Nouvel onglet « Objets » : les vecteurs
+  et images de la page sont listés avec leur taille en mm ou cliqués sur la page ; agrandir,
+  déplacer, supprimer. Sélection multiple avec Ctrl/Maj dans la liste et sur la page, les deux
+  liées – les modifications (déplacer, agrandir, supprimer) s'appliquent d'un coup à tous les
+  objets choisis. Ctrl+glisser agrandit autour de l'origine du cadre de sélection, avec
+  l'indication en mm en direct. Filet de sécurité : après chaque modification, Passermark vérifie
+  que rien ne change en dehors des objets choisis – sinon la modification est annulée et signalée
+- **Ordre Z pour objets et calques :** un pas devant/derrière, tout au premier/arrière-plan –
+  pour les lignes de texte, les vecteurs, les images et les calques
+- **Texte sur tracé reconnu correctement :** les lettres pivotées individuellement sur un arc
+  (p. ex. d'Affinity) sont regroupées en une ligne et modifiées ensemble ; la taille de police se
+  change sans casser la page (corrige un bug depuis 1.10.4). Les lignes sans texte lisible
+  (polices subset) apparaissent comme « (sans contenu textuel) » et peuvent être déplacées,
+  agrandies et supprimées
+- **Livret : pages côte à côte ou l'une sur l'autre.** « Pages ensemble » est sélectionnable :
+  côte à côte (reliure latérale) ou l'une sur l'autre (reliure en tête). Le fond perdu uniquement
+  sur les côtés extérieurs, jamais au dos. L'aperçu montre le vrai résultat, le recto verso
+  tourne par paires (« Feuillet X de Y – recto et verso »), l'indication du chant de retournement
+  suit l'orientation du feuillet. « Générer les feuillets … » ouvre les feuillets imposés comme
+  nouvel onglet
+- **Step & Repeat en fenêtre propre.** Ce n'est plus un mode d'impression : librement déplaçable
+  et minimisable, affiché et masqué via l'onglet jaune au bord gauche du dialogue (point =
+  multi-usage actif) ; fermer ne perd aucun réglage. Les feuillets du livret peuvent être posés
+  plusieurs fois par feuille via le multi-usage – sans lui, chaque feuillet est posé exactement
+  une fois. La disposition (bord à bord / fond perdu contre fond perdu / avec écart) et l'écart
+  sont réglables dans tous les modes ; avec « avec écart », la valeur saisie est l'écart blanc
+  visible, le fond perdu s'ajoute par côté
+- **Barre latérale retravaillée :** largeur librement ajustable ; vues « une colonne » et «
+  grille », taille des vignettes via Ctrl+molette ou boutons −/+ (60–600 px) ; la vue est
+  enregistrée
+- **Corrigé : « Supprimer l'espace blanc »** prenait la couleur du contenu comme fond lorsque le
+  contenu remplissait plus de la moitié de la page – la marge blanche restait. Le fond est
+  désormais déterminé à partir des bandes de bord de la page
+- **Corrigé : l'aperçu du livret** tournait feuille par feuille au lieu de par paires (montrait
+  trop de feuillets) ; la barre latérale ne pouvait pas être rétrécie parce que les panneaux
+  contrôle/édition imposaient leur largeur minimale – chaque panneau retient désormais sa propre
+  largeur
+- Guides (de/en) complétées avec le mode édition ; nouveau modèle d'exemple « texte en arc »
+  dans le dossier d'exemples
+
 ## 1.11.3
 - **Boîte de dialogue VDP relookée.** Les données variables affichent le même visage que le
   dialogue d'impression : quatre sections numérotées repliables (champs, données, numérotation,
