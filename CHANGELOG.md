@@ -2,6 +2,41 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.12.0
+- **Edit mode: structured object editing.** New "Objects" tab: the page's vectors and images
+  listed with their mm size or clicked on the page; scale, move, delete. Multi-selection with
+  Ctrl/Shift in the list and on the page, both linked – changes (move, scale, delete) apply to all
+  selected objects at once. Ctrl+drag scales around the selection frame's origin with a live mm
+  display. Safety net: after every change Passermark verifies that nothing changes outside the
+  selected objects – otherwise the change is rolled back and reported
+- **Z-order for objects and layers:** one step forward/back, to the very front/back – for text
+  lines, vectors, images and layers
+- **Text on a path recognised correctly:** individually rotated letters on an arc (e.g. from
+  Affinity) are grouped into one line and edited as a whole; the font size can be changed without
+  breaking the page (fixes a bug since 1.10.4). Lines without readable text (subset fonts) appear
+  as "(no text content)" and can be moved, scaled and deleted
+- **Booklets: pages side by side or on top of each other.** "Pages together" is selectable: side
+  by side (side binding) or on top of each other (top binding). Bleed only on the outer sides,
+  never at the spine. The preview shows the real result, duplex pages pair-wise ("Sheet X of Y –
+  front and back"), the tumble hint follows the sheet orientation. "Generate sheets …" opens the
+  imposed sheets as a new tab
+- **Step & Repeat as its own window.** No print mode any more: freely movable and minimisable,
+  shown and hidden via the yellow tab at the left dialog edge (dot = multi-use active); closing
+  keeps all settings. Booklet sheets can be placed several times per sheet via multi-use – without
+  it, every sheet is placed exactly once. Arrangement (edge to edge / bleed against bleed / with
+  gap) and gap are adjustable in every mode; with "with gap" the entered value is the visible
+  white gap, the bleed comes on top per side
+- **Sidebar reworked:** width freely resizable; views "one column" and "grid", tile size via
+  Ctrl+mouse wheel or −/+ buttons (60–600 px); the view is saved
+- **Fixed: "Remove white space"** treated the content colour as the background when the content
+  filled more than half of the page – the white margin stayed. The background is now determined
+  from the page's edge strips
+- **Fixed: booklet preview** paged sheet by sheet instead of pair-wise (showed too many sheets);
+  the sidebar could not be made narrower because the check/edit panels enforced their minimum
+  width – every dock remembers its own width now
+- Guides (de/en) extended with the edit mode; new example template "arc text" in the examples
+  folder
+
 ## 1.11.3
 - **VDP dialog facelift.** Variable data uses the same look as the print dialog: four numbered,
   collapsible sections (fields, data, numbering, output) plus a collapsed "Guide" section on top.

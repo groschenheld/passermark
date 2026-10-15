@@ -1,4 +1,4 @@
-# Passermark 1.11.4
+# Passermark 1.12.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).

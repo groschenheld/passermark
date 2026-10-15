@@ -17,7 +17,7 @@ from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDockWidget,
                                QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMainWindow, QMenu, QMessageBox, QPushButton,
+                               QFrame, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QPushButton,
                                QScrollArea, QSpinBox, QStyle, QStyledItemDelegate, QToolButton,
                                QVBoxLayout, QWidget)
 
@@ -148,6 +148,7 @@ class PageWidget(QWidget):
         self.index = index
         self.pixmap = None
         self.key = None
+        self.fuzzy = False        # Übergangsbild: alte Pixmap gestreckt zeigen, bis die scharfe da ist
         self.view = view
         self.setMouseTracking(True)
 
@@ -155,7 +156,13 @@ class PageWidget(QWidget):
         p = QPainter(self)
         p.fillRect(self.rect().adjusted(3, 3, 3, 3), QColor(0, 0, 0, 60))   # Schatten
         if self.pixmap is not None:
-            p.drawPixmap(0, 0, self.pixmap)
+            if self.fuzzy:
+                # beim Zoomen sofort das alte Bild weich strecken – die scharfe
+                # Version kommt Sekundenbruchteile später nach (_render_visible)
+                p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                p.drawPixmap(self.rect(), self.pixmap)
+            else:
+                p.drawPixmap(0, 0, self.pixmap)
         else:
             p.fillRect(self.rect(), Qt.GlobalColor.white)
         if self.view is not None:
@@ -369,7 +376,7 @@ class PageView(QScrollArea):
             for w in self.pages:
                 if w.index != self.current:
                     w.hide()
-                    w.pixmap, w.key = None, None
+                    w.pixmap, w.key, w.fuzzy = None, None, False
             w = self.pages[self.current]
             s = self.page_zoom(self.current) * dpi
             pw, ph = self._rot_size(self.current)
@@ -377,7 +384,7 @@ class PageView(QScrollArea):
             cw, ch = max(ww + 2 * PAGE_GAP, vw), max(hh + 2 * PAGE_GAP, vh)
             w.setGeometry((cw - ww) // 2, max(PAGE_GAP, (ch - hh) // 2), ww, hh)
             if w.key != (s, self.rotation):
-                w.pixmap = None
+                w.fuzzy = True       # altes Bild strecken statt weiß – scharf kommt gleich
             w.show()
             self.container.resize(cw, ch)
         else:
@@ -391,7 +398,7 @@ class PageView(QScrollArea):
             for w, (ww, hh, s) in zip(self.pages, geo):
                 w.setGeometry((cw - ww) // 2, y, ww, hh)
                 if w.key != (s, self.rotation):
-                    w.pixmap = None
+                    w.fuzzy = True   # Zoom/Rotation: Übergangsbild bis zur scharfen Pixmap
                 w.show()
                 y += hh + PAGE_GAP
             self.container.resize(cw, y)
@@ -429,9 +436,10 @@ class PageView(QScrollArea):
                 w.pixmap = render_pixmap(page, s, self.rotation, dpr)
                 page.close()
                 w.key = (s, self.rotation)
+                w.fuzzy = False          # scharfes Bild da – Übergangsbild abschalten
                 w.update()
             elif not visible and w.pixmap is not None:
-                w.pixmap, w.key = None, None   # Speicher freigeben
+                w.pixmap, w.key, w.fuzzy = None, None, False   # Speicher freigeben
 
     # --------------------------------------------------------------- #
     def goto(self, i: int, at_end: bool = False, force: bool = False):
@@ -814,7 +822,8 @@ class PageView(QScrollArea):
             x, y = self.to_page(w, e.position())
             if self.editor is not None:
                 self._edrag = True
-                self.editor.press(w.index, x, y, self._tol_pt(w))
+                self.editor.press(w.index, x, y, self._tol_pt(w),
+                                   bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier))
             elif self.edit_click is not None:
                 self.edit_click(w.index, x, y, bool(e.modifiers() & (Qt.KeyboardModifier.ShiftModifier
                                                                      | Qt.KeyboardModifier.ControlModifier)))
@@ -995,11 +1004,40 @@ THUMB_W = int(Qt.ItemDataRole.UserRole) + 3
 
 
 class ThumbList(QListWidget):
+    """Seitenübersicht. Zwei Anordnungen: eine Spalte (Vorschau füllt die Breite) oder Raster
+        (feste Kachelgröße, so viele nebeneinander wie Platz haben). Strg + Mausrad skaliert."""
     resized = Signal()
+    zoomed = Signal(int)                 # Strg + Mausrad: +1 größer, -1 kleiner
+    TILE_MIN, TILE_MAX = 60, 600
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.grid_mode = False
+        self.tile = 140
+
+    def tile_width(self) -> int:
+        vw = max(80, self.viewport().width() - 2)
+        return vw if not self.grid_mode else max(self.TILE_MIN, min(self.tile, vw))
+
+    def set_grid(self, on: bool):
+        self.grid_mode = bool(on)
+        self.setFlow(QListWidget.Flow.LeftToRight if on else QListWidget.Flow.TopToBottom)
+        self.setWrapping(bool(on))
+        self.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.doItemsLayout()
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self.resized.emit()
+
+    def wheelEvent(self, e):
+        if e.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            d = e.angleDelta().y()
+            if d:
+                self.zoomed.emit(1 if d > 0 else -1)
+            e.accept()
+            return
+        super().wheelEvent(e)
 
 
 class ThumbDelegate(QStyledItemDelegate):
@@ -1026,7 +1064,7 @@ class ThumbDelegate(QStyledItemDelegate):
         return QRect(inner.x() + (inner.width() - iw) // 2, inner.y() + (inner.height() - ih) // 2, iw, ih)
 
     def sizeHint(self, option, index):
-        w = max(80, self.view.viewport().width() - 2)
+        w = self.view.tile_width()
         return QSize(w, self.box_rect(QRect(0, 0, w, 0)).height() + self.PAD + self.LABEL)
 
     def paint(self, p, option, index):
@@ -1243,8 +1281,9 @@ class MainWindow(QMainWindow):
         self.thumbs.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.thumbs.customContextMenuRequested.connect(self._thumb_menu)
         self.thumbs.itemClicked.connect(lambda it: self.view.goto(self.thumbs.row(it)))
+        self.thumbs.zoomed.connect(self._thumb_zoom)
         dock = QDockWidget(tr("Seiten"), self)
-        dock.setWidget(self.thumbs)
+        dock.setWidget(self._thumb_panel())
         dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
                          | QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
@@ -1259,6 +1298,9 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
         self._build_edit(dock)
+        self._dock_widths = {}
+        for d in (dock, self.pf_dock, self.edit_dock):
+            d.visibilityChanged.connect(lambda vis, d=d: self._dock_vis(d, vis))
         self._build_workspaces(dock)
         self.lbl_measure = QLabel()
         self.lbl_measure.setContentsMargins(8, 0, 8, 0)
@@ -1345,7 +1387,9 @@ class MainWindow(QMainWindow):
             self.pf_dock.raise_()
         elif key == "edit":
             self._pages_dock.show()
-            self._pages_dock.raise_()
+            if not self.a_edit.isChecked():
+                self.a_edit.setChecked(True)       # Bearbeiten-Modus starten: Dock + Listen füllen
+            self.edit_dock.raise_()                # Dock vor die Seitenübersicht holen
         elif self._pages_dock.isVisible():
             self._pages_dock.raise_()
         if remember:
@@ -1375,7 +1419,7 @@ class MainWindow(QMainWindow):
                 self.a_edit.setChecked(False)
                 e.accept()
         self.edit_dock = _Dock(tr("Bearbeiten"), self)
-        self.edit_dock.setWidget(self.edit_panel)
+        self.edit_dock.setWidget(self._dock_scroll(self.edit_panel))
         self.edit_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
                                    | QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.edit_dock)
@@ -1464,7 +1508,7 @@ class MainWindow(QMainWindow):
         self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
         self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
         self.pf_dock = QDockWidget(tr("Prüfung"), self)
-        self.pf_dock.setWidget(self.pf_panel)
+        self.pf_dock.setWidget(self._dock_scroll(self.pf_panel))
         self.pf_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
                                  | QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.pf_dock)
@@ -2052,6 +2096,117 @@ class MainWindow(QMainWindow):
         r = getattr(self.view, "rotation", 0)
         return r % 360 if isinstance(r, int) else 0
 
+    # ---------------- Seitenleiste: Breite, Anordnung, Vorschaugröße ---------------- #
+    @staticmethod
+    def _dock_scroll(w):
+        """Panel in einen Scrollbereich: die Reiter links teilen sich eine Breite – ohne das
+                erzwingt das breiteste Panel (Prüfung/Bearbeiten) die Mindestbreite auch für „Seiten“."""
+        sc = QScrollArea()
+        sc.setWidgetResizable(True)
+        sc.setFrameShape(QFrame.Shape.NoFrame)
+        sc.setWidget(w)
+        return sc
+
+    def _dock_vis(self, d, vis):
+        """Jeder Reiter links merkt sich seine eigene Breite (Seiten schmal, Prüfung breiter …)."""
+        shown = self.__dict__.setdefault("_dock_shown", set())
+        if not vis:
+            if d in shown:                     # nur echte, sichtbare Breiten merken
+                shown.discard(d)
+                self._dock_widths[d] = d.width()
+            return
+        shown.add(d)
+        want = self._dock_widths.get(d)
+        if want is None and d is not self._pages_dock:
+            inner = d.widget().widget() if isinstance(d.widget(), QScrollArea) else d.widget()
+            want = max(d.width(), inner.minimumSizeHint().width() + 4)
+        if want and want != d.width():
+            QTimer.singleShot(0, lambda: self.resizeDocks([d], [want], Qt.Orientation.Horizontal))
+
+    def _thumb_panel(self):
+        from .. import l10n
+        st = l10n.load_settings()
+        box = QWidget()
+        v = QVBoxLayout(box)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+        bar = QHBoxLayout()
+        bar.setContentsMargins(6, 3, 6, 3)
+        bar.setSpacing(2)
+        self.btn_thumb_col = QToolButton()
+        self.btn_thumb_col.setIcon(svg_icon("single"))
+        self.btn_thumb_col.setToolTip(tr("Eine Spalte – Vorschau füllt die Breite"))
+        self.btn_thumb_grid = QToolButton()
+        self.btn_thumb_grid.setIcon(svg_icon("grid"))
+        self.btn_thumb_grid.setToolTip(tr("Raster – mehrere Seiten nebeneinander"))
+        self.btn_thumb_minus = QToolButton()
+        self.btn_thumb_minus.setIcon(svg_icon("zoom_out"))
+        self.btn_thumb_minus.setToolTip(tr("Vorschau verkleinern (Strg + Mausrad)"))
+        self.btn_thumb_plus = QToolButton()
+        self.btn_thumb_plus.setIcon(svg_icon("zoom_in"))
+        self.btn_thumb_plus.setToolTip(tr("Vorschau vergrößern (Strg + Mausrad)"))
+        for b in (self.btn_thumb_col, self.btn_thumb_grid):
+            b.setCheckable(True)
+            b.setAutoRaise(True)
+            bar.addWidget(b)
+        bar.addStretch(1)
+        for b in (self.btn_thumb_minus, self.btn_thumb_plus):
+            b.setAutoRaise(True)
+            bar.addWidget(b)
+        self.btn_thumb_col.clicked.connect(lambda: self._set_thumb_grid(False))
+        self.btn_thumb_grid.clicked.connect(lambda: self._set_thumb_grid(True))
+        self.btn_thumb_minus.clicked.connect(lambda: self._thumb_zoom(-1))
+        self.btn_thumb_plus.clicked.connect(lambda: self._thumb_zoom(1))
+        v.addLayout(bar)
+        v.addWidget(self.thumbs, 1)
+        try:
+            self.thumbs.tile = int(st.get("thumb_tile", 140))
+        except (TypeError, ValueError):
+            pass
+        self._set_thumb_grid(bool(st.get("thumb_grid", False)), remember=False)
+        return box
+
+    def _set_thumb_grid(self, on: bool, remember: bool = True):
+        self.btn_thumb_col.setChecked(not on)
+        self.btn_thumb_grid.setChecked(on)
+        if on and self.thumbs.grid_mode != on:
+            self.thumbs.tile = min(self.thumbs.tile, max(ThumbList.TILE_MIN, self.thumbs.viewport().width() // 2))
+        self.thumbs.set_grid(on)
+        self._requeue_thumbs()
+        if remember:
+            self._save_thumb_settings()
+
+    def _thumb_zoom(self, step: int):
+        """Raster: Kachelgröße ändern. Eine Spalte: die Seitenleiste selbst breiter/schmäler."""
+        f = 1.15 if step > 0 else 1 / 1.15
+        if self.thumbs.grid_mode:
+            t = int(round(self.thumbs.tile * f))
+            if t == self.thumbs.tile:
+                t += 1 if step > 0 else -1
+            self.thumbs.tile = max(ThumbList.TILE_MIN, min(ThumbList.TILE_MAX, t))
+            self.thumbs.doItemsLayout()
+            self._thumb_resize.start()
+            self._save_thumb_settings()
+        else:
+            d = self._pages_dock
+            if not d.isFloating():
+                w = max(110, min(int(d.width() * f), max(200, self.width() - 300)))
+                self.resizeDocks([d], [w], Qt.Orientation.Horizontal)
+            else:
+                d.resize(max(110, int(d.width() * f)), d.height())
+
+    def _save_thumb_settings(self):
+        from .. import l10n
+        st = l10n.load_settings()
+        if st.get("thumb_grid") == self.thumbs.grid_mode and st.get("thumb_tile") == self.thumbs.tile:
+            return
+        st["thumb_grid"] = self.thumbs.grid_mode
+        st["thumb_tile"] = self.thumbs.tile
+        try:
+            l10n.save_settings(st)
+        except OSError:
+            pass
+
     def _rebuild_thumbs(self):
         self.thumbs.clear()
         rot = self._view_rot()
@@ -2081,7 +2236,7 @@ class MainWindow(QMainWindow):
             self._thumb_timer.stop()
             return
         dlg = self.thumbs.itemDelegate()
-        vw = max(60, self.thumbs.viewport().width() - 4)
+        vw = self.thumbs.tile_width()
         dpr = self.devicePixelRatioF()
         for _ in range(3):
             if not self._thumb_queue:

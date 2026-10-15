@@ -85,6 +85,10 @@ class LayoutSettings:
                                   # (perfect binding/pad binding) | grouped = signatures of booklet_per_sig sheets each
     booklet_per_sig: int = 4      # grouped: sheets per signature
     booklet_creep_mm: float = 0.0 # creep: per-sheet inward shift (≈ paper thickness)
+    booklet_spread: str = "side"  # Druckbögen: side = Seiten nebeneinander (seitlich gebunden),
+                                  # top = übereinander (oben gebunden, Kalender)
+    booklet_nutzen: bool = False  # Broschüre als aufgeklappte Druckbögen montieren (Nutzen-Logik:
+                                  # Anordnung, Überfüller, Schnittmarken, Schritt 2) statt Falzbogen
     booklet_blanks: str = "end"   # end | before_back (the back of the cover stays the last page)
     booklet_blank_text: str = ""  # note about added blank pages (blank = completely empty)
     booklet_fold_marks: bool = False
@@ -119,6 +123,8 @@ class LayoutSettings:
     sr_sequence: bool = False     # the next page per tile (variable data) instead of repeating one page
     sr_stack: str = "row"         # row = sheet by sheet | stack = cut and stack (stacks stay in sequence)
     sr_pass2: bool = False        # Schritt 2: das montierte Ergebnis erneut auf ein Zielformat setzen
+    sr_multi: bool = False        # Mehrfachnutzen zugeschaltet (eigenes Fenster) – sonst wird z. B. jeder
+                                  # Broschüren-Druckbogen genau einmal mittig gesetzt
     sr2_format: str = "custom"    # Zielformat (Wert aus der Formatliste des Geräts oder "custom")
     sr2_w_mm: float = 320.0       # Zielformat, Breite in mm (bei "custom" einstellbar)
     sr2_h_mm: float = 450.0      # Zielformat, Höhe in mm
@@ -402,7 +408,36 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
     land, cols, rows = _pick_grid(sizes[pages[0]], sheet, s)
     LW, LH, area, printable = _area(sheet, land, s.use_margins)
     area = _inset(area, _reserve(s))
-    gap = max(s.gap_mm * MM, 2 * s.bleed_mm * MM)
+    # Nutzen-Anordnung wirkt auch bei „Mehrere pro Blatt“ – sie ÜBERSCHREIBT den
+    # Abstand des Mehrere-Abschnitts (Multifinisher brauchen oft feste Min-/Max-
+    # Abstände): edge = Kante an Kante (0 mm, Anschnitt nur außen),
+    # bleed = Überfüller an Überfüller (2 × Anschnitt; ohne Anschnitt bleibt der
+    # alte Mehrere-Abstand wirksam, damit nichts still kaputtgeht),
+    # gap = Abstand wie bei „Abstand zwischen Nutzen“ eingestellt (mindestens 2 × Anschnitt).
+    if s.sr_join == "edge":
+        gap = 0.0
+    elif s.sr_join == "bleed" and s.bleed_mm > 0:
+        gap = 2 * s.bleed_mm * MM
+    elif s.sr_join == "gap":
+        # Spinner = SICHTBARER Weißabstand zwischen den Karten; der Anschnitt
+        # braucht je Seite seinen Platz und kommt oben drauf.
+        gap = s.sr_gap_mm * MM + 2 * s.bleed_mm * MM
+    else:
+        gap = max(s.gap_mm * MM, 2 * s.bleed_mm * MM)
+    # Nutzen-Logik für „Mehrere pro Blatt“ (seit 1.12): Der Abstand gilt IMMER am
+    # INHALT – Zellen schrumpfen auf die Karten, der Block liegt mittig.
+    # Kein alter „Zellen füllen das Blatt“-Modus mehr, keine stillen Ausnahmen:
+    #   edge  = Karten berühren sich (0 mm, Anschnitt nur außen am Block)
+    #   bleed = 2 × Anschnitt (Anschnitte berühren sich, Schnitt in der Mitte);
+    #           ohne Anschnitt wirkt hier der Abstand des Mehrere-Abschnitts
+    #   gap   = Spinner „Abstand zwischen Nutzen“ als SICHTBARER Weißabstand,
+    #           der Anschnitt kommt je Seite oben drauf
+    # AUSNAHME tile_mode „fit“ (Handout-Standard): dort füllen die Seiten wie
+    # bisher die Zellen (alte Zellenlogik) – sonst würde „fit“ die Seiten an
+    # der GROSSZELLE messen und sie stärker als nötig vergrößern. Die
+    # Nutzen-Logik greift also bei „Tatsächliche Größe“ und „Eigene Größe“ –
+    # genau die Modi, mit denen Multifinisher-Nutzen gefertigt werden.
+    join_override = s.tile_mode != "fit"
     cw = (area[2] - gap * (cols - 1)) / cols
     ch = (area[3] - gap * (rows - 1)) / rows
     per = cols * rows
@@ -410,6 +445,7 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
     plans = []
     for start in range(0, len(pages), per):
         plan = SheetPlan(land)
+        rcs = []                                # (col, row) je Placement – für Zellen-Schrumpfen
         for i, p in enumerate(pages[start:start + per]):
             c, r = order[i]
             cx = area[0] + c * (cw + gap)
@@ -433,6 +469,50 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
             if sc > fit + 1e-6:
                 plan.warnings.append(tr("Seite {0} größer als Kachel – wird beschnitten.").format(p + 1))
             plan.placements.append(Placement(p, rot, sc, x, y, w, h, (cx, cy, cw, ch)))
+            rcs.append((c, r))
+        if join_override:
+            # Zellen auf den Inhalt schrumpfen (je Spalte/Zeile die größte Karte),
+            # Block mittig setzen – der Abstand zwischen den KARTEN ist dann exakt
+            # der eingestellte Abstand (edge: sie berühren sich wirklich).
+            colw = [0.0] * cols
+            rowh = [0.0] * rows
+            for pl, (c, r) in zip(plan.placements, rcs):
+                colw[c] = max(colw[c], pl.w)
+                rowh[r] = max(rowh[r], pl.h)
+            bw = sum(colw) + gap * (cols - 1)
+            bh = sum(rowh) + gap * (rows - 1)
+            x0 = area[0] + (area[2] - bw) / 2
+            bottom0 = area[1] + (area[3] - bh) / 2
+            for pl, (c, r) in zip(plan.placements, rcs):
+                cx = x0 + sum(colw[:c]) + gap * c
+                cw2, ch2 = colw[c], rowh[r]
+                cy = bottom0 + sum(rowh[r + 1:]) + gap * (rows - 1 - r)
+                pl.clip = (cx, cy, cw2, ch2)
+                pl.x = cx + (cw2 - pl.w) / 2
+                pl.y = cy + (ch2 - pl.h) / 2
+        if s.sr_join == "edge" and s.bleed_mm > 0:
+            # Kante an Kante: Anschnitt nur auf den Außenkanten des Blocks –
+            # ein Schnitt in der Mitte teilt zwei Kacheln (wie bei Nutzen).
+            for pl in plan.placements:
+                cx, cy, cw, ch = pl.clip if pl.clip else (pl.x, pl.y, pl.w, pl.h)
+                pl.bleed_sides = (cx <= area[0] + 0.5, cy <= area[1] + 0.5,
+                                  cx + cw >= area[0] + area[2] - 0.5,
+                                  cy + ch >= area[1] + area[3] - 0.5)
+        if join_override and s.bleed_mm > 0:
+            # Bugfix (1.12): Die geschrumpften Zellen MÜSSEN um den Anschnitt
+            # erweitert werden – impose() clippt den gespiegelten Rand sonst an
+            # der Zellkante ab, und der Spalt zwischen den Karten bliebe weiß
+            # (der Überfüller wäre unsichtbar). Erweitert wird nur auf Seiten,
+            # die laut bleed_sides Anschnitt zeigen: innen füllen die Spiegel
+            # den Spalt exakt (Ü-an-Ü: 2 × Anschnitt, sie berühren sich; Mit
+            # Abstand: 2 × Anschnitt gefüllt, Spinner-Wert bleibt weiß), außen
+            # reicht der Überfüller in den dafür reservierten Rand (_reserve).
+            b = s.bleed_mm * MM
+            for pl in plan.placements:
+                sl, sb, sr_, st = pl.bleed_sides
+                cx, cy, cw, ch = pl.clip
+                pl.clip = (cx - b if sl else cx, cy - b if sb else cy,
+                           cw + b * (sl + sr_), ch + b * (sb + st))
         plans.append(plan)
     return plans
 
@@ -720,7 +800,8 @@ def _sr_gap(s: LayoutSettings) -> float:
         return 0.0                         # Kante an Kante: ein gemeinsamer Schnitt
     if s.sr_join == "bleed":
         return 2 * bleed                   # bleed to bleed
-    return max(s.sr_gap_mm * MM, 2 * bleed)
+    # „Mit Abstand“: Spinner = sichtbarer Weißabstand; Anschnitt kommt dazu
+    return s.sr_gap_mm * MM + 2 * bleed
 
 
 def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
@@ -776,8 +857,11 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
                     continue
                 bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
                 over = max(bw - aw, bh - ah, 0.0)
-                # fits > more tiles > less overhang > unrotated > portrait
-                key = (over <= 0.5, cols * rows, -over, rot == 0, not land)
+                # passt > UNGEDREHT > mehr Nutzen > weniger Überhang > Blatt hochkant.
+                # Nutzen werden nie mehr gedreht, damit MEHR draufpasst – stattdessen
+                # dreht das Blatt (Inhalt kommt kopfoben beim Drucker an). Gedreht
+                # wird nur, wenn ungedreht in KEINER Blattlage etwas passt.
+                key = (over <= 0.5, rot == 0, cols * rows, -over, not land)
                 if best is None or key > best[0]:
                     best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
         if best is None:      # does not fit even once -> 1 piece, trimmed
@@ -885,8 +969,9 @@ def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None
             cols, rows = max(1, cols), max(1, rows)           # nie 0: mindestens 1, mit Warnung
             bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
             over = max(bw - aw, bh - ah, 0.0)
-            # passt > mehr Bögen > weniger Überhang > ungedreht > Zielformat hochkant
-            key = (over <= 0.5, cols * rows, -over, rot == 0, not land)
+            # passt > UNGEDREHT > mehr Bögen > weniger Überhang > Zielformat hochkant
+            # (Bogen möglichst nie drehen – derselbe Grundsatz wie bei den Nutzen)
+            key = (over <= 0.5, rot == 0, cols * rows, -over, not land)
             if best is None or key > best[0]:
                 best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
     _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best
@@ -913,6 +998,130 @@ def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None
                                                                       aw / MM, ah / MM))
         plans.append(sp)
     return plans
+
+
+def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
+    """Broschüre -> Druckbögen-Dokument (für Nutzen/Step & Repeat im zweiten Schritt).
+
+    Je Bogenseite (Vorderseite, Rückseite, …) eine Seite in Ausschieß-Reihenfolge (Bindeart, Bindung,
+    Leerseiten, „Bögen“ und „Broschürenseiten“ wie im Broschüren-Modus). Jede Seite ist exakt das
+    Endformat der aufgeklappten Broschüre: zwei Seiten am Falz ohne Abstand, nebeneinander
+    (s.booklet_spread == "side", seitlich gebunden) oder übereinander ("top", oben gebunden – beide
+    Seiten aufrecht, die frühere oben). Anschnitt nur AUSSEN, echt aus dem Dokument (TrimBox); am Falz
+    wird am Endformat geschnitten. Gemeinsamer Anschnitt = kleinster Anschnitt aller Seiten; hat eine
+    Seite kein Endformat, gibt es keinen Anschnitt (den erzeugt dann der Nutzen-Modus gespiegelt).
+    TrimBox/BleedBox werden gesetzt – der Nutzen-Modus montiert die Bögen wie jede Dokumentseite.
+    Kein Bundzug (Creep) und keine Marken hier – Marken/Überfüller/Abstände kommen vom Nutzen-Modus.
+    Liefert (pypdfium2-Dokument, Hinweise)."""
+    import io
+    import pikepdf
+    import pypdfium2 as pdfium
+    if not pages:
+        raise ValueError(tr("Keine Seiten für die Broschüre."))
+    if trims is None:
+        trims = page_trims(src)
+    notes = []
+    sizes = {p: src.get_page_size(p) for p in pages}
+    tr_of = {p: (trims[p] if p < len(trims) else None) for p in pages}
+    if all(tr_of[p] for p in pages):
+        bleed = min(min(tr_of[p]) for p in pages)
+    else:
+        bleed = 0.0
+        if any(tr_of[p] for p in pages):
+            notes.append(tr("Nicht alle Seiten haben ein Endformat (TrimBox) – Druckbögen ohne Anschnitt; "
+                            "den Überfüller erzeugt dann der Nutzen-Modus (gespiegelt)."))
+
+    def trim_size(p):
+        w, h = sizes[p]
+        t = tr_of[p] if bleed > 0 else None
+        return (w - t[0] - t[2], h - t[1] - t[3]) if t else (w, h)
+    W, H = trim_size(pages[0])
+    if any(abs(trim_size(p)[0] - W) > 1 or abs(trim_size(p)[1] - H) > 1 for p in pages):
+        notes.append(tr("Seiten haben unterschiedliche Endformate – jede Seite wird mittig in ihre "
+                        "Bogenhälfte gesetzt (Format der ersten Seite)."))
+    top = s.booklet_spread == "top"
+    b = bleed
+    sw, sh = (W + 2 * b, 2 * H + 2 * b) if top else (2 * W + 2 * b, H + 2 * b)
+    # Bogenhälften (Endformat) in Slot-Reihenfolge wie plan_booklet: side = links|rechts, top = oben|unten
+    halves = [(b, b + H), (b, b)] if top else [(b, b), (b + W, b)]
+    # Anschnitt je Hälfte nur außen (links, unten, rechts, oben)
+    outer = [(True, False, True, True), (True, True, True, False)] if top else \
+            [(True, True, False, True), (False, True, True, True)]
+
+    sheets_, blanks, _n = booklet_layout(len(pages), s)
+    chosen = parse_ranges(s.booklet_sheets, len(sheets_)) if s.booklet_sheets.strip() else range(len(sheets_))
+    sides = {"both": (0, 1), "front": (0,), "back": (1,)}.get(s.booklet_sides, (0, 1))
+    plans = []
+    for k in chosen:
+        _li, _j, _k, faces = sheets_[k]
+        for side in sides:
+            sp = SheetPlan(False, label=tr("Bogen {0}/{1} – {2}").format(
+                k + 1, len(sheets_), tr("Vorderseite") if side == 0 else tr("Rückseite")))
+            for slot, idx in enumerate(faces[side]):
+                if idx is None:
+                    continue                                   # Leerseite: Hälfte bleibt leer
+                p = pages[idx]
+                pw, ph = trim_size(p)
+                hx, hy = halves[slot]
+                x, y = hx + (W - pw) / 2, hy + (H - ph) / 2
+                t = tr_of[p] if bleed > 0 else None
+                sp.placements.append(Placement(p, 0, 1.0, x, y, pw, ph, None, bleed=b,
+                                               bleed_sides=outer[slot], trim=t))
+            plans.append(sp)
+    if blanks:
+        where = tr("vor der letzten Seite") if s.booklet_blanks == "before_back" else tr("am Ende")
+        notes.append(tr("{0} Leerseite(n) {1} ergänzt (Seitenzahl auf Vielfaches von 4).").format(blanks, where))
+    target = Sheet(sw, sh, None)
+    target.width, target.height = sw, sh      # Sheet dreht sonst auf Hochformat – Druckbogen bleibt wie er ist
+    doc = impose(src, target, plans)
+    buf = io.BytesIO()
+    doc.save(buf)
+    doc.close()
+    pdf = pikepdf.open(io.BytesIO(buf.getvalue()))
+    for pg in pdf.pages:
+        pg.TrimBox = [b, b, sw - b, sh - b]
+        pg.BleedBox = [0, 0, sw, sh]
+    out = io.BytesIO()
+    pdf.save(out)
+    pdf.close()
+    notes.insert(0, tr("Druckbögen {0:.0f} × {1:.0f} mm (Endformat), Anschnitt {2:.1f} mm außen – jetzt im "
+                       "Druckdialog „Nutzen“ wählen: Anordnung, Überfüller, Schnittmarken, Schritt 2.").format(
+        (sw - 2 * b) / MM, (sh - 2 * b) / MM, b / MM))
+    return pdfium.PdfDocument(out.getvalue()), notes
+
+
+def is_booklet_spreads(s: LayoutSettings) -> bool:
+    """Broschüre = aufgeklappte Druckbögen, mit der Nutzen-Logik aufs Blatt (seit 1.12 immer – der alte
+    Falzbogen-Weg plan_booklet bleibt nur für die Programmschnittstelle/Kommandozeile erhalten)."""
+    return s.handling == "booklet"
+
+
+def spread_settings(s: LayoutSettings) -> LayoutSettings:
+    """Einstellungen für die Montage der Druckbögen: Nutzen-Logik (Step & Repeat) mit allen Nutzen-
+    Optionen (Anordnung, Abstand, Überfüller, Schnittmarken, Raster, Schritt 2) – Seite für Seite."""
+    import dataclasses
+    s2 = dataclasses.replace(s, handling="size", step_repeat=True, sr_sequence=False)
+    if not getattr(s, "sr_multi", False):
+        # einfach setzen: jeder Druckbogen genau EINMAL, mittig, Originalgröße, ungedreht
+        s2 = dataclasses.replace(s2, sr_mode="grid", sr_cols=1, sr_rows=1, sr_by="percent",
+                                 sr_percent=100.0, sr_rotate="0")
+    return s2
+
+
+def mark_spread_duplex(plans: list, s: LayoutSettings) -> list:
+    """Duplex-Wendekante für Druckbögen: gewendet wird um die Kante PARALLEL zum Falz – sonst liegt die
+    Rückseite nicht hinter der Vorderseite. nebeneinander (Falz senkrecht): Querblatt -> kurze Kante,
+    Hochblatt -> lange Kante; übereinander (Falz waagrecht) umgekehrt."""
+    side = s.booklet_spread != "top"
+    for sp in plans:
+        sp.duplex_short = (sp.landscape == side) and s.booklet_sides == "both"
+    return plans
+
+
+def spread_source(doc, pages: list[int], s: LayoutSettings, trims=None):
+    """(Druckbögen-Dokument, dessen Seiten, Nutzen-Einstellungen, Hinweise) – Eingang für Vorschau und Druck."""
+    spreads, notes = booklet_spreads(doc, pages, s, trims)
+    return spreads, list(range(len(spreads))), spread_settings(s), notes
 
 
 def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None, only=None):
