@@ -6,6 +6,15 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    ' (davon {0:.1f} mm sichtbar weiß)': ' (dont {0:.1f} mm de blanc visible)',
+    ' · Anordnung: {0} · Zellabstand: {1:.1f} mm': ' · Disposition : {0} · Espacement des cellules : {1:.1f} mm',
+    'Abstand zwischen Nutzen:': 'Espacement entre les poses :',
+    'Abstand zwischen den Kacheln bei „Mit Abstand“ – gilt für Nutzen UND für „Mehrere pro Blatt“ (überschreibt dort den Abstand des Mehrere-Abschnitts; z. B. Mindestabstand für einen Multifinisher). Nie kleiner als 2 × Anschnitt, damit der Überfüller Platz hat.': 'Espacement entre les tuiles avec « Avec espacement » – s’applique aux poses ET à « Plusieurs par feuille » (y remplace l’espacement de cette section ; p. ex. espacement minimal pour un multifinisher). Jamais inférieur à 2 × fond perdu, pour laisser de la place au fond perdu.',
+    'Abstand zwischen den Kacheln. Wird von der „Nutzen-Anordnung“ im Abschnitt „Schnittmarken und Anschnitt“ übersteuert, sobald dort eine Anordnung gewählt ist (Kante an Kante / Überfüller an Überfüller / Mit Abstand).': 'Espacement entre les tuiles. Remplacé par la « Disposition des poses » de la section « Traits de coupe et fond perdu » dès qu’une disposition y est choisie (Bord à bord / Fond perdu contre fond perdu / Avec espacement).',
+    'Automatisch (Nutzen bleiben aufrecht, das Blatt dreht mit)': 'Automatique (les poses restent droites, la feuille tourne)',
+    'Kante an Kante': 'Bord à bord',
+    'Nutzen-Anordnung:': 'Disposition des poses :',
+    'Wie die Kacheln auf dem Blatt liegen – gilt für „Nutzen (Step & Repeat)“ UND für „Mehrere pro Blatt“; überschreibt dort den Abstand des Mehrere-Abschnitts. Kante an Kante: 0 mm Abstand, der Anschnitt liegt nur außen – ein Schnitt teilt zwei Kacheln. Überfüller an Überfüller: 2 × Anschnitt als Abstand, wird in der Mitte geschnitten. Mit Abstand: der Abstand unten in diesem Abschnitt (z. B. Mindestabstand für einen Multifinisher), nie unter 2 × Anschnitt.': 'Comment les tuiles sont placées sur la feuille – s’applique à « Poses (Step & Repeat) » ET à « Plusieurs par feuille » ; y remplace l’espacement de cette section. Bord à bord : 0 mm d’espacement, fond perdu uniquement à l’extérieur – une coupe sépare deux tuiles. Fond perdu contre fond perdu : 2 × fond perdu comme espacement, coupé au milieu. Avec espacement : l’espacement indiqué plus bas dans cette section (p. ex. espacement minimal pour un multifinisher), jamais inférieur à 2 × fond perdu.',
     'Eine Spalte – Vorschau füllt die Breite': 'Une colonne – l’aperçu remplit la largeur',
     'Raster – mehrere Seiten nebeneinander': 'Grille – plusieurs pages côte à côte',
     'Vorschau verkleinern (Strg + Mausrad)': 'Réduire l’aperçu (Ctrl + molette)',

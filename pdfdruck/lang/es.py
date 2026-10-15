@@ -6,6 +6,15 @@
 """Übersetzung: Español. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    ' (davon {0:.1f} mm sichtbar weiß)': ' (de ellos {0:.1f} mm de blanco visible)',
+    ' · Anordnung: {0} · Zellabstand: {1:.1f} mm': ' · Disposición: {0} · Separación de celdas: {1:.1f} mm',
+    'Abstand zwischen Nutzen:': 'Separación entre copias:',
+    'Abstand zwischen den Kacheln bei „Mit Abstand“ – gilt für Nutzen UND für „Mehrere pro Blatt“ (überschreibt dort den Abstand des Mehrere-Abschnitts; z. B. Mindestabstand für einen Multifinisher). Nie kleiner als 2 × Anschnitt, damit der Überfüller Platz hat.': 'Separación entre las piezas con «Con separación»: se aplica a las copias Y a «Varias por hoja» (allí sustituye la separación de la sección Varias; p. ej. separación mínima para un multifinisher). Nunca inferior a 2 × sangrado, para que el sangrado tenga espacio.',
+    'Abstand zwischen den Kacheln. Wird von der „Nutzen-Anordnung“ im Abschnitt „Schnittmarken und Anschnitt“ übersteuert, sobald dort eine Anordnung gewählt ist (Kante an Kante / Überfüller an Überfüller / Mit Abstand).': 'Separación entre las piezas. La sustituye la «Disposición de copias» de la sección «Marcas de corte y sangrado» en cuanto allí se elige una disposición (Borde con borde / Sangrado con sangrado / Con separación).',
+    'Automatisch (Nutzen bleiben aufrecht, das Blatt dreht mit)': 'Automático (las copias quedan derechas, la hoja gira)',
+    'Kante an Kante': 'Borde con borde',
+    'Nutzen-Anordnung:': 'Disposición de copias:',
+    'Wie die Kacheln auf dem Blatt liegen – gilt für „Nutzen (Step & Repeat)“ UND für „Mehrere pro Blatt“; überschreibt dort den Abstand des Mehrere-Abschnitts. Kante an Kante: 0 mm Abstand, der Anschnitt liegt nur außen – ein Schnitt teilt zwei Kacheln. Überfüller an Überfüller: 2 × Anschnitt als Abstand, wird in der Mitte geschnitten. Mit Abstand: der Abstand unten in diesem Abschnitt (z. B. Mindestabstand für einen Multifinisher), nie unter 2 × Anschnitt.': 'Cómo quedan las piezas en la hoja: se aplica a «Copias (Step & Repeat)» Y a «Varias por hoja»; allí sustituye la separación de la sección Varias. Borde con borde: 0 mm de separación, el sangrado solo por fuera; un corte separa dos piezas. Sangrado con sangrado: 2 × sangrado de separación, se corta por el centro. Con separación: la separación indicada abajo en esta sección (p. ej. separación mínima para un multifinisher), nunca inferior a 2 × sangrado.',
     'Eine Spalte – Vorschau füllt die Breite': 'Una columna – la vista previa ocupa el ancho',
     'Raster – mehrere Seiten nebeneinander': 'Cuadrícula – varias páginas una al lado de otra',
     'Vorschau verkleinern (Strg + Mausrad)': 'Reducir vista previa (Ctrl + rueda del ratón)',
