@@ -82,6 +82,29 @@ case "$GSOUT" in
         rm -rf AppDir/usr/bin/gs AppDir/usr/lib/gs AppDir/usr/share/ghostscript AppDir/usr/share/fonts/urw-base35 ;;
 esac
 
+# 4b) licences of everything shipped: Python packages (dist-info), Qt/PySide6 LGPL notice, Ghostscript
+#     AGPL notice + full text, copyright files of the bundled system libraries -> usr/lib/passermark/licenses
+AGPL=""
+for f in /usr/share/doc/ghostscript/copyright /usr/share/doc/libgs10/copyright /usr/share/doc/libgs9/copyright; do
+    if [ -f "$f" ] && grep -q "AFFERO" "$f"; then AGPL="$f"; break; fi
+done
+if [ -z "$AGPL" ]; then
+    mkdir -p build
+    wget -q -O build/agpl-3.0.txt https://www.gnu.org/licenses/agpl-3.0.txt && AGPL=build/agpl-3.0.txt || true
+fi
+LICARGS=(--requirements requirements.txt)
+[ -n "$AGPL" ] && LICARGS+=(--agpl "$AGPL")
+if [ -d AppDir/usr/lib/gs ]; then
+    GSDEB=$(dpkg-query -W -f='${Version}' ghostscript 2>/dev/null || true)
+    LICARGS+=(--gs-version "$GSVER" --gs-source-note "Built from the Debian/Ubuntu package ghostscript ${GSDEB:-?}: apt-get source ghostscript=${GSDEB:-}"
+              --deb-packages ghostscript libgs-common fonts-urw-base35
+              --scan-libs AppDir/usr/lib/passermark/_internal AppDir/usr/lib/gs)
+else
+    LICARGS+=(--scan-libs AppDir/usr/lib/passermark/_internal)
+fi
+.venv/bin/python tools/third_party_licenses.py AppDir/usr/lib/passermark/licenses "${LICARGS[@]}"
+[ -f AppDir/usr/lib/passermark/licenses/THIRD_PARTY_NOTICES.txt ] || { echo "licence collection failed"; exit 1; }
+
 # 5) appimagetool
 mkdir -p linux/tools
 TOOL=linux/tools/appimagetool-x86_64.AppImage

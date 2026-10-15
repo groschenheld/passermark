@@ -5,6 +5,40 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.12.5
+### Licencias
+- El instalador y el AppImage ahora incluyen todos los avisos de licencia de terceros (paquetes de Python, Qt LGPL-3.0, Ghostscript AGPL-3.0 con referencia al código fuente, bibliotecas del sistema incluidas), consultables mediante la nueva entrada de menú Ayuda → Licencias.
+- README: nueva sección sobre licencias de terceros, con el código fuente disponible previa solicitud.
+### Documentación
+- El manual de la CLI (DE/EN) se ha actualizado con `shrink` y `flatten_softmask`.
+
+## 1.12.4
+### Reducir el tamaño del archivo (nuevo)
+- Disponible desde la pestaña «Tamaño del archivo» o Documento → «Reducir el tamaño del archivo …», también para archivos que no estén marcados como demasiado grandes.
+- Cada medida se puede activar y desactivar individualmente:
+  - **Sin pérdidas, activado por defecto:** reescribir (elimina versiones guardadas antiguas), quitar recursos sin usar, fusionar duplicados (fuentes, imágenes, perfiles ICC), eliminar datos de edición y miniaturas, recomprimir imágenes sin pérdidas (también quita el ZIP alrededor del JPEG si queda más pequeño).
+  - **Desactivado por defecto:** 16 → 8 bits, eliminar adjuntos, eliminar el contenido de capas ocultas.
+  - **Reducción de resolución opcional:** a 300/240/150/100 dpi con umbral y calidad JPEG, medido en la colocación más grande. Las máscaras suaves se escalan a la par.
+- El resultado se abre en una ventana nueva y el original permanece sin cambios. Si el resultado no es más pequeño, el archivo se deja tal cual.
+- CLI: `passermark-cli shrink in.pdf out.pdf [--set downsample=true --set target_dpi=150 …]`
+- Ejemplo: un archivo de 34 MB con el mismo perfil CMYK incrustado 90 veces quedó en 0,5 MB, idéntico píxel a píxel.
+
+## 1.12.3
+### Preflight
+- **Nueva pestaña «Tamaño del archivo»:** muestra adónde van los bytes: imágenes, fuentes, perfiles de color, datos de edición de Illustrator/Photoshop, miniaturas, adjuntos, contenido de página.
+  - También enumera versiones guardadas antiguas, duplicados y las imágenes más grandes con sus dpi efectivos.
+  - Advierte de archivos muy grandes (más de 20 MB por superficie A4) y duplicados grandes.
+
+## 1.12.2
+### Preflight
+- **Degradados transparentes (máscara suave en patrones):** se detectan y se pueden reparar. Algunos RIP/plóteres los imprimen como una zona negra que tapa las imágenes inferiores. La nueva reparación «Convertir degradados transparentes en imágenes (300 dpi)» renderiza solo los degradados afectados, junto con lo que hay debajo, como una imagen opaca. El texto y los vectores superiores permanecen intactos. No hace falta Ghostscript.
+- **Fotos HDR (gain map):** una foto HDR de móvil abierta con ambas imágenes ahora se detecta en la comprobación. Reparación: «Eliminar páginas auxiliares HDR …», con tamaño seleccionable y una fusión opcional del gain map.
+- **Nueva pestaña «Imágenes y colores»:**
+  - Espacio de color por imagen y página (RGB, CMYK, escala de grises, tintas directas), incluido el nombre exacto del perfil ICC y el output intent.
+  - Resolución efectiva por colocación, también para imágenes usadas varias veces o dentro de formularios.
+  - Tamaño máximo recomendado a 300 y 150 dpi, más la escala máxima por página.
+  - Avisos de baja resolución e información sobre contenido RGB y tintas directas.
+
 ## 1.12.1
 - **Edición: varios objetos y líneas a la vez.** «Escalar / mover …», «Eliminar objeto», «Aplicar»
   (fuente y tamaño) y «Eliminar línea» actúan ahora sobre todos los objetos o líneas elegidos, ya
@@ -34,43 +68,6 @@
   ej. de Chrome)
 - Traducciones añadidas para la disposición de las poses en el diálogo de impresión (inglés,
   húngaro, español, francés)
-
-## 1.12.0
-- **Edición: editar objetos de forma estructurada.** Nueva pestaña «Objetos»: los vectores e
-  imágenes de la página se listan con su tamaño en mm o se seleccionan con un clic en la página;
-  escalar, mover, eliminar. Selección múltiple con Ctrl/Mayús en la lista y en la página, ambas
-  vinculadas – los cambios (mover, escalar, eliminar) actúan a la vez sobre todos los objetos
-  elegidos. Ctrl+arrastrar escala alrededor del origen del marco de selección, con indicación en
-  mm en vivo. Red de seguridad: tras cada cambio Passermark comprueba que nada cambie fuera de
-  los objetos elegidos – en caso contrario, el cambio se revierte y se avisa
-- **Orden Z para objetos y capas:** un paso adelante/atrás, del todo al frente/fondo – para líneas
-  de texto, vectores, imágenes y capas
-- **Texto en trayectoria reconocido correctamente:** las letras giradas individualmente sobre un
-  arco (p. ej. de Affinity) se agrupan en una línea y se editan en conjunto; el tamaño de letra se
-  puede cambiar sin romper la página (corrige un error desde 1.10.4). Las líneas sin texto legible
-  (fuentes subset) aparecen como «(sin contenido de texto)» y se pueden mover, escalar y eliminar
-- **Folleto: páginas una junto a otra o una sobre otra.** «Páginas juntas» es seleccionable: una
-  junto a otra (encuadernación lateral) o una sobre otra (encuadernación superior). El sangrado
-  solo en los lados exteriores, nunca en el lomo. La vista previa muestra el resultado real, el
-  dúplex pasa por parejas («Pliego X de Y – anverso y reverso»), el aviso del canto de giro sigue
-  la orientación del pliego. «Generar pliegos …» abre los pliegos impuestos como pestaña nueva
-- **Step & Repeat como ventana propia.** Ya no es un modo de impresión: libremente movible y
-  minimizable, se muestra y oculta mediante la lengüeta amarilla en el borde izquierdo del diálogo
-  (punto = multiuso activo); cerrar no descarta los ajustes. Los pliegos del folleto se pueden
-  colocar varias veces por hoja con el multiuso – sin él, cada pliego se coloca exactamente una
-  vez. La disposición (canto con canto / sangrado contra sangrado / con separación) y la
-  separación son ajustables en todos los modos; con «con separación» el valor introducido es la
-  separación blanca visible, el sangrado se añade por lado
-- **Barra lateral renovada:** ancho libremente ajustable; vistas «una columna» y «rejilla»,
-  tamaño de mosaico con Ctrl+rueda del ratón o botones −/+ (60–600 px); la vista se guarda
-- **Corregido: «Eliminar el espacio blanco»** tomaba el color del contenido como fondo cuando el
-  contenido llenaba más de la mitad de la página – el margen blanco permanecía. El fondo se
-  determina ahora a partir de las franjas del borde de la página
-- **Corregido: la vista previa del folleto** pasaba hoja por hoja en lugar de por parejas (mostraba
-  demasiados pliegos); la barra lateral no se podía estrechar porque los paneles de
-  comprobación/edición imponían su ancho mínimo – ahora cada panel recuerda su propio ancho
-- Guías (de/en) ampliadas con el modo de edición; nueva plantilla de ejemplo «texto en arco» en
-  la carpeta de ejemplos
 
 ## 1.11.3
 - **Diálogo VDP renovado.** Los datos variables lucen ahora como el diálogo de impresión: cuatro

@@ -112,6 +112,58 @@ def test_plain_jpeg_untouched():
         os.unlink(p)
 
 
+
+def _doc_bytes(doc) -> bytes:
+    buf = io.BytesIO()
+    doc.save(buf)
+    doc.close()
+    return buf.getvalue()
+
+
+def test_preflight_finds_and_repairs_two_page_hdr():
+    """Unverändert geöffnet (2 Seiten) oder schon als PDF gespeichert: die Prüfung findet die
+        graue Zusatzseite und repariert sie."""
+    import pypdfium2 as pdfium
+    from pdfdruck import preflight
+    p = _hdr_jpeg()
+    try:
+        data = _doc_bytes(images.images_to_document([p], 96, {"keep": True}))
+        info = images.hdr_aux_info(p)
+    finally:
+        os.unlink(p)
+    rep = preflight.analyze(data, deep_layers=False, pdfium_parts=False)
+    warn = [i for i in rep.issues if i.category == "image" and "HDR" in i.message]
+    assert len(warn) == 1 and warn[0].severity == "warning" and warn[0].pages == [2], rep.issues
+    assert rep.hdr and rep.hdr[0]["main"] == 0 and rep.hdr[0]["aux"] == 1
+    aw, ah = images.hdr_size_mm(info, "aux")
+    for kw, size in (({}, (round(aw), round(ah))), ({"size": "main"}, (51, 68)), ({"merge": True}, (round(aw), round(ah)))):
+        out = preflight.remove_hdr_aux(data, **kw)
+        d = pdfium.PdfDocument(out)
+        assert len(d) == 1 and _sizes(d) == [size], (kw, _sizes(d))
+        d.close()
+        assert not [i for i in preflight.analyze(out, deep_layers=False, pdfium_parts=False).issues
+                    if i.category == "image" and (i.severity == "warning" or "HDR" in i.message)]
+
+
+def test_preflight_no_false_hdr():
+    """Zwei Bildseiten, die nicht zusammengehören (anderes Seitenverhältnis bzw. beide farbig): kein Befund."""
+    from PIL import Image
+    from pdfdruck import preflight
+    paths = []
+    try:
+        for size, mode in (((600, 800), "RGB"), ((400, 400), "L"), ((600, 800), "RGB"), ((300, 400), "RGB")):
+            fd, q = tempfile.mkstemp(suffix=".jpg")
+            os.close(fd)
+            Image.new(mode, size, 128).save(q, "JPEG", dpi=(300, 300))
+            paths.append(q)
+        data = _doc_bytes(images.images_to_document(paths, 96))
+        rep = preflight.analyze(data, deep_layers=False, pdfium_parts=False)
+        assert rep.hdr == [] and not [i for i in rep.issues if i.category == "image" and "HDR" in i.message]
+    finally:
+        for q in paths:
+            os.unlink(q)
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

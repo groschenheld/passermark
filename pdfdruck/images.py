@@ -218,7 +218,6 @@ def _hdr_params(raw: bytes) -> dict | None:
 
 def hdr_merged_jpeg(path: str, stops: float | None = None) -> bytes:
     """Foto mit eingerechneter Helligkeitskarte (Lichter aufgehellt, für Papier zurückgerechnet)."""
-    import numpy as np
     from PIL import Image
     with open(path, "rb") as f:
         raw = f.read()
@@ -227,7 +226,17 @@ def hdr_merged_jpeg(path: str, stops: float | None = None) -> bytes:
         base = img.convert("RGB")
         icc = img.info.get("icc_profile")
         img.seek(1)
-        gm = img.convert("L").resize(base.size, Image.BICUBIC)
+        gm = img.convert("L")
+    return merge_gain_map(base, gm, icc, _hdr_params(raw), stops)
+
+
+def merge_gain_map(base, gm, icc=None, params: dict | None = None, stops: float | None = None) -> bytes:
+    """Helligkeitskarte gm (PIL „L“) auf das Foto base (PIL „RGB“) anwenden -> JPEG-Bytes.
+        params: Ultra-HDR-Kennwerte (GainMapMin/Max/Gamma …) oder None = Apple-Formel."""
+    import numpy as np
+    from PIL import Image
+    base = base.convert("RGB")
+    gm = gm.convert("L").resize(base.size, Image.BICUBIC)
 
     def lin(v):
         return np.where(v <= 0.04045, v / 12.92, ((v + 0.055) / 1.055) ** 2.4)
@@ -237,7 +246,7 @@ def hdr_merged_jpeg(path: str, stops: float | None = None) -> bytes:
 
     sdr = lin(np.asarray(base, np.float32) / 255.0)
     g = np.asarray(gm, np.float32)[..., None] / 255.0
-    p = _hdr_params(raw)
+    p = params
     if p and "GainMapMax" in p:                      # Ultra HDR: logarithmisch codierte Karte
         lo, hi = p.get("GainMapMin", 0.0), p["GainMapMax"]
         rec = np.power(g, 1.0 / max(p.get("Gamma", 1.0), 1e-3))

@@ -5,6 +5,40 @@
 > Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.12.5
+### Licences
+- L'installateur et l'AppImage incluent désormais tous les avis de licence des tiers (paquets Python, Qt LGPL-3.0, Ghostscript AGPL-3.0 avec référence au code source, bibliothèques système embarquées), consultables via la nouvelle entrée de menu Aide → Licences.
+- README : nouvelle section sur les licences des tiers, code source disponible sur demande.
+### Documentation
+- Le manuel de la CLI (DE/EN) est mis à jour avec `shrink` et `flatten_softmask`.
+
+## 1.12.4
+### Réduire la taille du fichier (nouveau)
+- Accessible depuis l'onglet « Taille du fichier » ou Document → « Réduire la taille du fichier … », y compris pour les fichiers non signalés comme trop volumineux.
+- Chaque mesure s'active et se désactive individuellement :
+  - **Sans perte, activé par défaut :** réécrire (supprime les anciennes versions), supprimer les ressources inutilisées, fusionner les doublons (polices, images, profils ICC), retirer les données d'édition et les vignettes, recompresser les images sans perte (retire aussi le ZIP autour du JPEG si plus petit).
+  - **Désactivé par défaut :** 16 → 8 bits, supprimer les pièces jointes, supprimer le contenu des calques masqués.
+  - **Sous-échantillonnage optionnel :** à 300/240/150/100 dpi avec seuil et qualité JPEG, mesuré au plus grand placement. Les masques doux sont mis à l'échelle en même temps.
+- Le résultat s'ouvre dans une nouvelle fenêtre et l'original reste inchangé. Si le résultat n'est pas plus petit, le fichier est conservé tel quel.
+- CLI : `passermark-cli shrink in.pdf out.pdf [--set downsample=true --set target_dpi=150 …]`
+- Exemple : un fichier de 34 Mo avec le même profil CMJN intégré 90 fois est descendu à 0,5 Mo, identique au pixel près.
+
+## 1.12.3
+### Prévol (preflight)
+- **Nouvel onglet « Taille du fichier » :** montre où vont les octets : images, polices, profils colorimétriques, données d'édition Illustrator/Photoshop, vignettes, pièces jointes, contenu des pages.
+  - Liste aussi les anciennes versions enregistrées, les doublons et les plus grandes images avec leur résolution effective.
+  - Avertit des fichiers très volumineux (plus de 20 Mo par surface A4) et des doublons volumineux.
+
+## 1.12.2
+### Prévol (preflight)
+- **Dégradés transparents (masque doux dans les motifs) :** détectés et réparables. Certains RIP/traceurs les impriment sous forme d'une zone noire qui recouvre les images situées dessous. La nouvelle réparation « Convertir les dégradés transparents en images (300 dpi) » ne rend que les dégradés concernés, avec ce qui se trouve dessous, sous forme d'une image opaque. Le texte et les vecteurs au-dessus restent intacts. Ghostscript n'est pas nécessaire.
+- **Photos HDR (gain map) :** une photo HDR de téléphone ouverte avec les deux images est maintenant détectée par le contrôle. Réparation : « Supprimer les pages auxiliaires HDR … », avec taille au choix et fusion optionnelle du gain map.
+- **Nouvel onglet « Images et couleurs » :**
+  - Espace colorimétrique par image et par page (RVB, CMJN, niveaux de gris, tons directs), y compris le nom exact du profil ICC et l'intention de rendu (output intent).
+  - Résolution effective par placement, également pour les images utilisées plusieurs fois ou dans des formulaires.
+  - Taille maximale recommandée à 300 et 150 dpi, plus l'échelle maximale par page.
+  - Avertissements pour basse résolution et informations sur le contenu RVB et les tons directs.
+
 ## 1.12.1
 - **Édition : plusieurs objets et lignes à la fois.** « Agrandir / déplacer … », « Supprimer
   l'objet », « Appliquer » (police et taille) et « Supprimer la ligne » s'appliquent désormais à
@@ -35,47 +69,6 @@
   certains PDF (p. ex. de Chrome)
 - Traductions ajoutées pour la disposition des poses dans le dialogue d'impression (anglais,
   hongrois, espagnol, français)
-
-## 1.12.0
-- **Édition : modifier les objets de façon structurée.** Nouvel onglet « Objets » : les vecteurs
-  et images de la page sont listés avec leur taille en mm ou cliqués sur la page ; agrandir,
-  déplacer, supprimer. Sélection multiple avec Ctrl/Maj dans la liste et sur la page, les deux
-  liées – les modifications (déplacer, agrandir, supprimer) s'appliquent d'un coup à tous les
-  objets choisis. Ctrl+glisser agrandit autour de l'origine du cadre de sélection, avec
-  l'indication en mm en direct. Filet de sécurité : après chaque modification, Passermark vérifie
-  que rien ne change en dehors des objets choisis – sinon la modification est annulée et signalée
-- **Ordre Z pour objets et calques :** un pas devant/derrière, tout au premier/arrière-plan –
-  pour les lignes de texte, les vecteurs, les images et les calques
-- **Texte sur tracé reconnu correctement :** les lettres pivotées individuellement sur un arc
-  (p. ex. d'Affinity) sont regroupées en une ligne et modifiées ensemble ; la taille de police se
-  change sans casser la page (corrige un bug depuis 1.10.4). Les lignes sans texte lisible
-  (polices subset) apparaissent comme « (sans contenu textuel) » et peuvent être déplacées,
-  agrandies et supprimées
-- **Livret : pages côte à côte ou l'une sur l'autre.** « Pages ensemble » est sélectionnable :
-  côte à côte (reliure latérale) ou l'une sur l'autre (reliure en tête). Le fond perdu uniquement
-  sur les côtés extérieurs, jamais au dos. L'aperçu montre le vrai résultat, le recto verso
-  tourne par paires (« Feuillet X de Y – recto et verso »), l'indication du chant de retournement
-  suit l'orientation du feuillet. « Générer les feuillets … » ouvre les feuillets imposés comme
-  nouvel onglet
-- **Step & Repeat en fenêtre propre.** Ce n'est plus un mode d'impression : librement déplaçable
-  et minimisable, affiché et masqué via l'onglet jaune au bord gauche du dialogue (point =
-  multi-usage actif) ; fermer ne perd aucun réglage. Les feuillets du livret peuvent être posés
-  plusieurs fois par feuille via le multi-usage – sans lui, chaque feuillet est posé exactement
-  une fois. La disposition (bord à bord / fond perdu contre fond perdu / avec écart) et l'écart
-  sont réglables dans tous les modes ; avec « avec écart », la valeur saisie est l'écart blanc
-  visible, le fond perdu s'ajoute par côté
-- **Barre latérale retravaillée :** largeur librement ajustable ; vues « une colonne » et «
-  grille », taille des vignettes via Ctrl+molette ou boutons −/+ (60–600 px) ; la vue est
-  enregistrée
-- **Corrigé : « Supprimer l'espace blanc »** prenait la couleur du contenu comme fond lorsque le
-  contenu remplissait plus de la moitié de la page – la marge blanche restait. Le fond est
-  désormais déterminé à partir des bandes de bord de la page
-- **Corrigé : l'aperçu du livret** tournait feuille par feuille au lieu de par paires (montrait
-  trop de feuillets) ; la barre latérale ne pouvait pas être rétrécie parce que les panneaux
-  contrôle/édition imposaient leur largeur minimale – chaque panneau retient désormais sa propre
-  largeur
-- Guides (de/en) complétées avec le mode édition ; nouveau modèle d'exemple « texte en arc »
-  dans le dossier d'exemples
 
 ## 1.11.3
 - **Boîte de dialogue VDP relookée.** Les données variables affichent le même visage que le

@@ -148,7 +148,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die acht Aufträge", H3))
+    s.append(P("Die neun Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -159,6 +159,7 @@ def build():
         [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
         [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – jede Seite der nächste Datensatz"],
         [c("split"), "Seiten teilen: halbieren oder Raster, z. B. als Doppelseiten exportierte Broschüre in Einzelseiten"],
+        [c("shrink"), "Dateigröße verkleinern: verlustfreie Maßnahmen einzeln schaltbar, optional Bilder herunterrechnen"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -327,9 +328,11 @@ def build():
         ["Einstellung", "Standard", "Bedeutung"],
         [c("fix"), c("flatten_layers"), c("flatten_layers") + " (Ebenen festschreiben – gedruckt wird genau das "
          "Sichtbare), " + c("embed_fonts") + ", " + c("outline_text") + " (Text in Pfade), "
-         + c("flatten_transparency")],
+         + c("flatten_transparency") + ", " + c("flatten_softmask") + " (transparente Verläufe in deckende Bilder – "
+         "gegen schwarze Flächen am RIP, ohne Ghostscript)"],
         [c("font_map"), "{}", "bei " + c("embed_fonts") + ": Ersatzschriften {Schriftname: Pfad}"],
-        [c("dpi"), "300", "bei " + c("flatten_transparency") + ": Auflösung der gerasterten Bereiche"],
+        [c("dpi"), "300", "bei " + c("flatten_transparency") + " und " + c("flatten_softmask")
+         + ": Auflösung der gerasterten Bereiche"],
     ], [30 * mm, 32 * mm, W - 62 * mm]))
     s.append(Spacer(1, 4))
     s.append(example("Plan mit Ebenen: nur das Sichtbare drucken", "",
@@ -341,6 +344,34 @@ def build():
            f"CMYK-Umwandlung brauchen Ghostscript. Windows-Setup und AppImage bringen es mit; bei der "
            f"Linux-Installation installiert es {c('install.sh')}.")
     s.append(P(T(_gs), NOTE))
+
+    # ------------------------------------------------------------------ shrink
+    s.append(P("shrink – Dateigröße verkleinern", H3))
+    s.append(P("Jede Maßnahme ist ein eigenes Häkchen – macht eine Probleme, einfach mit " + c("--set name=false")
+               + " abschalten. Ohne Ghostscript. Ist das Ergebnis nicht kleiner, wird die Datei unverändert übernommen."))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("rewrite"), c("true"), "neu schreiben: alte Speicherstände weg, komprimierte Objekt-Streams, ZIP stärker"],
+        [c("unreferenced"), c("true"), "nicht mehr verwendete Ressourcen entfernen"],
+        [c("dedupe"), c("true"), "doppelt gespeicherte Bilder, Schriften, ICC-Profile zusammenlegen"],
+        [c("private"), c("true"), "Illustrator-/Photoshop-Bearbeitungsdaten (PieceInfo) entfernen"],
+        [c("thumbs"), c("true"), "eingebettete Seitenvorschaubilder entfernen"],
+        [c("pack"), c("true"), "Bilder verlustfrei packen (ZIP mit Prädiktor), ZIP um JPEG entfernen – nur wenn kleiner"],
+        [c("bits16"), c("false"), "16-Bit-Bilder auf 8 Bit"],
+        [c("attachments"), c("false"), "eingebettete Dateien (Anhänge) entfernen"],
+        [c("hidden"), c("false"), "Inhalte ausgeblendeter Ebenen entfernen"],
+        [c("downsample"), c("false"), "Bilder über " + c("target_dpi") + " × " + c("threshold")
+         + " (gemessen an der größten Platzierung) auf " + c("target_dpi") + " herunterrechnen"],
+        [c("target_dpi"), "300", "Ziel-Auflösung beim Herunterrechnen"],
+        [c("threshold"), "1.5", "erst ab Ziel × Schwelle (1.5 bei 300 dpi = ab 450 dpi)"],
+        [c("jpeg_quality"), "92", "Qualität für Bilder, die schon JPEG sind"],
+    ], [30 * mm, 22 * mm, W - 52 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(example("Nur verlustfrei verkleinern", "Das Druckbild bleibt pixelgleich.",
+                     "passermark-cli shrink flyer.pdf flyer-klein.pdf"))
+    s.append(example("Plakat: Bilder auf 150 dpi", "Bearbeitungsdaten behalten.",
+                     "passermark-cli shrink plakat.pdf plakat-klein.pdf \\\n"
+                     "    --set downsample=true --set target_dpi=150 --set private=false"))
 
     # ------------------------------------------------------------------ impose
     s.append(PageBreak())

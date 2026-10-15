@@ -1,4 +1,4 @@
-# Passermark 1.12.1
+# Passermark 1.12.5
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -110,3 +110,10 @@ Tests: `python3 tests/test_<name>.py` (no test framework needed).
 
 GPL-3.0-or-later, see `LICENSE`. The Windows installer and the AppImage include
 [Ghostscript](https://ghostscript.com) (AGPL-3.0, Artifex Software).
+
+Third-party licences: the installer and the AppImage contain a `licenses` folder next to the
+program (Help → Licences …) with `THIRD_PARTY_NOTICES.txt`, the licence files of every bundled
+Python package, the Qt/PySide6 LGPL notice (how to replace the Qt libraries) and the Ghostscript
+notice with the source links of the shipped version. On request the corresponding source code of
+the bundled components is also provided – please open an issue on
+[GitHub](https://github.com/groschenheld/passermark/issues).

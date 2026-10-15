@@ -5,6 +5,40 @@
 > Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.12.5
+### Licencek
+- A telepítő és az AppImage mostantól minden harmadik félre vonatkozó licencmegjegyzést tartalmaz (Python-csomagok, Qt LGPL-3.0, Ghostscript AGPL-3.0 forráshivatkozással, csomagolt rendszerkönyvtárak), megtekinthetők az új Súgó → Licencek menüben.
+- README-k: új szakasz a harmadik felek licenceiről, a forráskód kérésre elérhető.
+### Dokumentáció
+- A CLI-kézikönyv (DE/EN) frissült a `shrink` és a `flatten_softmask` paranccsal.
+
+## 1.12.4
+### Fájlméret csökkentése (új)
+- Elérhető a „Fájlméret" fülről vagy a Dokumentum → „Fájlméret csökkentése…" menüből, olyan fájloknál is, amelyek nincsenek túl nagyként megjelölve.
+- Minden intézkedés külön be- és kikapcsolható:
+  - **Veszteségmentes, alapértelmezetten bekapcsolva:** újraírás (a régi mentett verziókat eldobja), nem használt erőforrások eltávolítása, duplikátumok egyesítése (betűtípusok, képek, ICC-profilok), szerkesztési adatok és miniatűrök eltávolítása, képek veszteségmentes újrakomprimálása (a JPEG körüli ZIP-et is eltávolítja, ha kisebb lesz tőle).
+  - **Alapértelmezetten kikapcsolva:** 16 → 8 bit, mellékletek eltávolítása, rejtett rétegek tartalmának eltávolítása.
+  - **Opcionális lemintázás:** 300/240/150/100 dpi-re küszöbbel és JPEG-minőséggel, a legnagyobb elhelyezésnél mérve. A soft maszkok együtt skálázódnak.
+- Az eredmény új ablakban nyílik meg, az eredet változatlan marad. Ha az eredmény nem kisebb, a fájl marad, ahogy van.
+- CLI: `passermark-cli shrink in.pdf out.pdf [--set downsample=true --set target_dpi=150 …]`
+- Példa: egy 34 MB-os fájl a 90-szer beágyazott, azonos CMYK-profillal 0,5 MB-ra csökkent, pixelre azonosan.
+
+## 1.12.3
+### Előellenőrzés (preflight)
+- **Új fül „Fájlméret":** megmutatja, hová mennek a bájtok: képek, betűtípusok, színprofilok, Illustrator-/Photoshop-szerkesztési adatok, miniatűrök, mellékletek, oldaltartalom.
+  - Felsorolja továbbá a régi mentett verziókat, a duplikátumokat és a legnagyobb képeket effektív dpi-jükkel.
+  - Figyelmeztet a nagyon nagy fájlokra (A4-es felületenként több mint 20 MB) és a nagy duplikátumokra.
+
+## 1.12.2
+### Előellenőrzés (preflight)
+- **Átlátszó átmenetek (soft mask a mintában):** felismerhetők és javíthatók. Néhány RIP/plotter fekete felültként nyomtatja őket, amely letakarja az alatta lévő képeket. Az új javítás „Átlátszó átmenetek képpé alakítása (300 dpi)" csak az érintett átmeneteket rendereli, az alatta lévőkkel együtt, fedő képként. A felül lévő szöveg és vektorok sértetlenek maradnak. Ghostscript nem szükséges.
+- **HDR-fotók (gain map):** a mobilos HDR-fotó, amely mindkét képpel megnyitva volt, most felismerésre kerül az ellenőrzésben. Javítás: „HDR-segédlapok eltávolítása …", választható mérettel és opcionális gain-map-egyesítéssel.
+- **Új fül „Képek és színek":**
+  - Színtér kép és oldal szerint (RGB, CMYK, szürkeárnyalat, direkt színek), a pontos ICC-profilnévvel és a kimeneti színtérrel (output intent).
+  - Effektív felbontás elhelyezésenként, többször használt vagy űrlapokon (XObjectek) belüli képeknél is.
+  - Ajánlott legnagyobb méret 300 és 150 dpi-nél, valamint az oldalankénti maximális méretezés.
+  - Figyelmeztetések alacsony felbontásnál, információk RGB-tartalomról és direkt színekről.
+
 ## 1.12.1
 - **Szerkesztés: több objektum és sor egyszerre.** A „Méretezés / mozgatás …”, „Objektum törlése”,
   „Alkalmaz” (betűtípus és méret) és „Sor törlése” most az összes kiválasztott objektumra vagy
@@ -22,8 +56,8 @@
   fényerő-térképet tartalmaznak a HDR-kijelzőkhöz. Korábban ebből más méretű második lap lett –
   hibás színekkel a plotternél. Most nyitáskor figyelmeztetés jelenik meg; a „Javítás” egy lapot
   ad az változatlan fotóval, a méret választható (mint a kiegészítő kép, vagy ahogy a fotóban
-  tárolva van). A fényerő-térképet szükség szerint be lehet számítani. Rákérdezés nélkül
-  (parancssor, közvetlen nyomtatás) automatikus a javítás
+  tárolva van). A fényerő-térképet szükség szerint be lehet számítani. Rákérdezés nélkül (parancssor,
+  közvetlen nyomtatás) automatikus a javítás
 - **Javítva: ív-szöveg betűmérete.** A módosítás után a lista továbbra is a régi méretet mutatta,
   és minden további módosítás újra nagyított (24 → 36 → 54 pt). Most a tényleges méret jelenik meg;
   a kevés betűt tartalmazó rövid ívek is körív-szövegként ismerődnek fel. A változtatás nélküli
@@ -33,43 +67,6 @@
 - **Javítva: szöveg egérrel húzása** néhány PDF-nél (pl. Chrome-ból) hibaüzenettel megszakadt
 - Fordítások kiegészítve a haszon-elrendezéshez a nyomtatási párbeszédablakban (angol, magyar,
   spanyol, francia)
-
-## 1.12.0
-- **Szerkesztés: objektumok strukturált kezelése.** Új „Objektumok” lap: az oldal vektorai és
-  képei mm-es mérettel listázva vagy az oldalra kattintva választhatók ki; méretezés, mozgatás,
-  törlés. Többszörös kijelölés Ctrl/Shift-tel a listában és az oldalon, a kettő összekapcsolva –
-  a módosítások (mozgatás, méretezés, törlés) egyszerre hatnak az összes kiválasztott objektumra.
-  Ctrl+húzás a kijelölési keret origója körül méretez, élő mm-kijelzéssel. Biztonsági háló: minden
-  módosítás után a Passermark ellenőrzi, hogy a kiválasztott objektumokon kívül semmi sem változik
-  – ellenkező esetben a módosítást visszavonja és jelzi
-- **Z-sorrend objektumokra és rétegekre:** egy lépés előre/hátra, egészen elölre/hátulra –
-  szövegsorokra, vektorokra, képekre és rétegekre
-- **Ívelt szöveg (körív-szöveg) helyes felismerése:** az íven egyenként elforgatott betűk (pl.
-  Affinityből) egy sorba csoportosulnak és egységbenként szerkeszthetők; a betűméret a lap
-  tönkretétele nélkül változtatható (1.10.4 óta futó hiba javítása). Nem olvasható szövegű sorok
-  (részbetűtípusok) „(szövegtartalom nélkül)” néven jelennek meg, mozgathatók, méretezhetők és
-  törölhetők
-- **Füzetcsomag: lapok egymás mellett vagy egymáson.** A „Lapok együtt” választható: egymás
-  mellett (oldalt kötött) vagy egymáson (felül kötött). A vérzés csak a külső oldalakon, sosem a
-  gerincnél. Az előnézet a valódi eredményt mutatja, a kétoldalas lapozás párban történik („X/Y
-  ív – elülső és hátsó oldal”), a fordítási élre vonatkozó figyelmeztetés az ív tájolását követi.
-  A „Ívek létrehozása …” az kinyomtatott íveket új lapként nyitja meg
-- **Step & Repeat saját ablakként.** Többé nem nyomtatási mód: szabadon mozgatható és
-  minimalizálható, a párbeszédablak bal szélén lévő sárga füleen keresztül mutatható és rejthető
-  (pont = több haszon aktív); a bezárás nem dobja el a beállításokat. A füzetcsomag ívei a több
-  haszonnal laponként többször elhelyezhetők – nélküle minden ív pontosan egyszer kerül
-  elhelyezésre. Az elrendezés (él az élhez / vérzés a vérzéshez / távolsággal) és a távolság minden
-  módban állítható; „távolsággal” esetén a beírt érték a látható fehér távolság, a vérzés
-  oldalanként ráadásul jön
-- **Oldalsáv újratervezve:** szélessége szabadon húzható; „egy oszlop” és „rács” nézetek,
-  mozaikméret Ctrl+egérgörgővel vagy −/+ gombokkal (60–600 px); a nézet elmentődik
-- **Javítva: „Fehér terület eltávolítása”** a tartalom színét vélte hátterének, ha a tartalom az
-  oldal több mint felét kitöltötte – a fehér margó megmaradt. A háttér most az oldal
-  szegélycsíkjaiból állapítható meg
-- **Javítva: a füzetcsomag előnézete** lapról lapra lapozott párok helyett (túl sok ívet
-  mutatott); az oldalsáv nem szűkíthető, mert az ellenőrző/szerkesztő panelek rákényszerítették a
-  minimális szélességüket – most minden panel a saját szélességére emlékszik
-- Útmutatók (de/en) kiegészítve a szerkesztő móddal; új „ív-szöveg” példasablon a példamappában
 
 ## 1.11.3
 - **VDP-párbeszédablak felfrissítve.** A változó adatok ugyanúgy néznek ki, mint a nyomtatási
