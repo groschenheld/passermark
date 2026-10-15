@@ -5,6 +5,36 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.12.1
+- **Edición: varios objetos y líneas a la vez.** «Escalar / mover …», «Eliminar objeto», «Aplicar»
+  (fuente y tamaño) y «Eliminar línea» actúan ahora sobre todos los objetos o líneas elegidos, ya
+  no solo sobre uno. Con varias líneas seleccionadas el campo de texto está bloqueado – cambiar el
+  texto solo funciona con una línea
+- **Edición: cambiar color.** Nuevo botón «Color …» para líneas de texto y objetos vectoriales, a
+  elección CMYK (predeterminado, para impresión) o RGB; en los vectores relleno y contorno se
+  eligen por separado. El negro 0/0/0/100 sigue siendo negro puro. El color se ajusta directamente
+  en el contenido de la página – todo lo que queda fuera de la selección permanece intacto,
+  incluidos los objetos que solo heredaron su color
+- **Edición: visión general.** Las pestañas muestran la cantidad («Texto (12)», «Objetos (40)»); en
+  la pestaña «Objetos» se puede filtrar por vectores o imágenes, con la cantidad por tipo. Con un
+  filtro activo, un clic en la página solo selecciona ese tipo
+- **Fotos HDR del móvil (iPhone, Android) reconocidas.** Estos JPG contienen junto a la foto un
+  mapa de luminancia gris para pantallas HDR. Antes esto se convertía en una segunda página de otro
+  tamaño – con colores erróneos en el plotter. Ahora aparece un aviso al abrir; «Reparar» produce
+  una página con la foto sin cambios, tamaño seleccionable (como la imagen auxiliar o como está
+  guardado en la foto). El mapa de luminancia puede calcularse opcionalmente. Sin pregunta
+  (línea de comandos, impresión directa) se repara automáticamente
+- **Corregido: tamaño de letra del texto en trayectoria.** Tras cambiarlo, la lista seguía
+  mostrando el tamaño antiguo y cada cambio posterior agrandaba de nuevo (24 → 36 → 54 pt). Ahora
+  se muestra el tamaño real; los arcos cortos con pocas letras también se reconocen como texto en
+  trayectoria. «Aplicar» sin cambios deja la página intacta
+- **Corregido: orden Z.** «Un paso adelante» en el objeto superior informaba falsamente «estructura
+  de la página no reconocida» – ahora todo simplemente queda como está
+- **Corregido: arrastrar texto con el ratón** abortaba con un mensaje de error en algunos PDF (p.
+  ej. de Chrome)
+- Traducciones añadidas para la disposición de las poses en el diálogo de impresión (inglés,
+  húngaro, español, francés)
+
 ## 1.12.0
 - **Edición: editar objetos de forma estructurada.** Nueva pestaña «Objetos»: los vectores e
   imágenes de la página se listan con su tamaño en mm o se seleccionan con un clic en la página;

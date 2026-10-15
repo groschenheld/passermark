@@ -5,6 +5,35 @@
 > Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.12.1
+- **Szerkesztés: több objektum és sor egyszerre.** A „Méretezés / mozgatás …”, „Objektum törlése”,
+  „Alkalmaz” (betűtípus és méret) és „Sor törlése” most az összes kiválasztott objektumra vagy
+  sorra hat, nem csak egyre. Több sor kijelölésekor a szövegmező zárolva van – szöveget csak egy
+  sornál lehet változtatni
+- **Szerkesztés: szín módosítása.** Új „Szín …” gomb szövegsorokhoz és vektorobjektumokhoz,
+  választhatóan CMYK (alapértelmezés, nyomdához) vagy RGB; vektoroknál a kitöltés és a körvonal
+  külön-külön állítható. A 0/0/0/100 feketéje tiszta fekete marad. A szín közvetlenül az oldal
+  tartalmában kerül beállításra – a kijelölésen kívül minden érintetlen marad, azok az objektumok
+  is, amelyek csak örökölték a színüket
+- **Szerkesztés: áttekintés.** A lapok darabszámot mutatnak („Szöveg (12)”, „Objektumok (40)”); az
+  „Objektumok” lapon vektorokra vagy képekre szűrhető a lista, típusonkénti darabszámmal. Aktív
+  szűrőnél az oldalra kattintás csak az adott típust jelöli ki
+- **HDR telefonfotók (iPhone, Android) felismerése.** Az ilyen JPG-k a fotó mellett szürke
+  fényerő-térképet tartalmaznak a HDR-kijelzőkhöz. Korábban ebből más méretű második lap lett –
+  hibás színekkel a plotternél. Most nyitáskor figyelmeztetés jelenik meg; a „Javítás” egy lapot
+  ad az változatlan fotóval, a méret választható (mint a kiegészítő kép, vagy ahogy a fotóban
+  tárolva van). A fényerő-térképet szükség szerint be lehet számítani. Rákérdezés nélkül
+  (parancssor, közvetlen nyomtatás) automatikus a javítás
+- **Javítva: ív-szöveg betűmérete.** A módosítás után a lista továbbra is a régi méretet mutatta,
+  és minden további módosítás újra nagyított (24 → 36 → 54 pt). Most a tényleges méret jelenik meg;
+  a kevés betűt tartalmazó rövid ívek is körív-szövegként ismerődnek fel. A változtatás nélküli
+  „Alkalmaz” érintetlenül hagyja az oldalt
+- **Javítva: Z-sorrend.** A legfelső objektumon az „egy lépés előre” tévesen „az oldal szerkezete
+  nem ismerhető fel” hibát jelzett – most egyszerűen minden marad, ahogy van
+- **Javítva: szöveg egérrel húzása** néhány PDF-nél (pl. Chrome-ból) hibaüzenettel megszakadt
+- Fordítások kiegészítve a haszon-elrendezéshez a nyomtatási párbeszédablakban (angol, magyar,
+  spanyol, francia)
+
 ## 1.12.0
 - **Szerkesztés: objektumok strukturált kezelése.** Új „Objektumok” lap: az oldal vektorai és
   képei mm-es mérettel listázva vagy az oldalra kattintva választhatók ki; méretezés, mozgatás,

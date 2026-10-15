@@ -84,11 +84,60 @@ def merge_files(parent, ctl, paths: list[str]):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def ask_hdr(parent, paths: list[str], default_dpi: float = 96.0):
+    """HDR-Fotos mit Zusatzbild (Helligkeitskarte) melden und die Reparatur wählen lassen.
+        -> Optionen für images_to_document (None = keine solchen Bilder)."""
+    from PySide6.QtWidgets import QCheckBox, QRadioButton
+    found = [(p, images.hdr_aux_info(p)) for p in paths]
+    found = [(p, i) for p, i in found if i is not None]
+    if not found:
+        return None
+    p0, info = found[0]
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(tr("HDR-Foto erkannt"))
+    v = QVBoxLayout(dlg)
+    names = ", ".join(f"„{os.path.basename(p)}“" for p, _i in found[:3]) + (" …" if len(found) > 3 else "")
+    lbl = QLabel(tr("{0} enthält neben dem Foto ein Zusatzbild ({1}: Helligkeitskarte für HDR-Bildschirme). "
+                    "Ohne Reparatur wird es als zweite, graue Seite in anderer Größe geöffnet und gedruckt – "
+                    "am Plotter kann das zu falschen Farben führen.").format(names, info["kind"]))
+    lbl.setWordWrap(True)
+    v.addWidget(lbl)
+    aw, ah = images.hdr_size_mm(info, "aux", default_dpi)
+    mw, mh = images.hdr_size_mm(info, "main", default_dpi)
+    dpi_aux = info["main_px"][0] / (aw / 25.4)
+    dpi_main = info["main_px"][0] / (mw / 25.4)
+    rb_aux = QRadioButton(tr("Eine Seite, Größe wie das Zusatzbild: {0:.0f} × {1:.0f} mm ({2:.0f} dpi)").format(aw, ah, dpi_aux))
+    rb_main = QRadioButton(tr("Eine Seite, Größe wie im Foto hinterlegt: {0:.0f} × {1:.0f} mm ({2:.0f} dpi)").format(mw, mh, dpi_main))
+    rb_aux.setChecked(True)
+    for rb in (rb_aux, rb_main):
+        v.addWidget(rb)
+    chk = QCheckBox(tr("Helligkeitskarte einrechnen (hellt die Lichter auf wie am HDR-Bildschirm)"))
+    chk.setToolTip(tr("Aus: das Foto bleibt bit-genau unverändert. Ein: die Lichter werden aufgehellt und "
+                      "für Papier zurückgerechnet (neu als JPEG gespeichert)."))
+    v.addWidget(chk)
+    if any(i.get("aux_mode") != "L" for _p, i in found):
+        chk.hide()                           # farbiges Zusatzbild (z. B. 3D-Kamera): keine Helligkeitskarte
+    note = QLabel(tr("Die Bildschärfe steckt im Foto – die Karte hat nur die halbe Auflösung und keine zusätzlichen Details."))
+    note.setWordWrap(True)
+    note.setStyleSheet(f"color: {theme.MUTED};")
+    v.addWidget(note)
+    bb = QDialogButtonBox()
+    b_fix = bb.addButton(tr("Reparieren"), QDialogButtonBox.ButtonRole.AcceptRole)
+    b_keep = bb.addButton(tr("Unverändert öffnen (2 Seiten)"), QDialogButtonBox.ButtonRole.RejectRole)
+    b_fix.setDefault(True)
+    bb.accepted.connect(dlg.accept)
+    bb.rejected.connect(dlg.reject)
+    v.addWidget(bb)
+    if not dlg.exec():
+        return {"keep": True}
+    return {"size": "aux" if rb_aux.isChecked() else "main", "merge": chk.isChecked() and not chk.isHidden()}
+
+
 def load_any(parent, ctl, path, workdir=None, notes=None):
     """PDF (mit Passwortabfrage), Bild oder Office-Datei -> pypdfium2-Dokument (None = abgebrochen)."""
     import tempfile
     if images.is_image(path):
-        return images.images_to_document([path], ctl.image_dpi)
+        return images.images_to_document([path], ctl.image_dpi, ask_hdr(parent, [path], ctl.image_dpi))
     if _convert.is_office(path):
         from PySide6.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -1861,7 +1910,7 @@ class MainWindow(QMainWindow):
 
     def open_images(self, paths: list[str]):
         try:
-            doc = images.images_to_document(paths, self.ctl.image_dpi)
+            doc = images.images_to_document(paths, self.ctl.image_dpi, ask_hdr(self, paths, self.ctl.image_dpi))
         except Exception as e:
             QMessageBox.critical(self, tr("Bild öffnen"), str(e))
             return

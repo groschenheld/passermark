@@ -5,6 +5,37 @@
 > Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.12.1
+- **Édition : plusieurs objets et lignes à la fois.** « Agrandir / déplacer … », « Supprimer
+  l'objet », « Appliquer » (police et taille) et « Supprimer la ligne » s'appliquent désormais à
+  tous les objets ou lignes choisis, plus seulement à un seul. Avec plusieurs lignes sélectionnées,
+  le champ texte est verrouillé – modifier le texte ne fonctionne qu'avec une seule ligne
+- **Édition : changer la couleur.** Nouveau bouton « Couleur … » pour les lignes de texte et les
+  objets vectoriels, au choix CMJN (par défaut, pour l'impression) ou RVB ; pour les vecteurs,
+  remplissage et contour se règlent séparément. Le noir 0/0/0/100 reste du noir pur. La couleur est
+  posée directement dans le contenu de la page – tout ce qui est hors de la sélection reste
+  inchangé, y compris les objets qui n'ont fait qu'hériter leur couleur
+- **Édition : vue d'ensemble.** Les onglets affichent le nombre (« Texte (12) », « Objets (40) ») ;
+  dans l'onglet « Objets » un filtre par vecteurs ou images est disponible, avec le nombre par type.
+  Avec un filtre actif, un clic sur la page ne sélectionne que ce type
+- **Photos HDR de téléphone (iPhone, Android) reconnues.** Ces JPG contiennent à côté de la photo
+  une carte de luminance grise pour les écrans HDR. Auparavant, cela devenait une deuxième page
+  d'une autre taille – aux couleurs fausses au traceur. Désormais un avis s'affiche à l'ouverture ;
+  « Réparer » donne une page avec la photo inchangée, taille au choix (comme l'image auxiliaire ou
+  comme enregistrée dans la photo). La carte de luminance peut être intégrée en option. Sans
+  demande (ligne de commande, impression directe), la réparation est automatique
+- **Corrigé : taille de police du texte sur tracé.** Après modification, la liste continuait
+  d'afficher l'ancienne taille et chaque nouvelle modification agrandissait encore (24 → 36 →
+  54 pt). La taille réelle s'affiche maintenant ; les arcs courts avec peu de lettres sont
+  également reconnus comme texte sur tracé. « Appliquer » sans modification laisse la page
+  intacte
+- **Corrigé : ordre Z.** « Un pas devant » sur l'objet le plus haut signalait à tort « structure de
+  la page non reconnue » – maintenant tout reste simplement tel quel
+- **Corrigé : faire glisser du texte avec la souris** s'interrompait avec un message d'erreur sur
+  certains PDF (p. ex. de Chrome)
+- Traductions ajoutées pour la disposition des poses dans le dialogue d'impression (anglais,
+  hongrois, espagnol, français)
+
 ## 1.12.0
 - **Édition : modifier les objets de façon structurée.** Nouvel onglet « Objets » : les vecteurs
   et images de la page sont listés avec leur taille en mm ou cliqués sur la page ; agrandir,

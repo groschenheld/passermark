@@ -44,6 +44,9 @@ if "edit_panel" in w.__dict__:
     ep.tabs.currentIndex = lambda: tab[0]
     ep.lst_text.currentRow = lambda: row["t"]
     ep.lst_text.setCurrentRow = lambda r: (row.__setitem__("t", r), ep._text_selected(r))
+    # Mehrfachauswahl (1.12): Ziehen/Skalieren wirkt auf die gewählten Zeilen – wie in echtem Qt
+    # gilt die aktuelle Zeile als gewählt
+    ep.lst_text.selectedIndexes = lambda: [types.SimpleNamespace(row=lambda: row["t"])] if row["t"] >= 0 else []
     ep.lst_layers.currentRow = lambda: row["l"]
     ep.lst_layers.setCurrentRow = lambda r: (row.__setitem__("l", r), ep._layer_selected(r))
     w._edit_mode(True)
@@ -75,7 +78,7 @@ if "edit_panel" in w.__dict__:
     assert not any(l.text.startswith("Hallo") for l in editing.text_lines(w.doc, 0)) and others("Hallo") == keep
     for _k in range(3):
         ep._undo()
-    tab[0] = 1; ep.refresh()
+    tab[0] = 2; ep.refresh()                 # Reiter: 0 Text, 1 Objekte (1.12), 2 Ebenen
     K = {x.name: x.key for x in preflight.analyze(w._doc_bytes(), deep_layers=False).layers}
     w.view.mouse_press(pg(), E(150, 217)); w.view.mouse_move(pg(), E(150, 317)); w.view.mouse_release(pg(), E(150, 317))
     b = editing.layer_map(w._doc_bytes(), 0, [K["Bemaßung"]]).boxes[K["Bemaßung"]]

@@ -2,6 +2,34 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.12.1
+- **Edit mode: several objects and lines at once.** "Scale / move …", "Delete object", "Apply" (font
+  and size) and "Delete line" now act on all selected objects or lines, no longer only on one. With
+  several lines selected the text field is locked – changing text works with one line only
+- **Edit mode: change colour.** New "Colour …" button for text lines and vector objects, either
+  CMYK (default, for print) or RGB; for vectors fill and stroke separately selectable. Black
+  0/0/0/100 stays pure black. The colour is set directly in the page content – everything outside
+  the selection stays untouched, including objects that only inherited their colour
+- **Edit mode: overview.** The tabs show the count ("Text (12)", "Objects (40)"); in the "Objects"
+  tab a filter for vectors or images is available, with the count per kind. With an active filter a
+  click on the page selects only that kind
+- **HDR photos from phones (iPhone, Android) are recognised.** Such JPGs contain a grey
+  luminance map for HDR screens next to the photo. Previously that became a second page in a
+  different size – with wrong colours at the plotter. Now a hint appears on opening; "Repair"
+  produces one page with the unchanged photo, size selectable (like the auxiliary image or as
+  stored in the photo). The luminance map can optionally be computed in. Without a prompt (command
+  line, direct printing) the file is repaired automatically
+- **Fixed: font size of text on a path.** After changing it, the list kept showing the old size and
+  every further change enlarged again (24 → 36 → 54 pt). The actual size is shown now; short arcs
+  with few letters are recognised as path text as well. "Apply" without a change leaves the page
+  untouched
+- **Fixed: Z-order.** "One step forward" on the topmost object falsely reported "structure of the
+  page not recognised" – now everything simply stays as it is
+- **Fixed: dragging text with the mouse** aborted with an error message on some PDFs (e.g. from
+  Chrome)
+- Translations for the items arrangement in the print dialog added (English, Hungarian, Spanish,
+  French)
+
 ## 1.12.0
 - **Edit mode: structured object editing.** New "Objects" tab: the page's vectors and images
   listed with their mm size or clicked on the page; scale, move, delete. Multi-selection with

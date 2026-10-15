@@ -2,6 +2,35 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.12.1
+- **Bearbeiten: mehrere Objekte und Zeilen auf einmal.** „Skalieren / Verschieben …“, „Objekt
+  löschen“, „Übernehmen“ (Schrift und Größe) und „Zeile löschen“ wirken jetzt auf alle gewählten
+  Objekte bzw. Zeilen, nicht mehr nur auf eine. Bei mehreren gewählten Zeilen ist das Textfeld
+  gesperrt – Text ändern geht nur bei einer Zeile
+- **Bearbeiten: Farbe ändern.** Neuer Knopf „Farbe …“ für Textzeilen und Vektorobjekte, wahlweise
+  CMYK (Standard, für den Druck) oder RGB; bei Vektoren Fläche und Kontur getrennt wählbar.
+  Schwarz 0/0/0/100 bleibt reines Schwarz. Die Farbe wird direkt im Seiteninhalt gesetzt – alles
+  außerhalb der Auswahl bleibt unverändert, auch Objekte, die ihre Farbe nur übernommen haben
+- **Bearbeiten: Übersicht.** Die Reiter zeigen die Anzahl („Text (12)“, „Objekte (40)“); im Reiter
+  „Objekte“ lässt sich nach Vektoren oder Bildern filtern, mit Anzahl je Art. Bei aktivem Filter
+  wählt ein Klick auf die Seite nur diese Art
+- **HDR-Fotos vom Handy (iPhone, Android) werden erkannt.** Solche JPGs enthalten neben dem Foto
+  eine graue Helligkeitskarte für HDR-Bildschirme. Bisher wurde daraus eine zweite Seite in anderer
+  Größe – am Plotter mit falschen Farben. Jetzt erscheint beim Öffnen ein Hinweis; „Reparieren“
+  ergibt eine Seite mit dem unveränderten Foto, Größe wählbar (wie das Zusatzbild oder wie im Foto
+  hinterlegt). Die Helligkeitskarte lässt sich optional einrechnen. Ohne Rückfrage (Kommandozeile,
+  Direktdruck) wird automatisch repariert
+- **Behoben: Kreistext-Schriftgröße.** Nach dem Ändern zeigte die Liste weiter die alte Größe, jede
+  weitere Änderung vergrößerte erneut (24 → 36 → 54 pt). Jetzt wird die tatsächliche Größe angezeigt;
+  kurze Bögen mit wenigen Buchstaben werden ebenfalls als Pfadtext erkannt. „Übernehmen“ ohne
+  Änderung lässt die Seite unangetastet
+- **Behoben: Z-Ordnung.** „Eins nach vorn“ beim obersten Objekt meldete fälschlich „Struktur der Seite
+  nicht erkannt“ – jetzt bleibt einfach alles, wie es ist
+- **Behoben: Text mit der Maus ziehen** brach bei manchen PDFs (z. B. aus Chrome) mit einer
+  Fehlermeldung ab
+- Übersetzungen für die Nutzen-Anordnung im Druckdialog ergänzt (Englisch, Ungarisch, Spanisch,
+  Französisch)
+
 ## 1.12.0
 - **Bearbeiten: Objekte strukturiert bearbeiten.** Neuer Reiter „Objekte“: Vektoren und Bilder der
   Seite mit mm-Größe auflisten oder auf der Seite anklicken; skalieren, verschieben, löschen.

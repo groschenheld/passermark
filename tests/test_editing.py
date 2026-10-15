@@ -259,8 +259,9 @@ def test_z_runs_and_permute():
     assert editing._z_permute(4, {1}, "down") == [1, 0, 2, 3]
     assert editing._z_permute(4, {1}, "front") == [0, 2, 3, 1]
     assert editing._z_permute(4, {1}, "back") == [1, 0, 2, 3]
-    assert editing._z_permute(3, {2}, "up") is None          # schon ganz vorn
-    assert editing._z_permute(3, {0}, "down") is None        # schon ganz hinten
+    assert editing._z_permute(3, {2}, "up") == [0, 1, 2]     # schon ganz vorn: bleibt stehen
+    assert editing._z_permute(3, {0}, "down") == [0, 1, 2]   # schon ganz hinten: bleibt stehen
+    assert editing._z_permute(4, {2, 3}, "up") == [0, 1, 2, 3]   # Block schon vorn: keine Vertauschung
     # mehrere Ziele wandern als Block nach vorn
     assert editing._z_permute(5, {1, 3}, "front") == [0, 2, 4, 1, 3]
 
@@ -303,7 +304,8 @@ BT /F1 12 Tf 20 20 Td (Zweite) Tj ET"""
     d = pdfium.PdfDocument(new)
     objs = editing.page_objects(d, 0)
     d.close()
-    same = editing.reorder_objects(new, 0, [objs[0]], "up")
+    front = max(objs, key=lambda o: o.objs[0])                        # oberstes Objekt (rot)
+    same = editing.reorder_objects(new, 0, [front], "up")
     assert same == new, "schon ganz vorn: Datei unveraendert"
     # mehrere Textzeilen gemeinsam verschieben (Bulk, pdfium-Pfad)
     d = pdfium.PdfDocument(new)
@@ -320,6 +322,72 @@ BT /F1 12 Tf 20 20 Td (Zweite) Tj ET"""
     d.close()
     assert abs(l2[0].bbox[1] - (lines[0].bbox[1] + 30)) < 0.5
     assert abs(l2[1].bbox[1] - (lines[1].bbox[1] + 30)) < 0.5
+
+
+
+def _color_pdf() -> bytes:
+    """Drei Rechtecke (rot, blau, eines erbt Blau) + zwei Textzeilen (erben Blau)."""
+    import pikepdf
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(300, 300))
+    page = pdf.pages[0]
+    page.obj.Resources = pikepdf.Dictionary(
+        Font=pikepdf.Dictionary(F1=pikepdf.Dictionary(Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1,
+                                                       BaseFont=pikepdf.Name.Helvetica)))
+    page.obj.Contents = pikepdf.Stream(pdf, b"""1 0 0 rg 100 100 50 50 re f
+0 0 1 rg 120 120 50 50 re f
+200 200 30 30 re f
+BT /F1 12 Tf 20 40 Td (Erste) Tj ET
+BT /F1 12 Tf 20 20 Td (Zweite) Tj ET""")
+    buf = io.BytesIO(); pdf.save(buf)
+    return buf.getvalue()
+
+
+def test_recolor_cmyk_keeps_rest():
+    """Farbe ändern (CMYK): nur die gewählten Objekte/Zeilen, alles danach behält seine Farbe."""
+    import numpy as np
+    data = _color_pdf()
+
+    def px(doc, x, y):
+        d = pdfium.PdfDocument(doc)
+        a = np.asarray(d[0].render(scale=1.0).to_pil().convert("RGB"))
+        d.close()
+        return tuple(int(v) for v in a[int(300 - y), int(x)])
+    d = pdfium.PdfDocument(data)
+    objs = editing.page_objects(d, 0)
+    lines = editing.text_lines(d, 0)
+    d.close()
+    new = editing.recolor(data, 0, ("cmyk", (0, 0, 1, 0)), objs=[objs[1]])
+    assert new is not None
+    r, g, b = px(new, 160, 160)
+    assert r > 200 and g > 200 and b < 60, "blau -> gelb"
+    assert px(new, 215, 215)[2] > 200 and px(new, 215, 215)[0] < 60, "drittes Rechteck erbt weiter Blau"
+    assert px(new, 105, 105)[0] > 200 and px(new, 105, 105)[2] < 60, "rot unverändert"
+    assert editing.verify_edit(data, new, 0, [objs[1].bbox]) == ""
+    assert b" k" in pikepdf_contents(new), "CMYK-Operator k im Inhalt"
+    new2 = editing.recolor(data, 0, ("cmyk", (0, 0, 0, 1)), lines=[lines[0]])
+    assert editing.verify_edit(data, new2, 0, [lines[0].bbox]) == ""
+    d = pdfium.PdfDocument(new2)
+    assert [L.text for L in editing.text_lines(d, 0)] == ["Erste", "Zweite"]
+    d.close()
+
+
+def pikepdf_contents(data: bytes) -> bytes:
+    import pikepdf
+    with pikepdf.open(io.BytesIO(data)) as p:
+        return p.pages[0].Contents.read_bytes()
+
+
+def test_remove_several_lines():
+    data = _color_pdf()
+    d = pdfium.PdfDocument(data)
+    lines = editing.text_lines(d, 0)
+    d.close()
+    new = editing.remove_lines_ops(data, 0, lines)
+    d = pdfium.PdfDocument(new)
+    assert editing.text_lines(d, 0) == []
+    assert len(editing.page_objects(d, 0)) == 3, "Rechtecke bleiben"
+    d.close()
 
 
 if __name__ == "__main__":

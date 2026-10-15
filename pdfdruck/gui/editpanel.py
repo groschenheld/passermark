@@ -88,6 +88,10 @@ class EditPanel(QWidget):
         b = QPushButton(tr("Zeile löschen"))
         b.clicked.connect(self._text_delete)
         row.addWidget(b)
+        b = QPushButton(tr("Farbe …"))
+        b.setToolTip(tr("Farbe der gewählten Zeilen ändern (CMYK oder RGB)"))
+        b.clicked.connect(self._text_color)
+        row.addWidget(b)
         lv.addLayout(row)
         row = QHBoxLayout()
         for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._text_z_up),
@@ -104,6 +108,10 @@ class EditPanel(QWidget):
         # ---- Objekte ----
         w = QWidget()
         lv = QVBoxLayout(w)
+        self.cmb_objkind = QComboBox()
+        self.cmb_objkind.setToolTip(tr("Liste nach Art filtern – Klicks auf die Seite wählen nur diese Art"))
+        self.cmb_objkind.currentIndexChanged.connect(self._object_filter)
+        lv.addWidget(self.cmb_objkind)
         self.lst_objects = QListWidget()
         self.lst_objects.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.lst_objects.itemSelectionChanged.connect(self._object_selection)
@@ -114,7 +122,8 @@ class EditPanel(QWidget):
         lv.addWidget(self.lbl_object)
         grid = QHBoxLayout()
         for text, fn in ((tr("Skalieren / Verschieben …"), self._object_transform),
-                         (tr("Objekt löschen"), self._object_delete)):
+                         (tr("Objekt löschen"), self._object_delete),
+                         (tr("Farbe …"), self._object_color)):
             b = QPushButton(text)
             b.clicked.connect(fn)
             grid.addWidget(b)
@@ -165,6 +174,8 @@ class EditPanel(QWidget):
         lv.addLayout(grid)
         self.tabs.addTab(w, tr("Ebenen"))
 
+        self._tab_names = [tr("Text"), tr("Objekte"), tr("Ebenen")]
+        self._last_color = ("cmyk", (0.0, 0.0, 0.0, 1.0))
         self.btn_undo = QPushButton(tr("Rückgängig"))
         self.btn_undo.clicked.connect(self._undo)
         self.btn_undo.setEnabled(False)
@@ -179,6 +190,9 @@ class EditPanel(QWidget):
         """Rebuild the lists for the current page."""
         if self.win.doc is None or not self.win.a_edit.isChecked():
             return
+        if self._loaded is None or self._loaded[0] != self.page:     # andere Seite: alte Anzahlen weg
+            for i, n in enumerate(self._tab_names):
+                self.tabs.setTabText(i, n)
         try:
             if self.tabs.currentIndex() == 0:
                 self._fill_text()
@@ -433,6 +447,10 @@ class EditPanel(QWidget):
             L = next(L for L in sel if L.index == row)
             self.ed_text.setText(L.text)
             self.spn_size.setValue(L.size)
+        multi = len(sel) > 1
+        self.ed_text.setEnabled(not multi)
+        self.ed_text.setToolTip(tr("Bei mehreren gewählten Zeilen werden nur Schrift und Größe übernommen.")
+                                if multi else "")
 
     def _object_selection(self):
         """Mehrfachauswahl Objekte: Rahmen um alle gewählten Objekte (Union = Griffrahmen)."""
@@ -549,6 +567,7 @@ class EditPanel(QWidget):
                                  (" · " + tr("Pfadtext") if L.path_center else ""))
             self.lst_text.addItem(it)
         self.lst_text.blockSignals(False)
+        self.tabs.setTabText(0, tr("Text ({0})").format(len(self.lines)))
         if 0 <= cur < len(self.lines):
             self.lst_text.setCurrentRow(cur)
 
@@ -572,35 +591,114 @@ class EditPanel(QWidget):
             else:
                 self.cmb_font.setCurrentIndex(0)
 
+    def _sel_or_current_lines(self) -> list:
+        sel = self._selected_lines()
+        if not sel and 0 <= self.lst_text.currentRow() < len(self.lines):
+            sel = [self.lines[self.lst_text.currentRow()]]
+        return sorted(sel, key=lambda L: L.index)
+
+    def _sel_or_current_objects(self) -> list:
+        sel = self._selected_objects()
+        if not sel and 0 <= self.lst_objects.currentRow() < len(self.objects):
+            sel = [self.objects[self.lst_objects.currentRow()]]
+        return sorted(sel, key=lambda O: O.index)
+
     def _text_apply(self):
-        row = self.lst_text.currentRow()
-        if not (0 <= row < len(self.lines)):
+        sel = self._sel_or_current_lines()
+        if not sel:
             return
-        L = self.lines[row]
         font = self.cmb_font.currentData()
         size = self.spn_size.value()
-        size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
-        text = self.ed_text.text()
-        holder = {}
+        holder = {"notes": []}
+        if len(sel) == 1:
+            L = sel[0]
+            size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
+            text = self.ed_text.text()
 
-        def run(data):
-            new, notes = editing.edit_line_bytes(data, self.page, L, text, font, size_arg)
-            holder["notes"] = notes
-            return new
+            def run(data):
+                new, notes = editing.edit_line_bytes(data, self.page, L, text, font, size_arg)
+                holder["notes"] = notes
+                return new
+        else:
+            # mehrere Zeilen: Schrift/Größe für alle; nach jeder Änderung die nächste Zeile neu suchen
+            # (Objektnummern können sich durch die Änderung verschieben)
+            def run(data):
+                import pypdfium2 as pdfium
+                cur = data
+                for L0 in sel:
+                    d = pdfium.PdfDocument(cur)
+                    try:
+                        lines = editing.text_lines(d, self.page, include_undecodable=True)
+                    finally:
+                        d.close()
+                    L = _match_line(L0, lines)
+                    if L is None:
+                        raise ValueError(tr("Zeile „{0}“ nach der Änderung nicht mehr gefunden – "
+                                            "Änderung abgebrochen.").format(L0.text[:40]))
+                    size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
+                    cur, notes = editing.edit_line_bytes(cur, self.page, L, L.text, font, size_arg)
+                    for n in notes:
+                        if n not in holder["notes"]:
+                            holder["notes"].append(n)
+                return cur
         try:
-            if self._text_edit(run, [self._wide_box(L)]):
+            if self._text_edit(run, [self._wide_box(L) for L in sel]):
                 if holder.get("notes"):
                     QMessageBox.information(self, tr("Hinweis"), "\n\n".join(holder["notes"]))
         except Exception as e:
             _err(self, e)
 
     def _text_delete(self):
-        row = self.lst_text.currentRow()
-        if not (0 <= row < len(self.lines)):
+        sel = self._sel_or_current_lines()
+        if not sel:
             return
-        L = self.lines[row]
         try:
-            self._text_edit(lambda data: editing.remove_line_ops(data, self.page, L), [L.bbox])
+            if self._text_edit(lambda data: editing.remove_lines_ops(data, self.page, sel), [L.bbox for L in sel]):
+                self._overlay(None)
+        except Exception as e:
+            _err(self, e)
+
+    def _text_color(self):
+        sel = self._sel_or_current_lines()
+        if not sel:
+            QMessageBox.information(self, tr("Text"), tr("Bitte zuerst eine Zeile wählen (Liste oder Klick auf die Seite)."))
+            return
+        self._recolor(sel, [], tr("{0} Zeile(n)").format(len(sel)), with_parts=False)
+
+    def _object_color(self):
+        sel = self._sel_or_current_objects()
+        if not sel:
+            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            return
+        paths = [O for O in sel if O.kind == "path"]
+        if not paths:
+            QMessageBox.information(self, tr("Objekte"), tr("Bilder lassen sich nicht umfärben – bitte Vektorobjekte wählen."))
+            return
+        self._recolor([], paths, tr("{0} Vektorobjekt(e)").format(len(paths)), with_parts=True,
+                      skipped=len(sel) - len(paths))
+
+    def _recolor(self, lines, objs, what, with_parts, skipped=0):
+        dlg = _ColorDialog(self, what, self._last_color, with_parts)
+        if not dlg.exec():
+            return
+        color, fill, stroke = dlg.values()
+        if not (fill or stroke):
+            return
+        self._last_color = color
+        boxes = [L.bbox for L in lines] + [O.bbox for O in objs]
+        holder = {}
+
+        def run(data):
+            new = editing.recolor(data, self.page, color, lines=lines, objs=objs, fill=fill, stroke=stroke)
+            holder["unsafe"] = new is None
+            return new
+        try:
+            self._text_edit(run, [(b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2) for b in boxes])
+            if holder.get("unsafe"):
+                QMessageBox.information(self, tr("Farbe"), tr("Auf dieser Seite lässt sich die Farbe nicht sicher "
+                                                              "zuordnen – das Dokument bleibt unverändert."))
+            elif skipped:
+                QMessageBox.information(self, tr("Farbe"), tr("{0} Bild(er) in der Auswahl wurden nicht umgefärbt.").format(skipped))
         except Exception as e:
             _err(self, e)
 
@@ -609,6 +707,8 @@ class EditPanel(QWidget):
         self.win.view._close_textpages()                 # no open pages of the view during the change
         data = self.win._doc_bytes()
         new = fn(data)
+        if new is None or new == data:
+            return False                                 # nichts geändert: kein Rückgängig-Schritt, nicht „geändert“
         err = editing.verify_edit(data, new, self.page, ignore_boxes)
         if err:
             from pypdfium2 import version as _v
@@ -666,10 +766,31 @@ class EditPanel(QWidget):
             self.lst_objects.addItem(QListWidgetItem(
                 f"{O.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if O.in_layer else "")))
         self.lst_objects.blockSignals(False)
+        n_path = sum(1 for O in self.objects if O.kind == "path")
+        n_img = len(self.objects) - n_path
+        kind = self.cmb_objkind.currentData() or "all"
+        self.cmb_objkind.blockSignals(True)
+        self.cmb_objkind.clear()
+        self.cmb_objkind.addItem(tr("Alle ({0})").format(len(self.objects)), "all")
+        self.cmb_objkind.addItem(tr("Vektoren ({0})").format(n_path), "path")
+        self.cmb_objkind.addItem(tr("Bilder ({0})").format(n_img), "image")
+        self.cmb_objkind.setCurrentIndex(max(0, self.cmb_objkind.findData(kind)))
+        self.cmb_objkind.blockSignals(False)
+        self.tabs.setTabText(1, tr("Objekte ({0})").format(len(self.objects)))
+        self._object_filter()
         if not self.objects:
             self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
-        if 0 <= cur < len(self.objects):
+        if 0 <= cur < len(self.objects) and not self.lst_objects.isRowHidden(cur):
             self.lst_objects.setCurrentRow(cur)
+
+    def _object_filter(self, *_):
+        """Nur Vektoren / nur Bilder zeigen (Zeilen bleiben, werden ausgeblendet – Indizes stimmen weiter)."""
+        kind = self.cmb_objkind.currentData() or "all"
+        for O in self.objects:
+            hide = kind != "all" and O.kind != kind
+            self.lst_objects.setRowHidden(O.index, hide)
+            if hide and self.lst_objects.item(O.index).isSelected():
+                self.lst_objects.item(O.index).setSelected(False)
 
     def _object_selected(self, row):
         if not (0 <= row < len(self.objects)):
@@ -680,34 +801,35 @@ class EditPanel(QWidget):
             (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM))
 
     def _object_transform(self):
-        row = self.lst_objects.currentRow()
-        if not (0 <= row < len(self.objects)):
+        sel = self._sel_or_current_objects()
+        if not sel:
             QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
             return
-        O = self.objects[row]
-        dlg = _TransformDialog(self, O.text, O.bbox, what=tr("Objekt"), with_pages=False)
+        box = self._union([O.bbox for O in sel])
+        name = sel[0].text if len(sel) == 1 else tr("{0} Objekte").format(len(sel))
+        dlg = _TransformDialog(self, name, box, what=tr("Objekt"), with_pages=False)
         if not dlg.exec():
             return
         pb = self.win.doc.get_page_size(self.page)
         pb = (0.0, 0.0, pb[0], pb[1])
-        scale, dx, dy, origin, _all = dlg.values(O.bbox, pb)
+        scale, dx, dy, origin, _all = dlg.values(box, pb)
+        moved = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
         try:
             if self._text_edit(lambda data: self._pdfium_edit(
-                    data, self.page, lambda d: editing.transform_object(d, self.page, O, scale, dx, dy, origin))[0],
-                    [O.bbox, self._grow_box(O.bbox, scale)]):
-                self._reselect_object(self._grow_box(O.bbox, scale))
+                    data, self.page, lambda d: editing.transform_objects_bulk(d, self.page, sel, scale, dx, dy, origin))[0],
+                    [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)]):
+                self._reselect_object(self._grow_box(moved, scale) if len(sel) == 1 else moved)
         except Exception as e:
             _err(self, e)
 
     def _object_delete(self):
-        row = self.lst_objects.currentRow()
-        if not (0 <= row < len(self.objects)):
+        sel = self._sel_or_current_objects()
+        if not sel:
             QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
             return
-        O = self.objects[row]
         try:
             if self._text_edit(lambda data: self._pdfium_edit(
-                    data, self.page, lambda d: editing.delete_object(d, self.page, O))[0], [O.bbox]):
+                    data, self.page, lambda d: editing.delete_objects(d, self.page, sel))[0], [O.bbox for O in sel]):
                 self._overlay(None)
         except Exception as e:
             _err(self, e)
@@ -840,7 +962,9 @@ class EditPanel(QWidget):
                 else:
                     self.lst_text.setCurrentRow(L.index)
         elif self.tabs.currentIndex() == 1:
-            hits = [O for O in self.objects if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3]]
+            kind = self.cmb_objkind.currentData() or "all"
+            hits = [O for O in self.objects if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3]
+                    and (kind == "all" or O.kind == kind)]
             if hits:
                 O = min(hits, key=lambda o: (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))
                 if additive:
@@ -866,6 +990,18 @@ class EditPanel(QWidget):
                 if L.key == key:
                     self.lst_layers.setCurrentRow(i)
                     break
+
+
+def _match_line(L0, lines):
+    """Dieselbe Zeile nach einer Änderung wiederfinden: gleicher Text, nächstgelegene Mitte."""
+    cx, cy = (L0.bbox[0] + L0.bbox[2]) / 2, (L0.bbox[1] + L0.bbox[3]) / 2
+    same = [L for L in lines if L.text == L0.text] or lines
+    if not same:
+        return None
+    best = min(same, key=lambda L: abs((L.bbox[0] + L.bbox[2]) / 2 - cx) + abs((L.bbox[1] + L.bbox[3]) / 2 - cy))
+    h = max(1.0, L0.bbox[3] - L0.bbox[1])
+    d = abs((best.bbox[0] + best.bbox[2]) / 2 - cx) + abs((best.bbox[1] + best.bbox[3]) / 2 - cy)
+    return best if d <= max(20.0, 4 * h) else None
 
 
 def _overlap(b, pb) -> float:
@@ -932,3 +1068,99 @@ class _TransformDialog(QDialog):
             origin = (0.0, 0.0)
         return (self.spn_scale.value() / 100.0, self.spn_dx.value() * MM, self.spn_dy.value() * MM, origin,
                 bool(self.cmb_pages.currentData()) if self._with_pages else False)
+
+
+class _ColorDialog(QDialog):
+    """Farbe wählen: CMYK (Druck, Standard) oder RGB; bei Vektoren Fläche und/oder Kontur."""
+
+    def __init__(self, parent, what, last, with_parts=True):
+        from PySide6.QtWidgets import QCheckBox, QFrame
+        super().__init__(parent)
+        self.setWindowTitle(tr("Farbe ändern – {0}").format(what))
+        f = QFormLayout(self)
+        self.cmb_model = QComboBox()
+        self.cmb_model.addItem(tr("CMYK (für den Druck)"), "cmyk")
+        self.cmb_model.addItem(tr("RGB"), "rgb")
+        f.addRow(tr("Farbmodell:"), self.cmb_model)
+        self.spins = {}
+        for key, label in (("c", tr("Cyan:")), ("m", tr("Magenta:")), ("y", tr("Gelb:")), ("k", tr("Schwarz:")),
+                           ("r", tr("Rot:")), ("g", tr("Grün:")), ("b", tr("Blau:"))):
+            sp = QSpinBox()
+            sp.setRange(0, 100 if key in "cmyk" else 255)
+            sp.setSuffix(" %" if key in "cmyk" else "")
+            sp.valueChanged.connect(self._preview)
+            self.spins[key] = sp
+            f.addRow(label, sp)
+        self.btn_pick = QPushButton(tr("Farbe auswählen …"))
+        self.btn_pick.clicked.connect(self._pick)
+        f.addRow("", self.btn_pick)
+        self.swatch = QFrame()
+        self.swatch.setMinimumHeight(28)
+        self.swatch.setFrameShape(QFrame.Shape.Box)
+        f.addRow(tr("Vorschau:"), self.swatch)
+        self.chk_fill = QCheckBox(tr("Fläche"))
+        self.chk_stroke = QCheckBox(tr("Kontur"))
+        self.chk_fill.setChecked(True)
+        self.chk_stroke.setChecked(True)
+        if with_parts:
+            row = QHBoxLayout()
+            row.addWidget(self.chk_fill)
+            row.addWidget(self.chk_stroke)
+            row.addStretch(1)
+            f.addRow(tr("Ändern:"), row)
+        else:
+            self.chk_fill.hide()
+            self.chk_stroke.hide()
+        hint = QLabel(tr("Schwarzer Text: CMYK 0/0/0/100 bleibt reines Schwarz (kein Vierfarbschwarz)."))
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {theme.MUTED};")
+        f.addRow(hint)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        f.addRow(bb)
+        self._form = f
+        kind, vals = last
+        if kind == "rgb":
+            self.cmb_model.setCurrentIndex(1)
+            for k, v in zip("rgb", vals):
+                self.spins[k].setValue(round(v * 255))
+        else:
+            for k, v in zip("cmyk", vals):
+                self.spins[k].setValue(round(v * 100))
+        self.cmb_model.currentIndexChanged.connect(self._model_changed)
+        self._model_changed()
+
+    def _model_changed(self, *_):
+        cmyk = self.cmb_model.currentData() == "cmyk"
+        for k, sp in self.spins.items():
+            self._form.setRowVisible(sp, (k in "cmyk") == cmyk)
+        self._form.setRowVisible(self.btn_pick, not cmyk)
+        self._preview()
+
+    def _rgb(self):
+        if self.cmb_model.currentData() == "cmyk":
+            c, m, y, k = (self.spins[x].value() / 100 for x in "cmyk")
+            return tuple(round(255 * (1 - v) * (1 - k)) for v in (c, m, y))       # nur Bildschirm-Näherung
+        return tuple(self.spins[x].value() for x in "rgb")
+
+    def _preview(self, *_):
+        r, g, b = self._rgb()
+        self.swatch.setStyleSheet(f"background: rgb({r},{g},{b});")
+
+    def _pick(self):
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QColorDialog
+        c = QColorDialog.getColor(QColor(*self._rgb()), self, tr("Farbe auswählen"))
+        if c.isValid():
+            for k, v in zip("rgb", (c.red(), c.green(), c.blue())):
+                self.spins[k].setValue(v)
+
+    def values(self):
+        if self.cmb_model.currentData() == "cmyk":
+            color = ("cmyk", tuple(self.spins[x].value() / 100 for x in "cmyk"))
+        else:
+            color = ("rgb", tuple(self.spins[x].value() / 255 for x in "rgb"))
+        fill = self.chk_fill.isChecked() or self.chk_fill.isHidden()
+        stroke = self.chk_stroke.isChecked() or self.chk_stroke.isHidden()
+        return color, fill, stroke
