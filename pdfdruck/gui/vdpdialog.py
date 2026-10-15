@@ -548,6 +548,7 @@ class VdpDialog(QDialog):
                 w = QWidget()
                 w.setLayout(widget)
             tip = w.toolTip()
+            tip = tip if isinstance(tip, str) else ""          # Qt-Ersatz in den Tests liefert kein str
             w.setToolTip(text if not tip else tip + "\n\n" + text)
             self._help(box, text, register=True)
         if w is not None:

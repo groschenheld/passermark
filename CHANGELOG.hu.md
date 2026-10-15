@@ -5,6 +5,43 @@
 > Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.12.0
+- **Szerkesztés: objektumok strukturált kezelése.** Új „Objektumok” lap: az oldal vektorai és
+  képei mm-es mérettel listázva vagy az oldalra kattintva választhatók ki; méretezés, mozgatás,
+  törlés. Többszörös kijelölés Ctrl/Shift-tel a listában és az oldalon, a kettő összekapcsolva –
+  a módosítások (mozgatás, méretezés, törlés) egyszerre hatnak az összes kiválasztott objektumra.
+  Ctrl+húzás a kijelölési keret origója körül méretez, élő mm-kijelzéssel. Biztonsági háló: minden
+  módosítás után a Passermark ellenőrzi, hogy a kiválasztott objektumokon kívül semmi sem változik
+  – ellenkező esetben a módosítást visszavonja és jelzi
+- **Z-sorrend objektumokra és rétegekre:** egy lépés előre/hátra, egészen elölre/hátulra –
+  szövegsorokra, vektorokra, képekre és rétegekre
+- **Ívelt szöveg (körív-szöveg) helyes felismerése:** az íven egyenként elforgatott betűk (pl.
+  Affinityből) egy sorba csoportosulnak és egységbenként szerkeszthetők; a betűméret a lap
+  tönkretétele nélkül változtatható (1.10.4 óta futó hiba javítása). Nem olvasható szövegű sorok
+  (részbetűtípusok) „(szövegtartalom nélkül)” néven jelennek meg, mozgathatók, méretezhetők és
+  törölhetők
+- **Füzetcsomag: lapok egymás mellett vagy egymáson.** A „Lapok együtt” választható: egymás
+  mellett (oldalt kötött) vagy egymáson (felül kötött). A vérzés csak a külső oldalakon, sosem a
+  gerincnél. Az előnézet a valódi eredményt mutatja, a kétoldalas lapozás párban történik („X/Y
+  ív – elülső és hátsó oldal”), a fordítási élre vonatkozó figyelmeztetés az ív tájolását követi.
+  A „Ívek létrehozása …” az kinyomtatott íveket új lapként nyitja meg
+- **Step & Repeat saját ablakként.** Többé nem nyomtatási mód: szabadon mozgatható és
+  minimalizálható, a párbeszédablak bal szélén lévő sárga füleen keresztül mutatható és rejthető
+  (pont = több haszon aktív); a bezárás nem dobja el a beállításokat. A füzetcsomag ívei a több
+  haszonnal laponként többször elhelyezhetők – nélküle minden ív pontosan egyszer kerül
+  elhelyezésre. Az elrendezés (él az élhez / vérzés a vérzéshez / távolsággal) és a távolság minden
+  módban állítható; „távolsággal” esetén a beírt érték a látható fehér távolság, a vérzés
+  oldalanként ráadásul jön
+- **Oldalsáv újratervezve:** szélessége szabadon húzható; „egy oszlop” és „rács” nézetek,
+  mozaikméret Ctrl+egérgörgővel vagy −/+ gombokkal (60–600 px); a nézet elmentődik
+- **Javítva: „Fehér terület eltávolítása”** a tartalom színét vélte hátterének, ha a tartalom az
+  oldal több mint felét kitöltötte – a fehér margó megmaradt. A háttér most az oldal
+  szegélycsíkjaiból állapítható meg
+- **Javítva: a füzetcsomag előnézete** lapról lapra lapozott párok helyett (túl sok ívet
+  mutatott); az oldalsáv nem szűkíthető, mert az ellenőrző/szerkesztő panelek rákényszerítették a
+  minimális szélességüket – most minden panel a saját szélességére emlékszik
+- Útmutatók (de/en) kiegészítve a szerkesztő móddal; új „ív-szöveg” példasablon a példamappában
+
 ## 1.11.3
 - **VDP-párbeszédablak felfrissítve.** A változó adatok ugyanúgy néznek ki, mint a nyomtatási
   párbeszédablak: négy számozott, összecsukható szakasz (mezők, adatok, számozás, kimenet),

@@ -42,6 +42,8 @@ class TextLine:
     in_layer: bool = False
     subset: bool = False
     tops: list = field(default_factory=list)   # laufende Nummern der Textobjekte (= Textbefehle im Inhalt)
+    path_center: tuple | None = None           # Bogenzentrum bei Pfadtext (Kreistext), sonst None
+    no_text: bool = False                      # pdfium kann den Text nicht dekodieren (z. B. Subset ohne Encoding)
 
 
 def _obj_text(obj, tp) -> str:
@@ -91,12 +93,53 @@ def _marked(obj) -> bool:
     return False
 
 
-def text_lines(doc, page_index: int) -> list[TextLine]:
-    """Textobjekte der Seite (oberste Ebene) zu Zeilen gruppieren."""
+@dataclass
+class PageObject:
+    """Nicht-Text-Objekt (Vektor/Bild) der Seite für die Objektliste (1.12)."""
+    index: int
+    objs: list                   # Objektnummern (Reihenfolge im Seiteninhalt)
+    kind: str                    # "path" | "image"
+    text: str                    # Anzeigename („Vektor", „Bild")
+    bbox: tuple
+    in_layer: bool = False
+
+
+def page_objects(doc, page_index: int) -> list[PageObject]:
+    """Vektor- und Bildobjekte der Seite (oberste Ebene) für die Objektliste."""
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        n = r.FPDFPage_CountObjects(page.raw)
+        out = []
+        for i in range(n):
+            o = r.FPDFPage_GetObject(page.raw, i)
+            t = r.FPDFPageObj_GetType(o)
+            if t not in (r.FPDF_PAGEOBJ_PATH, r.FPDF_PAGEOBJ_IMAGE):
+                continue
+            b = _bounds(o)
+            if b[2] - b[0] < 0.5 or b[3] - b[1] < 0.5:      # Nadelobjekte (Füll-Punkte) weglassen
+                continue
+            out.append(PageObject(len(out), [i], "path" if t == r.FPDF_PAGEOBJ_PATH else "image",
+                                  tr("Vektor") if t == r.FPDF_PAGEOBJ_PATH else tr("Bild"),
+                                  b, _marked(o)))
+        return out
+    finally:
+        page.close()
+
+
+def text_lines(doc, page_index: int, include_undecodable: bool = False) -> list[TextLine]:
+    """Textobjekte der Seite (oberste Ebene) zu Zeilen gruppieren.
+        include_undecodable=True: Zeilen, deren Text pdfium nicht dekodieren kann
+        (z. B. eingebettete Subset-Schrift ohne Encoding), trotzdem listen (no_text=True) –
+        Verschieben/Skalieren/Löschen funktioniert, Text ändern nicht.
+    """
+    import ctypes
+    import math
     import pypdfium2.raw as r
     page = doc[page_index]
     tp = page.get_textpage()
     items = []
+    rots: dict[int, tuple] = {}          # Objektnummer -> (Drehung in Grad, Ursprung x, y)
     try:
         ordinal = -1
         for i in range(r.FPDFPage_CountObjects(page.raw)):
@@ -106,13 +149,20 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
             ordinal += 1
             t = _obj_text(o, tp.raw)
             if not t.strip():
+                if include_undecodable and _size(o) > 0:
+                    b = _bounds(o)
+                    if b[2] > b[0] and b[3] > b[1]:
+                        items.append((i, "", _font_name(o), _size(o), b, _marked(o), ordinal, True))
                 continue
-            items.append((i, t, _font_name(o), _size(o), _bounds(o), _marked(o), ordinal))
+            items.append((i, t, _font_name(o), _size(o), _bounds(o), _marked(o), ordinal, False))
+            m = r.FS_MATRIX()
+            if r.FPDFPageObj_GetMatrix(o, ctypes.byref(m)):
+                rots[i] = (math.degrees(math.atan2(m.b, m.a)), float(m.e), float(m.f))
     finally:
         tp.close()
         page.close()
     lines: list[TextLine] = []
-    for i, t, font, size, (x0, y0, x1, y1), mk, ordn in items:
+    for i, t, font, size, (x0, y0, x1, y1), mk, ordn, notext in items:
         if lines:
             L = lines[-1]
             h = max(1.0, L.bbox[3] - L.bbox[1])
@@ -127,7 +177,9 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
                 L.text += gap + t
                 L.bbox = (min(L.bbox[0], x0), min(L.bbox[1], y0), max(L.bbox[2], x1), max(L.bbox[3], y1))
                 continue
-        lines.append(TextLine(len(lines), [i], t, font, size, (x0, y0, x1, y1), mk, "+" in font[:8], [ordn]))
+        lines.append(TextLine(len(lines), [i], t, font, size, (x0, y0, x1, y1), mk, "+" in font[:8], [ordn],
+                               no_text=notext))
+    _merge_arc_lines(lines, rots)
     # row text from pdfium text analysis over the row area (real word gaps instead of guessed ones;
     # wichtig z. B. bei Chrome-PDFs, die jeden Buchstaben einzeln setzen)
     page = doc[page_index]
@@ -135,6 +187,9 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
     try:
         for k, L in enumerate(lines):
             L.index = k
+            if L.path_center is not None:
+                continue                 # Pfadtext: Objektreihenfolge ist korrekt; räumliches
+                                          # Nachlesen verwürfelt den Bogen (Reading-Order ≠ Pfad-Order)
             if len(L.objs) > 1:
                 x0, y0, x1, y1 = L.bbox
                 h = y1 - y0
@@ -146,6 +201,50 @@ def text_lines(doc, page_index: int) -> list[TextLine]:
         tp.close()
         page.close()
     return lines
+
+
+def _merge_arc_lines(lines: list[TextLine], rots: dict) -> None:
+    """Pfadtext (Kreistext): benachbarte Ein-Zeichen-„Zeilen“ mit fortlaufender Drehung und
+        Ursprüngen auf einem gemeinsamen Kreis zu EINER Zeile verschmelzen (Affinity/Illustrator
+        setzen jeden Buchstaben einzeln mit eigener Matrix). setzt path_center; Indices neu."""
+    import math
+    runs, k = [], 0
+    while k < len(lines):
+        L = lines[k]
+        one = (len(L.objs) == 1 and len(L.text.strip()) <= 1 and not L.no_text
+               and L.objs[0] in rots)      # Drehung prüft erst die Spreizung unten:
+                                            # ein Buchstabe genau oben (Drehung 0°) darf den
+                                            # Run nicht verhindern
+        if not one:
+            k += 1
+            continue
+        j = k
+        while (j + 1 < len(lines)
+               and len(lines[j + 1].objs) == 1 and len(lines[j + 1].text.strip()) <= 1
+               and not lines[j + 1].no_text and lines[j + 1].objs[0] in rots
+               and lines[j + 1].font == L.font and abs(lines[j + 1].size - L.size) < 0.01):
+            j += 1
+        if j - k >= 2:                                     # mindestens 3 Buchstaben
+            c = _circle_fit([rots[lines[m].objs[0]][1:] for m in range(k, j + 1)])
+            angs = [rots[lines[m].objs[0]][0] for m in range(k, j + 1)]
+            if c is not None:
+                a0 = angs[0]
+                sp = [math.atan2(math.sin(math.radians(a - a0)), math.cos(math.radians(a - a0)))
+                      for a in angs]
+                if math.degrees(max(sp) - min(sp)) > 10.0:
+                    runs.append((k, j, c[0], c[1]))
+        k = j + 1
+    for k, j, cx, cy in reversed(runs):                    # von hinten: Indices bleiben stabil
+        grp = lines[k:j + 1]
+        merged = TextLine(0, [i for g in grp for i in g.objs],
+                          "".join(g.text for g in grp), grp[0].font, grp[0].size,
+                          (min(g.bbox[0] for g in grp), min(g.bbox[1] for g in grp),
+                           max(g.bbox[2] for g in grp), max(g.bbox[3] for g in grp)),
+                          grp[0].in_layer, grp[0].subset,
+                          [t for g in grp for t in g.tops], path_center=(cx, cy))
+        lines[k:j + 1] = [merged]
+    for n, L in enumerate(lines):
+        L.index = n
 
 
 def line_at(lines: list[TextLine], x: float, y: float, tol: float = 2.0) -> TextLine | None:
@@ -222,24 +321,408 @@ def edit_line(doc, page_index: int, line: TextLine, new_text: str, font: tuple |
     return notes
 
 
-def transform_line(doc, page_index: int, line: TextLine, scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
-                   origin: tuple = (0.0, 0.0)):
-    """Zeile verschieben/skalieren (um origin). Schrift, Farbe und Ebene bleiben erhalten."""
+def transform_object(doc, page_index: int, obj: "PageObject", scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
+                      origin: tuple = (0.0, 0.0)):
+    """Vektor-/Bildobjekt verschieben/skalieren (um origin). Analysiert wie transform_line."""
     import pypdfium2.raw as r
     ox, oy = float(origin[0]), float(origin[1])
     s = float(scale)
     page = doc[page_index]
     try:
-        for o in [r.FPDFPage_GetObject(page.raw, i) for i in line.objs]:
+        for o in [r.FPDFPage_GetObject(page.raw, i) for i in obj.objs]:
             r.FPDFPageObj_Transform(o, s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
         r.FPDFPage_GenerateContent(page.raw)
     finally:
         page.close()
 
 
+def delete_object(doc, page_index: int, obj: "PageObject"):
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        for o in [r.FPDFPage_GetObject(page.raw, i) for i in obj.objs]:
+            r.FPDFPage_RemoveObject(page.raw, o)
+            r.FPDFPageObj_Destroy(o)
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def transform_objects(doc, page_index: int, objs: list, scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
+                        origin: tuple = (0.0, 0.0)):
+    """Mehrere Vektor-/Bildobjekte gemeinsam verschieben/skalieren (ein GenerateContent)."""
+    import pypdfium2.raw as r
+    ox, oy = float(origin[0]), float(origin[1])
+    s = float(scale)
+    page = doc[page_index]
+    try:
+        idx = [i for o in objs for i in o.objs]
+        for o in [r.FPDFPage_GetObject(page.raw, i) for i in idx]:
+            r.FPDFPageObj_Transform(o, s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def delete_objects(doc, page_index: int, objs: list):
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        # alle Handles zuerst holen: Entfernen verschiebt die Indizes der uebrigen Objekte
+        handles = [r.FPDFPage_GetObject(page.raw, i) for ob in objs for i in ob.objs]
+        for o in handles:
+            r.FPDFPage_RemoveObject(page.raw, o)
+            r.FPDFPageObj_Destroy(o)
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def transform_lines_bulk(doc, page_index: int, lines: list, scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
+                         origin: tuple = (0.0, 0.0)):
+    """Mehrere Textzeilen gemeinsam verschieben/skalieren (pdfium, ein GenerateContent)."""
+    ox, oy = float(origin[0]), float(origin[1])
+    s = float(scale)
+    page = doc[page_index]
+    try:
+        for L in lines:
+            transform_line(doc, page_index, L, s, dx, dy, origin, _page=page)
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def delete_lines(doc, page_index: int, lines: list):
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        handles = [r.FPDFPage_GetObject(page.raw, i) for L in lines for i in L.objs]
+        for o in handles:
+            r.FPDFPage_RemoveObject(page.raw, o)
+            r.FPDFPageObj_Destroy(o)
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def transform_objects_bulk(doc, page_index: int, objs: list, scale: float = 1.0,
+                           dx: float = 0.0, dy: float = 0.0, origin: tuple = (0.0, 0.0)):
+    """Mehrere Vektor-/Bildobjekte gemeinsam verschieben/skalieren (pdfium, ein GenerateContent)."""
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        for O in objs:
+            for i in O.objs:
+                o = r.FPDFPage_GetObject(page.raw, i)
+                ox, oy = float(origin[0]), float(origin[1])
+                s = float(scale)
+                r.FPDFPageObj_Transform(o, s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+def delete_objects_bulk(doc, page_index: int, objs: list):
+    """Mehrere Vektor-/Bildobjekte gemeinsam löschen (pdfium, ein GenerateContent)."""
+    import pypdfium2.raw as r
+    page = doc[page_index]
+    try:
+        for O in objs:
+            for o in [r.FPDFPage_GetObject(page.raw, i) for i in O.objs]:
+                r.FPDFPage_RemoveObject(page.raw, o)
+                r.FPDFPageObj_Destroy(o)
+        r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        page.close()
+
+
+# --------------------------------------------------------------------------- #
+# Z-Order (1.12): Objekte und Ebenen-Blöcke im Seiteninhalt umordnen.
+# Kernlogik (_z_runs/_z_permute) ist pure Funktion -> ohne pikepdf testbar.
+# --------------------------------------------------------------------------- #
+PATH_CONSTR_OPS = {"m", "l", "c", "v", "y", "h", "re"}
+PATH_PAINT_OPS = {"S", "s", "f", "F", "f*", "B", "B*", "b", "b*"}
+CLIP_MARK_OPS = {"W", "W*"}
+# ZSTATE_OPS wird erst nach STATE_OPS definiert (siehe unten bei SHOW_OPS/STATE_OPS).
+
+
+def _z_runs(ops: list, image_dos: set) -> list:
+    """Content-Operatorenliste (Namen) in Objekt-Runs zerlegen.
+        ops: Operatorennamen in Reihenfolge; image_dos: Indizes der Bild-Do-Aufrufe.
+        -> [(start, end, "path"|"image")] – nur verschiebbare Objekte, Clips bleiben draußen.
+        Ein Pfad-Run beginnt bei der ersten Konstruktions-Operation und endet mit dem Paint;
+        vorangestellte Zustands-Operationen (Farbe, Strichstärke) wandern mit."""
+    runs = []
+    cur, clip = None, False
+    bt, has_show = None, False
+    for i, op in enumerate(ops):
+        if op in PATH_CONSTR_OPS and cur is None and bt is None:
+            cur = i
+        elif op in CLIP_MARK_OPS and cur is not None:
+            clip = True
+        elif op in PATH_PAINT_OPS:
+            if cur is not None:
+                runs.append((cur, i, "path"))
+                cur, clip = None, False
+        elif op == "n":
+            if cur is not None:
+                if not clip:
+                    runs.append((cur, i, "path"))
+                cur, clip = None, False
+        elif op == "BT":
+            cur, clip = None, False
+            if bt is None:
+                bt, has_show = i, False
+        elif op == "ET":
+            cur, clip = None, False
+            if bt is not None and has_show:
+                runs.append((bt, i, "text"))
+            bt, has_show = None, False
+        elif op in SHOW_OPS and bt is not None:
+            has_show = True
+        elif op in ("q", "Q"):
+            cur, clip = None, False
+    # Zustands-Ops vor dem Konstruktionsstart mitnehmen; steht direkt davor ein q,
+    # gehoert der Zustand zum q-Rahmen -> ganzen q..Q-Block als Run verschieben
+    fixed = []
+    for (st, en, kind) in runs:
+        s0 = st
+        while s0 - 1 >= 0 and ops[s0 - 1] in ZSTATE_OPS:
+            s0 -= 1
+        if s0 - 1 >= 0 and ops[s0 - 1] == "q":
+            depth, j = 1, en
+            while j + 1 < len(ops):
+                j += 1
+                if ops[j] == "q":
+                    depth += 1
+                elif ops[j] == "Q":
+                    depth -= 1
+                    if depth == 0:
+                        break
+            if depth == 0:
+                fixed.append((s0 - 1, j, kind))
+                continue
+        fixed.append((s0, en, kind))
+    # Bilder: Do ggf. mit umschließendem q..Q
+    out = list(fixed)
+    for i in sorted(image_dos):
+        s0 = i
+        while s0 - 1 >= 0 and ops[s0 - 1] in ZSTATE_OPS:      # cm/gs direkt davor gehoert zum Bild
+            s0 -= 1
+        if s0 - 1 >= 0 and ops[s0 - 1] == "q":                # im q-Rahmen -> ganzen Block verschieben
+            depth, j = 1, i
+            while j + 1 < len(ops):
+                j += 1
+                if ops[j] == "q":
+                    depth += 1
+                elif ops[j] == "Q":
+                    depth -= 1
+                    if depth == 0:
+                        break
+            if depth == 0:
+                out.append((s0 - 1, j, "image"))
+                continue
+        out.append((s0, i, "image"))
+    return sorted(out, key=lambda x: x[0])
+
+
+def _z_permute(n: int, targets: set, where: str) -> list | None:
+    """Run-Permutation: Slots 0..n-1, targets = Auswahl (Indices).
+        where: "up" | "down" | "front" | "back" -> neue Slot-Reihenfolge (Liste alter Slots)."""
+    rest = [i for i in range(n) if i not in targets]
+    tg = sorted(targets)
+    if where == "front":
+        return rest + tg
+    if where == "back":
+        return tg + rest
+    order = list(range(n))
+    if where == "up":
+        for t in sorted(targets, reverse=True):          # oberstes zuerst
+            i = order.index(t)
+            if i + 1 >= len(order):
+                return None                              # schon ganz vorn -> nicht möglich
+            order[i], order[i + 1] = order[i + 1], order[i]
+        return order
+    if where == "down":
+        for t in tg:                                      # unterstes zuerst
+            i = order.index(t)
+            if i == 0:
+                return None
+            order[i], order[i - 1] = order[i - 1], order[i]
+        return order
+    return None
+
+
+def reorder_objects(data: bytes, page_index: int, objs: list, where: str) -> bytes | None:
+    """Objekte in der Zeichenreihenfolge verschieben (up/down/front/back), ohne Neuaufbau.
+        objs: PageObject-Liste (Auswahl). None, wenn die Struktur nicht sicher erkannt wurde."""
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as r
+    import pikepdf
+    # Ordinalen der Ziel-Objekte je Art (pdfium-Reihenfolge = ursprüngliche Content-Reihenfolge)
+    want = []
+    d = pdfium.PdfDocument(data)
+    try:
+        page = d[page_index]
+        pcnt = icnt = tcnt = -1
+        ordinal_map = {}                       # Seiten-Objektindex -> (Art, Ordinal)
+        for i in range(r.FPDFPage_CountObjects(page.raw)):
+            o = r.FPDFPage_GetObject(page.raw, i)
+            t = r.FPDFPageObj_GetType(o)
+            if t == r.FPDF_PAGEOBJ_PATH:
+                pcnt += 1
+                ordinal_map[i] = ("path", pcnt)
+            elif t == r.FPDF_PAGEOBJ_IMAGE:
+                icnt += 1
+                ordinal_map[i] = ("image", icnt)
+            elif t == r.FPDF_PAGEOBJ_TEXT:
+                tcnt += 1
+                ordinal_map[i] = ("text", tcnt)
+        page.close()
+        for ob in objs:
+            for i in ob.objs:
+                if i in ordinal_map:
+                    want.append(ordinal_map[i])
+    finally:
+        d.close()
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        page = pdf.pages[page_index]
+        res = page.obj.get("/Resources") or {}
+        xo = res.get("/XObject") or {}
+        ops = list(pikepdf.parse_content_stream(page))
+        names = [str(getattr(ins, "operator", "")) for ins in ops]
+        image_dos = set()
+        for k, ins in enumerate(ops):
+            if names[k] == "Do" and getattr(ins, "operands", None):
+                x = xo.get(str(ins.operands[0]))
+                try:
+                    if x is not None and x.get("/Subtype") == pikepdf.Name.Image:
+                        image_dos.add(k)
+                except Exception:
+                    pass
+        runs = _z_runs(names, image_dos)
+        path_runs = [(s, e) for s, e, k in runs if k == "path"]
+        image_runs = [(s, e) for s, e, k in runs if k == "image"]
+        text_runs = [(s, e) for s, e, k in runs if k == "text"]
+        if not path_runs and not image_runs and not text_runs:
+            return None
+        # Text: passt die Zahl der BT-Runs zu den Text-Objekten? Sonst ist keine
+        # sichere Zuordnung moeglich (z. B. ein BT-Block mit vielen Zeilen).
+        want_text = any(k == "text" for k, _o in want)
+        if want_text and len(text_runs) != tcnt + 1:
+            return None
+        # targets als Run-Slots: je Art Ordinal -> Run-Index
+        slots = set()
+        for kind, ordinal in want:
+            lst = path_runs if kind == "path" else image_runs if kind == "image" else text_runs
+            if not (0 <= ordinal < len(lst)):
+                return None
+            slots.add(runs.index((lst[ordinal][0], lst[ordinal][1], kind)))
+        order = _z_permute(len(runs), slots, where)
+        if order is None or order == list(range(len(runs))):
+            return data if order == list(range(len(runs))) else None
+        # neu zusammensetzen: Lücken bleiben auf ihrem Platz, Runs werden durchvertauscht
+        segs = []                       # pro Slot: (Luecke davor, Run)
+        for k in range(len(runs)):
+            st, en, _kind = runs[k]
+            prev_end = runs[k - 1][1] + 1 if k else 0
+            segs.append((ops[prev_end:st], ops[st:en + 1]))
+        tail = ops[runs[-1][1] + 1:]
+        out = []
+        for k in order:
+            out += segs[k][0] + segs[k][1]
+        out += tail
+        page.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
+        buf = io.BytesIO()
+        pdf.save(buf)
+        return buf.getvalue()
+    finally:
+        pdf.close()
+
+
+def reorder_layer_blocks(data: bytes, page_index: int, key: str, where: str) -> bytes | None:
+    """Ebene in der Zeichenreihenfolge der Seite verschieben: ihre /OC BDC..EMC-Blöcke
+        wandern (up/down/front/back) relativ zu den Blöcken der anderen Ebenen."""
+    import pikepdf
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        page = pdf.pages[page_index]
+        res = page.obj.get("/Resources") or {}
+        props = res.get("/Properties") or {}
+        keys = {}                        # Properties-Name -> OCG-Key
+        for n, oc in props.items():
+            for g in preflight._ocgs_of(oc):
+                keys[str(n)] = preflight._key(g)
+                break
+        ops = list(pikepdf.parse_content_stream(page))
+        names = [str(getattr(ins, "operator", "")) for ins in ops]
+        runs, depth, cur, start_key = [], 0, None, None
+        for i, op in enumerate(names):
+            if op in ("BDC", "BMC"):
+                if depth == 0:
+                    ins = ops[i]
+                    operands = getattr(ins, "operands", [])
+                    if op == "BDC" and len(operands) >= 2 and str(operands[0]) == "/OC":
+                        nm = str(operands[1])
+                        start_key = keys.get(nm[1:] if nm.startswith("/") else nm)
+                        cur = i if start_key else None
+                    else:
+                        cur = None
+                depth += 1
+            elif op == "EMC":
+                depth -= 1
+                if depth == 0 and cur is not None:
+                    runs.append((cur, i, start_key))
+                    cur, start_key = None, None
+        if not runs:
+            return None
+        targets = {k for k, (s, e, ky) in enumerate(runs) if ky == key}
+        if not targets:
+            return None
+        order = _z_permute(len(runs), targets, where)
+        if order is None or order == list(range(len(runs))):
+            return data if order == list(range(len(runs))) else None
+        segs = []
+        for k in range(len(runs)):
+            st, en, _ky = runs[k]
+            prev_end = runs[k - 1][1] + 1 if k else 0
+            segs.append((ops[prev_end:st], ops[st:en + 1]))
+        tail = ops[runs[-1][1] + 1:]
+        out = []
+        for k in order:
+            out += segs[k][0] + segs[k][1]
+        out += tail
+        page.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
+        buf = io.BytesIO()
+        pdf.save(buf)
+        return buf.getvalue()
+    finally:
+        pdf.close()
+
+
+def transform_line(doc, page_index: int, line: TextLine, scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
+                   origin: tuple = (0.0, 0.0), _page=None):
+    """Zeile verschieben/skalieren (um origin). Schrift, Farbe und Ebene bleiben erhalten.
+        _page: bereits geöffnete Seite (für Bulk-Operationen) – dann kein GenerateContent."""
+    import pypdfium2.raw as r
+    ox, oy = float(origin[0]), float(origin[1])
+    s = float(scale)
+    page = _page or doc[page_index]
+    try:
+        for o in [r.FPDFPage_GetObject(page.raw, i) for i in line.objs]:
+            r.FPDFPageObj_Transform(o, s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
+        if _page is None:
+            r.FPDFPage_GenerateContent(page.raw)
+    finally:
+        if _page is None:
+            page.close()
+
+
 SHOW_OPS = {"Tj", "TJ", "'", '"'}
 STATE_OPS = {"Tf", "Tc", "Tw", "Tz", "TL", "Ts", "Tr", "rg", "RG", "g", "G", "k", "K", "cs", "CS", "sc", "SC", "scn",
              "SCN", "gs", "w", "J", "j", "M", "d", "ri", "i"}
+ZSTATE_OPS = STATE_OPS | {"cm"} - {"q"}
 
 
 def _show_nonempty(ins) -> bool:
@@ -407,6 +890,99 @@ def transform_line_blocks(data: bytes, page_index: int, line: TextLine, scale=1.
         pdf.close()
 
 
+# --------------------------------------------------------------------------- #
+# Pfadtext (Kreistext): Einzelbuchstaben mit eigener Drehung auf einem Bogen.
+# Zeilengröße ändern = als Gruppe um das Bogenzentrum skalieren (ohne Neuaufbau
+# der Seite); neu setzen geht nicht (Buchstaben haben je eigene Matrix).
+# --------------------------------------------------------------------------- #
+def _circle_fit(pts: list) -> tuple | None:
+    """Kreis durch Punkte (algebraische Kleinstquadrate, Kasa) -> (cx, cy, r) oder None."""
+    n = len(pts)
+    if n < 3:
+        return None
+    sx = sum(x for x, y in pts); sy = sum(y for x, y in pts)
+    sxx = sum(x * x for x, y in pts); syy = sum(y * y for x, y in pts); sxy = sum(x * y for x, y in pts)
+    sxz = sum(x * (x * x + y * y) for x, y in pts); syz = sum(y * (x * x + y * y) for x, y in pts)
+    sz = sum(x * x + y * y for x, y in pts)
+    # Normalgleichungen: D·sxx + E·sxy + F·sx = -sxz usw. (x²+y² = -D·x - E·y - F)
+    rows = [[sxx, sxy, sx, -sxz], [sxy, syy, sy, -syz], [sx, sy, n, -sz]]
+
+    def solve(m):
+        det = (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+               - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+               + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+        if abs(det) < 1e-9:
+            return None
+        out = []
+        for col in range(3):
+            mm = [row[:] for row in m]
+            for i in range(3):
+                mm[i][col] = m[i][3]
+            d = (mm[0][0] * (mm[1][1] * mm[2][2] - mm[1][2] * mm[2][1])
+                 - mm[0][1] * (mm[1][0] * mm[2][2] - mm[1][2] * mm[2][0])
+                 + mm[0][2] * (mm[1][0] * mm[2][1] - mm[1][1] * mm[2][0]))
+            out.append(d / det)
+        return out
+
+    sol = solve(rows)
+    if sol is None:
+        return None
+    D, E, F = sol
+    cx, cy = -D / 2.0, -E / 2.0
+    r2 = D * D / 4.0 + E * E / 4.0 - F
+    if r2 <= 0:
+        return None
+    import math
+    return (cx, cy, math.sqrt(r2))
+
+
+def path_text_center(doc, page_index: int, line: TextLine) -> tuple | None:
+    """Bogenzentrum, wenn die Zeile Pfadtext ist (>= 3 einzeln gesetzte Buchstaben mit
+        unterschiedlicher Drehung, deren Ursprünge auf einem Kreis liegen), sonst None."""
+    import ctypes
+    import math
+    import pypdfium2.raw as r
+    if len(line.objs) < 3:
+        return None
+    page = doc[page_index]
+    try:
+        pts, angles = [], []
+        for i in line.objs:
+            o = r.FPDFPage_GetObject(page.raw, i)
+            m = r.FS_MATRIX()
+            if not r.FPDFPageObj_GetMatrix(o, ctypes.byref(m)):
+                return None
+            pts.append((float(m.e), float(m.f)))
+            angles.append(math.atan2(m.b, m.a))
+        # unterschiedliche Drehung (kreisumlaufend gemessen) -> Bogen, keine gerade Zeile
+        a0 = angles[0]
+        spread = [math.atan2(math.sin(a - a0), math.cos(a - a0)) for a in angles]
+        if max(spread) - min(spread) < math.radians(10):
+            return None
+        c = _circle_fit(pts)
+        if c is None:
+            return None
+        cx, cy, rad = c
+        if not (1e-3 < rad < 1e5):
+            return None
+        ds = [math.hypot(x - cx, y - cy) for x, y in pts]
+        mid = (max(ds) + min(ds)) / 2.0
+        if mid < 1e-3 or (max(ds) - min(ds)) / mid > 0.8:
+            return None
+        return (cx, cy)
+    finally:
+        page.close()
+
+
+def _path_center_of(data: bytes, page_index: int, line: TextLine) -> tuple | None:
+    import pypdfium2 as pdfium
+    d = pdfium.PdfDocument(data)
+    try:
+        return path_text_center(d, page_index, line)
+    finally:
+        d.close()
+
+
 def verify_edit(before: bytes, after: bytes, page_index: int, ignore_boxes: list) -> str:
     """Verify that nothing outside the edited areas was lost (image pixels and characters).
         Returns "" or an error description.
@@ -567,8 +1143,28 @@ def edit_line_bytes(data: bytes, page_index: int, line: TextLine, new_text: str,
                     size: float | None = None) -> tuple[bytes, list]:
     """Change a row, safely: first directly (pdfium); if the page loses content that way (e.g. Type3 fonts
         from Chrome), the old row is removed and the new one placed on top – the rest of the page stays unchanged.
+        Pfadtext (Einzelbuchstaben mit Drehung auf einem Bogen) wird nicht neu gesetzt, sondern
+        als Gruppe um sein Zentrum skaliert – Neusetzen wäre falsch (Buchstaben haben je eigene Matrix).
     """
     import pypdfium2 as pdfium
+    if line.no_text and (font is not None or new_text != line.text):
+        raise ValueError(tr("Der Text dieser Zeile lässt sich nicht dekodieren (z. B. eingebettete "
+                            "Teilmenge ohne Zeichenzuordnung) – Verschieben, Skalieren und Löschen "
+                            "funktionieren, das Ändern von Text und Schrift nicht."))
+    if (font is not None or new_text != line.text
+            or (size is not None and abs(size - line.size) > 0.01)):
+        c = line.path_center or _path_center_of(data, page_index, line)
+        if c is not None:
+            if font is not None or new_text != line.text:
+                raise ValueError(tr("Text auf einem Pfad (Einzelbuchstaben mit Drehung) lässt sich nicht neu "
+                                     "setzen – Schriftgröße, Position und Löschen funktionieren."))
+            out = transform_line_blocks(data, page_index, line, float(size) / max(line.size, 0.1),
+                                        0.0, 0.0, origin=c)
+            if out is not None:
+                return out, [tr("Text auf einem Pfad: als Gruppe um sein Zentrum skaliert – die Buchstaben "
+                                "bleiben auf dem Bogen.")]
+            raise ValueError(tr("Der Pfadtext dieser Datei lässt sich nicht skalieren – bitte die Datei an den "
+                                "Entwickler schicken."))
     d = pdfium.PdfDocument(data)
     try:
         notes = edit_line(d, page_index, line, new_text, font, size) or []

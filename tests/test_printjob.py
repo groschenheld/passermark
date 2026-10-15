@@ -55,16 +55,13 @@ def test_custom_size_pdf_and_cups():
                              values=dict(caps.defaults(), PageSize=v, __out__=out))
     w, h = pdfium.PdfDocument(out).get_page_size(0)
     assert round(w / 72 * 25.4) == 330 and round(h / 72 * 25.4) == 1000
-    # CUPS-Drucker: Format in der Liste, Job bekommt PageSize=Custom.330x1000mm
-    SENT.clear()
+    # CUPS-Drucker: seit 1.11.1 KEINE ★-Formate mehr (nur „Als PDF speichern") – Geräte schneiden sonst falsch
     sess = FakeSession()
-    printers.apply_custom_sizes(sess.caps_for("canon"))
-    key = sess.caps_for("canon").roles["pagesize"]
-    vals = dict(sess.values_for("canon")); vals[key] = v
-    printjob.submit_document(doc, "x", sess, "canon", [0], layout.LayoutSettings(), values=vals)
-    assert SENT[-1][2][key] == v
-    pw, ph = SENT[-1][4]
-    assert round(pw / 72 * 25.4) == 330 and round(ph / 72 * 25.4) == 1000
+    caps_c = sess.caps_for("canon")
+    printers.apply_custom_sizes(caps_c)
+    key = caps_c.roles["pagesize"]
+    assert v not in [c.value for c in caps_c.options[key].choices]
+    assert not any(str(k).startswith(printers.CUSTOM_PREFIX) for k in caps_c.page_sizes)
 
 
 def test_print_booklet_sets_tumble():
@@ -93,6 +90,39 @@ def test_auto_tray_on_print():
     sess.weights = {"canon": 120}
     SENT.clear(); printjob.print_file(os.path.join(HERE, "sample.pdf"), sess)
     assert SENT[0][2]["InputSlot"] == "Manual"              # 120 g -> Mehrzweckfach
+
+
+def test_booklet_spreads_print_pdf():
+    """Broschüre als Druckbögen über den echten Druckweg („Als PDF speichern“): A5-Broschüre mit Anschnitt
+    -> aufgeklappte Bögen 296 × 210 mm, mit der Nutzen-Logik aufs Blatt, Schnittmarken an."""
+    import io
+    import tempfile
+    import pikepdf
+    import pypdfium2 as pdfium
+    from reportlab.pdfgen import canvas
+    MMx = 72 / 25.4
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    b = io.BytesIO(); c = canvas.Canvas(b)
+    for i in range(8):
+        c.setPageSize((154 * MMx, 216 * MMx)); c.setFillColorRGB(i / 8, 0.2, 0.5)
+        c.rect(0, 0, 154 * MMx, 216 * MMx, fill=1, stroke=0); c.showPage()
+    c.save()
+    pk = pikepdf.open(io.BytesIO(b.getvalue()))
+    for pg in pk.pages:
+        pg.TrimBox = [3 * MMx, 3 * MMx, 151 * MMx, 213 * MMx]
+    o = io.BytesIO(); pk.save(o)
+    doc = pdfium.PdfDocument(o.getvalue())
+    caps = printers.pdf_caps()
+    S = type("S", (), {"caps_for": lambda self, n: caps})()
+    out = os.path.join(os.environ["XDG_CONFIG_HOME"], "bk.pdf")
+    s = layout.LayoutSettings(handling="booklet", booklet_nutzen=True, crop_marks=True, sr_join="edge", bleed_mm=3)
+    printjob.submit_document(doc, "x", S, printers.PDF_TARGET, list(range(8)), s,
+                             values=dict(caps.defaults(), __out__=out))
+    r = pdfium.PdfDocument(out)
+    assert len(r) == 4                                     # 8 Seiten -> 2 Bögen -> 4 Bogenseiten
+    spreads, pages, ss, _n = layout.spread_source(doc, list(range(8)), s)
+    w, h = spreads.get_page_size(0)
+    assert (round(w / MMx), round(h / MMx)) == (302, 216) and ss.step_repeat   # 296 × 210 + 2 × 3 mm
 
 
 if __name__ == "__main__":

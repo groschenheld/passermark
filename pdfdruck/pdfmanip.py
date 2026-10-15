@@ -105,7 +105,8 @@ def trim_box_for(box, rotation, s):
 def _white_bbox(pg, dpi=72, tol=12):
     """Content-BBox (l, b, r, t in pt, im ungedrehten Seitensystem) – None wenn Seite leer/weiß.
 
-    Hintergrund = Median der Seitenspixel (meist Weiß, kann leicht getönt sein).
+    Hintergrund = Median der RANDPIXEL (äußerster Streifen der Seite; meist Weiß, kann leicht getönt sein).
+    Nicht der Median der ganzen Seite: füllt der Inhalt mehr als die Hälfte, wäre das die Inhaltsfarbe.
     JPEG-Rauschen im Weißen wird über zwei Filter unterdrückt:
     Toleranz gegen den Hintergrund + Einzelpixel brauchen Nachbarn (3×3, mind. 3).
     Achtung: gerendertes Bild hat y=0 OBEN, PDF hat y=0 UNTEN -> y wird hier umgerechnet."""
@@ -114,7 +115,10 @@ def _white_bbox(pg, dpi=72, tol=12):
     scale = dpi / 72.0
     bmp = pg.render(scale=scale)
     a = np.asarray(bmp.to_pil().convert("RGB"), dtype=np.int16)
-    bg = np.median(a.reshape(-1, 3), axis=0)
+    k = max(1, min(a.shape[0], a.shape[1]) // 100)           # Randstreifen ~1 % der kürzeren Seite
+    edge = np.concatenate([a[:k].reshape(-1, 3), a[-k:].reshape(-1, 3),
+                           a[:, :k].reshape(-1, 3), a[:, -k:].reshape(-1, 3)])
+    bg = np.median(edge, axis=0)
     diff = np.abs(a - bg).max(axis=2)
     mask = diff > tol
     if not mask.any():

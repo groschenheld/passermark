@@ -151,6 +151,41 @@ def test_crop_file_then_print_end_to_end():
         assert not (r > 200 and g < 80 and b < 80), f"roter Rand bei {xy}: {(r, g, b)}"
 
 
+
+
+def test_trim_edges_all_rotations_asymmetric():
+    """Kanten abschneiden: Eingabe in Leserichtung, in allen 4 Drehungen mit UNGLEICHEN Werten
+    (gleiche Werte würden ein falsches Mapping verdecken)."""
+    S = type("S", (), {"trim_l_mm": 1.0, "trim_t_mm": 2.0, "trim_r_mm": 3.0, "trim_b_mm": 4.0})()
+    box = (0.0, 0.0, 210 * MM, 297 * MM)
+    # angezeigt -> ungedreht: welche PDF-Kante liegt links/oben/rechts/unten (Anzeige im Uhrzeigersinn gedreht)
+    shown = {0: ("l", "t", "r", "b"), 90: ("b", "l", "t", "r"), 180: ("r", "b", "l", "t"), 270: ("t", "r", "b", "l")}
+    for rot, edges in shown.items():
+        (l, b, r, t), orig = pdfmanip.trim_box_for(box, rot, S)
+        cut = {"l": l / MM, "b": b / MM, "r": (box[2] - r) / MM, "t": (box[3] - t) / MM}
+        got = tuple(round(cut[e], 3) for e in edges)          # links, oben, rechts, unten wie angezeigt
+        assert got == (1.0, 2.0, 3.0, 4.0), (rot, got)
+        assert orig == (1.0, 2.0, 3.0, 4.0)
+
+
+def test_white_bbox_large_and_tinted_content():
+    """Weißraum: Inhalt größer als die halbe Seite bzw. getönter Hintergrund wird trotzdem erkannt
+    (Hintergrund kommt vom Seitenrand, nicht vom Median der ganzen Seite)."""
+    import io
+    from reportlab.pdfgen import canvas
+    for frac, tint in ((0.3, None), (0.9, None), (0.9, (0.95, 0.93, 0.88))):
+        buf = io.BytesIO()
+        c = canvas.Canvas(buf, pagesize=(210 * MM, 297 * MM))
+        if tint:
+            c.setFillColorRGB(*tint); c.rect(0, 0, 210 * MM, 297 * MM, fill=1, stroke=0)
+        w, h = 210 * MM * frac, 297 * MM * frac
+        x, y = (210 * MM - w) / 2, (297 * MM - h) / 2
+        c.setFillColorRGB(0.1, 0.3, 0.8); c.rect(x, y, w, h, fill=1, stroke=0)
+        c.showPage(); c.save()
+        bb = pdfmanip._white_bbox(pdfium.PdfDocument(buf.getvalue())[0])
+        assert bb and all(abs(g - e) < 2 * MM for g, e in zip(bb, (x, y, x + w, y + h))), (frac, tint, bb)
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)

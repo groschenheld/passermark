@@ -2,6 +2,44 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.12.0
+- **Bearbeiten: Objekte strukturiert bearbeiten.** Neuer Reiter „Objekte“: Vektoren und Bilder der
+  Seite mit mm-Größe auflisten oder auf der Seite anklicken; skalieren, verschieben, löschen.
+  Mehrfachauswahl mit Strg/Umschalt in Liste und auf der Seite, beide verbunden – Änderungen
+  (Verschieben, Skalieren, Löschen) wirken auf alle gewählten Objekte gleichzeitig. Strg+Ziehen
+  skaliert um den Ursprung des Auswahlrahmens, mit live mm-Anzeige. Sicherheitsnetz: nach jeder
+  Änderung prüft Passermark, dass außerhalb der gewählten Objekte nichts passiert – sonst wird
+  die Änderung zurückgenommen und gemeldet
+- **Z-Ordnung für Objekte und Ebenen:** eins vor/zurück, ganz nach vorne/hinten – für
+  Textzeilen, Vektoren, Bilder und Ebenen
+- **Kreistext (Pfadtext) richtig erkannt:** einzeln gedrehte Buchstaben auf einem Bogen (z. B. aus
+  Affinity) werden als eine Zeile zusammengefasst und als Ganzes bearbeitet; die Schriftgröße lassen
+  sich ändern, ohne die Seite zu zerstören (behebt einen Fehler seit 1.10.4). Zeilen ohne lesbaren
+  Text (Subset-Schriften) erscheinen als „(ohne Textinhalt)“ und lassen sich verschieben, skalieren
+  und löschen
+- **Broschüren: Seiten nebeneinander oder übereinander.** „Seiten aneinander“ ist wählbar:
+  nebeneinander (seitlich gebunden) oder übereinander (oben gebunden). Anschnitt nur an den
+  Außenseiten, nicht am Bund. Die Vorschau zeigt das echte Ergebnis, Duplex blättert paarweise
+  („Bogen X von Y – Vorder- und Rückseite“), der Wendekanten-Hinweis folgt der Bogenlage.
+  „Druckbögen erzeugen …“ öffnet die ausgeschossenen Bögen als neuen Reiter
+- **Step & Repeat als eigenes Fenster.** Kein Druckmodus mehr: frei verschiebbar und minimierbar,
+  ein- und ausgeblendet über den gelben Reiter am linken Dialogrand (Punkt = Mehrfachnutzen
+  aktiv); Schließen verwirft die Einstellungen nicht. Broschürenbögen lassen sich per
+  Mehrfachnutzen mehrfach pro Blatt setzen – ohne wird jeder Bogen genau einmal gesetzt.
+  Anordnung (Kante an Kante / Überfüller an Überfüller / Mit Abstand) und Abstand sind in jedem
+  Modus einstellbar; bei „Mit Abstand“ ist der eingestellte Wert der sichtbare Weißabstand, der
+  Anschnitt kommt je Seite dazu
+- **Seitenleiste neu:** Breite frei ziehbar; Ansichten „Eine Spalte“ und „Raster“, Kachelgröße per
+  Strg+Mausrad oder −/+-Knöpfen (60–600 px); die Ansicht wird gespeichert
+- **Behoben: „Weißraum entfernen“** hielt bei Seiten, deren Inhalt mehr als die Hälfte füllt, die
+  Inhaltsfarbe für den Hintergrund – der weiße Rand blieb stehen. Der Hintergrund wird jetzt aus
+  den Randstreifen der Seite bestimmt
+- **Behoben: Broschüren-Vorschau** blätterte blattweise statt paarweise (zeigte zu viele Bögen);
+  die Seitenleiste ließ sich nicht schmäler ziehen, weil die Prüfen-/Bearbeiten-Panels ihre
+  Mindestbreite durchsetzten – jedes Dock merkt sich jetzt seine eigene Breite
+- Anleitungen (de/en) um den Bearbeiten-Modus erweitert; neue Beispielvorlage „Bogen-Text“ im
+  Beispielordner
+
 ## 1.11.3
 - **VDP-Dialog aufgehübscht.** Variable Daten bekam das gleiche Gesicht wie der Druckdialog: vier
   nummerierte, einklappbare Abschnitte (Felder, Daten, Nummerierung, Ausgabe) plus oben eine
