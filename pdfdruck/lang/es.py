@@ -6,6 +6,13 @@
 """Übersetzung: Español. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Markierte Dateien als ein PDF zusammenführen': 'Combinar los archivos seleccionados en un PDF',
+    'Nach Name sortieren': 'Ordenar por nombre',
+    'Nach oben': 'Subir',
+    'Nach unten': 'Bajar',
+    'Ordner hinzufügen …': 'Añadir carpeta …',
+    'Passermark – zusammenführen': 'Passermark – combinar',
+    '{0} Datei(en)': '{0} archivo(s)',
     'Änderung wird übernommen …': 'Aplicando el cambio …',
     '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objetos en la página: se muestran todas las imágenes y los {1} más grandes.',
     'Änderung wird geprüft …': 'Comprobando el cambio …',

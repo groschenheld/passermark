@@ -2,6 +2,23 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.13.2
+### Druckdialog: Vorschau im Hintergrund
+- **Vorschau ohne Warten:** Der Bogen wird jetzt im Render-Prozess montiert und gezeichnet – das Fenster wartet nicht mehr darauf. Mit einer großen Datei braucht die Vorschau im Hauptfenster 0,001 s statt vorher bis zu 6 s Hänger. Wird etwas geändert, während noch gerechnet wird, wird nur der neueste Stand fertig gezeichnet.
+- Die Wartezeit bleibt: Fertig ist die Vorschau trotzdem erst nach 2–5 s, weil die Seite selbst so lange zum Zeichnen braucht. Das Fenster bleibt dabei aber bedienbar.
+- **Mehrfach-Nutzen (z. B. Step & Repeat):** Die Seite wird nur einmal gerendert statt für jeden Nutzen neu – etwa doppelt so schnell. Das Bild weicht minimal ab, weil es ein Rasterbild ist; nur bei sehr feinen Mustern sieht man leichtes Moiré. Gedruckt wird weiterhin aus dem Original.
+- **Ohne Mehrfach-Nutzen** ist die Vorschau pixelgleich zu vorher (verglichen für Einzelseiten, 9 auf 1, Broschüre, Druckbögen und Duplex).
+- **Endformat/Anschnitt** kommt jetzt aus den Seitendaten, ohne die Seiten zu laden – die Werte sind gleich wie vorher.
+- **Bogenübersicht** wird ebenfalls im Hintergrund gerechnet.
+- **Noch im Hauptfenster:** „Broschüre als Druckbögen“ braucht beim Umstellen noch ca. 0,9 s; das Erzeugen der Druckbögen ist nicht ausgelagert.
+- **Seitenansicht:** Große Seitenbilder werden beim Zoomen sofort grob skaliert, das saubere Bild kommt im Hintergrund nach. Die Obergrenze fürs Seitenbild bleibt unverändert bei 16 Megapixeln.
+
+### Zusammenführen unter Windows
+- **Ein Fenster:** Kommen mehrere Dateien gleichzeitig an, landen alle im selben Fenster. Mit 12 gleichzeitig gestarteten Aufrufen getestet: 1 Fenster, 12 Dateien, nach Namen sortiert.
+- **Neue Knöpfe:** „Ordner hinzufügen …“, Nach oben/unten und „Nach Name sortieren“. Dateien lassen auch hineinziehen; angezeigt wird, wie viele drin sind.
+- **Für viele Pläne:** Am besten „Senden an → Passermark – zusammenführen“ – das übergibt alle Dateien auf einmal und wird beim ersten Start einmalig angelegt. Alternativ im Fenster gleich den ganzen Ordner hinzufügen.
+- **Seitenleiste:** Markierte Seiten lassen sich verschieben. Der gelbe Balken zeigt, wo sie landen; am Rand scrollt die Leiste automatisch weiter.
+
 ## 1.13.1
 ### Geschwindigkeits-Fix
 - Kleinere Geschwindigkeitsverbesserungen in der neuen Ansicht (Rendering).

@@ -111,7 +111,143 @@ def _call_edit(before: str, out: str, page: int, op: str, kwargs: dict, boxes: l
     return res
 
 
-CALLS = {"preflight": _call_preflight, "verify": _call_verify, "edit": _call_edit}
+_SHEET_SRC: OrderedDict = OrderedDict()      # (Pfad, flach) -> (Stempel, Dokument) – Druckvorschau
+
+
+def _sheet_source(path: str, flatten: bool):
+    """Quelle der Druckvorschau, je Datei einmal geladen (und Formulare/Kommentare eingebrannt)."""
+    import pypdfium2 as pdfium
+    from . import layout
+    st = os.stat(path)
+    key, stamp = (path, bool(flatten)), (st.st_mtime_ns, st.st_size)
+    hit = _SHEET_SRC.get(key)
+    if hit is not None and hit[0] == stamp:
+        _SHEET_SRC.move_to_end(key)
+        return hit[1]
+    if hit is not None:
+        _close_quiet(*hit[1:])
+    with open(path, "rb") as f:
+        data = f.read()
+    doc = pdfium.PdfDocument(data)
+    flat = layout.flattened(doc) if flatten else doc
+    _SHEET_SRC[key] = (stamp, flat, doc)
+    while len(_SHEET_SRC) > 2:
+        _, old = _SHEET_SRC.popitem(last=False)
+        _close_quiet(*old[1:])
+    return flat
+
+
+def _close_quiet(*docs):
+    seen = set()
+    for d in docs:
+        if d is not None and id(d) not in seen:
+            seen.add(id(d))
+            try:
+                d.close()
+            except Exception:
+                pass
+
+
+def _rgb(page, scale: float, rotation: int, proof_args=None):
+    """Seite -> (Breite, Höhe, RGB-Bytes), optional mit Proof (Farbsimulation)."""
+    bmp = page.render(scale=scale, rotation=rotation % 360, may_draw_forms=True, draw_annots=True)
+    try:
+        img = bmp.to_pil().convert("RGB")
+    finally:
+        bmp.close()
+    if proof_args:
+        from . import proof
+        img = proof.apply(img, *proof_args).convert("RGB")
+    return img.width, img.height, img.tobytes("raw", "RGB")
+
+
+def _call_sheet(path: str, flatten: bool, mode: str, sheet, plans, settings, only=None, scale: float = 1.0,
+                rotations=None, proof_args=None, plans1=None, plans2=None, sheet1=None, limit: int = 400):
+    """Druckvorschau: Bogen montieren und rendern (wie die Ausgabe, nur im eigenen Prozess).
+        mode "sheet": impose_with, only = Bogennummern (Vorder- und ggf. Rückseite)
+        mode "step2": impose_step2 (Schritt 2), only = [Bogen]
+        mode "overview": alle Bögen (bis limit) als kleine Bilder, scale gilt für alle.
+        -> Liste von (Breite, Höhe, RGB-Bytes)."""
+    from . import layout
+    src = _sheet_source(path, flatten)
+    sub = None
+    if mode == "sheet" and plans:
+        try:
+            sub = _raster_source(src, plans, only if only is not None else range(min(len(plans), limit)), scale)
+        except Exception:
+            sub = None                                  # dann direkt (wie die Ausgabe)
+        if sub is not None:
+            src = sub
+    if mode == "step2":
+        out = layout.impose_step2(src, sheet1, plans1, settings, plans2=plans2, only=only)
+    else:
+        out = layout.impose_with(src, sheet, plans, settings, only=only)
+    try:
+        imgs = []
+        n = min(len(out), limit)
+        for k in range(n):
+            pg = out[k]
+            try:
+                rot = rotations[k] if rotations and k < len(rotations) else 0
+                imgs.append(_rgb(pg, scale, rot, proof_args))
+            finally:
+                pg.close()
+        return imgs
+    finally:
+        out.close()
+        if sub is not None:
+            sub.close()
+
+
+def _raster_source(src, plans, sheets, scale: float):
+    """Nur für die Vorschau: kommt eine Seite mehrfach auf die Bögen (Nutzen, Step & Repeat), wird sie einmal
+        in Vorschau-Auflösung gerendert und das Bild montiert – statt die Seite für jeden Nutzen neu zu
+        zeichnen (große Fotos, CAD-Pläne: jeder Nutzen dekodierte alles neu). Die Montage selbst (Lage,
+        Anschnitt, Spiegelung, Marken) bleibt genau dieselbe. None = nicht nötig (jede Seite nur einmal)."""
+    import pypdfium2 as pdfium
+    need: dict = {}
+    count: dict = {}
+    for idx in sheets:
+        for pl in plans[idx].placements:
+            need[pl.src] = max(need.get(pl.src, 0.0), float(pl.scale))
+            count[pl.src] = count.get(pl.src, 0) + 1
+    if not count or max(count.values()) < 2:
+        return None
+    sub = pdfium.PdfDocument.new()
+    try:
+        for i in range(len(src)):
+            w, h = src.get_page_size(i)
+            page = sub.new_page(w, h)
+            try:
+                if i in need:
+                    k = min(scale * need[i] * 1.5, 4000 / max(w, h, 1.0))
+                    sp = src[i]
+                    try:
+                        bmp = sp.render(scale=max(k, 0.05), may_draw_forms=False, draw_annots=False)
+                    finally:
+                        sp.close()
+                    img = pdfium.PdfImage.new(sub)
+                    img.set_bitmap(bmp)
+                    img.set_matrix(pdfium.PdfMatrix(w, 0, 0, h, 0, 0))
+                    page.insert_obj(img)
+                    page.gen_content()
+                    bmp.close()
+            finally:
+                page.close()
+    except Exception:
+        sub.close()
+        raise
+    return sub
+
+
+def _call_sheet_release():
+    """Druckdialog zu: geladene Vorschau-Quellen freigeben."""
+    while _SHEET_SRC:
+        _close_quiet(*_SHEET_SRC.popitem()[1][1:])
+
+
+CALLS = {"preflight": _call_preflight, "verify": _call_verify, "edit": _call_edit, "sheet": _call_sheet,
+         "sheet_release": _call_sheet_release}
 
 
 def serve(inp, out) -> int:

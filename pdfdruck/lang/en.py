@@ -6,6 +6,13 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Markierte Dateien als ein PDF zusammenführen': 'Merge the selected files into one PDF',
+    'Nach Name sortieren': 'Sort by name',
+    'Nach oben': 'Move up',
+    'Nach unten': 'Move down',
+    'Ordner hinzufügen …': 'Add folder …',
+    'Passermark – zusammenführen': 'Passermark – merge',
+    '{0} Datei(en)': '{0} file(s)',
     'Änderung wird übernommen …': 'Applying the change …',
     '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objects on the page – shown: all images and the {1} largest.',
     'Änderung wird geprüft …': 'Checking the change …',

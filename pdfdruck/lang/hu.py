@@ -6,6 +6,13 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Markierte Dateien als ein PDF zusammenführen': 'A kijelölt fájlok egyesítése egy PDF-be',
+    'Nach Name sortieren': 'Rendezés név szerint',
+    'Nach oben': 'Feljebb',
+    'Nach unten': 'Lejjebb',
+    'Ordner hinzufügen …': 'Mappa hozzáadása …',
+    'Passermark – zusammenführen': 'Passermark – egyesítés',
+    '{0} Datei(en)': '{0} fájl',
     'Änderung wird übernommen …': 'A módosítás alkalmazása …',
     '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objektum az oldalon – megjelenítve: minden kép és a {1} legnagyobb.',
     'Änderung wird geprüft …': 'A módosítás ellenőrzése …',

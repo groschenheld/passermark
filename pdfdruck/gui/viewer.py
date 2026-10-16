@@ -13,8 +13,8 @@ import os
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_r
-from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
+from PySide6.QtCore import QObject, QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QCursor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDockWidget,
                                QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
                                QFrame, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QPushButton,
@@ -163,6 +163,54 @@ def _remove_quiet(path):
             pass
 
 
+class _Smoother(QObject):
+    """Sauberes Verkleinern des Seitenbilds in einem Hintergrund-Thread. Beim Zoomen wird sofort grob skaliert
+        (Sekundenbruchteile), das saubere Bild kommt kurz danach – ein großes Seitenbild blockiert so nie das
+        Fenster (QImage.scaled gibt den Python-Lock frei). Je Seite zählt nur der neueste Auftrag."""
+    done = Signal(object, object, object)          # Seite, Schlüssel, QImage
+
+    _inst = None
+
+    @classmethod
+    def get(cls):
+        if cls._inst is None:
+            cls._inst = _Smoother()
+        return cls._inst
+
+    def __init__(self):
+        super().__init__()
+        import threading
+        self._jobs: dict = {}
+        self._cv = threading.Condition()
+        self.done.connect(self._deliver)
+        threading.Thread(target=self._run, daemon=True, name="passermark-smooth").start()
+
+    def request(self, widget, key, img, tw, th):
+        with self._cv:
+            self._jobs[id(widget)] = (widget, key, img, tw, th)
+            self._cv.notify()
+
+    def _run(self):
+        while True:
+            with self._cv:
+                while not self._jobs:
+                    self._cv.wait()
+                _k, job = self._jobs.popitem()
+            widget, key, img, tw, th = job
+            try:
+                out = img.scaled(tw, th, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            except Exception:
+                continue
+            self.done.emit(widget, key, out)
+
+    @staticmethod
+    def _deliver(widget, key, img):
+        try:
+            widget.smooth_ready(key, img)
+        except RuntimeError:                       # Seite inzwischen weg
+            pass
+
+
 class PageWidget(QWidget):
     def __init__(self, index: int, view=None):
         super().__init__()
@@ -197,8 +245,13 @@ class PageWidget(QWidget):
             if self._skey != key:
                 img = self.master
                 if (img.width(), img.height()) != (tw, th):
-                    img = img.scaled(tw, th, Qt.AspectRatioMode.IgnoreAspectRatio,
-                                     Qt.TransformationMode.SmoothTransformation)
+                    if img.width() * img.height() <= 2_000_000:
+                        img = img.scaled(tw, th, Qt.AspectRatioMode.IgnoreAspectRatio,
+                                         Qt.TransformationMode.SmoothTransformation)
+                    else:                        # groß: sofort grob, sauber kommt aus dem Hintergrund
+                        _Smoother.get().request(self, key, img, tw, th)
+                        img = img.scaled(tw, th, Qt.AspectRatioMode.IgnoreAspectRatio,
+                                         Qt.TransformationMode.FastTransformation)
                 pm = QPixmap.fromImage(img)
                 pm.setDevicePixelRatio(dpr)
                 self._scaled, self._skey = pm, key
@@ -209,6 +262,15 @@ class PageWidget(QWidget):
             p.drawImage(self.tile_rect, self.tile)
         if self.view is not None:
             self.view.paint_overlay(self, p)
+
+    def smooth_ready(self, key, img):
+        """Sauber verkleinertes Seitenbild aus dem Hintergrund – nur übernehmen, wenn es noch passt."""
+        if key != self._skey or self.master is None:
+            return
+        pm = QPixmap.fromImage(img)
+        pm.setDevicePixelRatio(self.devicePixelRatioF())
+        self._scaled = pm
+        self.update()
 
     # Maus -> Ansicht (Textauswahl bzw. Bearbeiten-Modus)
     def mousePressEvent(self, e):
@@ -1401,12 +1463,129 @@ class ThumbList(QListWidget):
         (feste Kachelgröße, so viele nebeneinander wie Platz haben). Strg + Mausrad skaliert."""
     resized = Signal()
     zoomed = Signal(int)                 # Strg + Mausrad: +1 größer, -1 kleiner
+    pagesMoved = Signal(list, int)       # gewählte Seiten (Zeilen), Einfügestelle (vor dieser Zeile; count = ans Ende)
     TILE_MIN, TILE_MAX = 60, 600
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         self.grid_mode = False
         self.tile = 140
+        self._press = None               # (Position, Zeile, Auswahl-Änderung aufgeschoben)
+        self._drop_ins = None            # Einfügestelle beim Ziehen (gelber Balken)
+        self._scroll_timer = QTimer(self, interval=40, timeout=self._auto_scroll)
+        self._scroll_dir = 0
+
+    # ---------------- Seiten ziehen (Umordnen mit gelbem Balken) ---------------- #
+    def mousePressEvent(self, e):
+        self._drop_ins = None
+        if e.button() == Qt.MouseButton.LeftButton:
+            it = self.itemAt(e.position().toPoint())
+            plain = not (e.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier))
+            if it is not None and it.isSelected() and plain and len(self.selectedItems()) > 1:
+                # Klick auf eine schon gewählte Seite: Mehrfachauswahl erst beim Loslassen auflösen (sonst wäre sie
+                # weg, bevor man ziehen kann)
+                self._press = (e.position().toPoint(), self.row(it), True)
+                return
+            self._press = (e.position().toPoint(), self.row(it) if it is not None else -1, False)
+        super().mousePressEvent(e)
+
+    def _insert_at(self, pos) -> int:
+        n = self.count()
+        it = self.itemAt(pos)
+        if it is None:
+            if n == 0:
+                return 0
+            last = self.visualItemRect(self.item(n - 1))
+            first = self.visualItemRect(self.item(0))
+            if pos.y() > last.bottom() or (self.grid_mode and pos.y() >= last.top() and pos.x() > last.right()):
+                return n
+            if pos.y() < first.top():
+                return 0
+            best = min(range(n), key=lambda i: (self.visualItemRect(self.item(i)).center() - pos).manhattanLength())
+            it = self.item(best)
+        r = self.visualItemRect(it)
+        row = self.row(it)
+        after = pos.x() > r.center().x() if self.grid_mode else pos.y() > r.center().y()
+        return row + 1 if after else row
+
+    def mouseMoveEvent(self, e):
+        if self._press is not None and e.buttons() & Qt.MouseButton.LeftButton and self._press[1] >= 0:
+            pos = e.position().toPoint()
+            if self._drop_ins is None and (pos - self._press[0]).manhattanLength() < QApplication.startDragDistance():
+                return
+            if self._drop_ins is None and not self.item(self._press[1]).isSelected():
+                super().mouseMoveEvent(e)                  # Gummiband/Auswahl wie gewohnt
+                return
+            ins = self._insert_at(pos)
+            if ins != self._drop_ins:
+                self._drop_ins = ins
+                self.viewport().update()
+            h = self.viewport().height()
+            self._scroll_dir = -1 if pos.y() < 24 else 1 if pos.y() > h - 24 else 0
+            if self._scroll_dir and not self._scroll_timer.isActive():
+                self._scroll_timer.start()
+            self.setCursor(Qt.CursorShape.DragMoveCursor)
+            return
+        super().mouseMoveEvent(e)
+
+    def _auto_scroll(self):
+        if not self._scroll_dir or self._drop_ins is None:
+            self._scroll_timer.stop()
+            return
+        sb = self.verticalScrollBar()
+        sb.setValue(sb.value() + self._scroll_dir * 24)
+        pos = self.viewport().mapFromGlobal(QCursor.pos())
+        self._drop_ins = self._insert_at(pos)
+        self.viewport().update()
+
+    def mouseReleaseEvent(self, e):
+        press, ins = self._press, self._drop_ins
+        self._press, self._drop_ins = None, None
+        self._scroll_timer.stop()
+        self.unsetCursor()
+        if ins is not None:
+            self.viewport().update()
+            rows = sorted(self.row(i) for i in self.selectedItems())
+            if rows:
+                self.pagesMoved.emit(rows, ins)
+            return
+        if press is not None and press[2]:                # aufgeschobener Klick: jetzt nur diese Seite wählen
+            it = self.item(press[1])
+            if it is not None:
+                self.clearSelection()
+                it.setSelected(True)
+                self.setCurrentItem(it)
+                self.itemClicked.emit(it)
+            return
+        super().mouseReleaseEvent(e)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        ins = self._drop_ins
+        if ins is None or self.count() == 0:
+            return
+        if self.grid_mode:
+            # senkrechter Balken zwischen zwei Seiten; am Zeilenanfang hinter die letzte Seite der vorigen Zeile
+            prev = self.visualItemRect(self.item(ins - 1)) if ins > 0 else None
+            cur = self.visualItemRect(self.item(ins)) if ins < self.count() else None
+            if prev is not None and (cur is None or abs(prev.top() - cur.top()) > 4):
+                x, r = prev.right() + 1, prev
+            elif prev is not None:
+                x, r = (prev.right() + cur.left()) // 2, cur
+            else:
+                x, r = cur.left() + 1, cur
+            line = QRect(max(1, x - 2), r.top() + 4, 5, r.height() - 8)
+        elif ins < self.count():
+            r = self.visualItemRect(self.item(ins))
+            line = QRect(r.left() + 6, r.top() - 3, r.width() - 12, 5)
+        else:
+            r = self.visualItemRect(self.item(self.count() - 1))
+            line = QRect(r.left() + 6, r.bottom() - 1, r.width() - 12, 5)
+        p = QPainter(self.viewport())
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(theme.ACCENT))
+        p.drawRoundedRect(line, 2, 2)
 
     def tile_width(self) -> int:
         vw = max(80, self.viewport().width() - 2)
@@ -1566,29 +1745,63 @@ class _ThumbSource:
         self.win._thumb_timer.start()
 
 
+class _MergeList(QListWidget):
+    """Liste im Zusammenführen-Dialog: intern umsortieren und Dateien/Ordner aus dem Dateimanager hineinziehen."""
+    dropped = Signal(list)
+    reordered = Signal()
+
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.acceptProposedAction()
+        else:
+            super().dragEnterEvent(e)
+
+    def dragMoveEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.acceptProposedAction()
+        else:
+            super().dragMoveEvent(e)
+
+    def dropEvent(self, e):
+        if e.mimeData().hasUrls():
+            self.dropped.emit([u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()])
+            e.acceptProposedAction()
+            return
+        super().dropEvent(e)
+        self.reordered.emit()
+
+
 class MergeDialog(QDialog):
-    """Merge several PDFs/images in the desired order into one document."""
+    """Merge several PDFs/images in the desired order into one document. Für große Mengen (z. B. 110 Pläne):
+        Ordner hinzufügen, Dateien hineinziehen, nach Name sortieren; nachkommende Dateien (Explorer) landen hier."""
 
     def __init__(self, parent, start: list[str] | None = None):
         super().__init__(parent)
         self.setWindowTitle(tr("Dokumente zusammenführen"))
-        self.resize(560, 420)
+        self.resize(620, 520)
+        self._manual = False                     # selbst umsortiert: neue Dateien nur noch anhängen
         v = QVBoxLayout(self)
         v.addWidget(QLabel(tr("Reihenfolge = Reihenfolge im neuen Dokument (Bilder in tatsächlicher Größe):")))
         h = QHBoxLayout()
-        self.lst = QListWidget()
+        self.lst = _MergeList()
         self.lst.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.lst.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.lst.setAcceptDrops(True)
+        self.lst.dropped.connect(self.add_paths)
+        self.lst.reordered.connect(self._set_manual)
         h.addWidget(self.lst, 1)
         b = QVBoxLayout()
-        for text, fn in [(tr("Hinzufügen…"), self._add), (tr("Entfernen"), self._remove),
-                         ("▲ Nach oben", lambda: self._move(-1)), ("▼ Nach unten", lambda: self._move(1))]:
+        for text, fn in [(tr("Hinzufügen…"), self._add), (tr("Ordner hinzufügen …"), self._add_folder),
+                         (tr("Entfernen"), self._remove), ("▲ " + tr("Nach oben"), lambda: self._move(-1)),
+                         ("▼ " + tr("Nach unten"), lambda: self._move(1)), (tr("Nach Name sortieren"), self._sort)]:
             btn = QPushButton(text)
             btn.clicked.connect(fn)
             b.addWidget(btn)
         b.addStretch()
         h.addLayout(b)
         v.addLayout(h, 1)
+        self.lbl_count = QLabel()
+        v.addWidget(self.lbl_count)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Zusammenführen"))
         bb.accepted.connect(self.accept)
@@ -1596,6 +1809,14 @@ class MergeDialog(QDialog):
         v.addWidget(bb)
         for p in start or []:
             self._append(p)
+        self._count()
+
+    def _count(self):
+        n = self.lst.count()
+        self.lbl_count.setText(tr("{0} Datei(en)").format(n))
+
+    def _set_manual(self):
+        self._manual = True
 
     def _append(self, p):
         it = QListWidgetItem(os.path.basename(p))
@@ -1603,19 +1824,62 @@ class MergeDialog(QDialog):
         it.setData(Qt.ItemDataRole.UserRole, p)
         self.lst.addItem(it)
 
+    def add_paths(self, paths):
+        """Dateien (oder Ordner) dazu – ohne Doppelte; solange nicht selbst umsortiert, nach Name sortiert."""
+        from .. import convert
+        have = set(self.paths())
+        new = []
+        for p in paths:
+            p = os.path.abspath(p)
+            cand = [os.path.join(p, f) for f in sorted(os.listdir(p))] if os.path.isdir(p) else [p]
+            for c in cand:
+                if os.path.isfile(c) and convert.is_supported(c) and c not in have:
+                    have.add(c)
+                    new.append(c)
+        if not new:
+            return
+        self.lst.setUpdatesEnabled(False)
+        for p in new:
+            self._append(p)
+        if not self._manual:
+            self._sort(manual=False)
+        self.lst.setUpdatesEnabled(True)
+        self._count()
+        self.raise_()
+        self.activateWindow()
+
     def _add(self):
         paths, _ = QFileDialog.getOpenFileNames(self, tr("Dateien hinzufügen"), "", OPEN_FILTER)
+        self.add_paths(paths)
+
+    def _add_folder(self):
+        d = QFileDialog.getExistingDirectory(self, tr("Ordner hinzufügen …"))
+        if d:
+            self.add_paths([d])
+
+    def _sort(self, manual=True):
+        """Nach Dateiname (natürlich: Plan 2 vor Plan 10)."""
+        import re
+
+        def key(p):
+            return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", os.path.basename(p))]
+        paths = sorted(self.paths(), key=key)
+        self.lst.clear()
         for p in paths:
             self._append(p)
+        if manual:
+            self._manual = False
 
     def _remove(self):
         for it in self.lst.selectedItems():
             self.lst.takeItem(self.lst.row(it))
+        self._count()
 
     def _move(self, d):
         rows = sorted(self.lst.row(i) for i in self.lst.selectedItems())
         if not rows or (d < 0 and rows[0] == 0) or (d > 0 and rows[-1] == self.lst.count() - 1):
             return
+        self._manual = True
         for r in (rows if d < 0 else reversed(rows)):
             it = self.lst.takeItem(r)
             self.lst.insertItem(r + d, it)
@@ -1751,6 +2015,7 @@ class MainWindow(QMainWindow):
         self.thumbs.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.thumbs.customContextMenuRequested.connect(self._thumb_menu)
         self.thumbs.itemClicked.connect(lambda it: self.view.goto(self.thumbs.row(it)))
+        self.thumbs.pagesMoved.connect(self.move_pages_to)
         self.thumbs.zoomed.connect(self._thumb_zoom)
         dock = QDockWidget(tr("Seiten"), self)
         dock.setWidget(self._thumb_panel())
@@ -2622,6 +2887,21 @@ class MainWindow(QMainWindow):
             return
         self._changed_doc(dest, list(range(dest, dest + len(pages))))
 
+    def move_pages_to(self, pages: list, ins: int):
+        """Seitenleiste: gewählte Seiten an die Einfügestelle ziehen (ins = vor dieser Seite, len = ans Ende)."""
+        if self.doc is None or not pages:
+            return
+        pages = sorted(set(p for p in pages if 0 <= p < len(self.doc)))
+        dest = ins - sum(1 for p in pages if p < ins)     # Index der ersten Seite nach dem Verschieben
+        dest = max(0, min(dest, len(self.doc) - len(pages)))
+        if pages == list(range(dest, dest + len(pages))):
+            return                                         # liegt schon dort
+        arr = (ctypes.c_int * len(pages))(*pages)
+        if not pdfium_r.FPDF_MovePages(self.doc.raw, arr, len(pages), dest):
+            QMessageBox.warning(self, tr("Verschieben"), tr("Verschieben fehlgeschlagen."))
+            return
+        self._changed_doc(dest, list(range(dest, dest + len(pages))))
+
     def _thumb_menu(self, pos):
         if self.doc is None:
             return
@@ -3214,7 +3494,8 @@ class MainWindow(QMainWindow):
         if self.doc is None:
             return
         from .printdialog import PrintDialog
-        PrintDialog(self, self.doc, self.display_name, self.view.current, self.session).exec()
+        PrintDialog(self, self.doc, self.display_name, self.view.current, self.session,
+                    src_path=getattr(self.view, "_src_path", None), pinfo=getattr(self.view, "_pinfo", None)).exec()
 
     def admin_dialog(self):
         from .admindialog import AdminDialog

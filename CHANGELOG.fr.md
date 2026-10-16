@@ -5,6 +5,23 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.13.2
+### Boîte d'impression : aperçu en arrière-plan
+- **Aperçu sans attente :** la feuille est montée et dessinée dans le processus de rendu désormais – la fenêtre n'attend plus. Avec un gros fichier, l'aperçu prend 0,001 s dans la fenêtre principale au lieu de blocages allant jusqu'à 6 s auparavant. Si quelque chose change pendant qu'un calcul est encore en cours, seul l'état le plus récent est dessiné jusqu'au bout.
+- L'attente reste : l'aperçu n'est fini qu'après 2–5 s, car le dessin de la page elle-même prend ce temps. Mais la fenêtre reste utilisable pendant ce temps.
+- **Copies multiples (p. ex. step & repeat) :** la page n'est rendue qu'une fois au lieu d'une fois par copie – environ deux fois plus vite. L'image s'écarte minimalement car c'est une image tramée ; seule une trame très fine laisse voir un léger moiré. L'impression continue à partir de l'original.
+- **Sans copies multiples,** l'aperçu est identique au pixel près à avant (comparé pour pages simples, 9 sur 1, brochure, plieurs et duplex).
+- **Format final/fond perdu** vient maintenant des données de page sans charger les pages – les valeurs sont les mêmes qu'avant.
+- **Aperçu des plieurs** est également calculé en arrière-plan.
+- **Toujours dans la fenêtre principale :** passer à « Brochure en plieurs » prend encore environ 0,9 s ; la génération des plieurs n'a pas été externalisée.
+- **Vue de page :** les grandes images de page sont mises à l'échelle grossièrement immédiatement au zoom ; l'image propre arrive en arrière-plan. La limite supérieure de l'image de page reste inchangée à 16 mégapixels.
+
+### Fusionner sous Windows
+- **Une seule fenêtre :** si plusieurs fichiers arrivent en même temps, ils atterrissent tous dans la même fenêtre. Testé avec 12 appels lancés simultanément : 1 fenêtre, 12 fichiers, triés par nom.
+- **Nouveaux boutons :** « Ajouter un dossier … », monter/descendre et « Trier par nom ». Les fichiers peuvent aussi être glissés dedans ; la fenêtre affiche combien elle en contient.
+- **Pour de nombreux plans :** le mieux est « Envoyer vers → Passermark – fusionner » – il transmet tous les fichiers d'un coup et est créé une seule fois au premier démarrage. Sinon, ajouter directement le dossier entier dans la fenêtre.
+- **Barre latérale :** les pages sélectionnées peuvent être déplacées. La barre jaune montre où elles atterriront ; au bord, la barre défile automatiquement.
+
 ## 1.13.1
 ### Correctif de vitesse
 - Légères améliorations de vitesse dans la nouvelle vue (rendu).

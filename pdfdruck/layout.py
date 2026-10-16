@@ -1448,6 +1448,41 @@ def page_trims(doc) -> list:
     return out
 
 
+def trims_from_info(info: list) -> list:
+    """Wie page_trims, aber aus renderproc.page_info (pikepdf, ohne eine Seite zu laden)."""
+    out = []
+    for pi in info:
+        crop, rot = pi["crop"], (pi.get("rotate", 0) * 90) % 360
+        trim = pi.get("trim_raw") or pi.get("art")
+        if trim is None:
+            out.append(None)
+            continue
+        cl, cb, cr, ct = crop
+        tl, tb, tr_, tt = (max(trim[0], cl), max(trim[1], cb), min(trim[2], cr), min(trim[3], ct))
+        o = (tl - cl, tb - cb, cr - tr_, ct - tt)
+        if rot == 90:
+            o = (o[1], o[2], o[3], o[0])
+        elif rot == 180:
+            o = (o[2], o[3], o[0], o[1])
+        elif rot == 270:
+            o = (o[3], o[0], o[1], o[2])
+        out.append(o if max(o) > 0.5 and min(o) >= 0 and (tr_ - tl) > 10 and (tt - tb) > 10 else None)
+    return out
+
+
+def doc_bleeds_from_info(info: list) -> list:
+    """Wie page_doc_bleeds, aus renderproc.page_info."""
+    out = []
+    for pi in info:
+        trim, bleed = pi.get("trim"), pi.get("bleed")
+        if trim is None or bleed is None:
+            out.append(0.0)
+            continue
+        d = min(trim[0] - bleed[0], trim[1] - bleed[1], bleed[2] - trim[2], bleed[3] - trim[3])
+        out.append(max(0.0, d))
+    return out
+
+
 def _has_box(pg, name: str) -> bool:
     import pypdfium2.raw as r
     import ctypes

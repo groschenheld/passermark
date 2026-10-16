@@ -20,7 +20,7 @@ a = Analysis([os.path.join(root, "windows", "launcher.py")], pathex=[root], bina
              hiddenimports=["cups", "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtDBus", "pillow_heif", "img2pdf",
                             "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS,
                             "pdfdruck.renderproc", "pdfdruck.gui.renderclient", "pdfdruck.editops",
-                            "pdfdruck.pagegeom", "pdfdruck.gui.stallwatch"],     # Render-/Analyse-Prozess, Ruckler-Protokoll
+                            "pdfdruck.pagegeom", "pdfdruck.gui.stallwatch", "pdfdruck.fastipc"],     # Render-/Analyse-Prozess, Ruckler-Protokoll
              excludes=["tkinter", "win32print", "win32gui"], noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="passermark", console=False)

@@ -6,6 +6,13 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Markierte Dateien als ein PDF zusammenführen': 'Fusionner les fichiers sélectionnés en un seul PDF',
+    'Nach Name sortieren': 'Trier par nom',
+    'Nach oben': 'Monter',
+    'Nach unten': 'Descendre',
+    'Ordner hinzufügen …': 'Ajouter un dossier …',
+    'Passermark – zusammenführen': 'Passermark – fusionner',
+    '{0} Datei(en)': '{0} fichier(s)',
     'Änderung wird übernommen …': 'Application de la modification …',
     '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objets sur la page – affichés : toutes les images et les {1} plus grands.',
     'Änderung wird geprüft …': 'Vérification de la modification …',

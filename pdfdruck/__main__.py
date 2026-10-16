@@ -44,6 +44,12 @@ def main():
     ap.add_argument("--merge", action="store_true", help="Dateien (PDF, Bilder, Office) zu einem PDF zusammenführen")
     ap.add_argument("files", nargs="*")
     args, _qt = ap.parse_known_args()
+    # läuft schon eine Instanz? Dann sofort weiterreichen – noch bevor Qt und die Oberfläche geladen werden
+    # (Explorer-Mehrfachauswahl startet einen Prozess je Datei; so sind die nach Sekundenbruchteilen wieder weg)
+    early_cmd = "print" if args.do_print else "repair" if args.repair else "merge" if args.merge else "open"
+    from . import fastipc
+    if fastipc.send(early_cmd, [os.path.abspath(f) for f in args.files]):
+        return 0
 
     from PySide6.QtWidgets import QApplication
 

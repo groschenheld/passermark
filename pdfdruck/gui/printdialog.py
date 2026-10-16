@@ -229,11 +229,19 @@ class SideTab(QPushButton):
 
 
 class PrintDialog(QDialog):
-    def __init__(self, parent, doc, path: str, current: int, session: Session):
+    def __init__(self, parent, doc, path: str, current: int, session: Session, src_path: str | None = None,
+                 pinfo: list | None = None):
         super().__init__(parent)
         self.setWindowTitle(tr("Drucken"))
         self.resize(1180, 760)
         self.doc, self.path, self.current, self.s = doc, path, current, session
+        # Datei mit genau dem Inhalt von doc + Seitendaten (Ansicht): Vorschau im Render-Prozess
+        self.src_path, self.pinfo = src_path, pinfo
+        self._pv_busy = False         # eine Vorschau-Anfrage unterwegs
+        self._pv_next = {}            # wartende Anfragen: True = Vorschau, False = Übersicht (je nur die neueste)
+        self._pv_gen = 0
+        self._pv_used = False         # Render-Prozess hat eine Vorschau-Quelle geladen (beim Schließen freigeben)
+        self._spr_file = None         # Druckbögen als Datei für den Render-Prozess
         self.cfg = session.cfg
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         self.caps: printers.PrinterCaps | None = None
@@ -1044,8 +1052,7 @@ class PrintDialog(QDialog):
             return
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            if getattr(self, "trims", None) is None:
-                self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
+            self._ensure_trims()
             sheet = self._sheet()
             self._make_plans(pages)          # derselbe Weg wie die Vorschau (auch Broschüre als Druckbögen)
             plans1 = self.plans1
@@ -1078,8 +1085,7 @@ class PrintDialog(QDialog):
         s = self._settings()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            if getattr(self, "trims", None) is None:
-                self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
+            self._ensure_trims()
             out, notes = layout.booklet_spreads(self._base_print_doc(), pages, s, self.trims)
         except Exception as e:
             QApplication.restoreOverrideCursor()
@@ -1807,12 +1813,22 @@ class PrintDialog(QDialog):
         rev = self.chk_reverse.isChecked() and self._handling() != "booklet"
         return layout.select_pages(n, rng, self.cmb_subset.currentData(), rev, cur)
 
-    def _make_plans(self, pages):
-        if getattr(self, "trims", None) is None:
-            try:
+    def _ensure_trims(self):
+        """Endformat/Anschnitt je Seite – aus den Seitendaten der Ansicht (ohne eine Seite zu laden),
+            sonst wie bisher über pdfium."""
+        if getattr(self, "trims", None) is not None:
+            return
+        info = self.pinfo
+        try:
+            if info is not None and len(info) == len(self.doc):
+                self.trims, self.doc_bleeds = layout.trims_from_info(info), layout.doc_bleeds_from_info(info)
+            else:
                 self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
-            except Exception:
-                self.trims, self.doc_bleeds = [], []
+        except Exception:
+            self.trims, self.doc_bleeds = [], []
+
+    def _make_plans(self, pages):
+        self._ensure_trims()
         s = self._settings()
         sheet = self._sheet()
         self._spr_active = layout.is_booklet_spreads(s)
@@ -1940,6 +1956,7 @@ class PrintDialog(QDialog):
             self._spr_doc = None
             if old is not None:
                 old.close()
+            self._drop_spr_file()
             doc, spages, ss, notes = layout.spread_source(self._base_print_doc(), pages, s, self.trims)
             self._spr_doc, self._spr_pages, self._spr_notes = doc, spages, notes
             self._spr_sizes = [doc.get_page_size(i) for i in range(len(doc))]
@@ -1948,6 +1965,18 @@ class PrintDialog(QDialog):
         return layout.spread_settings(s)
 
     def done(self, r):
+        self._pv_closed = True
+        self._pv_next = {}
+        if self._pv_used:
+            try:
+                from .renderclient import RenderService
+                RenderService.get().call("sheet_release", {}, lambda *_a: None)
+            except Exception:
+                pass
+        if getattr(self, "_ov_busy", False):
+            self._ov_busy = False
+            QApplication.restoreOverrideCursor()
+        self._drop_spr_file()
         if getattr(self, "sr_win", None) is not None:
             self.sr_win.hide()
         spr = getattr(self, "_spr_doc", None)
@@ -2018,32 +2047,58 @@ class PrintDialog(QDialog):
             self._render_sheet()
 
     def _sheet_overview(self):
-        """All sheets as thumbnails (reading order) – shows the distribution of the pages at a glance."""
-        from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem
-        from PySide6.QtCore import QSize
-        from PySide6.QtGui import QIcon
-        from .manipdialog import pil_to_pixmap
+        """All sheets as thumbnails (reading order) – shows the distribution of the pages at a glance.
+            Gerendert im Render-Prozess: das Fenster bleibt bedienbar, auch bei vielen Bögen."""
         if not self.plans:
             QMessageBox.information(self, tr("Bogenübersicht"), tr("Keine Seiten"))
             return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            s = self._eff_settings()
-            if layout.is_step2(s) and getattr(self, "plans2", None):
-                out, sheet = layout.impose_step2(self._print_doc(), self._sheet(),
-                                                  self.plans1, s, plans2=self.plans2), layout.step2_sheet(s)
-            else:
-                sheet = self._sheet()
-                out = layout.impose_with(self._print_doc(), sheet, self.plans, s)
-            thumbs = []
-            for i, sp in enumerate(self.plans[:400]):
-                pg = out[i]
-                img = pg.render(scale=150 / max(sheet.width, sheet.height), rotation=90 if sp.landscape else 0).to_pil()
-                pg.close()
-                thumbs.append((pil_to_pixmap(img), sp.label or tr("Blatt {0}").format(i + 1)))
-            out.close()
-        finally:
+        if getattr(self, "_ov_busy", False):
+            return
+        s = self._eff_settings()
+        plans = self.plans[:400]
+        rots = [90 if sp.landscape else 0 for sp in plans]
+        labels = [sp.label or tr("Blatt {0}").format(i + 1) for i, sp in enumerate(plans)]
+        if layout.is_step2(s) and getattr(self, "plans2", None):
+            sheet = layout.step2_sheet(s)
+            req = dict(mode="step2", sheet=None, plans=None, settings=s, only=None, sheet1=self._sheet(),
+                       plans1=self.plans1, plans2=self.plans2)
+
+            def make():
+                return layout.impose_step2(self._print_doc(), self._sheet(), self.plans1, s, plans2=self.plans2)
+        else:
+            sheet = self._sheet()
+            req = dict(mode="sheet", sheet=sheet, plans=self.plans, settings=s, only=None)
+
+            def make():
+                return layout.impose_with(self._print_doc(), sheet, self.plans, s)
+        scale = 150 / max(sheet.width, sheet.height)
+        req.update(scale=scale, rotations=rots, limit=400, proof=False)
+
+        def local():
+            out = make()
+            try:
+                return [self._local_pixmap(out, k, scale, rots[k], 1.0, proof=False)
+                        for k in range(min(len(out), len(plans)))]
+            finally:
+                out.close()
+
+        def show(pms):
+            self._ov_busy = False
             QApplication.restoreOverrideCursor()
+            self._show_overview(list(zip(pms, labels)))
+
+        def failed(msg):
+            self._ov_busy = False
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, tr("Bogenübersicht"), msg)
+        self._ov_busy = True
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        self._pv_call(req, 1.0, show, local, failed)
+
+    def _show_overview(self, thumbs):
+        from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem
+        from PySide6.QtCore import QSize
+        from PySide6.QtGui import QIcon
         dlg = QDialog(self)
         dlg.setWindowTitle(tr("Bogenübersicht – Passermark"))
         dlg.resize(980, 700)
@@ -2067,6 +2122,131 @@ class PrintDialog(QDialog):
         v.addWidget(bb)
         dlg.exec()
 
+    # ------------------------------------------------------------------ #
+    # Vorschau im Render-Prozess
+    # ------------------------------------------------------------------ #
+    def _pv_service(self):
+        if os.environ.get("PASSERMARK_RENDER", "") == "local":
+            return None
+        src = self._pv_source()
+        if src is None:
+            return None
+        from .renderclient import RenderService
+        svc = RenderService.get()
+        return svc if svc.ok else None
+
+    def _pv_source(self):
+        """(Datei, einbrennen?) mit genau dem Inhalt, der montiert wird – oder None (dann im Programm)."""
+        if getattr(self, "_spr_active", False) and getattr(self, "_spr_doc", None) is not None:
+            if self._spr_file is None:
+                import tempfile
+                try:
+                    fd, path = tempfile.mkstemp(prefix="passermark-view-print-", suffix=".pdf")
+                    with os.fdopen(fd, "wb") as f:
+                        self._spr_doc.save(f)
+                    self._spr_file = path
+                except Exception:
+                    return None
+            return self._spr_file, False
+        if self.src_path and os.path.isfile(self.src_path):
+            return self.src_path, True
+        return None
+
+    def _drop_spr_file(self):
+        f, self._spr_file = self._spr_file, None
+        if f:
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+    def _pv_proof(self):
+        """Proof-Werte für den Render-Prozess (None = ohne) – setzt auch die Proof-Zeile."""
+        if not self.chk_proof.isChecked():
+            self.lbl_proof.setText("")
+            return None
+        adj, icc, intent, bpc, name = self._proof_params()
+        if not icc and not adj["labels"]:
+            self.lbl_proof.setText("")
+            return None
+        self.lbl_proof.setText(proof.describe(adj, name) + ("" if icc else tr("  (Treiberregler: Annäherung)")))
+        return (adj, icc, intent, bpc)
+
+    def _local_pixmap(self, out, k, scale, rot, dpr, proof=True):
+        pg = out[k]
+        try:
+            return self._proofed_pixmap(pg, scale, rot, dpr) if proof else render_pixmap(pg, scale, rot, dpr)
+        finally:
+            pg.close()
+
+    def _pv_request(self, req, dpr, show, local):
+        """Vorschau-Bogen anfordern. Läuft schon einer, wartet nur der neueste (Zwischenstände entfallen)."""
+        self._pv_gen += 1
+        gen = self._pv_gen
+
+        def done(pms):
+            if gen == self._pv_gen:
+                show(pms)
+
+        def failed(msg):
+            if gen == self._pv_gen:
+                self.lbl_warn.setText(tr("Vorschau nicht möglich: {0}").format(msg))
+        self._pv_call(req, dpr, done, local, failed)
+
+    def _pv_call(self, req, dpr, show, local, failed):
+        job = (req, dpr, show, local, failed)
+        if self._pv_busy:
+            # je Art wartet nur die neueste (Vorschau ersetzt Vorschau; die Übersicht bleibt erhalten)
+            self._pv_next[req.get("proof", True)] = job
+            return
+        self._pv_send(job)
+
+    def _pv_send(self, job):
+        req, dpr, show, local, failed = job
+        svc = self._pv_service()
+        if svc is None:
+            try:
+                show(local())
+            except Exception as e:                   # the preview must never take the program down with it
+                failed(str(e))
+            return
+        path, flat = self._pv_source()
+        args = {k: v for k, v in req.items() if k != "proof"}
+        args.update(path=path, flatten=flat, proof_args=self._pv_proof() if req.get("proof", True) else None)
+        self._pv_busy = True
+        self._pv_used = True
+
+        def back(err, res):
+            self._pv_busy = False
+            if getattr(self, "_pv_closed", False):
+                return
+            nxt = self._pv_next.pop(True, None) or self._pv_next.pop(False, None)
+            try:
+                if err:
+                    if "unavailable" in str(err) or "ended" in str(err):
+                        show(local())               # Prozess weg: im Programm wie bisher
+                    else:
+                        failed(str(err))
+                else:
+                    show([self._to_pixmap(w, h, data, dpr) for (w, h, data) in res])
+            except Exception as e:
+                failed(str(e))
+            if nxt is not None:
+                self._pv_send(nxt)
+        try:
+            svc.call("sheet", args, back)
+        except Exception as e:
+            self._pv_busy = False
+            failed(str(e))
+
+    @staticmethod
+    def _to_pixmap(w, h, data, dpr):
+        from PySide6.QtGui import QImage, QPixmap
+        qi = QImage(data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
+        pm = QPixmap.fromImage(qi)
+        pm.setDevicePixelRatio(dpr)
+        return pm
+
     def _render_sheet2(self, s):
         """Vorschau des Schritt-2-Bogens: fertig montierte Bögen aufs Zielformat, mittig."""
         n = len(self.plans)
@@ -2085,17 +2265,24 @@ class PrintDialog(QDialog):
         sp = self.plans[self.sheet_index]
         # derselbe Weg wie bei der Ausgabe: Schritt-1-Bogen flach zwischenspeichern,
         # dann montieren – Vorschau und Ergebnis sind identisch
-        out = layout.impose_step2(self._print_doc(), self._sheet(), self.plans1, s,
-                                  plans2=self.plans2, only=[self.sheet_index])
-        page = out[0]
         target_h = max(200, self.preview.height() - 32)
         ph = sheet.width if sp.landscape else sheet.height
         scale = target_h / ph
         dpr = self.devicePixelRatioF()
-        pm = self._proofed_pixmap(page, scale, 90 if sp.landscape else 0, dpr)
-        page.close()
-        out.close()
-        self.preview.set_content(pm, sheet, sp.landscape)
+        sheet1, plans1, plans2, only = self._sheet(), self.plans1, self.plans2, [self.sheet_index]
+        rots = [90 if sp.landscape else 0]
+
+        def show(pms, sheet=sheet, land=sp.landscape):
+            self.preview.set_content(pms[0], sheet, land)
+
+        def local():
+            out = layout.impose_step2(self._print_doc(), sheet1, plans1, s, plans2=plans2, only=only)
+            try:
+                return [self._local_pixmap(out, 0, scale, rots[0], dpr)]
+            finally:
+                out.close()
+        self._pv_request(dict(mode="step2", sheet=None, plans=None, settings=s, only=only, scale=scale * dpr,
+                              rotations=rots, sheet1=sheet1, plans1=plans1, plans2=plans2), dpr, show, local)
         cols = len({round(pl.x, 1) for pl in sp.placements}) or 1
         rows = len({round(pl.y, 1) for pl in sp.placements}) or 1
         sw, sh = self._sheet().width / layout.MM, self._sheet().height / layout.MM
@@ -2131,27 +2318,30 @@ class PrintDialog(QDialog):
             return
         sheet = self._sheet()
         sp = self.plans[self.sheet_index]
-        out = layout.impose_with(self._print_doc(), sheet, self.plans, self._settings(), only=[self.sheet_index])
-        page = out[0]
         target_h = max(200, self.preview.height() - 32)
         ph = sheet.width if sp.landscape else sheet.height
         scale = target_h / ph
         dpr = self.devicePixelRatioF()
-        pm = self._proofed_pixmap(page, scale, 90 if sp.landscape else 0, dpr)
-        page.close()
-        out.close()
         # Duplex: Rückseite des Bogens mit zeigen (Lage je nach Wendekante)
-        back_pm = None
         back_side = self._duplex_layout()
+        only, rots = [self.sheet_index], [90 if sp.landscape else 0]
         if back_side and self.sheet_index + 1 < len(self.plans):
-            spb = self.plans[self.sheet_index + 1]
-            outb = layout.impose_with(self._print_doc(), sheet, self.plans, self._settings(),
-                                      only=[self.sheet_index + 1])
-            pgb = outb[0]
-            back_pm = self._proofed_pixmap(pgb, scale, 90 if spb.landscape else 0, dpr)
-            pgb.close()
-            outb.close()
-        self.preview.set_content(pm, sheet, sp.landscape, back_pm, back_side if back_pm else None)
+            only.append(self.sheet_index + 1)
+            rots.append(90 if self.plans[self.sheet_index + 1].landscape else 0)
+        settings, plans = self._settings(), self.plans
+
+        def show(pms, sheet=sheet, land=sp.landscape, back_side=back_side):
+            back = pms[1] if len(pms) > 1 else None
+            self.preview.set_content(pms[0], sheet, land, back, back_side if back is not None else None)
+
+        def local():
+            out = layout.impose_with(self._print_doc(), sheet, plans, settings, only=only)
+            try:
+                return [self._local_pixmap(out, k, scale, rots[k], dpr) for k in range(len(only))]
+            finally:
+                out.close()
+        self._pv_request(dict(mode="sheet", sheet=sheet, plans=plans, settings=settings, only=only,
+                              scale=scale * dpr, rotations=rots), dpr, show, local)
 
         # Info
         key = self.caps.roles.get("pagesize")

@@ -95,6 +95,43 @@ def test_render_server():
         assert s.close() == 0
 
 
+def test_sheet_preview_call():
+    """Druckvorschau im Prozess = Montage im Programm; bei mehrfach verwendeten Seiten (Step & Repeat) über
+        das einmal gerenderte Seitenbild – sieht gleich aus. Endformat/Anschnitt aus den Seitendaten = pdfium."""
+    import numpy as np
+    import pikepdf
+    import pypdfium2 as pdfium
+    from pdfdruck import layout, printjob, renderproc
+    d = tempfile.mkdtemp()
+    path = os.path.join(d, "a.pdf")
+    _pdf(path)
+    with pikepdf.open(path, allow_overwriting_input=True) as pk:
+        pk.pages[0].TrimBox = [10, 10, 290, 190]
+        pk.pages[0].BleedBox = [5, 5, 295, 195]
+        pk.save(path)
+    doc = pdfium.PdfDocument(path)
+    info = renderproc.page_info(open(path, "rb").read())
+    assert layout.trims_from_info(info) == layout.page_trims(doc)
+    assert layout.doc_bleeds_from_info(info) == layout.page_doc_bleeds(doc)
+    sheet = layout.Sheet(595.0, 842.0)
+    for kw in (dict(), dict(step_repeat=True, crop_marks=True, bleed_mm=3)):
+        s = layout.LayoutSettings(**kw)
+        plans = printjob.make_plans([doc.get_page_size(0)], [0], sheet, s, False, layout.page_trims(doc),
+                                    layout.page_doc_bleeds(doc))
+        (w, h, data), = renderproc._call_sheet(path, True, "sheet", sheet, plans, s, only=[0], scale=0.5,
+                                               rotations=[0])
+        out = layout.impose_with(doc, sheet, plans, s, only=[0])
+        ref = np.asarray(out[0].render(scale=0.5).to_pil().convert("RGB")).astype(int)
+        out.close()
+        got = np.frombuffer(data, np.uint8).reshape(h, w, 3).astype(int)
+        assert got.shape == ref.shape, (got.shape, ref.shape)
+        assert np.abs(got - ref).mean() < 2.0, (kw, np.abs(got - ref).mean())
+    renderproc._call_sheet_release()
+    doc.close()
+
+
 if __name__ == "__main__":
     test_render_server()
     print("ok test_render_server")
+    test_sheet_preview_call()
+    print("ok test_sheet_preview_call")

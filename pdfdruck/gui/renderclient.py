@@ -77,7 +77,15 @@ class RenderService(QObject):
     @classmethod
     def get(cls, name: str = "render") -> "RenderService":
         if name not in cls._instances:
-            cls._instances[name] = RenderService()
+            svc = RenderService()
+            try:                                     # immer im Hauptthread anlegen (Timer, Signale)
+                from PySide6.QtWidgets import QApplication
+                app = QApplication.instance()
+                if app is not None and svc.thread() is not app.thread():
+                    svc.moveToThread(app.thread())
+            except Exception:
+                pass
+            cls._instances[name] = svc
         return cls._instances[name]
 
     def __init__(self):

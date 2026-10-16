@@ -5,6 +5,23 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.13.2
+### Diálogo de impresión: vista previa en segundo plano
+- **Vista previa sin esperas:** la hoja se monta y dibuja ahora en el proceso de renderizado; la ventana ya no espera por ello. Con un archivo grande, la vista previa tarda 0,001 s en la ventana principal, en lugar de bloqueos de hasta 6 s como antes. Si se cambia algo mientras sigue calculando, solo se dibuja hasta el final el estado más reciente.
+- El tiempo de espera sigue ahí: la vista previa no está lista antes de 2–5 s, porque dibujar la página en sí tarda eso. Pero la ventana se puede seguir usando mientras tanto.
+- **Varias copias (p. ej. step & repeat):** la página se renderiza una sola vez en lugar de una por copia – aproximadamente el doble de rápido. La imagen se desvía mínimamente por ser una imagen de trama; solo con tramas muy finas se ve un ligero moiré. Para imprimir se sigue usando el original.
+- **Sin varias copias** la vista previa es idéntica al píxel a la de antes (comparado para páginas sueltas, 9 en 1, folleto, pliegos y dúplex).
+- **Formato final/sangrado** sale ahora de los datos de página sin cargar las páginas; los valores son los mismos que antes.
+- **Vista general de pliegos** se calcula también en segundo plano.
+- **Todavía en la ventana principal:** cambiar a «Folleto como pliegos» tarda aún unos 0,9 s; la generación de los pliegos no se ha sacado fuera.
+- **Vista de página:** las imágenes de página grandes se escalan en bruto inmediatamente al hacer zoom; la imagen nítida llega en segundo plano. El límite superior de la imagen de página sigue siendo de 16 megapíxeles.
+
+### Fusionar en Windows
+- **Una ventana:** si llegan varios archivos a la vez, todos caen en la misma ventana. Probado con 12 llamadas simultáneas: 1 ventana, 12 archivos, ordenados por nombre.
+- **Botones nuevos:** «Añadir carpeta …», subir/bajar y «Ordenar por nombre». Los archivos también se pueden arrastrar; se muestra cuántos hay dentro.
+- **Para muchos planos:** lo mejor es «Enviar a → Passermark – fusionar» – pasa todos los archivos de una vez y se crea una única vez en el primer inicio. Como alternativa, añadir la carpeta entera en la ventana.
+- **Barra lateral:** las páginas marcadas se pueden mover. La barra amarilla muestra dónde quedarán; en el borde la barra sigue desplazándose automáticamente.
+
 ## 1.13.1
 ### Corrección de velocidad
 - Pequeñas mejoras de velocidad en la nueva vista (renderizado).
