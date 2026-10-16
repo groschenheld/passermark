@@ -59,6 +59,20 @@ class Controller(QObject):
         self.hosts = []                   # Fensterrahmen (je einer mit einem oder mehreren Reitern)
         self.server: QLocalServer | None = None
         self.view_single = True       # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
+        self._start_stallwatch()
+
+    def _start_stallwatch(self):
+        """Ruckler-Protokoll (ruckler.txt im Ordner der Fehlerprotokolle): Hänger der Oberfläche mit Ursache."""
+        try:
+            from . import crashlog
+            from .gui.renderclient import RenderService
+            from .gui.stallwatch import StallWatch
+
+            def ctx():
+                return "Vorschau im Programm" if not RenderService.get().ok else ""
+            self._stallwatch = StallWatch(os.path.join(crashlog.log_dir(), "ruckler.txt"), ctx).start(self)
+        except Exception:
+            self._stallwatch = None
 
     # ---------------------------------------------------------------- #
     # ---------------------------------------------------------------- #

@@ -99,7 +99,8 @@ print("SMOKE-OK")
 
 def test_start_and_basic_actions():
     env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               HOME="/tmp/_smoke_home", PASSERMARK_LANG="en", PDFTOOLKIT_LANG="en", PDFTOOLBOX_LANG="en")
+               HOME="/tmp/_smoke_home", PASSERMARK_LANG="en", PDFTOOLKIT_LANG="en", PDFTOOLBOX_LANG="en",
+               PASSERMARK_RENDER="local")     # Qt-Attrappe hat keine Ereignisschleife: alles im Programm
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT, SAMPLE], capture_output=True, text=True, env=env, timeout=300)
     assert "SMOKE-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]

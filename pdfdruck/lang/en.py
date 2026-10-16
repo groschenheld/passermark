@@ -6,6 +6,9 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Änderung wird übernommen …': 'Applying the change …',
+    '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objects on the page – shown: all images and the {1} largest.',
+    'Änderung wird geprüft …': 'Checking the change …',
     'Fotos als JPEG gespeichert (Qualität {0})': 'Photos saved as JPEG (quality {0})',
     '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} photo(s) stored as ZIP instead of JPEG ({1:.0f} MB) – as JPEG usually only a tenth of the size. Repair: “Reduce file size …” → “Save photos as JPEG”.',
     'Verlustbehaftet (optional)': 'Lossy (optional)',

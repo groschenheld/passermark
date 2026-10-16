@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 import subprocess
 import tempfile
 
@@ -56,8 +57,11 @@ class _Reader(QThread):
                     break
                 img = None
                 if n and head.get("ok"):
-                    fmt = QImage.Format.Format_RGB32 if head.get("fmt") == "bgrx" else QImage.Format.Format_BGR888
-                    img = QImage(data, head["w"], head["h"], head["stride"], fmt).copy()
+                    if head.get("fmt") == "pickle":
+                        img = pickle.loads(data)             # nur von unserem eigenen Prozess
+                    else:
+                        fmt = QImage.Format.Format_RGB32 if head.get("fmt") == "bgrx" else QImage.Format.Format_BGR888
+                        img = QImage(data, head["w"], head["h"], head["stride"], fmt).copy()
                 self.got.emit(head, img)
         except Exception:
             pass
@@ -65,14 +69,16 @@ class _Reader(QThread):
 
 
 class RenderService(QObject):
-    """Program-wide render process with a simple scheduler."""
-    _instance = None
+    """Program-wide render process with a simple scheduler.
+        get("render") draws pages; get("analysis") runs the slow checks (preflight, verification after
+        editing) in a second process, so a check never holds up the picture and vice versa."""
+    _instances: dict = {}
 
     @classmethod
-    def get(cls) -> "RenderService":
-        if cls._instance is None:
-            cls._instance = RenderService()
-        return cls._instance
+    def get(cls, name: str = "render") -> "RenderService":
+        if name not in cls._instances:
+            cls._instances[name] = RenderService()
+        return cls._instances[name]
 
     def __init__(self):
         super().__init__()
@@ -132,9 +138,9 @@ class RenderService(QObject):
             self.reader.wait(2000)
             self.reader = None
 
-    def _send(self, req: dict) -> bool:
+    def _send(self, req: dict, payload: bytes = b"") -> bool:
         try:
-            self.proc.stdin.write(json.dumps(req).encode("utf-8") + b"\n")
+            self.proc.stdin.write(json.dumps(req).encode("utf-8") + b"\n" + payload)
             self.proc.stdin.flush()
             return True
         except Exception:
@@ -156,6 +162,21 @@ class RenderService(QObject):
 
     def close_doc(self, key: str, on_done=None):
         self.ops.append({"op": "close", "doc": key, "cb": on_done})
+        self.kick()
+
+    def call(self, fn: str, args: dict, on_done):
+        """Funktion im Prozess ausführen (siehe renderproc.CALLS); on_done(err, result)."""
+        self.ops.append({"op": "call", "fn": fn, "args": args, "cb2": on_done})
+        self.kick()
+
+    def lists(self, key: str, page: int, kind: str, on_done):
+        """Bearbeiten-Modus: Textzeilen ("text") bzw. Objekte ("objects") einer Seite."""
+        self.ops.append({"op": "lists", "doc": key, "page": page, "kind": kind, "cb2": on_done})
+        self.kick()
+
+    def chars(self, key: str, page: int, on_done):
+        """Zeichenkästen einer Seite (für den Text-Cursor ohne die Seite im Programm zu laden)."""
+        self.ops.append({"op": "chars", "doc": key, "page": page, "cb2": on_done})
         self.kick()
 
     def kick(self):
@@ -185,8 +206,13 @@ class RenderService(QObject):
         self._id += 1
         req["id"] = self._id
         self.busy = req
-        wire = {k: v for k, v in req.items() if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop")}
-        if not self._send(wire):
+        wire = {k: v for k, v in req.items()
+                if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind")}
+        payload = b""
+        if req.get("op") == "call":                         # Argumente können Objekte sein (Zeilen, Objekte)
+            payload = pickle.dumps(req.get("args") or {})
+            wire["n"] = len(payload)
+        if not self._send(wire, payload):
             self.busy = None
             self._on_dead()
 
@@ -199,7 +225,13 @@ class RenderService(QObject):
         cb = req.get("cb")
         if cb is not None:
             try:
-                cb(err)
+                cb(err) if req.get("op") != "open" else cb(err, img)
+            except Exception:
+                pass
+        cb2 = req.get("cb2")
+        if cb2 is not None:
+            try:
+                cb2(err, img)
             except Exception:
                 pass
         src = req.get("source")
@@ -215,6 +247,11 @@ class RenderService(QObject):
         req, self.busy = self.busy, None
         self.proc = None
         self.restarts += 1
+        if req is not None and req.get("cb2") is not None:
+            try:
+                req["cb2"]("render process ended", None)
+            except Exception:
+                pass
         if self.restarts > 2:
             self._fail_all()
             return
@@ -232,6 +269,12 @@ class RenderService(QObject):
 
     def _fail_all(self):
         self.ok = False
+        for op in self.ops:
+            if op.get("cb2") is not None:
+                try:
+                    op["cb2"]("render process unavailable", None)
+                except Exception:
+                    pass
         self.ops = []
         for src in list(self.sources):
             try:

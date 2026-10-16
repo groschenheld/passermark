@@ -2,9 +2,9 @@
 # Passermark – Copyright (C) 2026 Hias
 """Render-Prozess der Seitenansicht (passermark-cli render-server): Öffnen, ganze Seite, Ausschnitt (auch
     gedreht, pixelgleich zum Ausschnitt der ganzen Seite), Fehler ohne Absturz, Datei bleibt frei."""
-import io
 import json
 import os
+import pickle
 import subprocess
 import sys
 import tempfile
@@ -58,8 +58,10 @@ def test_render_server():
     _pdf(path)
     s = Server()
     try:
-        h, _ = s(op="open", id=1, doc="x", path=path)
+        h, info = s(op="open", id=1, doc="x", path=path)
         assert h["ok"] and h["pages"] == 1
+        pi = pickle.loads(info)
+        assert pi[0]["crop"] == (0.0, 0.0, 300.0, 200.0) and pi[0]["rotate"] == 0
         os.replace(path, path + ".alt")                  # Datei ist frei (im Speicher) – Speichern darüber geht
         for rot in (0, 90):
             h, data = s(op="render", id=2, doc="x", page=0, scale=2.0, rotation=rot)
@@ -76,6 +78,17 @@ def test_render_server():
         assert not h["ok"] and h["error"]                 # Fehler zurück, Server läuft weiter
         h, _ = s(op="render", id=5, doc="gibtsnicht", page=0, scale=1.0)
         assert not h["ok"]
+        h, data = s(op="chars", id=7, doc="x", page=0)
+        assert h["ok"] and pickle.loads(data) == []        # kein Text auf der Seite
+        h, data = s(op="lists", id=8, doc="x", page=0, kind="objects")
+        objs, total = pickle.loads(data)
+        assert total == 2 and {o.kind for o in objs} == {"image", "path"}
+        args = pickle.dumps({"path": path + ".alt", "deep_layers": False})
+        s.p.stdin.write(json.dumps({"op": "call", "id": 9, "fn": "preflight", "n": len(args)}).encode() + b"\n" + args)
+        s.p.stdin.flush()
+        head = json.loads(s.p.stdout.readline())
+        rep = pickle.loads(s.p.stdout.read(head["n"]))
+        assert head["ok"] and rep.pages == 1 and rep.size is not None, head
         h, _ = s(op="close", id=6, doc="x")
         assert h["ok"]
     finally:

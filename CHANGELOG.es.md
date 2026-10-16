@@ -5,6 +5,10 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.13.1
+### Corrección de velocidad
+- Pequeñas mejoras de velocidad en la nueva vista (renderizado).
+
 ## 1.13.0
 ### Vista más rápida (renovación del renderizado)
 - **Renderizado en un proceso aparte:** las páginas las renderiza un proceso en segundo plano (`passermark-cli render-server`); la interfaz nunca espera por él. Solo hay una petición en vuelo, así que al hojear rápido no se acumulan peticiones anticuadas. Si el proceso se cuelga, se reinicia; si no arranca (o el PDF está protegido con contraseña), la vista renderiza dentro del programa como antes.
@@ -13,17 +17,6 @@
 - **Guardar sobre el mismo archivo ya funciona en Windows:** el archivo se lee en memoria y queda libre en el disco.
 - **Modo de edición:** al arrastrar, el objeto acompaña semitransparente; al aplicar, las imágenes antiguas quedan como marcadores de posición y se renuevan en segundo plano, primero la página editada. Antes todo se volvía blanco y todas las miniaturas se volvían a renderizar en la ventana principal.
 - **La comprobación automática lee los archivos sin cambios directamente** – al abrir se ahorra el volver a guardar en la ventana principal.
-
-Medido con el archivo de prueba de 309 MB (cuánto se congelaba la interfaz):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Abrir | 5,6 s | 1,1 s |
-| Zoom (3 niveles) | 1,5 s | 0,02 s |
-| Pasar página | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, borroso | 0,03 s, nítido |
-| Arrastrar objeto | – | 0,01 s, el objeto acompaña como imagen |
-
 - Localizar errores: con `PASSERMARK_RENDER=local` todo funciona como antes – así se comprueba rápido si la causa es el nuevo proceso de renderizado.
 - Limitación conocida: soltar un objeto en el modo de edición tarda aún unos 1 s en páginas pesadas (la comprobación de seguridad compara la página antes y después). Un elemento usado en varias páginas puede cambiar en todas por una edición; por eso tras editar se vuelven a renderizar todas las páginas en segundo plano, primero la editada.
 

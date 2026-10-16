@@ -32,6 +32,13 @@ def _err(parent, e):
     box.exec()
 
 
+def _rm(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
 class EditPanel(QWidget):
     def __init__(self, win):
         super().__init__(win)
@@ -46,6 +53,9 @@ class EditPanel(QWidget):
         self._dstate = None
         self.sel_box = None          # Auswahlrahmen (Seitenkoordinaten)
         self._loaded = None          # (page, tab) for which the lists are filled
+        self._lists = {}             # (Dokumentstand, Seite, Art) -> Zeilen/Objekte (aus dem Render-Prozess)
+        self._pending_sel = None     # Neuauswahl nach einer Änderung, sobald die Listen da sind
+        self._busy = False
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
         hint = QLabel(tr("Bearbeiten-Modus: auf der Seite klicken wählt eine Textzeile bzw. Ebene aus."))
@@ -211,12 +221,62 @@ class EditPanel(QWidget):
         del self.undo[:-20]
         self.btn_undo.setEnabled(True)
 
-    def _replace_doc(self, data: bytes, pages=None):
-        """pages: nur diese Seiten wurden geändert – Vorschau/Miniaturen der übrigen bleiben stehen."""
+    def _replace_doc(self, data: bytes, pages=None, src_path=None):
+        """pages: bearbeitete Seiten (alte Vorschau bleibt als Platzhalter). src_path: die Bytes liegen schon als
+            Zwischendatei vor (von der Prüfung) – die Vorschau übernimmt sie statt neu zu schreiben."""
         import pypdfium2 as pdfium
         page = self.page
         self.win._set_doc(pdfium.PdfDocument(data), self.win.path, self.win.display_name, True, keep_page=page,
-                          src=data, changed_pages=pages)
+                          src=src_path if src_path and os.path.isfile(src_path) else data, changed_pages=pages)
+
+    def _verify(self, data: bytes, new: bytes, ignore_boxes) -> tuple:
+        """editing.verify_edit im Analyse-Prozess (rendert die Seite vorher/nachher – bei großen Fotos Sekunden).
+            Das Fenster bleibt dabei bedienbar, nur dieser Bereich ist gesperrt. -> (Fehlertext, Zwischendatei)"""
+        from .renderclient import RenderService
+        svc = RenderService.get("analysis")
+        if not svc.ok or self.win.view._local:
+            return editing.verify_edit(data, new, self.page, ignore_boxes), None
+        import tempfile
+        from PySide6.QtCore import QEventLoop
+        paths = []
+        try:
+            for b in (data, new):
+                fd, pth = tempfile.mkstemp(prefix="passermark-view-", suffix=".pdf")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(b)
+                paths.append(pth)
+        except OSError:
+            for pth in paths:
+                _rm(pth)
+            return editing.verify_edit(data, new, self.page, ignore_boxes), None
+        res = {}
+        loop = QEventLoop()
+
+        def got(err, result):
+            res["err"], res["result"] = err, result
+            loop.quit()
+        self._busy = True
+        self.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
+        self.win.statusBar().showMessage(tr("Änderung wird geprüft …"))
+        try:
+            svc.call("verify", {"before": paths[0], "after": paths[1], "page": self.page,
+                                "boxes": [list(b) for b in ignore_boxes]}, got)
+            if "err" not in res:
+                loop.exec()
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.setEnabled(True)
+            self._busy = False
+            self.win.statusBar().clearMessage()
+            _rm(paths[0])
+        if res.get("err") or not isinstance(res.get("result"), str):
+            _rm(paths[1])                               # Prozess nicht verfügbar: wie bisher im Programm
+            return editing.verify_edit(data, new, self.page, ignore_boxes), None
+        if res["result"]:
+            _rm(paths[1])
+            return res["result"], None
+        return "", paths[1]
         self.lmap_key = None
         self.refresh()
 
@@ -274,7 +334,7 @@ class EditPanel(QWidget):
         return None
 
     def press(self, page, x, y, tol, ctrl=False):
-        if page != self.page:
+        if page != self.page or getattr(self, "_busy", False):
             return
         self._ensure_loaded(page)
         self._dstate = None
@@ -338,6 +398,8 @@ class EditPanel(QWidget):
     def release(self, page, x, y):
         """Release: apply move/scale (layer or text row), with undo."""
         d, self._dstate = self._dstate, None
+        if getattr(self, "_busy", False):
+            return
         if d is None or page != self.page:
             return
         s, dx, dy, nb = self._preview(x, y, d)
@@ -364,7 +426,8 @@ class EditPanel(QWidget):
                         new = self._pdfium_edit(new, self.page,
                                                 lambda d: editing.transform_lines_bulk(d, self.page, pending, s, dx, dy, origin))[0]
                     return new
-                if self._text_edit(run, [L.bbox for L in lines] + [nb]):
+                if self._text_edit(run, [L.bbox for L in lines] + [nb], op="move_lines",
+                                   kwargs={"lines": lines, "s": s, "dx": dx, "dy": dy, "origin": origin}):
                     self._reselect_text(nb)
             elif self.tabs.currentIndex() == 1:
                 objs = self._selected_objects()
@@ -374,7 +437,8 @@ class EditPanel(QWidget):
                 def run_obj(data):
                     return self._pdfium_edit(data, self.page,
                                              lambda d: editing.transform_objects_bulk(d, self.page, objs, s, dx, dy, origin))[0]
-                if self._text_edit(run_obj, [O.bbox for O in objs] + [nb]):
+                if self._text_edit(run_obj, [O.bbox for O in objs] + [nb], op="move_objects",
+                                   kwargs={"objs": objs, "s": s, "dx": dx, "dy": dy, "origin": origin}):
                     self._reselect_object(nb)
             else:
                 L = self._layer_key()
@@ -393,6 +457,7 @@ class EditPanel(QWidget):
     def _reselect_text(self, box):
         """After reloading, select the moved row again (the one nearest the new position)."""
         if not self.lines:
+            self._pending_sel = ("text", box)              # Liste kommt noch
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
         best = min(self.lines, key=lambda L: abs((L.bbox[0] + L.bbox[2]) / 2 - cx) + abs((L.bbox[1] + L.bbox[3]) / 2 - cy))
@@ -404,6 +469,7 @@ class EditPanel(QWidget):
     def _reselect_object(self, box):
         """After reloading, select the moved object again (nearest to the new position)."""
         if not self.objects:
+            self._pending_sel = ("object", box)            # Liste kommt noch
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
         best = min(self.objects, key=lambda O: abs((O.bbox[0] + O.bbox[2]) / 2 - cx)
@@ -556,10 +622,64 @@ class EditPanel(QWidget):
         if L is not None:
             self._zorder(None, "back", layer_key=L.key)
 
+    # ---------------- Listen (im Render-Prozess aufgebaut) ---------------- #
+    def _fetch(self, kind: str):
+        """Zeilen ("text") bzw. Objekte ("objects") der aktuellen Seite – bei großen Seiten dauert das; darum
+            im Render-Prozess. Liefert None, solange sie unterwegs sind (die Liste zeigt „Lade …“)."""
+        view = self.win.view
+        page = self.page
+        if view._local or view._rkey is None:
+            return editing.text_lines(self.win.doc, page, include_undecodable=True) if kind == "text" \
+                else editing.limit_objects(editing.page_objects(self.win.doc, page))
+        key = (view._gen, page, kind)
+        if key in self._lists:
+            v = self._lists[key]
+            return None if v == "pending" else v
+        self._lists = {k: v for k, v in self._lists.items() if k[0] == view._gen}     # alte Stände weg
+        self._lists[key] = "pending"
+        from .renderclient import RenderService
+
+        def got(err, result, key=key, rkey=view._rkey):
+            if err or not isinstance(result, (list, tuple)):
+                try:                                    # Rückfall: im Programm
+                    d = self.win.doc
+                    result = editing.text_lines(d, key[1], include_undecodable=True) if key[2] == "text" \
+                        else editing.limit_objects(editing.page_objects(d, key[1]))
+                except Exception:
+                    result = [] if key[2] == "text" else ([], 0)
+            self._lists[key] = result
+            if key[0] == self.win.view._gen and key[1] == self.page and self.win.a_edit.isChecked():
+                self._loaded = None
+                self.refresh()
+        RenderService.get().lists(view._rkey, page, kind, got)
+        return None
+
+    def _show_loading(self, lst, tab):
+        lst.blockSignals(True)
+        lst.setUpdatesEnabled(False)
+        lst.clear()
+        lst.setUpdatesEnabled(True)
+        lst.addItem(QListWidgetItem(tr("Lade …")))
+        lst.item(0).setFlags(Qt.ItemFlag.NoItemFlags)
+        lst.blockSignals(False)
+        self.tabs.setTabText(tab, self._tab_names[tab] + " …")
+
+    def _apply_pending_sel(self):
+        ps, self._pending_sel = self._pending_sel, None
+        if ps is None:
+            return
+        kind, arg = ps
+        {"text": self._reselect_text, "object": self._reselect_object}[kind](arg)
+
     # ---------------- Text ---------------- #
     def _fill_text(self):
         cur = self.lst_text.currentRow()
-        self.lines = editing.text_lines(self.win.doc, self.page, include_undecodable=True)
+        lines = self._fetch("text")
+        if lines is None:
+            self.lines = []
+            self._show_loading(self.lst_text, 0)
+            return
+        self.lines = lines
         self.lst_text.blockSignals(True)
         self.lst_text.clear()
         for L in self.lines:
@@ -572,6 +692,8 @@ class EditPanel(QWidget):
         self.tabs.setTabText(0, tr("Text ({0})").format(len(self.lines)))
         if 0 <= cur < len(self.lines):
             self.lst_text.setCurrentRow(cur)
+        if self._pending_sel and self._pending_sel[0] == "text":
+            self._apply_pending_sel()
 
     def _text_selected(self, row):
         if not (0 <= row < len(self.lines)):
@@ -616,6 +738,7 @@ class EditPanel(QWidget):
             L = sel[0]
             size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
             text = self.ed_text.text()
+            op, kw = "edit_line", {"line": L, "text": text, "font": font, "size": size_arg}
 
             def run(data):
                 new, notes = editing.edit_line_bytes(data, self.page, L, text, font, size_arg)
@@ -624,6 +747,8 @@ class EditPanel(QWidget):
         else:
             # mehrere Zeilen: Schrift/Größe für alle; nach jeder Änderung die nächste Zeile neu suchen
             # (Objektnummern können sich durch die Änderung verschieben)
+            op, kw = "edit_lines", {"lines": sel, "font": font, "size": size}
+
             def run(data):
                 import pypdfium2 as pdfium
                 cur = data
@@ -644,7 +769,7 @@ class EditPanel(QWidget):
                             holder["notes"].append(n)
                 return cur
         try:
-            if self._text_edit(run, [self._wide_box(L) for L in sel]):
+            if self._text_edit(run, [self._wide_box(L) for L in sel], op=op, kwargs=kw, info=holder):
                 if holder.get("notes"):
                     QMessageBox.information(self, tr("Hinweis"), "\n\n".join(holder["notes"]))
         except Exception as e:
@@ -655,7 +780,8 @@ class EditPanel(QWidget):
         if not sel:
             return
         try:
-            if self._text_edit(lambda data: editing.remove_lines_ops(data, self.page, sel), [L.bbox for L in sel]):
+            if self._text_edit(lambda data: editing.remove_lines_ops(data, self.page, sel), [L.bbox for L in sel],
+                               op="remove_lines", kwargs={"lines": sel}):
                 self._overlay(None)
         except Exception as e:
             _err(self, e)
@@ -695,7 +821,9 @@ class EditPanel(QWidget):
             holder["unsafe"] = new is None
             return new
         try:
-            self._text_edit(run, [(b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2) for b in boxes])
+            self._text_edit(run, [(b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2) for b in boxes], op="recolor",
+                            kwargs={"color": color, "lines": lines, "objs": objs, "fill": fill, "stroke": stroke},
+                            info=holder)
             if holder.get("unsafe"):
                 QMessageBox.information(self, tr("Farbe"), tr("Auf dieser Seite lässt sich die Farbe nicht sicher "
                                                               "zuordnen – das Dokument bleibt unverändert."))
@@ -704,29 +832,108 @@ class EditPanel(QWidget):
         except Exception as e:
             _err(self, e)
 
-    def _text_edit(self, fn, ignore_boxes, notes=None) -> bool:
-        """fn(data) -> new data. Runs on a copy, is verified, then adopted."""
+    def _text_edit(self, fn, ignore_boxes, notes=None, op=None, kwargs=None, info=None) -> bool:
+        """fn(data) -> new data. Runs on a copy, is verified, then adopted.
+            op/kwargs: dieselbe Änderung als benannte Operation (editops) – läuft dann samt Prüfung im
+            Analyse-Prozess, das Fenster bleibt bedienbar. info: bekommt "notes"/"unsafe" zurück."""
         self.win.view._close_textpages()                 # no open pages of the view during the change
+        if op is not None and self._offload_ok():
+            r = self._edit_offloaded(op, kwargs or {}, ignore_boxes, info)
+            if r is not None:
+                if r and notes:
+                    QMessageBox.information(self, tr("Hinweis"), "\n\n".join(notes))
+                return r
         data = self.win._doc_bytes()
         new = fn(data)
         if new is None or new == data:
             return False                                 # nichts geändert: kein Rückgängig-Schritt, nicht „geändert“
-        err = editing.verify_edit(data, new, self.page, ignore_boxes)
+        err, new_path = self._verify(data, new, ignore_boxes)
         if err:
-            from pypdfium2 import version as _v
-            box = QMessageBox(QMessageBox.Icon.Warning, tr("Änderung nicht übernommen"),
-                              err + "\n\n" + tr("Das Dokument bleibt unverändert. Bitte die Datei an den Entwickler "
-                                                "schicken, damit der Fall gelöst werden kann."), parent=self)
-            box.setDetailedText(f"pypdfium2 {getattr(_v, 'PYPDFIUM_INFO', '?')} · pdfium {getattr(_v, 'PDFIUM_INFO', '?')}\n"
-                                f"Seite {self.page + 1}\n{err}")
-            box.exec()
+            self._verify_failed(err)
             return False
         self.undo.append(data)
         del self.undo[:-20]
         self.btn_undo.setEnabled(True)
-        self._replace_doc(new, [self.page])          # verify_edit: nur diese Seite hat sich geändert
+        self._replace_doc(new, [self.page], src_path=new_path)
         if notes:
             QMessageBox.information(self, tr("Hinweis"), "\n\n".join(notes))
+        return True
+
+    def _verify_failed(self, err):
+        from pypdfium2 import version as _v
+        box = QMessageBox(QMessageBox.Icon.Warning, tr("Änderung nicht übernommen"),
+                          err + "\n\n" + tr("Das Dokument bleibt unverändert. Bitte die Datei an den Entwickler "
+                                            "schicken, damit der Fall gelöst werden kann."), parent=self)
+        box.setDetailedText(f"pypdfium2 {getattr(_v, 'PYPDFIUM_INFO', '?')} · pdfium {getattr(_v, 'PDFIUM_INFO', '?')}\n"
+                            f"Seite {self.page + 1}\n{err}")
+        box.exec()
+
+    def _offload_ok(self) -> bool:
+        from .renderclient import RenderService
+        view = self.win.view
+        return bool(RenderService.get("analysis").ok and not view._local and view._src_path
+                    and os.path.isfile(view._src_path))
+
+    def _wait_call(self, fn, args, message):
+        """Aufruf im Analyse-Prozess. Das Fenster bleibt bedienbar (Vorschau, Scrollen), nur dieser Bereich
+            ist gesperrt, bis das Ergebnis da ist. -> (Fehler des Prozesses, Ergebnis)"""
+        from PySide6.QtCore import QEventLoop
+        from .renderclient import RenderService
+        res = {}
+        loop = QEventLoop()
+
+        def got(err, result):
+            res["err"], res["result"] = err, result
+            loop.quit()
+        self._busy = True
+        self.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
+        self.win.statusBar().showMessage(message)
+        try:
+            RenderService.get("analysis").call(fn, args, got)
+            if "err" not in res:
+                loop.exec()
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.setEnabled(True)
+            self._busy = False
+            self.win.statusBar().clearMessage()
+        return res.get("err"), res.get("result")
+
+    def _edit_offloaded(self, op, kwargs, ignore_boxes, info):
+        """Änderung + Prüfung im Analyse-Prozess. -> True/False, oder None = Prozess nicht nutzbar (Rückfall)."""
+        import tempfile
+        view = self.win.view
+        before, page = view._src_path, self.page
+        fd, out = tempfile.mkstemp(prefix="passermark-view-", suffix=".pdf")
+        os.close(fd)
+        err, res = self._wait_call("edit", {"before": before, "out": out, "page": page, "op": op, "kwargs": kwargs,
+                                            "boxes": [list(b) for b in ignore_boxes]},
+                                   tr("Änderung wird übernommen …"))
+        if err or not isinstance(res, dict):
+            _rm(out)
+            return None
+        if info is not None:
+            info["notes"] = res.get("notes") or []
+            info["unsafe"] = bool(res.get("unsafe"))
+        if res.get("error"):
+            _rm(out)
+            raise ValueError(res["error"])
+        if res.get("err"):
+            _rm(out)
+            self._verify_failed(res["err"])
+            return False
+        if not res.get("changed"):
+            _rm(out)
+            return False
+        with open(before, "rb") as f:
+            data = f.read()
+        with open(out, "rb") as f:
+            new = f.read()
+        self.undo.append(data)
+        del self.undo[:-20]
+        self.btn_undo.setEnabled(True)
+        self._replace_doc(new, [page], src_path=out)
         return True
 
     @staticmethod
@@ -759,7 +966,12 @@ class EditPanel(QWidget):
     # ---------------- Objekte ---------------- #
     def _fill_objects(self):
         cur = self.lst_objects.currentRow()
-        self.objects = editing.page_objects(self.win.doc, self.page)
+        got = self._fetch("objects")
+        if got is None:
+            self.objects = []
+            self._show_loading(self.lst_objects, 1)
+            return
+        self.objects, total = got
         self.lst_objects.blockSignals(True)
         self.lst_objects.clear()
         for O in self.objects:
@@ -782,8 +994,13 @@ class EditPanel(QWidget):
         self._object_filter()
         if not self.objects:
             self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
+        elif total > len(self.objects):
+            self.lbl_object.setText(tr("{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.")
+                                    .format(total, len(self.objects)))
         if 0 <= cur < len(self.objects) and not self.lst_objects.isRowHidden(cur):
             self.lst_objects.setCurrentRow(cur)
+        if self._pending_sel and self._pending_sel[0] == "object":
+            self._apply_pending_sel()
 
     def _object_filter(self, *_):
         """Nur Vektoren / nur Bilder zeigen (Zeilen bleiben, werden ausgeblendet – Indizes stimmen weiter)."""
@@ -819,7 +1036,8 @@ class EditPanel(QWidget):
         try:
             if self._text_edit(lambda data: self._pdfium_edit(
                     data, self.page, lambda d: editing.transform_objects_bulk(d, self.page, sel, scale, dx, dy, origin))[0],
-                    [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)]):
+                    [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
+                    op="move_objects", kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin}):
                 self._reselect_object(self._grow_box(moved, scale) if len(sel) == 1 else moved)
         except Exception as e:
             _err(self, e)
@@ -831,7 +1049,8 @@ class EditPanel(QWidget):
             return
         try:
             if self._text_edit(lambda data: self._pdfium_edit(
-                    data, self.page, lambda d: editing.delete_objects(d, self.page, sel))[0], [O.bbox for O in sel]):
+                    data, self.page, lambda d: editing.delete_objects(d, self.page, sel))[0], [O.bbox for O in sel],
+                    op="delete_objects", kwargs={"objs": sel}):
                 self._overlay(None)
         except Exception as e:
             _err(self, e)

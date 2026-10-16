@@ -5,6 +5,10 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.13.1
+### Correctif de vitesse
+- Légères améliorations de vitesse dans la nouvelle vue (rendu).
+
 ## 1.13.0
 ### Vue plus rapide (refonte du rendu)
 - **Rendu dans un processus séparé :** les pages sont rendues par un processus en arrière-plan (`passermark-cli render-server`) ; l'interface n'attend plus jamais. Une seule demande est en vol à la fois – en feuilletant vite, les demandes périmées ne s'accumulent plus. Si le processus plante, il redémarre ; s'il ne démarre pas (ou si le PDF est protégé par mot de passe), la vue rend dans le programme comme avant.
@@ -13,17 +17,6 @@
 - **Enregistrer sur le même fichier fonctionne maintenant sous Windows :** le fichier est lu en mémoire et reste libre sur le disque.
 - **Mode édition :** pendant le déplacement, l'objet suit en semi-transparent ; après application, les anciennes images restent comme espaces réservés et sont renouvelées en arrière-plan, la page éditée d'abord. Avant, tout devenait blanc et toutes les vignettes étaient rendues à nouveau dans la fenêtre principale.
 - **Le contrôle automatique lit directement les fichiers non modifiés** – à l'ouverture, le réenregistrement dans la fenêtre principale disparaît.
-
-Mesuré avec le fichier de test de 309 Mo (combien de temps l'interface gelait) :
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Ouvrir | 5,6 s | 1,1 s |
-| Zoom (3 niveaux) | 1,5 s | 0,02 s |
-| Tourner la page | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, flou | 0,03 s, net |
-| Déplacer un objet | – | 0,01 s, l'objet suit comme image |
-
 - Dépannage : avec `PASSERMARK_RENDER=local`, tout fonctionne comme avant – un moyen rapide de savoir si la cause est le nouveau processus de rendu.
 - Limite connue : relâcher un objet en mode édition prend encore environ 1 s sur les pages lourdes (le contrôle de sécurité compare la page avant et après). Un élément utilisé sur plusieurs pages peut changer partout par une modification ; c'est pourquoi après l'édition toutes les pages sont rendues à nouveau en arrière-plan, celle éditée en premier.
 

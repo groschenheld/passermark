@@ -6,6 +6,9 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Änderung wird übernommen …': 'A módosítás alkalmazása …',
+    '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objektum az oldalon – megjelenítve: minden kép és a {1} legnagyobb.',
+    'Änderung wird geprüft …': 'A módosítás ellenőrzése …',
     'Fotos als JPEG gespeichert (Qualität {0})': 'Fotók JPEG-ként mentve ({0}-es minőség)',
     '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} fotó ZIP-ként tárolva JPEG helyett ({1:.0f} MB) – JPEG-ként általában csak a tizede. Javítás: „Fájlméret csökkentése …” → „Fotók mentése JPEG-ként”.',
     'Verlustbehaftet (optional)': 'Veszteséges (opcionális)',

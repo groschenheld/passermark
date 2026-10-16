@@ -5,6 +5,10 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.13.1
+### Sebességjavítás
+- Kisebb sebességjavulások az új nézetben (renderelés).
+
 ## 1.13.0
 ### Gyorsabb nézet (renderelés-átvizsgálás)
 - **Renderelés külön folyamatban:** az oldalokat egy háttérfolyamat rendereli (`passermark-cli render-server`); a felület sosem vár rá. Egyszerre mindig csak egy kérés van útban – gyors lapozásnál nem halmozódnak az elavult kérések. Ha a folyamat összeomlik, újraindul; ha egyáltalán nem indul (vagy a PDF jelszóval védett), a nézet a programon belül renderel, mint régen.
@@ -13,17 +17,6 @@
 - **Ugyanarra a fájlba mentés Windowson is megy:** a fájl a memóriába olvasódik és lemezre szabadon marad.
 - **Szerkesztő mód:** húzás közben az objektum félig átlátszóan fut vele; alkalmazás után a régi képek helyőrzőként maradnak és a háttérben megújulnak, először a szerkesztett oldal. Korábban minden elfehéredett, és az összes miniatűrt a főablakban renderelték újra.
 - **Az automatikus ellenőrzés a változatlan fájlokat közvetlenül olvassa** – megnyitáskor elmarad az újmentés a főablakban.
-
-A 309 MB-os tesztfájllal mérve (mennyi időre fagyott be a felület):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Megnyitás | 5,6 s | 1,1 s |
-| Zoom (3 szint) | 1,5 s | 0,02 s |
-| Lapozás | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, életlen | 0,03 s, éles |
-| Objektum húzása | – | 0,01 s, az objektum képként fut vele |
-
 - Hiba beszűkítése: `PASSERMARK_RENDER=local` beállítással minden úgy működik, mint előtte – így gyorsan kiderül, hogy az új renderfolyamat-e az ok.
 - Ismert korlát: objektum elengedése szerkesztő módban nehéz oldalakon még kb. 1 s (a biztonsági ellenőrzés hasonlítja össze az oldalt előtte és utána). Több oldalon használt elem egy módosítással mindenhol változhat, ezért szerkesztés után az összes oldal a háttérben újra renderelődik, először a szerkesztett.
 

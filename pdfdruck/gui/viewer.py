@@ -306,6 +306,7 @@ class PageView(QScrollArea):
     zoomChanged = Signal(float)
     viewMoved = Signal()                 # Scrollen/Zoom/Seite -> Lineale neu zeichnen
     masterReady = Signal(int)            # Seitenbild fertig -> Miniatur daraus ableiten
+    infoReady = Signal()                 # Seitendaten (Rahmen, Drehung) vom Render-Prozess da
 
     MASTER_FACTOR = 2.0        # Seitenbild = doppelte Ganze-Seite-Größe: Zoomen bis dahin ohne neu zu rendern
     MASTER_PIXELS = 16_000_000
@@ -354,6 +355,9 @@ class PageView(QScrollArea):
         self._tmp = None          # eigene Zwischendatei für den Render-Prozess
         self._local = False       # im Programm rendern (Render-Prozess nicht verfügbar / Dokument dort nicht ladbar)
         self._rfail = set()       # Seiten, die im Render-Prozess scheiterten
+        self._pinfo = None        # je Seite Rahmen/Drehung (renderproc.page_info) – ohne Seite zu laden
+        self._lazy_boxes = {}     # Rückfall: Rahmen per pdfium, erst bei Bedarf
+        self._chars = {}          # Seite -> Zeichenkästen (numpy) für den Text-Cursor, "pending" = angefragt
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
         self.verticalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
         self.horizontalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
@@ -375,11 +379,8 @@ class PageView(QScrollArea):
         self._snap_stuck = None
         self.doc = doc
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
-        try:
-            from ..layout import page_boxes
-            self.boxes = page_boxes(doc)                 # Endformat/Anschnitt (TrimBox/BleedBox)
-        except Exception:
-            self.boxes = []
+        # Endformat/Anschnitt und Seitenlage kommen vom Render-Prozess (ohne Seiten im Programm zu laden)
+        self._pinfo, self._lazy_boxes, self._chars = None, {}, {}
         self.pages = [PageWidget(i, self) for i in range(len(doc))]
         for w in self.pages:
             w.setParent(self.container)
@@ -411,6 +412,8 @@ class PageView(QScrollArea):
         try:
             if isinstance(src, str) and os.path.isfile(src):
                 path = src
+                if os.path.basename(src).startswith("passermark-view-"):
+                    self._tmp = src                      # Zwischendatei der Prüfung übernehmen (wird später gelöscht)
             else:
                 import tempfile
                 fd, path = tempfile.mkstemp(prefix="passermark-view-", suffix=".pdf")
@@ -426,12 +429,20 @@ class PageView(QScrollArea):
         self._src_path = path
         self._rkey = f"v{id(self)}-{self._gen}"
         svc.register(self)
-        svc.open_doc(self._rkey, path, on_done=lambda err, k=self._rkey: self._render_opened(k, err))
+        svc.open_doc(self._rkey, path, on_done=lambda err, info=None, k=self._rkey: self._render_opened(k, err, info))
 
-    def _render_opened(self, key, err):
-        if err and key == self._rkey:            # z. B. Passwort: diese Ansicht rendert im Programm
+    def _render_opened(self, key, err, info=None):
+        if key != self._rkey:
+            return
+        if err:                                  # z. B. Passwort: diese Ansicht rendert im Programm
             self._local = True
             self._timer.start()
+        elif isinstance(info, list) and len(info) == len(self.pages):
+            self._pinfo = info
+            self._snap = {}
+            for w in self.pages:
+                w.update()
+            self.infoReady.emit()
 
     def release_render(self):
         """Fenster/Reiter zu: Dokument im Render-Prozess schließen, Zwischendatei löschen."""
@@ -456,7 +467,7 @@ class PageView(QScrollArea):
         from .renderclient import RenderService
         if self._rkey is not None and self._src_path and os.path.isfile(self._src_path):
             RenderService.get().open_doc(self._rkey, self._src_path,
-                                         on_done=lambda err, k=self._rkey: self._render_opened(k, err))
+                                         on_done=lambda err, info=None, k=self._rkey: self._render_opened(k, err, info))
 
     def render_fallback(self):
         self._local = True
@@ -852,8 +863,75 @@ class PageView(QScrollArea):
             self._tp[i] = (pg, pg.get_textpage())
         return self._tp[i]
 
+    # ---------------- Seitendaten ohne Seite zu laden ---------------- #
+    def page_info(self, i):
+        return self._pinfo[i] if self._pinfo is not None and 0 <= i < len(self._pinfo) else None
+
+    def page_boxes(self, i):
+        """(TrimBox, BleedBox) für die Anzeige – None, solange unbekannt (Render-Prozess) bzw. nicht definiert."""
+        info = self.page_info(i)
+        if info is not None:
+            return info["trim"], info["bleed"]
+        if not (self._local or (self._rkey is None and self.doc is not None)):
+            return None, None                        # kommt gleich vom Render-Prozess
+        if i not in self._lazy_boxes:                # Rückfall: pdfium, nur diese Seite
+            try:
+                from ..layout import page_boxes as _pb
+
+                class _One:
+                    def __len__(s):
+                        return 1
+
+                    def __getitem__(s, _k):
+                        return self.doc[i]
+                self._lazy_boxes[i] = _pb(_One())[0]
+            except Exception:
+                self._lazy_boxes[i] = (None, None)
+        return self._lazy_boxes[i]
+
+    def trim_info(self, i):
+        """Wie layout.trim_info, aus den Seitendaten (None = unbekannt/kein Anschnitt)."""
+        info = self.page_info(i)
+        if info is None:
+            if self._local or self._rkey is None:
+                from ..layout import trim_info
+                return trim_info(self.doc, i)
+            return None
+        trim = info.get("trim_raw") or info.get("art")
+        if trim is None:
+            return None
+        cl, cb, cr, ct = info["crop"]
+        tl, tb, tr_, tt = (max(trim[0], cl), max(trim[1], cb), min(trim[2], cr), min(trim[3], ct))
+        o = (tl - cl, tb - cb, cr - tr_, ct - tt)
+        rot = info["rotate"]
+        if rot == 1:
+            o = (o[1], o[2], o[3], o[0])
+        elif rot == 2:
+            o = (o[2], o[3], o[0], o[1])
+        elif rot == 3:
+            o = (o[3], o[0], o[1], o[2])
+        if not (max(o) > 0.5 and min(o) >= 0 and (tr_ - tl) > 10 and (tt - tb) > 10):
+            return None
+        w, h = self.sizes[i]
+        mm = 72 / 25.4
+        return ((w - o[0] - o[2]) / mm, (h - o[1] - o[3]) / mm, min(o) / mm)
+
+    def _display_matrix(self, w):
+        """Seite -> Widget wie pdfium, aus den Seitendaten (siehe pagegeom.py). None = Seitendaten fehlen."""
+        info = self.page_info(w.index)
+        if info is None:
+            return None
+        from ..pagegeom import display_matrix
+        return display_matrix(info, w.width(), w.height(), self.rotation)
+
     def to_page(self, w, pos):
-        """Widget-Pixel -> Seitenkoordinaten (pt, PDF-System) – pdfium rechnet Drehung/CropBox ein."""
+        """Widget-Pixel -> Seitenkoordinaten (pt, PDF-System) – Drehung/CropBox wie pdfium."""
+        m = self._display_matrix(w)
+        if m is not None:
+            from ..pagegeom import to_page
+            p = to_page(m, pos.x(), pos.y())
+            if p is not None:
+                return p
         import ctypes
         import pypdfium2.raw as r
         pg, _tp = self._textpage(w.index)
@@ -863,6 +941,11 @@ class PageView(QScrollArea):
         return px.value, py.value
 
     def to_widget(self, w, x, y):
+        m = self._display_matrix(w)
+        if m is not None:
+            from ..pagegeom import to_device
+            dx, dy = to_device(m, x, y)
+            return round(dx), round(dy)
         import ctypes
         import pypdfium2.raw as r
         pg, _tp = self._textpage(w.index)
@@ -876,6 +959,28 @@ class PageView(QScrollArea):
         a = self.to_widget(w, x0, y0)
         b = self.to_widget(w, x1, y1)
         return QRectF(min(a[0], b[0]), min(a[1], b[1]), abs(a[0] - b[0]), abs(a[1] - b[1]))
+
+    def _hover_text(self, w, pos, tol=4.0) -> bool:
+        """Liegt Text unter der Maus? Für den Cursor – lädt die Seite NICHT im Programm (Zeichenkästen kommen
+            vom Render-Prozess); ist die Textseite schon geladen, wird sie genommen."""
+        if w.index in self._tp or self._local or self._rkey is None:
+            return self._char_at(w, pos, tol) >= 0
+        ch = self._chars.get(w.index)
+        if ch is None:
+            from .renderclient import RenderService
+            self._chars[w.index] = "pending"
+            key, gen = self._rkey, self._gen
+
+            def got(err, boxes, i=w.index):
+                if gen == self._gen and key == self._rkey:
+                    import numpy as np
+                    self._chars[i] = np.asarray(boxes if (not err and boxes) else [], dtype=float).reshape(-1, 4)
+            RenderService.get().chars(key, w.index, got)
+            return False
+        if isinstance(ch, str) or len(ch) == 0:
+            return False
+        x, y = self.to_page(w, pos)
+        return bool(((ch[:, 0] - tol <= x) & (x <= ch[:, 2] + tol) & (ch[:, 1] - tol <= y) & (y <= ch[:, 3] + tol)).any())
 
     def _char_at(self, w, pos, tol=4.0):
         _pg, tp = self._textpage(w.index)
@@ -915,12 +1020,12 @@ class PageView(QScrollArea):
             return self._snap[w.index]
         bx, by, ox, oy = set(), set(), set(), set()
         try:
-            pg, _tp = self._textpage(w.index)
+            pg, _tp = self._textpage(w.index)              # Messen: Objekte der Seite werden gebraucht
             crop = pg.get_cropbox()
             bx |= {crop[0], crop[2]}
             by |= {crop[1], crop[3]}
-            if w.index < len(self.boxes):
-                for b in self.boxes[w.index]:
+            if True:
+                for b in self.page_boxes(w.index):
                     if b is not None:
                         bx |= {b[0], b[2]}
                         by |= {b[1], b[3]}
@@ -1126,7 +1231,7 @@ class PageView(QScrollArea):
                 kind, Qt.CursorShape.PointingHandCursor))
             return
         if self._drag is None:
-            w.setCursor(Qt.CursorShape.IBeamCursor if self._char_at(w, e.position()) >= 0 else Qt.CursorShape.ArrowCursor)
+            w.setCursor(Qt.CursorShape.IBeamCursor if self._hover_text(w, e.position()) else Qt.CursorShape.ArrowCursor)
             return
         page, start = self._drag
         if page != w.index:
@@ -1223,13 +1328,17 @@ class PageView(QScrollArea):
                 if sp[3]:
                     p.setBrush(Qt.BrushStyle.NoBrush)
                     p.drawEllipse(QPointF(px, py), 4, 4)
-            bx = self.boxes[w.index] if getattr(self, "show_boxes", True) and w.index < len(self.boxes) else None
+            bx = self.page_boxes(w.index) if getattr(self, "show_boxes", True) else None
             if bx and bx[0] is not None:
                 # Endformat = grüne innere Grenze, Anschnitt = dezente rote Umrandung
                 # (keine rote Vollfläche mehr); BleedBox rot gestrichelt (wird nicht mitgedruckt)
                 trim, bleed = bx
-                pg_, _tp = self._textpage(w.index)
-                crop = pg_.get_cropbox()
+                info = self.page_info(w.index)
+                if info is not None:
+                    crop = info["crop"]
+                else:
+                    pg_, _tp = self._textpage(w.index)
+                    crop = pg_.get_cropbox()
                 green = QColor("#2e9e4f")
                 red = QColor("#e0301e")
                 outer = self._rect_widget(w, crop[0], crop[1], crop[2], crop[3])
@@ -1622,6 +1731,7 @@ class MainWindow(QMainWindow):
         self.view.viewMoved.connect(self._rulers_update)
         self.view.on_cursor = self._rulers_cursor
         self.view.pageChanged.connect(self._page_changed)
+        self.view.infoReady.connect(lambda: self._page_changed(self.view.current))
         self.view.zoomChanged.connect(self._zoom_changed)
 
         # thumbnails (multi-selection for page operations)
@@ -1939,32 +2049,56 @@ class MainWindow(QMainWindow):
             return
         if not force and not l10n.load_settings().get("preflight_on_open", True):
             return
-        from .preflightpanel import _Worker
-        from .. import preflight
         self._pf_gen += 1
         gen = self._pf_gen
         self.pf_panel.set_busy()
         self.btn_pf.setText("… " + tr("Prüfe"))
         self.btn_pf.show()
+        # eigener Prozess: kein Ausbremsen der Oberfläche (Python-Threads teilen sich eine Sperre), kein pdfium
+        # im Programm; geprüft wird die Datei (unverändert) bzw. der Stand, den auch die Vorschau zeigt
+        from .renderclient import RenderService
+        svc = RenderService.get("analysis")
+        path = None
+        if svc.ok:
+            if not self.modified and self.path and self.path.lower().endswith(".pdf") and os.path.isfile(self.path) \
+                    and not self.view._local:
+                path = self.path
+            elif self.view._src_path and os.path.isfile(self.view._src_path) and not self.view._local:
+                path = self.view._src_path
+        if path is None:
+            self._pf_start_thread(gen)
+            return
+
+        def got(err, rep, gen=gen):
+            if gen != self._pf_gen or self.doc is None:
+                return                                  # veraltet (Dokument inzwischen geändert)
+            if err or rep is None:
+                self._pf_start_thread(gen)              # Rückfall: wie bisher im Programm
+            else:
+                self._pf_show(rep)
+        svc.call("preflight", {"path": path, "deep_layers": True}, got)
+
+    def _pf_show(self, rep):
+        self.pf_panel.set_report(rep)
+        c = rep.counts()
+        if c["error"] or c["warning"]:
+            self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]))
+            self.btn_pf.setStyleSheet(f"color: {theme.ERROR if c['error'] else theme.ACCENT};")
+        else:
+            self.btn_pf.setText("✓ " + tr("Prüfung OK"))
+            self.btn_pf.setStyleSheet(f"color: {theme.MUTED};")
+
+    def _pf_start_thread(self, gen):
+        """Rückfall ohne Analyse-Prozess: pikepdf-Teil im Hintergrund-Thread, pdfium-Teil im Hauptfenster."""
+        from .preflightpanel import _Worker
+        from .. import preflight
         try:
             # unverändert: die Datei selbst prüfen (kein Neuspeichern im Hauptfenster, Größe wie auf der Platte)
             data = self._doc_bytes() if self.modified else self._file_bytes()
-            fdata = data
         except Exception as e:
             self.pf_panel.set_error(str(e))
             return
-
-        def work(d, fd):
-            rep = preflight.analyze(d, True, pdfium_parts=False)
-            if fd != d:
-                from .. import shrink
-                try:
-                    rep.size = shrink.analyze(fd)
-                except Exception:
-                    pass
-            return rep
-        # background: pikepdf parts only (pdfium is not thread-safe – otherwise occasional crashes)
-        w = _Worker(work, data, fdata)
+        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
 
         def done(rep, err, gen=gen, w=w):
             if gen != self._pf_gen:
@@ -1977,14 +2111,7 @@ class MainWindow(QMainWindow):
                 preflight.finish(rep, data)          # pdfium-Teile im Hauptthread
             except Exception:
                 pass
-            self.pf_panel.set_report(rep)
-            c = rep.counts()
-            if c["error"] or c["warning"]:
-                self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]))
-                self.btn_pf.setStyleSheet(f"color: {theme.ERROR if c['error'] else theme.ACCENT};")
-            else:
-                self.btn_pf.setText("✓ " + tr("Prüfung OK"))
-                self.btn_pf.setStyleSheet(f"color: {theme.MUTED};")
+            self._pf_show(rep)
         w.done.connect(done)
         self._pf_worker = w
         w.start()
@@ -2733,8 +2860,7 @@ class MainWindow(QMainWindow):
         w, h = self.doc.get_page_size(i)
         txt = tr("Seite {0}/{1}   ·   {2}").format(i + 1, len(self.doc), page_size_text(w, h))
         try:
-            from ..layout import trim_info
-            ti = trim_info(self.doc, i)
+            ti = self.view.trim_info(i)                    # ohne die Seite im Programm zu laden
         except Exception:
             ti = None
         if ti:
