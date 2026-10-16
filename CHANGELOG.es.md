@@ -5,6 +5,10 @@
 > Este registro contiene las versiones **1.10.x** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+# 1.12.6
+### preflight adjustments
+-preflight adjustments
+
 ## 1.12.5
 ### Licencias
 - El instalador y el AppImage ahora incluyen todos los avisos de licencia de terceros (paquetes de Python, Qt LGPL-3.0, Ghostscript AGPL-3.0 con referencia al código fuente, bibliotecas del sistema incluidas), consultables mediante la nueva entrada de menú Ayuda → Licencias.

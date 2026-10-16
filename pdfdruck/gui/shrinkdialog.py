@@ -88,8 +88,15 @@ class ShrinkDialog(QDialog):
             tr("Wie „Sichtbaren Zustand festschreiben“: was ausgeblendet ist, fliegt raus."), False)
         v.addWidget(g)
 
-        g = QGroupBox(tr("Auflösung reduzieren (optional, verlustbehaftet)"))
+        g = QGroupBox(tr("Verlustbehaftet (optional)"))
         gl = QVBoxLayout(g)
+        add(gl, "photos_jpeg", tr("Fotos, die als ZIP gespeichert sind, als JPEG speichern"),
+            tr("Nur echte Fotos (viele Farbtöne) – Logos, Grafiken, Text-Scans und Masken bleiben verlustfrei. "
+               "Wird nur übernommen, wenn es deutlich kleiner wird."), False)
+        self.lbl_ph = QLabel()
+        self.lbl_ph.setWordWrap(True)
+        self.lbl_ph.setStyleSheet(f"color: {theme.MUTED};")
+        gl.addWidget(self.lbl_ph)
         add(gl, "downsample", tr("Bilder mit zu hoher Auflösung herunterrechnen"),
             tr("Gemessen an der größten Platzierung im Dokument. Fotos (JPEG) werden neu als JPEG gespeichert, "
                "alles andere verlustfrei mit ZIP."), False)
@@ -107,7 +114,7 @@ class ShrinkDialog(QDialog):
         self.spin_q = QSpinBox()
         self.spin_q.setRange(60, 100)
         self.spin_q.setValue(92)
-        self.spin_q.setToolTip(tr("Nur für Bilder, die schon JPEG sind. 92 ist im Druck nicht vom Original zu "
+        self.spin_q.setToolTip(tr("Für neu gespeicherte JPEG-Bilder. 92 ist im Druck nicht vom Original zu "
                                   "unterscheiden."))
         form.addRow(tr("Ziel:"), self.cmb_dpi)
         form.addRow(tr("Schwelle:"), self.spin_thr)
@@ -119,6 +126,7 @@ class ShrinkDialog(QDialog):
         gl.addWidget(self.lbl_ds)
         v.addWidget(g)
         self.cb["downsample"].toggled.connect(self._update)
+        self.cb["photos_jpeg"].toggled.connect(self._update)
         self.cmb_dpi.currentIndexChanged.connect(self._update)
         self.spin_thr.valueChanged.connect(self._update)
 
@@ -166,11 +174,16 @@ class ShrinkDialog(QDialog):
 
     def _update(self):
         on = self.cb["downsample"].isChecked()
-        for w in (self.cmb_dpi, self.spin_thr, self.spin_q):
+        for w in (self.cmb_dpi, self.spin_thr):
             w.setEnabled(on)
+        self.spin_q.setEnabled(on or self.cb["photos_jpeg"].isChecked())
         if self.rep is None:
             self.lbl_ds.setText("")
+            self.lbl_ph.setText("")
             return
+        zp = shrink.zip_photos(self.rep)
+        self.lbl_ph.setText(tr("Vermutlich {0} Foto(s) als ZIP gespeichert, zusammen {1}.").format(
+            len(zp), _mb(sum(i.raw for i in zp))) if zp else tr("Keine Fotos als ZIP gefunden."))
         c = shrink.candidates(self.rep, self.cmb_dpi.currentData(), self.spin_thr.value())
         if c:
             self.lbl_ds.setText(tr("Betrifft {0} Bild(er) mit zusammen {1} (höchste Auflösung {2:.0f} dpi).").format(

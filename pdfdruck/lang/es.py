@@ -6,6 +6,14 @@
 """Übersetzung: Español. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Fotos als JPEG gespeichert (Qualität {0})': 'Fotos guardadas como JPEG (calidad {0})',
+    '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} foto(s) guardada(s) como ZIP en lugar de JPEG ({1:.0f} MB): como JPEG suelen ocupar una décima parte. Reparación: «Reducir tamaño de archivo …» → «Guardar fotos como JPEG».',
+    'Verlustbehaftet (optional)': 'Con pérdida (opcional)',
+    'Fotos, die als ZIP gespeichert sind, als JPEG speichern': 'Guardar como JPEG las fotos almacenadas como ZIP',
+    'Nur echte Fotos (viele Farbtöne) – Logos, Grafiken, Text-Scans und Masken bleiben verlustfrei. Wird nur übernommen, wenn es deutlich kleiner wird.': 'Solo fotos reales (muchos tonos): logotipos, gráficos, escaneos de texto y máscaras siguen sin pérdida. Solo se aplica si queda claramente más pequeño.',
+    'Für neu gespeicherte JPEG-Bilder. 92 ist im Druck nicht vom Original zu unterscheiden.': 'Para imágenes JPEG guardadas de nuevo. Con 92 no se distingue del original en la impresión.',
+    'Vermutlich {0} Foto(s) als ZIP gespeichert, zusammen {1}.': 'Probablemente {0} foto(s) guardada(s) como ZIP, en total {1}.',
+    'Keine Fotos als ZIP gefunden.': 'No se encontraron fotos guardadas como ZIP.',
     '{0:.1f} MB doppelt gespeichert ({1} Objekte, z. B. dasselbe Farbprofil je Seite) – verlustfrei entfernbar mit „Datei verkleinern …“.': '{0:.1f} MB guardados dos veces ({1} objetos, p. ej. el mismo perfil de color en cada página): se pueden eliminar sin pérdida con «Reducir tamaño de archivo …».',
     'Ausgeblendete Ebenen entfernt': 'Capas ocultas eliminadas',
     'Bearbeitungsdaten entfernt': 'Datos de edición eliminados',

@@ -364,7 +364,8 @@ def build():
          + " (gemessen an der größten Platzierung) auf " + c("target_dpi") + " herunterrechnen"],
         [c("target_dpi"), "300", "Ziel-Auflösung beim Herunterrechnen"],
         [c("threshold"), "1.5", "erst ab Ziel × Schwelle (1.5 bei 300 dpi = ab 450 dpi)"],
-        [c("jpeg_quality"), "92", "Qualität für Bilder, die schon JPEG sind"],
+        [c("photos_jpeg"), c("false"), "Fotos, die als ZIP gespeichert sind, als JPEG speichern (nur echte Fotos, nur wenn deutlich kleiner)"],
+        [c("jpeg_quality"), "92", "JPEG-Qualität beim Herunterrechnen und für " + c("photos_jpeg")],
     ], [30 * mm, 22 * mm, W - 52 * mm]))
     s.append(Spacer(1, 4))
     s.append(example("Nur verlustfrei verkleinern", "Das Druckbild bleibt pixelgleich.",

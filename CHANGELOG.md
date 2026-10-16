@@ -2,6 +2,10 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+# 1.12.6
+### preflight adjustments
+-preflight adjustments
+
 ## 1.12.5
 ### Licences
 - Installer and AppImage now include all third-party licence notices (Python packages, Qt LGPL-3.0, Ghostscript AGPL-3.0 with source reference, bundled system libraries), viewable via the new menu entry Help → Licences.

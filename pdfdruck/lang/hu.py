@@ -6,6 +6,14 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Fotos als JPEG gespeichert (Qualität {0})': 'Fotók JPEG-ként mentve ({0}-es minőség)',
+    '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} fotó ZIP-ként tárolva JPEG helyett ({1:.0f} MB) – JPEG-ként általában csak a tizede. Javítás: „Fájlméret csökkentése …” → „Fotók mentése JPEG-ként”.',
+    'Verlustbehaftet (optional)': 'Veszteséges (opcionális)',
+    'Fotos, die als ZIP gespeichert sind, als JPEG speichern': 'ZIP-ként tárolt fotók mentése JPEG-ként',
+    'Nur echte Fotos (viele Farbtöne) – Logos, Grafiken, Text-Scans und Masken bleiben verlustfrei. Wird nur übernommen, wenn es deutlich kleiner wird.': 'Csak valódi fotók (sok árnyalat) – logók, grafikák, szövegszkennelések és maszkok veszteségmentesek maradnak. Csak akkor alkalmazza, ha jelentősen kisebb lesz.',
+    'Für neu gespeicherte JPEG-Bilder. 92 ist im Druck nicht vom Original zu unterscheiden.': 'Az újonnan mentett JPEG képekhez. 92-nél nyomtatásban nem különböztethető meg az eredetitől.',
+    'Vermutlich {0} Foto(s) als ZIP gespeichert, zusammen {1}.': 'Valószínűleg {0} fotó ZIP-ként tárolva, összesen {1}.',
+    'Keine Fotos als ZIP gefunden.': 'Nem található ZIP-ként tárolt fotó.',
     '{0:.1f} MB doppelt gespeichert ({1} Objekte, z. B. dasselbe Farbprofil je Seite) – verlustfrei entfernbar mit „Datei verkleinern …“.': '{0:.1f} MB kétszer tárolva ({1} objektum, pl. ugyanaz a színprofil minden oldalon) – veszteségmentesen eltávolítható a „Fájlméret csökkentése …” funkcióval.',
     'Ausgeblendete Ebenen entfernt': 'Rejtett rétegek eltávolítva',
     'Bearbeitungsdaten entfernt': 'Szerkesztési adatok eltávolítva',

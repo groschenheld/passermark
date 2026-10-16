@@ -6,6 +6,14 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Fotos als JPEG gespeichert (Qualität {0})': 'Photos enregistrées en JPEG (qualité {0})',
+    '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} photo(s) enregistrée(s) en ZIP au lieu de JPEG ({1:.0f} Mo) – en JPEG, généralement un dixième de la taille. Réparation : « Réduire la taille du fichier … » → « Enregistrer les photos en JPEG ».',
+    'Verlustbehaftet (optional)': 'Avec perte (facultatif)',
+    'Fotos, die als ZIP gespeichert sind, als JPEG speichern': 'Enregistrer en JPEG les photos stockées en ZIP',
+    'Nur echte Fotos (viele Farbtöne) – Logos, Grafiken, Text-Scans und Masken bleiben verlustfrei. Wird nur übernommen, wenn es deutlich kleiner wird.': 'Uniquement les vraies photos (nombreux tons) – logos, graphiques, scans de texte et masques restent sans perte. Appliqué seulement si nettement plus petit.',
+    'Für neu gespeicherte JPEG-Bilder. 92 ist im Druck nicht vom Original zu unterscheiden.': 'Pour les images JPEG nouvellement enregistrées. À 92, impossible à distinguer de l’original à l’impression.',
+    'Vermutlich {0} Foto(s) als ZIP gespeichert, zusammen {1}.': 'Probablement {0} photo(s) stockée(s) en ZIP, {1} au total.',
+    'Keine Fotos als ZIP gefunden.': 'Aucune photo stockée en ZIP trouvée.',
     '{0:.1f} MB doppelt gespeichert ({1} Objekte, z. B. dasselbe Farbprofil je Seite) – verlustfrei entfernbar mit „Datei verkleinern …“.': '{0:.1f} Mo enregistrés en double ({1} objets, p. ex. le même profil couleur sur chaque page) – supprimables sans perte avec « Réduire la taille du fichier … ».',
     'Ausgeblendete Ebenen entfernt': 'Calques masqués supprimés',
     'Bearbeitungsdaten entfernt': 'Données d’édition supprimées',

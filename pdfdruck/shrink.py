@@ -282,6 +282,19 @@ def candidates(rep: SizeReport, target_dpi: int = 300, threshold: float = 1.5) -
             and i.dpi > target_dpi * threshold]
 
 
+def zip_photos(rep: SizeReport) -> list:
+    """Vermutlich Fotos, die als ZIP bzw. unkomprimiert gespeichert sind: ZIP spart bei Fotos kaum etwas
+        (> 50 % der Rohgröße) – als JPEG wären sie meist ein Zehntel so groß."""
+    lossless = {"ZIP", "LZW", "RLE", tr("unkomprimiert")}
+    out = []
+    for i in rep.images:
+        if i.is_mask or i.is_smask or i.bpc not in (8, 16) or i.comps not in (1, 3, 4) or i.w * i.h < 128 * 128:
+            continue
+        if i.codec in lossless and i.raw > 0.5 * i.w * i.h * i.comps * i.bpc / 8:
+            out.append(i)
+    return out
+
+
 def issues(rep: SizeReport) -> list:
     """Befunde für die Prüfung: [(Schwere, Text)]."""
     out = []
@@ -290,6 +303,13 @@ def issues(rep: SizeReport) -> list:
         out.append(("warning", tr("Datei sehr groß: {0:.0f} MB ({1:.0f} MB je A4-Fläche), größter Anteil: {2} "
                                   "({3:.0f} %). Reparatur: „Datei verkleinern …“ (Reiter Dateigröße).").format(
             rep.size / MB, rep.mb_per_a4, tr(PART_NAMES[main[0]]), 100 * main[1] / max(rep.size, 1))))
+    zp = zip_photos(rep)
+    zp_bytes = sum(i.raw for i in zp)
+    if zp_bytes > max(5 * MB, rep.size * 0.3):
+        out.append(("warning" if rep.too_big else "info",
+                    tr("{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so "
+                       "groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.").format(
+                        len(zp), zp_bytes / MB)))
     if rep.duplicate_bytes > max(2 * MB, rep.size * 0.1):
         out.append(("warning" if rep.duplicate_bytes > 10 * MB else "info",
                     tr("{0:.1f} MB doppelt gespeichert ({1} Objekte, z. B. dasselbe Farbprofil je Seite) – verlustfrei "
@@ -329,6 +349,7 @@ class ShrinkOptions:
     target_dpi: int = 300
     threshold: float = 1.5               # nur Bilder über Ziel × Schwelle
     jpeg_quality: int = 92
+    photos_jpeg: bool = False            # Fotos, die als ZIP/unkomprimiert gespeichert sind, als JPEG
 
 
 def _png_up(arr, bpp: int) -> bytes:
@@ -445,9 +466,13 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
         else:
             if bpc == 16 and isinstance(img.stream_dict.get("/Mask"), pikepdf.Array):
                 return                             # Farbschlüssel-Maske passt nach 8 Bit nicht mehr
+            ok_jpeg = opts.photos_jpeg and _jpeg_ok(img, im)
             arr = _resized(img, w, h, comps, bpc, nw, nh)
-            _write_flate(img, arr.tobytes(), nw, nh, comps, 8)
-            img.BitsPerComponent = 8
+            if ok_jpeg and _photo_like(arr):
+                _write_jpeg(img, arr, opts.jpeg_quality)
+            else:
+                _write_flate(img, arr.tobytes(), nw, nh, comps, 8)
+                img.BitsPerComponent = 8
         img.Width, img.Height = nw, nh
         sm = img.stream_dict.get("/SMask")
         if sm is not None and int(sm.get("/Width", 0)) == w and int(sm.get("/Height", 0)) == h \
@@ -467,6 +492,24 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
         return
     if not lossless or comps not in (1, 2, 3, 4) or bpc not in (8, 16):
         return
+    if opts.photos_jpeg and _jpeg_ok(img, im):
+        arr = _samples8(img, w, h, comps, bpc)
+        if _photo_like(arr):
+            old = img.read_raw_bytes(), img.stream_dict.get("/Filter"), img.stream_dict.get("/DecodeParms")
+            n = _write_jpeg(img, arr, opts.jpeg_quality)
+            if n < before * 0.9:
+                note("photos", before - n)
+                return
+            img.write(old[0])                      # bringt nichts -> Original zurück
+            for k, v in (("/Filter", old[1]), ("/DecodeParms", old[2])):
+                if v is None:
+                    if k in img.stream_dict:
+                        del img.stream_dict[k]
+                else:
+                    img.stream_dict[k] = v
+            img.BitsPerComponent = bpc
+            if "/Decode" in img.stream_dict:
+                del img.stream_dict["/Decode"]
     if opts.bits16 and bpc == 16 and not isinstance(img.stream_dict.get("/Mask"), pikepdf.Array):
         raw = img.read_bytes()
         a = (np.frombuffer(raw[:w * h * comps * 2], ">u2") >> 8).astype(np.uint8)
@@ -488,6 +531,53 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
                     img.stream_dict[k] = v
         else:
             note("pack", before - newlen)
+
+
+def _jpeg_ok(img, im: ImageInfo) -> bool:
+    """Darf dieses Bild als JPEG gespeichert werden? (keine Masken, keine Decode-Umkehr, keine Farbschlüssel)"""
+    import pikepdf
+    sd = img.stream_dict
+    return (not im.is_mask and not im.is_smask and im.comps in (1, 3, 4) and im.bpc in (8, 16)
+            and not _indexed(img) and "/Decode" not in sd and not isinstance(sd.get("/Mask"), pikepdf.Array)
+            and im.w * im.h >= 128 * 128)
+
+
+def _samples8(img, w, h, comps, bpc):
+    """Dekodierte Abtastwerte -> 8-Bit-Array (h, w, comps)."""
+    import numpy as np
+    raw = img.read_bytes()
+    if bpc == 16:
+        return (np.frombuffer(raw[:w * h * comps * 2], ">u2").reshape(h, w, comps) >> 8).astype(np.uint8)
+    return np.frombuffer(raw[:w * h * comps], np.uint8).reshape(h, w, comps)
+
+
+def _photo_like(arr) -> bool:
+    """Foto (viele Farbtöne) statt Grafik/Logo/Text (wenige Farben, harte Kanten) – nur Fotos als JPEG."""
+    import numpy as np
+    step_y, step_x = max(1, arr.shape[0] // 64), max(1, arr.shape[1] // 64)
+    sample = np.ascontiguousarray(arr[::step_y, ::step_x]).reshape(-1, arr.shape[2])
+    if arr.shape[2] == 1:
+        # Graustufen: viele Töne UND nicht überwiegend reines Schwarz/Weiß (Text-Scan, Strichzeichnung)
+        v = sample[:, 0]
+        extreme = np.mean((v < 16) | (v > 239))
+        return len(np.unique(v)) > 128 and extreme < 0.5
+    return len(np.unique(sample, axis=0)) > min(1000, sample.shape[0] // 3)
+
+
+def _write_jpeg(img, arr, quality: int) -> int:
+    """8-Bit-Array als JPEG ablegen. CMYK: Pillow schreibt Adobe-üblich invertiert -> /Decode [1 0 …]."""
+    import pikepdf
+    from PIL import Image
+    comps = arr.shape[2]
+    mode = {1: "L", 3: "RGB", 4: "CMYK"}[comps]
+    pil = Image.fromarray(arr[:, :, 0] if comps == 1 else arr, mode)
+    buf = io.BytesIO()
+    pil.save(buf, "JPEG", quality=quality, subsampling=0)
+    _set_dct(img, buf.getvalue())
+    img.BitsPerComponent = 8
+    if comps == 4:
+        img.Decode = pikepdf.Array([1, 0, 1, 0, 1, 0, 1, 0])
+    return len(buf.getvalue())
 
 
 def _resized(img, w, h, comps, bpc, nw, nh):
@@ -613,10 +703,12 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
               "downsample": tr("Bilder auf {0} dpi heruntergerechnet").format(opts.target_dpi),
               "bits16": tr("16-Bit-Bilder auf 8 Bit"), "pack": tr("Bilder verlustfrei gepackt"),
               "dedupe": tr("Doppelte Objekte zusammengelegt"),
-              "unwrap": tr("Doppelt gepackte JPEGs (ZIP + JPEG) entpackt")}
+              "unwrap": tr("Doppelt gepackte JPEGs (ZIP + JPEG) entpackt"),
+              "photos": tr("Fotos als JPEG gespeichert (Qualität {0})").format(opts.jpeg_quality)}
     notes = [tr("Vorher {0:.1f} MB → nachher {1:.1f} MB ({2:+.0f} %).").format(
         len(data) / MB, len(out) / MB, 100.0 * (len(out) - len(data)) / max(len(data), 1))]
-    for k in ("downsample", "bits16", "pack", "unwrap", "dedupe", "private", "thumbs", "attachments", "hidden"):
+    for k in ("downsample", "photos", "bits16", "pack", "unwrap", "dedupe", "private", "thumbs", "attachments",
+              "hidden"):
         if counts.get(k) or saved.get(k):
             notes.append(f"{labels[k]}: {counts.get(k, 0)} · −{max(0, saved.get(k, 0)) / MB:.1f} MB")
     if opts.rewrite and rep.revisions:

@@ -6,6 +6,14 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Fotos als JPEG gespeichert (Qualität {0})': 'Photos saved as JPEG (quality {0})',
+    '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} photo(s) stored as ZIP instead of JPEG ({1:.0f} MB) – as JPEG usually only a tenth of the size. Repair: “Reduce file size …” → “Save photos as JPEG”.',
+    'Verlustbehaftet (optional)': 'Lossy (optional)',
+    'Fotos, die als ZIP gespeichert sind, als JPEG speichern': 'Save photos stored as ZIP as JPEG',
+    'Nur echte Fotos (viele Farbtöne) – Logos, Grafiken, Text-Scans und Masken bleiben verlustfrei. Wird nur übernommen, wenn es deutlich kleiner wird.': 'Real photos only (many tones) – logos, graphics, text scans and masks stay lossless. Only applied if clearly smaller.',
+    'Für neu gespeicherte JPEG-Bilder. 92 ist im Druck nicht vom Original zu unterscheiden.': 'For newly saved JPEG images. 92 is indistinguishable from the original in print.',
+    'Vermutlich {0} Foto(s) als ZIP gespeichert, zusammen {1}.': 'Probably {0} photo(s) stored as ZIP, {1} in total.',
+    'Keine Fotos als ZIP gefunden.': 'No photos stored as ZIP found.',
     '{0:.1f} MB doppelt gespeichert ({1} Objekte, z. B. dasselbe Farbprofil je Seite) – verlustfrei entfernbar mit „Datei verkleinern …“.': '{0:.1f} MB stored twice ({1} objects, e.g. the same colour profile on every page) – removable losslessly with “Reduce file size …”.',
     'Ausgeblendete Ebenen entfernt': 'Hidden layers removed',
     'Bearbeitungsdaten entfernt': 'Editing data removed',

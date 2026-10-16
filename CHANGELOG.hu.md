@@ -5,6 +5,10 @@
 > Ez a változásnapló a **1.10.x–1.11.x verziókat** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+# 1.12.6
+### preflight adjustments
+-preflight adjustments
+
 ## 1.12.5
 ### Licencek
 - A telepítő és az AppImage mostantól minden harmadik félre vonatkozó licencmegjegyzést tartalmaz (Python-csomagok, Qt LGPL-3.0, Ghostscript AGPL-3.0 forráshivatkozással, csomagolt rendszerkönyvtárak), megtekinthetők az új Súgó → Licencek menüben.

@@ -182,6 +182,46 @@ def _render_all(data):
         doc.close()
 
 
+def test_zip_photos_to_jpeg():
+    """Fotos als ZIP (RGB, CMYK, Grau) -> JPEG mit treuen Farben; Grafik mit wenigen Farben bleibt ZIP;
+        Häkchen aus -> nichts wird JPEG."""
+    import numpy as np
+    import pikepdf
+    rng = np.random.default_rng(1)
+
+    def photo(w, h, c):
+        return np.clip(_photo(w, h, c).astype(int) + rng.normal(0, 6, (h, w, c)), 0, 255).astype(np.uint8)
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(595, 842))
+
+    def img(a, cs):
+        return pikepdf.Stream(pdf, zlib.compress(a.tobytes()), Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
+                              Width=a.shape[1], Height=a.shape[0], ColorSpace=cs, BitsPerComponent=8,
+                              Filter=pikepdf.Name.FlateDecode)
+    g = np.zeros((600, 600, 3), np.uint8)
+    g[:300], g[300:] = [200, 30, 30], [20, 20, 200]
+    pg = pdf.pages[0]
+    pg.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(
+        A=img(photo(900, 700, 3), pikepdf.Name.DeviceRGB), B=img(photo(800, 800, 4), pikepdf.Name.DeviceCMYK),
+        C=img(photo(600, 600, 1), pikepdf.Name.DeviceGray), D=img(g, pikepdf.Name.DeviceRGB)))
+    pg.obj.Contents = pikepdf.Stream(pdf, b"q 250 0 0 200 20 600 cm /A Do Q q 250 0 0 250 300 550 cm /B Do Q "
+                                          b"q 200 0 0 200 20 300 cm /C Do Q q 200 0 0 200 300 300 cm /D Do Q")
+    buf = io.BytesIO()
+    pdf.save(buf)
+    data = buf.getvalue()
+    assert len(shrink.zip_photos(shrink.analyze(data))) == 3
+    out, notes = shrink.shrink(data, shrink.ShrinkOptions(photos_jpeg=True))
+    assert len(out) < len(data) / 2 and any("JPEG" in n for n in notes), notes
+    with pikepdf.open(io.BytesIO(out)) as p2:
+        xo = p2.pages[0].Resources.XObject
+        assert [str(xo[k].Filter) for k in ("/A", "/B", "/C")] == ["/DCTDecode"] * 3
+        assert str(xo["/D"].Filter) == "/FlateDecode", "Grafik bleibt verlustfrei"
+    assert np.abs(_render(out) - _render(data)).mean() < 1.0, "Farben (auch CMYK) bleiben"
+    off, _ = shrink.shrink(data, shrink.ShrinkOptions())
+    with pikepdf.open(io.BytesIO(off)) as p3:
+        assert all(str(x.Filter) != "/DCTDecode" for _k, x in p3.pages[0].Resources.XObject.items())
+
+
 def test_too_big_warning():
     rep = shrink.SizeReport(size=60 * shrink.MB, pages=1, area_m2=shrink.A4_M2, parts={"images": 55 * shrink.MB})
     iss = shrink.issues(rep)

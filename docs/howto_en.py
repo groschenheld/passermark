@@ -18,6 +18,8 @@ MESSAGES = {
     "Windows: Im Setup gibt es (ab 1.7) das Häkchen „Kommandozeile passermark-cli in jeder Eingabeaufforderung verfügbar machen“. Dann genügt <font face=\"DVM\">passermark-cli</font> – in einem <b>neu geöffneten</b> Fenster von Eingabeaufforderung oder PowerShell. Ohne Häkchen immer den vollen Pfad in Anführungszeichen angeben.": "Windows: since 1.7 the setup has the option “Make passermark-cli available in every command prompt”. Then <font face=\"DVM\">passermark-cli</font> is enough – in a <b>newly opened</b> Command Prompt or PowerShell window. Without the option, always give the full path in quotation marks.",
     "Die Eingabedatei wird nie verändert. Die Ausgabe entsteht erst, wenn alles fertig ist – nach einem Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe Datei sein.": "The input file is never modified. The output is only written when everything is finished – after an error or cancellation no half-written file is left behind. Input and output must not be the same file.",
     "Die acht Aufträge": "The eight jobs",
+    'Fotos, die als ZIP gespeichert sind, als JPEG speichern (nur echte Fotos, nur wenn deutlich kleiner)': 'save photos stored as ZIP as JPEG (real photos only, only if clearly smaller)',
+    'JPEG-Qualität beim Herunterrechnen und für <font face="DVM">photos_jpeg</font>': 'JPEG quality for downsampling and for <font face="DVM">photos_jpeg</font>',
     'Die neun Aufträge': 'The nine jobs',
     'Dateigröße verkleinern: verlustfreie Maßnahmen einzeln schaltbar, optional Bilder herunterrechnen': 'Reduce file size: lossless measures can be switched individually, optional image downsampling',
     'shrink – Dateigröße verkleinern': 'shrink – reduce file size',

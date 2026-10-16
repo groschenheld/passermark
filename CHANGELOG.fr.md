@@ -5,6 +5,10 @@
 > Ce journal contient les versions **1.10.x–1.11.x** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+# 1.12.6
+### preflight adjustments
+-preflight adjustments
+
 ## 1.12.5
 ### Licences
 - L'installateur et l'AppImage incluent désormais tous les avis de licence des tiers (paquets Python, Qt LGPL-3.0, Ghostscript AGPL-3.0 avec référence au code source, bibliothèques système embarquées), consultables via la nouvelle entrée de menu Aide → Licences.
