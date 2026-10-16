@@ -2,9 +2,31 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-# 1.12.6
-### preflight adjustments
--preflight adjustments
+## 1.13.0
+### Faster view (render overhaul)
+- **Rendering in a separate process:** pages are rendered by a background process (`passermark-cli render-server`); the user interface never waits for it. Only one request is in flight at a time, so fast page flipping no longer piles up outdated requests. If the process crashes it restarts; if it cannot start at all (or the PDF is password-protected), the view renders inside the program as before.
+- **One page image per page:** each page is rendered once at roughly twice the viewing size; zoom levels up to that size and the thumbnails are only scaled from it. A page's images are unpacked once instead of once per zoom level and once per thumbnail.
+- **Strong zoom renders only the visible part,** pixel-exact even in a rotated view. At 400 % the page is briefly blurry and then sharp (previously upscaled and blurry).
+- **Saving over the same file works on Windows now:** the file is read into memory and released on disk.
+- **Edit mode:** while dragging, the object moves along semi-transparently; after applying, the old images stay as placeholders and are renewed in the background, the edited page first. Previously everything turned white and all thumbnails were re-rendered in the main window.
+- **Automatic check reads unchanged files directly** – no re-save in the main window needed when opening.
+
+Measured with a 309 MB test file (how long the interface froze):
+
+| | 1.12.1 | 1.13.0 |
+|---|---|---|
+| Open | 5.6 s | 1.1 s |
+| Zoom (3 levels) | 1.5 s | 0.02 s |
+| Page flip | 1.4 s | 0.02 s |
+| 400 % | 1.7 s, blurry | 0.03 s, sharp |
+| Drag object | – | 0.01 s, object follows as image |
+
+- Troubleshooting: with `PASSERMARK_RENDER=local` everything renders as before – a quick way to narrow down whether the new render process is the cause.
+- Known limitation: releasing an object in edit mode still takes about 1 s on heavy pages (the safety check compares the page before and after). Elements used on several pages can change everywhere through an edit, so after editing all pages are re-rendered in the background, the edited one first.
+
+## 1.12.6
+### Preflight adjustments
+- Small adjustments to the "Reduce file size" function (`shrink`) and the preflight checks; translations completed; CLI manual (DE/EN) updated.
 
 ## 1.12.5
 ### Licences

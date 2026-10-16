@@ -13,8 +13,8 @@ import os
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_r
-from PySide6.QtCore import QPointF, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPainter, QPen
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDockWidget,
                                QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
                                QFrame, QListWidgetItem, QMainWindow, QMenu, QMessageBox, QPushButton,
@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDial
 
 from .. import images
 from . import theme
-from .common import render_pixmap
+from .common import MAX_RENDER_EDGE, render_pixmap
 from .icons import icon as svg_icon
 
 from .. import convert as _convert
@@ -155,29 +155,58 @@ ZOOM_STEPS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0, 6.4]
 PAGE_GAP = 22
 
 
+def _remove_quiet(path):
+    if path:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 class PageWidget(QWidget):
     def __init__(self, index: int, view=None):
         super().__init__()
         self.index = index
-        self.pixmap = None
-        self.key = None
-        self.fuzzy = False        # Übergangsbild: alte Pixmap gestreckt zeigen, bis die scharfe da ist
+        # Seitenbild: einmal je Seite gerendert (etwa doppelte Ansichtsgröße), Zoomstufen und Miniatur
+        # werden daraus nur skaliert – Fotos werden nicht bei jedem Zoomschritt neu entpackt
+        self.master = None        # QImage (Gerätepixel), ganze Seite, mit Ansichtsdrehung
+        self.mkey = None          # (Maßstab, Drehung) des Seitenbilds
+        self.mstale = False       # Seite wurde bearbeitet: altes Bild zeigen, bis das neue da ist
+        # starkes Zoomen über das Seitenbild hinaus: nur der sichtbare Ausschnitt, scharf
+        self.tile = None          # QImage
+        self.tile_rect = None     # QRectF in Widget-Koordinaten
+        self.tkey = None          # (Maßstab, Drehung)
+        self._scaled = None       # Seitenbild auf Widgetgröße skaliert (einmal je Größe)
+        self._skey = None
         self.view = view
         self.setMouseTracking(True)
+
+    def drop(self, tile_only: bool = False):
+        self.tile, self.tile_rect, self.tkey = None, None, None
+        if not tile_only:
+            self.master, self.mkey, self.mstale = None, None, False
+            self._scaled, self._skey = None, None
 
     def paintEvent(self, _):
         p = QPainter(self)
         p.fillRect(self.rect().adjusted(3, 3, 3, 3), QColor(0, 0, 0, 60))   # Schatten
-        if self.pixmap is not None:
-            if self.fuzzy:
-                # beim Zoomen sofort das alte Bild weich strecken – die scharfe
-                # Version kommt Sekundenbruchteile später nach (_render_visible)
-                p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-                p.drawPixmap(self.rect(), self.pixmap)
-            else:
-                p.drawPixmap(0, 0, self.pixmap)
+        if self.master is not None:
+            dpr = self.devicePixelRatioF()
+            tw, th = max(1, round(self.width() * dpr)), max(1, round(self.height() * dpr))
+            key = (tw, th, self.master.cacheKey())
+            if self._skey != key:
+                img = self.master
+                if (img.width(), img.height()) != (tw, th):
+                    img = img.scaled(tw, th, Qt.AspectRatioMode.IgnoreAspectRatio,
+                                     Qt.TransformationMode.SmoothTransformation)
+                pm = QPixmap.fromImage(img)
+                pm.setDevicePixelRatio(dpr)
+                self._scaled, self._skey = pm, key
+            p.drawPixmap(0, 0, self._scaled)
         else:
             p.fillRect(self.rect(), Qt.GlobalColor.white)
+        if self.tile is not None and self.view is not None and self.tkey == self.view.tile_key(self):
+            p.drawImage(self.tile_rect, self.tile)
         if self.view is not None:
             self.view.paint_overlay(self, p)
 
@@ -276,6 +305,11 @@ class PageView(QScrollArea):
     pageChanged = Signal(int)
     zoomChanged = Signal(float)
     viewMoved = Signal()                 # Scrollen/Zoom/Seite -> Lineale neu zeichnen
+    masterReady = Signal(int)            # Seitenbild fertig -> Miniatur daraus ableiten
+
+    MASTER_FACTOR = 2.0        # Seitenbild = doppelte Ganze-Seite-Größe: Zoomen bis dahin ohne neu zu rendern
+    MASTER_PIXELS = 16_000_000
+    KEEP_MASTERS = 2           # Seitenbilder ± so viele Seiten um die sichtbaren behalten
 
     JUMP_THRESHOLD = 120       # eine Mausrad-Raste; Touchpad-Bruchteile werden gesammelt
     JUMP_COOLDOWN = 0.30       # s – prevents kinetic scrolling from skipping several pages
@@ -314,12 +348,23 @@ class PageView(QScrollArea):
         self.container.setObjectName("pages")
         self.setWidget(self.container)
         self._timer = QTimer(self, singleShot=True, interval=30, timeout=self._render_visible)
+        self._gen = 0             # Dokument-Stand: Ergebnisse älterer Stände werden verworfen
+        self._rkey = None         # Dokument im Render-Prozess
+        self._src_path = None
+        self._tmp = None          # eigene Zwischendatei für den Render-Prozess
+        self._local = False       # im Programm rendern (Render-Prozess nicht verfügbar / Dokument dort nicht ladbar)
+        self._rfail = set()       # Seiten, die im Render-Prozess scheiterten
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
         self.verticalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
         self.horizontalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
 
     # --------------------------------------------------------------- #
-    def set_document(self, doc, keep_page: int | None = None):
+    def set_document(self, doc, keep_page: int | None = None, src=None, changed_pages=None):
+        """src: Pfad oder Bytes des Dokuments für den Render-Prozess (None = aus doc speichern).
+            changed_pages: Bearbeiten (gleiche Seitenzahl) – die bisherigen Bilder bleiben als Platzhalter stehen,
+            bis die neuen da sind; die bearbeiteten Seiten kommen zuerst dran."""
+        old = self.pages
+        keep = changed_pages is not None and len(old) == len(doc)
         for w in self.pages:          # Seiten des vorherigen Dokuments entsorgen
             w.deleteLater()
         self._close_textpages()
@@ -338,9 +383,214 @@ class PageView(QScrollArea):
         self.pages = [PageWidget(i, self) for i in range(len(doc))]
         for w in self.pages:
             w.setParent(self.container)
+        if keep:
+            # alte Bilder als Platzhalter weiter zeigen (kein weißes Aufblitzen), aber alle neu rendern:
+            # ein auf mehreren Seiten verwendetes Element kann sich überall geändert haben
+            for w, o in zip(self.pages, old):
+                w.master, w.mkey, w.mstale = o.master, o.mkey, o.master is not None
+        self._gen += 1
+        self._rfail = set()
+        self._open_render(src)
         self.current = min(keep_page or 0, max(0, len(self.pages) - 1))
         self.relayout()
         self.goto(self.current, force=True)
+
+    # ---------------- Rendern (eigener Prozess, siehe renderclient.py) ---------------- #
+    def _open_render(self, src):
+        from .renderclient import RenderService
+        svc = RenderService.get()
+        old_key, old_tmp = self._rkey, self._tmp
+        self._rkey, self._tmp, self._src_path = None, None, None
+        self._local = not svc.ok
+        if old_key is not None:
+            svc.close_doc(old_key, on_done=lambda _e, t=old_tmp: _remove_quiet(t))
+        elif old_tmp:
+            _remove_quiet(old_tmp)
+        if self._local or self.doc is None:
+            return
+        try:
+            if isinstance(src, str) and os.path.isfile(src):
+                path = src
+            else:
+                import tempfile
+                fd, path = tempfile.mkstemp(prefix="passermark-view-", suffix=".pdf")
+                with os.fdopen(fd, "wb") as f:
+                    if isinstance(src, (bytes, bytearray)):
+                        f.write(src)
+                    else:
+                        self.doc.save(f)
+                self._tmp = path
+        except Exception:
+            self._local = True
+            return
+        self._src_path = path
+        self._rkey = f"v{id(self)}-{self._gen}"
+        svc.register(self)
+        svc.open_doc(self._rkey, path, on_done=lambda err, k=self._rkey: self._render_opened(k, err))
+
+    def _render_opened(self, key, err):
+        if err and key == self._rkey:            # z. B. Passwort: diese Ansicht rendert im Programm
+            self._local = True
+            self._timer.start()
+
+    def release_render(self):
+        """Fenster/Reiter zu: Dokument im Render-Prozess schließen, Zwischendatei löschen."""
+        from .renderclient import RenderService
+        svc = RenderService.get()
+        svc.unregister(self)
+        if self._rkey is not None:
+            svc.close_doc(self._rkey, on_done=lambda _e, t=self._tmp: _remove_quiet(t))
+        elif self._tmp:
+            _remove_quiet(self._tmp)
+        self._rkey, self._tmp = None, None
+
+    # Schnittstelle für RenderService
+    def render_priority(self) -> int:
+        try:
+            return 0 if self.isVisible() and self.window().isActiveWindow() else 2
+        except RuntimeError:
+            return 9
+
+    def render_reset(self):
+        """Render-Prozess neu gestartet: Dokument dort neu öffnen."""
+        from .renderclient import RenderService
+        if self._rkey is not None and self._src_path and os.path.isfile(self._src_path):
+            RenderService.get().open_doc(self._rkey, self._src_path,
+                                         on_done=lambda err, k=self._rkey: self._render_opened(k, err))
+
+    def render_fallback(self):
+        self._local = True
+        self._timer.start()
+
+    def _dev_scale(self, i: int) -> float:
+        """Gerätepixel je pt für Seite i bei der aktuellen Ansicht."""
+        return self.page_zoom(i) * self._dpi_scale() * self.devicePixelRatioF()
+
+    def _master_scale(self, i: int) -> float:
+        pw, ph = self._rot_size(i)
+        s = self._dpi_scale()
+        vw = max(50, self.viewport().width() - 2 * PAGE_GAP - 4)
+        vh = max(50, self.viewport().height() - 2 * PAGE_GAP)
+        fit = min(vw / (pw * s), vh / (ph * s)) * s * self.devicePixelRatioF()
+        cap = min(MAX_RENDER_EDGE / max(1.0, pw), MAX_RENDER_EDGE / max(1.0, ph),
+                  (self.MASTER_PIXELS / max(1.0, pw * ph)) ** 0.5)
+        # stark rausgezoomt (viele Seiten): kleiner; ab Ganze-Seite-Größe: doppelt so groß, darüber Ausschnitte
+        S = self._dev_scale(i)
+        want = self.MASTER_FACTOR * max(fit * 0.5, min(S, fit))
+        return max(0.02, min(want, cap))
+
+    def tile_key(self, w):
+        return (round(self._dev_scale(w.index), 4), self.rotation)
+
+    def _visible_rect(self, w) -> QRect:
+        vp = self.viewport().rect()
+        top_left = w.mapFrom(self.viewport(), vp.topLeft())
+        return QRect(top_left, vp.size()).intersected(w.rect())
+
+    def _wanted_pages(self) -> list:
+        """Sichtbare Seiten (aktuelle zuerst)."""
+        vis = [w for w in self.pages if w.isVisibleTo(self.container) and not self._visible_rect(w).isEmpty()]
+        vis.sort(key=lambda w: (w.index != self.current, abs(w.index - self.current)))
+        return vis
+
+    def next_render(self):
+        """Was als Nächstes gerendert werden soll – oder None. (Auch für das Rendern im Programm.)"""
+        if self.doc is None or getattr(self.doc, "raw", None) is None or not self.pages:
+            return None
+        rot = self.rotation
+        base = {"doc": self._rkey, "gen": self._gen, "rotation": rot}
+        vis = self._wanted_pages()
+        for w in vis:
+            i = w.index
+            if i in self._rfail:
+                continue
+            S, M = self._dev_scale(i), self._master_scale(i)
+            have = w.mkey
+            if w.master is None or w.mstale or have[1] != rot or have[0] < min(M, S) * 0.98:
+                return dict(base, page=i, scale=M, kind="master")
+        for w in vis:                                   # starkes Zoomen: scharfer Ausschnitt
+            i = w.index
+            if i in self._rfail or w.mkey is None:
+                continue
+            S = self._dev_scale(i)
+            if S <= w.mkey[0] * 1.02:
+                continue
+            vis_r = self._visible_rect(w)
+            if vis_r.isEmpty():
+                continue
+            need = self.tile_key(w)
+            if w.tile is not None and w.tkey == need and w.tile_rect.contains(QRectF(vis_r)):
+                continue
+            mx, my = vis_r.width() // 4, vis_r.height() // 4
+            r = vis_r.adjusted(-mx, -my, mx, my).intersected(w.rect())
+            dpr = self.devicePixelRatioF()
+            W, H = w.width() * dpr, w.height() * dpr
+            x0, y0, x1, y1 = r.left() * dpr, r.top() * dpr, (r.right() + 1) * dpr, (r.bottom() + 1) * dpr
+            crop = [x0 / S, (H - y1) / S, (W - x1) / S, y0 / S]
+            return dict(base, page=i, scale=S, kind="tile", crop=crop, tkey=need,
+                        rect=(r.x(), r.y(), r.width(), r.height()))
+        if self.single and not self._local:             # Nachbarseiten vorbereiten (nur im Hintergrund sinnvoll)
+            for i in (self.current + 1, self.current - 1):
+                if 0 <= i < len(self.pages) and i not in self._rfail:
+                    w = self.pages[i]
+                    if w.master is None or w.mstale or w.mkey[1] != rot:
+                        return dict(base, page=i, scale=self._master_scale(i), kind="master")
+        return None
+
+    def render_done(self, req, img, err):
+        if req.get("gen") != self._gen or (req.get("doc") is not None and req.get("doc") != self._rkey):
+            return
+        i = req["page"]
+        if not (0 <= i < len(self.pages)):
+            return
+        w = self.pages[i]
+        if err or img is None:
+            if err == "render process ended":
+                return                                  # wird nach dem Neustart erneut angefragt
+            self._rfail.add(i)
+            self._render_one_local(w, req)              # diese Seite im Programm rendern
+            return
+        if req["kind"] == "master":
+            w.master, w.mkey, w.mstale = img, (req["scale"], req["rotation"]), False
+            w._skey = None
+            self.masterReady.emit(i)
+        elif req["kind"] == "tile":
+            if req["tkey"] != self.tile_key(w):
+                return
+            w.tile, w.tile_rect, w.tkey = img, QRectF(*req["rect"]), req["tkey"]
+        w.update()
+
+    def _render_image(self, req):
+        """Im Programm rendern (Rückfall) – gleiche Anfrage wie an den Render-Prozess."""
+        page = self.doc[req["page"]]
+        try:
+            crop = tuple(req["crop"]) if req.get("crop") else (0, 0, 0, 0)
+            bmp = page.render(scale=req["scale"], rotation=req["rotation"] % 360, crop=crop, prefer_bgrx=True,
+                              may_draw_forms=True, draw_annots=True)
+            fmt = QImage.Format.Format_RGB32 if bmp.n_channels == 4 else QImage.Format.Format_BGR888
+            img = QImage(bytes(bmp.buffer), bmp.width, bmp.height, bmp.stride, fmt).copy()
+            bmp.close()
+            return img
+        finally:
+            page.close()
+
+    def _render_one_local(self, w, req):
+        try:
+            img = self._render_image(req)
+        except Exception:
+            return
+        saved = self._rkey
+        self.render_done(dict(req, doc=saved), img, None)
+
+    def _evict(self):
+        """Speicher: Seitenbilder nur um die sichtbaren Seiten behalten, Ausschnitte nur sichtbar."""
+        vis = {w.index for w in self._wanted_pages()} or {self.current}
+        lo, hi = min(vis) - self.KEEP_MASTERS, max(vis) + self.KEEP_MASTERS
+        for w in self.pages:
+            if w.index not in vis and w.tile is not None:
+                w.drop(tile_only=True)
+            if not (lo <= w.index <= hi) and w.master is not None:
+                w.drop()
 
     def set_single(self, single: bool):
         cur = self.current
@@ -389,15 +639,13 @@ class PageView(QScrollArea):
             for w in self.pages:
                 if w.index != self.current:
                     w.hide()
-                    w.pixmap, w.key, w.fuzzy = None, None, False
             w = self.pages[self.current]
             s = self.page_zoom(self.current) * dpi
             pw, ph = self._rot_size(self.current)
             ww, hh = int(pw * s), int(ph * s)
             cw, ch = max(ww + 2 * PAGE_GAP, vw), max(hh + 2 * PAGE_GAP, vh)
             w.setGeometry((cw - ww) // 2, max(PAGE_GAP, (ch - hh) // 2), ww, hh)
-            if w.key != (s, self.rotation):
-                w.fuzzy = True       # altes Bild strecken statt weiß – scharf kommt gleich
+            self._rotate_master(w)
             w.show()
             self.container.resize(cw, ch)
         else:
@@ -410,8 +658,7 @@ class PageView(QScrollArea):
             y = PAGE_GAP
             for w, (ww, hh, s) in zip(self.pages, geo):
                 w.setGeometry((cw - ww) // 2, y, ww, hh)
-                if w.key != (s, self.rotation):
-                    w.fuzzy = True   # Zoom/Rotation: Übergangsbild bis zur scharfen Pixmap
+                self._rotate_master(w)
                 w.show()
                 y += hh + PAGE_GAP
             self.container.resize(cw, y)
@@ -435,24 +682,38 @@ class PageView(QScrollArea):
                     self.pageChanged.emit(w.index)
                 break
 
+    def _rotate_master(self, w):
+        """Ansicht gedreht: vorhandenes Seitenbild sofort mitdrehen (scharf kommt danach)."""
+        if w.master is None or w.mkey is None or w.mkey[1] == self.rotation:
+            return
+        from PySide6.QtGui import QTransform
+        w.master = w.master.transformed(QTransform().rotate((self.rotation - w.mkey[1]) % 360))
+        w.mkey = (w.mkey[0], self.rotation)
+        w.mstale = True                    # neu rendern (Seitenverhältnis/Kanten exakt)
+        w._skey = None
+        w.drop(tile_only=True)
+
     def _render_visible(self):
+        """Nach Scrollen/Zoomen/Layout: Bedarf an den Render-Prozess melden (oder im Programm rendern)."""
         if self.doc is None or getattr(self.doc, "raw", None) is None:
             return                         # Dokument schon geschlossen (Fenster/Reiter zu, Zeitgeber kam danach)
-        top = self.verticalScrollBar().value() - 200
-        bottom = top + self.viewport().height() + 400
-        dpr = self.devicePixelRatioF()
-        for w in self.pages:
-            s = self.page_zoom(w.index) * self._dpi_scale()
-            visible = w.isVisibleTo(self.container) and w.y() + w.height() >= top and w.y() <= bottom
-            if visible and w.key != (s, self.rotation):
-                page = self.doc[w.index]
-                w.pixmap = render_pixmap(page, s, self.rotation, dpr)
-                page.close()
-                w.key = (s, self.rotation)
-                w.fuzzy = False          # scharfes Bild da – Übergangsbild abschalten
-                w.update()
-            elif not visible and w.pixmap is not None:
-                w.pixmap, w.key, w.fuzzy = None, None, False   # Speicher freigeben
+        self._evict()
+        for w in self._wanted_pages():
+            w.update()                     # Ausschnitt einer anderen Zoomstufe nicht mehr zeigen
+        if not self._local:
+            from .renderclient import RenderService
+            RenderService.get().kick()
+            return
+        for _ in range(12):                # Rückfall: im Programm, gleiche Bedarfsermittlung
+            req = self.next_render()
+            if req is None:
+                break
+            try:
+                img = self._render_image(req)
+            except Exception:
+                self._rfail.add(req["page"])
+                continue
+            self.render_done(dict(req, doc=self._rkey), img, None)
 
     # --------------------------------------------------------------- #
     def goto(self, i: int, at_end: bool = False, force: bool = False):
@@ -987,9 +1248,19 @@ class PageView(QScrollArea):
                     pen.setStyle(Qt.PenStyle.DashLine)
                     p.setPen(pen)
                     p.drawRect(self._rect_widget(w, bleed[0], bleed[1], bleed[2], bleed[3]))
-            for item in self.overlay.get(w.index, []):
+            items = self.overlay.get(w.index, [])
+            for item in items:
                 x0, y0, x1, y1, c = item[:5]
                 style = item[5] if len(item) > 5 else ""
+                if style == "dash" and items and w.master is not None and w.width() > 0:
+                    # Ziehen: das Objekt als Bild mitschieben (aus dem Seitenbild, ohne neu zu rendern)
+                    sx0, sy0, sx1, sy1 = items[0][:4]
+                    src = self._rect_widget(w, sx0, sy1, sx1, sy0)
+                    f = w.master.width() / w.width()
+                    p.setOpacity(0.6)
+                    p.drawImage(self._rect_widget(w, x0, y1, x1, y0), w.master,
+                                QRectF(src.x() * f, src.y() * f, src.width() * f, src.height() * f))
+                    p.setOpacity(1.0)
                 pen = QPen(QColor(c), 2)
                 fill = QColor(c)
                 fill.setAlpha(40)
@@ -1108,6 +1379,82 @@ class ThumbDelegate(QStyledItemDelegate):
         p.drawText(QRect(r.x(), box.bottom() + 2, r.width(), self.LABEL),
                    int(Qt.AlignmentFlag.AlignCenter), str(index.data(Qt.ItemDataRole.DisplayRole)))
         p.restore()
+
+
+class _ThumbSource:
+    """Miniaturen für RenderService: rendert nur, was nicht schon aus einem Seitenbild abgeleitet werden kann."""
+
+    def __init__(self, win):
+        self.win = win
+        self.failed = set()
+
+    def usable(self) -> bool:
+        from .renderclient import RenderService
+        v = self.win.view
+        return RenderService.get().ok and not v._local and v._rkey is not None
+
+    def kick(self):
+        from .renderclient import RenderService
+        svc = RenderService.get()
+        svc.register(self)
+        svc.kick()
+
+    def release(self):
+        from .renderclient import RenderService
+        RenderService.get().unregister(self)
+
+    def render_priority(self) -> int:
+        try:
+            return 1 if self.win.isActiveWindow() else 3
+        except RuntimeError:
+            return 9
+
+    def next_render(self):
+        win = self.win
+        if win.doc is None or not self.usable():
+            return None
+        q = win._thumb_queue
+        while q:
+            i = q[0]
+            if i >= len(win.doc) or i >= win.thumbs.count() or (win.view._gen, i) in self.failed:
+                q.pop(0)
+                continue
+            it = win.thumbs.item(i)
+            iw, sc = win._thumb_target(i)
+            if it.data(THUMB_W) == iw and it.data(THUMB_PIX) is not None:
+                q.pop(0)
+                continue
+            win._thumb_from_master(i)                    # Seitenbild schon da?
+            if it.data(THUMB_W) == iw:
+                q.pop(0)
+                continue
+            return {"doc": win.view._rkey, "gen": win.view._gen, "page": i, "scale": sc,
+                    "rotation": win._view_rot(), "kind": "thumb", "iw": iw}
+        return None
+
+    def render_done(self, req, img, err):
+        win = self.win
+        if req.get("gen") != win.view._gen or win.doc is None:
+            return
+        i = req["page"]
+        if err or img is None:
+            if err != "render process ended":
+                self.failed.add((req["gen"], i))       # bleibt leer statt endlos neu anzufragen
+            return
+        if 0 <= i < win.thumbs.count():
+            it = win.thumbs.item(i)
+            pm = QPixmap.fromImage(img)
+            pm.setDevicePixelRatio(win.devicePixelRatioF())
+            it.setData(THUMB_PIX, pm)
+            it.setData(THUMB_W, req["iw"])
+        if win._thumb_queue and win._thumb_queue[0] == i:
+            win._thumb_queue.pop(0)
+
+    def render_reset(self):
+        pass
+
+    def render_fallback(self):
+        self.win._thumb_timer.start()
 
 
 class MergeDialog(QDialog):
@@ -1303,6 +1650,8 @@ class MainWindow(QMainWindow):
         self.resizeDocks([dock], [165], Qt.Orientation.Horizontal)
         self._thumb_queue = []
         self._thumb_timer = QTimer(self, interval=0, timeout=self._render_thumbs)
+        self._thumb_src = _ThumbSource(self)             # Miniaturen über den Render-Prozess
+        self.view.masterReady.connect(self._thumb_from_master)
 
         self._build_actions(dock)
         self.lbl_size = QLabel()
@@ -1598,8 +1947,9 @@ class MainWindow(QMainWindow):
         self.btn_pf.setText("… " + tr("Prüfe"))
         self.btn_pf.show()
         try:
-            data = self._doc_bytes()
-            fdata = self._file_bytes()                   # Dateigröße: wie auf der Platte
+            # unverändert: die Datei selbst prüfen (kein Neuspeichern im Hauptfenster, Größe wie auf der Platte)
+            data = self._doc_bytes() if self.modified else self._file_bytes()
+            fdata = data
         except Exception as e:
             self.pf_panel.set_error(str(e))
             return
@@ -1898,14 +2248,27 @@ class MainWindow(QMainWindow):
         if rest:
             self.ctl.open_paths(rest, tab_of=self)
 
-    def _set_doc(self, doc, path, display, modified, keep_page=None):
+    def _set_doc(self, doc, path, display, modified, keep_page=None, src=None, changed_pages=None):
+        """src: Bytes des Dokuments, falls schon vorhanden (spart dem Render-Prozess das Zwischenspeichern).
+            changed_pages: Seiten, die bearbeitet wurden – alte Vorschau/Miniaturen bleiben als Platzhalter stehen,
+            bis die neuen da sind (diese Seiten zuerst)."""
         if self.doc is not None and self.doc is not doc:
             self.doc.close()
+        same_count = self.doc is not None and changed_pages is not None and self.thumbs.count() == len(doc)
         self.doc, self.path, self.display_name, self.modified = doc, path, display, modified
-        self.view.set_document(doc, keep_page)
+        if src is None and not modified and path and path.lower().endswith(".pdf") and os.path.isfile(path):
+            src = path                                   # unverändert: Render-Prozess liest die Datei selbst
+        self.view.set_document(doc, keep_page, src=src, changed_pages=changed_pages if same_count else None)
         n = len(doc)
         self.page_edit.set_count(n)
-        self._rebuild_thumbs()
+        if same_count:
+            for i in range(self.thumbs.count()):        # alte Miniaturen bleiben stehen, bis die neuen da sind
+                self.thumbs.item(i).setData(THUMB_W, None)
+            self._requeue_thumbs()
+            first = [i for i in changed_pages if i in self._thumb_queue]
+            self._thumb_queue = first + [i for i in self._thumb_queue if i not in first]
+        else:
+            self._rebuild_thumbs()
         self._update_actions()
         self._update_title()
         self._page_changed(self.view.current)
@@ -2300,7 +2663,37 @@ class MainWindow(QMainWindow):
         first = max(0, first)
         n = self.thumbs.count()
         self._thumb_queue = list(range(first, n)) + list(range(0, first))
-        self._thumb_timer.start()
+        if self._thumb_src.usable():
+            self._thumb_timer.stop()
+            self._thumb_src.kick()
+        else:
+            self._thumb_timer.start()
+
+    def _thumb_target(self, i):
+        """(Bildbreite in der Liste, Maßstab in Gerätepixeln) für Miniatur i."""
+        dlg = self.thumbs.itemDelegate()
+        it = self.thumbs.item(i)
+        iw = dlg.image_rect(QRect(0, 0, self.thumbs.tile_width(), 10000), it.data(THUMB_ASPECT)).width()
+        w, h = self.doc.get_page_size(i)
+        rot = self._view_rot()
+        return iw, iw / (h if rot % 180 else w) * self.devicePixelRatioF()
+
+    def _thumb_from_master(self, i):
+        """Seitenbild der Vorschau fertig -> Miniatur daraus skalieren (kein zweites Rendern)."""
+        if self.doc is None or not (0 <= i < self.thumbs.count()) or not (0 <= i < len(self.view.pages)):
+            return
+        w = self.view.pages[i]
+        if w.master is None or w.mstale or w.mkey is None or w.mkey[1] != self._view_rot():
+            return
+        it = self.thumbs.item(i)
+        iw, _sc = self._thumb_target(i)
+        dpr = self.devicePixelRatioF()
+        tw = max(1, round(iw * dpr))
+        img = w.master.scaledToWidth(tw, Qt.TransformationMode.SmoothTransformation)
+        pm = QPixmap.fromImage(img)
+        pm.setDevicePixelRatio(dpr)
+        it.setData(THUMB_PIX, pm)
+        it.setData(THUMB_W, iw)
 
     def _render_thumbs(self):
         if not self._thumb_queue or self.doc is None:
@@ -2743,6 +3136,8 @@ class MainWindow(QMainWindow):
         # Druckeinstellungen der Sitzung bleiben bis zum letzten Fenster – dann verfallen sie.
         try:
             self.view._timer.stop()
+            self.view.release_render()     # Dokument im Render-Prozess schließen
+            self._thumb_src.release()
             self.view.doc = None           # Ansicht darf das gleich geschlossene Dokument nicht mehr anfassen
         except Exception:
             pass

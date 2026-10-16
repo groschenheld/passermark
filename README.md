@@ -1,4 +1,4 @@
-# Passermark 1.12.6
+# Passermark 1.13.0
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -7,6 +7,14 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 > welcome – answers and new features come without any guarantee. Tested with CUPS and Windows drivers
 > (inkjet, office/production printers with finishers via a print server); less common drivers and finisher
 > options may need adjustments.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Preflight check with warnings and notes](docs/screenshots/preflight_example.jpg) | ![CMYK conversion with colour preview](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Step & repeat](docs/screenshots/step_and_repeat_example.png) | ![CutContour for cutting plotters](docs/screenshots/cut_contour_example.png) |
+| ![Trim](docs/screenshots/trim_example.png) | ![Variable data](docs/screenshots/variable_data_example.png) |
 
 ## Features
 
@@ -96,10 +104,6 @@ Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`
 points to the log. Logs without errors are deleted on exit.
 
 ## Build
-
-Every push to `main` builds the Windows installer and the Linux AppImage on GitHub (**Actions**); both are
-checked with `--selftest`. Pushing a tag `v*` (e.g. `git tag v1.10.7 && git push origin v1.10.7`) attaches them
-to a GitHub Release.
 
 Local builds: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, needs Python 3.12 and
 Inno Setup 6) or `./linux/build-appimage.sh` (Linux, see the script header for packages).

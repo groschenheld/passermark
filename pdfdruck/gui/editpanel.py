@@ -211,10 +211,12 @@ class EditPanel(QWidget):
         del self.undo[:-20]
         self.btn_undo.setEnabled(True)
 
-    def _replace_doc(self, data: bytes):
+    def _replace_doc(self, data: bytes, pages=None):
+        """pages: nur diese Seiten wurden geändert – Vorschau/Miniaturen der übrigen bleiben stehen."""
         import pypdfium2 as pdfium
         page = self.page
-        self.win._set_doc(pdfium.PdfDocument(data), self.win.path, self.win.display_name, True, keep_page=page)
+        self.win._set_doc(pdfium.PdfDocument(data), self.win.path, self.win.display_name, True, keep_page=page,
+                          src=data, changed_pages=pages)
         self.lmap_key = None
         self.refresh()
 
@@ -383,7 +385,7 @@ class EditPanel(QWidget):
                 self.undo.append(data)
                 del self.undo[:-20]
                 self.btn_undo.setEnabled(True)
-                self._replace_doc(new)
+                self._replace_doc(new, [self.page])
                 self._reselect_layer(L.key)
         except Exception as e:
             _err(self, e)
@@ -722,7 +724,7 @@ class EditPanel(QWidget):
         self.undo.append(data)
         del self.undo[:-20]
         self.btn_undo.setEnabled(True)
-        self._replace_doc(new)
+        self._replace_doc(new, [self.page])          # verify_edit: nur diese Seite hat sich geändert
         if notes:
             QMessageBox.information(self, tr("Hinweis"), "\n\n".join(notes))
         return True
