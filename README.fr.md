@@ -1,4 +1,4 @@
-# Passermark 1.12.6
+# Passermark 1.13.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -9,6 +9,14 @@ Logiciel libre (GPL-3.0-or-later).
 > bienvenus – les réponses et les nouvelles fonctions sont fournies sans garantie. Testé avec les pilotes
 > CUPS et Windows (jet d'encre, imprimantes de bureau et de production avec finisseur via un serveur
 > d'impression) ; les pilotes plus rares et les options de finisseur peuvent nécessiter des ajustements.
+
+## Captures d'écran
+
+| | |
+|---|---|
+| ![Contrôle du document avec avertissements et notes](docs/screenshots/preflight_example.jpg) | ![Conversion CMJN avec aperçu des couleurs](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Step & repeat (Nutzen)](docs/screenshots/step_and_repeat_example.png) | ![CutContour pour traceurs de découpe](docs/screenshots/cut_contour_example.png) |
+| ![Découpe (trim)](docs/screenshots/trim_example.png) | ![Données variables](docs/screenshots/variable_data_example.png) |
 
 ## Fonctionnalités
 
@@ -109,10 +117,6 @@ Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`
 démarrage suivant pointe vers le journal. Les journaux sans erreur sont supprimés à la fermeture.
 
 ## Compilation
-
-Chaque push sur `main` compile sur GitHub l'installateur Windows et l'AppImage Linux (**Actions**) ; les
-deux sont vérifiés avec `--selftest`. Un tag `v*` (p. ex. `git tag v1.10.7 && git push origin v1.10.7`) les
-joint à une Release GitHub.
 
 En local : `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, nécessite Python 3.12 et
 Inno Setup 6) ou `./linux/build-appimage.sh` (Linux, paquets requis dans l'en-tête du script).

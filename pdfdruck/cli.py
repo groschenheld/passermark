@@ -176,6 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     import faulthandler
     faulthandler.enable()                   # hard crash -> output to stderr (ends up in the GUI log)
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv[:1] == ["render-server"]:       # intern: Render-Prozess der Seitenansicht (kein Auftrag)
+        from .renderproc import main as render_main
+        return render_main()
     from . import core
     from .l10n import tr
     parser = build_parser()

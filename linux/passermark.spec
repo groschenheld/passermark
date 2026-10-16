@@ -18,7 +18,8 @@ datas += [(os.path.join(root, "admin", "passermark-admin"), "admin"),
           (os.path.join(root, "pdfdruck", "cfgvalidate.py"), "pdfdruck")]
 a = Analysis([os.path.join(root, "windows", "launcher.py")], pathex=[root], binaries=binaries, datas=datas,
              hiddenimports=["cups", "PySide6.QtSvg", "PySide6.QtNetwork", "PySide6.QtDBus", "pillow_heif", "img2pdf",
-                            "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS],
+                            "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS,
+                            "pdfdruck.renderproc", "pdfdruck.gui.renderclient"],     # Render-Prozess der Seitenansicht
              excludes=["tkinter", "win32print", "win32gui"], noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="passermark", console=False)

@@ -1,4 +1,4 @@
-# Passermark 1.12.6
+# Passermark 1.13.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -9,6 +9,14 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 > sind willkommen – Antworten und neue Funktionen ohne Garantie. Getestet mit CUPS- und Windows-Treibern
 > (Tintenstrahl, Büro- und Produktionsdrucker mit Finisher über einen Druckserver); seltenere Treiber und
 > Finisher-Optionen brauchen eventuell Anpassungen.
+
+## Bilder
+
+| | |
+|---|---|
+| ![Dokumentprüfung mit Warnungen und Hinweisen](docs/screenshots/preflight_example.jpg) | ![CMYK-Umwandlung mit Farbvorschau](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Nutzen (Step & Repeat)](docs/screenshots/step_and_repeat_example.png) | ![CutContour für Schneideplotter](docs/screenshots/cut_contour_example.png) |
+| ![Beschneiden](docs/screenshots/trim_example.png) | ![Variable Daten](docs/screenshots/variable_data_example.png) |
 
 ## Funktionen
 
@@ -103,10 +111,6 @@ Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`
 nächste Start auf das Protokoll hin. Protokolle ohne Fehler werden beim Beenden gelöscht.
 
 ## Bauen
-
-Jeder Push auf `main` baut auf GitHub den Windows-Installer und das Linux-AppImage (**Actions**); beide werden
-mit `--selftest` geprüft. Ein Tag `v*` (z. B. `git tag v1.10.7 && git push origin v1.10.7`) hängt sie an ein
-GitHub-Release.
 
 Lokal: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, braucht Python 3.12 und
 Inno Setup 6) oder `./linux/build-appimage.sh` (Linux, benötigte Pakete im Kopf des Skripts).

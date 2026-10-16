@@ -1,4 +1,4 @@
-# Passermark 1.12.6
+# Passermark 1.13.0
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -10,6 +10,14 @@ Software libre (GPL-3.0-or-later).
 > CUPS y de Windows (inyección de tinta, impresoras de oficina y de producción con encuadernadora a través de
 > un servidor de impresión); los controladores menos comunes y las opciones de acabado pueden necesitar
 > ajustes.
+
+## Capturas de pantalla
+
+| | |
+|---|---|
+| ![Comprobación del documento con avisos y notas](docs/screenshots/preflight_example.jpg) | ![Conversión CMYK con vista previa de color](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Step & repeat](docs/screenshots/step_and_repeat_example.png) | ![CutContour para plotter de corte](docs/screenshots/cut_contour_example.png) |
+| ![Recorte](docs/screenshots/trim_example.png) | ![Datos variables](docs/screenshots/variable_data_example.png) |
 
 ## Funciones
 
@@ -109,10 +117,6 @@ Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`
 inicio señala el registro. Los registros sin errores se eliminan al salir.
 
 ## Compilación
-
-Cada push a `main` compila en GitHub el instalador de Windows y el AppImage de Linux (**Actions**); ambos se
-comprueban con `--selftest`. Una etiqueta `v*` (p. ej. `git tag v1.10.7 && git push origin v1.10.7`) los
-adjunta a una Release de GitHub.
 
 Localmente: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, necesita Python 3.12 e
 Inno Setup 6) o `./linux/build-appimage.sh` (Linux, los paquetes necesarios en la cabecera del script).

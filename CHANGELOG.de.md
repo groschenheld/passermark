@@ -2,10 +2,31 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-# 1.12.6
+## 1.13.0
+### Schnellere Ansicht (Render-Überarbeitung)
+- **Rendern im eigenen Prozess:** Seiten werden von einem Hintergrundprozess gerendert (`passermark-cli render-server`); die Oberfläche wartet nie mehr darauf. Es ist immer nur eine Anfrage unterwegs – beim schnellen Blättern stauen sich keine veralteten. Stürzt der Prozess ab, startet er neu; geht er gar nicht (oder ist das PDF passwortgeschützt), rendert die Ansicht wie früher im Programm selbst.
+- **Ein Seitenbild je Seite:** jede Seite wird einmal in etwa doppelter Ansichtsgröße gerendert; Zoomstufen bis dahin und die Miniaturen werden daraus nur skaliert. Die Bilder einer Seite werden also nur einmal entpackt – statt je Zoomstufe und je Miniatur.
+- **Starkes Zoomen rendert nur den sichtbaren Ausschnitt,** pixelgenau auch bei gedrehter Ansicht. Bei 400 % ist die Seite kurz unscharf, dann scharf (vorher hochgezogen und unscharf).
+- **Über dieselbe Datei speichern geht jetzt auch unter Windows:** die Datei wird in den Speicher gelesen und bleibt frei.
+- **Bearbeiten:** beim Ziehen läuft das Objekt halbdurchsichtig mit; nach dem Übernehmen bleiben die alten Bilder als Platzhalter stehen und werden im Hintergrund erneuert, die bearbeitete Seite zuerst. Vorher wurde alles weiß und alle Miniaturen wurden im Hauptfenster neu gerendert.
+- **Die automatische Prüfung liest unveränderte Dateien direkt** – beim Öffnen entfällt das Neuspeichern im Hauptfenster.
 
-### preflight adjustments
--preflight adjustments
+Gemessen mit der 309-MB-Testdatei (wie lange die Oberfläche einfriert):
+
+| | 1.12.1 | 1.13.0 |
+|---|---|---|
+| Öffnen | 5,6 s | 1,1 s |
+| Zoomen (3 Stufen) | 1,5 s | 0,02 s |
+| Blättern | 1,4 s | 0,02 s |
+| 400 % | 1,7 s, unscharf | 0,03 s, scharf |
+| Objekt ziehen | – | 0,01 s, Objekt läuft als Bild mit |
+
+- Fehler eingrenzen: mit `PASSERMARK_RENDER=local` läuft alles wie vorher – damit lässt sich schnell klären, ob es am neuen Render-Prozess liegt.
+- Bekanntes Restproblem: das Loslassen beim Bearbeiten dauert bei schweren Seiten noch ca. 1 s (die Sicherheitsprüfung vergleicht die Seite vorher und nachher). Ein Element, das auf mehreren Seiten verwendet wird, kann sich durch eine Änderung überall ändern – darum werden nach dem Bearbeiten alle Seiten im Hintergrund neu gerendert, die bearbeitete zuerst.
+
+## 1.12.6
+### Vorabprüfung (Preflight)
+- Kleine Anpassungen an „Dateigröße reduzieren“ (`shrink`) und den Preflight-Prüfungen; Übersetzungen vervollständigt; CLI-Handbuch (DE/EN) aktualisiert.
 
 ## 1.12.5
 ### Lizenzen

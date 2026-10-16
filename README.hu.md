@@ -1,4 +1,4 @@
-# Passermark 1.12.6
+# Passermark 1.13.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -9,6 +9,14 @@ szoftver (GPL-3.0-or-later).
 > szívesen fogadok – a válaszok és az új funkciók garancia nélkül érkeznek. CUPS- és Windows-illesztőprogramokkal
 > tesztelve (intasugaras, irodai és termelési nyomtatók finisherrel, nyomtatószerveren keresztül); a
 > ritkább illesztőprogramok és finisher-beállítások módosítást igényelhetnek.
+
+## Képernyőképek
+
+| | |
+|---|---|
+| ![Dokumentum-ellenőrzés figyelmeztetésekkel és megjegyzésekkel](docs/screenshots/preflight_example.jpg) | ![CMYK-átalakítás színelőnézettel](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Nutzen (step & repeat)](docs/screenshots/step_and_repeat_example.png) | ![CutContour vágóplotterekhez](docs/screenshots/cut_contour_example.png) |
+| ![Kivágás](docs/screenshots/trim_example.png) | ![Változó adatok](docs/screenshots/variable_data_example.png) |
 
 ## Funkciók
 
@@ -103,10 +111,6 @@ Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`
 következő indítás a naplóra mutat. A hibátlan naplók kilépéskor törlődnek.
 
 ## Fordítás (Build)
-
-Minden `main` ágra történt push GitHubon felépíti a Windows-telepítőt és a Linux-AppImage-ot
-(**Actions**); mindkettőt `--selftest`-tel ellenőrzi. Egy `v*` címke (pl. `git tag v1.10.7 && git push origin
-v1.10.7`) GitHub-Release-hez csatolja őket.
 
 Helyben: `powershell -ExecutionPolicy Bypass -File windows\build.ps1` (Windows, Python 3.12 és Inno Setup 6
 kell) vagy `./linux/build-appimage.sh` (Linux, a szükséges csomagok a szkript fejében).
