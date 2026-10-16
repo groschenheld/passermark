@@ -3,6 +3,7 @@
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
 # 1.12.6
+
 ### preflight adjustments
 -preflight adjustments
 
