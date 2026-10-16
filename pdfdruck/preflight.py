@@ -15,7 +15,8 @@ Analysis:
   Transparency soft masks, blend modes, opacity, transparency groups, overprint
 Repairs:
   set the layer state, flatten layers (visible state, marker removed), remove layers,
-  embed fonts (with replacements), text to paths, reduce transparency (Ghostscript)
+  embed fonts (with replacements), text to paths, reduce transparency (Ghostscript),
+  transparent gradients (soft mask in patterns) to opaque images (softmask.py, without Ghostscript)
 """
 from __future__ import annotations
 
@@ -58,7 +59,7 @@ SEV_ORDER = {"error": 0, "warning": 1, "info": 2}
 @dataclass
 class Issue:
     severity: str              # error | warning | info
-    category: str              # font | layer | transparency | text
+    category: str              # font | layer | transparency | text | image
     message: str
     pages: list = field(default_factory=list)
 
@@ -108,6 +109,9 @@ class Report:
     layers: list = field(default_factory=list)
     transparency: dict = field(default_factory=dict)   # Seite -> {Art}
     garbled: dict = field(default_factory=dict)        # Seite -> Anzahl
+    hdr: list = field(default_factory=list)            # HDR-Foto: [{"main": i, "aux": j, …}] (0-basiert)
+    colors: object = None                              # imagecheck.ColorReport: Bilder (dpi, Farbraum), Farben
+    size: object = None                                # shrink.SizeReport: wofür der Platz draufgeht
     issues: list = field(default_factory=list)
 
     def counts(self):
@@ -213,6 +217,15 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                         pass
                 if gs.get("/OP") is True or gs.get("/op") is True:
                     trans.setdefault(pno, set()).add("overprint")
+            for _n, pat in (res.get("/Pattern") or {}).items():
+                # Verlauf mit Soft-Maske im Muster (Chrome/Skia, Canva …): RIPs, die die Maske ignorieren,
+                # drucken ihn als schwarze Fläche – darunterliegende Bilder verschwinden
+                try:
+                    from .softmask import pattern_has_softmask
+                    if pattern_has_softmask(pat):
+                        trans.setdefault(pno, set()).add("pattern_smask")
+                except Exception:
+                    pass
             for _n, x in (res.get("/XObject") or {}).items():
                 try:
                     if x.get("/Subtype") == pikepdf.Name.Image and "/SMask" in x:
@@ -241,8 +254,33 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
         for f in rep.fonts:
             if f.status in ("missing", "std14") and f.encoding != "private" and not (f.cid and f.encoding.startswith("Identity")):
                 f.suggestion, f.suggestion_name = suggest_font(f.name)
+        flagged = [p for p, k in trans.items() if "pattern_smask" in k]
+        if flagged:                     # nur melden, wo wirklich damit gemalt wird (nach Reparatur: nicht mehr)
+            try:
+                from .softmask import scan
+                painted = {t.page + 1 for t in scan(pdf).targets}
+                for p in flagged:
+                    if p not in painted:
+                        trans[p].discard("pattern_smask")
+                        trans[p].add("smask")
+            except Exception:
+                pass
         rep.transparency = trans
         rep.layers = _layers(pdf)
+        try:
+            rep.hdr = hdr_aux_pages(pdf)
+        except Exception:
+            rep.hdr = []
+        try:
+            from . import imagecheck
+            rep.colors = imagecheck.analyze(pdf)
+        except Exception:
+            rep.colors = None
+        try:
+            from . import shrink
+            rep.size = shrink.analyze(data, pdf, rep.colors)
+        except Exception:
+            rep.size = None
     finally:
         pdf.close()
     if pdfium_parts:
@@ -903,6 +941,189 @@ def flatten_transparency(data: bytes, dpi: int = 300) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
+# Bilder und Farben (imagecheck)
+# --------------------------------------------------------------------------- #
+def _mm(t) -> str:
+    return f"{t[0]:.0f} × {t[1]:.0f} mm"
+
+
+def _image_issues(rep: Report) -> list:
+    from . import imagecheck as ic
+    cr = rep.colors
+    if cr is None:
+        return []
+    out = []
+    by_page: dict = {}
+    hdr_aux = {h["aux"] + 1 for h in (rep.hdr or [])}     # graue HDR-Zusatzseite: eigener Befund
+    for u in cr.images:
+        if (u.mask and u.rating == "tiny") or u.page in hdr_aux:
+            continue
+        by_page.setdefault(u.page, []).append(u)
+    limits = ic.page_limits(cr)
+    low_pages = sorted(p for p, us in by_page.items() if any(u.rating == "low" for u in us))
+    ok_pages = sorted(p for p, us in by_page.items() if p not in low_pages and any(u.rating == "ok" for u in us))
+
+    def advice(p, worst):
+        lim = limits.get(p)
+        a, b = worst.max_mm(worst.good), worst.max_mm(worst.ok)
+        txt = tr("Empfehlung: dieses Bild bei {0} dpi max. {1}, bei {2} dpi max. {3}.").format(
+            worst.good, _mm(a), worst.ok, _mm(b))
+        if lim and p in cr.page_size_mm and lim[1] < 0.995:
+            ps = cr.page_size_mm[p]
+            txt += " " + tr("Ganze Seite höchstens {0:.0f} % ({1}) bei {2} dpi bzw. {3:.0f} % ({4}) bei {5} dpi.").format(
+                lim[1] * 100, _mm((ps[0] * lim[1], ps[1] * lim[1])), ic.GOOD_DPI,
+                min(lim[2], 9.99) * 100, _mm((ps[0] * min(lim[2], 9.99), ps[1] * min(lim[2], 9.99))), ic.OK_DPI)
+        return txt
+
+    for pages, sev, kind in ((low_pages, "warning", "low"), (ok_pages, "info", "ok")):
+        if len(pages) > 8:                               # viele Seiten: eine Sammelmeldung
+            worst = min((u for p in pages for u in by_page[p] if u.rating == kind), key=lambda u: u.dpi)
+            msg = (tr("Bilder unter {0} dpi auf {1} Seiten – niedrigste {2:.0f} dpi (Seite {3}).")
+                   if kind == "low" else
+                   tr("Bilder mit {0}–{1} dpi auf {2} Seiten – gut für Plakat/Großformat, für Nahbetrachtung knapp."))
+            out.append(Issue(sev, "image", msg.format(worst.ok, len(pages), worst.dpi, worst.page) if kind == "low"
+                             else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)), pages))
+            continue
+        for p in pages:
+            us = [u for u in by_page[p] if u.rating == kind]
+            worst = min(us, key=lambda u: u.dpi)
+            head = (tr("Seite {0}: {1} Bild(er) unter {2} dpi – niedrigste {3:.0f} dpi ({4} × {5} px auf {6}).")
+                    if kind == "low" else
+                    tr("Seite {0}: {1} Bild(er) mit {3:.0f}–{2} dpi ({4} × {5} px auf {6}) – gut für Plakat/"
+                       "Großformat, für Nahbetrachtung knapp."))
+            msg = head.format(p, len(us), worst.ok if kind == "low" else worst.good - 1, worst.dpi,
+                              worst.px[0], worst.px[1], _mm(worst.placed_mm))
+            out.append(Issue(sev, "image", msg + " " + advice(p, worst), [p]))
+    rgb = sorted(p for p, c in cr.page_colors.items() if "RGB" in c)
+    if rgb:
+        n_img = sum(1 for u in cr.images if u.space == "RGB")
+        out.append(Issue("info", "image", tr("RGB-Inhalte auf {0} Seite(n) ({1} Bildplatzierung(en) in RGB) – für "
+                                             "Offset/Digitaldruck nach CMYK umwandeln (Druckaufbereitung → CMYK); "
+                                             "Plotter/Großformat drucken RGB meist direkt.").format(len(rgb), n_img), rgb))
+    names = sorted({n for ns in cr.spots.values() for n in ns})
+    if names:
+        out.append(Issue("info", "image", tr("Sonderfarben: {0}.").format(", ".join(names)), sorted(cr.spots)))
+    return out
+
+
+def colors_text(rep: Report) -> list:
+    """Bilder und Farben als Textzeilen (für Bericht und Panel)."""
+    cr = rep.colors
+    if cr is None:
+        return []
+    lines = []
+    if cr.output_intent:
+        lines.append(tr("Ausgabeprofil (Output Intent): {0}").format(cr.output_intent))
+    for p in sorted(cr.page_colors):
+        from .imagecheck import space_label
+        lines.append(tr("Seite {0}: {1}").format(p, ", ".join(sorted(space_label(c) for c in cr.page_colors[p]))))
+    return lines
+
+
+# --------------------------------------------------------------------------- #
+# HDR-Fotos, als zwei Seiten geöffnet (Foto + graue Helligkeitskarte)
+# --------------------------------------------------------------------------- #
+def _single_image(page):
+    """Seite, die nur aus einem Bild besteht (wie beim Öffnen eines Fotos) -> (Name, Bild) oder None."""
+    import pikepdf
+    try:
+        ops = list(pikepdf.parse_content_stream(page))
+    except Exception:
+        return None
+    names = [str(getattr(i, "operator", "")) for i in ops]
+    if any(n not in ("q", "Q", "cm", "Do") for n in names) or names.count("Do") != 1:
+        return None
+    nm = str(ops[names.index("Do")].operands[0])
+    x = (_resources(page).get("/XObject") or {}).get(nm)
+    if x is None or x.get("/Subtype") != pikepdf.Name.Image:
+        return None
+    return nm, x
+
+
+def _components(img) -> int:
+    import pikepdf
+    cs = img.get("/ColorSpace")
+    if cs == pikepdf.Name.DeviceGray:
+        return 1
+    if cs == pikepdf.Name.DeviceRGB:
+        return 3
+    if cs == pikepdf.Name.DeviceCMYK:
+        return 4
+    try:
+        if isinstance(cs, pikepdf.Array) and cs[0] == pikepdf.Name.ICCBased:
+            return int(cs[1].get("/N", 0))
+    except Exception:
+        pass
+    return 0
+
+
+def hdr_aux_pages(pdf) -> list:
+    """Paare (Foto, graue Helligkeitskarte) aufeinanderfolgender Bildseiten – so öffnet img2pdf HDR-Fotos
+        vom Handy, wenn nicht repariert wurde. Gleiches Seitenverhältnis, Karte grau und nicht größer."""
+    out, pages = [], list(pdf.pages)
+    i = 0
+    while i + 1 < len(pages):
+        a, b = _single_image(pages[i]), _single_image(pages[i + 1])
+        if a and b:
+            ia, ib = a[1], b[1]
+            try:
+                aw, ah, bw, bh = int(ia.Width), int(ia.Height), int(ib.Width), int(ib.Height)
+            except Exception:
+                aw = ah = bw = bh = 0
+            if (aw and bw and _components(ia) >= 3 and _components(ib) == 1 and bw <= aw and bh <= ah
+                    and abs(aw / ah - bw / bh) <= 0.02 * aw / ah):
+                pa, pb = [float(v) for v in pages[i].mediabox], [float(v) for v in pages[i + 1].mediabox]
+                out.append({"main": i, "aux": i + 1, "main_px": (aw, ah), "aux_px": (bw, bh),
+                            "main_dpi": aw / ((pa[2] - pa[0]) / 72.0), "aux_dpi": bw / ((pb[2] - pb[0]) / 72.0),
+                            "aux_mode": "L", "kind": tr("HDR-Foto")})
+                i += 2
+                continue
+        i += 1
+    return out
+
+
+def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes:
+    """HDR-Zusatzseiten entfernen. size: "aux" = Fotoseite bekommt die Größe der Zusatzseite,
+        "main" = Größe bleibt. merge: Helligkeitskarte ins Foto einrechnen (neues JPEG)."""
+    import pikepdf
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        pairs = hdr_aux_pages(pdf)
+        for h in sorted(pairs, key=lambda x: -x["main"]):
+            mp, ap = pdf.pages[h["main"]], pdf.pages[h["aux"]]
+            nm, img = _single_image(mp)
+            if merge:
+                from . import images
+                _an, aux = _single_image(ap)
+                base = pikepdf.PdfImage(img).as_pil_image()
+                gm = pikepdf.PdfImage(aux).as_pil_image()
+                icc = None
+                try:
+                    icc = pikepdf.PdfImage(img).icc.tobytes() if pikepdf.PdfImage(img).icc else None
+                except Exception:
+                    icc = None
+                jpg = images.merge_gain_map(base, gm, icc)
+                img.write(jpg, filter=pikepdf.Name.DCTDecode)
+                img.Width, img.Height = base.size[0], base.size[1]
+                img.BitsPerComponent = 8
+                if "/DecodeParms" in img:
+                    del img["/DecodeParms"]
+            box = ap.mediabox if size == "aux" else mp.mediabox
+            w, h_ = float(box[2]) - float(box[0]), float(box[3]) - float(box[1])
+            mp.obj.MediaBox = pikepdf.Array([0, 0, w, h_])
+            for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
+                if k in mp.obj:
+                    del mp.obj[k]
+            mp.obj.Contents = pikepdf.Stream(pdf, f"q\n{w:.4f} 0 0 {h_:.4f} 0 0 cm\n{nm} Do\nQ".encode("ascii"))
+            del pdf.pages[h["aux"]]
+        buf = io.BytesIO()
+        pdf.save(buf)
+        return buf.getvalue()
+    finally:
+        pdf.close()
+
+
+# --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
 def _issues(rep: Report) -> list[Issue]:
@@ -946,7 +1167,22 @@ def _issues(rep: Report) -> list[Issue]:
         if L.outside_pct is not None and L.outside_pct > 25:
             out.append(Issue("warning", "layer", tr("Ebene „{0}“: {1:.0f} % des Inhalts liegen außerhalb der Seite "
                                                     "(verrutscht?).").format(L.name, L.outside_pct), sorted(L.pages)))
-    risky = {p for p, k in rep.transparency.items() if k & {"smask", "blend", "group"}}
+    out += _image_issues(rep)
+    if rep.size is not None:
+        from . import shrink
+        out += [Issue(sev, "size", msg, []) for sev, msg in shrink.issues(rep.size)]
+    for h in rep.hdr:
+        out.append(Issue("warning", "image", tr("Seite {0}: graues Zusatzbild eines HDR-Fotos (Helligkeitskarte zu Seite "
+                                                "{1}) – wird in anderer Größe mitgedruckt, am Plotter mit falschen "
+                                                "Farben. Reparatur: „HDR-Zusatzseiten entfernen“.")
+                         .format(h["aux"] + 1, h["main"] + 1), [h["aux"] + 1]))
+    grad = sorted(p for p, k in rep.transparency.items() if "pattern_smask" in k)
+    if grad:
+        out.append(Issue("warning", "transparency", tr("Transparente Verläufe (Soft-Maske im Muster) auf {0} Seite(n) – "
+                                                       "manche RIPs/Plotter drucken sie als schwarze Fläche und decken "
+                                                       "darunterliegende Bilder ab. Reparatur: „Transparente Verläufe in "
+                                                       "Bilder umwandeln“.").format(len(grad)), grad))
+    risky = {p for p, k in rep.transparency.items() if k & {"smask", "blend", "group"} and "pattern_smask" not in k}
     if risky:
         out.append(Issue("info", "transparency", tr("Transparenzen auf {0} Seite(n) – auf älteren Druckern/RIPs ggf. "
                                                     "„Transparenzen reduzieren“.").format(len(risky)), sorted(risky)))
@@ -973,6 +1209,18 @@ def report_text(rep: Report, title: str = "") -> str:
               "type3": "Type3"}[f.status]
         lines.append(f"  {f.name}  ·  {f.subtype}  ·  {st}" + (tr("  ·  Teilmenge") if f.subset else "")
                      + (f"  ·  → {f.suggestion_name}" if f.suggestion_name else ""))
+    if rep.colors is not None and (rep.colors.images or rep.colors.page_colors):
+        lines += ["", tr("Farben:")] + ["  " + x for x in colors_text(rep)]
+        if rep.colors.images:
+            lines += ["", tr("Bilder (Seite · Pixel · platziert · Auflösung · Farbraum · max. bei 300 / 150 dpi):")]
+            for u in rep.colors.images:
+                from .imagecheck import space_label
+                lines.append(f"  {u.page} · {u.px[0]}×{u.px[1]} px · {_mm(u.placed_mm)} · {u.dpi:.0f} dpi · {space_label(u.space)}"
+                             + (f" ({u.profile})" if u.profile else "")
+                             + f" · {_mm(u.max_mm(u.good))} / {_mm(u.max_mm(u.ok))}")
+    if rep.size is not None:
+        from . import shrink
+        lines += ["", tr("Dateigröße:")] + ["  " + x for x in shrink.summary_lines(rep.size, top=8)]
     if rep.layers:
         lines += ["", tr("Ebenen:")]
         for L in rep.layers:

@@ -1,4 +1,4 @@
-# Passermark 1.12.0
+# Passermark 1.12.5
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -117,3 +117,10 @@ Tesztek: `python3 tests/test_<név>.py` (nem kell tesztkeretrendszer).
 
 GPL-3.0-or-later, lásd `LICENSE`. A Windows-telepítő és az AppImage tartalmazza a
 [Ghostscript](https://ghostscript.com) programot (AGPL-3.0, Artifex Software).
+
+Harmadik féltől származó licencek: a telepítő és az AppImage a program mellett egy `licenses`
+mappát tartalmaz (Súgó → Licencek …) a `THIRD_PARTY_NOTICES.txt` fájllal, az összes mellékelt
+Python-csomag licencfájljaival, a Qt/PySide6 LGPL-tájékoztatóval (a Qt-könyvtárak cseréje) és a
+Ghostscript-tájékoztatóval, benne a mellékelt verzió forráskódjának hivatkozásaival. Kérésre a
+mellékelt összetevők forráskódját is biztosítjuk – kérjük, nyisson egy issue-t a
+[GitHubon](https://github.com/groschenheld/passermark/issues).

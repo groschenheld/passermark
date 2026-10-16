@@ -40,6 +40,19 @@ $GsDest = "dist\passermark\gs\gs$GsVersion"
 New-Item -ItemType Directory -Force -Path $GsDest | Out-Null
 Copy-Item -Recurse -Force "$GsStage\*" $GsDest
 
+# Licences of everything shipped (Python packages, Qt/PySide6 LGPL notice, Ghostscript AGPL notice)
+# -> dist\passermark\licenses (installed next to the program, Help -> Licences)
+$Agpl = "build\agpl-3.0.txt"
+if (-not (Test-Path $Agpl)) {
+    curl.exe -L --fail --retry 3 --retry-delay 5 -o $Agpl "https://www.gnu.org/licenses/agpl-3.0.txt"
+}
+$LicArgs = @("tools\third_party_licenses.py", "dist\passermark\licenses", "--requirements", "requirements-windows.txt",
+             "--gs-version", $GsVersion)
+if (Test-Path $Agpl) { $LicArgs += @("--agpl", $Agpl) } else { Write-Host "WARNING: AGPL-3.0 text download failed - notice links to gnu.org" }
+.\.venv-win\Scripts\python @LicArgs
+if ($LASTEXITCODE -ne 0) { throw "Licence collection failed" }
+if (-not (Test-Path "dist\passermark\licenses\THIRD_PARTY_NOTICES.txt")) { throw "THIRD_PARTY_NOTICES.txt missing" }
+
 # Self test of the finished program (all bundled dependencies incl. Ghostscript must load)
 $p = Start-Process -FilePath "dist\passermark\passermark.exe" -ArgumentList "--selftest" -Wait -PassThru
 $log = Join-Path $env:TEMP "passermark-selftest.log"

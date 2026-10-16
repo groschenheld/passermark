@@ -97,9 +97,9 @@ class RepairSettings:
 
 @dataclass
 class PreflightFixSettings:
-    fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency
+    fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency | flatten_softmask
     font_map: dict = field(default_factory=dict)        # embed_fonts: {Schriftname: Pfad}
-    dpi: int = 300                                      # flatten_transparency
+    dpi: int = 300                                      # flatten_transparency, flatten_softmask
     visible: list | None = None                         # flatten_layers: sichtbare Ebenen (None = Druck-Zustand)
 
 
@@ -247,12 +247,45 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
         out = preflight.outline_text(data)
     elif s.fix == "flatten_transparency":
         out = preflight.flatten_transparency(data, s.dpi)
+    elif s.fix == "flatten_softmask":
+        from . import softmask
+
+        def step(done, total):
+            _check(cancel)
+            _report(progress, done, total, tr("Verlauf {0} von {1} …").format(done + 1, total))
+        out, more = softmask.flatten_softmask_paints(data, s.dpi, step)
+        notes += more
     else:
         raise ValueError(tr("Unbekannte Reparatur: {0}").format(s.fix))
     _check(cancel)
     _write_atomic(dst, out)
     _report(progress, 1, 1, "")
     return JobResult(dst, {}, notes)
+
+
+def _job_shrink(src, dst, s, opts, progress, cancel):
+    """Dateigröße verkleinern – jede Maßnahme einzeln schaltbar (siehe shrink.ShrinkOptions)."""
+    from . import shrink
+    with open(src, "rb") as f:
+        data = f.read()
+    _report(progress, 0, 1, tr("Bearbeite …"))
+
+    def step(done, total):
+        _check(cancel)
+        _report(progress, done, total, tr("Bild {0} von {1} …").format(done + 1, total))
+    out, notes = shrink.shrink(data, s, step)
+    _check(cancel)
+    if len(out) >= len(data):                    # nichts gewonnen -> Original übernehmen
+        out = data
+        notes = [tr("Keine Einsparung – Datei unverändert übernommen.")]
+    _write_atomic(dst, out)
+    _report(progress, 1, 1, "")
+    return JobResult(dst, {"size_in": len(data), "size_out": len(out)}, notes)
+
+
+def _shrink_settings():
+    from .shrink import ShrinkOptions
+    return ShrinkOptions
 
 
 def _job_impose(src, dst, s, opts, progress, cancel):
@@ -345,6 +378,7 @@ JOBS = {
     "impose": (_impose_settings, _job_impose),
     "vdp": (_vdp_settings, _job_vdp),
     "split": (_split_settings, _job_split),
+    "shrink": (_shrink_settings, _job_shrink),
 }
 
 

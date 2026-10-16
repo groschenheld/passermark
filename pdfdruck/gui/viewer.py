@@ -84,11 +84,24 @@ def merge_files(parent, ctl, paths: list[str]):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def ask_hdr(parent, paths: list[str], default_dpi: float = 96.0):
+    """HDR-Fotos mit Zusatzbild (Helligkeitskarte) melden und die Reparatur wählen lassen.
+        -> Optionen für images_to_document (None = keine solchen Bilder)."""
+    from .hdrdialog import hdr_options
+    found = [(p, images.hdr_aux_info(p)) for p in paths]
+    found = [(p, i) for p, i in found if i is not None]
+    if not found:
+        return None
+    names = ", ".join(f"„{os.path.basename(p)}“" for p, _i in found[:3]) + (" …" if len(found) > 3 else "")
+    opts = hdr_options(parent, [i for _p, i in found], names, default_dpi, tr("Unverändert öffnen (2 Seiten)"))
+    return {"keep": True} if opts is None else opts
+
+
 def load_any(parent, ctl, path, workdir=None, notes=None):
     """PDF (mit Passwortabfrage), Bild oder Office-Datei -> pypdfium2-Dokument (None = abgebrochen)."""
     import tempfile
     if images.is_image(path):
-        return images.images_to_document([path], ctl.image_dpi)
+        return images.images_to_document([path], ctl.image_dpi, ask_hdr(parent, [path], ctl.image_dpi))
     if _convert.is_office(path):
         from PySide6.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -1402,6 +1415,26 @@ class MainWindow(QMainWindow):
                 except OSError:
                     pass
 
+    @staticmethod
+    def licenses_path() -> str:
+        """Ordner „licenses“ neben dem Programm (Installer/AppImage); aus dem Quellcode: LICENSE."""
+        from .. import platform as _pl
+        for d in _pl.app_dirs():
+            p = os.path.join(d, "licenses")
+            if os.path.isdir(p):
+                return p
+        root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        return os.path.join(root, "LICENSE")
+
+    def _open_licenses(self):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        p = self.licenses_path()
+        if not os.path.exists(p):
+            QMessageBox.information(self, tr("Lizenzen"), tr("Passermark steht unter der GPL-3.0 (oder später)."))
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(p))
+
     def _open_presets_dir(self):
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
@@ -1504,7 +1537,12 @@ class MainWindow(QMainWindow):
         from .preflightpanel import PreflightPanel
         self.pf_panel = PreflightPanel(self)
         self.pf_panel.data_fn = self._doc_bytes
+        self.pf_panel.file_fn = self._file_bytes
         self.pf_panel.result_ready.connect(self._pf_result)
+        self.pf_panel.job_requested.connect(
+            lambda kind, s, suffix, title: self.start_job(
+                kind, s, suffix=suffix, title=title,
+                src_data=self.pf_panel.take_job_data() if kind == "shrink" else None))
         self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
         self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
         self.pf_dock = QDockWidget(tr("Prüfung"), self)
@@ -1530,6 +1568,22 @@ class MainWindow(QMainWindow):
         self.doc.save(buf)
         return buf.getvalue()
 
+    def _file_bytes(self) -> bytes:
+        """Die Datei wie auf der Platte (unverändert geöffnet, unverschlüsselt) – sonst der aktuelle Stand.
+            Für Größe/Verkleinern: pdfium speichert neu und verwischt sonst, was wirklich in der Datei steckt."""
+        p = self.path
+        if p and not self.modified and p.lower().endswith(".pdf") and os.path.isfile(p):
+            try:
+                import pikepdf
+                with pikepdf.open(p) as pdf:
+                    enc = pdf.is_encrypted
+                if not enc:
+                    with open(p, "rb") as f:
+                        return f.read()
+            except Exception:
+                pass
+        return self._doc_bytes()
+
     def _pf_start(self, force=False):
         from .. import l10n
         if self.doc is None:
@@ -1545,11 +1599,22 @@ class MainWindow(QMainWindow):
         self.btn_pf.show()
         try:
             data = self._doc_bytes()
+            fdata = self._file_bytes()                   # Dateigröße: wie auf der Platte
         except Exception as e:
             self.pf_panel.set_error(str(e))
             return
+
+        def work(d, fd):
+            rep = preflight.analyze(d, True, pdfium_parts=False)
+            if fd != d:
+                from .. import shrink
+                try:
+                    rep.size = shrink.analyze(fd)
+                except Exception:
+                    pass
+            return rep
         # background: pikepdf parts only (pdfium is not thread-safe – otherwise occasional crashes)
-        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
+        w = _Worker(work, data, fdata)
 
         def done(rep, err, gen=gen, w=w):
             if gen != self._pf_gen:
@@ -1611,6 +1676,7 @@ class MainWindow(QMainWindow):
         self.a_merge = A(tr("Dokumente zusammenführen…"), self.merge_dialog, "Ctrl+M", "merge")
         self.a_print = A(tr("Drucken…"), self.print_dialog, QKeySequence.StandardKey.Print, "print")
         self.a_repair = A(tr("Reparieren, optimieren, Passwort…"), self.repair_dialog, "Ctrl+Shift+R", "repair")
+        self.a_shrink = A(tr("Datei verkleinern …"), self.shrink_dialog, None, "repair")
         self.a_close = A(tr("Schließen"), self.close, QKeySequence.StandardKey.Close)
         self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "copy")
         self.a_seltext = A(tr("Text der Seite markieren"), lambda: self.view.select_page_text(), "Ctrl+Alt+A", "select")
@@ -1656,6 +1722,7 @@ class MainWindow(QMainWindow):
         m = mb.addMenu(tr("D&okument"))
         m.addAction(self.a_merge)
         m.addAction(self.a_repair)
+        m.addAction(self.a_shrink)
         m.addSeparator()
         self.a_preflight = A(tr("Dokumentprüfung (Preflight) …"),
                              lambda: (self.pf_dock.show(), self.pf_dock.raise_(), self._pf_start(force=True)),
@@ -1717,6 +1784,10 @@ class MainWindow(QMainWindow):
             m.addAction(a)
         a = QAction(tr("Fehlerprotokolle öffnen"), self)
         a.triggered.connect(lambda: __import__("pdfdruck.gui.crashui", fromlist=["x"]).open_log_dir())
+        m.addAction(a)
+        a = QAction(tr("Lizenzen …"), self)
+        a.setToolTip(tr("Lizenz von Passermark (GPL-3.0) und aller mitgelieferten Komponenten (Qt, Ghostscript, …)"))
+        a.triggered.connect(self._open_licenses)
         m.addAction(a)
 
         dock_act = dock.toggleViewAction()
@@ -1861,7 +1932,7 @@ class MainWindow(QMainWindow):
 
     def open_images(self, paths: list[str]):
         try:
-            doc = images.images_to_document(paths, self.ctl.image_dpi)
+            doc = images.images_to_document(paths, self.ctl.image_dpi, ask_hdr(self, paths, self.ctl.image_dpi))
         except Exception as e:
             QMessageBox.critical(self, tr("Bild öffnen"), str(e))
             return
@@ -2401,7 +2472,7 @@ class MainWindow(QMainWindow):
         self.vdp_dialog((dlg.path, dlg.kind))
 
     # ---------------- Background jobs (separate process) ---------------- #
-    def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None):
+    def start_job(self, kind, settings, pages=None, suffix="", title="", notes=None, src_data=None):
         """Dokument in den Zwischenspeicher, Kommandozeile als eigenen Prozess starten, Fortschritt unten anzeigen."""
         from .. import jobproc, l10n
         from .jobs import JobReader, JobWidget
@@ -2409,7 +2480,11 @@ class MainWindow(QMainWindow):
         src = self.ctl.cache_file(base + "_eingabe.pdf")
         dst = self.ctl.cache_file(base + suffix + ".pdf")
         try:
-            self.doc.save(src)                                   # current state (including unsaved changes)
+            if src_data is not None:                             # z. B. die Datei wie auf der Platte
+                with open(src, "wb") as f:
+                    f.write(src_data)
+            else:
+                self.doc.save(src)                               # current state (including unsaved changes)
             open(dst, "wb").close()                              # reserve names (several jobs at once)
             job = jobproc.JobProcess(kind, src, dst, settings, pages, lang=l10n.current())
             job.start()
@@ -2585,6 +2660,16 @@ class MainWindow(QMainWindow):
     def settings_dialog(self):
         from .settingsdialog import SettingsDialog
         SettingsDialog(self).exec()
+
+    def shrink_dialog(self):
+        """Dateigröße aufschlüsseln und verkleinern – auch für Dateien, die nicht als zu groß gelten."""
+        if self.doc is None:
+            return
+        from .shrinkdialog import ShrinkDialog
+        data = self._file_bytes()
+        dlg = ShrinkDialog(self, None, data)
+        if dlg.exec():
+            self.start_job("shrink", dlg.options(), suffix=tr("_klein"), title=tr("Datei verkleinern"), src_data=data)
 
     def repair_dialog(self):
         import tempfile

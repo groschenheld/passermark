@@ -133,10 +133,161 @@ def svg_to_pdf_bytes(path: str) -> bytes:
     return bytes(data)
 
 
-def image_to_pdf_bytes(path: str, default_dpi: float = 96.0) -> bytes:
+# ---------------------------------------------------------------------------------------------- #
+# HDR-Fotos (Apple HDR, Google Ultra HDR …): JPEG mit eingebettetem Zusatzbild (Helligkeitskarte /
+# „Gain Map“) nach dem Multi-Picture-Format. Ohne Behandlung macht img2pdf daraus zwei Seiten – das
+# Farbfoto und eine graue Karte, die wegen ihrer 72 dpi oft größer ist. Fürs Drucken zählt nur das
+# Foto; die Karte hellt auf HDR-Bildschirmen die Lichter auf.
+# ---------------------------------------------------------------------------------------------- #
+HDR_DEFAULT = {"size": "aux", "merge": False}     # ohne Rückfrage: eine Seite, Größe wie die Zusatzseite
+HDR_APPLE_STOPS = 2.0                             # Aufhellung, wenn die Datei keinen Wert mitbringt
+
+
+def hdr_aux_info(path: str) -> dict | None:
+    """JPEG mit Zusatzbild (Helligkeitskarte)? -> Angaben dazu, sonst None."""
+    if os.path.splitext(path)[1].lower() not in (".jpg", ".jpeg", ".jpe"):
+        return None
+    from PIL import Image
+    try:
+        with Image.open(path) as img:
+            if img.format != "MPO" or getattr(img, "n_frames", 1) < 2:
+                return None
+            main_px, main_dpi = img.size, _dpi_of(img)
+            img.seek(1)
+            aux_px, aux_dpi, aux_mode = img.size, _dpi_of(img), img.mode
+    except Exception:                       # noqa: BLE001 – kaputte Datei: normaler Weg meldet es
+        return None
+    with open(path, "rb") as f:
+        raw = f.read()
+    kind = (tr("Apple-HDR") if b"apple:photo:2020:aux:hdrgainmap" in raw or b"ns.apple.com/HDRGainMap" in raw
+            else tr("Ultra HDR") if b"ns.adobe.com/hdr-gain-map" in raw or b"hdrgm:" in raw
+            else tr("Zusatzbild"))
+    return {"kind": kind, "main_px": main_px, "main_dpi": main_dpi, "aux_px": aux_px,
+            "aux_dpi": aux_dpi, "aux_mode": aux_mode}
+
+
+def hdr_size_mm(info: dict, which: str, default_dpi: float = 96.0) -> tuple:
+    """Seitengröße in mm: which = "aux" (wie die Zusatzseite) oder "main" (wie im Foto hinterlegt)."""
+    px, dpi = (info["aux_px"], info["aux_dpi"]) if which == "aux" else (info["main_px"], info["main_dpi"])
+    dpi = dpi or default_dpi
+    return px[0] / dpi * 25.4, px[1] / dpi * 25.4
+
+
+def _strip_mpf(jpeg: bytes) -> bytes:
+    """MPF-Kopf (APP2 „MPF“) aus einem JPEG entfernen – danach ist es ein gewöhnliches Einzelbild."""
+    if jpeg[:2] != b"\xff\xd8":
+        return jpeg
+    out, i = bytearray(b"\xff\xd8"), 2
+    while i + 4 <= len(jpeg) and jpeg[i] == 0xFF:
+        m = jpeg[i + 1]
+        if m in (0xDA, 0xD9):                       # ab Bilddaten: Rest unverändert
+            break
+        n = int.from_bytes(jpeg[i + 2:i + 4], "big")
+        seg = jpeg[i:i + 2 + n]
+        if not (m == 0xE2 and seg[4:8] == b"MPF\x00"):
+            out += seg
+        i += 2 + n
+    return bytes(out + jpeg[i:])
+
+
+def _primary_jpeg(path: str) -> bytes:
+    """Das Hauptbild eines MPO/HDR-JPEGs verlustfrei (ohne Zusatzbild, ohne MPF-Kopf)."""
+    from PIL import Image
+    with open(path, "rb") as f:
+        raw = f.read()
+    with Image.open(path) as img:
+        offs = getattr(img, "_MpoImageFile__mpoffsets", None)
+    end = offs[1] if offs and len(offs) > 1 else None
+    if not end:                                      # Rückfall: Ende des ersten Bildes suchen
+        end = raw.find(b"\xff\xd8\xff", 2)
+        end = end if end > 0 else len(raw)
+    return _strip_mpf(raw[:end])
+
+
+def _hdr_params(raw: bytes) -> dict | None:
+    """Ultra-HDR-Kennwerte (hdrgm:GainMapMin/Max/Gamma, log2) aus dem XMP; None = nicht vorhanden."""
+    import re
+    vals = {}
+    for key in ("GainMapMin", "GainMapMax", "Gamma", "OffsetSDR", "OffsetHDR"):
+        m = re.search(rb'hdrgm:' + key.encode() + rb'="([-0-9.eE]+)"', raw) or \
+            re.search(rb'<hdrgm:' + key.encode() + rb'>([-0-9.eE]+)<', raw)
+        if m:
+            vals[key] = float(m.group(1))
+    return vals or None
+
+
+def hdr_merged_jpeg(path: str, stops: float | None = None) -> bytes:
+    """Foto mit eingerechneter Helligkeitskarte (Lichter aufgehellt, für Papier zurückgerechnet)."""
+    from PIL import Image
+    with open(path, "rb") as f:
+        raw = f.read()
+    with Image.open(path) as img:
+        img.seek(0)
+        base = img.convert("RGB")
+        icc = img.info.get("icc_profile")
+        img.seek(1)
+        gm = img.convert("L")
+    return merge_gain_map(base, gm, icc, _hdr_params(raw), stops)
+
+
+def merge_gain_map(base, gm, icc=None, params: dict | None = None, stops: float | None = None) -> bytes:
+    """Helligkeitskarte gm (PIL „L“) auf das Foto base (PIL „RGB“) anwenden -> JPEG-Bytes.
+        params: Ultra-HDR-Kennwerte (GainMapMin/Max/Gamma …) oder None = Apple-Formel."""
+    import numpy as np
+    from PIL import Image
+    base = base.convert("RGB")
+    gm = gm.convert("L").resize(base.size, Image.BICUBIC)
+
+    def lin(v):
+        return np.where(v <= 0.04045, v / 12.92, ((v + 0.055) / 1.055) ** 2.4)
+
+    def enc(v):
+        return np.where(v <= 0.0031308, v * 12.92, 1.055 * np.power(np.clip(v, 0, None), 1 / 2.4) - 0.055)
+
+    sdr = lin(np.asarray(base, np.float32) / 255.0)
+    g = np.asarray(gm, np.float32)[..., None] / 255.0
+    p = params
+    if p and "GainMapMax" in p:                      # Ultra HDR: logarithmisch codierte Karte
+        lo, hi = p.get("GainMapMin", 0.0), p["GainMapMax"]
+        rec = np.power(g, 1.0 / max(p.get("Gamma", 1.0), 1e-3))
+        o_s, o_h = p.get("OffsetSDR", 1 / 64), p.get("OffsetHDR", 1 / 64)
+        hdr = (sdr + o_s) * np.power(2.0, lo + (hi - lo) * rec) - o_h
+        H = 2.0 ** hi
+    else:                                            # Apple: hdr = sdr · (1 + (H − 1) · Karte)
+        H = 2.0 ** (stops if stops is not None else HDR_APPLE_STOPS)
+        hdr = sdr * (1.0 + (H - 1.0) * lin(g))
+    # zurück auf Papier: bis zum Knie unverändert, darüber weich bis Weiß (Farbton bleibt)
+    knee = 0.75
+    m = hdr.max(axis=2, keepdims=True)
+    t = np.clip((m - knee) / max(H - knee, 1e-3), 0, None)
+    mo = np.where(m <= knee, m, knee + (1 - knee) * (1 - np.exp(-4 * t)) / (1 - np.exp(-4)))
+    out = hdr * np.where(m > 1e-6, mo / np.maximum(m, 1e-6), 1.0)
+    im = Image.fromarray((np.clip(enc(np.clip(out, 0, 1)), 0, 1) * 255 + 0.5).astype(np.uint8))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=95, subsampling=0, **({"icc_profile": icc} if icc else {}))
+    return buf.getvalue()
+
+
+def _hdr_to_pdf_bytes(path: str, info: dict, opts: dict, default_dpi: float) -> bytes:
+    import img2pdf
+    data = hdr_merged_jpeg(path) if opts.get("merge") and info.get("aux_mode") == "L" else _primary_jpeg(path)
+    w_mm, _h = hdr_size_mm(info, opts.get("size", "aux"), default_dpi)
+    dpi = info["main_px"][0] / (w_mm / 25.4)         # Foto und Karte sind gleich ausgerichtet
+    return img2pdf.convert(data, rotation=img2pdf.Rotation.ifvalid,
+                           layout_fun=img2pdf.get_fixed_dpi_layout_fun((dpi, dpi)))
+
+
+def image_to_pdf_bytes(path: str, default_dpi: float = 96.0, hdr: dict | None = None) -> bytes:
+    """hdr: Behandlung von HDR-Fotos mit Zusatzbild – {"size": "aux"|"main", "merge": bool};
+        None = HDR_DEFAULT; {"keep": True} = unverändert (Zusatzbild als zweite Seite)."""
     import img2pdf
     from PIL import Image, ImageOps
 
+    opts = HDR_DEFAULT if hdr is None else hdr
+    if not opts.get("keep"):
+        info = hdr_aux_info(path)
+        if info is not None:
+            return _hdr_to_pdf_bytes(path, info, opts, default_dpi)
     ext = os.path.splitext(path)[1].lower()
     if ext in SVG_EXT:
         return svg_to_pdf_bytes(path)
@@ -175,13 +326,18 @@ def image_to_pdf_bytes(path: str, default_dpi: float = 96.0) -> bytes:
     return img2pdf.convert(data, **kw)
 
 
-def images_to_document(paths: list[str], default_dpi: float = 96.0):
-    """Mehrere Bilder -> ein pypdfium2-Dokument (eine Seite pro Bild/Frame)."""
+def images_to_document(paths: list[str], default_dpi: float = 96.0, hdr: dict | None = None):
+    """Mehrere Bilder -> ein pypdfium2-Dokument (eine Seite pro Bild/Frame).
+        hdr: siehe image_to_pdf_bytes – je Pfad ({Pfad: Optionen}) oder für alle gleich."""
     import pypdfium2 as pdfium
 
     out = pdfium.PdfDocument.new()
     for p in paths:
-        part = pdfium.PdfDocument(image_to_pdf_bytes(p, default_dpi))
+        if isinstance(hdr, dict) and not ({"size", "merge", "keep"} & set(hdr)):
+            o = hdr.get(p)                       # je Pfad
+        else:
+            o = hdr                              # für alle gleich (oder None = Standard)
+        part = pdfium.PdfDocument(image_to_pdf_bytes(p, default_dpi, o))
         out.import_pages(part)
         part.close()
     return out

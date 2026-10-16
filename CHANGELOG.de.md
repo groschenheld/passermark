@@ -2,43 +2,68 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-## 1.12.0
-- **Bearbeiten: Objekte strukturiert bearbeiten.** Neuer Reiter „Objekte“: Vektoren und Bilder der
-  Seite mit mm-Größe auflisten oder auf der Seite anklicken; skalieren, verschieben, löschen.
-  Mehrfachauswahl mit Strg/Umschalt in Liste und auf der Seite, beide verbunden – Änderungen
-  (Verschieben, Skalieren, Löschen) wirken auf alle gewählten Objekte gleichzeitig. Strg+Ziehen
-  skaliert um den Ursprung des Auswahlrahmens, mit live mm-Anzeige. Sicherheitsnetz: nach jeder
-  Änderung prüft Passermark, dass außerhalb der gewählten Objekte nichts passiert – sonst wird
-  die Änderung zurückgenommen und gemeldet
-- **Z-Ordnung für Objekte und Ebenen:** eins vor/zurück, ganz nach vorne/hinten – für
-  Textzeilen, Vektoren, Bilder und Ebenen
-- **Kreistext (Pfadtext) richtig erkannt:** einzeln gedrehte Buchstaben auf einem Bogen (z. B. aus
-  Affinity) werden als eine Zeile zusammengefasst und als Ganzes bearbeitet; die Schriftgröße lassen
-  sich ändern, ohne die Seite zu zerstören (behebt einen Fehler seit 1.10.4). Zeilen ohne lesbaren
-  Text (Subset-Schriften) erscheinen als „(ohne Textinhalt)“ und lassen sich verschieben, skalieren
-  und löschen
-- **Broschüren: Seiten nebeneinander oder übereinander.** „Seiten aneinander“ ist wählbar:
-  nebeneinander (seitlich gebunden) oder übereinander (oben gebunden). Anschnitt nur an den
-  Außenseiten, nicht am Bund. Die Vorschau zeigt das echte Ergebnis, Duplex blättert paarweise
-  („Bogen X von Y – Vorder- und Rückseite“), der Wendekanten-Hinweis folgt der Bogenlage.
-  „Druckbögen erzeugen …“ öffnet die ausgeschossenen Bögen als neuen Reiter
-- **Step & Repeat als eigenes Fenster.** Kein Druckmodus mehr: frei verschiebbar und minimierbar,
-  ein- und ausgeblendet über den gelben Reiter am linken Dialogrand (Punkt = Mehrfachnutzen
-  aktiv); Schließen verwirft die Einstellungen nicht. Broschürenbögen lassen sich per
-  Mehrfachnutzen mehrfach pro Blatt setzen – ohne wird jeder Bogen genau einmal gesetzt.
-  Anordnung (Kante an Kante / Überfüller an Überfüller / Mit Abstand) und Abstand sind in jedem
-  Modus einstellbar; bei „Mit Abstand“ ist der eingestellte Wert der sichtbare Weißabstand, der
-  Anschnitt kommt je Seite dazu
-- **Seitenleiste neu:** Breite frei ziehbar; Ansichten „Eine Spalte“ und „Raster“, Kachelgröße per
-  Strg+Mausrad oder −/+-Knöpfen (60–600 px); die Ansicht wird gespeichert
-- **Behoben: „Weißraum entfernen“** hielt bei Seiten, deren Inhalt mehr als die Hälfte füllt, die
-  Inhaltsfarbe für den Hintergrund – der weiße Rand blieb stehen. Der Hintergrund wird jetzt aus
-  den Randstreifen der Seite bestimmt
-- **Behoben: Broschüren-Vorschau** blätterte blattweise statt paarweise (zeigte zu viele Bögen);
-  die Seitenleiste ließ sich nicht schmäler ziehen, weil die Prüfen-/Bearbeiten-Panels ihre
-  Mindestbreite durchsetzten – jedes Dock merkt sich jetzt seine eigene Breite
-- Anleitungen (de/en) um den Bearbeiten-Modus erweitert; neue Beispielvorlage „Bogen-Text“ im
-  Beispielordner
+## 1.12.5
+### Lizenzen
+- Installer und AppImage enthalten jetzt alle Drittanbieter-Lizenzhinweise (Python-Pakete, Qt LGPL-3.0, Ghostscript AGPL-3.0 mit Quellcode-Verweis, mitgelieferte Systembibliotheken), einsehbar über den neuen Menüeintrag Hilfe → Lizenzen.
+- READMEs: neuer Abschnitt zu Drittanbieter-Lizenzen, Quellcode auf Anfrage erhältlich.
+### Dokumentation
+- Das CLI-Handbuch (DE/EN) wurde um `shrink` und `flatten_softmask` ergänzt.
+
+## 1.12.4
+### Dateigröße reduzieren (neu)
+- Erreichbar über den Reiter „Dateigröße“ oder Dokument → „Dateigröße reduzieren …“, auch bei Dateien, die nicht als zu groß markiert sind.
+- Jede Maßnahme ist einzeln ein- und ausschaltbar:
+  - **Verlustfrei, standardmäßig aktiv:** Neuschreiben (entfernt alte gespeicherte Versionen), ungenutzte Ressourcen entfernen, Duplikate zusammenführen (Schriften, Bilder, ICC-Profile), Bearbeitungsdaten und Vorschaubilder entfernen, Bilder verlustfrei neu komprimieren (entfernt auch ZIP um JPEG, wenn kleiner).
+  - **Standardmäßig deaktiviert:** 16 → 8 Bit, Anhänge entfernen, Inhalt verborgener Ebenen entfernen.
+  - **Optionales Herunterrechnen:** auf 300/240/150/100 dpi mit Schwellwert und JPEG-Qualität, gemessen an der größten Platzierung. Soft Masks werden mitskaliert.
+- Das Ergebnis öffnet sich in einem neuen Fenster, das Original bleibt unverändert. Ist das Ergebnis nicht kleiner, bleibt die Datei, wie sie ist.
+- CLI: `passermark-cli shrink in.pdf out.pdf [--set downsample=true --set target_dpi=150 …]`
+- Beispiel: Eine 34-MB-Datei mit 90-mal eingebettetem, identischem CMYK-Profil schrumpfte auf 0,5 MB, pixelidentisch.
+
+## 1.12.3
+### Vorabprüfung (Preflight)
+- **Neuer Reiter „Dateigröße“:** zeigt, wohin die Bytes gehen: Bilder, Schriften, Farbprofile, Illustrator-/Photoshop-Bearbeitungsdaten, Vorschaubilder, Anhänge, Seiteninhalt.
+  - Listet außerdem alte gespeicherte Versionen, Duplikate und die größten Bilder mit ihrer effektiven dpi-Zahl auf.
+  - Warnt vor sehr großen Dateien (mehr als 20 MB je A4-Fläche) und großen Duplikaten.
+
+## 1.12.2
+### Vorabprüfung (Preflight)
+- **Transparente Farbverläufe (Soft Mask im Muster):** werden erkannt und sind reparierbar. Manche RIPs/Plotter drucken sie als schwarze Fläche, die die darunterliegenden Bilder verdeckt. Die neue Reparatur „Transparente Farbverläufe als Bilder umwandeln (300 dpi)“ rendert nur die betroffenen Verläufe, zusammen mit dem darunter Liegenden, als deckendes Bild. Text und Vektoren darüber bleiben erhalten. Kein Ghostscript nötig.
+- **HDR-Fotos (Gain Map):** ein Handy-HDR-Foto, das mit beiden Bildern geöffnet wurde, wird jetzt von der Prüfung erkannt. Reparatur: „HDR-Hilfsseiten entfernen …“, mit wählbarer Größe und optionaler Gain-Map-Zusammenführung.
+- **Neuer Reiter „Bilder & Farben“:**
+  - Farbraum je Bild und Seite (RGB, CMYK, Grau, Schmuckfarben), inklusive exaktem ICC-Profilnamen und Ausgabe-Farbraum (Output Intent).
+  - Effektive Auflösung je Platzierung, auch bei mehrfach verwendeten Bildern oder Bildern in Formularen (XObjects).
+  - Empfohlene Maximalgröße bei 300 und 150 dpi, plus maximale Skalierung je Seite.
+  - Warnungen bei niedriger Auflösung, Hinweise zu RGB-Inhalten und Schmuckfarben.
+
+## 1.12.1
+- **Bearbeiten: mehrere Objekte und Zeilen auf einmal.** „Skalieren / Verschieben …“, „Objekt
+  löschen“, „Übernehmen“ (Schrift und Größe) und „Zeile löschen“ wirken jetzt auf alle gewählten
+  Objekte bzw. Zeilen, nicht mehr nur auf eine. Bei mehreren gewählten Zeilen ist das Textfeld
+  gesperrt – Text ändern geht nur bei einer Zeile
+- **Bearbeiten: Farbe ändern.** Neuer Knopf „Farbe …“ für Textzeilen und Vektorobjekte, wahlweise
+  CMYK (Standard, für den Druck) oder RGB; bei Vektoren Fläche und Kontur getrennt wählbar.
+  Schwarz 0/0/0/100 bleibt reines Schwarz. Die Farbe wird direkt im Seiteninhalt gesetzt – alles
+  außerhalb der Auswahl bleibt unverändert, auch Objekte, die ihre Farbe nur übernommen haben
+- **Bearbeiten: Übersicht.** Die Reiter zeigen die Anzahl („Text (12)“, „Objekte (40)“); im Reiter
+  „Objekte“ lässt sich nach Vektoren oder Bildern filtern, mit Anzahl je Art. Bei aktivem Filter
+  wählt ein Klick auf die Seite nur diese Art
+- **HDR-Fotos vom Handy (iPhone, Android) werden erkannt.** Solche JPGs enthalten neben dem Foto
+  eine graue Helligkeitskarte für HDR-Bildschirme. Bisher wurde daraus eine zweite Seite in anderer
+  Größe – am Plotter mit falschen Farben. Jetzt erscheint beim Öffnen ein Hinweis; „Reparieren“
+  ergibt eine Seite mit dem unveränderten Foto, Größe wählbar (wie das Zusatzbild oder wie im Foto
+  hinterlegt). Die Helligkeitskarte lässt sich optional einrechnen. Ohne Rückfrage (Kommandozeile,
+  Direktdruck) wird automatisch repariert
+- **Behoben: Kreistext-Schriftgröße.** Nach dem Ändern zeigte die Liste weiter die alte Größe, jede
+  weitere Änderung vergrößerte erneut (24 → 36 → 54 pt). Jetzt wird die tatsächliche Größe angezeigt;
+  kurze Bögen mit wenigen Buchstaben werden ebenfalls als Pfadtext erkannt. „Übernehmen“ ohne
+  Änderung lässt die Seite unangetastet
+- **Behoben: Z-Ordnung.** „Eins nach vorn“ beim obersten Objekt meldete fälschlich „Struktur der Seite
+  nicht erkannt“ – jetzt bleibt einfach alles, wie es ist
+- **Behoben: Text mit der Maus ziehen** brach bei manchen PDFs (z. B. aus Chrome) mit einer
+  Fehlermeldung ab
+- Übersetzungen für die Nutzen-Anordnung im Druckdialog ergänzt (Englisch, Ungarisch, Spanisch,
+  Französisch)
 
 ## 1.11.3
 - **VDP-Dialog aufgehübscht.** Variable Daten bekam das gleiche Gesicht wie der Druckdialog: vier

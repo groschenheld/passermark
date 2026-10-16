@@ -2,40 +2,67 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-## 1.12.0
-- **Edit mode: structured object editing.** New "Objects" tab: the page's vectors and images
-  listed with their mm size or clicked on the page; scale, move, delete. Multi-selection with
-  Ctrl/Shift in the list and on the page, both linked – changes (move, scale, delete) apply to all
-  selected objects at once. Ctrl+drag scales around the selection frame's origin with a live mm
-  display. Safety net: after every change Passermark verifies that nothing changes outside the
-  selected objects – otherwise the change is rolled back and reported
-- **Z-order for objects and layers:** one step forward/back, to the very front/back – for text
-  lines, vectors, images and layers
-- **Text on a path recognised correctly:** individually rotated letters on an arc (e.g. from
-  Affinity) are grouped into one line and edited as a whole; the font size can be changed without
-  breaking the page (fixes a bug since 1.10.4). Lines without readable text (subset fonts) appear
-  as "(no text content)" and can be moved, scaled and deleted
-- **Booklets: pages side by side or on top of each other.** "Pages together" is selectable: side
-  by side (side binding) or on top of each other (top binding). Bleed only on the outer sides,
-  never at the spine. The preview shows the real result, duplex pages pair-wise ("Sheet X of Y –
-  front and back"), the tumble hint follows the sheet orientation. "Generate sheets …" opens the
-  imposed sheets as a new tab
-- **Step & Repeat as its own window.** No print mode any more: freely movable and minimisable,
-  shown and hidden via the yellow tab at the left dialog edge (dot = multi-use active); closing
-  keeps all settings. Booklet sheets can be placed several times per sheet via multi-use – without
-  it, every sheet is placed exactly once. Arrangement (edge to edge / bleed against bleed / with
-  gap) and gap are adjustable in every mode; with "with gap" the entered value is the visible
-  white gap, the bleed comes on top per side
-- **Sidebar reworked:** width freely resizable; views "one column" and "grid", tile size via
-  Ctrl+mouse wheel or −/+ buttons (60–600 px); the view is saved
-- **Fixed: "Remove white space"** treated the content colour as the background when the content
-  filled more than half of the page – the white margin stayed. The background is now determined
-  from the page's edge strips
-- **Fixed: booklet preview** paged sheet by sheet instead of pair-wise (showed too many sheets);
-  the sidebar could not be made narrower because the check/edit panels enforced their minimum
-  width – every dock remembers its own width now
-- Guides (de/en) extended with the edit mode; new example template "arc text" in the examples
-  folder
+## 1.12.5
+### Licences
+- Installer and AppImage now include all third-party licence notices (Python packages, Qt LGPL-3.0, Ghostscript AGPL-3.0 with source reference, bundled system libraries), viewable via the new menu entry Help → Licences.
+- READMEs: new section on third-party licences, with source code available on request.
+### Docs
+- The CLI manual (DE/EN) is updated with `shrink` and `flatten_softmask`.
+
+## 1.12.4
+### Reduce file size (new)
+- Available from the "File size" tab or Document → "Reduce file size …", also for files that are not flagged as too large.
+- Every measure can be switched on and off individually:
+  - **Lossless, on by default:** rewrite (drops old saved versions), remove unused resources, merge duplicates (fonts, images, ICC profiles), remove editing data and thumbnails, recompress images losslessly (also removes ZIP around JPEG when smaller).
+  - **Off by default:** 16 → 8 bit, remove attachments, remove hidden layer content.
+  - **Optional downsampling:** to 300/240/150/100 dpi with threshold and JPEG quality, measured at the largest placement. Soft masks are scaled along.
+- The result opens in a new window and the original stays unchanged. If the result is not smaller, the file is kept as is.
+- CLI: `passermark-cli shrink in.pdf out.pdf [--set downsample=true --set target_dpi=150 …]`
+- Example: a 34 MB file with the same CMYK profile embedded 90 times went down to 0.5 MB, pixel-identical.
+
+## 1.12.3
+### Preflight
+- **New tab "File size":** shows where the bytes go: images, fonts, colour profiles, Illustrator/Photoshop editing data, thumbnails, attachments, page content.
+  - It also lists old saved versions, duplicates, and the largest images with their effective dpi.
+  - Warns about very large files (more than 20 MB per A4 area) and large duplicates.
+
+## 1.12.2
+### Preflight
+- **Transparent gradients (soft mask in pattern):** detected and repairable. Some RIPs/plotters print them as a black area that covers the images beneath. The new repair "Convert transparent gradients to images (300 dpi)" renders only the affected gradients, together with what lies beneath, as an opaque image. Text and vectors on top stay intact. No Ghostscript needed.
+- **HDR photos (gain map):** a phone HDR photo opened with both images is now detected in the check. Repair: "Remove HDR auxiliary pages …", with the size selectable and an optional gain-map merge.
+- **New tab "Images & Colours":**
+  - Colour space per image and page (RGB, CMYK, grey, spot colours), including the exact ICC profile name and the output intent.
+  - Effective resolution per placement, also for images used several times or inside forms.
+  - Recommended maximum size at 300 and 150 dpi, plus the maximum scale per page.
+  - Warnings for low resolution and info for RGB content and spot colours.
+
+## 1.12.1
+- **Edit mode: several objects and lines at once.** "Scale / move …", "Delete object", "Apply" (font
+  and size) and "Delete line" now act on all selected objects or lines, no longer only on one. With
+  several lines selected the text field is locked – changing text works with one line only
+- **Edit mode: change colour.** New "Colour …" button for text lines and vector objects, either
+  CMYK (default, for print) or RGB; for vectors fill and stroke separately selectable. Black
+  0/0/0/100 stays pure black. The colour is set directly in the page content – everything outside
+  the selection stays untouched, including objects that only inherited their colour
+- **Edit mode: overview.** The tabs show the count ("Text (12)", "Objects (40)"); in the "Objects"
+  tab a filter for vectors or images is available, with the count per kind. With an active filter a
+  click on the page selects only that kind
+- **HDR photos from phones (iPhone, Android) are recognised.** Such JPGs contain a grey
+  luminance map for HDR screens next to the photo. Previously that became a second page in a
+  different size – with wrong colours at the plotter. Now a hint appears on opening; "Repair"
+  produces one page with the unchanged photo, size selectable (like the auxiliary image or as
+  stored in the photo). The luminance map can optionally be computed in. Without a prompt (command
+  line, direct printing) the file is repaired automatically
+- **Fixed: font size of text on a path.** After changing it, the list kept showing the old size and
+  every further change enlarged again (24 → 36 → 54 pt). The actual size is shown now; short arcs
+  with few letters are recognised as path text as well. "Apply" without a change leaves the page
+  untouched
+- **Fixed: Z-order.** "One step forward" on the topmost object falsely reported "structure of the
+  page not recognised" – now everything simply stays as it is
+- **Fixed: dragging text with the mouse** aborted with an error message on some PDFs (e.g. from
+  Chrome)
+- Translations for the items arrangement in the print dialog added (English, Hungarian, Spanish,
+  French)
 
 ## 1.11.3
 - **VDP dialog facelift.** Variable data uses the same look as the print dialog: four numbered,

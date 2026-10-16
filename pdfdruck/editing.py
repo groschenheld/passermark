@@ -140,6 +140,7 @@ def text_lines(doc, page_index: int, include_undecodable: bool = False) -> list[
     tp = page.get_textpage()
     items = []
     rots: dict[int, tuple] = {}          # Objektnummer -> (Drehung in Grad, Ursprung x, y)
+    scales: dict[int, float] = {}        # Objektnummer -> Skalierung der Objektmatrix (Tm × CTM)
     try:
         ordinal = -1
         for i in range(r.FPDFPage_CountObjects(page.raw)):
@@ -158,6 +159,7 @@ def text_lines(doc, page_index: int, include_undecodable: bool = False) -> list[
             m = r.FS_MATRIX()
             if r.FPDFPageObj_GetMatrix(o, ctypes.byref(m)):
                 rots[i] = (math.degrees(math.atan2(m.b, m.a)), float(m.e), float(m.f))
+                scales[i] = math.sqrt(abs(m.a * m.d - m.b * m.c))
     finally:
         tp.close()
         page.close()
@@ -180,6 +182,17 @@ def text_lines(doc, page_index: int, include_undecodable: bool = False) -> list[
         lines.append(TextLine(len(lines), [i], t, font, size, (x0, y0, x1, y1), mk, "+" in font[:8], [ordn],
                                no_text=notext))
     _merge_arc_lines(lines, rots)
+    for L in lines:
+        # kurze, eng stehende Bögen wurden oben schon als normale Zeile zusammengefasst –
+        # trotzdem als Pfadtext erkennen, wenn die Buchstaben verschieden gedreht auf einem Kreis liegen
+        if L.path_center is None and len(L.objs) >= 3 and all(i in rots for i in L.objs):
+            L.path_center = _arc_center([rots[i][1:] for i in L.objs],
+                                        [math.radians(rots[i][0]) for i in L.objs])
+        if L.path_center is not None and L.objs[0] in scales and scales[L.objs[0]] > 1e-6:
+            # wirksame Größe: Schriftgröße × Skalierung der Matrix (nach „Größe ändern“ steckt die
+            # Vergrößerung im cm, nicht im Tf – sonst zeigt die Liste weiter die alte Größe und
+            # jede weitere Änderung vergrößert erneut)
+            L.size = L.size * scales[L.objs[0]]
     # row text from pdfium text analysis over the row area (real word gaps instead of guessed ones;
     # wichtig z. B. bei Chrome-PDFs, die jeden Buchstaben einzeln setzen)
     page = doc[page_index]
@@ -381,7 +394,7 @@ def delete_objects(doc, page_index: int, objs: list):
 def transform_lines_bulk(doc, page_index: int, lines: list, scale: float = 1.0, dx: float = 0.0, dy: float = 0.0,
                          origin: tuple = (0.0, 0.0)):
     """Mehrere Textzeilen gemeinsam verschieben/skalieren (pdfium, ein GenerateContent)."""
-    ox, oy = float(origin[0]), float(origin[1])
+    import pypdfium2.raw as r
     s = float(scale)
     page = doc[page_index]
     try:
@@ -539,15 +552,15 @@ def _z_permute(n: int, targets: set, where: str) -> list | None:
     if where == "up":
         for t in sorted(targets, reverse=True):          # oberstes zuerst
             i = order.index(t)
-            if i + 1 >= len(order):
-                return None                              # schon ganz vorn -> nicht möglich
+            if i + 1 >= len(order) or order[i + 1] in targets:
+                continue                                 # schon ganz vorn (bzw. hinter einem anderen Ziel)
             order[i], order[i + 1] = order[i + 1], order[i]
         return order
     if where == "down":
         for t in tg:                                      # unterstes zuerst
             i = order.index(t)
-            if i == 0:
-                return None
+            if i == 0 or order[i - 1] in targets:
+                continue                                 # schon ganz hinten
             order[i], order[i - 1] = order[i - 1], order[i]
         return order
     return None
@@ -954,24 +967,33 @@ def path_text_center(doc, page_index: int, line: TextLine) -> tuple | None:
                 return None
             pts.append((float(m.e), float(m.f)))
             angles.append(math.atan2(m.b, m.a))
-        # unterschiedliche Drehung (kreisumlaufend gemessen) -> Bogen, keine gerade Zeile
-        a0 = angles[0]
-        spread = [math.atan2(math.sin(a - a0), math.cos(a - a0)) for a in angles]
-        if max(spread) - min(spread) < math.radians(10):
-            return None
-        c = _circle_fit(pts)
-        if c is None:
-            return None
-        cx, cy, rad = c
-        if not (1e-3 < rad < 1e5):
-            return None
-        ds = [math.hypot(x - cx, y - cy) for x, y in pts]
-        mid = (max(ds) + min(ds)) / 2.0
-        if mid < 1e-3 or (max(ds) - min(ds)) / mid > 0.8:
-            return None
-        return (cx, cy)
+        return _arc_center(pts, angles)
     finally:
         page.close()
+
+
+def _arc_center(pts: list, angles: list) -> tuple | None:
+    """Bogenzentrum (cx, cy), wenn die Buchstaben-Ursprünge pts mit Drehungen angles (Bogenmaß)
+        Pfadtext sind: >= 3 Buchstaben, Drehung streut um mindestens 10°, Ursprünge auf einem Kreis."""
+    import math
+    if len(pts) < 3 or len(pts) != len(angles):
+        return None
+    # unterschiedliche Drehung (kreisumlaufend gemessen) -> Bogen, keine gerade Zeile
+    a0 = angles[0]
+    spread = [math.atan2(math.sin(a - a0), math.cos(a - a0)) for a in angles]
+    if max(spread) - min(spread) < math.radians(10):
+        return None
+    c = _circle_fit(pts)
+    if c is None:
+        return None
+    cx, cy, rad = c
+    if not (1e-3 < rad < 1e5):
+        return None
+    ds = [math.hypot(x - cx, y - cy) for x, y in pts]
+    mid = (max(ds) + min(ds)) / 2.0
+    if mid < 1e-3 or (max(ds) - min(ds)) / mid > 0.8:
+        return None
+    return (cx, cy)
 
 
 def _path_center_of(data: bytes, page_index: int, line: TextLine) -> tuple | None:
@@ -1029,8 +1051,13 @@ def verify_edit(before: bytes, after: bytes, page_index: int, ignore_boxes: list
 def remove_line_ops(data: bytes, page_index: int, line: TextLine) -> bytes:
     """Textausgaben der Zeile aus dem Inhalt entfernen – ohne die Seite neu zu erzeugen. Positionierungen bleiben
     erhalten (' und \" werden durch T* ersetzt), damit nachfolgender Text an seiner Stelle bleibt."""
+    return remove_lines_ops(data, page_index, [line])
+
+
+def remove_lines_ops(data: bytes, page_index: int, lines: list) -> bytes:
+    """Wie remove_line_ops, für mehrere Zeilen in einem Durchgang (Ordnungsnummern bleiben gültig)."""
     import pikepdf
-    targets = set(line.tops)
+    targets = {t for L in lines for t in L.tops}
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         page = pdf.pages[page_index]
@@ -1050,6 +1077,121 @@ def remove_line_ops(data: bytes, page_index: int, line: TextLine) -> bytes:
                     continue
             out.append(ins)
         page.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
+        buf = io.BytesIO()
+        pdf.save(buf)
+        return buf.getvalue()
+    finally:
+        pdf.close()
+
+
+# --------------------------------------------------------------------------- #
+# Farbe ändern (1.12): direkt im Seiteninhalt, damit CMYK möglich ist (pdfium kann nur RGB).
+# Vor dem Objekt wird die neue Farbe gesetzt, danach die vorherige wiederhergestellt –
+# alles Nachfolgende zeichnet unverändert.
+# --------------------------------------------------------------------------- #
+_FILL_SET = {"g": "/DeviceGray", "rg": "/DeviceRGB", "k": "/DeviceCMYK"}
+_STROKE_SET = {"G": "/DeviceGray", "RG": "/DeviceRGB", "K": "/DeviceCMYK"}
+
+
+def color_ops(color, stroke: bool = False) -> list:
+    """("gray", (g,)) | ("rgb", (r, g, b)) | ("cmyk", (c, m, y, k)), Werte 0..1 -> Operatoren."""
+    import pikepdf
+    kind, vals = color
+    op = {"gray": "g", "rgb": "rg", "cmyk": "k"}[kind]
+    return [pikepdf.ContentStreamInstruction([round(float(v), 4) for v in vals],
+                                             pikepdf.Operator(op.upper() if stroke else op))]
+
+
+def recolor(data: bytes, page_index: int, color, lines: list = (), objs: list = (),
+            fill: bool = True, stroke: bool = True) -> bytes | None:
+    """Gewählte Textzeilen und Vektorobjekte umfärben (Fläche und/oder Kontur).
+        Bilder bleiben unverändert. None, wenn die Zuordnung Objekt -> Inhalt nicht sicher ist."""
+    import pikepdf
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as r
+    text_targets = {t for L in lines for t in L.tops}
+    path_targets, n_paths = set(), 0
+    if objs:
+        d = pdfium.PdfDocument(data)
+        try:
+            page = d[page_index]
+            pord, wanted = -1, {i for O in objs for i in O.objs}
+            for i in range(r.FPDFPage_CountObjects(page.raw)):
+                if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(page.raw, i)) == r.FPDF_PAGEOBJ_PATH:
+                    pord += 1
+                    if i in wanted:
+                        path_targets.add(pord)
+            n_paths = pord + 1
+            page.close()
+        finally:
+            d.close()
+    if not text_targets and not path_targets:
+        return data
+    I = pikepdf.ContentStreamInstruction
+    O = pikepdf.Operator
+
+    def cs_for(ins, table, cs_op):
+        """Für sc/scn nach g/rg/k: den passenden Farbraum ausdrücklich setzen."""
+        return I([pikepdf.Name(table[str(ins.operator)])], O(cs_op))
+
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        pg = pdf.pages[page_index]
+        out = []
+        fcol, scol = [I([0], O("g"))], [I([0], O("G"))]     # Anfangszustand: Schwarz
+        stack = []
+        in_bt, path_start, pord, tord = False, None, -1, -1
+        new_fill = color_ops(color) if fill else []
+        new_stroke = color_ops(color, stroke=True) if stroke else []
+        for ins in pikepdf.parse_content_stream(pg):
+            op = str(getattr(ins, "operator", ""))
+            if op == "q":
+                stack.append((fcol, scol))
+            elif op == "Q":
+                if stack:
+                    fcol, scol = stack.pop()
+            elif op in _FILL_SET:
+                fcol = [ins]
+            elif op == "cs":
+                fcol = [ins]
+            elif op in ("sc", "scn"):
+                base = fcol[0] if str(fcol[0].operator) == "cs" else cs_for(fcol[0], _FILL_SET, "cs") \
+                    if str(fcol[0].operator) in _FILL_SET else None
+                fcol = [base, ins] if base is not None else [ins]
+            elif op in _STROKE_SET:
+                scol = [ins]
+            elif op == "CS":
+                scol = [ins]
+            elif op in ("SC", "SCN"):
+                base = scol[0] if str(scol[0].operator) == "CS" else cs_for(scol[0], _STROKE_SET, "CS") \
+                    if str(scol[0].operator) in _STROKE_SET else None
+                scol = [base, ins] if base is not None else [ins]
+            elif op == "BT":
+                in_bt = True
+            elif op == "ET":
+                in_bt = False
+            if not in_bt and op in PATH_CONSTR_OPS and path_start is None:
+                path_start = len(out)
+            if op in SHOW_OPS and in_bt and _show_nonempty(ins):
+                tord += 1
+                if tord in text_targets:
+                    out += new_fill + new_stroke + [ins] + (fcol if fill else []) + (scol if stroke else [])
+                    continue
+            if not in_bt and op in PATH_PAINT_OPS:
+                pord += 1
+                if pord in path_targets and path_start is not None:
+                    out[path_start:path_start] = new_fill + new_stroke
+                    out.append(ins)
+                    out += (fcol if fill else []) + (scol if stroke else [])
+                    path_start = None
+                    continue
+                path_start = None
+            elif op == "n":
+                path_start = None
+            out.append(ins)
+        if objs and pord + 1 != n_paths:
+            return None                  # Pfade im Inhalt passen nicht zu pdfiums Objekten -> nicht sicher
+        pg.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
         buf = io.BytesIO()
         pdf.save(buf)
         return buf.getvalue()
@@ -1147,6 +1289,8 @@ def edit_line_bytes(data: bytes, page_index: int, line: TextLine, new_text: str,
         als Gruppe um sein Zentrum skaliert – Neusetzen wäre falsch (Buchstaben haben je eigene Matrix).
     """
     import pypdfium2 as pdfium
+    if font is None and new_text == line.text and (size is None or abs(size - line.size) <= 0.01):
+        return data, []              # nichts geändert: Seite nicht anfassen (Pfadtext würde sonst neu gesetzt)
     if line.no_text and (font is not None or new_text != line.text):
         raise ValueError(tr("Der Text dieser Zeile lässt sich nicht dekodieren (z. B. eingebettete "
                             "Teilmenge ohne Zeichenzuordnung) – Verschieben, Skalieren und Löschen "
