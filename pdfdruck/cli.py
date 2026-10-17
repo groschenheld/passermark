@@ -526,7 +526,18 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if a.json:
         rep.emit(event="done", **r)
     elif not a.quiet:
-        print(r["output"] + ("  (" + tr("{0} Seite(n)").format(r["pages"]) + ")" if r["pages"] is not None else ""))
+        for s in r["steps"]:                                    # Druckschritte: wohin und welcher Auftrag
+            if s["job"] != workflow.PRINT:
+                continue
+            i = s["info"] or {}
+            if i.get("dry_run"):
+                print(tr("Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm").format(
+                    i.get("printer"), i.get("pages"), *(i.get("sheet_mm") or [0, 0])))
+            else:
+                print(tr("Gedruckt auf {0}: {1} Seite(n), Auftrag {2}").format(
+                    i.get("printer"), i.get("pages"), i.get("job_id") if i.get("job_id") is not None else "–"))
+        if r["output"]:
+            print(r["output"] + ("  (" + tr("{0} Seite(n)").format(r["pages"]) + ")" if r["pages"] is not None else ""))
         for n in r["notes"]:
             print("  " + tr("Hinweis: {0}").format(n))
     return EXIT_OK

@@ -6,6 +6,8 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm': 'Simulation – rien n’a été envoyé : {0}, {1} page(s), feuille {2:g} × {3:g} mm',
+    'Gedruckt auf {0}: {1} Seite(n), Auftrag {2}': 'Imprimé sur {0} : {1} page(s), tâche {2}',
     'Anhänge:': 'Pièces jointes :',
     'Anschnitt (mm)': 'Fond perdu (mm)',
     'Ausführlich und mit Reparaturen: Druckaufbereitung → Prüfen.': 'En détail et avec réparations : Prépresse → Contrôler.',

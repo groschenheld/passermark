@@ -213,6 +213,8 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
                 "driver_settings": bool(vals.get("__devmode__"))}
         if s.dry_run:
             info["job_id"] = None
+            if progress:
+                progress(1, 1, "")
             return info
         info["job_id"] = printjob.submit_document(doc, s.title or os.path.basename(path), session, printer, sel, lay,
                                                   max(1, int(s.copies)), s.collate, rev, values=vals)

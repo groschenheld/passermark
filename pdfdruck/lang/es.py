@@ -6,6 +6,8 @@
 """Übersetzung: Español. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm': 'Simulación – no se envió nada: {0}, {1} página(s), pliego {2:g} × {3:g} mm',
+    'Gedruckt auf {0}: {1} Seite(n), Auftrag {2}': 'Impreso en {0}: {1} página(s), trabajo {2}',
     'Anhänge:': 'Adjuntos:',
     'Anschnitt (mm)': 'Sangrado (mm)',
     'Ausführlich und mit Reparaturen: Druckaufbereitung → Prüfen.': 'En detalle y con reparaciones: Preimpresión → Comprobar.',

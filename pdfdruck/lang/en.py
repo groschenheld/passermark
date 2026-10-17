@@ -6,6 +6,8 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm': 'Dry run – nothing sent: {0}, {1} page(s), sheet {2:g} × {3:g} mm',
+    'Gedruckt auf {0}: {1} Seite(n), Auftrag {2}': 'Printed on {0}: {1} page(s), job {2}',
     'Anhänge:': 'Attachments:',
     'Anschnitt (mm)': 'Bleed (mm)',
     'Ausführlich und mit Reparaturen: Druckaufbereitung → Prüfen.': 'In detail and with repairs: Prepress → Check.',

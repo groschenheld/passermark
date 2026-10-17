@@ -204,6 +204,27 @@ def test_print_with_preset_and_caps_info():
         config.load = saved
 
 
+def test_cli_run_print_only():
+    """passermark-cli run mit nur einem Druckschritt (keine Ausgabedatei): Meldung statt Absturz (1.14.2)."""
+    import contextlib
+    from pdfdruck import cli
+    src = doc(3)
+    f = os.path.join(TMP, "nur-druck.json")
+    for dry in (False, True):
+        with open(f, "w", encoding="utf-8") as fh:
+            json.dump({"passermark": "workflow", "version": 1,
+                       "steps": [{"job": "print", "settings": {"paper": "A3", "dry_run": dry}}]}, fh)
+        out = io.StringIO()
+        with FakePrinter() as fp, contextlib.redirect_stdout(out):
+            rc = cli.main(["run", f, "--in", src])
+        txt = out.getvalue()
+        assert rc == 0, txt
+        if dry:
+            assert "Probelauf" in txt and "297 × 420" in txt and not fp.sent, txt
+        else:
+            assert "Gedruckt auf Canon: 3 Seite(n), Auftrag 4711" in txt and len(fp.sent) == 1, txt
+
+
 def test_schema_has_print():
     sch = workflow.schema()
     assert "settings.print" in sch["$defs"] and "finishing" in sch["$defs"]["settings.print"]["properties"]

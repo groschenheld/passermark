@@ -6,6 +6,8 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm': 'Próbafuttatás – semmi nem lett elküldve: {0}, {1} oldal, ív {2:g} × {3:g} mm',
+    'Gedruckt auf {0}: {1} Seite(n), Auftrag {2}': 'Nyomtatva ide: {0}: {1} oldal, feladat {2}',
     'Anhänge:': 'Mellékletek:',
     'Anschnitt (mm)': 'Kifutó (mm)',
     'Ausführlich und mit Reparaturen: Druckaufbereitung → Prüfen.': 'Részletesen és javításokkal: Nyomdai előkészítés → Ellenőrzés.',
