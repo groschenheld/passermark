@@ -1,4 +1,4 @@
-# Passermark 1.13.2
+# Passermark 1.15.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -103,6 +103,7 @@ Wo: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage
 Windows → `passermark-cli.exe` im Installationsordner (Setup-Option: in den Suchpfad aufnehmen).
 Anleitungen mit Fallbeispielen (PDF) gibt es im Programm unter **Hilfe → Kommandozeile – Anleitung** und
 **Hilfe → Variable Daten – Anleitung**.
+Schnittstelle für Zusatzprogramme (feste JSON-Ereignisse, Fehlercodes): [docs/cli-api.md](docs/cli-api.md).
 
 ## Fehlerprotokolle
 

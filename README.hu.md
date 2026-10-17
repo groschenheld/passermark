@@ -1,4 +1,4 @@
-# Passermark 1.13.2
+# Passermark 1.15.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -103,6 +103,7 @@ környezeti változóval (1 = nem párhuzamos).
 Hol: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` a telepítési mappában (telepítési beállítás: felvétel a keresési útvonalba).
 Útmutatók példákkal a programban: **Súgó → Parancssor – útmutató** és **Súgó → Változó adatok – útmutató**.
+Felület külső programoknak (stabil JSON-események, hibakódok): [docs/cli-api.md](docs/cli-api.md).
 
 ## Hibák naplózása
 

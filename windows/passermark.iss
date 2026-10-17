@@ -81,6 +81,7 @@ Source: "..\dist\passermark\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreve
 [Dirs]
 Name: "{commonappdata}\Passermark"
 Name: "{commonappdata}\Passermark\icc"
+Name: "{commonappdata}\Passermark\ablaeufe"
 
 [Icons]
 Name: "{group}\Passermark"; Filename: "{app}\passermark.exe"

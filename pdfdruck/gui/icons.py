@@ -54,6 +54,7 @@ _SHAPES = {
     "lock": '<rect x="5" y="11" width="14" height="9.5" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/>',
     "move_up": '<rect x="6" y="9" width="12" height="12" rx="1"/><path d="M12 3v3.5M9.5 5L12 2.5 14.5 5"/>',
     "move_down": '<rect x="6" y="3" width="12" height="12" rx="1"/><path d="M12 21v-3.5M9.5 19l2.5 2.5 2.5-2.5"/>',
+    "info": '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><path d="M12 7.6v.4"/>',
 }
 
 

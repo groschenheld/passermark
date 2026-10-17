@@ -344,6 +344,7 @@ class Controller(QObject):
                 w.close()
             return
         base = os.path.splitext(os.path.basename(paths[0]))[0]
+        w._sources = list(paths)
         w._set_doc(doc, None, tr("{0} (zusammengeführt).pdf").format(base), True)
         w._suggest_dir = os.path.dirname(paths[0])
         self.show_window(w)

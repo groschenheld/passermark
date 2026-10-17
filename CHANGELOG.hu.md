@@ -5,6 +5,57 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.15.0
+### Bedobómappák: passermark-cli serve (figyelő)
+- A `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton. A hozzárendelés a `watch.json`-ban áll (a `--config`-ból, különben a sajátból, különben az összes felhasználóéból).
+- Feldolgozás után az eredmény az `output/`, az eredeti a `processed/` mappába kerül; hibánál az eredeti a `failed/`-ba kerül egy `.log` fájllal mellette. Ezek a beállítások mind állíthatók `""`-ra (az eredmény nem marad meg / az eredeti törlődik). Csak nyomtató munkafolyamat alapból nem őriz eredményt.
+- Megbízható: egy fájl csak akkor kerül feldolgozásra, ha `settle` másodperce változatlan; félig bemásolt fájlokat (`.part`, `.tmp`) sosem nyúl. Minden fájl előbb a `.passermark/` mappába kerül – két figyelő ugyanazon a mappán sosem dolgozza fel ugyanazt a fájlt kétszer, és összeomlás után a bent ragadt fájlok a következő induláskor visszajönnek. Az eredmények sosem kerülnek vissza a bemeneti mappába, és sosem íródnak felül (`-1`, `-2` …).
+- Opciók: `--check`, `--once` (1-es hibakód, ha egy fájl elbukik), `--json`, `--quiet`, `--log`.
+- Szolgáltatásként: `linux/passermark-watch.service` saját, jog nélküli felhasználóval (a lépések a fájlban); Windowshoz `windows/watch-task.ps1`, amely rendszerindításkor hoz létre feladatot.
+
+### Munkafolyamat-mappák: ablaeufe → workflows
+- A mappa neve mostantól `workflows`; a régi `ablaeufe` mappa az első híváskor automatikusan átneveződik. Ha hiányoznak hozzá a jogok, a Passermark egyszerűen a régi mappát olvassa tovább.
+- **Közös munkafolyamat-mappák:** új a felügyeletben, Általános → „További munkafolyamat-mappák”, pl. hálózati megosztás. Sorrend: saját → közös → mindenki; az első névvel bíró munkafolyamat érvényes. Ki tehet oda munkafolyamatot, azt a mappa jogai szabályozzák (pl. írási joggal bíró csoport) – adminjog ehhez senkinek sem kell. A `workflows --dirs` mutatja, melyik mappából (user / shared / system) jön egy munkafolyamat.
+
+### Nyomtatási lépés
+- **`"paper": "auto"`:** a „méret” oldalkezelésnél a nyomtatási lépés az oldalhoz illő papírt választja, brosúránál két oldalt egymás mellé (A5 → A4). Ha a nyomtatóon nincs illő papír, a hiba felsorolja a létező formátumokat; Nutzennél vagy poszternél világos hiba jön – ott meg kell adni a papírt. Üres `paper` a korábbi szerint működik (a nyomtató alappapírja).
+
+### Egyúttal javítva
+- A dokumentumon kívüli oldalmegadások (pl. `pages: "1-2"` egyoldalas PDF-nél) most „a 2. oldal nem létezik …” hibát adnak a „list index out of range” helyett.
+
+## 1.14.2
+### Fájl → Tulajdonságok … (Ctrl+D)
+- Öt lap:
+  - **Fájl:** név, mappa („Mappa megnyitása”, „Útvonal másolása”), méret, módosítva, állapot (mentve / módosítva / csak memóriában / átmeneti). Egyesített, átalakított vagy képekből létrehozott dokumentumoknál „Létrehozva innen:” áll a forrásfájlokkal; eredményeknél „Eredménye …”.
+  - **Dokumentum:** PDF-verzió, cím, szerző, téma, kulcsszavak, létrehozva ezzel / PDF ezzel készült, létrehozva / módosítva; titkosítás módszerrel, engedélyezett és tiltott jogokkal; kimeneti profil (Output Intent), rétegek, űrlapmezők, kommentek és pecsétek, könyvjelzők, mellékletek, JavaScript, gyors webes nézet.
+  - **Oldalak:** táblázat oldalanként formátummal, tájolással, forgatással, végformátummal és levágással, fölötte a formátumok áttekintése.
+  - **Betűtípusok:** név, típus, beágyazott, részlet, oldalak. A be nem ágyazott betűtípusok sárgával kiemeltek.
+  - **Ellenőrzés:** hibák, figyelmeztetések és megjegyzések oldalakkal.
+- Az ablak azonnal megjelenik; a dokumentumadatokat az elemzőfolyamat olvassa ki, és röviddel utána érkeznek – a program nagy fájloknál sem fagy be. Módosított dokumentumoknál a jelenlegi állapot látszik, nem a lemezen lévő fájl. Az adatok ugyanazok, mint a `passermark-cli inspect`, amely most szintén leszállítja a kiegészítő dokumentumadatokat.
+
+### Parancssor-útmutató (Súgó, német és angol)
+- Új fejezetek a munkafolyamatokról (munkafolyamat-mappákkal), a nyomtatásról (finisherekkel), az `inspect`-ről és a külső programok felületéről; kiegészítve a parancsáttekintéssel, új tippekkel és a kilátások fejezetével (figyelő, tervezve az 1.15-höz).
+- Minden példa valóban tesztként fut, a bemutatott munkafolyamat-JSON-okkal együtt; csak a nyomtatási példa ellenőrzött, és nem fut le, ha nincs nyomtató beállítva.
+- Az útmutató jelenleg németül és angolul létezik; magyar, spanyol és francía továbbra is az angolt mutatja.
+
+## 1.14.1
+### Parancssor: nyomtatás
+- **`print` lépés a munkafolyamatban:** nyomtató, papír, tálca, média, duplex (`none` | `long` | `short`), szín (`color` | `gray`), példányszám, rendezés és oldaltartomány – ezen felül a nyomtatási párbeszédpanel minden beállítása (Nutzen, brosúra, poszter stb.), a nyomtató admin színprofilja és a nyers illesztőprogram-beállítások közvetlenül. A `dry_run` nem küld semmit, csak mutatja, mit küldene.
+- A nyomtatás ugyanazon az úton megy, mint a nyomtatási párbeszédpanelből: automatikus tálcaválasztással és a Windows-gyártói beállításokkal.
+- Az értékek illesztőértékként, megjelenő névként vagy az abból egyértelműen kiderülő darabként adhatók; ha valami nem stimmel, a hibaüzenet felsorolja az összes lehetséges értéket.
+- A PDF a nyomtatás után változatlan marad – utána tovább dolgozni, menteni vagy más beállításokkal újra nyomtatni. `output` nélkül csak nyomtat.
+- **Új parancsok:** `printers` (nyomtatók állapottal és alapértelmezett nyomtatóval) és `caps <nyomtató>` (az illesztőprogram összes beállítása a választásokkal, papírformátumok és mely beállítás felelős a papírért, tálcáért, médiáért, duplexért, színért, kimeneti tálcáért és a finisherekért – tűzés, lyukasztás, hajtás, középtűzés, vágás, eltolás).
+- Belsőleg: a nyomtatási munkamenet most Qt nélkül él a `pdfdruck/session.py`-ban, hogy a CLI használhassa; a program továbbra is a `gui/common.py`-on keresztül kapja.
+- Tesztcsomag: a 30-as és 31-es munkafolyamat próbaütés (`dry_run`), és részt vesz a „minden teszt futtatásában”; a külön `ablaeufe-echt-drucken/` mappában két munkafolyamat van, amelyek ténylegesen nyomtatnak (automatikusan nem futnak).
+
+## 1.14.0
+### Parancssor: munkafolyamatok
+- **Több feladat egymás után, verziózott JSON-fájlként** („munkafolyamat", formátumverzió 1): a lépések egymás után futnak, mindegyik az előző lépés eredményén dolgozik. A kimenet csak akkor íródik ki, ha minden sikerült.
+- **Új parancsok:** `run` (munkafolyamat futtatása, több bemenettel is – a képek és Office-fájlok előbb átalakítva egyesülnek a PDF-ekkel), `check` (ellenőrzés futtatás nélkül, egyszerre az összes hibával), `schema` (a munkafolyamatfájl vagy egy feladat JSON-sémája), `inspect` (dokumentuminformációk: oldalak, formátumok, végformatum/levágás, előellenőrzési leletek – `--check`-kel), `version --json` (verzió, API- és formátumverzió, elérhető feladatok).
+- **Változók** a kimeneti útvonalban: `${…}` a `--var`-ból; beépítve `${input}`, `${dir}`, `${stem}`, `${date}` és `${workflow_dir}`.
+- **Az elírás hiba:** az ismeretlen beállítások és rossz típusok jelzése történik, semmi nem esik vissza némán egy alapértékre.
+- **Külső programoknak:** stabil JSON-események (`start` → `step` → `progress` → `step_done` → `done`) és rögzített hibakódok (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) lépéssel és feladattal; az API- és formátumverzió a `version --json` kimenetében. A felület a [docs/cli-api.md](docs/cli-api.md) fájlban van dokumentálva (angolul, német összefoglalóval) – a külső programok kötelező szerződése, minden README-ből hivatkozva.
+
 ## 1.13.2
 ### Nyomtatási párbeszédpanel: előnézet a háttérben
 - **Várakozás nélküli előnézet:** a lap felépítése és rajzolása most a renderfolyamatban történik – az ablak nem vár rá többé. Egy nagy fájllal az előnézet 0,001 s-ot vesz igénybe a főablakban, korábban akár 6 s-os blokkolások helyett. Ha valami változik, miközben még tart a számítás, csak a legutolsó állapot kerül végigrajzolásra.

@@ -74,6 +74,12 @@ def save_settings(path: str, kind: str, settings) -> None:
 def load_settings(path: str) -> tuple[str, dict]:
     with open(path, encoding="utf-8") as f:
         d = json.load(f)
+    if not isinstance(d, dict) or not isinstance(d.get("job"), str):
+        name = os.path.basename(path)
+        if isinstance(d, dict) and d.get("passermark") == "workflow":
+            raise ValueError(tr("„{0}“ ist ein Ablauf (mehrere Schritte), kein Preset – ausführen mit: "
+                                "passermark-cli run \"{0}\"").format(name))
+        raise ValueError(tr("„{0}“ ist keine Preset-Datei (Eintrag „job“ fehlt).").format(name))
     return d["job"], d.get("settings", {})
 
 
@@ -192,6 +198,14 @@ def _job_manip(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
     from . import pdfmanip
     from .layout import flattened
+    # crop_mode (format | trim | whiteout) – lesbarer Schalter für Abläufe/CLI; die Oberfläche setzt die
+    # Sonderwerte direkt in crop_size (Presets daraus funktionieren weiterhin)
+    if s.crop_mode == "trim":
+        s.crop_size = pdfmanip.TRIM_MODE
+    elif s.crop_mode == "whiteout":
+        s.crop_size = pdfmanip.WHITEOUT_MODE
+    elif s.crop_mode != "format":
+        raise ValueError(tr("Unbekannter Beschnitt: {0} (format, trim, whiteout)").format(s.crop_mode))
     if not s.active:
         raise ValueError(tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren."))
     doc = pdfium.PdfDocument(src)
@@ -398,4 +412,16 @@ def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None =
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError(tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein."))
     _check(cancel)
+    pages = (options or {}).get("pages")
+    if pages:                                       # Seiten außerhalb des Dokuments: klare Meldung statt IndexError
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(src)
+        try:
+            n = len(doc)
+        finally:
+            doc.close()
+        bad = sorted(p + 1 for p in pages if not 0 <= p < n)
+        if bad:
+            raise ValueError(tr("Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).").format(
+                ", ".join(str(b) for b in bad[:5]) + (" …" if len(bad) > 5 else ""), n))
     return JOBS[kind][1](src, dst, s, options or {}, progress, cancel)

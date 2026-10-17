@@ -110,6 +110,15 @@ def test_manip_crop_job():
         assert False
     except ValueError:
         pass
+    # crop_mode (für Abläufe): trim / whiteout ohne die internen Sonderwerte in crop_size
+    r = core.run_job("manip", src, dst, {"crop": True, "crop_mode": "trim", "trim_l_mm": 10, "trim_r_mm": 10})
+    w, h = pdfium.PdfDocument(dst).get_page_size(0)
+    assert abs(w - (595.3 - 20 * 72 / 25.4)) < 1.5 and abs(h - 841.9) < 1.5, (w, h)
+    try:
+        core.run_job("manip", src, dst, {"crop": True, "crop_mode": "gibtsnicht"})
+        assert False
+    except ValueError:
+        pass
 
 
 def test_preflight_fix_job():

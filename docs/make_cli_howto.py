@@ -20,7 +20,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (KeepTogether, PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer, Table,
+from reportlab.platypus import (CondPageBreak, KeepTogether, PageBreak, Paragraph, Preformatted, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -119,6 +119,49 @@ def example(title, text, cmd):
 
 W = A4[0] - 40 * mm
 
+# Ablauf-Beispiele: im Handbuch gezeigt und in tests/test_cli_howto.py wirklich ausgeführt
+WORKFLOWS = {
+    "visitenkarten.json": """{
+  "passermark": "workflow", "version": 1,
+  "name": "Visitenkarten SRA3",
+  "description": "Ebenen festschreiben, 85 x 55 mm so oft wie möglich auf SRA3",
+  "output": "${dir}/fertig/${stem}-sra3.pdf",
+  "steps": [
+    {"job": "preflight_fix", "settings": {"fix": "flatten_layers"}},
+    {"job": "impose", "pages": "1-2",
+     "settings": {"sheet": "SRA3", "step_repeat": true, "crop_marks": true, "bleed_mm": 3}}
+  ]
+}""",
+    "kunde.json": """{
+  "passermark": "workflow", "version": 1,
+  "output": "${dir}/${kunde}/${date}-${stem}.pdf",
+  "steps": [
+    {"job": "shrink", "settings": {"downsample": true, "target_dpi": 300}},
+    {"job": "impose", "settings": {"sheet": "A4", "handling": "booklet", "booklet_fold_marks": true}}
+  ]
+}""",
+    "drucken-a4.json": """{
+  "passermark": "workflow", "version": 1,
+  "steps": [
+    {"job": "print", "settings": {
+      "printer": "Canon_iR-ADV_C3822i", "paper": "A4", "tray": "Fach 2",
+      "duplex": "long", "copies": 2, "finishing": {"staple": "links oben"},
+      "dry_run": true}}
+  ]
+}""",
+}
+
+# Watcher-Beispiel: im Handbuch gezeigt und in tests/test_cli_howto.py geprüft
+WATCH = """{
+  "passermark": "watch", "version": 1,
+  "interval": 5, "settle": 5,
+  "folders": [
+    {"in": "eingang/visitenkarten", "workflow": "visitenkarten.json"},
+    {"in": "eingang/drucken", "workflow": "drucken-a4.json", "done": "",
+     "patterns": ["*.pdf"], "name": "A4 heften"}
+  ]
+}"""
+
 
 def build():
     s = []
@@ -173,7 +216,7 @@ def build():
         [c('--preset "Name"'), "ein im Programm gespeichertes Preset verwenden (siehe Abschnitt 3)"],
         [c("--pages 1,3-5"), "nur diese Seiten bearbeiten (wo sinnvoll)"],
         [c("--quiet"), "keine Fortschrittsanzeige"],
-        [c("--json-progress"), "Fortschritt und Ergebnis als JSON-Zeilen – für andere Programme"],
+        [c("--json") + " / " + c("--json-progress"), "Fortschritt und Ergebnis als JSON-Zeilen – für andere Programme"],
         [c("list"), "alle Aufträge anzeigen: " + c("passermark-cli list")],
         [c("settings <auftrag>"), "alle Einstellungen eines Auftrags mit Standardwerten als JSON – die Vorlage "
          "für eigene Presets"],
@@ -183,6 +226,11 @@ def build():
         [c("datenarten"), "Datenarten für Tabellen (Visitenkarte, WLAN, E-Mail, Code 128, EAN-13 …) mit ihren Spalten"],
         [c("datenvorlage <art> [datei.csv]"), "leere Tabelle mit den passenden Spalten und einer Beispielzeile"],
         [c("datencheck <datei.csv> [art]"), "Tabelle prüfen – meldet Zeile und Fehler; Rückgabe 1 bei Problemen"],
+        [c("run") + ", " + c("check") + ", " + c("workflows"), "Abläufe ausführen, prüfen, auflisten (Abschnitt 5)"],
+        [c("printers") + ", " + c("caps"), "Drucker und ihre Optionen (Abschnitt 6)"],
+        [c("inspect"), "Dokument untersuchen (Abschnitt 7)"],
+        [c("version") + ", " + c("schema"), "für andere Programme (Abschnitt 8)"],
+        [c("serve"), "Drop-Ordner überwachen (Abschnitt 9)"],
     ], [42 * mm, W - 42 * mm]))
 
     s.append(P("Rückgabewerte und Abbrechen", H3))
@@ -550,8 +598,158 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
     if ($LASTEXITCODE -ne 0) { Write-Host "FEHLER: $($_.Name)" }
 }'''))
 
+
+    # ------------------------------------------------------------------ workflows
+    s.append(PageBreak())
+    s.append(P("5 · Abläufe: mehrere Schritte als JSON", H2))
+    s.append(P("Ein Ablauf ist eine JSON-Datei mit mehreren Aufträgen hintereinander – jeder Schritt arbeitet mit "
+               "dem Ergebnis des vorigen. Die Ausgabe wird erst geschrieben, wenn alle Schritte geklappt haben. "
+               "Abläufe schreibt man von Hand (oder lässt sie von einem Zusatzprogramm erzeugen); im Programm "
+               "selbst werden keine Abläufe zusammengestellt."))
+    s.append(code(WORKFLOWS["visitenkarten.json"]))
+    s.append(table([
+        ["Eintrag", "Bedeutung"],
+        [c("input"), "Eingabedatei oder Liste – mehrere Dateien, Bilder und Office-Dokumente werden zuerst zu einem "
+         "PDF zusammengeführt. Meist gibt man sie beim Aufruf mit " + c("--in") + " an"],
+        [c("output"), "Ergebnis. Fehlende Ordner werden angelegt. Darf fehlen, wenn ein Schritt druckt"],
+        [c("steps"), "die Schritte: " + c("job") + " wie oben, dazu " + c("settings") + " (nur, was vom Standard "
+         "abweicht), " + c("preset") + " (Name oder Datei) und " + c("pages")],
+        [c("${name}"), "Variablen: " + c("--var name=wert") + ", dazu fest " + c("${input}") + ", " + c("${dir}")
+         + " (Ordner der Eingabe), " + c("${stem}") + " (Name ohne Endung), " + c("${date}") + ", "
+         + c("${workflow_dir}")],
+    ], [28 * mm, W - 28 * mm]))
+    s.append(P("Unbekannte Einträge und falsche Werte sind Fehler – ein Tippfehler fällt nicht still auf den "
+               "Standard zurück. " + c("check") + " meldet alle Probleme auf einmal, ohne etwas auszuführen.", NOTE))
+    s.append(example("Prüfen und ausführen", "Pfade beim Aufruf gelten ab dem aktuellen Ordner, Pfade in der Datei "
+                     "ab deren Ordner.",
+                     "passermark-cli check visitenkarten.json --in karten.pdf\n"
+                     "passermark-cli run visitenkarten.json --in karten.pdf"))
+    s.append(example("Eigene Ausgabe und Variablen", "Ablauf " + c("kunde.json") + ": verkleinern, dann Broschüre; "
+                     "die Ausgabe landet in einem Ordner je Kunde.",
+                     "passermark-cli run kunde.json --in katalog.pdf --var kunde=Muster\n"
+                     "passermark-cli run kunde.json heft.pdf --in katalog.pdf --var kunde=Muster"))
+    s.append(code(WORKFLOWS["kunde.json"]))
+
+    s.append(P("Ablauf-Ordner: Abläufe beim Namen aufrufen", H3))
+    s.append(P("Liegt ein Ablauf in einem der Ablauf-Ordner, genügt sein Name (Dateiname ohne " + c(".json")
+               + "). Gesucht wird in dieser Reihenfolge – der erste Ablauf mit dem Namen gilt. Presets und "
+               "CSV-Dateien, die der Ablauf braucht, legt man einfach daneben."))
+    s.append(table([
+        ["", "eigene", "gemeinsame (Administrator)", "für alle Benutzer (Administrator)"],
+        ["Linux", c("~/.config/passermark/workflows/"), "beliebige Ordner, z. B. eine Netzwerkfreigabe",
+         c("/etc/passermark/workflows/")],
+        ["Windows", c("%APPDATA%\\Passermark\\workflows\\"), "z. B. " + c("\\\\server\\druck\\workflows"),
+         c("%ProgramData%\\Passermark\\workflows\\")],
+    ], [18 * mm, (W - 18 * mm) / 3, (W - 18 * mm) / 3, (W - 18 * mm) / 3]))
+    s.append(Spacer(1, 6))
+    s.append(P("Die gemeinsamen Ordner trägt der Administrator in der Verwaltung ein (<b>Allgemein → Weitere "
+               "Ablauf-Ordner</b>). Wer dort Abläufe ablegen darf, regeln die Rechte des Ordners – z. B. eine Gruppe "
+               "mit Schreibrecht. Dafür braucht niemand Administratorrechte."))
+    s.append(code("passermark-cli workflows\n"
+                  "passermark-cli workflows --dirs\n"
+                  "passermark-cli run Visitenkarten --in karten.pdf"))
+    s.append(P("Den eigenen Ordner legt man einmal selbst an (Linux: " + c("mkdir -p ~/.config/passermark/workflows")
+               + "); " + c("workflows --dirs") + " zeigt, wo er hingehört. Bis 1.14 hießen die Ordner "
+               + c("ablaeufe") + " – ein alter Ordner wird beim ersten Aufruf umbenannt.", NOTE))
+
+    # ------------------------------------------------------------------ print
+    s.append(P("6 · Drucken", H2))
+    s.append(P("Der Schritt " + c("print") + " schickt das PDF an einen Drucker – auf demselben Weg wie der "
+               "Druckdialog: Seitenhandhabung (Broschüre, Nutzen, Poster …), Farbprofil des Druckers aus der "
+               "Verwaltung, automatische Fachwahl. Das PDF bleibt dabei unverändert; danach kann der Ablauf "
+               "weitermachen oder speichern."))
+    s.append(code(WORKFLOWS["drucken-a4.json"]))
+    s.append(table([
+        ["Einstellung", "Bedeutung"],
+        [c("printer"), "Name wie bei " + c("passermark-cli printers") + "; leer = Standarddrucker"],
+        [c("paper") + ", " + c("tray") + ", " + c("media") + ", " + c("output_bin"),
+         "Papierformat, Fach, Medium, Ausgabefach – Treiberwert oder der angezeigte Name, ein eindeutiger Teil "
+         "genügt (" + c('"Fach 2"') + ")"],
+        [c('"paper": "auto"'), "Papier passend zur PDF: bei Größe die Seite, bei der Broschüre zwei Seiten "
+         "nebeneinander (A5-Seiten → A4). Ohne " + c("paper") + " nimmt der Drucker sein Standardpapier"],
+        [c("duplex") + ", " + c("color"), c("none") + " / " + c("long") + " / " + c("short") + " bzw. "
+         + c("color") + " / " + c("gray") + " – oder der Treiberwert"],
+        [c("finishing"), "Finisher: " + c("staple") + ", " + c("punch") + ", " + c("fold") + ", " + c("saddle")
+         + ", " + c("trim") + ", " + c("stacker")],
+        [c("finisher_preset"), "Finisher-Vorlage aus der Verwaltung – unter Windows der Weg zu allen "
+         "Herstellerfunktionen (Original-Treiberdialog)"],
+        [c("options"), "weitere Treiberoptionen roh: " + c('{"Schlüsselwort": "Wert"}')],
+        [c("copies") + ", " + c("collate") + ", " + c("reverse"), "Kopien, sortiert, umgekehrte Reihenfolge"],
+        [c("layout"), "Seitenhandhabung wie im Druckdialog, z. B. " + c('{"handling": "booklet"}')],
+        [c("dry_run"), c("true") + " = nichts senden, nur anzeigen, was gesendet würde"],
+    ], [42 * mm, W - 42 * mm]))
+    s.append(example("Drucker und ihre Möglichkeiten", "Alle Optionen, Fächer, Formate und Finisher eines Druckers "
+                     "– was dort steht, gehört in den Ablauf.",
+                     "passermark-cli printers\n"
+                     'passermark-cli caps "Canon_iR-ADV_C3822i"'))
+    s.append(P("Ein Wert, der zu keiner Auswahl passt, ist ein Fehler, der alle möglichen Werte nennt. Was der "
+               "Treiber mit der eingetragenen Hardware nicht kann (z. B. Lochen ohne Locher), wird abgelehnt. "
+               "Druckernamen mit Leerzeichen in Anführungszeichen; unter Linux hat die CUPS-Warteschlange keine "
+               "Leerzeichen (" + c("Canon_iR-ADV_C3822i") + ").", NOTE))
+
+    # ------------------------------------------------------------------ inspect
+    s.append(P("7 · Dokumente untersuchen", H2))
+    s.append(P(c("inspect") + " zeigt Seiten, Formate, Endformat und Anschnitt je Seite, Dokumentangaben und mit "
+               + c("--check") + " die Prüfergebnisse (Schriften, Ebenen, Bilder, Farben) – dieselben Angaben wie "
+               "<b>Datei → Eigenschaften</b> im Programm."))
+    s.append(code("passermark-cli inspect karten.pdf --check"))
+
+    # ------------------------------------------------------------------ programs
+    s.append(P("8 · Für andere Programme", H2))
+    s.append(P("Andere Programme (Skripte, Watcher, Shop- und Intranet-Anbindung) verwenden Passermark nur über die "
+               "Kommandozeile – mit " + c("--json") + " kommt alles als JSON-Zeilen mit festen Fehlercodes "
+               "(" + c("usage") + ", " + c("not_found") + ", " + c("invalid") + ", " + c("failed") + ", "
+               + c("cancelled") + "). Die genaue Beschreibung steht in " + c("docs/cli-api.md") + "."))
+    s.append(code("passermark-cli version --json\n"
+                  "passermark-cli schema impose\n"
+                  "passermark-cli run visitenkarten.json --in karten.pdf --json"))
+
+    # ------------------------------------------------------------------ watcher
+    s.append(PageBreak())
+    s.append(P("9 · Drop-Ordner: Watcher", H2))
+    s.append(P("Mit " + c("serve") + " überwacht Passermark Ordner: Jede Datei, die man hineinlegt (auch über das "
+               "Netzwerk oder vom Scanner), läuft durch den Ablauf, der dem Ordner zugeordnet ist – sie wird "
+               "verarbeitet, gedruckt oder beides. Welcher Ordner welchen Ablauf hat, steht in " + c("watch.json")
+               + ":"))
+    s.append(code(WATCH))
+    s.append(table([
+        ["Eintrag", "Bedeutung"],
+        [c("in"), "der Drop-Ordner (muss es geben)"],
+        [c("workflow"), "Name aus den Ablauf-Ordnern oder JSON-Datei"],
+        [c("out"), "Ergebnisse, Standard " + c("output") + "; " + c('""') + " = kein Ergebnis behalten. Ein Ablauf, "
+         "der nur druckt, behält ohne " + c("out") + " keins"],
+        [c("done"), "Originale danach, Standard " + c("processed") + "; " + c('""') + " = löschen"],
+        [c("error"), "Originale mit Fehler, daneben eine " + c(".log") + " mit dem Grund; Standard " + c("failed")],
+        [c("patterns"), "welche Dateien, Standard " + c('["*.pdf"]')],
+        [c("vars"), "Variablen für den Ablauf, wie " + c("--var")],
+        [c("interval") + ", " + c("settle"), "Sekunden zwischen zwei Durchgängen; wie lange eine Datei unverändert "
+         "sein muss, bis sie als fertig kopiert gilt"],
+    ], [28 * mm, W - 28 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(P("Relative Pfade: " + c("in") + " und " + c("workflow") + " ab dem Ordner von " + c("watch.json")
+               + ", " + c("out") + "/" + c("done") + "/" + c("error") + " ab dem Drop-Ordner. Das Ergebnis heißt "
+               "wie die Datei und wird nie überschrieben (" + c("-1") + ", " + c("-2") + " …). Halb kopierte "
+               "Dateien (" + c(".part") + ", " + c(".tmp") + ") und versteckte Dateien werden nie angefasst.", NOTE))
+    s.append(example("Prüfen, einmal durchlaufen, dauerhaft", "Ohne " + c("--config") + " gilt die eigene "
+                     + c("watch.json") + " (" + c("~/.config/passermark/") + ", " + c("%APPDATA%\\Passermark\\")
+                     + "), sonst die für alle (" + c("/etc/passermark/") + ", " + c("%ProgramData%\\Passermark\\")
+                     + "). Beenden mit <b>Strg+C</b> – eine Datei in Arbeit kommt zurück in ihren Ordner.",
+                     "passermark-cli serve --config watch.json --check\n"
+                     "passermark-cli serve --config watch.json --once\n"
+                     "passermark-cli serve --config watch.json"))
+    s.append(P("Als Dienst ohne angemeldeten Benutzer", H3))
+    s.append(P("Am besten mit einem eigenen Benutzer ohne besondere Rechte, der in die Drop-Ordner schreiben darf. "
+               "Linux: " + c("linux/passermark-watch.service") + " (systemd, die Schritte stehen in der Datei), "
+               "Protokoll mit " + c("journalctl -u passermark-watch -f") + ". Windows: " + c("windows/watch-task.ps1")
+               + " legt eine Aufgabe beim Systemstart an, Protokoll in " + c("%ProgramData%\\Passermark Watcher\\")
+               + " – die Drucker müssen für diesen Benutzer eingerichtet sein."))
+    s.append(P("Mehrere Watcher dürfen denselben Ordner überwachen: Jede Datei wird zuerst in " + c(".passermark")
+               + " verschoben und nur einmal verarbeitet. Nach einem Absturz kommen liegengebliebene Dateien beim "
+               "nächsten Start zurück.", NOTE))
+
     # ------------------------------------------------------------------ tips
-    s.append(P("5 · Tipps und Fehler", H2))
+    s.append(CondPageBreak(70 * mm))
+    s.append(P("10 · Tipps und Fehler", H2))
     s.append(table([
         ["Meldung / Problem", "Lösung"],
         ["Kein Motiv gefunden", "Toleranz senken (" + c("--set detect.tolerance=15") + ") oder Modus festlegen ("
@@ -565,16 +763,18 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
         ["Preset ist für „…“", "Das Preset gehört zu einem anderen Auftrag"],
         ["Wert wird als Text statt Zahl gelesen", "Dezimalpunkt verwenden: " + c("bleed_mm=2.5") + " (nicht 2,5)"],
         ["Leerzeichen im Dateinamen", "Namen in Anführungszeichen setzen: " + c('"mein bogen.pdf"')],
+        ["„… ist kein Auftrag“ bei einer .json", "Abläufe mit " + c("run") + " starten: "
+         + c("passermark-cli run ablauf.json --in datei.pdf")],
+        ["„ist ein Ablauf, kein Preset“", "Die Datei hat " + c("steps") + " – mit " + c("run") + " ausführen, nicht "
+         "als " + c("--preset") + " laden"],
+        ["Ablauf nicht gefunden", c("passermark-cli workflows") + " zeigt alle Namen, " + c("--dirs") + " die Ordner"],
+        ["Druck kommt auf A4 statt A3", "Ohne " + c("paper") + " nimmt der Drucker sein Standardpapier – "
+         + c('"paper": "A3"') + " oder " + c('"auto"') + " angeben"],
+        ["Watcher nimmt eine Datei nicht", "Muster in " + c("patterns") + " prüfen; die Datei wird erst genommen, "
+         "wenn sie " + c("settle") + " Sekunden unverändert ist"],
+        ["„Ergebnis würde wieder im Eingangsordner landen“", c("out") + " auf einen eigenen Ordner setzen (nicht "
+         + c('""') + ")"],
     ], [60 * mm, W - 60 * mm]))
-
-    s.append(P("6 · Ausblick", H2))
-    s.append(P("Die Kommandozeile wächst mit Passermark. Mit den nächsten Versionen kommen dazu – jeweils mit "
-               "Fallbeispielen in dieser Anleitung:"))
-    s.append(table([
-        ["Version", "Neu in der Kommandozeile"],
-        ["1.11", "Projektordner (Watcher): Datei in einen Ordner werfen – fertiges, gedrucktes oder gespeichertes "
-                 "Ergebnis kommt heraus, ein Preset je Ordner"],
-    ], [20 * mm, W - 20 * mm]))
     return s
 
 

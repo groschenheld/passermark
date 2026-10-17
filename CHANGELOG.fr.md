@@ -5,6 +5,57 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.15.0
+### Dossiers de dépôt : passermark-cli serve (surveillance)
+- `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné. L'assignation est dans `watch.json` (prise depuis `--config`, sinon la vôtre, sinon celle pour tous).
+- Après traitement, le résultat va dans `output/`, l'original dans `processed/` ; en cas d'erreur l'original va dans `failed/` avec un `.log` à côté. Chacun de ces réglages peut aussi valoir `""` (ne pas garder le résultat / supprimer l'original). Un enchaînement qui ne fait qu'imprimer ne garde aucun résultat par défaut.
+- Fiable : un fichier n'est pris qu'après être resté `settle` secondes sans modification ; les fichiers à moitié copiés (`.part`, `.tmp`) ne sont jamais touchés. Chaque fichier est d'abord déplacé dans `.passermark/` – deux surveillances sur le même dossier ne traitent jamais deux fois le même fichier, et après un blocage les fichiers restés en plan reviennent au démarrage suivant. Les résultats ne retombent jamais dans le dossier d'entrée et ne sont jamais écrasés (`-1`, `-2` …).
+- Options : `--check`, `--once` (code 1 si un fichier échoue), `--json`, `--quiet`, `--log`.
+- En service : `linux/passermark-watch.service` avec un utilisateur propre sans droits (les étapes sont dans le fichier) ; pour Windows `windows/watch-task.ps1`, qui crée une tâche au démarrage du système.
+
+### Dossiers d'enchaînements : ablaeufe → workflows
+- Le dossier s'appelle désormais `workflows` ; un ancien dossier `ablaeufe` est renommé automatiquement au premier appel. Si les droits manquent, Passermark continue simplement de lire l'ancien dossier.
+- **Dossiers d'enchaînements partagés :** nouveau dans l'administration sous Général → « Autres dossiers d'enchaînements », p. ex. un partage réseau. Ordre : propre → partagé → pour tous ; le premier enchaînement portant le nom l'emporte. Qui peut y déposer des enchaînements relève des droits du dossier (p. ex. un groupe avec droit d'écriture) – personne n'a besoin de droits admin pour cela. `workflows --dirs` montre de quel dossier (user / shared / system) vient un enchaînement.
+
+### Étape d'impression
+- **`"paper": "auto"` :** avec la gestion de pages « taille », l'étape d'impression choisit le papier adapté à la page, pour les brochures deux pages côte à côte (A5 → A4). Si l'imprimante n'a pas de papier adapté, une erreur liste les formats disponibles ; avec step & repeat ou poster, une erreur claire – le papier doit y être indiqué. Un `paper` vide fonctionne comme avant (papier par défaut de l'imprimante).
+
+### Corrigé par la même occasion
+- Les plages de pages hors document (p. ex. `pages: "1-2"` sur un PDF d'une page) donnent désormais « la page 2 n'existe pas … » au lieu de « list index out of range ».
+
+## 1.14.2
+### Fichier → Propriétés … (Ctrl+D)
+- Cinq onglets :
+  - **Fichier :** nom, dossier (« Ouvrir le dossier », « Copier le chemin »), taille, modifié le, état (enregistré / modifié / en mémoire uniquement / temporaire). Pour les documents fusionnés, convertis ou créés à partir d'images, « Créé à partir de : » avec les fichiers sources ; pour les résultats, « Résultat de … ».
+  - **Document :** version PDF, titre, auteur, sujet, mots-clés, créé avec / PDF produit avec, créé le / modifié le ; chiffrement avec méthode, autorisations accordées et refusées ; profil de sortie (Output Intent), calques, champs de formulaire, commentaires et tampons, signets, pièces jointes, JavaScript, affichage web rapide.
+  - **Pages :** tableau par page avec format, orientation, rotation, format final et fond perdu, et au-dessus un aperçu des formats.
+  - **Polices :** nom, type, incorporée, sous-ensemble, pages. Les polices non incorporées sont surlignées en jaune.
+  - **Contrôle :** erreurs, avertissements et notes avec les pages.
+- La fenêtre s'ouvre immédiatement ; les données du document sont lues dans le processus d'analyse et arrivent juste après – le programme ne se fige pas, même avec de gros fichiers. Pour les documents modifiés, l'état actuel est affiché, pas le fichier sur le disque. Les données sont les mêmes que dans `passermark-cli inspect`, qui livre désormais aussi les données supplémentaires du document.
+
+### Guide de la ligne de commande (Aide, allemand et anglais)
+- Nouvelles sections sur les enchaînements (avec dossiers d'enchaînements), l'impression (avec finisseurs), `inspect` et l'interface pour les autres programmes ; ajoutés aussi : l'aperçu des commandes, de nouveaux conseils et le chapitre perspectives (surveillance, prévu pour 1.15).
+- Tous les exemples tournent réellement comme tests, y compris les JSON d'enchaînement montrés ; seul l'exemple d'impression est vérifié et non exécuté quand aucune imprimante n'est configurée.
+- Le guide existe pour l'instant en allemand et en anglais ; hongrois, espagnol et français affichent l'anglaise comme avant.
+
+## 1.14.1
+### Ligne de commande : impression
+- **Étape `print` dans les enchaînements :** imprimante, papier, bac, support, recto verso (`none` | `long` | `short`), couleur (`color` | `gray`), copies, tri et plage de pages – plus toutes les options de la boîte d'impression (step & repeat, brochure, poster etc.), le profil colorimétrique de l'imprimante issu des réglages admin et les options brutes du pilote directement. `dry_run` n'envoie rien et montre seulement ce qui serait envoyé.
+- L'impression passe par le même chemin que la boîte d'impression : avec sélection automatique du bac et les réglages constructeur sous Windows.
+- Les valeurs sont acceptées comme valeur du pilote, comme nom affiché ou comme fragment non ambigu ; si quelque chose ne correspond pas, le message d'erreur énumère toutes les valeurs possibles.
+- Le PDF reste inchangé après l'impression – continuer, enregistrer ou réimprimer avec d'autres réglages. Sans `output`, il ne fait qu'imprimer.
+- **Nouvelles commandes :** `printers` (imprimantes avec état et imprimante par défaut) et `caps <imprimante>` (toutes les options du pilote avec leurs choix, les formats de papier et l'option responsable du papier, bac, support, recto verso, couleur, bac de sortie et les finisseurs – agrafage, perforation, pliage, dos carré cousu, coupe, décalage).
+- En interne : la session d'impression vit désormais sans Qt dans `pdfdruck/session.py` pour que la CLI puisse l'utiliser ; le programme la reçoit via `gui/common.py` comme avant.
+- Paquet de tests : les enchaînements 30 et 31 sont des essais à blanc (`dry_run`) et participent à « tout tester » ; dans le dossier séparé `ablaeufe-echt-drucken/` se trouvent deux enchaînements qui impriment vraiment (non exécutés automatiquement).
+
+## 1.14.0
+### Ligne de commande : enchaînements
+- **Plusieurs travaux à la suite dans un fichier JSON versionné** (« enchaînement », version de format 1) : les étapes s'exécutent l'une après l'autre, chacune travaille avec le résultat de la précédente. La sortie n'est écrite que si tout a réussi.
+- **Nouvelles commandes :** `run` (exécuter un enchaînement, aussi avec plusieurs entrées – les images et fichiers Office sont convertis au préalable et fusionnés avec les PDF), `check` (valider sans exécuter, toutes les erreurs en une fois), `schema` (schéma JSON du fichier d'enchaînement ou d'un travail), `inspect` (informations du document : pages, formats, format final/fond perdu, constats du prévol – avec `--check`), `version --json` (version, version d'API et de format, travaux disponibles).
+- **Variables** dans le chemin de sortie : `${…}` depuis `--var` ; intégrées `${input}`, `${dir}`, `${stem}`, `${date}` et `${workflow_dir}`.
+- **Les fautes de frappe sont des erreurs :** les réglages inconnus et les types incorrects sont signalés, rien ne retombe silencieusement sur une valeur par défaut.
+- **Pour les programmes externes :** événements JSON stables (`start` → `step` → `progress` → `step_done` → `done`) et codes d'erreur fixes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) avec étape et travail ; la version d'API et de format est dans `version --json`. L'interface est documentée dans [docs/cli-api.md](docs/cli-api.md) (anglais, avec résumé en allemand) – le contrat contraignant pour les programmes externes, lié depuis tous les README.
+
 ## 1.13.2
 ### Boîte d'impression : aperçu en arrière-plan
 - **Aperçu sans attente :** la feuille est montée et dessinée dans le processus de rendu désormais – la fenêtre n'attend plus. Avec un gros fichier, l'aperçu prend 0,001 s dans la fenêtre principale au lieu de blocages allant jusqu'à 6 s auparavant. Si quelque chose change pendant qu'un calcul est encore en cours, seul l'état le plus récent est dessiné jusqu'au bout.

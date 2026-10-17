@@ -57,6 +57,19 @@ def check_opts(d, where):
             raise ValueError(f"{where}: ungültige Option {k!r}={v!r}")
 
 
+def check_dirs(dirs, windows: bool):
+    """Weitere Ablauf-Ordner: absolute Pfade (Windows auch \\\\server\\freigabe), höchstens 20."""
+    import ntpath
+    import posixpath
+    if not isinstance(dirs, list) or len(dirs) > 20:
+        raise ValueError("workflow_dirs: Liste mit höchstens 20 Ordnern erwartet")
+    for d in dirs:
+        if not isinstance(d, str) or not 1 <= len(d) <= 1024 or re.search(r"[\x00-\x1f]", d):
+            raise ValueError(f"workflow_dirs: ungültiger Ordner {d!r}")
+        if not (ntpath if windows else posixpath).isabs(d):
+            raise ValueError(f"workflow_dirs: Ordner muss absolut angegeben sein: {d!r}")
+
+
 def check_devmode(s, where):
     """Windows driver settings (DEVMODE) as Base64 – only check size and encoding."""
     if s in (None, ""):
@@ -73,7 +86,8 @@ def validate(cfg, icc_dir: str, windows: bool = False):
     if not isinstance(cfg, dict):
         raise ValueError("Konfiguration muss ein Objekt sein")
     allowed = {"version", "default_printer", "layout", "printers", "color_profiles",
-               "allow_user_profile_choice", "image_default_dpi", "office_converter", "language"}
+               "allow_user_profile_choice", "image_default_dpi", "office_converter", "language",
+               "workflow_dirs"}
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
@@ -84,6 +98,7 @@ def validate(cfg, icc_dir: str, windows: bool = False):
         raise ValueError("language ungültig")
     if cfg.get("office_converter", "auto") not in CONVERTERS:
         raise ValueError("office_converter ungültig")
+    check_dirs(cfg.get("workflow_dirs", []), windows)
     dp = cfg.get("default_printer", "")
     if dp and not _queue_ok(dp, windows):
         raise ValueError("default_printer ungültig")

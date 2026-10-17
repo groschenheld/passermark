@@ -2,6 +2,57 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.0
+### Drop-Ordner: passermark-cli serve (Watcher)
+- `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf. Die Zuordnung steht in `watch.json` (genommen wird `--config`, sonst die eigene, sonst die für alle).
+- Nach der Verarbeitung landet das Ergebnis in `output/`, das Original in `processed/`; bei Fehlern kommt das Original nach `failed/` mit einer `.log` daneben. Jede dieser Einstellungen geht auch auf `""` (kein Ergebnis behalten bzw. Original löschen). Ein Ablauf, der nur druckt, behält standardmäßig kein Ergebnis.
+- Zuverlässig: Eine Datei wird erst genommen, wenn sie `settle` Sekunden unverändert ist; halb kopierte Dateien (`.part`, `.tmp`) werden nie angefasst. Jede Datei wird zuerst nach `.passermark/` verschoben – zwei Watcher auf demselben Ordner verarbeiten nie dieselbe Datei doppelt, und nach einem Absturz kommen liegengebliebene Dateien beim nächsten Start zurück. Ergebnisse landen nie zurück im Eingangsordner und werden nie überschrieben (`-1`, `-2` …).
+- Optionen: `--check`, `--once` (Fehlercode 1, wenn eine Datei fehlschlägt), `--json`, `--quiet`, `--log`.
+- Als Dienst: `linux/passermark-watch.service` mit einem eigenen Benutzer ohne Rechte (die Schritte stehen in der Datei); für Windows `windows/watch-task.ps1`, das eine Aufgabe beim Systemstart anlegt.
+
+### Ablauf-Ordner: ablaeufe → workflows
+- Der Ordner heißt jetzt `workflows`; ein alter `ablaeufe`-Ordner wird beim ersten Aufruf automatisch umbenannt. Fehlen dafür die Rechte, liest Passermark den alten Ordner einfach weiter.
+- **Gemeinsame Ablauf-Ordner:** Neu in der Verwaltung unter Allgemein → „Weitere Ablauf-Ordner“, z. B. eine Netzwerkfreigabe. Reihenfolge: eigene → gemeinsame → für alle; der erste Ablauf mit dem Namen gilt. Wer dort Abläufe ablegen darf, regeln die Ordnerrechte (z. B. eine Gruppe mit Schreibrecht) – Admin-Rechte braucht dafür niemand. `workflows --dirs` zeigt, aus welchem Ordner (user / shared / system) ein Ablauf kommt.
+
+### Druckschritt
+- **`"paper": "auto"`:** Bei Seitenhandhabung Größe nimmt der Druckschritt das Papier passend zur Seite, bei Broschüre für zwei Seiten nebeneinander (A5 → A4). Gibt es beim Drucker kein passendes Papier, kommt ein Fehler mit den vorhandenen Formaten; bei Nutzen oder Poster einen klaren Fehler – dort muss das Papier angegeben werden. Leeres `paper` funktioniert wie bisher (Standardpapier).
+
+### Nebenbei behoben
+- Seitenangaben außerhalb des Dokuments (z. B. `pages: "1-2"` bei einer einseitigen PDF) liefern jetzt „Seite 2 gibt es nicht …“ statt „list index out of range“.
+
+## 1.14.2
+### Datei → Eigenschaften … (Strg+D)
+- Fünf Reiter:
+  - **Datei:** Name, Ordner („Ordner öffnen“, „Pfad kopieren“), Größe, geändert am, Status (gespeichert / geändert / nur im Arbeitsspeicher / Zwischenspeicher). Bei zusammengeführten, umgewandelten oder aus Bildern erzeugten Dokumenten steht „Entstanden aus:“ mit den Quelldateien, bei Ergebnissen „Ergebnis aus …“.
+  - **Dokument:** PDF-Version, Titel, Autor, Thema, Stichwörter, Erstellt mit / PDF erzeugt mit, Erstellt am / Geändert am; Verschlüsselung mit Verfahren, erlaubten und gesperrten Rechten; Ausgabeprofil (Output Intent), Ebenen, Formularfelder, Kommentare und Stempel, Lesezeichen, Anhänge, JavaScript, Schnelle Webanzeige.
+  - **Seiten:** Tabelle je Seite mit Format, Ausrichtung, Drehung, Endformat und Anschnitt, darüber eine Übersicht der Formate.
+  - **Schriften:** Name, Art, eingebettet, Teilmenge, Seiten. Nicht eingebettete Schriften sind gelb hervorgehoben.
+  - **Prüfung:** Fehler, Warnungen und Hinweise mit Seiten.
+- Das Fenster ist sofort da; die Dokumentangaben werden im Analyse-Prozess gelesen und kommen kurz danach – auch bei großen Dateien hängt das Programm nicht. Bei geänderten Dokumenten wird der aktuelle Stand gezeigt, nicht die Datei auf der Platte. Die Angaben sind dieselben wie bei `passermark-cli inspect`, das jetzt ebenfalls die zusätzlichen Dokumentangaben liefert.
+
+### Anleitung Kommandozeile (Hilfe, Deutsch und Englisch)
+- Neue Abschnitte zu Abläufen (mit Ablauf-Ordnern), zum Drucken (mit Finishern), zu `inspect` und zur Schnittstelle für andere Programme; ergänzt sind außerdem die Befehlsübersicht, neue Tipps und das Ausblick-Kapitel (Watcher, geplant für 1.15).
+- Alle Beispiele laufen als Tests wirklich mit, inklusive der gezeigten Ablauf-JSONs; nur das Druck-Beispiel wird geprüft und nicht ausgeführt, wenn kein Drucker eingerichtet ist.
+- Die Anleitung gibt es derzeit auf Deutsch und Englisch; Ungarisch, Spanisch und Französisch zeigen wie bisher die englische.
+
+## 1.14.1
+### Kommandozeile: Drucken
+- **Schritt `print` im Ablauf:** Drucker, Papier, Fach, Medium, Duplex (`none` | `long` | `short`), Farbe (`color` | `gray`), Kopien, Sortierung und Seitenbereich – dazu alle Optionen des Druckdialogs (Nutzen, Broschüre, Poster usw.), das Admin-Farbprofil des Druckers und rohe Treiberoptionen direkt. `dry_run` schickt nichts und zeigt nur, was gesendet würde.
+- Gedruckt wird auf demselben Weg wie aus dem Druckdialog: mit automatischer Fachwahl und den Windows-Herstellereinstellungen.
+- Werte gehen als Treiberwert, als Anzeigename oder als eindeutiges Stück davon; passt etwas nicht, nennt die Fehlermeldung alle möglichen Werte.
+- Das PDF bleibt nach dem Druck unverändert – danach weiterarbeiten, speichern oder mit anderen Einstellungen nochmal drucken. Ohne `output` wird nur gedruckt.
+- **Neue Befehle:** `printers` (Drucker mit Status und Standarddrucker) und `caps <drucker>` (alle Treiberoptionen mit Auswahl, Papierformate und welche Option für Papier, Fach, Medium, Duplex, Farbe, Ausgabefach und die Finisher – Heften, Lochen, Falzen, Sattel, Schneiden, Versatz – zuständig ist).
+- Intern: Die Drucksitzung liegt jetzt ohne Qt in `pdfdruck/session.py`, damit die CLI sie nutzen kann; das Programm bekommt sie wie bisher über `gui/common.py`.
+- Testpaket: Die Abläufe 30 und 31 sind Probeläufe (`dry_run`) und laufen bei „alle testen“ mit; im eigenen Ordner `ablaeufe-echt-drucken/` liegen zwei Abläufe, die wirklich drucken (laufen nicht automatisch mit).
+
+## 1.14.0
+### Kommandozeile: Abläufe
+- **Mehrere Aufträge hintereinander als versionierte JSON-Datei** („Ablauf", Formatversion 1): Die Schritte laufen hintereinander, jeder arbeitet mit dem Ergebnis des vorigen. Die Ausgabe wird nur geschrieben, wenn alles geklappt hat.
+- **Neue Befehle:** `run` (Ablauf ausführen, auch mit mehreren Eingaben – Bilder und Office-Dateien werden vorher umgewandelt und mit den PDFs zusammengeführt), `check` (prüfen ohne Ausführen, alle Fehler auf einmal), `schema` (JSON-Schema der Ablauf-Datei oder eines Auftrags), `inspect` (Dokument-Informationen: Seiten, Formate, Endformat/Anschnitt, Prüfbefunde – mit `--check`), `version --json` (Version, API- und Formatversion, verfügbare Aufträge).
+- **Variablen** im Ausgabepfad: `${…}` von `--var`; eingebaut sind `${input}`, `${dir}`, `${stem}`, `${date}` und `${workflow_dir}`.
+- **Tippfehler sind Fehler:** unbekannte Einstellungen und falsche Typen werden gemeldet, nichts fällt still auf einen Standardwert zurück.
+- **Für Zusatzprogramme:** feste JSON-Ereignisse (`start` → `step` → `progress` → `step_done` → `done`) und feste Fehlercodes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) mit Schritt und Auftrag; API- und Formatversion stehen in der Ausgabe von `version --json`. Die Schnittstelle ist in [docs/cli-api.md](docs/cli-api.md) beschrieben (Englisch, mit deutscher Kurzfassung) – der verbindliche Vertrag für Zusatzprogramme, aus allen READMEs verlinkt.
+
 ## 1.13.2
 ### Druckdialog: Vorschau im Hintergrund
 - **Vorschau ohne Warten:** Der Bogen wird jetzt im Render-Prozess montiert und gezeichnet – das Fenster wartet nicht mehr darauf. Mit einer großen Datei braucht die Vorschau im Hauptfenster 0,001 s statt vorher bis zu 6 s Hänger. Wird etwas geändert, während noch gerechnet wird, wird nur der neueste Stand fertig gezeichnet.

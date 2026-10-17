@@ -407,7 +407,8 @@ def _is_icc(sd) -> bool:
         return False
 
 
-LOSSLESS = {"/FlateDecode", "/Fl", "/LZWDecode", "/LZW", "/RunLengthDecode", "/RL"}
+LOSSLESS = {"/FlateDecode", "/Fl", "/LZWDecode", "/LZW", "/RunLengthDecode", "/RL",
+            "/ASCII85Decode", "/A85", "/ASCIIHexDecode", "/AHx"}     # Text-Kodierungen (z. B. ReportLab) gleich mit
 DCT = {"/DCTDecode", "/DCT"}
 
 
@@ -430,6 +431,38 @@ def _set_dct(img, jpg: bytes):
         del img.stream_dict["/DecodeParms"]
 
 
+def _undo_filters(data: bytes, filters: list) -> bytes:
+    """Allgemeine Filter (ZIP, ASCII85, ASCIIHex, RunLength) der Reihe nach lösen – LZW: ValueError."""
+    import base64
+    for f in filters:
+        if f in ("/FlateDecode", "/Fl"):
+            data = zlib.decompressobj().decompress(data)
+        elif f in ("/ASCII85Decode", "/A85"):
+            t = bytes(data).strip()
+            if t.startswith(b"<~"):
+                t = t[2:]
+            if t.endswith(b"~>"):
+                t = t[:-2]
+            data = base64.a85decode(t, adobe=False, ignorechars=b" \t\n\r\x0b\x0c")
+        elif f in ("/ASCIIHexDecode", "/AHx"):
+            t = bytes(x for x in bytes(data).split(b">")[0] if x not in b" \t\n\r\x0b\x0c")
+            data = bytes.fromhex((t + b"0" * (len(t) % 2)).decode("ascii"))
+        elif f in ("/RunLengthDecode", "/RL"):
+            out, i = bytearray(), 0
+            while i < len(data) and data[i] != 128:
+                n = data[i]
+                if n < 128:
+                    out += data[i + 1:i + 2 + n]
+                    i += n + 2
+                else:
+                    out += bytes([data[i + 1]]) * (257 - n)
+                    i += 2
+            data = bytes(out)
+        else:
+            raise ValueError(f)
+    return data
+
+
 def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     """Ein Bild-Objekt bearbeiten (alle Schritte prüfen ihr eigenes Häkchen)."""
     import numpy as np
@@ -440,9 +473,13 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     w, h, comps, bpc = im.w, im.h, im.comps, im.bpc
     # ZIP um ein JPEG herum: inneres JPEG für Herunterrechnen; ohne ZIP-Schicht nur wenn's kleiner wird
     jpeg = None
-    wrapped = len(fl) == 2 and fl[0] in ("/FlateDecode", "/Fl") and fl[1] in DCT
+    # auch ASCII85/ASCIIHex/LZW davor (ReportLab u. a.): pikepdf löst die allgemeinen Filter, das JPEG bleibt
+    wrapped = len(fl) >= 2 and fl[-1] in DCT and all(x in LOSSLESS for x in fl[:-1])
     if wrapped:
-        jpeg = zlib.decompressobj().decompress(img.read_raw_bytes())
+        try:                                    # nur die äußeren Filter lösen, das JPEG bleibt wie es ist
+            jpeg = _undo_filters(img.read_raw_bytes(), fl[:-1])
+        except Exception:
+            jpeg = b""
         if not jpeg.startswith(b"\xff\xd8"):
             jpeg, wrapped = None, False
     elif fl in (["/DCTDecode"], ["/DCT"]):
@@ -486,8 +523,8 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     if wrapped and opts.pack and len(jpeg) < before * 0.99:
         parms = img.stream_dict.get("/DecodeParms")
         _set_dct(img, jpeg)
-        if isinstance(parms, pikepdf.Array) and len(parms) == 2 and isinstance(parms[1], pikepdf.Dictionary):
-            img.DecodeParms = parms[1]
+        if isinstance(parms, pikepdf.Array) and len(parms) >= 2 and isinstance(parms[-1], pikepdf.Dictionary):
+            img.DecodeParms = parms[-1]
         note("unwrap", before - len(jpeg))
         return
     if not lossless or comps not in (1, 2, 3, 4) or bpc not in (8, 16):

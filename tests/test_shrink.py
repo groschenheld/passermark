@@ -230,6 +230,35 @@ def test_too_big_warning():
     assert not [i for i in shrink.issues(rep) if i[0] == "warning"]
 
 
+def test_ascii85_wrapped_jpeg():
+    """JPEG hinter ASCII85 (ReportLab): wird erkannt, heruntergerechnet und ausgepackt."""
+    import base64, io as _io
+    import pikepdf
+    from PIL import Image
+    buf = _io.BytesIO()
+    Image.new("RGB", (2000, 1500), (120, 60, 30)).save(buf, "JPEG", quality=90)
+    jpg = buf.getvalue()
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(144, 108))            # 2 × 1,5 Zoll -> 1000 dpi
+    img = pikepdf.Stream(pdf, base64.a85encode(jpg) + b"~>")
+    img.Type, img.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
+    img.Width, img.Height, img.BitsPerComponent = 2000, 1500, 8
+    img.ColorSpace = pikepdf.Name.DeviceRGB
+    img.Filter = pikepdf.Array([pikepdf.Name.ASCII85Decode, pikepdf.Name.DCTDecode])
+    pg = pdf.pages[0]
+    pg.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im=img))
+    pg.obj.Contents = pikepdf.Stream(pdf, b"q 144 0 0 108 0 0 cm /Im Do Q")
+    out = _io.BytesIO()
+    pdf.save(out)
+    data = out.getvalue()
+    assert shrink._undo_filters(base64.a85encode(b"abc") + b"~>", ["/ASCII85Decode"]) == b"abc"
+    small, _ = shrink.shrink(data, shrink.ShrinkOptions(downsample=True, target_dpi=300))
+    im = shrink.analyze(small).images[0]
+    assert im.codec == "JPEG" and abs(im.w - 600) <= 1 and len(small) < len(data) / 3
+    packed, notes = shrink.shrink(data, shrink.ShrinkOptions())
+    assert shrink.analyze(packed).images[0].codec == "JPEG" and len(packed) < len(data)
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

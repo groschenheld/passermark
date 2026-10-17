@@ -5,6 +5,57 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.15.0
+### Carpetas de entrada: passermark-cli serve (vigilante)
+- `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado. La asignación está en `watch.json` (se toma de `--config`, si no la propia, si no la de todos).
+- Tras el procesamiento, el resultado va a `output/`, el original a `processed/`; con errores el original va a `failed/` con un `.log` al lado. Cada uno de estos ajustes también puede ponerse a `""` (no conservar el resultado / borrar el original). Un flujo que solo imprime no conserva resultado por defecto.
+- Fiable: un archivo solo se toma cuando lleva `settle` segundos sin cambios; los archivos copiados a medias (`.part`, `.tmp`) nunca se tocan. Cada archivo se mueve primero a `.passermark/` – dos vigilantes sobre la misma carpeta nunca procesan dos veces el mismo archivo, y tras un bloqueo los archivos quedados vuelven al siguiente inicio. Los resultados nunca vuelven a la carpeta de entrada y nunca se sobrescriben (`-1`, `-2` …).
+- Opciones: `--check`, `--once` (código 1 si falla un archivo), `--json`, `--quiet`, `--log`.
+- Como servicio: `linux/passermark-watch.service` con un usuario propio sin derechos (los pasos están en el archivo); para Windows `windows/watch-task.ps1`, que crea una tarea al arrancar el sistema.
+
+### Carpetas de flujos: ablaeufe → workflows
+- La carpeta se llama ahora `workflows`; una carpeta `ablaeufe` antigua se renombra automáticamente en la primera llamada. Si faltan los permisos, Passermark sigue leyendo la carpeta antigua.
+- **Carpetas de flujos compartidas:** nuevo en la administración en General → «Más carpetas de flujos», p. ej. un recurso de red. Orden: propia → compartida → para todos; el primer flujo con el nombre es el que vale. Quién puede poner flujos allí lo regulan los permisos de la carpeta (p. ej. un grupo con permiso de escritura) – nadie necesita derechos de administrador para ello. `workflows --dirs` muestra de qué carpeta (user / shared / system) viene cada flujo.
+
+### Paso de impresión
+- **`"paper": "auto"`:** con el manejo de páginas «tamaño», el paso de impresión elige el papel que encaja con la página, para folletos dos páginas lado a lado (A5 → A4). Si la impresora no tiene un papel que encaje, un error muestra los formatos disponibles; con step & repeat o póster hay un error claro – allí hay que indicar el papel. Un `paper` vacío funciona como antes (el papel por defecto de la impresora).
+
+### Corregido además
+- Las especificaciones de páginas fuera del documento (p. ej. `pages: "1-2"` en un PDF de una página) ahora dan «la página 2 no existe …» en lugar de «list index out of range».
+
+## 1.14.2
+### Archivo → Propiedades … (Ctrl+D)
+- Cinco pestañas:
+  - **Archivo:** nombre, carpeta («Abrir carpeta», «Copiar ruta»), tamaño, modificado el, estado (guardado / modificado / solo en memoria / temporal). En documentos combinados, convertidos o creados a partir de imágenes aparece «Creado a partir de:» con los archivos de origen; en resultados «Resultado de …».
+  - **Documento:** versión de PDF, título, autor, asunto, palabras clave, creado con / PDF generado con, creado el / modificado el; cifrado con método, permisos permitidos y denegados; perfil de salida (Output Intent), capas, campos de formulario, comentarios y sellos, marcadores, adjuntos, JavaScript, vista web rápida.
+  - **Páginas:** tabla por página con formato, orientación, rotación, formato final y sangrado, y encima un resumen de los formatos.
+  - **Fuentes:** nombre, tipo, incrustada, subconjunto, páginas. Las fuentes no incrustadas se resaltan en amarillo.
+  - **Comprobación:** errores, avisos y notas con páginas.
+- La ventana aparece al instante; los datos del documento se leen en el proceso de análisis y llegan poco después – el programa no se bloquea ni con archivos grandes. En documentos modificados se muestra el estado actual, no el archivo del disco. Los datos son los mismos que en `passermark-cli inspect`, que ahora también entrega los datos adicionales del documento.
+
+### Guía de la línea de comandos (Ayuda, alemán e inglés)
+- Secciones nuevas sobre flujos de trabajo (con carpetas de flujos), la impresión (con finishers), `inspect` y la interfaz para otros programas; también se añadieron: el resumen de comandos, consejos nuevos y el capítulo de perspectiva (vigilante, previsto para 1.15).
+- Todos los ejemplos se ejecutan de verdad como pruebas, incluidos los JSON de flujo mostrados; solo el ejemplo de impresión se comprueba y no se ejecuta cuando no hay impresora configurada.
+- La guía existe por ahora en alemán e inglés; húngaro, español y francés muestran como antes la inglesa.
+
+## 1.14.1
+### Línea de comandos: impresión
+- **Paso `print` en los flujos:** impresora, papel, bandeja, soporte, dúplex (`none` | `long` | `short`), color (`color` | `gray`), copias, intercalado y rango de páginas – además de todas las opciones del diálogo de impresión (step & repeat, folleto, póster etc.), el perfil de color de la impresora de la administración y opciones de controlador en bruto directamente. `dry_run` no envía nada y solo muestra qué se enviaría.
+- Se imprime por el mismo camino que desde el diálogo de impresión: con selección automática de bandeja y los ajustes del fabricante en Windows.
+- Los valores se aceptan como valor de controlador, como nombre visible o como un fragmento inequívoco; si algo no encaja, el mensaje de error enumera todos los valores posibles.
+- El PDF queda sin cambios tras imprimir – seguir trabajando, guardar o imprimir de nuevo con otros ajustes. Sin `output` solo imprime.
+- **Comandos nuevos:** `printers` (impresoras con estado e impresora predeterminada) y `caps <impresora>` (todas las opciones del controlador con sus elecciones, formatos de papel y qué opción es responsable de papel, bandeja, soporte, dúplex, color, bandeja de salida y los finishers – grapado, perforado, plegado, grapado a cabalga, corte, desfase).
+- Internamente: la sesión de impresión ahora vive sin Qt en `pdfdruck/session.py` para que la CLI pueda usarla; el programa la recibe vía `gui/common.py` como antes.
+- Paquete de pruebas: los flujos 30 y 31 son simulacros (`dry_run`) y participan en «ejecutar todas las pruebas»; en la carpeta propia `ablaeufe-echt-drucken/` hay dos flujos que imprimen de verdad (no se ejecutan automáticamente).
+
+## 1.14.0
+### Línea de comandos: flujos de trabajo
+- **Varios trabajos seguidos en un archivo JSON versionado** («flujo», versión de formato 1): los pasos se ejecutan uno tras otro, cada uno trabaja con el resultado del anterior. La salida solo se escribe si todo ha funcionado.
+- **Comandos nuevos:** `run` (ejecutar un flujo, también con varias entradas – las imágenes y archivos de Office se convierten antes y se combinan con los PDF), `check` (validar sin ejecutar, todos los errores a la vez), `schema` (esquema JSON del archivo de flujo o de un trabajo), `inspect` (información del documento: páginas, formatos, formato final/sangrado, hallazgos del preflight – con `--check`), `version --json` (versión, versión de API y de formato, trabajos disponibles).
+- **Variables** en la ruta de salida: `${…}` desde `--var`; integradas `${input}`, `${dir}`, `${stem}`, `${date}` y `${workflow_dir}`.
+- **Los errores tipográficos son errores:** los ajustes desconocidos y los tipos incorrectos se notifican, nada cae silenciosamente a un valor por defecto.
+- **Para programas externos:** eventos JSON estables (`start` → `step` → `progress` → `step_done` → `done`) y códigos de error fijos (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) con paso y trabajo; la versión de API y de formato está en `version --json`. La interfaz está documentada en [docs/cli-api.md](docs/cli-api.md) (inglés, con resumen en alemán) – el contrato vinculante para programas externos, enlazado desde todos los README.
+
 ## 1.13.2
 ### Diálogo de impresión: vista previa en segundo plano
 - **Vista previa sin esperas:** la hoja se monta y dibuja ahora en el proceso de renderizado; la ventana ya no espera por ello. Con un archivo grande, la vista previa tarda 0,001 s en la ventana principal, en lugar de bloqueos de hasta 6 s como antes. Si se cambia algo mientras sigue calculando, solo se dibuja hasta el final el estado más reciente.

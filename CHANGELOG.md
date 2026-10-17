@@ -2,6 +2,57 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.0
+### Drop folders: passermark-cli serve (watcher)
+- `passermark-cli serve` watches folders and sends every file through the assigned workflow. The assignment is in `watch.json` (taken from `--config`, else your own, else the one for everybody).
+- After processing the result goes to `output/`, the original to `processed/`; on errors the original goes to `failed/` with a `.log` next to it. Each of these settings can also be set to `""` (do not keep the result / delete the original). A workflow that only prints keeps no result by default.
+- Reliable: a file is only taken once it has been unchanged for `settle` seconds; half-copied files (`.part`, `.tmp`) are never touched. Every file is first moved to `.passermark/` – two watchers on the same folder never process the same file twice, and after a crash left-behind files come back on the next start. Results never land back in the input folder and are never overwritten (`-1`, `-2` …).
+- Options: `--check`, `--once` (exit code 1 when a file fails), `--json`, `--quiet`, `--log`.
+- As a service: `linux/passermark-watch.service` with its own user without rights (the steps are in the file); for Windows `windows/watch-task.ps1`, which creates a task at system start.
+
+### Workflow folders: ablaeufe → workflows
+- The folder is now called `workflows`; an old `ablaeufe` folder is renamed automatically on the first call. If the rights are missing, Passermark simply keeps reading the old folder.
+- **Shared workflow folders:** new in the administration under General → "More workflow folders", e.g. a network share. Order: own → shared → for all; the first workflow with the name wins. Who may place workflows there is governed by the folder rights (e.g. a group with write access) – nobody needs admin rights for that. `workflows --dirs` shows which folder (user / shared / system) a workflow comes from.
+
+### Print step
+- **`"paper": "auto"`:** with page handling "size", the print step picks the paper to fit the page, for booklets for two pages side by side (A5 → A4). If the printer has no fitting paper, an error lists the available sizes; with step & repeat or poster there is a clear error – the paper must be given there. An empty `paper` works as before (the printer's default).
+
+### Also fixed
+- Page specs outside the document (e.g. `pages: "1-2"` with a one-page PDF) now give "page 2 does not exist …" instead of "list index out of range".
+
+## 1.14.2
+### File → Properties … (Ctrl+D)
+- Five tabs:
+  - **File:** name, folder ("Open folder", "Copy path"), size, modified on, status (saved / modified / in memory only / scratch). For merged, converted or image-created documents "Created from:" with the source files; for results "Result of …".
+  - **Document:** PDF version, title, author, subject, keywords, created with / PDF produced with, created on / modified on; encryption with method, allowed and denied permissions; output intent, layers, form fields, comments and stamps, bookmarks, attachments, JavaScript, fast web view.
+  - **Pages:** table per page with format, orientation, rotation, trim size and bleed, plus an overview of the formats above.
+  - **Fonts:** name, type, embedded, subset, pages. Fonts that are not embedded are highlighted in yellow.
+  - **Check:** errors, warnings and notes with pages.
+- The window opens immediately; the document details are read in the analysis process and arrive shortly after – the program does not freeze, not even with large files. For modified documents the current state is shown, not the file on disk. The details are the same as in `passermark-cli inspect`, which now also delivers the additional document details.
+
+### Command line guide (Help, German and English)
+- New sections on workflows (with workflow folders), printing (with finishers), `inspect` and the interface for other programs; also added: the command overview, new tips and the outlook chapter (watcher, planned for 1.15).
+- All examples really run as tests, including the workflow JSONs shown; only the printing example is checked and not executed when no printer is set up.
+- The guide is currently available in German and English; Hungarian, Spanish and French show the English one as before.
+
+## 1.14.1
+### Command line: printing
+- **`print` step in workflows:** printer, paper, tray, media, duplex (`none` | `long` | `short`), colour (`color` | `gray`), copies, collation and page range – plus all print-dialog options (step & repeat, booklet, poster etc.), the printer's admin colour profile and raw driver options directly. `dry_run` sends nothing and only shows what would be sent.
+- Printing uses the same path as the print dialog: with automatic tray selection and the Windows vendor settings.
+- Values are accepted as driver value, as display name or as a unique part of it; if something does not match, the error message lists all possible values.
+- The PDF stays unchanged after printing – continue, save or print again with different settings. Without `output` it only prints.
+- **New commands:** `printers` (printers with status and default printer) and `caps <printer>` (all driver options with choices, paper sizes and which option is responsible for paper, tray, media, duplex, colour, output tray and the finishers – stapling, punching, folding, saddle stitch, cutting, offset).
+- Internally: the print session now lives without Qt in `pdfdruck/session.py` so the CLI can use it; the program gets it via `gui/common.py` as before.
+- Test package: workflows 30 and 31 are dry runs and take part in "run all tests"; in the separate folder `ablaeufe-echt-drucken/` there are two workflows that really print (not run automatically).
+
+## 1.14.0
+### Command line: workflows
+- **Several jobs in a row as a versioned JSON file** ("workflow", format version 1): steps run one after the other, each one works with the result of the previous step. The output is only written when everything succeeded.
+- **New commands:** `run` (execute a workflow, also with several inputs – images and Office files are converted and merged with the PDFs beforehand), `check` (validate without executing, all errors at once), `schema` (JSON Schema of the workflow file or of a single job), `inspect` (document information: pages, formats, trim size/bleed, preflight findings – with `--check`), `version --json` (version, API and format version, available jobs).
+- **Variables** in the output path: `${…}` from `--var`, built-in `${input}`, `${dir}`, `${stem}`, `${date}` and `${workflow_dir}`.
+- **Typos are errors:** unknown settings and wrong types are reported instead of silently falling back to a default value.
+- **For other programs:** stable JSON events (`start` → `step` → `progress` → `step_done` → `done`) and fixed error codes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) with step and job; the API and format version are in `version --json`. The interface is documented in [docs/cli-api.md](docs/cli-api.md) (English, with a German summary) – the binding contract for add-on programs, linked from all READMEs.
+
 ## 1.13.2
 ### Print dialog: preview in the background
 - **Preview without waiting:** the sheet is mounted and drawn in the render process now – the dialog no longer waits for it. With a large file the preview takes 0.001 s in the main window instead of freezes of up to 6 s before. If something is changed while a computation is still running, only the newest state is drawn to the end.

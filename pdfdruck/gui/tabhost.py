@@ -9,8 +9,10 @@ like a single window.
 """
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QMainWindow, QMenu, QTabWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QTabWidget
 
 from ..l10n import tr
 
@@ -120,6 +122,15 @@ class TabHost(QMainWindow):
         m.addAction(tr("Schließen"), lambda: self.close_tab(self.tabs.indexOf(w)))
         o = m.addAction(tr("Andere schließen"), lambda: self._close_others(w))
         o.setEnabled(self.tabs.count() > 1)
+        m.addSeparator()
+        pa = m.addAction(tr("Eigenschaften …"), lambda: (self.tabs.setCurrentWidget(w), w.properties_dialog()))
+        pa.setEnabled(getattr(w, "doc", None) is not None)
+        path = getattr(w, "path", None)
+        if path and os.path.isfile(path):
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+            m.addAction(tr("Ordner öffnen"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path))))
+            m.addAction(tr("Pfad kopieren"), lambda: QApplication.clipboard().setText(path))
         m.exec(bar.mapToGlobal(pos))
 
     def _close_others(self, keep):
