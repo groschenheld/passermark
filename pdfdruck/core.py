@@ -74,6 +74,12 @@ def save_settings(path: str, kind: str, settings) -> None:
 def load_settings(path: str) -> tuple[str, dict]:
     with open(path, encoding="utf-8") as f:
         d = json.load(f)
+    if not isinstance(d, dict) or not isinstance(d.get("job"), str):
+        name = os.path.basename(path)
+        if isinstance(d, dict) and d.get("passermark") == "workflow":
+            raise ValueError(tr("„{0}“ ist ein Ablauf (mehrere Schritte), kein Preset – ausführen mit: "
+                                "passermark-cli run \"{0}\"").format(name))
+        raise ValueError(tr("„{0}“ ist keine Preset-Datei (Eintrag „job“ fehlt).").format(name))
     return d["job"], d.get("settings", {})
 
 
@@ -192,6 +198,14 @@ def _job_manip(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
     from . import pdfmanip
     from .layout import flattened
+    # crop_mode (format | trim | whiteout) – lesbarer Schalter für Abläufe/CLI; die Oberfläche setzt die
+    # Sonderwerte direkt in crop_size (Presets daraus funktionieren weiterhin)
+    if s.crop_mode == "trim":
+        s.crop_size = pdfmanip.TRIM_MODE
+    elif s.crop_mode == "whiteout":
+        s.crop_size = pdfmanip.WHITEOUT_MODE
+    elif s.crop_mode != "format":
+        raise ValueError(tr("Unbekannter Beschnitt: {0} (format, trim, whiteout)").format(s.crop_mode))
     if not s.active:
         raise ValueError(tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren."))
     doc = pdfium.PdfDocument(src)

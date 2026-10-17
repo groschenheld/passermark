@@ -5,6 +5,14 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.14.0
+### Ligne de commande : enchaînements
+- **Plusieurs travaux à la suite dans un fichier JSON versionné** (« enchaînement », version de format 1) : les étapes s'exécutent l'une après l'autre, chacune travaille avec le résultat de la précédente. La sortie n'est écrite que si tout a réussi.
+- **Nouvelles commandes :** `run` (exécuter un enchaînement, aussi avec plusieurs entrées – les images et fichiers Office sont convertis au préalable et fusionnés avec les PDF), `check` (valider sans exécuter, toutes les erreurs en une fois), `schema` (schéma JSON du fichier d'enchaînement ou d'un travail), `inspect` (informations du document : pages, formats, format final/fond perdu, constats du prévol – avec `--check`), `version --json` (version, version d'API et de format, travaux disponibles).
+- **Variables** dans le chemin de sortie : `${…}` depuis `--var` ; intégrées `${input}`, `${dir}`, `${stem}`, `${date}` et `${workflow_dir}`.
+- **Les fautes de frappe sont des erreurs :** les réglages inconnus et les types incorrects sont signalés, rien ne retombe silencieusement sur une valeur par défaut.
+- **Pour les programmes externes :** événements JSON stables (`start` → `step` → `progress` → `step_done` → `done`) et codes d'erreur fixes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) avec étape et travail ; la version d'API et de format est dans `version --json`. L'interface est documentée dans [docs/cli-api.md](docs/cli-api.md) (anglais, avec résumé en allemand) – le contrat contraignant pour les programmes externes, lié depuis tous les README.
+
 ## 1.13.2
 ### Boîte d'impression : aperçu en arrière-plan
 - **Aperçu sans attente :** la feuille est montée et dessinée dans le processus de rendu désormais – la fenêtre n'attend plus. Avec un gros fichier, l'aperçu prend 0,001 s dans la fenêtre principale au lieu de blocages allant jusqu'à 6 s auparavant. Si quelque chose change pendant qu'un calcul est encore en cours, seul l'état le plus récent est dessiné jusqu'au bout.

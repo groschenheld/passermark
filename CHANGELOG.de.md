@@ -2,6 +2,14 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.0
+### Kommandozeile: Abläufe
+- **Mehrere Aufträge hintereinander als versionierte JSON-Datei** („Ablauf", Formatversion 1): Die Schritte laufen hintereinander, jeder arbeitet mit dem Ergebnis des vorigen. Die Ausgabe wird nur geschrieben, wenn alles geklappt hat.
+- **Neue Befehle:** `run` (Ablauf ausführen, auch mit mehreren Eingaben – Bilder und Office-Dateien werden vorher umgewandelt und mit den PDFs zusammengeführt), `check` (prüfen ohne Ausführen, alle Fehler auf einmal), `schema` (JSON-Schema der Ablauf-Datei oder eines Auftrags), `inspect` (Dokument-Informationen: Seiten, Formate, Endformat/Anschnitt, Prüfbefunde – mit `--check`), `version --json` (Version, API- und Formatversion, verfügbare Aufträge).
+- **Variablen** im Ausgabepfad: `${…}` von `--var`; eingebaut sind `${input}`, `${dir}`, `${stem}`, `${date}` und `${workflow_dir}`.
+- **Tippfehler sind Fehler:** unbekannte Einstellungen und falsche Typen werden gemeldet, nichts fällt still auf einen Standardwert zurück.
+- **Für Zusatzprogramme:** feste JSON-Ereignisse (`start` → `step` → `progress` → `step_done` → `done`) und feste Fehlercodes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) mit Schritt und Auftrag; API- und Formatversion stehen in der Ausgabe von `version --json`. Die Schnittstelle ist in [docs/cli-api.md](docs/cli-api.md) beschrieben (Englisch, mit deutscher Kurzfassung) – der verbindliche Vertrag für Zusatzprogramme, aus allen READMEs verlinkt.
+
 ## 1.13.2
 ### Druckdialog: Vorschau im Hintergrund
 - **Vorschau ohne Warten:** Der Bogen wird jetzt im Render-Prozess montiert und gezeichnet – das Fenster wartet nicht mehr darauf. Mit einer großen Datei braucht die Vorschau im Hauptfenster 0,001 s statt vorher bis zu 6 s Hänger. Wird etwas geändert, während noch gerechnet wird, wird nur der neueste Stand fertig gezeichnet.

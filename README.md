@@ -1,4 +1,4 @@
-# Passermark 1.13.2
+# Passermark 1.14.0
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -96,6 +96,7 @@ Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppIm
 Windows → `passermark-cli.exe` in the installation folder (setup option: add it to PATH).
 Guides with examples (German PDFs) are in the program under **Help → Command line – guide** and
 **Help → Variable data – guide**.
+Interface for other programs (stable JSON events, error codes): [docs/cli-api.md](docs/cli-api.md).
 
 ## Error logs
 

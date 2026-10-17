@@ -2,6 +2,14 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.0
+### Command line: workflows
+- **Several jobs in a row as a versioned JSON file** ("workflow", format version 1): steps run one after the other, each one works with the result of the previous step. The output is only written when everything succeeded.
+- **New commands:** `run` (execute a workflow, also with several inputs – images and Office files are converted and merged with the PDFs beforehand), `check` (validate without executing, all errors at once), `schema` (JSON Schema of the workflow file or of a single job), `inspect` (document information: pages, formats, trim size/bleed, preflight findings – with `--check`), `version --json` (version, API and format version, available jobs).
+- **Variables** in the output path: `${…}` from `--var`, built-in `${input}`, `${dir}`, `${stem}`, `${date}` and `${workflow_dir}`.
+- **Typos are errors:** unknown settings and wrong types are reported instead of silently falling back to a default value.
+- **For other programs:** stable JSON events (`start` → `step` → `progress` → `step_done` → `done`) and fixed error codes (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) with step and job; the API and format version are in `version --json`. The interface is documented in [docs/cli-api.md](docs/cli-api.md) (English, with a German summary) – the binding contract for add-on programs, linked from all READMEs.
+
 ## 1.13.2
 ### Print dialog: preview in the background
 - **Preview without waiting:** the sheet is mounted and drawn in the render process now – the dialog no longer waits for it. With a large file the preview takes 0.001 s in the main window instead of freezes of up to 6 s before. If something is changed while a computation is still running, only the newest state is drawn to the end.

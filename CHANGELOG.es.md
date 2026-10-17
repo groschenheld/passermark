@@ -5,6 +5,14 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.14.0
+### Línea de comandos: flujos de trabajo
+- **Varios trabajos seguidos en un archivo JSON versionado** («flujo», versión de formato 1): los pasos se ejecutan uno tras otro, cada uno trabaja con el resultado del anterior. La salida solo se escribe si todo ha funcionado.
+- **Comandos nuevos:** `run` (ejecutar un flujo, también con varias entradas – las imágenes y archivos de Office se convierten antes y se combinan con los PDF), `check` (validar sin ejecutar, todos los errores a la vez), `schema` (esquema JSON del archivo de flujo o de un trabajo), `inspect` (información del documento: páginas, formatos, formato final/sangrado, hallazgos del preflight – con `--check`), `version --json` (versión, versión de API y de formato, trabajos disponibles).
+- **Variables** en la ruta de salida: `${…}` desde `--var`; integradas `${input}`, `${dir}`, `${stem}`, `${date}` y `${workflow_dir}`.
+- **Los errores tipográficos son errores:** los ajustes desconocidos y los tipos incorrectos se notifican, nada cae silenciosamente a un valor por defecto.
+- **Para programas externos:** eventos JSON estables (`start` → `step` → `progress` → `step_done` → `done`) y códigos de error fijos (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) con paso y trabajo; la versión de API y de formato está en `version --json`. La interfaz está documentada en [docs/cli-api.md](docs/cli-api.md) (inglés, con resumen en alemán) – el contrato vinculante para programas externos, enlazado desde todos los README.
+
 ## 1.13.2
 ### Diálogo de impresión: vista previa en segundo plano
 - **Vista previa sin esperas:** la hoja se monta y dibuja ahora en el proceso de renderizado; la ventana ya no espera por ello. Con un archivo grande, la vista previa tarda 0,001 s en la ventana principal, en lugar de bloqueos de hasta 6 s como antes. Si se cambia algo mientras sigue calculando, solo se dibuja hasta el final el estado más reciente.

@@ -1,4 +1,4 @@
-# Passermark 1.13.2
+# Passermark 1.14.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -109,6 +109,7 @@ Où : Linux `install.sh` → `passermark-cli` ; AppImage → `Passermark-*.AppIm
 Windows → `passermark-cli.exe` dans le dossier d'installation (option d'installation : l'ajouter au PATH).
 Guides avec des exemples dans le programme : **Aide → Ligne de commande – guide** et
 **Aide → Données variables – guide**.
+Interface pour les programmes externes (événements JSON stables, codes d'erreur) : [docs/cli-api.md](docs/cli-api.md).
 
 ## Journaux d'erreurs
 

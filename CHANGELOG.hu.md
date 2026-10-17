@@ -5,6 +5,14 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.14.0
+### Parancssor: munkafolyamatok
+- **Több feladat egymás után, verziózott JSON-fájlként** („munkafolyamat", formátumverzió 1): a lépések egymás után futnak, mindegyik az előző lépés eredményén dolgozik. A kimenet csak akkor íródik ki, ha minden sikerült.
+- **Új parancsok:** `run` (munkafolyamat futtatása, több bemenettel is – a képek és Office-fájlok előbb átalakítva egyesülnek a PDF-ekkel), `check` (ellenőrzés futtatás nélkül, egyszerre az összes hibával), `schema` (a munkafolyamatfájl vagy egy feladat JSON-sémája), `inspect` (dokumentuminformációk: oldalak, formátumok, végformatum/levágás, előellenőrzési leletek – `--check`-kel), `version --json` (verzió, API- és formátumverzió, elérhető feladatok).
+- **Változók** a kimeneti útvonalban: `${…}` a `--var`-ból; beépítve `${input}`, `${dir}`, `${stem}`, `${date}` és `${workflow_dir}`.
+- **Az elírás hiba:** az ismeretlen beállítások és rossz típusok jelzése történik, semmi nem esik vissza némán egy alapértékre.
+- **Külső programoknak:** stabil JSON-események (`start` → `step` → `progress` → `step_done` → `done`) és rögzített hibakódok (`usage`, `not_found`, `invalid`, `failed`, `cancelled`) lépéssel és feladattal; az API- és formátumverzió a `version --json` kimenetében. A felület a [docs/cli-api.md](docs/cli-api.md) fájlban van dokumentálva (angolul, német összefoglalóval) – a külső programok kötelező szerződése, minden README-ből hivatkozva.
+
 ## 1.13.2
 ### Nyomtatási párbeszédpanel: előnézet a háttérben
 - **Várakozás nélküli előnézet:** a lap felépítése és rajzolása most a renderfolyamatban történik – az ablak nem vár rá többé. Egy nagy fájllal az előnézet 0,001 s-ot vesz igénybe a főablakban, korábban akár 6 s-os blokkolások helyett. Ha valami változik, miközben még tart a számítás, csak a legutolsó állapot kerül végigrajzolásra.
