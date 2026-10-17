@@ -6,6 +6,16 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    'Markierte Dateien als ein PDF zusammenführen': 'Fusionner les fichiers sélectionnés en un seul PDF',
+    'Nach Name sortieren': 'Trier par nom',
+    'Nach oben': 'Monter',
+    'Nach unten': 'Descendre',
+    'Ordner hinzufügen …': 'Ajouter un dossier …',
+    'Passermark – zusammenführen': 'Passermark – fusionner',
+    '{0} Datei(en)': '{0} fichier(s)',
+    'Änderung wird übernommen …': 'Application de la modification …',
+    '{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.': '{0} objets sur la page – affichés : toutes les images et les {1} plus grands.',
+    'Änderung wird geprüft …': 'Vérification de la modification …',
     'Fotos als JPEG gespeichert (Qualität {0})': 'Photos enregistrées en JPEG (qualité {0})',
     '{0} Foto(s) als ZIP statt JPEG gespeichert ({1:.0f} MB) – als JPEG meist nur ein Zehntel so groß. Reparatur: „Datei verkleinern …“ → „Fotos als JPEG speichern“.': '{0} photo(s) enregistrée(s) en ZIP au lieu de JPEG ({1:.0f} Mo) – en JPEG, généralement un dixième de la taille. Réparation : « Réduire la taille du fichier … » → « Enregistrer les photos en JPEG ».',
     'Verlustbehaftet (optional)': 'Avec perte (facultatif)',

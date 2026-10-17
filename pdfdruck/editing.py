@@ -104,6 +104,25 @@ class PageObject:
     in_layer: bool = False
 
 
+MAX_LISTED_OBJECTS = 3000
+
+
+def limit_objects(objs: list, n: int = MAX_LISTED_OBJECTS) -> tuple[list, int]:
+    """Sehr viele Objekte (CAD, Schraffuren): alle Bilder + die größten Vektoren, in Seitenreihenfolge, neu
+        nummeriert (index = Zeile der Liste). -> (Auswahl, Gesamtzahl). Eine Liste mit 100.000 Einträgen
+        legt sonst die Oberfläche lahm."""
+    total = len(objs)
+    if total <= n:
+        return objs, total
+    imgs = [o for o in objs if o.kind == "image"]
+    paths = sorted((o for o in objs if o.kind != "image"),
+                   key=lambda o: -(o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))[:max(0, n - len(imgs))]
+    keep = sorted(imgs + paths, key=lambda o: o.objs[0] if o.objs else 0)
+    for i, o in enumerate(keep):
+        o.index = i
+    return keep, total
+
+
 def page_objects(doc, page_index: int) -> list[PageObject]:
     """Vektor- und Bildobjekte der Seite (oberste Ebene) für die Objektliste."""
     import pypdfium2.raw as r

@@ -16,7 +16,8 @@ LANGS = ["pdfdruck.lang.en", "pdfdruck.lang.hu", "pdfdruck.lang.es", "pdfdruck.l
 HIDDEN = ["win32print", "win32gui", "win32con", "win32event", "win32process", "pywintypes",
           "win32com", "win32com.client", "win32com.shell", "pythoncom", "winreg",
           "PySide6.QtSvg", "PySide6.QtNetwork", "pillow_heif", "img2pdf", "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS,
-          "pdfdruck.renderproc", "pdfdruck.gui.renderclient"]   # Render-Prozess der Seitenansicht (passermark-cli render-server)
+          "pdfdruck.renderproc", "pdfdruck.gui.renderclient", "pdfdruck.editops", "pdfdruck.pagegeom",
+          "pdfdruck.gui.stallwatch", "pdfdruck.fastipc"]   # Render-/Analyse-Prozess (passermark-cli render-server), Ruckler-Protokoll
 a = Analysis([os.path.join(SPECPATH, "launcher.py")], pathex=[root], binaries=binaries, datas=datas,
              hiddenimports=HIDDEN, excludes=["cups", "tkinter"], noarchive=False)
 pyz = PYZ(a.pure)

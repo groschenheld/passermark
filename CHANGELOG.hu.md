@@ -5,6 +5,27 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.13.2
+### Nyomtatási párbeszédpanel: előnézet a háttérben
+- **Várakozás nélküli előnézet:** a lap felépítése és rajzolása most a renderfolyamatban történik – az ablak nem vár rá többé. Egy nagy fájllal az előnézet 0,001 s-ot vesz igénybe a főablakban, korábban akár 6 s-os blokkolások helyett. Ha valami változik, miközben még tart a számítás, csak a legutolsó állapot kerül végigrajzolásra.
+- A várakozás marad: az előnézet így is csak 2–5 s múlva készül el, mert maga az oldal megrajzolása ennyi ideig tart. Az ablak ez alatt is kezelhető marad.
+- **Több példány (pl. step & repeat):** az oldal csak egyszer renderelődik, nem példányonként – kb. kétszer gyorsabb. A kép minimálisan eltér, mert raszterkép; csak nagyon finom mintázatoknál látszik enyhe moiré. A nyomtatás továbbra is az eredetiből történik.
+- **Több példány nélkül** az előnézet pixelre azonos a korábbival (összehasonlítva: egyoldalas, 9 az 1-en, brosúra, nyomdai ívek és duplex).
+- **Végformatum/levágás** most az oldaladatokból jön, az oldalak betöltése nélkül – az értékek ugyanazok, mint korábban.
+- **Íváttekintés** szintén a háttérben számolódik.
+- **Még mindig a főablakban:** a „Brosúra nyomdai ívekként” átváltása még kb. 0,9 s-ot vesz igénybe; a nyomdai ívek előállítása nem került ki.
+- **Oldalnézet:** a nagy oldal képek zoomoláskor azonnal durván átméreteződnek, a tiszta kép a háttérben érkezik utána. Az oldal kép felső korlása változatlanul 16 megapixel.
+
+### Egyesítés Windowson
+- **Egy ablak:** ha egyszerre több fájl érkezik, mind ugyanabba az ablakba kerül. 12 egyidejűleg indított hívással tesztelve: 1 ablak, 12 fájl, név szerint rendezve.
+- **Új gombok:** „Mappa hozzáadása …”, fel/le mozgatás és „Rendezés név szerint”. A fájlok be is húzhatók; az ablak mutatja, hány van bent.
+- **Sok tervhez:** a legjobb a „Küldés → Passermark – egyesítés” – ez egyszerre adja át az összes fájlt, és első indításkor egyszer hozza létre. Alternatívaként a teljes mappa hozzáadása az ablakban.
+- **Oldalsáv:** a kijelölt oldalak áthelyezhetők. A sárga sáv mutatja, hová kerülnek; a szélén az oldalsáv automatikusan továbbgörget.
+
+## 1.13.1
+### Sebességjavítás
+- Kisebb sebességjavulások az új nézetben (renderelés).
+
 ## 1.13.0
 ### Gyorsabb nézet (renderelés-átvizsgálás)
 - **Renderelés külön folyamatban:** az oldalokat egy háttérfolyamat rendereli (`passermark-cli render-server`); a felület sosem vár rá. Egyszerre mindig csak egy kérés van útban – gyors lapozásnál nem halmozódnak az elavult kérések. Ha a folyamat összeomlik, újraindul; ha egyáltalán nem indul (vagy a PDF jelszóval védett), a nézet a programon belül renderel, mint régen.
@@ -13,17 +34,6 @@
 - **Ugyanarra a fájlba mentés Windowson is megy:** a fájl a memóriába olvasódik és lemezre szabadon marad.
 - **Szerkesztő mód:** húzás közben az objektum félig átlátszóan fut vele; alkalmazás után a régi képek helyőrzőként maradnak és a háttérben megújulnak, először a szerkesztett oldal. Korábban minden elfehéredett, és az összes miniatűrt a főablakban renderelték újra.
 - **Az automatikus ellenőrzés a változatlan fájlokat közvetlenül olvassa** – megnyitáskor elmarad az újmentés a főablakban.
-
-A 309 MB-os tesztfájllal mérve (mennyi időre fagyott be a felület):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Megnyitás | 5,6 s | 1,1 s |
-| Zoom (3 szint) | 1,5 s | 0,02 s |
-| Lapozás | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, életlen | 0,03 s, éles |
-| Objektum húzása | – | 0,01 s, az objektum képként fut vele |
-
 - Hiba beszűkítése: `PASSERMARK_RENDER=local` beállítással minden úgy működik, mint előtte – így gyorsan kiderül, hogy az új renderfolyamat-e az ok.
 - Ismert korlát: objektum elengedése szerkesztő módban nehéz oldalakon még kb. 1 s (a biztonsági ellenőrzés hasonlítja össze az oldalt előtte és utána). Több oldalon használt elem egy módosítással mindenhol változhat, ezért szerkesztés után az összes oldal a háttérben újra renderelődik, először a szerkesztett.
 

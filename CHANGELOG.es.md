@@ -5,6 +5,27 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.13.2
+### Diálogo de impresión: vista previa en segundo plano
+- **Vista previa sin esperas:** la hoja se monta y dibuja ahora en el proceso de renderizado; la ventana ya no espera por ello. Con un archivo grande, la vista previa tarda 0,001 s en la ventana principal, en lugar de bloqueos de hasta 6 s como antes. Si se cambia algo mientras sigue calculando, solo se dibuja hasta el final el estado más reciente.
+- El tiempo de espera sigue ahí: la vista previa no está lista antes de 2–5 s, porque dibujar la página en sí tarda eso. Pero la ventana se puede seguir usando mientras tanto.
+- **Varias copias (p. ej. step & repeat):** la página se renderiza una sola vez en lugar de una por copia – aproximadamente el doble de rápido. La imagen se desvía mínimamente por ser una imagen de trama; solo con tramas muy finas se ve un ligero moiré. Para imprimir se sigue usando el original.
+- **Sin varias copias** la vista previa es idéntica al píxel a la de antes (comparado para páginas sueltas, 9 en 1, folleto, pliegos y dúplex).
+- **Formato final/sangrado** sale ahora de los datos de página sin cargar las páginas; los valores son los mismos que antes.
+- **Vista general de pliegos** se calcula también en segundo plano.
+- **Todavía en la ventana principal:** cambiar a «Folleto como pliegos» tarda aún unos 0,9 s; la generación de los pliegos no se ha sacado fuera.
+- **Vista de página:** las imágenes de página grandes se escalan en bruto inmediatamente al hacer zoom; la imagen nítida llega en segundo plano. El límite superior de la imagen de página sigue siendo de 16 megapíxeles.
+
+### Fusionar en Windows
+- **Una ventana:** si llegan varios archivos a la vez, todos caen en la misma ventana. Probado con 12 llamadas simultáneas: 1 ventana, 12 archivos, ordenados por nombre.
+- **Botones nuevos:** «Añadir carpeta …», subir/bajar y «Ordenar por nombre». Los archivos también se pueden arrastrar; se muestra cuántos hay dentro.
+- **Para muchos planos:** lo mejor es «Enviar a → Passermark – fusionar» – pasa todos los archivos de una vez y se crea una única vez en el primer inicio. Como alternativa, añadir la carpeta entera en la ventana.
+- **Barra lateral:** las páginas marcadas se pueden mover. La barra amarilla muestra dónde quedarán; en el borde la barra sigue desplazándose automáticamente.
+
+## 1.13.1
+### Corrección de velocidad
+- Pequeñas mejoras de velocidad en la nueva vista (renderizado).
+
 ## 1.13.0
 ### Vista más rápida (renovación del renderizado)
 - **Renderizado en un proceso aparte:** las páginas las renderiza un proceso en segundo plano (`passermark-cli render-server`); la interfaz nunca espera por él. Solo hay una petición en vuelo, así que al hojear rápido no se acumulan peticiones anticuadas. Si el proceso se cuelga, se reinicia; si no arranca (o el PDF está protegido con contraseña), la vista renderiza dentro del programa como antes.
@@ -13,17 +34,6 @@
 - **Guardar sobre el mismo archivo ya funciona en Windows:** el archivo se lee en memoria y queda libre en el disco.
 - **Modo de edición:** al arrastrar, el objeto acompaña semitransparente; al aplicar, las imágenes antiguas quedan como marcadores de posición y se renuevan en segundo plano, primero la página editada. Antes todo se volvía blanco y todas las miniaturas se volvían a renderizar en la ventana principal.
 - **La comprobación automática lee los archivos sin cambios directamente** – al abrir se ahorra el volver a guardar en la ventana principal.
-
-Medido con el archivo de prueba de 309 MB (cuánto se congelaba la interfaz):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Abrir | 5,6 s | 1,1 s |
-| Zoom (3 niveles) | 1,5 s | 0,02 s |
-| Pasar página | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, borroso | 0,03 s, nítido |
-| Arrastrar objeto | – | 0,01 s, el objeto acompaña como imagen |
-
 - Localizar errores: con `PASSERMARK_RENDER=local` todo funciona como antes – así se comprueba rápido si la causa es el nuevo proceso de renderizado.
 - Limitación conocida: soltar un objeto en el modo de edición tarda aún unos 1 s en páginas pesadas (la comprobación de seguridad compara la página antes y después). Un elemento usado en varias páginas puede cambiar en todas por una edición; por eso tras editar se vuelven a renderizar todas las páginas en segundo plano, primero la editada.
 

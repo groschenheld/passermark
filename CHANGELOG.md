@@ -2,6 +2,27 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.13.2
+### Print dialog: preview in the background
+- **Preview without waiting:** the sheet is mounted and drawn in the render process now – the dialog no longer waits for it. With a large file the preview takes 0.001 s in the main window instead of freezes of up to 6 s before. If something is changed while a computation is still running, only the newest state is drawn to the end.
+- The waiting time remains: the preview is still not finished for 2–5 s, because drawing the page itself takes that long. The dialog stays usable during that time.
+- **Multiple copies (e.g. step & repeat):** the page is rendered only once instead of once per copy – roughly twice as fast. The image deviates minimally because it is a raster image; only with very fine patterns a slight moiré is visible. Printing still uses the original.
+- **Without multiple copies** the preview is pixel-identical to before (compared for single pages, 9 on 1, booklet, press sheets and duplex).
+- **Trim size/bleed** now comes from the page data without loading the pages – the values are the same as before.
+- **Sheet overview** is computed in the background as well.
+- **Still in the main window:** switching to "Booklet as press sheets" still takes about 0.9 s; generating the press sheets has not been moved out.
+- **Page view:** large page images are scaled coarsely immediately when zooming; the clean image follows in the background. The upper limit for the page image is unchanged at 16 megapixels.
+
+### Merging on Windows
+- **One window:** if several files arrive at the same time, they all land in the same window. Tested with 12 simultaneously started calls: 1 window, 12 files, sorted by name.
+- **New buttons:** "Add folder …", move up/down and "Sort by name". Files can also be dragged in; the window shows how many are in it.
+- **For many plans:** best use "Send to → Passermark – merge" – it passes all files at once and is created once on the first start. Alternatively add the whole folder in the window.
+- **Sidebar:** selected pages can be moved. The yellow bar shows where they will land; at the edge the sidebar scrolls on automatically.
+
+## 1.13.1
+### Speed fix
+- Minor speed improvements in the new view (rendering).
+
 ## 1.13.0
 ### Faster view (render overhaul)
 - **Rendering in a separate process:** pages are rendered by a background process (`passermark-cli render-server`); the user interface never waits for it. Only one request is in flight at a time, so fast page flipping no longer piles up outdated requests. If the process crashes it restarts; if it cannot start at all (or the PDF is password-protected), the view renders inside the program as before.
@@ -10,17 +31,6 @@
 - **Saving over the same file works on Windows now:** the file is read into memory and released on disk.
 - **Edit mode:** while dragging, the object moves along semi-transparently; after applying, the old images stay as placeholders and are renewed in the background, the edited page first. Previously everything turned white and all thumbnails were re-rendered in the main window.
 - **Automatic check reads unchanged files directly** – no re-save in the main window needed when opening.
-
-Measured with a 309 MB test file (how long the interface froze):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Open | 5.6 s | 1.1 s |
-| Zoom (3 levels) | 1.5 s | 0.02 s |
-| Page flip | 1.4 s | 0.02 s |
-| 400 % | 1.7 s, blurry | 0.03 s, sharp |
-| Drag object | – | 0.01 s, object follows as image |
-
 - Troubleshooting: with `PASSERMARK_RENDER=local` everything renders as before – a quick way to narrow down whether the new render process is the cause.
 - Known limitation: releasing an object in edit mode still takes about 1 s on heavy pages (the safety check compares the page before and after). Elements used on several pages can change everywhere through an edit, so after editing all pages are re-rendered in the background, the edited one first.
 

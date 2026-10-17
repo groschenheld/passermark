@@ -2,9 +2,9 @@
 # Passermark – Copyright (C) 2026 Hias
 """Render-Prozess der Seitenansicht (passermark-cli render-server): Öffnen, ganze Seite, Ausschnitt (auch
     gedreht, pixelgleich zum Ausschnitt der ganzen Seite), Fehler ohne Absturz, Datei bleibt frei."""
-import io
 import json
 import os
+import pickle
 import subprocess
 import sys
 import tempfile
@@ -58,8 +58,10 @@ def test_render_server():
     _pdf(path)
     s = Server()
     try:
-        h, _ = s(op="open", id=1, doc="x", path=path)
+        h, info = s(op="open", id=1, doc="x", path=path)
         assert h["ok"] and h["pages"] == 1
+        pi = pickle.loads(info)
+        assert pi[0]["crop"] == (0.0, 0.0, 300.0, 200.0) and pi[0]["rotate"] == 0
         os.replace(path, path + ".alt")                  # Datei ist frei (im Speicher) – Speichern darüber geht
         for rot in (0, 90):
             h, data = s(op="render", id=2, doc="x", page=0, scale=2.0, rotation=rot)
@@ -76,12 +78,60 @@ def test_render_server():
         assert not h["ok"] and h["error"]                 # Fehler zurück, Server läuft weiter
         h, _ = s(op="render", id=5, doc="gibtsnicht", page=0, scale=1.0)
         assert not h["ok"]
+        h, data = s(op="chars", id=7, doc="x", page=0)
+        assert h["ok"] and pickle.loads(data) == []        # kein Text auf der Seite
+        h, data = s(op="lists", id=8, doc="x", page=0, kind="objects")
+        objs, total = pickle.loads(data)
+        assert total == 2 and {o.kind for o in objs} == {"image", "path"}
+        args = pickle.dumps({"path": path + ".alt", "deep_layers": False})
+        s.p.stdin.write(json.dumps({"op": "call", "id": 9, "fn": "preflight", "n": len(args)}).encode() + b"\n" + args)
+        s.p.stdin.flush()
+        head = json.loads(s.p.stdout.readline())
+        rep = pickle.loads(s.p.stdout.read(head["n"]))
+        assert head["ok"] and rep.pages == 1 and rep.size is not None, head
         h, _ = s(op="close", id=6, doc="x")
         assert h["ok"]
     finally:
         assert s.close() == 0
 
 
+def test_sheet_preview_call():
+    """Druckvorschau im Prozess = Montage im Programm; bei mehrfach verwendeten Seiten (Step & Repeat) über
+        das einmal gerenderte Seitenbild – sieht gleich aus. Endformat/Anschnitt aus den Seitendaten = pdfium."""
+    import numpy as np
+    import pikepdf
+    import pypdfium2 as pdfium
+    from pdfdruck import layout, printjob, renderproc
+    d = tempfile.mkdtemp()
+    path = os.path.join(d, "a.pdf")
+    _pdf(path)
+    with pikepdf.open(path, allow_overwriting_input=True) as pk:
+        pk.pages[0].TrimBox = [10, 10, 290, 190]
+        pk.pages[0].BleedBox = [5, 5, 295, 195]
+        pk.save(path)
+    doc = pdfium.PdfDocument(path)
+    info = renderproc.page_info(open(path, "rb").read())
+    assert layout.trims_from_info(info) == layout.page_trims(doc)
+    assert layout.doc_bleeds_from_info(info) == layout.page_doc_bleeds(doc)
+    sheet = layout.Sheet(595.0, 842.0)
+    for kw in (dict(), dict(step_repeat=True, crop_marks=True, bleed_mm=3)):
+        s = layout.LayoutSettings(**kw)
+        plans = printjob.make_plans([doc.get_page_size(0)], [0], sheet, s, False, layout.page_trims(doc),
+                                    layout.page_doc_bleeds(doc))
+        (w, h, data), = renderproc._call_sheet(path, True, "sheet", sheet, plans, s, only=[0], scale=0.5,
+                                               rotations=[0])
+        out = layout.impose_with(doc, sheet, plans, s, only=[0])
+        ref = np.asarray(out[0].render(scale=0.5).to_pil().convert("RGB")).astype(int)
+        out.close()
+        got = np.frombuffer(data, np.uint8).reshape(h, w, 3).astype(int)
+        assert got.shape == ref.shape, (got.shape, ref.shape)
+        assert np.abs(got - ref).mean() < 2.0, (kw, np.abs(got - ref).mean())
+    renderproc._call_sheet_release()
+    doc.close()
+
+
 if __name__ == "__main__":
     test_render_server()
     print("ok test_render_server")
+    test_sheet_preview_call()
+    print("ok test_sheet_preview_call")

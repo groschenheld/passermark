@@ -5,6 +5,27 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.13.2
+### Boîte d'impression : aperçu en arrière-plan
+- **Aperçu sans attente :** la feuille est montée et dessinée dans le processus de rendu désormais – la fenêtre n'attend plus. Avec un gros fichier, l'aperçu prend 0,001 s dans la fenêtre principale au lieu de blocages allant jusqu'à 6 s auparavant. Si quelque chose change pendant qu'un calcul est encore en cours, seul l'état le plus récent est dessiné jusqu'au bout.
+- L'attente reste : l'aperçu n'est fini qu'après 2–5 s, car le dessin de la page elle-même prend ce temps. Mais la fenêtre reste utilisable pendant ce temps.
+- **Copies multiples (p. ex. step & repeat) :** la page n'est rendue qu'une fois au lieu d'une fois par copie – environ deux fois plus vite. L'image s'écarte minimalement car c'est une image tramée ; seule une trame très fine laisse voir un léger moiré. L'impression continue à partir de l'original.
+- **Sans copies multiples,** l'aperçu est identique au pixel près à avant (comparé pour pages simples, 9 sur 1, brochure, plieurs et duplex).
+- **Format final/fond perdu** vient maintenant des données de page sans charger les pages – les valeurs sont les mêmes qu'avant.
+- **Aperçu des plieurs** est également calculé en arrière-plan.
+- **Toujours dans la fenêtre principale :** passer à « Brochure en plieurs » prend encore environ 0,9 s ; la génération des plieurs n'a pas été externalisée.
+- **Vue de page :** les grandes images de page sont mises à l'échelle grossièrement immédiatement au zoom ; l'image propre arrive en arrière-plan. La limite supérieure de l'image de page reste inchangée à 16 mégapixels.
+
+### Fusionner sous Windows
+- **Une seule fenêtre :** si plusieurs fichiers arrivent en même temps, ils atterrissent tous dans la même fenêtre. Testé avec 12 appels lancés simultanément : 1 fenêtre, 12 fichiers, triés par nom.
+- **Nouveaux boutons :** « Ajouter un dossier … », monter/descendre et « Trier par nom ». Les fichiers peuvent aussi être glissés dedans ; la fenêtre affiche combien elle en contient.
+- **Pour de nombreux plans :** le mieux est « Envoyer vers → Passermark – fusionner » – il transmet tous les fichiers d'un coup et est créé une seule fois au premier démarrage. Sinon, ajouter directement le dossier entier dans la fenêtre.
+- **Barre latérale :** les pages sélectionnées peuvent être déplacées. La barre jaune montre où elles atterriront ; au bord, la barre défile automatiquement.
+
+## 1.13.1
+### Correctif de vitesse
+- Légères améliorations de vitesse dans la nouvelle vue (rendu).
+
 ## 1.13.0
 ### Vue plus rapide (refonte du rendu)
 - **Rendu dans un processus séparé :** les pages sont rendues par un processus en arrière-plan (`passermark-cli render-server`) ; l'interface n'attend plus jamais. Une seule demande est en vol à la fois – en feuilletant vite, les demandes périmées ne s'accumulent plus. Si le processus plante, il redémarre ; s'il ne démarre pas (ou si le PDF est protégé par mot de passe), la vue rend dans le programme comme avant.
@@ -13,17 +34,6 @@
 - **Enregistrer sur le même fichier fonctionne maintenant sous Windows :** le fichier est lu en mémoire et reste libre sur le disque.
 - **Mode édition :** pendant le déplacement, l'objet suit en semi-transparent ; après application, les anciennes images restent comme espaces réservés et sont renouvelées en arrière-plan, la page éditée d'abord. Avant, tout devenait blanc et toutes les vignettes étaient rendues à nouveau dans la fenêtre principale.
 - **Le contrôle automatique lit directement les fichiers non modifiés** – à l'ouverture, le réenregistrement dans la fenêtre principale disparaît.
-
-Mesuré avec le fichier de test de 309 Mo (combien de temps l'interface gelait) :
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Ouvrir | 5,6 s | 1,1 s |
-| Zoom (3 niveaux) | 1,5 s | 0,02 s |
-| Tourner la page | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, flou | 0,03 s, net |
-| Déplacer un objet | – | 0,01 s, l'objet suit comme image |
-
 - Dépannage : avec `PASSERMARK_RENDER=local`, tout fonctionne comme avant – un moyen rapide de savoir si la cause est le nouveau processus de rendu.
 - Limite connue : relâcher un objet en mode édition prend encore environ 1 s sur les pages lourdes (le contrôle de sécurité compare la page avant et après). Un élément utilisé sur plusieurs pages peut changer partout par une modification ; c'est pourquoi après l'édition toutes les pages sont rendues à nouveau en arrière-plan, celle éditée en premier.
 

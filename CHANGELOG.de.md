@@ -2,6 +2,27 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.13.2
+### Druckdialog: Vorschau im Hintergrund
+- **Vorschau ohne Warten:** Der Bogen wird jetzt im Render-Prozess montiert und gezeichnet – das Fenster wartet nicht mehr darauf. Mit einer großen Datei braucht die Vorschau im Hauptfenster 0,001 s statt vorher bis zu 6 s Hänger. Wird etwas geändert, während noch gerechnet wird, wird nur der neueste Stand fertig gezeichnet.
+- Die Wartezeit bleibt: Fertig ist die Vorschau trotzdem erst nach 2–5 s, weil die Seite selbst so lange zum Zeichnen braucht. Das Fenster bleibt dabei aber bedienbar.
+- **Mehrfach-Nutzen (z. B. Step & Repeat):** Die Seite wird nur einmal gerendert statt für jeden Nutzen neu – etwa doppelt so schnell. Das Bild weicht minimal ab, weil es ein Rasterbild ist; nur bei sehr feinen Mustern sieht man leichtes Moiré. Gedruckt wird weiterhin aus dem Original.
+- **Ohne Mehrfach-Nutzen** ist die Vorschau pixelgleich zu vorher (verglichen für Einzelseiten, 9 auf 1, Broschüre, Druckbögen und Duplex).
+- **Endformat/Anschnitt** kommt jetzt aus den Seitendaten, ohne die Seiten zu laden – die Werte sind gleich wie vorher.
+- **Bogenübersicht** wird ebenfalls im Hintergrund gerechnet.
+- **Noch im Hauptfenster:** „Broschüre als Druckbögen“ braucht beim Umstellen noch ca. 0,9 s; das Erzeugen der Druckbögen ist nicht ausgelagert.
+- **Seitenansicht:** Große Seitenbilder werden beim Zoomen sofort grob skaliert, das saubere Bild kommt im Hintergrund nach. Die Obergrenze fürs Seitenbild bleibt unverändert bei 16 Megapixeln.
+
+### Zusammenführen unter Windows
+- **Ein Fenster:** Kommen mehrere Dateien gleichzeitig an, landen alle im selben Fenster. Mit 12 gleichzeitig gestarteten Aufrufen getestet: 1 Fenster, 12 Dateien, nach Namen sortiert.
+- **Neue Knöpfe:** „Ordner hinzufügen …“, Nach oben/unten und „Nach Name sortieren“. Dateien lassen auch hineinziehen; angezeigt wird, wie viele drin sind.
+- **Für viele Pläne:** Am besten „Senden an → Passermark – zusammenführen“ – das übergibt alle Dateien auf einmal und wird beim ersten Start einmalig angelegt. Alternativ im Fenster gleich den ganzen Ordner hinzufügen.
+- **Seitenleiste:** Markierte Seiten lassen sich verschieben. Der gelbe Balken zeigt, wo sie landen; am Rand scrollt die Leiste automatisch weiter.
+
+## 1.13.1
+### Geschwindigkeits-Fix
+- Kleinere Geschwindigkeitsverbesserungen in der neuen Ansicht (Rendering).
+
 ## 1.13.0
 ### Schnellere Ansicht (Render-Überarbeitung)
 - **Rendern im eigenen Prozess:** Seiten werden von einem Hintergrundprozess gerendert (`passermark-cli render-server`); die Oberfläche wartet nie mehr darauf. Es ist immer nur eine Anfrage unterwegs – beim schnellen Blättern stauen sich keine veralteten. Stürzt der Prozess ab, startet er neu; geht er gar nicht (oder ist das PDF passwortgeschützt), rendert die Ansicht wie früher im Programm selbst.
@@ -10,17 +31,6 @@
 - **Über dieselbe Datei speichern geht jetzt auch unter Windows:** die Datei wird in den Speicher gelesen und bleibt frei.
 - **Bearbeiten:** beim Ziehen läuft das Objekt halbdurchsichtig mit; nach dem Übernehmen bleiben die alten Bilder als Platzhalter stehen und werden im Hintergrund erneuert, die bearbeitete Seite zuerst. Vorher wurde alles weiß und alle Miniaturen wurden im Hauptfenster neu gerendert.
 - **Die automatische Prüfung liest unveränderte Dateien direkt** – beim Öffnen entfällt das Neuspeichern im Hauptfenster.
-
-Gemessen mit der 309-MB-Testdatei (wie lange die Oberfläche einfriert):
-
-| | 1.12.1 | 1.13.0 |
-|---|---|---|
-| Öffnen | 5,6 s | 1,1 s |
-| Zoomen (3 Stufen) | 1,5 s | 0,02 s |
-| Blättern | 1,4 s | 0,02 s |
-| 400 % | 1,7 s, unscharf | 0,03 s, scharf |
-| Objekt ziehen | – | 0,01 s, Objekt läuft als Bild mit |
-
 - Fehler eingrenzen: mit `PASSERMARK_RENDER=local` läuft alles wie vorher – damit lässt sich schnell klären, ob es am neuen Render-Prozess liegt.
 - Bekanntes Restproblem: das Loslassen beim Bearbeiten dauert bei schweren Seiten noch ca. 1 s (die Sicherheitsprüfung vergleicht die Seite vorher und nachher). Ein Element, das auf mehreren Seiten verwendet wird, kann sich durch eine Änderung überall ändern – darum werden nach dem Bearbeiten alle Seiten im Hintergrund neu gerendert, die bearbeitete zuerst.
 

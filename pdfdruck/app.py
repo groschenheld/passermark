@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
@@ -59,6 +60,52 @@ class Controller(QObject):
         self.hosts = []                   # Fensterrahmen (je einer mit einem oder mehreren Reitern)
         self.server: QLocalServer | None = None
         self.view_single = True       # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
+        self._start_stallwatch()
+        self._ensure_sendto()
+
+    @staticmethod
+    def _ensure_sendto():
+        """Windows: „Senden an → Passermark – zusammenführen“ für den angemeldeten Benutzer (einmalig).
+            Übergibt alle markierten Dateien auf einmal an EINEN Prozess – für große Mengen (110 Pläne) viel
+            schneller als das Kontextmenü, bei dem Explorer je Datei einen Prozess startet."""
+        if os.name != "nt" or not getattr(sys, "frozen", False):
+            return
+        try:
+            from . import l10n
+            st = l10n.load_settings()
+            if st.get("sendto_created"):
+                return                           # schon angelegt (oder bewusst gelöscht) – nicht wieder
+            folder = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "SendTo")
+            if not os.path.isdir(folder):
+                return
+            import win32com.client
+            lnk = os.path.join(folder, tr("Passermark – zusammenführen") + ".lnk")
+            sc = win32com.client.Dispatch("WScript.Shell").CreateShortCut(lnk)
+            sc.TargetPath = sys.executable
+            sc.Arguments = "--merge"
+            sc.IconLocation = sys.executable + ",0"
+            sc.Description = tr("Markierte Dateien als ein PDF zusammenführen")
+            sc.save()
+            st["sendto_created"] = True
+            l10n.save_settings(st)
+        except Exception:
+            pass
+
+    def _start_stallwatch(self):
+        """Ruckler-Protokoll (ruckler.txt im Ordner der Fehlerprotokolle): Hänger der Oberfläche mit Ursache."""
+        try:
+            from . import crashlog
+            from .gui.renderclient import RenderService
+            from .gui.stallwatch import StallWatch
+
+            def ctx():
+                # läuft im Wächter-Thread: den Dienst nur ansehen, nie hier anlegen (sonst gehört sein Timer
+                # diesem Thread, der Render-Prozess bekommt nie Aufträge – Seiten blieben weiß)
+                svc = RenderService._instances.get("render")
+                return "Vorschau im Programm" if svc is not None and not svc.ok else ""
+            self._stallwatch = StallWatch(os.path.join(crashlog.log_dir(), "ruckler.txt"), ctx).start(self)
+        except Exception:
+            self._stallwatch = None
 
     # ---------------------------------------------------------------- #
     # ---------------------------------------------------------------- #
@@ -159,6 +206,10 @@ class Controller(QObject):
 
     def queue_request(self, cmd: str, files: list[str]):
         cmd = cmd if cmd in ("print", "merge", "repair", "open") else "open"
+        dlg = getattr(self, "_merge_dlg", None)
+        if cmd == "merge" and dlg is not None:
+            dlg.add_paths(files)                 # Zusammenführen-Dialog ist schon offen: dort dazu (kein zweiter)
+            return
         if not hasattr(self, "_pending"):
             self._pending = {}
             self._batch = QTimer(self, singleShot=True, interval=self.BATCH_MS, timeout=self._flush)
@@ -267,14 +318,21 @@ class Controller(QObject):
         self.show_window(last or self.windows[-1])
 
     def merge_paths(self, paths: list[str]):
-        """Right-click "Merge into one PDF": check the order, then merge."""
+        """Right-click "Merge into one PDF": check the order, then merge. Dateien, die noch nachkommen
+            (Explorer startet je Datei einen Prozess), landen im selben, schon offenen Dialog."""
         from . import convert
         from .gui.viewer import MergeDialog
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p) and convert.is_supported(p)]
         if not paths:
             return
-        dlg = MergeDialog(self.windows[-1] if self.windows else None, sorted(paths, key=lambda p: os.path.basename(p).lower()))
-        if dlg.exec() and dlg.paths():
+        dlg = MergeDialog(self.windows[-1] if self.windows else None)
+        dlg.add_paths(paths)
+        self._merge_dlg = dlg
+        try:
+            ok = dlg.exec()
+        finally:
+            self._merge_dlg = None
+        if ok and dlg.paths():
             self.merge_into_window(dlg.paths())
 
     def merge_into_window(self, paths: list[str], window=None):
