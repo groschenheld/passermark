@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.1
+### Kommandozeile: Drucken
+- **Schritt `print` im Ablauf:** Drucker, Papier, Fach, Medium, Duplex (`none` | `long` | `short`), Farbe (`color` | `gray`), Kopien, Sortierung und Seitenbereich – dazu alle Optionen des Druckdialogs (Nutzen, Broschüre, Poster usw.), das Admin-Farbprofil des Druckers und rohe Treiberoptionen direkt. `dry_run` schickt nichts und zeigt nur, was gesendet würde.
+- Gedruckt wird auf demselben Weg wie aus dem Druckdialog: mit automatischer Fachwahl und den Windows-Herstellereinstellungen.
+- Werte gehen als Treiberwert, als Anzeigename oder als eindeutiges Stück davon; passt etwas nicht, nennt die Fehlermeldung alle möglichen Werte.
+- Das PDF bleibt nach dem Druck unverändert – danach weiterarbeiten, speichern oder mit anderen Einstellungen nochmal drucken. Ohne `output` wird nur gedruckt.
+- **Neue Befehle:** `printers` (Drucker mit Status und Standarddrucker) und `caps <drucker>` (alle Treiberoptionen mit Auswahl, Papierformate und welche Option für Papier, Fach, Medium, Duplex, Farbe, Ausgabefach und die Finisher – Heften, Lochen, Falzen, Sattel, Schneiden, Versatz – zuständig ist).
+- Intern: Die Drucksitzung liegt jetzt ohne Qt in `pdfdruck/session.py`, damit die CLI sie nutzen kann; das Programm bekommt sie wie bisher über `gui/common.py`.
+- Testpaket: Die Abläufe 30 und 31 sind Probeläufe (`dry_run`) und laufen bei „alle testen“ mit; im eigenen Ordner `ablaeufe-echt-drucken/` liegen zwei Abläufe, die wirklich drucken (laufen nicht automatisch mit).
+
 ## 1.14.0
 ### Kommandozeile: Abläufe
 - **Mehrere Aufträge hintereinander als versionierte JSON-Datei** („Ablauf", Formatversion 1): Die Schritte laufen hintereinander, jeder arbeitet mit dem Ergebnis des vorigen. Die Ausgabe wird nur geschrieben, wenn alles geklappt hat.

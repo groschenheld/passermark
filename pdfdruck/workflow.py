@@ -55,6 +55,22 @@ _STEP_KEYS = {"job", "name", "settings", "preset", "pages"}
 _OPTION_KEYS = {"image_dpi": (int, float), "password": (str,)}
 
 
+PRINT = "print"             # Schritt, der druckt (kein Auftrag in core.JOBS – das PDF bleibt unverändert)
+
+
+def step_jobs() -> list:
+    from . import core
+    return list(core.JOBS) + [PRINT]
+
+
+def step_settings_class(job: str):
+    if job == PRINT:
+        from .printcli import PrintSettings
+        return PrintSettings
+    from . import core
+    return core.settings_class(job)
+
+
 class WorkflowError(ValueError):
     """Workflow is not valid. problems: [(where, message)]."""
 
@@ -114,10 +130,9 @@ def settings_schema(cls) -> dict:
 
 def schema() -> dict:
     """JSON Schema of the workflow file (all jobs with their settings)."""
-    from . import core
     defs, variants = {}, []
-    for job in core.JOBS:
-        defs[f"settings.{job}"] = settings_schema(core.settings_class(job))
+    for job in step_jobs():
+        defs[f"settings.{job}"] = settings_schema(step_settings_class(job))
         variants.append({
             "type": "object",
             "required": ["job"],
@@ -142,7 +157,7 @@ def schema() -> dict:
             "name": {"type": "string"},
             "description": {"type": "string"},
             "input": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}]},
-            "output": {"type": "string"},
+            "output": {"type": "string", "description": "result PDF – optional when a step prints"},
             "options": {"type": "object", "additionalProperties": False, "properties": {
                 "image_dpi": {"type": "number", "default": 96},
                 "password": {"type": "string", "default": ""}}},
@@ -304,7 +319,11 @@ def prepare(data: dict, base_dir: str = ".", inputs: list | None = None, output:
                               tr("Datei nicht gefunden: {0}").format(p)))
 
     raw_out = output if output else data.get("output")
-    if not raw_out or not isinstance(raw_out, str):
+    prints = isinstance(data.get("steps"), list) and any(isinstance(x, dict) and x.get("job") == PRINT
+                                                         for x in data["steps"])
+    if not raw_out and prints:
+        out_path = ""                            # nur drucken, keine Datei
+    elif not raw_out or not isinstance(raw_out, str):
         probs.append(("output", tr("Ausgabedatei fehlt (im Ablauf oder als zweites Argument)")))
         out_path = ""
     else:
@@ -336,13 +355,15 @@ def prepare(data: dict, base_dir: str = ".", inputs: list | None = None, output:
             if k not in _STEP_KEYS:
                 probs.append((f"{where}.{k}", tr("unbekannter Eintrag")))
         job = st.get("job")
-        if job not in core.JOBS:
+        if job not in step_jobs():
             probs.append((f"{where}.job", tr("Unbekannter Auftrag: {0}").format(job)
-                          + " (" + ", ".join(core.JOBS) + ")"))
+                          + " (" + ", ".join(step_jobs()) + ")"))
             continue
         st = _subst(st, vars_, missing)
         settings = {}
-        if st.get("preset"):
+        if st.get("preset") and job == PRINT:
+            probs.append((f"{where}.preset", tr("Druck-Presets gibt es im Ablauf nicht – Einstellungen direkt angeben")))
+        elif st.get("preset"):
             try:
                 ppath = presets.resolve(job, absp(st["preset"]) if os.path.isfile(absp(st["preset"]))
                                         else st["preset"])
@@ -359,7 +380,10 @@ def prepare(data: dict, base_dir: str = ".", inputs: list | None = None, output:
             own = {}
         cli._rebase_paths(own, base_dir)
         settings = _deep_merge(settings, own)
-        probs += check_settings(core.settings_class(job), settings, f"{where}.settings")
+        probs += check_settings(step_settings_class(job), settings, f"{where}.settings")
+        if job == PRINT and isinstance(settings.get("layout"), dict):
+            from .layout import LayoutSettings
+            probs += check_settings(LayoutSettings, settings["layout"], f"{where}.settings.layout")
         pages = None
         if st.get("pages"):
             try:
@@ -416,6 +440,15 @@ def run(plan: Plan, events=None, cancel=None) -> dict:
         for i, st in enumerate(plan.steps):
             core._check(cancel)
             emit(event="step", step=i + 1, steps=len(plan.steps), job=st.job, name=st.name)
+            if st.job == PRINT:
+                from .printcli import PrintSettings, print_pdf
+                ps = core.settings_from_dict(PrintSettings, st.settings)
+                info = print_pdf(cur, ps, st.pages,
+                                 progress=lambda d, t, x="", _i=i: emit(event="progress", step=_i + 1, done=d,
+                                                                        total=t, text=x))
+                results.append({"step": i + 1, "job": st.job, "name": st.name, "info": info, "notes": []})
+                emit(event="step_done", step=i + 1, job=st.job, info=info, notes=[])
+                continue                         # das PDF bleibt, wie es ist
             dst = os.path.join(work, f"step{i + 1}.pdf")
             r = core.run_job(st.job, cur, dst, st.settings, {"pages": st.pages} if st.pages else None,
                              progress=lambda d, t, x="", _i=i: emit(event="progress", step=_i + 1, done=d, total=t,
@@ -426,6 +459,8 @@ def run(plan: Plan, events=None, cancel=None) -> dict:
             emit(event="step_done", step=i + 1, job=st.job, info=r.info, notes=r.notes)
             cur = dst
         core._check(cancel)
+        if not plan.output:                      # nur gedruckt
+            return {"output": None, "pages": None, "steps": results, "notes": notes}
         d = os.path.dirname(plan.output)
         if d:
             os.makedirs(d, exist_ok=True)
@@ -447,3 +482,65 @@ def run(plan: Plan, events=None, cancel=None) -> dict:
         return {"output": plan.output, "pages": pages, "steps": results, "notes": notes}
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+# --------------------------------------------------------------------------- #
+# Ablauf-Ordner: Abläufe beim Namen aufrufen (passermark-cli run Visitenkarten --in …)
+# --------------------------------------------------------------------------- #
+FOLDER = "ablaeufe"
+
+
+def folders() -> list:
+    """[(Art, Ordner)] – eigene zuerst (überschreiben gleichnamige), dann die für alle Benutzer.
+        Linux   ~/.config/passermark/ablaeufe  ·  /etc/passermark/ablaeufe
+        Windows %APPDATA%\\Passermark\\ablaeufe  ·  %ProgramData%\\Passermark\\ablaeufe"""
+    from . import presets
+    from .platform import config_dir
+    return [("user", os.path.join(os.path.dirname(presets.root_dir()), FOLDER)),
+            ("system", os.path.join(config_dir(), FOLDER))]
+
+
+def list_workflows() -> list:
+    """Alle Abläufe in den Ablauf-Ordnern: [{"name", "file", "source", "title", "description", "jobs", "error"}]."""
+    seen, out = set(), []
+    for src, d in folders():
+        try:
+            files = sorted(f for f in os.listdir(d) if f.lower().endswith(".json") and not f.startswith("."))
+        except OSError:
+            continue
+        for f in files:
+            name = f[:-5]
+            if name.lower() in seen:
+                continue
+            seen.add(name.lower())
+            path = os.path.join(d, f)
+            item = {"name": name, "file": path, "source": src, "title": "", "description": "", "jobs": [],
+                    "error": None}
+            try:
+                data = load(path)
+                item["title"] = str(data.get("name") or "")
+                item["description"] = str(data.get("description") or "")
+                item["jobs"] = [st.get("job") for st in data.get("steps") or [] if isinstance(st, dict)]
+                if data.get("passermark") != KIND:
+                    item["error"] = tr("keine Ablauf-Datei")
+            except (OSError, WorkflowError) as e:
+                item["error"] = str(e)
+            out.append(item)
+    return out
+
+
+def find(ref: str) -> str:
+    """Datei oder Name eines Ablaufs aus den Ablauf-Ordnern -> Pfad. FileNotFoundError mit den vorhandenen Namen."""
+    if os.path.isfile(ref):
+        return ref
+    stem = ref[:-5] if ref.lower().endswith(".json") else ref
+    if os.sep not in stem and "/" not in stem:
+        for _src, d in folders():
+            try:
+                for f in os.listdir(d):
+                    if f.lower() == stem.lower() + ".json":
+                        return os.path.join(d, f)
+            except OSError:
+                pass
+    names = ", ".join(w["name"] for w in list_workflows()) or "–"
+    raise FileNotFoundError(tr("Ablauf nicht gefunden: {0} (in den Ablauf-Ordnern: {1})").format(ref, names))

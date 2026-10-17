@@ -22,7 +22,11 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli schema [auftrag]                          (JSON Schema: workflow file or one job's settings)
     passermark-cli check ablauf.json [--in …] [--var k=v]   (check a workflow without running it)
     passermark-cli run ablauf.json [ausgabe.pdf] [--in datei …] [--var k=v] [--json]
+    passermark-cli run <Name> --in datei.pdf                 (workflow from the workflow folders, by name)
+    passermark-cli workflows [--dirs] [--json]               (list workflows in the workflow folders)
     passermark-cli inspect datei.pdf [--check] [--json]      (pages, formats, trim/bleed, check results)
+    passermark-cli printers [--json]                         (printers with status)
+    passermark-cli caps <drucker> [--json]                   (driver options, trays, paper sizes, finishers)
 
 Return value: 0 = ok, 1 = error, 2 = wrong invocation / invalid workflow, 130 = cancelled (Ctrl+C).
 """
@@ -168,7 +172,8 @@ def build_parser() -> argparse.ArgumentParser:
     from .l10n import tr
     p = argparse.ArgumentParser(prog="passermark-cli", description=tr("Passermark – Aufträge ohne Oberfläche"),
                                 epilog=tr("Abläufe und Schnittstelle für andere Programme: version, schema, check, run, "
-                                          "inspect – z. B. passermark-cli run --help"))
+                                          "inspect – z. B. passermark-cli run --help")
+                                + " · printers, caps, workflows")
     p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele, datenarten, datenvorlage, "
                            "datencheck"))
     p.add_argument("input", nargs="?", help=tr("Eingabe-PDF (bei 'settings': Auftrag)"))
@@ -257,6 +262,9 @@ def main(argv: list[str] | None = None) -> int:
         return code
 
     if a.job not in core.JOBS:
+        if a.job.lower().endswith(".json"):
+            return fail(tr("„{0}“ ist kein Auftrag. Ablauf ausführen mit: passermark-cli run {0} --in <datei.pdf>")
+                        .format(a.job), EXIT_USAGE)
         return fail(tr("Unbekannter Auftrag: {0}").format(a.job) + " (passermark-cli list)", EXIT_USAGE)
     if not a.input or not a.output:
         return fail(tr("Eingabe und Ausgabe angeben:") + " passermark-cli <job> <input.pdf> <output.pdf>", EXIT_USAGE)
@@ -309,7 +317,7 @@ def main(argv: list[str] | None = None) -> int:
 # --------------------------------------------------------------------------- #
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
-API_COMMANDS = ("version", "schema", "check", "run", "inspect")
+API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -318,7 +326,7 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
     if cmd == "schema":
         p.add_argument("job", nargs="?", help=tr("nur die Einstellungen dieses Auftrags"))
     elif cmd in ("check", "run"):
-        p.add_argument("workflow", help=tr("Ablauf-Datei (JSON)"))
+        p.add_argument("workflow", help=tr("Ablauf: Name aus den Ablauf-Ordnern oder JSON-Datei"))
         if cmd == "run":
             p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
         else:
@@ -328,6 +336,10 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--var", action="append", default=[], metavar=tr("NAME=WERT"),
                        help=tr("Variable ${NAME} im Ablauf setzen; mehrfach möglich"))
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
+    elif cmd == "workflows":
+        p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
+    elif cmd == "caps":
+        p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
     elif cmd == "inspect":
         p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
         p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
@@ -367,7 +379,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "version":
         d = {"passermark": __version__, "api": workflow.API, "workflow_version": workflow.VERSION,
-             "jobs": list(core.JOBS)}
+             "jobs": workflow.step_jobs()}
         print(json.dumps(d, ensure_ascii=False) if a.json else
               f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})")
         return EXIT_OK
@@ -375,12 +387,48 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if cmd == "schema":
         if a.job:
             try:
-                d = workflow.settings_schema(core.settings_class(a.job))
+                d = workflow.settings_schema(workflow.step_settings_class(a.job))
             except ValueError as e:
                 return fail(workflow.E_USAGE, str(e), EXIT_USAGE)
         else:
             d = workflow.schema()
         print(json.dumps(d, ensure_ascii=False, indent=None if a.json else 2))
+        return EXIT_OK
+
+    if cmd in ("printers", "caps"):
+        from . import printcli
+        try:
+            d = printcli.printers_info() if cmd == "printers" else printcli.caps_info(a.printer)
+        except Exception as e:                                  # noqa: BLE001 – z. B. CUPS nicht erreichbar
+            return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False))
+        elif cmd == "printers":
+            for pr in d:
+                print(("* " if pr["default"] else "  ") + f"{pr['name']}\t{pr['state_text']}\t{pr['model']}")
+        else:
+            print(f"{d['name']} ({d['backend']})")
+            for role, key in d["roles"].items():
+                o = next((x for x in d["options"] if x["keyword"] == key), None)
+                if o:
+                    print(f"  {role} = {key}: " + ", ".join(c["value"] for c in o["choices"][:12])
+                          + (" …" if len(o["choices"]) > 12 else ""))
+            fin = [o for o in d["options"] if o.get("finishing")]
+            if fin:
+                print("  " + tr("Endverarbeitung:"))
+                for o in fin:
+                    ch = [c["value"] + ("" if c.get("available", True) else " (" + tr("nicht installiert") + ")")
+                          for c in o["choices"]]
+                    print(f"    {o['keyword']} ({o['text']}): " + ", ".join(ch))
+            if d["installed_hardware"]:
+                print("  " + tr("Installierte Hardware:") + " " + ", ".join(
+                    f"{k}={v}" for k, v in d["installed_hardware"].items()))
+            if d["finisher_presets"]:
+                print("  " + tr("Finisher-Vorlagen:") + " " + ", ".join(p["name"] for p in d["finisher_presets"]))
+            if d["driver_dialog"]:
+                print("  " + tr("Herstellerfunktionen (Windows): in der Verwaltung als Finisher-Vorlage über den "
+                                "Herstellerdialog anlegen, im Ablauf mit finisher_preset wählen."))
+            print("  " + tr("{0} Treiberoptionen insgesamt (--json zeigt alle)").format(len(d["options"])))
         return EXIT_OK
 
     if cmd == "inspect":
@@ -394,13 +442,38 @@ def api_main(cmd: str, argv: list[str]) -> int:
         print(json.dumps(d, ensure_ascii=False) if a.json else docinfo.text_summary(d))
         return EXIT_OK
 
+    if cmd == "workflows":
+        if a.dirs:
+            d = [{"source": src, "folder": f, "exists": os.path.isdir(f)} for src, f in workflow.folders()]
+            if a.json:
+                print(json.dumps(d, ensure_ascii=False))
+            else:
+                for x in d:
+                    print(("user  " if x["source"] == "user" else "system") + "  " + x["folder"]
+                          + ("" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")"))
+            return EXIT_OK
+        d = workflow.list_workflows()
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False))
+        else:
+            if not d:
+                print(tr("Keine Abläufe in den Ablauf-Ordnern (passermark-cli workflows --dirs)."))
+            for w in d:
+                print(f"{w['name']}\t" + (tr("Fehler: {0}").format(w["error"]) if w["error"] else
+                                         " → ".join(j or "?" for j in w["jobs"]))
+                      + (f"\t{w['description']}" if w["description"] else ""))
+        return EXIT_OK
+
     # check / run
     try:
+        a.workflow = workflow.find(a.workflow)
         data = workflow.load(a.workflow)
-        plan = workflow.prepare(data, os.path.dirname(os.path.abspath(a.workflow)), a.inputs or None,
-                                a.output, _vars(a.var))
-    except FileNotFoundError:
-        return fail(workflow.E_NOT_FOUND, tr("Ablauf nicht gefunden: {0}").format(a.workflow), EXIT_USAGE)
+        # Angaben auf der Kommandozeile gelten ab dem aktuellen Ordner, Pfade in der Datei ab deren Ordner
+        ins = [os.path.abspath(x) for x in a.inputs] or None
+        out = os.path.abspath(a.output) if a.output else None
+        plan = workflow.prepare(data, os.path.dirname(os.path.abspath(a.workflow)), ins, out, _vars(a.var))
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
     except workflow.WorkflowError as e:
         return fail(workflow.E_INVALID, tr("Ablauf ungültig ({0} Problem(e))").format(len(e.problems)), EXIT_USAGE,
                     problems=[{"where": w, "message": m} for w, m in e.problems])

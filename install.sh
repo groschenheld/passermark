@@ -15,7 +15,7 @@ if command -v apt-get >/dev/null; then
         python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full
 fi
 
-install -d -m 755 "$LIB" /etc/passermark /etc/passermark/icc
+install -d -m 755 "$LIB" /etc/passermark /etc/passermark/icc /etc/passermark/ablaeufe
 rm -rf "$LIB/pdfdruck"
 cp -r pdfdruck "$LIB/"
 

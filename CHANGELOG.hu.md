@@ -5,6 +5,16 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.14.1
+### Parancssor: nyomtatás
+- **`print` lépés a munkafolyamatban:** nyomtató, papír, tálca, média, duplex (`none` | `long` | `short`), szín (`color` | `gray`), példányszám, rendezés és oldaltartomány – ezen felül a nyomtatási párbeszédpanel minden beállítása (Nutzen, brosúra, poszter stb.), a nyomtató admin színprofilja és a nyers illesztőprogram-beállítások közvetlenül. A `dry_run` nem küld semmit, csak mutatja, mit küldene.
+- A nyomtatás ugyanazon az úton megy, mint a nyomtatási párbeszédpanelből: automatikus tálcaválasztással és a Windows-gyártói beállításokkal.
+- Az értékek illesztőértékként, megjelenő névként vagy az abból egyértelműen kiderülő darabként adhatók; ha valami nem stimmel, a hibaüzenet felsorolja az összes lehetséges értéket.
+- A PDF a nyomtatás után változatlan marad – utána tovább dolgozni, menteni vagy más beállításokkal újra nyomtatni. `output` nélkül csak nyomtat.
+- **Új parancsok:** `printers` (nyomtatók állapottal és alapértelmezett nyomtatóval) és `caps <nyomtató>` (az illesztőprogram összes beállítása a választásokkal, papírformátumok és mely beállítás felelős a papírért, tálcáért, médiáért, duplexért, színért, kimeneti tálcáért és a finisherekért – tűzés, lyukasztás, hajtás, középtűzés, vágás, eltolás).
+- Belsőleg: a nyomtatási munkamenet most Qt nélkül él a `pdfdruck/session.py`-ban, hogy a CLI használhassa; a program továbbra is a `gui/common.py`-on keresztül kapja.
+- Tesztcsomag: a 30-as és 31-es munkafolyamat próbaütés (`dry_run`), és részt vesz a „minden teszt futtatásában”; a külön `ablaeufe-echt-drucken/` mappában két munkafolyamat van, amelyek ténylegesen nyomtatnak (automatikusan nem futnak).
+
 ## 1.14.0
 ### Parancssor: munkafolyamatok
 - **Több feladat egymás után, verziózott JSON-fájlként** („munkafolyamat", formátumverzió 1): a lépések egymás után futnak, mindegyik az előző lépés eredményén dolgozik. A kimenet csak akkor íródik ki, ha minden sikerült.

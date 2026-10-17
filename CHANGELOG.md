@@ -2,6 +2,16 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.1
+### Command line: printing
+- **`print` step in workflows:** printer, paper, tray, media, duplex (`none` | `long` | `short`), colour (`color` | `gray`), copies, collation and page range – plus all print-dialog options (step & repeat, booklet, poster etc.), the printer's admin colour profile and raw driver options directly. `dry_run` sends nothing and only shows what would be sent.
+- Printing uses the same path as the print dialog: with automatic tray selection and the Windows vendor settings.
+- Values are accepted as driver value, as display name or as a unique part of it; if something does not match, the error message lists all possible values.
+- The PDF stays unchanged after printing – continue, save or print again with different settings. Without `output` it only prints.
+- **New commands:** `printers` (printers with status and default printer) and `caps <printer>` (all driver options with choices, paper sizes and which option is responsible for paper, tray, media, duplex, colour, output tray and the finishers – stapling, punching, folding, saddle stitch, cutting, offset).
+- Internally: the print session now lives without Qt in `pdfdruck/session.py` so the CLI can use it; the program gets it via `gui/common.py` as before.
+- Test package: workflows 30 and 31 are dry runs and take part in "run all tests"; in the separate folder `ablaeufe-echt-drucken/` there are two workflows that really print (not run automatically).
+
 ## 1.14.0
 ### Command line: workflows
 - **Several jobs in a row as a versioned JSON file** ("workflow", format version 1): steps run one after the other, each one works with the result of the previous step. The output is only written when everything succeeded.

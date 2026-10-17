@@ -65,16 +65,17 @@ def test_schema_and_settings_check():
     except ImportError:
         jsonschema = None
     sch = workflow.schema()
-    assert set(sch["$defs"]) == {f"settings.{j}" for j in core.JOBS}
+    assert set(sch["$defs"]) == {f"settings.{j}" for j in list(core.JOBS) + ["print"]}
     bad = {"passermark": "workflow", "version": 1, "steps": [{"job": "impose", "settings": {"sheett": "A4"}}]}
     if jsonschema is not None:
         jsonschema.Draft202012Validator.check_schema(sch)
         v = jsonschema.Draft202012Validator(sch)
         assert not list(v.iter_errors(GOOD))
         assert list(v.iter_errors(bad))
-        for job in core.JOBS:                          # Standardwerte passen zum eigenen Schema
-            d = core.settings_to_dict(core.settings_class(job)())
-            assert not list(jsonschema.Draft202012Validator(workflow.settings_schema(core.settings_class(job)))
+        for job in workflow.step_jobs():               # Standardwerte passen zum eigenen Schema
+            cls = workflow.step_settings_class(job)
+            d = core.settings_to_dict(cls())
+            assert not list(jsonschema.Draft202012Validator(workflow.settings_schema(cls))
                             .iter_errors(json.loads(json.dumps(d)))), job
     cls = core.settings_class("impose")
     assert workflow.check_settings(cls, {"sheet": "A3", "bleed_mm": 3, "nup": 4}) == []
@@ -137,6 +138,17 @@ def test_run_events_and_result():
     w, h = d.get_page_size(0)
     assert abs(w / MM - 320) < 1 and abs(h / MM - 450) < 1           # SRA3
     d.close()
+    # --in und Ausgabe relativ zum aktuellen Ordner (nicht zum Ordner des Ablaufs)
+    sub = os.path.join(TMP, "anderswo")
+    os.makedirs(sub, exist_ok=True)
+    import shutil
+    shutil.copy(cards(), os.path.join(sub, "hier.pdf"))
+    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "run", p, "rel.pdf", "--in", "hier.pdf",
+                        "--var", "kunde=X", "--json"], capture_output=True, text=True, env=ENV, cwd=sub, timeout=600)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert os.path.isfile(os.path.join(sub, "rel.pdf"))
+    r = run(p.replace(".json", "") + ".json", "x.pdf")                # Ablauf als Auftrag angegeben -> Hinweis
+    assert r.returncode == 2 and "passermark-cli run" in r.stderr
     # Ausgabe als Argument, Eingabe überschrieben, Text-Ausgabe
     out = os.path.join(TMP, "anders.pdf")
     r = run("run", p, out, "--in", cards(), "--var", "kunde=X")
@@ -204,6 +216,43 @@ def test_inspect_password():
     r = run("inspect", p, "--json", "--password", "geheim")
     d = json.loads(r.stdout)
     assert r.returncode == 0 and d["pages"] == 4 and d["encrypted"]
+
+
+def test_workflow_folders_by_name():
+    """Abläufe in den Ablauf-Ordnern beim Namen aufrufen; eigene vor denen für alle; Pfade im Ablauf ab dessen Ordner."""
+    import shutil
+    home, sysd = os.path.join(TMP, "cfg"), os.path.join(TMP, "etc")
+    env = dict(ENV, XDG_CONFIG_HOME=home, PDFDRUCK_CONFIG_DIR=sysd)
+    user_dir, sys_dir = os.path.join(home, "passermark", "ablaeufe"), os.path.join(sysd, "ablaeufe")
+    for d in (user_dir, sys_dir):
+        os.makedirs(d, exist_ok=True)
+    wf = {"passermark": "workflow", "version": 1, "description": "Nutzen auf SRA3",
+          "steps": [{"job": "impose", "settings": {"sheet": "SRA3", "step_repeat": True}}]}
+    json.dump(dict(wf, description="für alle"), open(os.path.join(sys_dir, "Karten.json"), "w"))
+    json.dump(dict(wf, description="meins"), open(os.path.join(user_dir, "karten.json"), "w"))
+    json.dump(dict(wf, description="Broschüre", steps=[{"job": "impose", "settings": {"handling": "booklet"}}]),
+              open(os.path.join(sys_dir, "Broschuere A4.json"), "w"))
+    open(os.path.join(sys_dir, "kaputt.json"), "w").write("{nix")
+
+    def cli(*args, cwd=TMP):
+        return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True,
+                              env=env, cwd=cwd, timeout=600)
+    r = cli("workflows", "--json")
+    d = {w["name"].lower(): w for w in json.loads(r.stdout)}
+    assert r.returncode == 0 and set(d) == {"karten", "broschuere a4", "kaputt"}
+    assert d["karten"]["source"] == "user" and d["karten"]["description"] == "meins"   # eigener schlägt Systemweiten
+    assert d["broschuere a4"]["jobs"] == ["impose"] and d["kaputt"]["error"]
+    shutil.copy(cards(), os.path.join(TMP, "k.pdf"))
+    r = cli("run", "Karten", "aus.pdf", "--in", "k.pdf", "--json")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert os.path.isfile(os.path.join(TMP, "aus.pdf"))
+    r = cli("run", "Broschuere A4", "b.pdf", "--in", "k.pdf")
+    assert r.returncode == 0, r.stdout + r.stderr
+    r = cli("run", "gibtsnicht", "--in", "k.pdf", "--json")
+    ev = events(r)[0]
+    assert r.returncode == 2 and ev["code"] == "not_found" and "karten" in ev["message"].lower()
+    r = cli("workflows", "--dirs", "--json")
+    assert [x["folder"] for x in json.loads(r.stdout)] == [user_dir, sys_dir]
 
 
 if __name__ == "__main__":

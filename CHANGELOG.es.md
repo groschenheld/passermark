@@ -5,6 +5,16 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.14.1
+### Línea de comandos: impresión
+- **Paso `print` en los flujos:** impresora, papel, bandeja, soporte, dúplex (`none` | `long` | `short`), color (`color` | `gray`), copias, intercalado y rango de páginas – además de todas las opciones del diálogo de impresión (step & repeat, folleto, póster etc.), el perfil de color de la impresora de la administración y opciones de controlador en bruto directamente. `dry_run` no envía nada y solo muestra qué se enviaría.
+- Se imprime por el mismo camino que desde el diálogo de impresión: con selección automática de bandeja y los ajustes del fabricante en Windows.
+- Los valores se aceptan como valor de controlador, como nombre visible o como un fragmento inequívoco; si algo no encaja, el mensaje de error enumera todos los valores posibles.
+- El PDF queda sin cambios tras imprimir – seguir trabajando, guardar o imprimir de nuevo con otros ajustes. Sin `output` solo imprime.
+- **Comandos nuevos:** `printers` (impresoras con estado e impresora predeterminada) y `caps <impresora>` (todas las opciones del controlador con sus elecciones, formatos de papel y qué opción es responsable de papel, bandeja, soporte, dúplex, color, bandeja de salida y los finishers – grapado, perforado, plegado, grapado a cabalga, corte, desfase).
+- Internamente: la sesión de impresión ahora vive sin Qt en `pdfdruck/session.py` para que la CLI pueda usarla; el programa la recibe vía `gui/common.py` como antes.
+- Paquete de pruebas: los flujos 30 y 31 son simulacros (`dry_run`) y participan en «ejecutar todas las pruebas»; en la carpeta propia `ablaeufe-echt-drucken/` hay dos flujos que imprimen de verdad (no se ejecutan automáticamente).
+
 ## 1.14.0
 ### Línea de comandos: flujos de trabajo
 - **Varios trabajos seguidos en un archivo JSON versionado** («flujo», versión de formato 1): los pasos se ejecutan uno tras otro, cada uno trabaja con el resultado del anterior. La salida solo se escribe si todo ha funcionado.

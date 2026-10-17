@@ -5,6 +5,16 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.14.1
+### Ligne de commande : impression
+- **Étape `print` dans les enchaînements :** imprimante, papier, bac, support, recto verso (`none` | `long` | `short`), couleur (`color` | `gray`), copies, tri et plage de pages – plus toutes les options de la boîte d'impression (step & repeat, brochure, poster etc.), le profil colorimétrique de l'imprimante issu des réglages admin et les options brutes du pilote directement. `dry_run` n'envoie rien et montre seulement ce qui serait envoyé.
+- L'impression passe par le même chemin que la boîte d'impression : avec sélection automatique du bac et les réglages constructeur sous Windows.
+- Les valeurs sont acceptées comme valeur du pilote, comme nom affiché ou comme fragment non ambigu ; si quelque chose ne correspond pas, le message d'erreur énumère toutes les valeurs possibles.
+- Le PDF reste inchangé après l'impression – continuer, enregistrer ou réimprimer avec d'autres réglages. Sans `output`, il ne fait qu'imprimer.
+- **Nouvelles commandes :** `printers` (imprimantes avec état et imprimante par défaut) et `caps <imprimante>` (toutes les options du pilote avec leurs choix, les formats de papier et l'option responsable du papier, bac, support, recto verso, couleur, bac de sortie et les finisseurs – agrafage, perforation, pliage, dos carré cousu, coupe, décalage).
+- En interne : la session d'impression vit désormais sans Qt dans `pdfdruck/session.py` pour que la CLI puisse l'utiliser ; le programme la reçoit via `gui/common.py` comme avant.
+- Paquet de tests : les enchaînements 30 et 31 sont des essais à blanc (`dry_run`) et participent à « tout tester » ; dans le dossier séparé `ablaeufe-echt-drucken/` se trouvent deux enchaînements qui impriment vraiment (non exécutés automatiquement).
+
 ## 1.14.0
 ### Ligne de commande : enchaînements
 - **Plusieurs travaux à la suite dans un fichier JSON versionné** (« enchaînement », version de format 1) : les étapes s'exécutent l'une après l'autre, chacune travaille avec le résultat de la précédente. La sortie n'est écrite que si tout a réussi.
