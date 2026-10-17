@@ -2420,6 +2420,7 @@ class MainWindow(QMainWindow):
         self.a_repair = A(tr("Reparieren, optimieren, Passwort…"), self.repair_dialog, "Ctrl+Shift+R", "repair")
         self.a_shrink = A(tr("Datei verkleinern …"), self.shrink_dialog, None, "repair")
         self.a_close = A(tr("Schließen"), self.close, QKeySequence.StandardKey.Close)
+        self.a_props = A(tr("Eigenschaften …"), self.properties_dialog, "Ctrl+D", "info")
         self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "copy")
         self.a_seltext = A(tr("Text der Seite markieren"), lambda: self.view.select_page_text(), "Ctrl+Alt+A", "select")
         self.a_settings = A(tr("Einstellungen …"), self.settings_dialog, "Ctrl+,", "settings")
@@ -2451,8 +2452,8 @@ class MainWindow(QMainWindow):
 
         mb = self.menuBar()
         m = mb.addMenu(tr("&Datei"))
-        for a in (self.a_open, self.a_newwin, self.a_newtab, self.a_detach, None, self.a_save, self.a_saveas, None, self.a_print,
-                  None, self.a_settings, None, self.a_close):
+        for a in (self.a_open, self.a_newwin, self.a_newtab, self.a_detach, None, self.a_save, self.a_saveas, None,
+                  self.a_props, None, self.a_print, None, self.a_settings, None, self.a_close):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Seiten"))
         for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, None, self.a_export,
@@ -2670,6 +2671,7 @@ class MainWindow(QMainWindow):
     def open(self, path: str):
         doc = load_pdf(self, path)
         if doc is not None:
+            self._sources = []
             self._set_doc(doc, path, os.path.basename(path), False)
 
     def open_any(self, path: str):
@@ -2682,6 +2684,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, tr("Umwandeln"), str(e))
             return
+        self._sources = [tr("{0} (umgewandelt)").format(path)]
         self._set_doc(doc, None, os.path.splitext(os.path.basename(path))[0] + ".pdf", False)
         self._suggest_dir = os.path.dirname(path)
 
@@ -2693,8 +2696,15 @@ class MainWindow(QMainWindow):
             return
         base = os.path.splitext(os.path.basename(paths[0]))[0]
         name = f"{base}.pdf" if len(paths) == 1 else f"{base} (+{len(paths) - 1} Bilder).pdf"
+        self._sources = list(paths)
         self._set_doc(doc, None, name, False)
         self._suggest_dir = os.path.dirname(paths[0])
+
+    def properties_dialog(self):
+        if self.doc is None:
+            return
+        from .propsdialog import PropertiesDialog
+        PropertiesDialog(self).exec()
 
     def merge_dialog(self):
         dlg = MergeDialog(self, [self.path] if self.path and not self.modified else None)
@@ -3365,6 +3375,7 @@ class MainWindow(QMainWindow):
             return
         w = self.ctl.new_window(tab_of=self)
         # temporary: no fixed location -> "Save" asks, closing reminds to save
+        w._sources = [tr("Ergebnis aus {0}").format(self.path or self.display_name or "–")]
         w._set_doc(doc, None, os.path.basename(path), True)
         w._temp_path = path
         w._suggest_dir = os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", "")

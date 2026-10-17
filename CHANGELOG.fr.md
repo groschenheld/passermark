@@ -5,6 +5,21 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.14.2
+### Fichier → Propriétés … (Ctrl+D)
+- Cinq onglets :
+  - **Fichier :** nom, dossier (« Ouvrir le dossier », « Copier le chemin »), taille, modifié le, état (enregistré / modifié / en mémoire uniquement / temporaire). Pour les documents fusionnés, convertis ou créés à partir d'images, « Créé à partir de : » avec les fichiers sources ; pour les résultats, « Résultat de … ».
+  - **Document :** version PDF, titre, auteur, sujet, mots-clés, créé avec / PDF produit avec, créé le / modifié le ; chiffrement avec méthode, autorisations accordées et refusées ; profil de sortie (Output Intent), calques, champs de formulaire, commentaires et tampons, signets, pièces jointes, JavaScript, affichage web rapide.
+  - **Pages :** tableau par page avec format, orientation, rotation, format final et fond perdu, et au-dessus un aperçu des formats.
+  - **Polices :** nom, type, incorporée, sous-ensemble, pages. Les polices non incorporées sont surlignées en jaune.
+  - **Contrôle :** erreurs, avertissements et notes avec les pages.
+- La fenêtre s'ouvre immédiatement ; les données du document sont lues dans le processus d'analyse et arrivent juste après – le programme ne se fige pas, même avec de gros fichiers. Pour les documents modifiés, l'état actuel est affiché, pas le fichier sur le disque. Les données sont les mêmes que dans `passermark-cli inspect`, qui livre désormais aussi les données supplémentaires du document.
+
+### Guide de la ligne de commande (Aide, allemand et anglais)
+- Nouvelles sections sur les enchaînements (avec dossiers d'enchaînements), l'impression (avec finisseurs), `inspect` et l'interface pour les autres programmes ; ajoutés aussi : l'aperçu des commandes, de nouveaux conseils et le chapitre perspectives (surveillance, prévu pour 1.15).
+- Tous les exemples tournent réellement comme tests, y compris les JSON d'enchaînement montrés ; seul l'exemple d'impression est vérifié et non exécuté quand aucune imprimante n'est configurée.
+- Le guide existe pour l'instant en allemand et en anglais ; hongrois, espagnol et français affichent l'anglaise comme avant.
+
 ## 1.14.1
 ### Ligne de commande : impression
 - **Étape `print` dans les enchaînements :** imprimante, papier, bac, support, recto verso (`none` | `long` | `short`), couleur (`color` | `gray`), copies, tri et plage de pages – plus toutes les options de la boîte d'impression (step & repeat, brochure, poster etc.), le profil colorimétrique de l'imprimante issu des réglages admin et les options brutes du pilote directement. `dry_run` n'envoie rien et montre seulement ce qui serait envoyé.

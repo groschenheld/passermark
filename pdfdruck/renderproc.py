@@ -246,8 +246,14 @@ def _call_sheet_release():
         _close_quiet(*_SHEET_SRC.popitem()[1][1:])
 
 
-CALLS = {"preflight": _call_preflight, "verify": _call_verify, "edit": _call_edit, "sheet": _call_sheet,
-         "sheet_release": _call_sheet_release}
+def _call_inspect(path: str, password: str | None = None):
+    """Eigenschaften-Fenster: alle Dokumentangaben samt Prüfung (wie passermark-cli inspect --check)."""
+    from . import docinfo
+    return docinfo.inspect(path, password, check=True)
+
+
+CALLS = {"inspect": _call_inspect, "preflight": _call_preflight, "verify": _call_verify, "edit": _call_edit,
+         "sheet": _call_sheet, "sheet_release": _call_sheet_release}
 
 
 def serve(inp, out) -> int:

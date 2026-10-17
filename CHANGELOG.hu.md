@@ -5,6 +5,21 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.14.2
+### Fájl → Tulajdonságok … (Ctrl+D)
+- Öt lap:
+  - **Fájl:** név, mappa („Mappa megnyitása”, „Útvonal másolása”), méret, módosítva, állapot (mentve / módosítva / csak memóriában / átmeneti). Egyesített, átalakított vagy képekből létrehozott dokumentumoknál „Létrehozva innen:” áll a forrásfájlokkal; eredményeknél „Eredménye …”.
+  - **Dokumentum:** PDF-verzió, cím, szerző, téma, kulcsszavak, létrehozva ezzel / PDF ezzel készült, létrehozva / módosítva; titkosítás módszerrel, engedélyezett és tiltott jogokkal; kimeneti profil (Output Intent), rétegek, űrlapmezők, kommentek és pecsétek, könyvjelzők, mellékletek, JavaScript, gyors webes nézet.
+  - **Oldalak:** táblázat oldalanként formátummal, tájolással, forgatással, végformátummal és levágással, fölötte a formátumok áttekintése.
+  - **Betűtípusok:** név, típus, beágyazott, részlet, oldalak. A be nem ágyazott betűtípusok sárgával kiemeltek.
+  - **Ellenőrzés:** hibák, figyelmeztetések és megjegyzések oldalakkal.
+- Az ablak azonnal megjelenik; a dokumentumadatokat az elemzőfolyamat olvassa ki, és röviddel utána érkeznek – a program nagy fájloknál sem fagy be. Módosított dokumentumoknál a jelenlegi állapot látszik, nem a lemezen lévő fájl. Az adatok ugyanazok, mint a `passermark-cli inspect`, amely most szintén leszállítja a kiegészítő dokumentumadatokat.
+
+### Parancssor-útmutató (Súgó, német és angol)
+- Új fejezetek a munkafolyamatokról (munkafolyamat-mappákkal), a nyomtatásról (finisherekkel), az `inspect`-ről és a külső programok felületéről; kiegészítve a parancsáttekintéssel, új tippekkel és a kilátások fejezetével (figyelő, tervezve az 1.15-höz).
+- Minden példa valóban tesztként fut, a bemutatott munkafolyamat-JSON-okkal együtt; csak a nyomtatási példa ellenőrzött, és nem fut le, ha nincs nyomtató beállítva.
+- Az útmutató jelenleg németül és angolul létezik; magyar, spanyol és francía továbbra is az angolt mutatja.
+
 ## 1.14.1
 ### Parancssor: nyomtatás
 - **`print` lépés a munkafolyamatban:** nyomtató, papír, tálca, média, duplex (`none` | `long` | `short`), szín (`color` | `gray`), példányszám, rendezés és oldaltartomány – ezen felül a nyomtatási párbeszédpanel minden beállítása (Nutzen, brosúra, poszter stb.), a nyomtató admin színprofilja és a nyers illesztőprogram-beállítások közvetlenül. A `dry_run` nem küld semmit, csak mutatja, mit küldene.

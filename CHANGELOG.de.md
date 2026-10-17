@@ -2,6 +2,21 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.2
+### Datei → Eigenschaften … (Strg+D)
+- Fünf Reiter:
+  - **Datei:** Name, Ordner („Ordner öffnen“, „Pfad kopieren“), Größe, geändert am, Status (gespeichert / geändert / nur im Arbeitsspeicher / Zwischenspeicher). Bei zusammengeführten, umgewandelten oder aus Bildern erzeugten Dokumenten steht „Entstanden aus:“ mit den Quelldateien, bei Ergebnissen „Ergebnis aus …“.
+  - **Dokument:** PDF-Version, Titel, Autor, Thema, Stichwörter, Erstellt mit / PDF erzeugt mit, Erstellt am / Geändert am; Verschlüsselung mit Verfahren, erlaubten und gesperrten Rechten; Ausgabeprofil (Output Intent), Ebenen, Formularfelder, Kommentare und Stempel, Lesezeichen, Anhänge, JavaScript, Schnelle Webanzeige.
+  - **Seiten:** Tabelle je Seite mit Format, Ausrichtung, Drehung, Endformat und Anschnitt, darüber eine Übersicht der Formate.
+  - **Schriften:** Name, Art, eingebettet, Teilmenge, Seiten. Nicht eingebettete Schriften sind gelb hervorgehoben.
+  - **Prüfung:** Fehler, Warnungen und Hinweise mit Seiten.
+- Das Fenster ist sofort da; die Dokumentangaben werden im Analyse-Prozess gelesen und kommen kurz danach – auch bei großen Dateien hängt das Programm nicht. Bei geänderten Dokumenten wird der aktuelle Stand gezeigt, nicht die Datei auf der Platte. Die Angaben sind dieselben wie bei `passermark-cli inspect`, das jetzt ebenfalls die zusätzlichen Dokumentangaben liefert.
+
+### Anleitung Kommandozeile (Hilfe, Deutsch und Englisch)
+- Neue Abschnitte zu Abläufen (mit Ablauf-Ordnern), zum Drucken (mit Finishern), zu `inspect` und zur Schnittstelle für andere Programme; ergänzt sind außerdem die Befehlsübersicht, neue Tipps und das Ausblick-Kapitel (Watcher, geplant für 1.15).
+- Alle Beispiele laufen als Tests wirklich mit, inklusive der gezeigten Ablauf-JSONs; nur das Druck-Beispiel wird geprüft und nicht ausgeführt, wenn kein Drucker eingerichtet ist.
+- Die Anleitung gibt es derzeit auf Deutsch und Englisch; Ungarisch, Spanisch und Französisch zeigen wie bisher die englische.
+
 ## 1.14.1
 ### Kommandozeile: Drucken
 - **Schritt `print` im Ablauf:** Drucker, Papier, Fach, Medium, Duplex (`none` | `long` | `short`), Farbe (`color` | `gray`), Kopien, Sortierung und Seitenbereich – dazu alle Optionen des Druckdialogs (Nutzen, Broschüre, Poster usw.), das Admin-Farbprofil des Druckers und rohe Treiberoptionen direkt. `dry_run` schickt nichts und zeigt nur, was gesendet würde.

@@ -61,9 +61,29 @@ def _prepare_inputs(tmp, examples):
         c.rect(x * mm, 40 * mm, 22 * mm, 22 * mm, fill=1, stroke=0)
     c.showPage(); c.save()
     runnable = []
+    wfs = _workflows()
+    for name, text in wfs.items():                  # Ablauf-Beispiele aus dem Handbuch als Dateien
+        open(os.path.join(tmp, name), "w", encoding="utf-8").write(text)
+    user_dir = os.path.join(tmp, "passermark", "ablaeufe")      # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
+    os.makedirs(user_dir, exist_ok=True)
+    open(os.path.join(user_dir, "Visitenkarten.json"), "w", encoding="utf-8").write(wfs["visitenkarten.json"])
     for cmd in examples:
         args = shlex.split(cmd)[1:]
         if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
+            continue
+        if args[0] in ("printers", "caps"):          # brauchen einen echten Drucker
+            continue
+        if args[0] in API_NO_INPUT:
+            runnable.append((cmd, args))
+            continue
+        if args[0] in ("run", "check"):
+            wf = args[1] if args[1].endswith(".json") else "visitenkarten.json"
+            if '"print"' in wfs.get(wf, ""):         # druckt – ohne Drucker nicht ausführbar
+                continue
+            src = os.path.join(tmp, args[args.index("--in") + 1])
+            if not os.path.exists(src):
+                open(src, "wb").write(tp.problem_pdf())
+            runnable.append((cmd, args))
             continue
         src = os.path.join(tmp, args[1])
         if args[0] == "split" and not os.path.exists(src) and args[1] != "bogen.pdf":
@@ -79,13 +99,40 @@ def _prepare_inputs(tmp, examples):
     return runnable
 
 
+API_NO_INPUT = ("version", "schema", "workflows")
+QUIET_OK = ("run", "check")                         # Schnittstellen-Befehle mit --quiet
+
+
+def _workflows():
+    """Die Ablauf-Beispiele (WORKFLOWS) aus dem Handbuch-Generator."""
+    tree = ast.parse(open(GEN, encoding="utf-8").read())
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "WORKFLOWS":
+            return ast.literal_eval(n.value)
+    return {}
+
+
+def test_workflow_examples_valid():
+    """Die gezeigten Abläufe sind gültig (auch der Druck-Ablauf – geprüft wird ohne Drucker)."""
+    import json
+    from pdfdruck import workflow
+    tmp = tempfile.mkdtemp(prefix="pm-howto-wf-")
+    for name, text in _workflows().items():
+        data = json.loads(text)
+        open(os.path.join(tmp, "x.pdf"), "wb").write(b"%PDF-1.4")
+        workflow.prepare(data, tmp, [os.path.join(tmp, "x.pdf")], None, {"kunde": "Muster"})
+
+
 def test_every_example_has_input():
     """Independent of Ghostscript: every runnable example has its input file (bug from build 1.6.2)."""
     tmp = tempfile.mkdtemp(prefix="pm-howto-in-")
     runnable = _prepare_inputs(tmp, _examples())
     assert len(runnable) >= 15, len(runnable)
     for cmd, args in runnable:
-        assert os.path.isfile(os.path.join(tmp, args[1])), cmd
+        if args[0] in API_NO_INPUT:
+            continue
+        f = args[args.index("--in") + 1] if args[0] in ("run", "check") else args[1]
+        assert os.path.isfile(os.path.join(tmp, f)), cmd
 
 
 def test_examples_run():
@@ -112,7 +159,10 @@ def test_examples_run():
                                                                                      "flatten_transparency"))
         if needs_gs and not gs:
             continue
-        r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args, "--quiet"], cwd=tmp, env=env,
+        quiet = ["--quiet"] if (args[0] not in API_NO_INPUT + ("inspect",) or args[0] in QUIET_OK) else []
+        if args[0] in QUIET_OK and "--json" in args:
+            quiet = []
+        r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args, *quiet], cwd=tmp, env=env,
                            capture_output=True, text=True, timeout=600)
         assert r.returncode == 0, f"{cmd}\n{r.stderr}"
         ran += 1

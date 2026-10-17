@@ -5,6 +5,21 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.14.2
+### Archivo → Propiedades … (Ctrl+D)
+- Cinco pestañas:
+  - **Archivo:** nombre, carpeta («Abrir carpeta», «Copiar ruta»), tamaño, modificado el, estado (guardado / modificado / solo en memoria / temporal). En documentos combinados, convertidos o creados a partir de imágenes aparece «Creado a partir de:» con los archivos de origen; en resultados «Resultado de …».
+  - **Documento:** versión de PDF, título, autor, asunto, palabras clave, creado con / PDF generado con, creado el / modificado el; cifrado con método, permisos permitidos y denegados; perfil de salida (Output Intent), capas, campos de formulario, comentarios y sellos, marcadores, adjuntos, JavaScript, vista web rápida.
+  - **Páginas:** tabla por página con formato, orientación, rotación, formato final y sangrado, y encima un resumen de los formatos.
+  - **Fuentes:** nombre, tipo, incrustada, subconjunto, páginas. Las fuentes no incrustadas se resaltan en amarillo.
+  - **Comprobación:** errores, avisos y notas con páginas.
+- La ventana aparece al instante; los datos del documento se leen en el proceso de análisis y llegan poco después – el programa no se bloquea ni con archivos grandes. En documentos modificados se muestra el estado actual, no el archivo del disco. Los datos son los mismos que en `passermark-cli inspect`, que ahora también entrega los datos adicionales del documento.
+
+### Guía de la línea de comandos (Ayuda, alemán e inglés)
+- Secciones nuevas sobre flujos de trabajo (con carpetas de flujos), la impresión (con finishers), `inspect` y la interfaz para otros programas; también se añadieron: el resumen de comandos, consejos nuevos y el capítulo de perspectiva (vigilante, previsto para 1.15).
+- Todos los ejemplos se ejecutan de verdad como pruebas, incluidos los JSON de flujo mostrados; solo el ejemplo de impresión se comprueba y no se ejecuta cuando no hay impresora configurada.
+- La guía existe por ahora en alemán e inglés; húngaro, español y francés muestran como antes la inglesa.
+
 ## 1.14.1
 ### Línea de comandos: impresión
 - **Paso `print` en los flujos:** impresora, papel, bandeja, soporte, dúplex (`none` | `long` | `short`), color (`color` | `gray`), copias, intercalado y rango de páginas – además de todas las opciones del diálogo de impresión (step & repeat, folleto, póster etc.), el perfil de color de la impresora de la administración y opciones de controlador en bruto directamente. `dry_run` no envía nada y solo muestra qué se enviaría.

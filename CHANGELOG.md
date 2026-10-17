@@ -2,6 +2,21 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.14.2
+### File → Properties … (Ctrl+D)
+- Five tabs:
+  - **File:** name, folder ("Open folder", "Copy path"), size, modified on, status (saved / modified / in memory only / scratch). For merged, converted or image-created documents "Created from:" with the source files; for results "Result of …".
+  - **Document:** PDF version, title, author, subject, keywords, created with / PDF produced with, created on / modified on; encryption with method, allowed and denied permissions; output intent, layers, form fields, comments and stamps, bookmarks, attachments, JavaScript, fast web view.
+  - **Pages:** table per page with format, orientation, rotation, trim size and bleed, plus an overview of the formats above.
+  - **Fonts:** name, type, embedded, subset, pages. Fonts that are not embedded are highlighted in yellow.
+  - **Check:** errors, warnings and notes with pages.
+- The window opens immediately; the document details are read in the analysis process and arrive shortly after – the program does not freeze, not even with large files. For modified documents the current state is shown, not the file on disk. The details are the same as in `passermark-cli inspect`, which now also delivers the additional document details.
+
+### Command line guide (Help, German and English)
+- New sections on workflows (with workflow folders), printing (with finishers), `inspect` and the interface for other programs; also added: the command overview, new tips and the outlook chapter (watcher, planned for 1.15).
+- All examples really run as tests, including the workflow JSONs shown; only the printing example is checked and not executed when no printer is set up.
+- The guide is currently available in German and English; Hungarian, Spanish and French show the English one as before.
+
 ## 1.14.1
 ### Command line: printing
 - **`print` step in workflows:** printer, paper, tray, media, duplex (`none` | `long` | `short`), colour (`color` | `gray`), copies, collation and page range – plus all print-dialog options (step & repeat, booklet, poster etc.), the printer's admin colour profile and raw driver options directly. `dry_run` sends nothing and only shows what would be sent.

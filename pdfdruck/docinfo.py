@@ -60,13 +60,18 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
         meta = {}
         try:
             di = pdf.docinfo
-            for k in ("Title", "Author", "Creator", "Producer"):
+            for k in ("Title", "Author", "Subject", "Keywords", "Creator", "Producer"):
                 v = di.get("/" + k)
-                if v is not None:
+                if v is not None and str(v).strip():
                     meta[k.lower()] = str(v)
+            for k, key in (("CreationDate", "created"), ("ModDate", "modified")):
+                v = _pdf_date(di.get("/" + k))
+                if v:
+                    meta[key] = v
         except Exception:
             pass
         out["metadata"] = meta
+        out["details"] = _details(pdf)
         if pdf.is_encrypted:                         # page_info braucht eine lesbare Kopie
             buf = io.BytesIO()
             pdf.save(buf)
@@ -107,6 +112,95 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
     if check:
         out["check"] = _check(data)
     return out
+
+
+def _pdf_date(v) -> str | None:
+    """PDF-Datum (D:20261017143000+02'00') -> ISO-Text (2026-10-17 14:30:00 +02:00)."""
+    if v is None:
+        return None
+    import re
+    t = str(v)
+    m = re.match(r"D?:?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([Zz+\-])?(\d{2})?'?(\d{2})?", t)
+    if not m:
+        return t or None
+    y, mo, d, h, mi, se, tz, th, tm = m.groups()
+    out = f"{y}-{mo or '01'}-{d or '01'}"
+    if h:
+        out += f" {h}:{mi or '00'}:{se or '00'}"
+        if tz in ("Z", "z"):
+            out += " UTC"
+        elif tz and th:
+            out += f" {tz}{th}:{tm or '00'}"
+    return out
+
+
+def _details(pdf) -> dict:
+    """Weitere Eigenschaften: Rechte, Output Intent, Lesezeichen, Anhänge, Formularfelder, Kommentare,
+        Ebenen, schneller Webzugriff. Fehler einzelner Teile lassen die anderen stehen."""
+    import pikepdf
+    d = {}
+    try:
+        d["linearized"] = bool(pdf.is_linearized)
+    except Exception:
+        pass
+    if pdf.is_encrypted:
+        try:
+            a = pdf.allow
+            d["permissions"] = {"print": bool(a.print_highres or a.print_lowres), "print_highres": bool(a.print_highres),
+                                "modify": bool(a.modify_other), "copy": bool(a.extract),
+                                "annotate": bool(a.modify_annotation), "forms": bool(a.modify_form)}
+            enc = pdf.encryption
+            meth = str(getattr(enc, "stream_method", "") or "").split(".")[-1].lower()
+            meth = {"aesv3": "AES", "aesv2": "AES", "rc4": "RC4"}.get(meth, meth.upper())
+            d["encryption"] = (meth + (f" {enc.bits} Bit" if getattr(enc, "bits", 0) else "")).strip()
+        except Exception:
+            pass
+    root = pdf.Root
+    try:
+        oi = root.get("/OutputIntents") or []
+        d["output_intents"] = [str(o.get("/OutputConditionIdentifier") or o.get("/Info") or "?") for o in oi]
+    except Exception:
+        d["output_intents"] = []
+    try:
+        with pdf.open_outline() as ol:
+            n, stack = 0, list(ol.root)
+            while stack:
+                it = stack.pop()
+                n += 1
+                stack.extend(it.children)
+        d["bookmarks"] = n
+    except Exception:
+        d["bookmarks"] = 0
+    try:
+        d["attachments"] = sorted(pdf.attachments.keys())
+    except Exception:
+        d["attachments"] = []
+    try:
+        af = root.get("/AcroForm")
+        fields = af.get("/Fields") if af is not None else None
+        d["form_fields"] = len(fields) if fields is not None else 0
+    except Exception:
+        d["form_fields"] = 0
+    try:
+        n = 0
+        for pg in pdf.pages:
+            for a in pg.obj.get("/Annots") or []:
+                if a.get("/Subtype") not in (pikepdf.Name.Link, pikepdf.Name.Widget, pikepdf.Name.Popup):
+                    n += 1
+        d["annotations"] = n
+    except Exception:
+        d["annotations"] = 0
+    try:
+        oc = root.get("/OCProperties")
+        d["layers"] = len(oc.get("/OCGs") or []) if oc is not None else 0
+    except Exception:
+        d["layers"] = 0
+    try:
+        d["javascript"] = bool(root.get("/Names") is not None and "/JavaScript" in root.Names) or "/OpenAction" in root \
+            and isinstance(root.OpenAction, pikepdf.Dictionary) and root.OpenAction.get("/S") == pikepdf.Name.JavaScript
+    except Exception:
+        d["javascript"] = False
+    return d
 
 
 def _check(data: bytes) -> dict:
