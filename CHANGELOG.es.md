@@ -5,6 +5,24 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.15.0
+### Carpetas de entrada: passermark-cli serve (vigilante)
+- `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado. La asignación está en `watch.json` (se toma de `--config`, si no la propia, si no la de todos).
+- Tras el procesamiento, el resultado va a `output/`, el original a `processed/`; con errores el original va a `failed/` con un `.log` al lado. Cada uno de estos ajustes también puede ponerse a `""` (no conservar el resultado / borrar el original). Un flujo que solo imprime no conserva resultado por defecto.
+- Fiable: un archivo solo se toma cuando lleva `settle` segundos sin cambios; los archivos copiados a medias (`.part`, `.tmp`) nunca se tocan. Cada archivo se mueve primero a `.passermark/` – dos vigilantes sobre la misma carpeta nunca procesan dos veces el mismo archivo, y tras un bloqueo los archivos quedados vuelven al siguiente inicio. Los resultados nunca vuelven a la carpeta de entrada y nunca se sobrescriben (`-1`, `-2` …).
+- Opciones: `--check`, `--once` (código 1 si falla un archivo), `--json`, `--quiet`, `--log`.
+- Como servicio: `linux/passermark-watch.service` con un usuario propio sin derechos (los pasos están en el archivo); para Windows `windows/watch-task.ps1`, que crea una tarea al arrancar el sistema.
+
+### Carpetas de flujos: ablaeufe → workflows
+- La carpeta se llama ahora `workflows`; una carpeta `ablaeufe` antigua se renombra automáticamente en la primera llamada. Si faltan los permisos, Passermark sigue leyendo la carpeta antigua.
+- **Carpetas de flujos compartidas:** nuevo en la administración en General → «Más carpetas de flujos», p. ej. un recurso de red. Orden: propia → compartida → para todos; el primer flujo con el nombre es el que vale. Quién puede poner flujos allí lo regulan los permisos de la carpeta (p. ej. un grupo con permiso de escritura) – nadie necesita derechos de administrador para ello. `workflows --dirs` muestra de qué carpeta (user / shared / system) viene cada flujo.
+
+### Paso de impresión
+- **`"paper": "auto"`:** con el manejo de páginas «tamaño», el paso de impresión elige el papel que encaja con la página, para folletos dos páginas lado a lado (A5 → A4). Si la impresora no tiene un papel que encaje, un error muestra los formatos disponibles; con step & repeat o póster hay un error claro – allí hay que indicar el papel. Un `paper` vacío funciona como antes (el papel por defecto de la impresora).
+
+### Corregido además
+- Las especificaciones de páginas fuera del documento (p. ej. `pages: "1-2"` en un PDF de una página) ahora dan «la página 2 no existe …» en lugar de «list index out of range».
+
 ## 1.14.2
 ### Archivo → Propiedades … (Ctrl+D)
 - Cinco pestañas:

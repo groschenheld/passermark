@@ -22,7 +22,7 @@ a = Analysis([os.path.join(root, "windows", "launcher.py")], pathex=[root], bina
                             "pdfdruck.renderproc", "pdfdruck.gui.renderclient", "pdfdruck.editops",
                             "pdfdruck.pagegeom", "pdfdruck.gui.stallwatch", "pdfdruck.fastipc",
                             "pdfdruck.workflow", "pdfdruck.docinfo", "pdfdruck.printcli",
-                            "pdfdruck.session"],     # Render-/Analyse-Prozess, Ruckler-Protokoll
+                            "pdfdruck.session", "pdfdruck.watch"],     # Render-/Analyse-Prozess, Ruckler-Protokoll
              excludes=["tkinter", "win32print", "win32gui"], noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="passermark", console=False)

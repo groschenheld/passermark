@@ -64,14 +64,14 @@ def _prepare_inputs(tmp, examples):
     wfs = _workflows()
     for name, text in wfs.items():                  # Ablauf-Beispiele aus dem Handbuch als Dateien
         open(os.path.join(tmp, name), "w", encoding="utf-8").write(text)
-    user_dir = os.path.join(tmp, "passermark", "ablaeufe")      # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
+    user_dir = os.path.join(tmp, "passermark", "workflows")     # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
     os.makedirs(user_dir, exist_ok=True)
     open(os.path.join(user_dir, "Visitenkarten.json"), "w", encoding="utf-8").write(wfs["visitenkarten.json"])
     for cmd in examples:
         args = shlex.split(cmd)[1:]
         if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
             continue
-        if args[0] in ("printers", "caps"):          # brauchen einen echten Drucker
+        if args[0] in ("printers", "caps", "serve"):  # echter Drucker / Watcher: eigene Tests
             continue
         if args[0] in API_NO_INPUT:
             runnable.append((cmd, args))
@@ -121,6 +121,52 @@ def test_workflow_examples_valid():
         data = json.loads(text)
         open(os.path.join(tmp, "x.pdf"), "wb").write(b"%PDF-1.4")
         workflow.prepare(data, tmp, [os.path.join(tmp, "x.pdf")], None, {"kunde": "Muster"})
+
+
+def _watch_example():
+    tree = ast.parse(open(GEN, encoding="utf-8").read())
+    for n in tree.body:
+        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "WATCH":
+            return ast.literal_eval(n.value)
+    raise AssertionError("WATCH fehlt")
+
+
+def test_watch_example_runs():
+    """Das Watcher-Beispiel ist gültig und verarbeitet eine Datei (der Druck-Ordner bleibt leer)."""
+    import json
+    tmp = tempfile.mkdtemp(prefix="pm-howto-watch-")
+    open(os.path.join(tmp, "watch.json"), "w", encoding="utf-8").write(_watch_example())
+    for name, text in _workflows().items():
+        open(os.path.join(tmp, name), "w", encoding="utf-8").write(text)
+    for d in ("visitenkarten", "drucken"):
+        os.makedirs(os.path.join(tmp, "eingang", d))
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(os.path.join(tmp, "eingang", "visitenkarten", "karten.pdf"), pagesize=(91 * 72 / 25.4, 61 * 72 / 25.4))
+    for _ in range(2):                                # Vorder- und Rückseite (Ablauf: pages 1-2)
+        c.drawString(20, 20, "Karte"); c.showPage()
+    c.save()
+    env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
+    cmds = [ln.strip() for ln in "\n".join(e for e in _examples_raw() if "serve" in e).splitlines()
+            if ln.strip().startswith("passermark-cli serve")]
+    assert len(cmds) == 3, cmds
+    for cmd in cmds[:2]:                              # --check, --once (der dritte läuft dauerhaft)
+        r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *shlex.split(cmd)[1:]], cwd=tmp, env=env,
+                           capture_output=True, text=True, timeout=600)
+        assert r.returncode == 0, cmd + "\n" + r.stdout + r.stderr
+    assert os.listdir(os.path.join(tmp, "eingang", "visitenkarten", "output")) == ["karten.pdf"]
+    assert os.listdir(os.path.join(tmp, "eingang", "visitenkarten", "processed")) == ["karten.pdf"]
+
+
+def _examples_raw():
+    tree = ast.parse(open(GEN, encoding="utf-8").read())
+    out = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call) and getattr(n.func, "id", "") in ("code", "example"):
+            try:
+                out.append(ast.literal_eval(n.args[-1]))
+            except ValueError:
+                pass
+    return out
 
 
 def test_every_example_has_input():

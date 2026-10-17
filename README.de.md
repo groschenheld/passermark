@@ -1,4 +1,4 @@
-# Passermark 1.14.2
+# Passermark 1.15.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).

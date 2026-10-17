@@ -5,6 +5,24 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.15.0
+### Bedobómappák: passermark-cli serve (figyelő)
+- A `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton. A hozzárendelés a `watch.json`-ban áll (a `--config`-ból, különben a sajátból, különben az összes felhasználóéból).
+- Feldolgozás után az eredmény az `output/`, az eredeti a `processed/` mappába kerül; hibánál az eredeti a `failed/`-ba kerül egy `.log` fájllal mellette. Ezek a beállítások mind állíthatók `""`-ra (az eredmény nem marad meg / az eredeti törlődik). Csak nyomtató munkafolyamat alapból nem őriz eredményt.
+- Megbízható: egy fájl csak akkor kerül feldolgozásra, ha `settle` másodperce változatlan; félig bemásolt fájlokat (`.part`, `.tmp`) sosem nyúl. Minden fájl előbb a `.passermark/` mappába kerül – két figyelő ugyanazon a mappán sosem dolgozza fel ugyanazt a fájlt kétszer, és összeomlás után a bent ragadt fájlok a következő induláskor visszajönnek. Az eredmények sosem kerülnek vissza a bemeneti mappába, és sosem íródnak felül (`-1`, `-2` …).
+- Opciók: `--check`, `--once` (1-es hibakód, ha egy fájl elbukik), `--json`, `--quiet`, `--log`.
+- Szolgáltatásként: `linux/passermark-watch.service` saját, jog nélküli felhasználóval (a lépések a fájlban); Windowshoz `windows/watch-task.ps1`, amely rendszerindításkor hoz létre feladatot.
+
+### Munkafolyamat-mappák: ablaeufe → workflows
+- A mappa neve mostantól `workflows`; a régi `ablaeufe` mappa az első híváskor automatikusan átneveződik. Ha hiányoznak hozzá a jogok, a Passermark egyszerűen a régi mappát olvassa tovább.
+- **Közös munkafolyamat-mappák:** új a felügyeletben, Általános → „További munkafolyamat-mappák”, pl. hálózati megosztás. Sorrend: saját → közös → mindenki; az első névvel bíró munkafolyamat érvényes. Ki tehet oda munkafolyamatot, azt a mappa jogai szabályozzák (pl. írási joggal bíró csoport) – adminjog ehhez senkinek sem kell. A `workflows --dirs` mutatja, melyik mappából (user / shared / system) jön egy munkafolyamat.
+
+### Nyomtatási lépés
+- **`"paper": "auto"`:** a „méret” oldalkezelésnél a nyomtatási lépés az oldalhoz illő papírt választja, brosúránál két oldalt egymás mellé (A5 → A4). Ha a nyomtatóon nincs illő papír, a hiba felsorolja a létező formátumokat; Nutzennél vagy poszternél világos hiba jön – ott meg kell adni a papírt. Üres `paper` a korábbi szerint működik (a nyomtató alappapírja).
+
+### Egyúttal javítva
+- A dokumentumon kívüli oldalmegadások (pl. `pages: "1-2"` egyoldalas PDF-nél) most „a 2. oldal nem létezik …” hibát adnak a „list index out of range” helyett.
+
 ## 1.14.2
 ### Fájl → Tulajdonságok … (Ctrl+D)
 - Öt lap:

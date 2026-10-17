@@ -5,6 +5,24 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.15.0
+### Dossiers de dépôt : passermark-cli serve (surveillance)
+- `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné. L'assignation est dans `watch.json` (prise depuis `--config`, sinon la vôtre, sinon celle pour tous).
+- Après traitement, le résultat va dans `output/`, l'original dans `processed/` ; en cas d'erreur l'original va dans `failed/` avec un `.log` à côté. Chacun de ces réglages peut aussi valoir `""` (ne pas garder le résultat / supprimer l'original). Un enchaînement qui ne fait qu'imprimer ne garde aucun résultat par défaut.
+- Fiable : un fichier n'est pris qu'après être resté `settle` secondes sans modification ; les fichiers à moitié copiés (`.part`, `.tmp`) ne sont jamais touchés. Chaque fichier est d'abord déplacé dans `.passermark/` – deux surveillances sur le même dossier ne traitent jamais deux fois le même fichier, et après un blocage les fichiers restés en plan reviennent au démarrage suivant. Les résultats ne retombent jamais dans le dossier d'entrée et ne sont jamais écrasés (`-1`, `-2` …).
+- Options : `--check`, `--once` (code 1 si un fichier échoue), `--json`, `--quiet`, `--log`.
+- En service : `linux/passermark-watch.service` avec un utilisateur propre sans droits (les étapes sont dans le fichier) ; pour Windows `windows/watch-task.ps1`, qui crée une tâche au démarrage du système.
+
+### Dossiers d'enchaînements : ablaeufe → workflows
+- Le dossier s'appelle désormais `workflows` ; un ancien dossier `ablaeufe` est renommé automatiquement au premier appel. Si les droits manquent, Passermark continue simplement de lire l'ancien dossier.
+- **Dossiers d'enchaînements partagés :** nouveau dans l'administration sous Général → « Autres dossiers d'enchaînements », p. ex. un partage réseau. Ordre : propre → partagé → pour tous ; le premier enchaînement portant le nom l'emporte. Qui peut y déposer des enchaînements relève des droits du dossier (p. ex. un groupe avec droit d'écriture) – personne n'a besoin de droits admin pour cela. `workflows --dirs` montre de quel dossier (user / shared / system) vient un enchaînement.
+
+### Étape d'impression
+- **`"paper": "auto"` :** avec la gestion de pages « taille », l'étape d'impression choisit le papier adapté à la page, pour les brochures deux pages côte à côte (A5 → A4). Si l'imprimante n'a pas de papier adapté, une erreur liste les formats disponibles ; avec step & repeat ou poster, une erreur claire – le papier doit y être indiqué. Un `paper` vide fonctionne comme avant (papier par défaut de l'imprimante).
+
+### Corrigé par la même occasion
+- Les plages de pages hors document (p. ex. `pages: "1-2"` sur un PDF d'une page) donnent désormais « la page 2 n'existe pas … » au lieu de « list index out of range ».
+
 ## 1.14.2
 ### Fichier → Propriétés … (Ctrl+D)
 - Cinq onglets :

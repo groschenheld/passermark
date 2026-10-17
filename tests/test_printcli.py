@@ -204,6 +204,39 @@ def test_print_with_preset_and_caps_info():
         config.load = saved
 
 
+def test_paper_auto():
+    """"paper": "auto": Papier nach der PDF – Größe = Seite, Broschüre = zwei Seiten nebeneinander (1.15)."""
+    with FakePrinter() as fp:
+        info = printcli.print_pdf(doc(2, (297, 420)), printcli.PrintSettings(paper="auto", layout={"handling": "size"}))
+        assert info["paper"] == "A3" and fp.sent[-1]["opts"]["PageSize"] == "A3" and not info["notes"], info
+        info = printcli.print_pdf(doc(2, (420, 297)), printcli.PrintSettings(paper="AUTO", layout={"handling": "size"}))
+        assert info["paper"] == "A3"                               # quer geht auch
+        info = printcli.print_pdf(doc(8, (148, 210)), printcli.PrintSettings(paper="auto",
+                                                                            layout={"handling": "booklet"}))
+        assert info["paper"] == "A4" and fp.sent[-1]["pages"] == 4, info
+        info = printcli.print_pdf(doc(2, (319, 451)), printcli.PrintSettings(paper="auto", dry_run=True,
+                                                                            layout={"handling": "size"}))
+        assert info["paper"] == "SRA3"                             # 2 mm Toleranz
+        for size, lay, want in (((100, 100), {"handling": "size"}, "Kein passendes Papier"),
+                                ((210, 297), {"handling": "multiple", "nup": 2}, "Nutzen")):
+            try:
+                printcli.print_pdf(doc(1, size), printcli.PrintSettings(paper="auto", layout=lay))
+                assert False, lay
+            except ValueError as e:
+                assert want in str(e), e
+        # gemischte Formate: erste Seite zählt, Hinweis landet im Ablauf-Ergebnis
+        from reportlab.pdfgen import canvas
+        p = os.path.join(TMP, "gemischt.pdf")
+        c = canvas.Canvas(p)
+        for sz in ((297, 420), (210, 297)):
+            c.setPageSize((sz[0] * MM, sz[1] * MM))
+            c.showPage()
+        c.save()
+        r = workflow.run(workflow.prepare({"passermark": "workflow", "version": 1, "input": p, "steps": [
+            {"job": "print", "settings": {"paper": "auto", "layout": {"handling": "size"}}}]}, TMP))
+        assert r["steps"][0]["info"]["paper"] == "A3" and any("ersten Seite" in n for n in r["notes"]), r
+
+
 def test_cli_run_print_only():
     """passermark-cli run mit nur einem Druckschritt (keine Ausgabedatei): Meldung statt Absturz (1.14.2)."""
     import contextlib

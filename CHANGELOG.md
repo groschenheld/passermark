@@ -2,6 +2,24 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.0
+### Drop folders: passermark-cli serve (watcher)
+- `passermark-cli serve` watches folders and sends every file through the assigned workflow. The assignment is in `watch.json` (taken from `--config`, else your own, else the one for everybody).
+- After processing the result goes to `output/`, the original to `processed/`; on errors the original goes to `failed/` with a `.log` next to it. Each of these settings can also be set to `""` (do not keep the result / delete the original). A workflow that only prints keeps no result by default.
+- Reliable: a file is only taken once it has been unchanged for `settle` seconds; half-copied files (`.part`, `.tmp`) are never touched. Every file is first moved to `.passermark/` – two watchers on the same folder never process the same file twice, and after a crash left-behind files come back on the next start. Results never land back in the input folder and are never overwritten (`-1`, `-2` …).
+- Options: `--check`, `--once` (exit code 1 when a file fails), `--json`, `--quiet`, `--log`.
+- As a service: `linux/passermark-watch.service` with its own user without rights (the steps are in the file); for Windows `windows/watch-task.ps1`, which creates a task at system start.
+
+### Workflow folders: ablaeufe → workflows
+- The folder is now called `workflows`; an old `ablaeufe` folder is renamed automatically on the first call. If the rights are missing, Passermark simply keeps reading the old folder.
+- **Shared workflow folders:** new in the administration under General → "More workflow folders", e.g. a network share. Order: own → shared → for all; the first workflow with the name wins. Who may place workflows there is governed by the folder rights (e.g. a group with write access) – nobody needs admin rights for that. `workflows --dirs` shows which folder (user / shared / system) a workflow comes from.
+
+### Print step
+- **`"paper": "auto"`:** with page handling "size", the print step picks the paper to fit the page, for booklets for two pages side by side (A5 → A4). If the printer has no fitting paper, an error lists the available sizes; with step & repeat or poster there is a clear error – the paper must be given there. An empty `paper` works as before (the printer's default).
+
+### Also fixed
+- Page specs outside the document (e.g. `pages: "1-2"` with a one-page PDF) now give "page 2 does not exist …" instead of "list index out of range".
+
 ## 1.14.2
 ### File → Properties … (Ctrl+D)
 - Five tabs:

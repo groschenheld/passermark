@@ -119,6 +119,28 @@ class AdminDialog(QDialog):
         self.cmb_lang.setCurrentIndex(max(0, self.cmb_lang.findData(self.cfg.get("language", ""))))
         self.cmb_lang.setToolTip(tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben"))
         f.addRow(tr("Standardsprache:"), self.cmb_lang)
+        # weitere Ablauf-Ordner für alle (passermark-cli run <Name>), z. B. eine Netzwerkfreigabe
+        self.lst_wfdirs = QListWidget()
+        self.lst_wfdirs.setMaximumHeight(90)
+        for d in self.cfg.get("workflow_dirs") or []:
+            self.lst_wfdirs.addItem(d)
+        brow = QHBoxLayout()
+        b_add, b_del = QPushButton(tr("Hinzufügen …")), QPushButton(tr("Entfernen"))
+        b_add.clicked.connect(self._wfdir_add)
+        b_del.clicked.connect(lambda: [self.lst_wfdirs.takeItem(self.lst_wfdirs.row(i))
+                                       for i in self.lst_wfdirs.selectedItems()])
+        brow.addWidget(b_add)
+        brow.addWidget(b_del)
+        brow.addStretch()
+        box = QVBoxLayout()
+        box.addWidget(self.lst_wfdirs)
+        box.addLayout(brow)
+        lbl = QLabel(tr("Gelten nach den eigenen Abläufen der Benutzer und vor denen im Programmordner. Wer dort "
+                        "Abläufe anlegen darf, regeln die Rechte des Ordners (z. B. eine Gruppe mit Schreibrecht)."))
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(f"color: {theme.MUTED};")
+        box.addWidget(lbl)
+        f.addRow(tr("Weitere Ablauf-Ordner:"), box)
         lbl = QLabel(convert.describe_available() + tr(". Fällt ein Konverter aus, wird automatisch der nächste "
                      "verwendet. OnlyOffice/Euro-Office werden über ihren internen Konverter angesprochen."))
         lbl.setWordWrap(True)
@@ -197,12 +219,18 @@ class AdminDialog(QDialog):
             f.addRow("", c)
         return w
 
+    def _wfdir_add(self):
+        d = QFileDialog.getExistingDirectory(self, tr("Ablauf-Ordner wählen"))
+        if d and not self.lst_wfdirs.findItems(d, Qt.MatchFlag.MatchExactly):
+            self.lst_wfdirs.addItem(os.path.normpath(d))
+
     def _collect_general(self):
         self.cfg["default_printer"] = self.cmb_default.currentData() or ""
         self.cfg["allow_user_profile_choice"] = self.chk_user_prof.isChecked()
         self.cfg["image_default_dpi"] = self.spn_imgdpi.value()
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
+        self.cfg["workflow_dirs"] = [self.lst_wfdirs.item(i).text() for i in range(self.lst_wfdirs.count())]
         n = self.l_nup.currentData()
         L = dict(self.cfg["layout"])     # remaining fields (poster/booklet) preserved
         L.update({

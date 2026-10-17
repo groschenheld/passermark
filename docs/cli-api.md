@@ -28,6 +28,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `inspect file.pdf [--check] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results |
 | `printers [--json]` | printers with status (`default`, `state`, `model`) |
 | `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes |
+| `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
 Exit codes: `0` ok · `1` error while working / file not found · `2` wrong invocation or invalid workflow ·
@@ -36,14 +37,19 @@ Exit codes: `0` ok · `1` error while working / file not found · `2` wrong invo
 ## Workflow folders
 
 Workflows can be called by name instead of by path: `passermark-cli run "Business cards" --in order.pdf`. Passermark
-looks in two folders – the user's own first (a workflow there overrides one with the same name for everybody):
+looks in these folders, in this order – the first workflow with the name wins:
 
-| | own | for all users (administrator) |
-|---|---|---|
-| Linux | `~/.config/passermark/ablaeufe/` | `/etc/passermark/ablaeufe/` |
-| Windows | `%APPDATA%\Passermark\ablaeufe\` | `%ProgramData%\Passermark\ablaeufe\` |
+| | own | shared (administrator, optional) | for all users (administrator) |
+|---|---|---|---|
+| Linux | `~/.config/passermark/workflows/` | any folders, e.g. a network share | `/etc/passermark/workflows/` |
+| Windows | `%APPDATA%\Passermark\workflows\` | e.g. `\\server\print\workflows` | `%ProgramData%\Passermark\workflows\` |
 
-`passermark-cli workflows` lists them, `--dirs` shows the folders. Relative paths inside a workflow (presets, CSV
+Shared folders are entered in the administration (General → *Additional workflow folders*, `workflow_dirs` in the
+admin settings). Who may add workflows there is decided by the folder's permissions – e.g. a group with write
+access – so nobody needs administrator rights for that. Up to 1.14 the folders were called `ablaeufe`; an old
+folder is renamed to `workflows` the first time (or still read, if Passermark may not rename it).
+
+`passermark-cli workflows` lists them (`"source": "user" | "shared" | "system"`), `--dirs` shows the folders. Relative paths inside a workflow (presets, CSV
 files) are relative to its folder, so a workflow and its files can live there together. Paths given on the command
 line (`--in`, output) are relative to the current folder.
 
@@ -107,6 +113,10 @@ later steps continue with it, so a workflow can print and save, or print several
 ```
 
 - `printer`: as listed by `printers`; empty = default printer (admin setting, otherwise the system default).
+- `paper: "auto"`: the paper that matches the PDF – with handling `size` the page, with `booklet` two pages side by
+  side (A5 pages → A4). Measured is the first page printed (mixed sizes → a note); tolerance 2 mm, either
+  orientation; no matching paper size at the printer is an error listing the available ones. Not possible for
+  multiple/poster (give the paper). Empty `paper` = the printer's default paper (admin setting or driver).
 - `paper`, `tray`, `media`, `duplex`, `color`, `quality`, `output_bin` and the finishers in `finishing`
   (`staple`, `punch`, `fold`, `saddle`, `trim`, `stacker`) address the driver option that serves this role
   (`caps` → `roles`). The value may be the driver value or its display text; a unique part of the text is enough
@@ -129,7 +139,7 @@ later steps continue with it, so a workflow can print and save, or print several
   workflow against a real printer.
 
 Result (`step_done` → `info`): `{"printer": "…", "job_id": 4711, "pages": 8, "sheet_mm": [297.0, 420.0],
-"options": {all driver options as sent}, "color_profile": "…", "dry_run": false}`.
+"paper": "A3", "options": {all driver options as sent}, "color_profile": "…", "notes": [], "dry_run": false}`.
 
 On Windows the vendor-specific finishers live in the vendor's driver dialog, not in the option list: set them up
 once as a finisher template (administration → printer → new finisher template → vendor dialog) and select it with
@@ -186,9 +196,53 @@ Errors (all commands):
 Sizes in mm in reading direction (page rotation applied), boxes in pt as stored in the PDF, pages 1-based.
 `trim_mm`/`bleed_mm` are `null` when the page defines no trim box (or it equals the page).
 
-## Coming next
+## Drop folders (`serve`)
 
-- `serve`: Passermark keeps running and accepts jobs as JSON lines (no start-up time per job).
+`passermark-cli serve` watches folders: every file dropped into a folder runs through the workflow assigned to it.
+The settings are a JSON file – `--config`, otherwise the own `~/.config/passermark/watch.json`
+(`%APPDATA%\Passermark\watch.json`), otherwise the one for all users `/etc/passermark/watch.json`
+(`%ProgramData%\Passermark\watch.json`):
+
+```json
+{
+  "passermark": "watch", "version": 1,
+  "interval": 5, "settle": 5,
+  "folders": [
+    {"in": "/srv/print/business-cards", "workflow": "Business cards"},
+    {"in": "/srv/print/a4-booklet", "workflow": "booklet.json", "out": "", "done": "",
+     "patterns": ["*.pdf", "*.jpg"], "vars": {"customer": "Muster"}, "name": "Booklets"}
+  ]
+}
+```
+
+- `interval`: seconds between two scans · `settle`: a file counts as complete once its size and time stayed
+  unchanged that long (copies over the network, scanners) – files ending in `.part`, `.tmp`, `.crdownload` and
+  hidden files are never picked up.
+- per folder: `in` and `workflow` (name from the workflow folders or a JSON file) are required. `out` = results
+  (default `output`, `""` = keep no result), `done` = originals afterwards (default `processed`, `""` = delete),
+  `error` = failed originals with a `.log` next to them (default `failed`), `patterns` (default `["*.pdf"]`),
+  `vars` (`${name}` in the workflow), `name` (for messages).
+- Relative paths: `in`/`workflow` from the folder of watch.json, `out`/`done`/`error` from the `in` folder.
+- The result is always written to `out` as `<name>.pdf` (never overwritten: `-1`, `-2` …), not where the workflow's
+  own `output` points – next to the dropped file it would be picked up again. A workflow that only prints keeps no
+  result unless `out` is given. `${dir}` and `${stem}` refer to the dropped file, `${out}` to the out folder.
+- Each file is first moved into `<in>/.passermark/` (claimed): several watchers on one folder never process a file
+  twice, a file still locked by the copy is simply tried again. Claimed files left over from a crash go back into
+  the folder at the next start.
+- Polling instead of file system notifications – works the same on network shares and on Windows.
+- `--check`: check folders and workflows, process nothing · `--once`: process what is there and exit
+  (exit code 1 if a file failed – handy for cron) · `--log FILE`: also append the messages to a file ·
+  `SIGTERM`/Ctrl+C: stops after the current step; the file goes back into its folder.
+
+`--json` events (one per line): `watch_start` (`folders`, `recovered`), `file` (`folder`, `file`, `workflow`), the
+workflow's `step` / `step_done` with `file`, `file_done` (`output`, `moved_to`, `pages`, `prints` [{`printer`,
+`job_id`, `dry_run`}], `notes`, `seconds`), `file_failed` (`moved_to`, `message`, `problems`), `stopped`
+(`done`, `failed`).
+
+As a service with its own user without special rights: Linux `linux/passermark-watch.service` (systemd, setup
+steps in the file), Windows `windows/watch-task.ps1` (scheduled task at system start, log in
+`%ProgramData%\Passermark Watcher\watch.log`). The user needs write access to the drop folders and – on Windows –
+the printers installed for it.
 
 ---
 
@@ -211,14 +265,23 @@ passermark-cli workflows                            # Abläufe in den Ordnern (-
 passermark-cli inspect karten.pdf --check           # Seiten, Formate, Endformat/Anschnitt, Prüfung
 passermark-cli printers                             # Drucker
 passermark-cli caps Canon-C3822i                    # Optionen, Fächer, Formate, Finisher eines Druckers
+passermark-cli serve --check                        # Drop-Ordner prüfen (watch.json)
+passermark-cli serve                                # Drop-Ordner überwachen (--once: einmal durch)
 ```
 
 Drucken im Ablauf: Schritt `{"job": "print", "settings": {"printer": "…", "paper": "A3", "tray": "Fach 2",
 "duplex": "short", "finishing": {"staple": "…"}, "layout": {"handling": "booklet"}, "dry_run": true}}` – gleicher
-Weg wie der Druckdialog; `dry_run` schickt nichts, sondern meldet nur, was gedruckt würde.
+Weg wie der Druckdialog; `dry_run` schickt nichts, sondern meldet nur, was gedruckt würde. `"paper": "auto"`
+wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander).
 
-Ablauf-Ordner: eigene unter `~/.config/passermark/ablaeufe/` bzw. `%APPDATA%\Passermark\ablaeufe\`, für alle
-unter `/etc/passermark/ablaeufe/` bzw. `%ProgramData%\Passermark\ablaeufe\`. Ablauf-Datei, JSON-Ausgabe und
+Ablauf-Ordner (der erste mit dem Namen gewinnt): eigene unter `~/.config/passermark/workflows/` bzw.
+`%APPDATA%\Passermark\workflows\`, dann die vom Admin eingetragenen weiteren Ordner (z. B. Netzwerkfreigabe,
+Schreibrecht über die Ordnerrechte), dann für alle unter `/etc/passermark/workflows/` bzw.
+`%ProgramData%\Passermark\workflows\`. Alte Ordner `ablaeufe` (bis 1.14) werden umbenannt.
+
+Drop-Ordner: `passermark-cli serve` mit `watch.json` (Aufbau oben) – Ergebnisse nach `output`, Originale nach
+`processed`, Fehler mit `.log` nach `failed`. Als Dienst: `linux/passermark-watch.service`,
+`windows/watch-task.ps1`. Ablauf-Datei, JSON-Ausgabe und
 Fehlercodes wie oben beschrieben. Unbekannte Einträge und falsche Typen sind
 Fehler; `check` meldet alle Probleme auf einmal. Die Ausgabe wird erst geschrieben, wenn alle Schritte geklappt
 haben. Meldungstexte kommen in der Programmsprache – für Entscheidungen `event`, `code`, `severity`, `category`

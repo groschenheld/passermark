@@ -219,28 +219,36 @@ def test_inspect_password():
 
 
 def test_workflow_folders_by_name():
-    """Abläufe in den Ablauf-Ordnern beim Namen aufrufen; eigene vor denen für alle; Pfade im Ablauf ab dessen Ordner."""
+    """Abläufe in den Ablauf-Ordnern beim Namen aufrufen; eigene vor gemeinsamen (Admin) vor denen für alle;
+        alte Ordner „ablaeufe“ (bis 1.14) werden zu „workflows“ umbenannt."""
     import shutil
     home, sysd = os.path.join(TMP, "cfg"), os.path.join(TMP, "etc")
     env = dict(ENV, XDG_CONFIG_HOME=home, PDFDRUCK_CONFIG_DIR=sysd)
-    user_dir, sys_dir = os.path.join(home, "passermark", "ablaeufe"), os.path.join(sysd, "ablaeufe")
-    for d in (user_dir, sys_dir):
+    old_user, old_sys = os.path.join(home, "passermark", "ablaeufe"), os.path.join(sysd, "ablaeufe")
+    user_dir, sys_dir = os.path.join(home, "passermark", "workflows"), os.path.join(sysd, "workflows")
+    shared = os.path.join(TMP, "freigabe", "workflows")
+    for d in (old_user, old_sys, shared):
         os.makedirs(d, exist_ok=True)
+    json.dump({"workflow_dirs": [shared]}, open(os.path.join(sysd, "defaults.json"), "w"))
     wf = {"passermark": "workflow", "version": 1, "description": "Nutzen auf SRA3",
           "steps": [{"job": "impose", "settings": {"sheet": "SRA3", "step_repeat": True}}]}
-    json.dump(dict(wf, description="für alle"), open(os.path.join(sys_dir, "Karten.json"), "w"))
-    json.dump(dict(wf, description="meins"), open(os.path.join(user_dir, "karten.json"), "w"))
+    json.dump(dict(wf, description="für alle"), open(os.path.join(old_sys, "Karten.json"), "w"))
+    json.dump(dict(wf, description="meins"), open(os.path.join(old_user, "karten.json"), "w"))
+    json.dump(dict(wf, description="gemeinsam"), open(os.path.join(shared, "Karten.json"), "w"))
+    json.dump(dict(wf, description="Team"), open(os.path.join(shared, "Team.json"), "w"))
     json.dump(dict(wf, description="Broschüre", steps=[{"job": "impose", "settings": {"handling": "booklet"}}]),
-              open(os.path.join(sys_dir, "Broschuere A4.json"), "w"))
-    open(os.path.join(sys_dir, "kaputt.json"), "w").write("{nix")
+              open(os.path.join(old_sys, "Broschuere A4.json"), "w"))
+    open(os.path.join(old_sys, "kaputt.json"), "w").write("{nix")
 
     def cli(*args, cwd=TMP):
         return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True,
                               env=env, cwd=cwd, timeout=600)
     r = cli("workflows", "--json")
     d = {w["name"].lower(): w for w in json.loads(r.stdout)}
-    assert r.returncode == 0 and set(d) == {"karten", "broschuere a4", "kaputt"}
-    assert d["karten"]["source"] == "user" and d["karten"]["description"] == "meins"   # eigener schlägt Systemweiten
+    assert r.returncode == 0 and set(d) == {"karten", "team", "broschuere a4", "kaputt"}, r.stdout + r.stderr
+    assert d["karten"]["source"] == "user" and d["karten"]["description"] == "meins"   # eigener schlägt alle anderen
+    assert d["team"]["source"] == "shared"
+    assert os.path.isdir(user_dir) and not os.path.exists(old_user) and not os.path.exists(old_sys)  # umbenannt
     assert d["broschuere a4"]["jobs"] == ["impose"] and d["kaputt"]["error"]
     shutil.copy(cards(), os.path.join(TMP, "k.pdf"))
     r = cli("run", "Karten", "aus.pdf", "--in", "k.pdf", "--json")
@@ -252,7 +260,11 @@ def test_workflow_folders_by_name():
     ev = events(r)[0]
     assert r.returncode == 2 and ev["code"] == "not_found" and "karten" in ev["message"].lower()
     r = cli("workflows", "--dirs", "--json")
-    assert [x["folder"] for x in json.loads(r.stdout)] == [user_dir, sys_dir]
+    d = json.loads(r.stdout)
+    assert [x["folder"] for x in d] == [user_dir, shared, sys_dir] and [x["source"] for x in d] == \
+        ["user", "shared", "system"]
+    r = cli("run", "Team", "t.pdf", "--in", "k.pdf")
+    assert r.returncode == 0 and os.path.isfile(os.path.join(TMP, "t.pdf")), r.stdout + r.stderr
 
 
 if __name__ == "__main__":

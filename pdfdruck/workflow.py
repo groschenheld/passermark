@@ -446,8 +446,10 @@ def run(plan: Plan, events=None, cancel=None) -> dict:
                 info = print_pdf(cur, ps, st.pages,
                                  progress=lambda d, t, x="", _i=i: emit(event="progress", step=_i + 1, done=d,
                                                                         total=t, text=x))
-                results.append({"step": i + 1, "job": st.job, "name": st.name, "info": info, "notes": []})
-                emit(event="step_done", step=i + 1, job=st.job, info=info, notes=[])
+                pn = list(info.get("notes") or [])
+                results.append({"step": i + 1, "job": st.job, "name": st.name, "info": info, "notes": pn})
+                notes += pn
+                emit(event="step_done", step=i + 1, job=st.job, info=info, notes=pn)
                 continue                         # das PDF bleibt, wie es ist
             dst = os.path.join(work, f"step{i + 1}.pdf")
             r = core.run_job(st.job, cur, dst, st.settings, {"pages": st.pages} if st.pages else None,
@@ -487,17 +489,40 @@ def run(plan: Plan, events=None, cancel=None) -> dict:
 # --------------------------------------------------------------------------- #
 # Ablauf-Ordner: Abläufe beim Namen aufrufen (passermark-cli run Visitenkarten --in …)
 # --------------------------------------------------------------------------- #
-FOLDER = "ablaeufe"
+FOLDER = "workflows"
+OLD_FOLDER = "ablaeufe"         # bis 1.14 – wird beim ersten Zugriff umbenannt bzw. weiter gelesen
 
 
-def folders() -> list:
-    """[(Art, Ordner)] – eigene zuerst (überschreiben gleichnamige), dann die für alle Benutzer.
-        Linux   ~/.config/passermark/ablaeufe  ·  /etc/passermark/ablaeufe
-        Windows %APPDATA%\\Passermark\\ablaeufe  ·  %ProgramData%\\Passermark\\ablaeufe"""
+def _with_legacy(d: str) -> str:
+    """Neuer Ordner, oder der alte („ablaeufe“) umbenannt – geht das nicht (keine Rechte), wird der alte gelesen."""
+    if os.path.isdir(d):
+        return d
+    old = os.path.join(os.path.dirname(d), OLD_FOLDER)
+    if os.path.isdir(old):
+        try:
+            os.rename(old, d)
+            return d
+        except OSError:
+            return old
+    return d
+
+
+def folders(cfg: dict | None = None) -> list:
+    """[(Art, Ordner)] in dieser Reihenfolge – der erste mit dem Namen gewinnt:
+        user    eigene: Linux ~/.config/passermark/workflows · Windows %APPDATA%\\Passermark\\workflows
+        shared  vom Admin eingetragene (workflow_dirs, z. B. eine Netzwerkfreigabe für alle)
+        system  für alle: Linux /etc/passermark/workflows · Windows %ProgramData%\\Passermark\\workflows"""
     from . import presets
     from .platform import config_dir
-    return [("user", os.path.join(os.path.dirname(presets.root_dir()), FOLDER)),
-            ("system", os.path.join(config_dir(), FOLDER))]
+    if cfg is None:
+        from . import config
+        cfg = config.load()
+    out = [("user", _with_legacy(os.path.join(os.path.dirname(presets.root_dir()), FOLDER)))]
+    for d in cfg.get("workflow_dirs") or []:
+        if isinstance(d, str) and d.strip():
+            out.append(("shared", os.path.expandvars(os.path.expanduser(d.strip()))))
+    out.append(("system", _with_legacy(os.path.join(config_dir(), FOLDER))))
+    return out
 
 
 def list_workflows() -> list:

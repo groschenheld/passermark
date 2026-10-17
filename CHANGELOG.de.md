@@ -2,6 +2,24 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.0
+### Drop-Ordner: passermark-cli serve (Watcher)
+- `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf. Die Zuordnung steht in `watch.json` (genommen wird `--config`, sonst die eigene, sonst die für alle).
+- Nach der Verarbeitung landet das Ergebnis in `output/`, das Original in `processed/`; bei Fehlern kommt das Original nach `failed/` mit einer `.log` daneben. Jede dieser Einstellungen geht auch auf `""` (kein Ergebnis behalten bzw. Original löschen). Ein Ablauf, der nur druckt, behält standardmäßig kein Ergebnis.
+- Zuverlässig: Eine Datei wird erst genommen, wenn sie `settle` Sekunden unverändert ist; halb kopierte Dateien (`.part`, `.tmp`) werden nie angefasst. Jede Datei wird zuerst nach `.passermark/` verschoben – zwei Watcher auf demselben Ordner verarbeiten nie dieselbe Datei doppelt, und nach einem Absturz kommen liegengebliebene Dateien beim nächsten Start zurück. Ergebnisse landen nie zurück im Eingangsordner und werden nie überschrieben (`-1`, `-2` …).
+- Optionen: `--check`, `--once` (Fehlercode 1, wenn eine Datei fehlschlägt), `--json`, `--quiet`, `--log`.
+- Als Dienst: `linux/passermark-watch.service` mit einem eigenen Benutzer ohne Rechte (die Schritte stehen in der Datei); für Windows `windows/watch-task.ps1`, das eine Aufgabe beim Systemstart anlegt.
+
+### Ablauf-Ordner: ablaeufe → workflows
+- Der Ordner heißt jetzt `workflows`; ein alter `ablaeufe`-Ordner wird beim ersten Aufruf automatisch umbenannt. Fehlen dafür die Rechte, liest Passermark den alten Ordner einfach weiter.
+- **Gemeinsame Ablauf-Ordner:** Neu in der Verwaltung unter Allgemein → „Weitere Ablauf-Ordner“, z. B. eine Netzwerkfreigabe. Reihenfolge: eigene → gemeinsame → für alle; der erste Ablauf mit dem Namen gilt. Wer dort Abläufe ablegen darf, regeln die Ordnerrechte (z. B. eine Gruppe mit Schreibrecht) – Admin-Rechte braucht dafür niemand. `workflows --dirs` zeigt, aus welchem Ordner (user / shared / system) ein Ablauf kommt.
+
+### Druckschritt
+- **`"paper": "auto"`:** Bei Seitenhandhabung Größe nimmt der Druckschritt das Papier passend zur Seite, bei Broschüre für zwei Seiten nebeneinander (A5 → A4). Gibt es beim Drucker kein passendes Papier, kommt ein Fehler mit den vorhandenen Formaten; bei Nutzen oder Poster einen klaren Fehler – dort muss das Papier angegeben werden. Leeres `paper` funktioniert wie bisher (Standardpapier).
+
+### Nebenbei behoben
+- Seitenangaben außerhalb des Dokuments (z. B. `pages: "1-2"` bei einer einseitigen PDF) liefern jetzt „Seite 2 gibt es nicht …“ statt „list index out of range“.
+
 ## 1.14.2
 ### Datei → Eigenschaften … (Strg+D)
 - Fünf Reiter:

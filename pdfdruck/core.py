@@ -412,4 +412,16 @@ def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None =
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError(tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein."))
     _check(cancel)
+    pages = (options or {}).get("pages")
+    if pages:                                       # Seiten außerhalb des Dokuments: klare Meldung statt IndexError
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(src)
+        try:
+            n = len(doc)
+        finally:
+            doc.close()
+        bad = sorted(p + 1 for p in pages if not 0 <= p < n)
+        if bad:
+            raise ValueError(tr("Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).").format(
+                ", ".join(str(b) for b in bad[:5]) + (" …" if len(bad) > 5 else ""), n))
     return JOBS[kind][1](src, dst, s, options or {}, progress, cancel)

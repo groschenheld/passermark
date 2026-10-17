@@ -46,7 +46,7 @@ _SYNONYMS = {
 @dataclass
 class PrintSettings:
     printer: str = ""                 # leer = Standarddrucker (Admin-Einstellung bzw. System)
-    paper: str = ""                   # Papierformat (Treiberwert oder Name, z. B. "A3", "SRA3")
+    paper: str = ""                   # Papierformat (Treiberwert oder Name, z. B. "A3", "SRA3") · "auto" = nach der PDF
     tray: str = ""                    # Fach/Zufuhr
     media: str = ""                   # Medientyp
     duplex: str = ""                  # none | long | short – oder Treiberwert/Name
@@ -159,6 +159,40 @@ def resolve(caps: printers.PrinterCaps, base: dict, s: PrintSettings, presets: l
     return vals, probs
 
 
+AUTO = "auto"
+
+
+def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, str]:
+    """Papier passend zur PDF ("paper": "auto"): bei „Größe“ die Seite, bei der Broschüre zwei Seiten nebeneinander.
+        Gemessen wird die erste zu druckende Seite. -> (Treiberwert, Hinweis bei gemischten Formaten)."""
+    MM = 72 / 25.4
+    if lay.handling not in ("size", "booklet"):
+        raise ValueError(tr("\"paper\": \"auto\" geht nur bei Seitenhandhabung Größe oder Broschüre – "
+                            "für Nutzen und Poster das Papier angeben."))
+    key = caps.roles.get("pagesize")
+    if not key or key not in caps.options:
+        raise ValueError(tr("Der Drucker bietet dafür keine Option an."))
+
+    def need(sz):
+        w, h = sz
+        return (2 * w, h) if lay.handling == "booklet" else (w, h)
+    w, h = need(sizes_pt[0])
+    vals = {c.value for c in caps.options[key].choices}
+    tol = 2 * MM
+    hits = [v for v, (pw, ph) in caps.page_sizes.items() if v in vals and
+            ((abs(pw - w) <= tol and abs(ph - h) <= tol) or (abs(pw - h) <= tol and abs(ph - w) <= tol))]
+    if not hits:
+        known = ", ".join(sorted(v for v in caps.page_sizes if v in vals)[:20]) or "–"
+        raise ValueError(tr("Kein passendes Papier für {0:g} × {1:g} mm bei {2} (vorhanden: {3})").format(
+            round(w / MM), round(h / MM), caps.name, known))
+    # ohne Randlos-/Sondervarianten bevorzugen, sonst den kürzesten Namen
+    plain = [v for v in hits if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)]
+    best = sorted(plain or hits, key=lambda v: (len(v), v))[0]
+    mixed = any(abs(a - b) > tol for sz in sizes_pt[1:] for a, b in zip(sorted(need(sz)), sorted((w, h))))
+    note = tr("Unterschiedliche Seitenformate – Papier nach der ersten Seite gewählt: {0}").format(best) if mixed else ""
+    return best, note
+
+
 def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=None, progress=None) -> dict:
     """PDF drucken wie aus dem Druckdialog. -> {"printer", "job_id", "sheets", "options", "dry_run"}."""
     import os
@@ -179,28 +213,35 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
         raise ValueError(tr("Drucker nicht gefunden: {0} (vorhanden: {1})").format(printer, ", ".join(names) or "–"))
     caps = session.caps_for(printer)
     presets = finisher_presets(session.cfg, printer)
-    vals, probs = resolve(caps, session.values_for(printer), s, presets)
-    if probs:
-        raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
     lay_d = dict(s.layout or {})
     pr = next((p for p in presets if p.get("name") == s.finisher_preset), None) if s.finisher_preset else None
     if pr and pr.get("booklet") and "handling" not in lay_d:
         lay_d["handling"] = "booklet"                # Vorlage für Broschüren (wie im Druckdialog)
     lay = layout.LayoutSettings.from_dict(dict(session.layout.to_dict(), **lay_d))
-    if s.profile != "admin" or s.intent:
-        pid, intent = session.color_for(printer)
-        session.color[printer] = ("" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
-                                  s.intent or intent)
-        if s.profile not in ("admin", "none") and not config.profile_by_id(session.cfg, s.profile):
-            raise ValueError(tr("Farbprofil nicht gefunden: {0}").format(s.profile))
-    preset_tray = bool(pr and caps.roles.get("source") in (pr.get("options") or {}))
-    if s.auto_tray and not s.tray and not preset_tray:      # Vorlage bestimmt das Fach selbst
-        vals, _note, _warn = printjob.resolve_tray(session, printer, vals)
     doc = pdfium.PdfDocument(path)
     try:
         sel = layout.select_pages(len(doc), "", s.subset, s.reverse and lay.handling != "booklet")
         if pages:
             sel = [p for p in sel if p in set(pages)]
+        note = ""
+        if str(s.paper).strip().lower() == AUTO:     # Papier nach der Seitengröße der PDF
+            import dataclasses
+            if not sel:
+                raise ValueError(tr("Keine Seiten zu drucken."))
+            val, note = auto_paper(caps, [doc.get_page_size(i) for i in sel], lay)
+            s = dataclasses.replace(s, paper=val)
+        vals, probs = resolve(caps, session.values_for(printer), s, presets)
+        if probs:
+            raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
+        if s.profile != "admin" or s.intent:
+            pid, intent = session.color_for(printer)
+            session.color[printer] = ("" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
+                                      s.intent or intent)
+            if s.profile not in ("admin", "none") and not config.profile_by_id(session.cfg, s.profile):
+                raise ValueError(tr("Farbprofil nicht gefunden: {0}").format(s.profile))
+        preset_tray = bool(pr and caps.roles.get("source") in (pr.get("options") or {}))
+        if s.auto_tray and not s.tray and not preset_tray:      # Vorlage bestimmt das Fach selbst
+            vals, _note, _warn = printjob.resolve_tray(session, printer, vals)
         rev = s.reverse and lay.handling == "booklet"
         if progress:
             progress(0, 1, tr("Drucke …"))
@@ -209,6 +250,8 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
                 "sheet_mm": [round(w / layout.MM, 1), round(h / layout.MM, 1)],
                 "options": {k: v for k, v in caps.job_options(vals).items()},
                 "color_profile": session.color_for(printer)[0] or None,
+                "paper": vals.get(caps.roles.get("pagesize") or "") or None,
+                "notes": [note] if note else [],
                 "finisher_preset": s.finisher_preset or None,
                 "driver_settings": bool(vals.get("__devmode__"))}
         if s.dry_run:

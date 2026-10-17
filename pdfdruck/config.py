@@ -56,6 +56,7 @@ BUILTIN = {
     "image_default_dpi": 96,        # images without a DPI value: this is how large 1 pixel becomes
     "office_converter": "auto",     # auto | libreoffice | onlyoffice | eurooffice
     "language": "",                 # default language for all users ("" = system language)
+    "workflow_dirs": [],            # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
 }
 
 
