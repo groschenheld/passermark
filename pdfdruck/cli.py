@@ -28,6 +28,7 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli printers [--json]                         (printers with status)
     passermark-cli caps <drucker> [--json]                   (driver options, trays, paper sizes, finishers)
     passermark-cli serve [--config watch.json] [--once] [--check] [--json]   (drop folders -> workflows)
+    passermark-cli tidy datei.json [--full] [--out neu.json] [--print]   (preset/workflow: only what differs)
 
 Return value: 0 = ok, 1 = error, 2 = wrong invocation / invalid workflow, 130 = cancelled (Ctrl+C).
 """
@@ -318,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
 # --------------------------------------------------------------------------- #
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
-API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve")
+API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -339,6 +340,11 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "workflows":
         p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
+    elif cmd == "tidy":
+        p.add_argument("file", help=tr("Preset- oder Ablauf-Datei (JSON)"))
+        p.add_argument("--full", action="store_true", help=tr("Preset mit allen Einstellungen schreiben"))
+        p.add_argument("--out", help=tr("in diese Datei schreiben (sonst wird die Datei selbst ersetzt)"))
+        p.add_argument("--print", dest="show", action="store_true", help=tr("nur anzeigen, nichts schreiben"))
     elif cmd == "serve":
         p.add_argument("--config", help=tr("Watcher-Einstellung (watch.json); ohne: eigene, dann die für alle"))
         p.add_argument("--once", action="store_true", help=tr("vorhandene Dateien verarbeiten und beenden"))
@@ -354,6 +360,73 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--password", help=tr("Passwort"))
     p.add_argument("--json", action="store_true", help=tr("Ausgabe als JSON"))
     return p
+
+
+def tidy_data(data: dict, full: bool = False) -> dict:
+    """Preset ({"job", "settings"}) oder Ablauf ({"passermark": "workflow"}) auf das Nötige kürzen: nur, was vom
+        Standard abweicht. Unverändert bleiben Schritte mit "preset" (dort kann ein Standardwert das Preset
+        absichtlich überschreiben) und "layout" im Druckschritt (fehlende Werte kommen dort aus der
+        Admin-Einstellung). full=True: Preset mit allen Einstellungen (nur für Presets)."""
+    import copy
+    from . import core, workflow
+    from .l10n import tr
+    data = copy.deepcopy(data)
+    if isinstance(data.get("job"), str) and isinstance(data.get("settings", {}), dict):
+        cls = core.settings_class(data["job"])
+        s = data.get("settings") or {}
+        data["settings"] = (core.settings_to_dict(core.settings_from_dict(cls, s)) if full
+                            else core.compact_settings(cls, s))
+        return data
+    if data.get("passermark") != workflow.KIND:
+        raise ValueError(tr("Weder Preset noch Ablauf."))
+    if full:
+        raise ValueError(tr("--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht."))
+    for st in data.get("steps") or []:
+        if not isinstance(st, dict) or "preset" in st or not isinstance(st.get("settings"), dict):
+            continue
+        cls = workflow.step_settings_class(st.get("job", ""))
+        sett = core.compact_settings(cls, st["settings"])
+        if st.get("job") == workflow.PRINT and "layout" in st["settings"]:
+            sett["layout"] = st["settings"]["layout"]    # Druck: fehlende Werte kommen aus der Admin-Einstellung,
+            #                                              nicht vom Programmstandard – darum ganz lassen
+        if sett:
+            st["settings"] = sett
+        else:
+            st.pop("settings")
+    return data
+
+
+def _tidy(a, rep, fail) -> int:
+    from . import workflow
+    from .l10n import tr
+    try:
+        with open(a.file, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError(tr("Objekt erwartet"))
+        new = tidy_data(data, a.full)
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, tr("Datei nicht gefunden: {0}").format(e.filename), EXIT_ERROR)
+    except (OSError, ValueError) as e:
+        return fail(workflow.E_INVALID, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
+
+    def count(d):
+        return sum(count(v) if isinstance(v, dict) else 1 for v in d.values())
+    before, after = count(data), count(new)
+    text = json.dumps(new, ensure_ascii=False, indent=2) + "\n"
+    if a.show:
+        sys.stdout.write(text)
+        return EXIT_OK
+    dst = a.out or a.file
+    tmp = dst + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, dst)
+    if a.json:
+        rep.emit(event="done", output=os.path.abspath(dst), entries_before=before, entries_after=after)
+    else:
+        print(tr("{0}: {1} → {2} Einträge").format(dst, before, after))
+    return EXIT_OK
 
 
 def _serve(a, rep, fail) -> int:
@@ -578,6 +651,8 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "serve":
         return _serve(a, rep, fail)
+    if cmd == "tidy":
+        return _tidy(a, rep, fail)
 
     # check / run
     try:

@@ -117,12 +117,7 @@ def load_any(parent, ctl, path, workdir=None, notes=None):
             return pdfium.PdfDocument(f.read())
     return load_pdf(parent, path)
 
-PAPER_NAMES = {  # mm, Hochformat
-    "A0": (841, 1189), "A1": (594, 841), "A2": (420, 594), "A3": (297, 420), "A4": (210, 297),
-    "A5": (148, 210), "A6": (105, 148), "B4": (250, 353), "B5": (176, 250), "C4": (229, 324),
-    "C5": (162, 229), "DL": (110, 220), "Letter": (215.9, 279.4), "Legal": (215.9, 355.6),
-    "Tabloid": (279.4, 431.8), "SRA3": (320, 450),
-}
+from ..papersizes import UI_FORMATS as PAPER_NAMES     # mm, Hochformat – gemeinsame Formattabelle
 
 
 def page_size_text(w_pt: float, h_pt: float) -> str:

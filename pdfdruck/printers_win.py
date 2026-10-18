@@ -144,9 +144,22 @@ def load_caps(name: str) -> PrinterCaps:
     papers, pnames = _caps(name, port, DC_PAPERS), _caps(name, port, DC_PAPERNAMES)
     sizes = _caps(name, port, DC_PAPERSIZE)
     add("PageSize", tr("Papierformat"), papers, pnames, getattr(dm, "PaperSize", ""))
-    for pid, sz in zip(papers, sizes):
-        x, y = (sz["x"], sz["y"]) if isinstance(sz, dict) else sz         # Zehntel-mm
-        caps.page_sizes[str(pid)] = (x / 254.0 * 72.0, y / 254.0 * 72.0)
+    for pid, sz, pname in zip(papers, sizes, list(pnames) + [""] * max(0, len(papers) - len(pnames))):
+        try:
+            x, y = (sz["x"], sz["y"]) if isinstance(sz, dict) else sz     # Zehntel-mm
+        except (TypeError, ValueError, KeyError):
+            x = y = 0
+        if x > 0 and y > 0:
+            caps.page_sizes[str(pid)] = (x / 254.0 * 72.0, y / 254.0 * 72.0)
+            caps.size_source[str(pid)] = "driver"
+            continue
+        # Treiber meldet 0 × 0 (kommt bei Sonderformaten vor): Maße aus dem Namen bzw. der Tabelle
+        from .printers import papersizes, std_size
+        pt = papersizes.size_from_text(str(pname))
+        std = None if pt else std_size(str(pname))
+        if pt or std:
+            caps.page_sizes[str(pid)] = pt or (std[0], std[1])
+            caps.size_source[str(pid)] = "text" if pt else "table"
     add("InputSlot", tr("Papierzufuhr"), _caps(name, port, DC_BINS), _caps(name, port, DC_BINNAMES),
         getattr(dm, "DefaultSource", ""))
     try:

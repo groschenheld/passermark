@@ -64,9 +64,44 @@ def settings_from_dict(cls, data: dict | None):
     return cls(**kw)
 
 
-def save_settings(path: str, kind: str, settings) -> None:
-    """Preset-Datei schreiben: {"job": kind, "settings": {…}}."""
+def compact_settings(cls, data: dict) -> dict:
+    """Nur, was vom Standard abweicht – verschachtelte Einstellungen (z. B. detect.tolerance) ebenso, Listen ganz.
+        Laden ergänzt den Rest wieder mit den Standardwerten (settings_from_dict)."""
+    default = settings_to_dict(cls())
+    hints = typing.get_type_hints(cls)
+    out = {}
+    for k, v in data.items():
+        if k not in default:
+            out[k] = v                                   # unbekannt: lieber behalten als still verlieren
+            continue
+        b, t = default[k], hints.get(k)
+        if isinstance(v, dict) and isinstance(b, dict) and dataclasses.is_dataclass(t):
+            sub = compact_settings(t, v)
+            if sub:
+                out[k] = sub
+        elif v != b or isinstance(v, bool) != isinstance(b, bool):
+            out[k] = v
+    return out
+
+
+def presets_full() -> bool:
+    """Programm-Einstellung: Presets mit ALLEN Einstellungen speichern (sonst nur die Abweichungen)."""
+    try:
+        from . import l10n
+        return bool(l10n.load_settings().get("presets_full", False))
+    except Exception:
+        return False
+
+
+def save_settings(path: str, kind: str, settings, full: bool | None = None) -> None:
+    """Preset-Datei schreiben: {"job": kind, "settings": {…}} – nur, was vom Standard abweicht (lesbar);
+        full=True (oder Programm-Einstellung presets_full): alle Einstellungen."""
     d = settings if isinstance(settings, dict) else settings_to_dict(settings)
+    if not (presets_full() if full is None else full):
+        try:
+            d = compact_settings(settings_class(kind), d)
+        except ValueError:                                # unbekannter Auftrag: so lassen
+            pass
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"job": kind, "settings": d}, f, ensure_ascii=False, indent=2)
 

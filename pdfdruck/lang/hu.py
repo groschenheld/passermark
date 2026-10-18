@@ -6,6 +6,23 @@
 """Übersetzung: Magyar. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    '*ImageableArea mit Komma statt Punkt': '*ImageableArea pont helyett vesszővel',
+    '*PaperDimension mit Komma statt Punkt': '*PaperDimension pont helyett vesszővel',
+    '*{0} mit Komma statt Punkt – PostScript braucht „{1}“': '*{0} pont helyett vesszővel – a PostScript ezt várja: „{1}”',
+    '--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht.': 'A --full csak presetekhez van – a munkafolyamatban mindig csak az eltérés szerepel.',
+    'Alle Einstellungen speichern (sonst nur Abweichungen)': 'Minden beállítás mentése (egyébként csak az eltérések)',
+    'Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. Gilt für alle Dialoge.': 'Ki: a presetek csak az alapértelmezéstől való eltérést tartalmazzák – röviden és olvashatóan. Minden párbeszédablakra érvényes.',
+    'Für die PPD:': 'A PPD-hez:',
+    'In der PPD fehlt z. B.: {0}': 'A PPD-ből hiányzik pl.: {0}',
+    'Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}': 'A(z) „{0}” mérete ({1:.1f} × {2:.1f} mm) nem az illesztőprogramtól, hanem ebből: {3}',
+    'Preset mit allen Einstellungen schreiben': 'preset írása minden beállítással',
+    'Preset- oder Ablauf-Datei (JSON)': 'preset- vagy munkafolyamat-fájl (JSON)',
+    'Weder Preset noch Ablauf.': 'Sem preset, sem munkafolyamat.',
+    'dem Namen': 'a névből',
+    'der eingebauten Formattabelle': 'a beépített mérettáblázatból',
+    'in diese Datei schreiben (sonst wird die Datei selbst ersetzt)': 'írás ebbe a fájlba (egyébként maga a fájl cserélődik)',
+    'nur anzeigen, nichts schreiben': 'csak megjelenítés, írás nélkül',
+    '{0}: {1} → {2} Einträge': '{0}: {1} → {2} bejegyzés',
     'Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).': 'A(z) {0}. oldal nem létezik – a dokumentum {1} oldalas.',
     '"paper": "auto" geht nur bei Seitenhandhabung Größe oder Broschüre – für Nutzen und Poster das Papier angeben.': 'A "paper": "auto" csak Méret vagy Füzet oldalkezelésnél működik – többszörös elhelyezésnél és poszternél adja meg a papírt.',
     'Ablauf-Ordner wählen': 'Munkafolyamat-mappa kiválasztása',

@@ -221,6 +221,8 @@ def build():
         [c("settings <auftrag>"), "alle Einstellungen eines Auftrags mit Standardwerten als JSON – die Vorlage "
          "für eigene Presets"],
         [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
+        [c("tidy datei.json"), "Preset oder Ablauf auf die Werte kürzen, die vom Standard abweichen ("
+         + c("--full") + " = Preset mit allen Werten, " + c("--print") + " = nur anzeigen)"],
         [c("beispiele [ordner]"), "Beispiele für Variable Daten in den Benutzerordner kopieren (Standard: "
          + c("Passermark-Beispiele") + ") und als Presets „Beispiel 1 …“ eintragen"],
         [c("datenarten"), "Datenarten für Tabellen (Visitenkarte, WLAN, E-Mail, Code 128, EAN-13 …) mit ihren Spalten"],
@@ -321,7 +323,7 @@ def build():
         [c("crop_scale"), c("true"), "zuerst skalieren, bis das Format ganz gefüllt ist (A4 → A6 = 50 %), dann den "
          "Überstand der anderen Kante abschneiden; " + c("false") + " = nur abschneiden (Dateien mit Anschnitt)"],
         [c("crop_inset_mm"), "0", "vorher rundum so viel abschneiden (weiße Ränder der Vorlage)"],
-        [c("crop_size"), c("A4"), "A0–A7, B4, B5, C4–C6, DL, SRA3, A3+, Letter, Legal, Tabloid, „Visitenkarte "
+        [c("crop_size"), c("A4"), "A0–A7, B4, B5, C4–C6, DL, SRA4, SRA3, SRA2, A3+, Letter, Legal, Tabloid, „Visitenkarte "
          "85×55“, „Visitenkarte 90×50“, „Quadrat 210“, „Quadrat 148“ oder " + c("custom")],
         [c("crop_w_mm") + " / " + c("crop_h_mm"), "210 / 297", "Maße bei " + c("custom")],
         [c("crop_follow"), c("true"), "Hoch-/Querformat der Seite folgen"],
@@ -561,6 +563,9 @@ def build():
     ...
   }
 }'''))
+    s.append(P("Es genügen die Werte, die vom Standard abweichen – alles andere ergänzt Passermark beim Laden. "
+               + c("tidy") + " kürzt eine lange Datei auf genau diese Werte (auch Abläufe):"))
+    s.append(code("passermark-cli tidy sticker.json"))
     s.append(P("Verwenden – einzelne Werte lassen sich trotzdem noch mit " + c("--set") + " ändern:"))
     s.append(code("passermark-cli cutcontour bogen.pdf bogen-cut.pdf --preset sticker.json\n"
                   "passermark-cli cutcontour bogen.pdf bogen-cut.pdf --preset sticker.json --set bleed_mm=3"))
@@ -571,8 +576,9 @@ def build():
     s.append(P("Presets aus dem Programm", H3))
     s.append(P("Einfacher geht es im Programm selbst: In den Fenstern für CutContour, CMYK/Beschneiden und im "
                "Druckdialog gibt es oben die Zeile <b>Preset</b>. Einstellungen wie gewünscht setzen, "
-               "<b>Speichern…</b> und einen Namen vergeben. Die Kommandozeile findet das Preset dann über seinen "
-               "Namen – ohne Pfad:"))
+               "<b>Speichern…</b> und einen Namen vergeben. Gespeichert wird nur, was vom Standard abweicht – wer "
+               "alles in der Datei haben will, hakt im Menü <b>…</b> „Alle Einstellungen speichern“ an. Die "
+               "Kommandozeile findet das Preset dann über seinen Namen – ohne Pfad:"))
     s.append(code('passermark-cli presets cutcontour\n'
                   'passermark-cli cutcontour bogen.pdf bogen-cut.pdf --preset "Sticker rund"'))
     s.append(P("Abgelegt sind die Presets als JSON-Dateien je Auftrag – unter Linux in "

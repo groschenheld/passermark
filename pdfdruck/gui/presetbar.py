@@ -45,6 +45,14 @@ class PresetBar(QWidget):
         m.addAction(tr("Als Datei exportieren…"), self._export)
         m.addAction(tr("Preset-Ordner öffnen"), self._open_dir)
         m.addSeparator()
+        self.a_full = m.addAction(tr("Alle Einstellungen speichern (sonst nur Abweichungen)"))
+        self.a_full.setCheckable(True)
+        self.a_full.setToolTip(tr("Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. "
+                                  "Gilt für alle Dialoge."))
+        self.a_full.setChecked(core.presets_full())
+        self.a_full.toggled.connect(self._set_full)
+        m.aboutToShow.connect(lambda: self.a_full.setChecked(core.presets_full()))
+        m.addSeparator()
         m.addAction(tr("Standardwerte"), self._defaults)
         self.btn_more.setMenu(m)
         h.addWidget(self.btn_more)
@@ -146,6 +154,16 @@ class PresetBar(QWidget):
             core.save_settings(p, self.kind, self.get_settings())
         except OSError as e:
             QMessageBox.warning(self, tr("Preset"), str(e))
+
+    @staticmethod
+    def _set_full(on: bool):
+        from .. import l10n
+        st = l10n.load_settings()
+        st["presets_full"] = bool(on)
+        try:
+            l10n.save_settings(st)
+        except OSError:
+            pass
 
     def _open_dir(self):
         d = presets.job_dir(self.kind)

@@ -1,10 +1,10 @@
-# Passermark 1.15.0
+# Passermark 1.15.1
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
-**English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
+**English** Â· [Deutsch](README.de.md) Â· [Magyar](README.hu.md) Â· [FranÃ§ais](README.fr.md) Â· [EspaÃ±ol](README.es.md)
 
 > **Status:** a private project, developed alongside daily prepress work. Feedback is
-> welcome – answers and new features come without any guarantee. Tested with CUPS and Windows drivers
+> welcome â answers and new features come without any guarantee. Tested with CUPS and Windows drivers
 > (inkjet, office/production printers with finishers via a print server); less common drivers and finisher
 > options may need adjustments.
 
@@ -26,30 +26,30 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
   Cropping now also with "trim edges" (mm per side, without a target format) and "remove white space"
-  (detect the content, new page frame ± margin, content stays 1:1).
-- **Split pages:** halves or a grid as single pages – e.g. a booklet exported as spreads; select pages,
-  right-click → Split. Lossless (content is not rasterised), trim box and bleed respected.
+  (detect the content, new page frame Â± margin, content stays 1:1).
+- **Split pages:** halves or a grid as single pages â e.g. a booklet exported as spreads; select pages,
+  right-click â Split. Lossless (content is not rasterised), trim box and bleed respected.
 - **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute
   fonts (free metric-compatible fonts or download from fontsource.org), outline text, fix/remove layers,
   flatten transparency.
 - **Edit mode:** select text lines and layers with the mouse; change text, font and size; move, scale,
   hide, remove or replace layers; undo.
 - Rulers and measuring: rulers in mm at the edge of the view; click start and end to measure (Shift snaps to
-  horizontal/vertical/45°), result in the status bar. Holding Ctrl, the crosshair snaps magnetically to trim and inner lines (page edge,
-  trim size, bleed), image edges and vector lines – never to text; it sticks to the edge until the
+  horizontal/vertical/45Â°), result in the status bar. Holding Ctrl, the crosshair snaps magnetically to trim and inner lines (page edge,
+  trim size, bleed), image edges and vector lines â never to text; it sticks to the edge until the
   mouse pulls clearly away. The trim-size overlay shows the trim in green and the bleed as a dotted line.
 - **Variable data:** numbering (start, step, padding, check digits, reverse, continue counter), text from CSV,
-  QR codes, Code 128 and EAN-13 as vectors (with quiet zone); placeholders `{{…}}` in the PDF; date, page,
+  QR codes, Code 128 and EAN-13 as vectors (with quiet zone); placeholders `{{â¦}}` in the PDF; date, page,
   random and other variables; several pages per record (front/back) and fields on odd/even pages; code log;
-  step & repeat with a different record per copy (row by row or cut & stack); **windows (page groups)** for multi-page templates – e.g. front sides with the name, back sides with a QR code – with page selection per window (all/odd/even pages or ranges) and record distribution sheet by sheet or page by page. Also on the command line
+  step & repeat with a different record per copy (row by row or cut & stack); **windows (page groups)** for multi-page templates â e.g. front sides with the name, back sides with a QR code â with page selection per window (all/odd/even pages or ranges) and record distribution sheet by sheet or page by page. Also on the command line
   (`passermark-cli vdp`).
-- **Enter data:** build the data table inside Passermark – QR business card (vCard), Wi-Fi access, e-mail, web
-  address, phone, SMS, event, location, Code 128, EAN-13 – with matching columns, instant checks and paste from
+- **Enter data:** build the data table inside Passermark â QR business card (vCard), Wi-Fi access, e-mail, web
+  address, phone, SMS, event, location, Code 128, EAN-13 â with matching columns, instant checks and paste from
   Excel; saved as CSV and used directly in variable data. Own CSV files with other column names (e.g. contact
   exports from Outlook, Google, Thunderbird) are mapped automatically. Seven ready-made examples
-  (Help → Get examples).
+  (Help â Get examples).
 - **Workspaces** (View & Print, Prepress, Edit, Automation) with their own tool row.
-- **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
+- **Presets** for CutContour, CMYK/crop and print layout â shared with the command line.
 - Repair/optimise PDFs, PDF/A, password protection (also when saving as PDF from the print dialog), merge files,
   select and copy text.
 - Languages: English, German, Hungarian, Spanish, French.
@@ -75,7 +75,7 @@ Optional: LibreOffice (Office files), 7-Zip (ICC profile import from archives).
 
 ## Command line
 
-All heavy functions also run without the user interface – for scripts, batch processing and automation:
+All heavy functions also run without the user interface â for scripts, batch processing and automation:
 
 ```sh
 passermark-cli list                                   # available jobs
@@ -92,15 +92,15 @@ plus `beispiele` (examples), `datenarten`, `datenvorlage`, `datencheck` (data ta
 2 wrong usage, 130 cancelled. `--json-progress` prints progress and result as JSON lines. Large jobs use several CPU cores;
 limit with the environment variable `PASSERMARK_WORKERS` (1 = no parallel processing).
 
-Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
-Windows → `passermark-cli.exe` in the installation folder (setup option: add it to PATH).
-Guides with examples (German PDFs) are in the program under **Help → Command line – guide** and
-**Help → Variable data – guide**.
+Where: Linux `install.sh` â `passermark-cli`; AppImage â `Passermark-*.AppImage --cli â¦`;
+Windows â `passermark-cli.exe` in the installation folder (setup option: add it to PATH).
+Guides with examples (German PDFs) are in the program under **Help â Command line â guide** and
+**Help â Variable data â guide**.
 Interface for other programs (stable JSON events, error codes): [docs/cli-api.md](docs/cli-api.md).
 
 ## Error logs
 
-If something goes wrong, Passermark writes a log file to send along (Help → Open error logs):
+If something goes wrong, Passermark writes a log file to send along (Help â Open error logs):
 Linux `~/.local/state/passermark/logs`, Windows `%LOCALAPPDATA%\Passermark\logs`. After a crash, the next start
 points to the log. Logs without errors are deleted on exit.
 
@@ -117,8 +117,9 @@ GPL-3.0-or-later, see `LICENSE`. The Windows installer and the AppImage include
 [Ghostscript](https://ghostscript.com) (AGPL-3.0, Artifex Software).
 
 Third-party licences: the installer and the AppImage contain a `licenses` folder next to the
-program (Help → Licences …) with `THIRD_PARTY_NOTICES.txt`, the licence files of every bundled
+program (Help â Licences â¦) with `THIRD_PARTY_NOTICES.txt`, the licence files of every bundled
 Python package, the Qt/PySide6 LGPL notice (how to replace the Qt libraries) and the Ghostscript
 notice with the source links of the shipped version. On request the corresponding source code of
-the bundled components is also provided – please open an issue on
+the bundled components is also provided â please open an issue on
 [GitHub](https://github.com/groschenheld/passermark/issues).
+

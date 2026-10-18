@@ -15,6 +15,7 @@ in full with every job.
 """
 from __future__ import annotations
 
+from . import papersizes
 from .l10n import tr
 
 import os
@@ -52,68 +53,111 @@ ROLE_TEXT = {
     "color": re.compile(r"farb(modus|e)|colou?r\s*mode|grayscale|graustufen|\bink\b", re.I),
 }
 
-# fallback table (mm, portrait) for paper names if the driver provides no sizes.
-# prefix "T" or ".Borderless"/"FULL" = borderless (same size, no margin).
-STD_SIZES_MM = {
-    "A0": (841, 1189), "A1": (594, 841), "A2": (420, 594), "A3": (297, 420), "A4": (210, 297),
-    "A5": (148, 210), "A6": (105, 148), "A3+": (329, 483), "SRA3": (320, 450), "B4": (257, 364),
-    "B5": (182, 257), "B6": (128, 182), "LETTER": (215.9, 279.4), "LEGAL": (215.9, 355.6),
-    "TABLOID": (279.4, 431.8), "LEDGER": (279.4, 431.8), "EXECUTIVE": (184.2, 266.7),
-    "4X6": (101.6, 152.4), "4X6FULL": (101.6, 152.4), "4X7": (101.6, 177.8), "5X7": (127, 177.8),
-    "8X10": (203.2, 254), "2L": (127, 178), "L": (89, 127), "INDEX5": (127, 203.2),
-    "POSTCARD": (100, 148), "ENV10": (104.8, 241.3), "ENVDL": (110, 220), "DL": (110, 220),
-    "ENVC4": (229, 324), "ENVC4P": (229, 324), "C4": (229, 324), "ENVC5": (162, 229), "C5": (162, 229),
-    "ENVC6": (114, 162), "C6": (114, 162), "8K": (270, 390), "16K": (195, 270),
-}
+# fallback table (mm, portrait) for paper names if the driver provides no sizes – one table for the whole
+# program (papersizes.py). prefix "T" or ".Borderless"/"FULL" = borderless (same size, no margin).
+STD_SIZES_MM = papersizes.PAPER_MM
 
 
 def std_size(name: str):
-    """(w, h, borderless) in pt for a paper name like 'A3', 'TA4', 'A4.Borderless' – or None."""
-    n = name.upper().replace(" ", "")
-    borderless = False
+    """(w, h, borderless) in pt for a paper name like 'A3', 'TA4', 'A4.Borderless', 'DIN A4', 'Custom.85x55mm'
+        or a display text with the size in it ("10 x 15 cm (4 x 6 in)") – or None."""
+    raw = str(name or "")
+    n = raw.upper().replace(" ", "")
+    borderless = bool(re.search(r"borderless|randlos|full\s*bleed|sans\s*marges|sin\s*bordes", raw, re.I))
     for suf in (".BORDERLESS", ".FULLBLEED", ".FB", "_BORDERLESS"):
         if n.endswith(suf):
             n, borderless = n[: -len(suf)], True
-    n = n.split(".")[0]
-    if n not in STD_SIZES_MM and n.startswith("T") and n[1:] in STD_SIZES_MM:
-        n, borderless = n[1:], True
-    if n.endswith("FULL"):
+    base = n.split(".")[0] if not n.startswith("CUSTOM.") else n
+    if papersizes.lookup(base) is None and base.startswith("T") and papersizes.lookup(base[1:]) is not None:
+        base, borderless = base[1:], True
+    if base.endswith("FULL"):
         borderless = True
-    mm = STD_SIZES_MM.get(n)
+    mm = papersizes.lookup(base)
     if mm is None:
-        m = re.fullmatch(r"(?:CUSTOM\.)?(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)(MM|IN|CM)?", n)
-        if not m:
-            return None
-        f = {"MM": 72 / 25.4, "CM": 72 / 2.54, "IN": 72.0, None: 1.0}[m.group(3)]
-        return float(m.group(1)) * f, float(m.group(2)) * f, borderless
-    return mm[0] * 72 / 25.4, mm[1] * 72 / 25.4, borderless
+        mm = papersizes.lookup(re.sub(r"\(.*\)", "", raw).strip())       # "A4 (Borderless)", "JIS B4"
+    if mm is not None:
+        return mm[0] * 72 / 25.4, mm[1] * 72 / 25.4, borderless
+    pt = papersizes.size_from_text(raw)
+    if pt is None:
+        return None
+    return pt[0], pt[1], borderless
 
 
-_PPD_DIM = re.compile(r'^\*(PaperDimension|ImageableArea)\s+([^/:\s]+)(?:/[^:]*)?:\s*"([^"]*)"')
+_PPD_ENTRY = re.compile(r'^\*(PaperDimension|ImageableArea|PageSize|PageRegion)\s+([^/:\s]+)(?:/([^:\n]*))?:\s*"([^"]*)"',
+                        re.M)
+_PS_PAGESIZE = re.compile(r"/PageSize\s*\[\s*([^\]]*?)\s*\]")
+
+
+def _ppd_numbers(text: str, n: int, comma_ok: bool):
+    """n numbers from a PPD value. Comma as decimal separator (\"636,75 905,6\") -> (numbers, True)."""
+    toks = text.split()
+    if len(toks) < n:
+        return None, False
+    comma = any("," in t for t in toks[:n])
+    if comma and not comma_ok:
+        return None, True
+    try:
+        return [float(t.replace(",", ".")) for t in toks[:n]], comma
+    except ValueError:
+        return None, comma
+
+
+def parse_ppd_sizes(path: str) -> dict:
+    """Paper sizes straight from the PPD file (more reliable than pycups), from every place a PPD states them:
+        {"dims": {name: (w, h)} from *PaperDimension, "areas": {name: (l, b, r, t)} from *ImageableArea,
+         "code": {name: (w, h)} from the PostScript code of *PageSize/*PageRegion (<</PageSize[w h]>>),
+         "texts": {name: display text}, "problems": {name: [message, …]}} – sizes in pt."""
+    out = {"dims": {}, "areas": {}, "code": {}, "texts": {}, "problems": {}}
+    try:
+        with open(path, "rb") as f:
+            text = f.read().decode("latin-1")
+    except OSError:
+        return out
+
+    def problem(name, msg):
+        out["problems"].setdefault(name, [])
+        if msg not in out["problems"][name]:
+            out["problems"][name].append(msg)
+    for m in _PPD_ENTRY.finditer(text):
+        kind, name, label, val = m.group(1), m.group(2), (m.group(3) or "").strip(), m.group(4)
+        if kind == "PaperDimension":
+            nums, comma = _ppd_numbers(val, 2, True)
+            if comma:
+                problem(name, tr("*PaperDimension mit Komma statt Punkt"))
+            if nums and nums[0] > 0 and nums[1] > 0:
+                out["dims"][name] = (nums[0], nums[1])
+        elif kind == "ImageableArea":
+            nums, comma = _ppd_numbers(val, 4, True)
+            if comma:
+                problem(name, tr("*ImageableArea mit Komma statt Punkt"))
+            if nums and nums[2] > nums[0] and nums[3] > nums[1]:
+                out["areas"][name] = tuple(nums)
+        else:
+            if label and kind == "PageSize":
+                out["texts"].setdefault(name, label)
+            pm = _PS_PAGESIZE.search(val)
+            if pm:
+                nums, comma = _ppd_numbers(pm.group(1), 2, True)
+                if comma:
+                    problem(name, tr("*{0} mit Komma statt Punkt – PostScript braucht „{1}“").format(
+                        kind, " ".join(f"{v:g}" for v in nums) if nums else "…"))
+                if nums and nums[0] > 0 and nums[1] > 0:
+                    out["code"].setdefault(name, (nums[0], nums[1]))
+    return out
 
 
 def parse_ppd_dimensions(path: str):
-    """Reads *PaperDimension / *ImageableArea directly from the PPD file (more reliable than pycups)."""
-    dims, areas = {}, {}
-    try:
-        with open(path, "rb") as f:
-            for raw in f:
-                if not raw.startswith((b"*PaperDimension", b"*ImageableArea")):
-                    continue
-                m = _PPD_DIM.match(raw.decode("latin-1").strip())
-                if not m:
-                    continue
-                try:
-                    nums = [float(v) for v in m.group(3).split()]
-                except ValueError:
-                    continue
-                if m.group(1) == "PaperDimension" and len(nums) >= 2:
-                    dims[m.group(2)] = (nums[0], nums[1])
-                elif m.group(1) == "ImageableArea" and len(nums) >= 4:
-                    areas[m.group(2)] = tuple(nums[:4])
-    except OSError:
-        pass
-    return dims, areas
+    """*PaperDimension / *ImageableArea from the PPD file -> (dims, areas)."""
+    d = parse_ppd_sizes(path)
+    return d["dims"], d["areas"]
+
+
+def ppd_lines(name: str, w: float, h: float, area=None) -> str:
+    """The PPD lines that make a paper size known (for the warning): pt with a decimal point."""
+    l, b, r, t = area or (0.0, 0.0, w, h)
+    f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".")
+    return (f'*PaperDimension {name}/{name}: "{f(w)} {f(h)}"\n'
+            f'*ImageableArea {name}/{name}: "{f(l)} {f(b)} {f(r)} {f(t)}"')
 
 
 IPP_QUALITY = {"3": "Entwurf", "4": "Normal", "5": "Hoch"}
@@ -165,6 +209,10 @@ class PrinterCaps:
     page_sizes: dict[str, tuple[float, float]] = field(default_factory=dict)
     imageable: dict[str, tuple[float, float, float, float]] = field(default_factory=dict)
     roles: dict[str, str] = field(default_factory=dict)  # role -> keyword
+    # woher die Maße je Papierformat stammen: "driver" (PaperDimension/Treiber), "code" (PostScript-Code der PPD),
+    # "text" (im Namen/Anzeigetext), "table" (eingebaute Tabelle) – fehlt ein Format hier, sind die Maße unbekannt
+    size_source: dict[str, str] = field(default_factory=dict)
+    size_problems: dict[str, list] = field(default_factory=dict)  # PPD-Fehler je Format (Komma statt Punkt …)
     _ppd: object = None
 
     # ------------------------------------------------------------------ #
@@ -240,7 +288,8 @@ class PrinterCaps:
 
 # --------------------------------------------------------------------------- #
 PDF_TARGET = "__pdf__"
-PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA3", "LETTER", "LEGAL", "TABLOID"]
+PDF_DOC_SIZE = "DOC"                # „Als PDF speichern“: Blatt = Größe der ersten gewählten Seite
+PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA4", "SRA3", "SRA2", "LETTER", "LEGAL", "TABLOID"]
 
 
 def pdf_target_info() -> "PrinterInfo":
@@ -251,14 +300,14 @@ def pdf_target_info() -> "PrinterInfo":
 def pdf_caps() -> "PrinterCaps":
     """Virtueller Drucker: ausgeschossenes Ergebnis als PDF-Datei – ohne Farbkonvertierung, vektoriell."""
     caps = PrinterCaps(name=PDF_TARGET, backend="pdf")
-    choices = [Choice("DOC", tr("Wie Dokument (erste gewählte Seite)"))]
+    choices = [Choice(PDF_DOC_SIZE, tr("Wie Dokument (erste gewählte Seite)"))]
     for n in PDF_SIZES:
         w, h, _b = std_size(n)
         label = {"LETTER": "Letter", "LEGAL": "Legal", "TABLOID": "Tabloid"}.get(n, n)
         choices.append(Choice(n, f"{label} ({w / 72 * 25.4:.0f} × {h / 72 * 25.4:.0f} mm)"))
         caps.page_sizes[n] = (w, h)
         caps.imageable[n] = (0.0, 0.0, w, h)          # kein Druckerrand
-    caps.options["PageSize"] = Option("PageSize", tr("Papierformat"), tr("Allgemein"), choices, "DOC")
+    caps.options["PageSize"] = Option("PageSize", tr("Papierformat"), tr("Allgemein"), choices, PDF_DOC_SIZE)
     caps.groups.append(("pdf", tr("Allgemein"), ["PageSize"]))
     caps.roles["pagesize"] = "PageSize"
     return caps
@@ -390,6 +439,91 @@ def load_caps(name: str) -> PrinterCaps:
 # --------------------------------------------------------------------------- #
 # PPD
 # --------------------------------------------------------------------------- #
+def fill_page_sizes(caps: "PrinterCaps", opt: "Option", dims: dict, areas: dict, code: dict | None = None,
+                    problems: dict | None = None) -> None:
+    """Maße für jedes Papierformat des Treibers – immer zuerst vom Drucker selbst:
+        1. Treiber (*PaperDimension bzw. das, was das Backend meldet)   -> "driver"
+        2. PostScript-Code der PPD (<</PageSize[w h]>>)                 -> "code"
+        3. im Namen oder Anzeigetext ("10 x 15 cm", "Custom.225x320mm") -> "text"
+        4. eingebaute Tabelle (SRA4, DIN A4, JIS B4 …)                  -> "table"
+        Bedruckbarer Bereich: vom Treiber; bei Maßen nicht vom Treiber: randlos = ganzes Blatt, sonst die Ränder,
+        die der Drucker bei seinen anderen Formaten hat (Median), sonst 12 pt."""
+    code, problems = code or {}, problems or {}
+    margins = []
+    for v, (l, b, r, t) in areas.items():
+        if v in dims:
+            w, h = dims[v]
+            margins.append((l, b, w - r, h - t))
+    med = None
+    if margins:
+        med = tuple(sorted(m[i] for m in margins)[len(margins) // 2] for i in range(4))
+    for ch in opt.choices:
+        v = ch.value
+        if problems.get(v):
+            caps.size_problems[v] = list(problems[v])
+        size, src = dims.get(v), "driver"
+        if size is None and v in code:
+            size, src = code[v], "code"
+        std = None
+        if size is None:
+            pt = papersizes.size_from_text(v) or papersizes.size_from_text(ch.text)
+            if pt:
+                size, src = pt, "text"
+        if size is None:
+            std = std_size(v) or std_size(ch.text)
+            if std:
+                size, src = (std[0], std[1]), "table"
+        if size is None:
+            continue
+        w, h = size
+        caps.page_sizes[v] = (w, h)
+        caps.size_source[v] = src
+        if v in areas:
+            caps.imageable[v] = areas[v]
+            continue
+        if src == "driver":                          # Treiber nennt die Größe, aber keinen Bereich: wie bisher offen
+            continue
+        borderless = (std or std_size(v) or std_size(ch.text) or (0, 0, False))[2] or bool(
+            re.search(r"borderless|randlos|full\s*bleed", ch.text, re.I))
+        if borderless:
+            caps.imageable[v] = (0.0, 0.0, w, h)
+        else:
+            l, b, r, t = med or (12.0, 12.0, 12.0, 12.0)
+            if w - l - r > 36 and h - b - t > 36:
+                caps.imageable[v] = (l, b, w - r, h - t)
+
+
+def size_note(caps: "PrinterCaps", values: dict, label: str = "") -> str:
+    """Warnung für den Druckdialog, wenn die Maße des gewählten Papierformats fehlen, ungenau sind oder die PPD
+        Fehler hat – mit den PPD-Zeilen, die es beheben (pt, Dezimalpunkt). "" = alles in Ordnung.
+        „Als PDF speichern“ mit „Wie Dokument“ hat absichtlich keine feste Größe – keine Warnung."""
+    key = caps.roles.get("pagesize")
+    value = values.get(key) if key else None
+    if value is None or (caps.backend == "pdf" and value == PDF_DOC_SIZE):
+        return ""
+    label = label or str(value)
+    probs = caps.size_problems.get(value) or []
+    src = caps.size_source.get(value)
+    if not caps.sheet_info(values)[3]:
+        msg = tr("⚠ Maße für Papierformat „{0}“ unbekannt – A4 angenommen. Bitte Treiber/PPD prüfen.").format(label)
+        if caps.backend == "ppd":
+            msg += "\n" + tr("In der PPD fehlt z. B.: {0}").format(
+                f'*PaperDimension {value}/{value}: "<{tr("Breite")}> <{tr("Höhe")}>" (pt)')
+        return msg
+    if not probs and src not in ("text", "table"):
+        return ""
+    w, h, _ia, _ok = caps.sheet_info(values)
+    parts = list(probs)
+    if src in ("text", "table"):
+        parts.append(tr("Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}").format(
+            label, w / papersizes.PT, h / papersizes.PT,
+            tr("dem Namen") if src == "text" else tr("der eingebauten Formattabelle")))
+    msg = "⚠ " + "; ".join(parts) + "."
+    if caps.backend == "ppd":
+        msg += "\n" + tr("Für die PPD:") + "\n" + ppd_lines(value, w, h, caps.imageable.get(value))
+    return msg
+
+
 def _walk_groups(groups, prefix=""):
     for g in groups:
         yield g, prefix
@@ -421,36 +555,25 @@ def _caps_from_ppd(name: str, ppd_file: str) -> PrinterCaps:
         if keys:
             caps.groups.append((g.name, prefix + (g.text or g.name), keys))
 
-    dims, areas = parse_ppd_dimensions(ppd_file)
+    info = parse_ppd_sizes(ppd_file)
+    dims, areas = dict(info["dims"]), dict(info["areas"])
     ps = caps.options.get("PageSize")
     if ps:
-        for ch in ps.choices:
-            if ch.value in dims:
-                caps.page_sizes[ch.value] = dims[ch.value]
-                if ch.value in areas:
-                    caps.imageable[ch.value] = areas[ch.value]
-                continue
-            try:
-                dim = ppd.findAttr("PaperDimension", ch.value)
-            except Exception:
-                dim = None
-            if dim is None:
-                continue
-            try:
-                w, h = (float(v) for v in dim.value.split()[:2])
-            except ValueError:
-                continue
-            caps.page_sizes[ch.value] = (w, h)
-            try:
-                ia = ppd.findAttr("ImageableArea", ch.value)
-            except Exception:
-                ia = None
-            if ia is not None:
+        for ch in ps.choices:                       # pycups kennt manchmal mehr (eingebundene Dateien)
+            if ch.value not in dims:
                 try:
-                    l, b, r, t = (float(v) for v in ia.value.split()[:4])
-                    caps.imageable[ch.value] = (l, b, r, t)
-                except ValueError:
+                    dim = ppd.findAttr("PaperDimension", ch.value)
+                    w, h = (float(v) for v in dim.value.replace(",", ".").split()[:2])
+                    dims[ch.value] = (w, h)
+                except Exception:
                     pass
+            if ch.value not in areas:
+                try:
+                    ia = ppd.findAttr("ImageableArea", ch.value)
+                    areas[ch.value] = tuple(float(v) for v in ia.value.replace(",", ".").split()[:4])
+                except Exception:
+                    pass
+        fill_page_sizes(caps, ps, dims, areas, info["code"], info["problems"])
     _assign_roles(caps)
     return caps
 
@@ -513,10 +636,16 @@ def _caps_from_ipp(name: str, c) -> PrinterCaps:
         return min(vals) * 72.0 / 2540.0 if vals else 0.0
     mb, ml, mr, mt = margin("bottom"), margin("left"), margin("right"), margin("top")
     for ch in caps.options.get("media", Option("", "", "", [], "")).choices:
-        sz = _media_size(ch.value)
+        sz, src = _media_size(ch.value), "driver"          # PWG-Name: iso_a4_210x297mm
+        if not sz:                                          # sonst: Name/Text („Custom.225x320mm“, „A4“ …)
+            sz, src = papersizes.size_from_text(ch.value) or papersizes.size_from_text(ch.text), "text"
+        if not sz:
+            std = std_size(ch.value) or std_size(ch.text)
+            sz, src = ((std[0], std[1]) if std else None), "table"
         if sz:
             w, h = sz
             caps.page_sizes[ch.value] = (w, h)
+            caps.size_source[ch.value] = src
             caps.imageable[ch.value] = (ml, mb, w - mr, h - mt)
     _assign_roles(caps)
     return caps

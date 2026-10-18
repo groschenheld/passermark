@@ -794,6 +794,12 @@ def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
     return plans
 
 
+def _over_rank(over: float) -> float:
+    """Überhang zum Vergleichen: auf ganze mm gerundet (Bruchteile entscheiden nicht über die Drehung),
+        negativ – weniger Überhang ist besser. Passt alles (≤ 0,5 pt), zählt er nicht."""
+    return 0.0 if over <= 0.5 else -round(over / MM)
+
+
 def _sr_gap(s: LayoutSettings) -> float:
     bleed = s.bleed_mm * MM
     if s.sr_join == "edge":
@@ -857,17 +863,23 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
                     continue
                 bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
                 over = max(bw - aw, bh - ah, 0.0)
-                # passt > UNGEDREHT > mehr Nutzen > weniger Überhang > Blatt hochkant.
-                # Nutzen werden nie mehr gedreht, damit MEHR draufpasst – stattdessen
-                # dreht das Blatt (Inhalt kommt kopfoben beim Drucker an). Gedreht
-                # wird nur, wenn ungedreht in KEINER Blattlage etwas passt.
-                key = (over <= 0.5, rot == 0, cols * rows, -over, not land)
+                # passt > (passt nicht: kleinerer Überhang) > UNGEDREHT > mehr Nutzen > weniger Überhang >
+                # Blatt hochkant. Nutzen werden nie gedreht, damit MEHR draufpasst – stattdessen dreht das
+                # Blatt (Inhalt kommt kopfoben beim Drucker an). Gedreht wird, wenn ungedreht in KEINER
+                # Blattlage etwas passt – und auch dann, wenn nichts ganz passt, aber gedreht deutlich
+                # weniger übersteht (Raster 2 × 4 mit Überfüller: Hochformat-Daten wie Querformat-Daten).
+                key = (over <= 0.5, _over_rank(over), rot == 0, cols * rows, -over, not land)
                 if best is None or key > best[0]:
                     best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
-        if best is None:      # does not fit even once -> 1 piece, trimmed
-            land = pw0 > ph0
-            _, _, area, _ = _area(sheet, land, s.use_margins)
-            best = (None, land, 0, 1, 1, area, pw0 * sc, ph0 * sc, pw0 * sc, ph0 * sc)
+        if best is None:      # passt nicht einmal einmal -> 1 Nutzen, beschnitten: Lage mit dem kleinsten Überhang
+            for land in orients:
+                _, _, area, _ = _area(sheet, land, s.use_margins)
+                for rot in rots:
+                    w, h = (ph0 * sc, pw0 * sc) if rot else (pw0 * sc, ph0 * sc)
+                    over = max(w - area[2], h - area[3], 0.0)
+                    key = (_over_rank(over), rot == 0, land == (pw0 > ph0))
+                    if best is None or key > best[0]:
+                        best = (key, land, rot, 1, 1, area, w, h, w, h)
         _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best
         n = cols * rows
         if n > MAX_PER_SHEET:
@@ -969,9 +981,9 @@ def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None
             cols, rows = max(1, cols), max(1, rows)           # nie 0: mindestens 1, mit Warnung
             bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
             over = max(bw - aw, bh - ah, 0.0)
-            # passt > UNGEDREHT > mehr Bögen > weniger Überhang > Zielformat hochkant
-            # (Bogen möglichst nie drehen – derselbe Grundsatz wie bei den Nutzen)
-            key = (over <= 0.5, rot == 0, cols * rows, -over, not land)
+            # passt > (passt nicht: kleinerer Überhang) > UNGEDREHT > mehr Bögen > weniger Überhang >
+            # Zielformat hochkant (Bogen möglichst nie drehen – derselbe Grundsatz wie bei den Nutzen)
+            key = (over <= 0.5, _over_rank(over), rot == 0, cols * rows, -over, not land)
             if best is None or key > best[0]:
                 best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
     _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best

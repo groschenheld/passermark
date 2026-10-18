@@ -6,6 +6,23 @@
 """Übersetzung: Español. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    '*ImageableArea mit Komma statt Punkt': '*ImageableArea con coma en lugar de punto',
+    '*PaperDimension mit Komma statt Punkt': '*PaperDimension con coma en lugar de punto',
+    '*{0} mit Komma statt Punkt – PostScript braucht „{1}“': '*{0} con coma en lugar de punto – PostScript necesita «{1}»',
+    '--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht.': '--full solo existe para presets – un flujo contiene siempre solo lo que difiere.',
+    'Alle Einstellungen speichern (sonst nur Abweichungen)': 'Guardar todos los ajustes (si no, solo las diferencias)',
+    'Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. Gilt für alle Dialoge.': 'Desactivado: los presets solo contienen lo que difiere del estándar – breves y legibles. Se aplica a todos los diálogos.',
+    'Für die PPD:': 'Para el PPD:',
+    'In der PPD fehlt z. B.: {0}': 'Al PPD le falta p. ej.: {0}',
+    'Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}': 'Medidas de «{0}» ({1:.1f} × {2:.1f} mm) no del controlador, sino de {3}',
+    'Preset mit allen Einstellungen schreiben': 'escribir el preset con todos los ajustes',
+    'Preset- oder Ablauf-Datei (JSON)': 'archivo de preset o de flujo (JSON)',
+    'Weder Preset noch Ablauf.': 'Ni preset ni flujo.',
+    'dem Namen': 'el nombre',
+    'der eingebauten Formattabelle': 'la tabla de formatos integrada',
+    'in diese Datei schreiben (sonst wird die Datei selbst ersetzt)': 'escribir en este archivo (si no, se sustituye el propio archivo)',
+    'nur anzeigen, nichts schreiben': 'solo mostrar, no escribir nada',
+    '{0}: {1} → {2} Einträge': '{0}: {1} → {2} entradas',
     'Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).': 'La página {0} no existe – el documento tiene {1} página(s).',
     '"paper": "auto" geht nur bei Seitenhandhabung Größe oder Broschüre – für Nutzen und Poster das Papier angeben.': '"paper": "auto" solo funciona con la gestión de páginas Tamaño o Folleto – para montaje múltiple y póster, indique el papel.',
     'Ablauf-Ordner wählen': 'Elegir carpeta de flujos de trabajo',
