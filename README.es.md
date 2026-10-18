@@ -1,4 +1,4 @@
-# Passermark 1.15.0
+# Passermark 1.15.1
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -135,3 +135,4 @@ los paquetes de Python incluidos, el aviso LGPL de Qt/PySide6 (cómo sustituir l
 y el aviso de Ghostscript con los enlaces al código fuente de la versión incluida. Previa solicitud
 también se facilita el código fuente correspondiente de los componentes incluidos: abra un issue en
 [GitHub](https://github.com/groschenheld/passermark/issues).
+

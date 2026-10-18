@@ -1,4 +1,4 @@
-# Passermark 1.15.0
+# Passermark 1.15.1
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -122,3 +122,4 @@ Python package, the Qt/PySide6 LGPL notice (how to replace the Qt libraries) and
 notice with the source links of the shipped version. On request the corresponding source code of
 the bundled components is also provided – please open an issue on
 [GitHub](https://github.com/groschenheld/passermark/issues).
+

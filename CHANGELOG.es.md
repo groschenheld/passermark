@@ -5,6 +5,31 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.15.1
+### Nutzen (step & repeat): giro
+- Si la rejilla no cabe entera en la hoja en ninguna orientación, gana ahora la orientación con el menor sobrante. Solo después cuenta «mejor sin girar».
+- Los datos en vertical ahora se giran y quedan exactamente igual que los datos en horizontal.
+- Cambiado igualmente en el paso 2 y para el caso de que una copia ni siquiera quepa sola en la hoja.
+- Si todo cabe, sigue sin girarse. «Girar Nutzen: 0°» y «90°» siguen forzando el giro.
+
+### Formatos de papel
+- Las medidas ahora vienen siempre primero de la impresora, en este orden: `*PaperDimension`, si no `<</PageSize[b h]>>` de la PPD, si no del nombre o del texto mostrado (p. ej. «8K 270 x 390 mm») – y solo entonces de la tabla.
+- Una sola tabla de formatos (papersizes.py) en lugar de tres. Nuevos: SRA4, SRA2, SRA0–1, la serie RA, A7–A10, ISO-B, C0–C10. Los valores existentes siguen igual.
+- Una coma en lugar de un punto en la PPD se reconoce: las medidas se toman igualmente, y se avisa.
+- Si falta el área imprimible, Passermark toma los márgenes que la impresora tiene en sus otros formatos. En los formatos sin márgenes es la hoja entera.
+- El aviso del diálogo de impresión indica la causa y muestra las líneas PPD listas con los valores pt correctos.
+- Las impresoras IPP y de Windows recurren al nombre y a la tabla cuando el controlador no dice nada o informa de 0 × 0.
+- `caps --json` muestra ahora de dónde saca cada formato sus medidas, y los posibles errores de la PPD.
+
+### Guardar como PDF
+- Con «Como el documento» ya no aparece el aviso erróneo de A4. SRA4 y SRA2 están ahora también en la lista.
+
+### JSON legibles
+- Los presets guardan a partir de ahora solo lo que se aparta del valor estándar. Un preset de folleto queda p. ej. en `{"handling": "booklet", "sheet": "A3"}`.
+- En el menú de la línea del preset está la casilla «Guardar todos los ajustes». Vale para todos los diálogos.
+- `passermark-cli tidy archivo.json` acorta presets y flujos existentes. Con `--print` solo muestra; con `--full` vuelve a escribir un preset completo.
+- Dos cosas tidy no acorta a propósito: pasos de flujo con `preset` (allí un valor estándar puede sobrescribir el preset adrede) y `layout` en el paso de impresión (los valores que faltan allí vienen del ajuste de administración, no del estándar del programa).
+
 ## 1.15.0
 ### Carpetas de entrada: passermark-cli serve (vigilante)
 - `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado. La asignación está en `watch.json` (se toma de `--config`, si no la propia, si no la de todos).
@@ -332,3 +357,4 @@
   con su propio lector con suma de control
 - Corregido: los datos variables usaban «una copia del documento entero por registro» sin elegir la
   distribución en lugar de «el siguiente registro en cada página»
+

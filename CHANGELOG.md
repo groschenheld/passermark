@@ -2,6 +2,31 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.1
+### Step & repeat: rotation
+- If the grid does not fit on the sheet in either orientation, the orientation with the smallest overhang wins now. Only after that "prefer unrotated" counts.
+- Portrait data is now rotated and placed exactly like landscape data.
+- Changed the same way in step 2 and for the case that an item does not even fit on the sheet on its own.
+- If everything fits, it stays unrotated. "Rotate items: 0°" and "90°" still force the rotation.
+
+### Paper sizes
+- The dimensions now always come from the printer first, in this order: `*PaperDimension`, else `<</PageSize[b h]>>` from the PPD, else from the name or display text (e.g. "8K 270 x 390 mm") – only then the table.
+- One table of formats (papersizes.py) instead of three. New in it: SRA4, SRA2, SRA0–1, the RA series, A7–A10, ISO-B, C0–C10. The existing values all stayed the same.
+- A comma instead of a dot in the PPD is recognised: the dimensions are still taken over, and it is reported.
+- When the printable area is missing, Passermark takes the margins the printer has on its other formats. For borderless formats it is the whole sheet.
+- The warning in the print dialog names the cause and prints the finished PPD lines with the correct pt values.
+- IPP and Windows printers fall back to name and table when the driver reports nothing or 0 × 0.
+- `caps --json` now shows where every format gets its dimensions from, and any PPD errors.
+
+### Save as PDF
+- With "Like the document" there is no wrong A4 warning any more. SRA4 and SRA2 are in the list now too.
+
+### Readable JSONs
+- Presets save only what differs from the default. A booklet preset is then e.g. only `{"handling": "booklet", "sheet": "A3"}`.
+- In the preset line's menu there is the checkmark "Save all settings". It applies to all dialogs.
+- `passermark-cli tidy file.json` shortens existing presets and workflows. `--print` only shows, `--full` writes a preset completely again.
+- Two things tidy deliberately does not shorten: workflow steps with `preset` (a default value there can override the preset on purpose) and `layout` in the print step (missing values there come from the administration setting, not from the program default).
+
 ## 1.15.0
 ### Drop folders: passermark-cli serve (watcher)
 - `passermark-cli serve` watches folders and sends every file through the assigned workflow. The assignment is in `watch.json` (taken from `--config`, else your own, else the one for everybody).
@@ -758,3 +783,4 @@ First version of Passermark, built on pdfToolkit 1.4.0 (all features adopted).
     page
 - Independently installable alongside pdfToolkit (own paths, admin helper, polkit rule, single instance)
 - Own icon; all texts in German, English, Hungarian, Spanish, French
+

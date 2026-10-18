@@ -2394,9 +2394,9 @@ class PrintDialog(QDialog):
             + join_txt
             + (f"\n{size_txt}" if size_txt else ""))
         warns = sorted({w for p in self.plans for w in p.warnings})
-        if not self.caps.sheet_info(self.values)[3]:
-            warns.insert(0, tr("⚠ Maße für Papierformat „{0}“ unbekannt – A4 angenommen. "
-                               "Bitte Treiber/PPD prüfen.").format(fmt_txt))
+        note = printers.size_note(self.caps, self.values, fmt_txt)    # „Wie Dokument“ (PDF): keine Warnung
+        if note:
+            warns.insert(0, note)
         self.lbl_warn.setText("\n".join(warns[:4]) + (" …" if len(warns) > 4 else ""))
 
     def _proof_params(self):

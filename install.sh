@@ -15,7 +15,9 @@ if command -v apt-get >/dev/null; then
         python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full
 fi
 
-install -d -m 755 "$LIB" /etc/passermark /etc/passermark/icc /etc/passermark/ablaeufe
+[ -d /etc/passermark/ablaeufe ] && [ ! -e /etc/passermark/workflows ] && mv /etc/passermark/ablaeufe /etc/passermark/workflows
+install -d -m 755 "$LIB" /etc/passermark /etc/passermark/icc /etc/passermark/workflows
+install -D -m 644 linux/passermark-watch.service /etc/systemd/system/passermark-watch.service
 rm -rf "$LIB/pdfdruck"
 cp -r pdfdruck "$LIB/"
 

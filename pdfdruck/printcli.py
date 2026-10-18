@@ -314,4 +314,7 @@ def caps_info(name: str) -> dict:
                              for p in finisher_presets(sess.cfg, name)],
         "driver_dialog": caps.backend == "win",
         "page_sizes_mm": {k: [round(w / layout.MM, 1), round(h / layout.MM, 1)] for k, (w, h) in caps.page_sizes.items()},
+        # woher die Maße stammen: driver | code (PPD-PostScript) | text (Name) | table; Fehler in der PPD je Format
+        "page_size_source": dict(caps.size_source),
+        "page_size_problems": {k: list(v) for k, v in caps.size_problems.items()},
     }

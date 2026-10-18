@@ -6,6 +6,23 @@
 """Übersetzung: English. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    '*ImageableArea mit Komma statt Punkt': '*ImageableArea with a comma instead of a decimal point',
+    '*PaperDimension mit Komma statt Punkt': '*PaperDimension with a comma instead of a decimal point',
+    '*{0} mit Komma statt Punkt – PostScript braucht „{1}“': '*{0} with a comma instead of a decimal point – PostScript needs “{1}”',
+    '--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht.': '--full only exists for presets – a workflow always contains only what differs.',
+    'Alle Einstellungen speichern (sonst nur Abweichungen)': 'Save all settings (otherwise only the differences)',
+    'Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. Gilt für alle Dialoge.': 'Off: presets contain only what differs from the default – short and readable. Applies to all dialogs.',
+    'Für die PPD:': 'For the PPD:',
+    'In der PPD fehlt z. B.: {0}': 'The PPD is missing e.g.: {0}',
+    'Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}': 'Size of “{0}” ({1:.1f} × {2:.1f} mm) not from the driver but from {3}',
+    'Preset mit allen Einstellungen schreiben': 'write the preset with all settings',
+    'Preset- oder Ablauf-Datei (JSON)': 'preset or workflow file (JSON)',
+    'Weder Preset noch Ablauf.': 'Neither a preset nor a workflow.',
+    'dem Namen': 'the name',
+    'der eingebauten Formattabelle': 'the built-in size table',
+    'in diese Datei schreiben (sonst wird die Datei selbst ersetzt)': 'write to this file (otherwise the file itself is replaced)',
+    'nur anzeigen, nichts schreiben': 'only show, write nothing',
+    '{0}: {1} → {2} Einträge': '{0}: {1} → {2} entries',
     'Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).': 'Page {0} does not exist – the document has {1} page(s).',
     '"paper": "auto" geht nur bei Seitenhandhabung Größe oder Broschüre – für Nutzen und Poster das Papier angeben.': '"paper": "auto" only works with page handling size or booklet – for step & repeat and posters, specify the paper.',
     'Ablauf-Ordner wählen': 'Choose workflow folder',

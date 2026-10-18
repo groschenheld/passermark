@@ -26,12 +26,11 @@ MM = 72.0 / 25.4
 
 TRIM_MODE = "__trim__"
 WHITEOUT_MODE = "__whiteout__"
-FORMATS = {  # Anzeige-Reihenfolge; mm, Hochformat
-    "A0": (841, 1189), "A1": (594, 841), "A2": (420, 594), "A3": (297, 420), "A4": (210, 297), "A5": (148, 210),
-    "A6": (105, 148), "A7": (74, 105), "B4": (250, 353), "B5": (176, 250), "C4": (229, 324), "C5": (162, 229),
-    "C6": (114, 162), "DL": (99, 210), "SRA3": (320, 450), "A3+": (329, 483), "Letter": (215.9, 279.4),
-    "Legal": (215.9, 355.6), "Tabloid": (279.4, 431.8), "Visitenkarte 85×55": (55, 85),
-    "Visitenkarte 90×50": (50, 90), "Quadrat 210": (210, 210), "Quadrat 148": (148, 148),
+from .papersizes import UI_FORMATS as _UI_FORMATS
+
+FORMATS = {  # Anzeige-Reihenfolge; mm, Hochformat – Normformate aus der gemeinsamen Tabelle (papersizes.py)
+    **_UI_FORMATS, "Visitenkarte 85×55": (55, 85), "Visitenkarte 90×50": (50, 90), "Quadrat 210": (210, 210),
+    "Quadrat 148": (148, 148),
 }
 
 

@@ -27,8 +27,9 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `workflows [--dirs] [--json]` | list the workflows in the workflow folders (`--dirs`: the folders) |
 | `inspect file.pdf [--check] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results |
 | `printers [--json]` | printers with status (`default`, `state`, `model`) |
-| `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes |
+| `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes (`page_size_source`: `driver` · `code` = from the PPD's PostScript · `text` = from the name · `table`; `page_size_problems`: PPD errors such as a decimal comma) |
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
+| `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
 Exit codes: `0` ok · `1` error while working / file not found · `2` wrong invocation or invalid workflow ·
@@ -267,6 +268,7 @@ passermark-cli printers                             # Drucker
 passermark-cli caps Canon-C3822i                    # Optionen, Fächer, Formate, Finisher eines Druckers
 passermark-cli serve --check                        # Drop-Ordner prüfen (watch.json)
 passermark-cli serve                                # Drop-Ordner überwachen (--once: einmal durch)
+passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abweichungen vom Standard kürzen
 ```
 
 Drucken im Ablauf: Schritt `{"job": "print", "settings": {"printer": "…", "paper": "A3", "tray": "Fach 2",

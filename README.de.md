@@ -1,4 +1,4 @@
-# Passermark 1.15.0
+# Passermark 1.15.1
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -129,3 +129,4 @@ Python-Pakete, dem LGPL-Hinweis zu Qt/PySide6 (Austausch der Qt-Bibliotheken) un
 Ghostscript-Hinweis mit den Quellcode-Links der mitgelieferten Version. Auf Anfrage wird der
 zugehörige Quellcode der mitgelieferten Komponenten auch direkt bereitgestellt – bitte ein Issue auf
 [GitHub](https://github.com/groschenheld/passermark/issues) anlegen.
+

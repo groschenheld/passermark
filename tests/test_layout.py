@@ -341,6 +341,44 @@ def test_booklet_spreads():
         assert ps and ps[0].placements and not ps[0].warnings
 
 
+def test_step_repeat_rotates_when_nothing_fits():
+    """Raster 2 × 4 A6 mit Überfüller + Schnittmarken auf A3 passt nie ganz: Hochformat-Daten werden gedreht und
+        landen genauso wie Querformat-Daten (früher blieben sie ungedreht und standen 20 cm über) – 1.15.1."""
+    import dataclasses
+    a3 = Sheet(297 * MM, 420 * MM, None)
+    s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=2, sr_rows=4, bleed_mm=3, crop_marks=True,
+                       use_margins=False)
+    res = {}
+    for name, (w, h) in (("hoch", (105, 148)), ("quer", (148, 105))):
+        sp = plan_step_repeat([(w * MM, h * MM)], [0], a3, s)[0]
+        xs = sorted({round(pl.x / MM) for pl in sp.placements})
+        ys = sorted({round(pl.y / MM) for pl in sp.placements})
+        res[name] = (sp.landscape, len(xs), len(ys), round(sp.placements[0].w / MM), round(sp.placements[0].h / MM))
+        assert sp.warnings                                   # passt nicht ganz – Warnung bleibt
+        assert sp.placements[0].rot == (90 if name == "hoch" else 0), (name, sp.label)
+    assert res["hoch"] == res["quer"] == (False, 2, 4, 148, 105), res
+    # „Nutzen drehen: 0°“ bleibt erzwungen ungedreht
+    sp = plan_step_repeat([(105 * MM, 148 * MM)], [0], a3, dataclasses.replace(s, sr_rotate="0"))[0]
+    assert sp.placements[0].rot == 0
+    # passt alles, bleibt es beim Grundsatz „ungedreht“ (auch wenn gedreht mehr Platz bliebe)
+    sp = plan_step_repeat([(105 * MM, 148 * MM)], [0], a3, dataclasses.replace(s, sr_cols=2, sr_rows=2))[0]
+    assert sp.placements[0].rot == 0 and not sp.warnings
+    # passt nicht einmal einmal: Lage mit dem kleinsten Überhang
+    sp = plan_step_repeat([(440 * MM, 300 * MM)], [0], a3, LayoutSettings(step_repeat=True, use_margins=False))[0]
+    assert len(sp.placements) == 1 and sp.landscape, sp.label
+
+
+def test_step2_rotates_when_nothing_fits():
+    """Schritt 2: Bogen 200 × 300 im Raster 1 × 2 auf 600 × 300 – ungedreht viel zu hoch, gedreht passt es fast."""
+    s = LayoutSettings(step_repeat=True, sr_pass2=True, sr2_w_mm=590, sr2_h_mm=300, sr2_cols=2, sr2_rows=1,
+                       sr_orientation="portrait")
+    plans = plan_step2((200 * MM, 300 * MM), 1, s)
+    assert plans[0].placements[0].rot == 0                # 2 × 1 ungedreht: 400 × 300 passt
+    s.sr2_cols, s.sr2_rows = 1, 2
+    plans = plan_step2((200 * MM, 300 * MM), 1, s)
+    assert plans[0].placements[0].rot == 90, plans[0].label   # 1 × 2: gedreht 300 × 400 statt 200 × 600
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)

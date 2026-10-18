@@ -1,4 +1,4 @@
-# Passermark 1.15.0
+# Passermark 1.15.1
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -129,3 +129,4 @@ Python-csomag licencfájljaival, a Qt/PySide6 LGPL-tájékoztatóval (a Qt-köny
 Ghostscript-tájékoztatóval, benne a mellékelt verzió forráskódjának hivatkozásaival. Kérésre a
 mellékelt összetevők forráskódját is biztosítjuk – kérjük, nyisson egy issue-t a
 [GitHubon](https://github.com/groschenheld/passermark/issues).
+

@@ -6,6 +6,23 @@
 """Übersetzung: Français. Schlüssel = deutscher Ausgangstext. Fehlende Einträge bleiben deutsch."""
 
 MESSAGES = {
+    '*ImageableArea mit Komma statt Punkt': '*ImageableArea avec une virgule au lieu d’un point',
+    '*PaperDimension mit Komma statt Punkt': '*PaperDimension avec une virgule au lieu d’un point',
+    '*{0} mit Komma statt Punkt – PostScript braucht „{1}“': '*{0} avec une virgule au lieu d’un point – PostScript attend « {1} »',
+    '--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht.': '--full n’existe que pour les préréglages – un flux ne contient toujours que ce qui diffère.',
+    'Alle Einstellungen speichern (sonst nur Abweichungen)': 'Enregistrer tous les réglages (sinon seulement les différences)',
+    'Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. Gilt für alle Dialoge.': 'Désactivé : les préréglages ne contiennent que ce qui diffère du standard – courts et lisibles. S’applique à toutes les boîtes de dialogue.',
+    'Für die PPD:': 'Pour le PPD :',
+    'In der PPD fehlt z. B.: {0}': 'Il manque au PPD p. ex. : {0}',
+    'Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}': 'Dimensions de « {0} » ({1:.1f} × {2:.1f} mm) non pas du pilote, mais {3}',
+    'Preset mit allen Einstellungen schreiben': 'écrire le préréglage avec tous les réglages',
+    'Preset- oder Ablauf-Datei (JSON)': 'fichier de préréglage ou de flux (JSON)',
+    'Weder Preset noch Ablauf.': 'Ni préréglage ni flux.',
+    'dem Namen': 'du nom',
+    'der eingebauten Formattabelle': 'de la table de formats intégrée',
+    'in diese Datei schreiben (sonst wird die Datei selbst ersetzt)': 'écrire dans ce fichier (sinon le fichier lui-même est remplacé)',
+    'nur anzeigen, nichts schreiben': 'afficher seulement, ne rien écrire',
+    '{0}: {1} → {2} Einträge': '{0} : {1} → {2} entrées',
     'Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).': 'La page {0} n’existe pas – le document compte {1} page(s).',
     '"paper": "auto" geht nur bei Seitenhandhabung Größe oder Broschüre – für Nutzen und Poster das Papier angeben.': '"paper": "auto" ne fonctionne qu’avec la gestion des pages Taille ou Brochure – pour les poses multiples et les posters, indiquez le papier.',
     'Ablauf-Ordner wählen': 'Choisir le dossier des flux de travail',

@@ -5,6 +5,31 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.15.1
+### Poses (step & repeat) : rotation
+- Si la grille ne tient pas entièrement sur la feuille dans aucune orientation, l'orientation avec le plus petit débord l'emporte désormais. Ce n'est qu'ensuite que « de préférence sans rotation » compte.
+- Les données en portrait sont désormais pivotées et placées exactement comme les données en paysage.
+- Modifié de la même façon à l'étape 2 et pour le cas où une pose ne tient même pas seule sur la feuille.
+- Si tout tient, cela reste « sans rotation ». « Pivoter les poses : 0° » ou « 90° » force toujours la rotation.
+
+### Formats de papier
+- Les dimensions viennent désormais toujours d'abord de l'imprimante, dans cet ordre : `*PaperDimension`, sinon `<</PageSize[b h]>>` de la PPD, sinon du nom ou du texte affiché (p. ex. « 8K 270 x 390 mm ») – et seulement ensuite de la table.
+- Une seule table de formats (papersizes.py) au lieu de trois. Nouveaux : SRA4, SRA2, SRA0–1, la série RA, A7–A10, ISO-B, C0–C10. Les valeurs existantes sont restées identiques.
+- Une virgule à la place d'un point dans la PPD est reconnue : les dimensions sont quand même reprises, et c'est signalé.
+- Quand la zone imprimable manque, Passermark prend les marges que l'imprimante a sur ses autres formats. Pour les formats sans marge, c'est la feuille entière.
+- L'avertissement dans le dialogue d'impression nomme la cause et donne les lignes PPD prêtes avec les valeurs pt correctes.
+- Les imprimantes IPP et Windows retombent sur le nom et la table quand le pilote ne dit rien ou signale 0 × 0.
+- `caps --json` montre désormais d'où chaque format tire ses dimensions, et les éventuelles erreurs de PPD.
+
+### Enregistrer en PDF
+- Avec « Comme le document », plus de faux avertissement A4. SRA4 et SRA2 figurent désormais aussi dans la liste.
+
+### JSON lisibles
+- Les préréglages n'enregistrent plus que ce qui s'écarte de la valeur par défaut. Un préréglage de brochure devient p. ex. seulement `{"handling": "booklet", "sheet": "A3"}`.
+- Dans le menu de la ligne de préréglage se trouve la case « Enregistrer tous les réglages ». Elle vaut pour tous les dialogues.
+- `passermark-cli tidy fichier.json` raccourcit les préréglages et enchaînements existants. Avec `--print` il ne fait que montrer ; avec `--full` il réécrit un préréglage complètement.
+- Deux choses que tidy ne raccourcit pas volontairement : les étapes d'enchaînement avec `preset` (une valeur par défaut peut y remplacer le préréglage exprès) et `layout` dans l'étape d'impression (les valeurs manquantes y viennent du réglage d'administration, pas de la valeur par défaut du programme).
+
 ## 1.15.0
 ### Dossiers de dépôt : passermark-cli serve (surveillance)
 - `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné. L'assignation est dans `watch.json` (prise depuis `--config`, sinon la vôtre, sinon celle pour tous).
@@ -337,3 +362,4 @@
   avec son propre lecteur avec somme de contrôle
 - Corrigé : les données variables prenaient « une copie du document entier par enregistrement » sans choisir
   la distribution au lieu de « l'enregistrement suivant sur chaque page »
+

@@ -2,6 +2,31 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.15.1
+### Nutzen (Step & Repeat): Drehung
+- Passt das Raster in keiner Lage ganz aufs Blatt, gewinnt jetzt die Lage mit dem kleinsten Überhang. Erst danach zählt „lieber ungedreht“.
+- Hochformat-Daten werden damit genauso platziert wie Querformat-Daten.
+- Gleich geändert in Schritt 2 und für den Fall, dass ein Nutzen nicht einmal einzeln aufs Blatt passt.
+- Passt alles, bleibt es bei „ungedreht“. „Nutzen drehen: 0°“ bzw. „90°“ erzwingt die Drehung weiterhin.
+
+### Papierformate
+- Die Maße kommen jetzt immer zuerst vom Drucker, in dieser Reihenfolge: `*PaperDimension`, sonst `<</PageSize[b h]>>` aus der PPD, sonst aus Name oder Anzeigetext (z. B. „8K 270 x 390 mm“) – erst dann die Tabelle.
+- Eine Formattabelle (papersizes.py) statt drei. Neu dabei: SRA4, SRA2, SRA0–1, RA-Reihe, A7–A10, ISO-B, C0–C10. Die bisherigen Werte sind gleich geblieben.
+- Komma statt Punkt in der PPD wird erkannt: Die Maße werden trotzdem übernommen, gemeldet wird es auch.
+- Fehlt der bedruckbare Bereich, nimmt Passermark die Ränder, die der Drucker bei seinen anderen Formaten hat. Bei randlosen Formaten ist es das ganze Blatt.
+- Die Warnung im Druckdialog nennt die Ursache und gibt die fertigen PPD-Zeilen mit richtigen pt-Werten aus.
+- IPP- und Windows-Drucker greifen auf Name und Tabelle zurück, wenn der Treiber nichts oder 0 × 0 meldet.
+- `caps --json` zeigt neu, woher jedes Format seine Maße hat, und eventuelle PPD-Fehler.
+
+### Als PDF speichern
+- Bei „Wie Dokument“ kommt keine falsche A4-Warnung mehr. SRA4 und SRA2 sind jetzt auch in der Liste.
+
+### Lesbare JSONs
+- Presets speichern nur noch, was vom Standard abweicht. Ein Broschüren-Preset ist dann z. B. nur `{"handling": "booklet", "sheet": "A3"}`.
+- Im Menü der Preset-Zeile gibt es den Haken „Alle Einstellungen speichern“. Der gilt für alle Dialoge.
+- `passermark-cli tidy datei.json` kürzt bestehende Presets und Abläufe. Mit `--print` zeigt es nur an, mit `--full` schreibt es ein Preset wieder komplett.
+- Zwei Sachen kürzt tidy bewusst nicht: Ablauf-Schritte mit `preset` (ein Standardwert dort kann das Preset absichtlich überschreiben) und `layout` im Druckschritt (fehlende Werte dort kommen aus der Admin-Einstellung, nicht vom Programmstandard).
+
 ## 1.15.0
 ### Drop-Ordner: passermark-cli serve (Watcher)
 - `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf. Die Zuordnung steht in `watch.json` (genommen wird `--config`, sonst die eigene, sonst die für alle).
@@ -751,3 +776,4 @@ Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen ü
   - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
 - Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
 - Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch
+

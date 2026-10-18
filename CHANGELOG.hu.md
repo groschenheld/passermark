@@ -5,6 +5,31 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.15.1
+### Haszonminták (step & repeat): forgatás
+- Ha a rács egyik tájolásban sem fér teljesen az ívre, most az a tájolás nyer, amelyiken a legkisebb a túllógás. Csak ezután számít az „inkább forgatás nélkül”.
+- Az álló tájolású adatok most forgatva kerülnek az ívre, pontosan úgy, mint a fekvő tájolásúak.
+- Ugyanígy változott a 2. lépésben, és abban az esetben is, amikor egy haszonminta önmagában sem fér az ívre.
+- Ha minden fér, marad a forgatás nélküli megoldás. A „Haszonminta forgatása: 0°” ill. „90°” továbbra is kényszeríti a forgatást.
+
+### Papírformátumok
+- A méretek most mindig először a nyomtatótól jönnek, ebben a sorrendben: `*PaperDimension`, különben `<</PageSize[b h]>>` a PPD-ből, különben a névből vagy a megjelenített szövegből (pl. „8K 270 x 390 mm”) – csak ezután a táblázatból.
+- Egy formátumtáblázat (papersizes.py) három helyett. Újak benne: SRA4, SRA2, SRA0–1, az RA-sorozat, A7–A10, ISO-B, C0–C10. A korábbi értékek változatlanok maradtak.
+- A PPD-ben pont helyett álló vessző is felismerésre kerül: a méretek így is átvehetők, és ez jelezve is van.
+- Ha a nyomtatható terület hiányzik, a Passermark azokat a margókat veszi, amiket a nyomtató a többi formátumánál használ. Margó nélküli formátumoknál a teljes ív.
+- A nyomtatási párbeszédablak figyelmeztetése megnevezi az okot, és kiírja a kész PPD-sorokat a helyes pt-értékekkel.
+- Az IPP- és a Windows-nyomtatók a névre és a táblázatra esnek vissza, ha az illesztőprogram nem mond semmit, vagy 0 × 0-t jelent.
+- A `caps --json` most megmutatja, melyik formátum honnan kapja a méreteit, és az esetleges PPD-hibákat.
+
+### Mentés PDF-ként
+- A „Mint a dokumentum” esetén nincs többé téves A4-es figyelmeztetés. Az SRA4 és az SRA2 mostantól szintén a listán van.
+
+### Jól olvasható JSON-ok
+- A presetek mostantól csak az alapértelkektől eltérőt mentik. Egy füzet-preset például csak ennyi: `{"handling": "booklet", "sheet": "A3"}`.
+- A preset-sor menüjében ott a „Minden beállítás mentése” jelölőnégyzet. Az összes párbeszédablakra érvényes.
+- A `passermark-cli tidy fájl.json` megrövidíti a meglévő preseteket és munkafolyamatokat. A `--print` csak mutatja; a `--full` újra teljesen kiír egy presetet.
+- Két dolgot a tidy tudatosan nem rövidít meg: a `preset`-et tartalmazó munkafolyamat-lépéseket (ott egy alapérték szándékosan felülírhatja a presetet) és a `layout`-ot a nyomtatási lépésben (a hiányzó értékek ott az adminisztrációs beállításból jönnek, nem a program alapértékéből).
+
 ## 1.15.0
 ### Bedobómappák: passermark-cli serve (figyelő)
 - A `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton. A hozzárendelés a `watch.json`-ban áll (a `--config`-ból, különben a sajátból, különben az összes felhasználóéból).
@@ -319,3 +344,4 @@
   Code 128 saját olvasóval, ellenőrző összeggel
 - Javítva: a változó adatok az elosztás kiválasztása nélkül „rekordonként a teljes dokumentum másolatát”
   használták a „minden lapon a következő rekord” helyett
+

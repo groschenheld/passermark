@@ -205,7 +205,7 @@ def test_examples_run():
                                                                                      "flatten_transparency"))
         if needs_gs and not gs:
             continue
-        quiet = ["--quiet"] if (args[0] not in API_NO_INPUT + ("inspect",) or args[0] in QUIET_OK) else []
+        quiet = ["--quiet"] if (args[0] not in API_NO_INPUT + ("inspect", "tidy") or args[0] in QUIET_OK) else []
         if args[0] in QUIET_OK and "--json" in args:
             quiet = []
         r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args, *quiet], cwd=tmp, env=env,
