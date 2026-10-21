@@ -57,6 +57,8 @@ BUILTIN = {
     "office_converter": "auto",     # auto | libreoffice | onlyoffice | eurooffice
     "language": "",                 # default language for all users ("" = system language)
     "workflow_dirs": [],            # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
+    # Druckprotokoll: force = für alle an, dir = gemeinsamer Ordner ("" = je Benutzer), keep_days 0 = nie löschen
+    "print_log": {"force": False, "dir": "", "keep_days": 0},
 }
 
 

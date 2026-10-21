@@ -2487,22 +2487,31 @@ class PrintDialog(QDialog):
                 self.parent().ctl.open_paths([out], tab_of=self.parent())
             self.accept()
             return
+        try:                                  # Mehrfachnutzen mit Schritt 2: Papier = Zielformat (wie beim Speichern)
+            values = printjob.step2_values(self.caps, self.values, self._eff_settings())
+        except ValueError as e:
+            QMessageBox.warning(self, tr("Schritt 2"), str(e))
+            return
         skey = self.caps.roles.get("source")
         if getattr(self, "_auto_slot", None) and skey and self.values.get(skey) == self._auto_slot:
             weight = self.cmb_weight.currentData() if getattr(self, "cmb_weight", None) else 0
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            values, note, warn = printjob.resolve_tray(self.s, name, self.values, weight or 0, live=True)
+            values, note, warn = printjob.resolve_tray(self.s, name, values, weight or 0, live=True)
             QApplication.restoreOverrideCursor()
             if warn and values.get(skey) == self.values.get(skey) and "leer" in note:
                 if QMessageBox.question(self, tr("Fach leer"), note + tr("\n\nTrotzdem drucken?")) \
                         != QMessageBox.StandardButton.Yes:
                     return
+        pkey = self.caps.roles.get("pagesize")
+        if pkey and pkey in self.values:      # Blatt für Schritt 1 wie gewählt – das Zielformat setzt submit_document
+            values = dict(values, **{pkey: self.values[pkey]})
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             jid = printjob.submit_document(
                 self.doc, os.path.basename(self.path or "Dokument"), self.s, name, pages,
                 self._settings(), self.spn_copies.value(), self.chk_collate.isChecked(),
-                self.chk_reverse.isChecked(), values=values)
+                self.chk_reverse.isChecked(), values=values,
+                file=self.path if self.path and os.path.isfile(self.path) else None)
         except Exception as e:
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckfehler"), str(e))

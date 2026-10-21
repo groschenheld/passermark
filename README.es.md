@@ -1,4 +1,4 @@
-# Passermark 1.15.1
+# Passermark 1.16.0
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -27,7 +27,7 @@ Software libre (GPL-3.0-or-later).
 - **Imposición (Ausschießen):** ajustar/escalar, varias páginas por hoja, póster, step & repeat; folletos
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de
-  hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2).
+  hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2) – ahora también al imprimir directamente desde el diálogo de impresión.
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
   y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
@@ -38,7 +38,7 @@ Software libre (GPL-3.0-or-later).
   formato final y el sangrado.
 - **Preflight:** comprueba fuentes, capas y transparencias al abrir un documento; correcciones: incrustar o
   sustituir fuentes (fuentes libres métricamente compatibles o descarga desde fontsource.org), texto a
-  curvas, fijar/eliminar capas, aplanar transparencias.
+  curvas, fijar/eliminar capas, aplanar transparencias. Cada hallazgo nombra su sitio (p. ej. «página 2 – abajo a la derecha, 40 × 20 mm»); un clic salta hasta él y lo enmarca en rojo, con ◀ ▶ recorres los hallazgos.
 - **Edición:** seleccionar líneas de texto y capas con el ratón; cambiar texto, fuente y tamaño; mover,
   escalar, ocultar, eliminar o sustituir capas; deshacer.
 - Reglas y medición: reglas en mm al borde de la vista; clic en inicio y fin para medir (Mayús se alinea en
@@ -61,6 +61,8 @@ Software libre (GPL-3.0-or-later).
   barra de herramientas.
 - **Preajustes** para CutContour, CMYK/recorte, diseño de impresión y datos variables – compartidos con la
   línea de comandos.
+- **Registro de impresión:** por usuario en los ajustes, o impuesto por el administrador – un JSON por trabajo con los ajustes exactos, además de un `printlog.csv`; `passermark-cli reprint <log.json>` reimprime un trabajo en cualquier momento (con aviso si el original ha cambiado).
+- **Automatización:** flujos paso a paso con condiciones («if» en cada paso, bifurcaciones «choose»/«else», «fail»/«stop» con mensaje); `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado – `serve --init` crea una plantilla con un ejemplo.
 - Reparar/optimizar PDF, PDF/A, protección con contraseña (también al «Guardar como PDF» en el diálogo de
   impresión), fusionar archivos, seleccionar y copiar texto.
 - Idiomas: español, alemán, inglés, húngaro, francés.
@@ -104,6 +106,8 @@ anidados con punto (`--set detect.tolerance=40`). Ctrl+C interrumpe limpiamente 
 Códigos de retorno: 0 terminado, 1 error, 2 indicación incorrecta, 130 cancelado. `--json-progress` imprime
 el progreso y el resultado como líneas JSON. Las tareas grandes usan varios núcleos; limitar con la variable
 de entorno `PASSERMARK_WORKERS` (1 = sin paralelismo).
+
+`passermark-cli serve` vigila carpetas de entrada (`--init` crea una plantilla con un ejemplo); `passermark-cli reprint <log.json>` reimprime un trabajo desde el registro de impresión.
 
 Dónde: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` en la carpeta de instalación (opción de instalación: añadirlo al PATH).

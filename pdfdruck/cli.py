@@ -28,7 +28,9 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli printers [--json]                         (printers with status)
     passermark-cli caps <drucker> [--json]                   (driver options, trays, paper sizes, finishers)
     passermark-cli serve [--config watch.json] [--once] [--check] [--json]   (drop folders -> workflows)
+    passermark-cli serve --init [--system]                   (template watch.json, never overwrites)
     passermark-cli tidy datei.json [--full] [--out neu.json] [--print]   (preset/workflow: only what differs)
+    passermark-cli reprint protokoll.json [--in datei.pdf] [--dry-run]   (print a logged job again, exactly)
 
 Return value: 0 = ok, 1 = error, 2 = wrong invocation / invalid workflow, 130 = cancelled (Ctrl+C).
 """
@@ -319,7 +321,8 @@ def main(argv: list[str] | None = None) -> int:
 # --------------------------------------------------------------------------- #
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
-API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy")
+API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy",
+                "reprint")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -340,6 +343,12 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "workflows":
         p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
+    elif cmd == "reprint":
+        p.add_argument("log", help=tr("Druckprotokoll (JSON aus dem Protokoll-Ordner)"))
+        p.add_argument("--in", dest="inputs", action="append", default=[], metavar=tr("DATEI"),
+                       help=tr("andere Eingabedatei statt der protokollierten"))
+        p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur anzeigen, was gedruckt würde"))
+        p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "tidy":
         p.add_argument("file", help=tr("Preset- oder Ablauf-Datei (JSON)"))
         p.add_argument("--full", action="store_true", help=tr("Preset mit allen Einstellungen schreiben"))
@@ -349,6 +358,8 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--config", help=tr("Watcher-Einstellung (watch.json); ohne: eigene, dann die für alle"))
         p.add_argument("--once", action="store_true", help=tr("vorhandene Dateien verarbeiten und beenden"))
         p.add_argument("--check", action="store_true", help=tr("nur prüfen (Ordner und Abläufe), nichts verarbeiten"))
+        p.add_argument("--init", action="store_true", help=tr("Vorlage watch.json anlegen (überschreibt nie)"))
+        p.add_argument("--system", action="store_true", help=tr("mit --init: die für alle Benutzer (Administrator)"))
         p.add_argument("--quiet", action="store_true", help=tr("nur Fehler ausgeben"))
         p.add_argument("--log", metavar=tr("DATEI"), help=tr("Meldungen zusätzlich an diese Datei anhängen "
                                                             "(z. B. als Windows-Aufgabe ohne Konsole)"))
@@ -381,8 +392,17 @@ def tidy_data(data: dict, full: bool = False) -> dict:
         raise ValueError(tr("Weder Preset noch Ablauf."))
     if full:
         raise ValueError(tr("--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht."))
-    for st in data.get("steps") or []:
-        if not isinstance(st, dict) or "preset" in st or not isinstance(st.get("settings"), dict):
+    def flat(steps):                                  # auch Schritte in Verzweigungen („choose“)
+        for st in steps or []:
+            if isinstance(st, dict) and isinstance(st.get(workflow.CHOOSE), list):
+                for br in st[workflow.CHOOSE]:
+                    if isinstance(br, dict):
+                        yield from flat(br.get("steps") or br.get("else"))
+            else:
+                yield st
+    for st in flat(data.get("steps")):
+        if not isinstance(st, dict) or "preset" in st or not isinstance(st.get("settings"), dict) \
+                or st.get("job") in workflow.FLOW:
             continue
         cls = workflow.step_settings_class(st.get("job", ""))
         sett = core.compact_settings(cls, st["settings"])
@@ -434,6 +454,21 @@ def _serve(a, rep, fail) -> int:
     import time
     from . import core, watch, workflow
     from .l10n import tr
+    if a.init:
+        try:
+            path, new, made = watch.init_config(a.system)
+        except OSError as e:
+            return fail(workflow.E_FAILED, tr("Anlegen nicht möglich: {0}").format(e), EXIT_ERROR)
+        if a.json:
+            rep.emit(event="init", config=path, created=new, files=made)
+        elif new:
+            print(tr("Vorlage angelegt: {0}").format(path))
+            for m in made[1:]:
+                print("  + " + m)
+            print(tr("Anpassen, dann prüfen: passermark-cli serve --check"))
+        else:
+            print(tr("Gibt es schon – nichts geändert: {0}").format(path))
+        return EXIT_OK
     try:
         path = watch.find_config(a.config)
         cfg = watch.load_config(path)
@@ -563,8 +598,13 @@ def api_main(cmd: str, argv: list[str]) -> int:
         return exit_code
 
     if cmd == "version":
+        from . import conditions
         d = {"passermark": __version__, "api": workflow.API, "workflow_version": workflow.VERSION,
-             "jobs": workflow.step_jobs()}
+             "jobs": workflow.step_jobs(), "flow": [workflow.CHOOSE, *workflow.FLOW],
+             "conditions": {"facts": {k: {"type": t, "description": desc} for k, (t, desc) in
+                                      conditions.FACTS.items()},
+                            "operators": list(conditions.OPS), "logic": list(conditions.LOGIC),
+                            "variables": conditions.VAR_PREFIX + "NAME"}}
         print(json.dumps(d, ensure_ascii=False) if a.json else
               f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})")
         return EXIT_OK
@@ -654,10 +694,28 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if cmd == "tidy":
         return _tidy(a, rep, fail)
 
-    # check / run
+    # check / run / reprint
+    notes0 = []
     try:
-        a.workflow = workflow.find(a.workflow)
-        data = workflow.load(a.workflow)
+        if cmd == "reprint":                   # Druckprotokoll: der gespeicherte Ablauf, genau wie damals
+            from . import printlog
+            rec = printlog.load(a.log)
+            data = rec["workflow"]
+            a.workflow, a.output, a.var = os.path.abspath(a.log), None, []
+            if a.dry_run:
+                for st in data.get("steps") or []:
+                    if st.get("job") == workflow.PRINT:
+                        st.setdefault("settings", {})["dry_run"] = True
+            old = rec["job"].get("file")
+            if not a.inputs and old and rec["job"].get("file_sha256") and not rec["job"].get("files"):
+                if not os.path.isfile(old):
+                    raise FileNotFoundError(tr("Protokollierte Datei nicht mehr da: {0} – mit --in angeben.")
+                                            .format(old))
+                if printlog._sha256(old) != rec["job"]["file_sha256"]:
+                    notes0.append(tr("Die Datei wurde seit dem Druck verändert: {0}").format(old))
+        else:
+            a.workflow = workflow.find(a.workflow)
+            data = workflow.load(a.workflow)
         # Angaben auf der Kommandozeile gelten ab dem aktuellen Ordner, Pfade in der Datei ab deren Ordner
         ins = [os.path.abspath(x) for x in a.inputs] or None
         out = os.path.abspath(a.output) if a.output else None
@@ -672,15 +730,30 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "check":
         d = {"ok": True, "name": plan.name, "inputs": plan.inputs, "output": plan.output,
-             "steps": [{"job": st.job, "name": st.name, "settings": st.settings,
-                        "pages": None if st.pages is None else [p + 1 for p in st.pages]} for st in plan.steps]}
+             "steps": [st.to_dict() for st in plan.steps]}
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
         else:
             print(tr("Ablauf in Ordnung: {0} Schritt(e)").format(len(plan.steps)))
-            for i, st in enumerate(plan.steps, 1):
-                print(f"  {i}. {st.job}" + (f" – {st.name}" if st.name != st.job else ""))
-            print("  " + ", ".join(plan.inputs) + " → " + plan.output)
+
+            def show(steps, indent, num):
+                for i, st in enumerate(steps, 1):
+                    n = f"{num}{i}."
+                    if st.job == workflow.CHOOSE:
+                        print(f"{indent}{n} {tr('Verzweigung')}")
+                        for c, sub in st.branches or []:
+                            print(f"{indent}   " + (tr("wenn {0}").format(json.dumps(c, ensure_ascii=False))
+                                                    if c is not None else tr("sonst")))
+                            show(sub, indent + "      ", n)
+                        continue
+                    extra = f" – {st.name}" if st.name != st.job else ""
+                    if st.message:
+                        extra += f" „{st.message}“"
+                    if st.cond is not None:
+                        extra += "  " + tr("(nur wenn {0})").format(json.dumps(st.cond, ensure_ascii=False))
+                    print(f"{indent}{n} {st.job}{extra}")
+            show(plan.steps, "  ", "")
+            print("  " + ", ".join(plan.inputs) + " → " + (plan.output or tr("(nur drucken)")))
         return EXIT_OK
 
     stop = {"flag": False}
@@ -695,21 +768,35 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     def events(ev):
         if ev["event"] == "step":
-            cur.update(step=ev["step"], job=ev["job"])
+            cur.update(step=ev["step"], job=ev["job"], n=ev.get("steps") or cur["n"])
         if a.json:
             rep.emit(**ev)
             return
         if ev["event"] == "step":
             rep.finish_line()
             rep.last = ""
+        elif ev["event"] in ("step_skipped", "branch", "stopped") and not a.quiet:
+            rep.finish_line()
+            rep.last = ""
+            if ev["event"] == "step_skipped":
+                print("  " + tr("übersprungen: {0} ({1}) – Bedingung nicht erfüllt").format(ev["job"], ev["where"]))
+            elif ev["event"] == "branch":
+                print("  " + (tr("Verzweigung {0}: Zweig „sonst“").format(ev["where"]) if ev["branch"] == "else" else
+                              tr("Verzweigung {0}: Zweig {1}").format(ev["where"], ev["taken"] + 1)
+                              if ev["taken"] is not None else tr("Verzweigung {0}: kein Zweig passt").format(ev["where"])))
+            else:
+                print("  " + tr("Beendet: {0}").format(ev["message"]))
         elif ev["event"] == "progress":
             rep.progress(ev["done"], ev["total"], f"{cur['step']}/{cur['n']} {cur['job']}  {ev.get('text', '')}")
     if a.json:
         rep.emit(event="start", api=workflow.API, version=__version__, steps=len(plan.steps), output=plan.output)
     try:
-        r = workflow.run(plan, events, cancel=lambda: stop["flag"])
+        r = workflow.run(plan, events, cancel=lambda: stop["flag"], variables=_vars(a.var))
+        r["notes"] = notes0 + list(r.get("notes") or [])
     except (core.Cancelled, KeyboardInterrupt):
         return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED, step=cur["step"])
+    except workflow.Rejected as e:                              # „fail“-Schritt
+        return fail(workflow.E_REJECTED, str(e), EXIT_ERROR, step=cur["step"])
     except Exception as e:                                      # noqa: BLE001 – jede Ursache melden
         return fail(workflow.E_FAILED, str(e), EXIT_ERROR, step=cur["step"], job=cur["job"])
     rep.finish_line()

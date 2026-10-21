@@ -29,6 +29,8 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `printers [--json]` | printers with status (`default`, `state`, `model`) |
 | `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes (`page_size_source`: `driver` · `code` = from the PPD's PostScript · `text` = from the name · `table`; `page_size_problems`: PPD errors such as a decimal comma) |
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
+| `serve --init [--system]` | create a template watch.json plus an example workflow and drop folder – never overwrites |
+| `reprint log.json [--in FILE] [--dry-run] [--json]` | print a logged job again, exactly as logged (see *Print log*) |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
@@ -91,6 +93,39 @@ line (`--in`, output) are relative to the current folder.
 - Relative paths (input, output, preset files, `csv_path`) are relative to the workflow file.
 - Unknown keys and wrong types are errors (a typo must not silently fall back to a default). `check` lists all
   problems at once.
+
+## Conditions (`if`, `choose`, `fail`, `stop`)
+
+Conditions are checked against the **current** PDF of the workflow (after the steps before):
+
+```json
+"steps": [
+  {"job": "shrink", "if": {"size_mb": {">": 20}}},
+  {"choose": [
+    {"if": {"format": "A5", "pages": {">=": 8}}, "steps": [{"job": "impose", "preset": "Booklet A4"}]},
+    {"if": {"format": "A4"},                      "steps": [{"job": "print", "settings": {"paper": "A4"}}]},
+    {"else": [{"job": "fail", "message": "Format ${format} (${width_mm} × ${height_mm} mm) is not handled here"}]}
+  ]}
+]
+```
+
+- `if` on any step: the step only runs when the condition holds. `choose`: the first branch whose `if` holds runs,
+  otherwise `else` (optional, last). Branches may contain any steps, also further `choose`.
+- `fail` ends the workflow with its `message` – error code `rejected`, exit code 1; the watcher puts the file into
+  `failed/` with the message in the `.log`. `stop` ends early without an error: the result so far is written.
+  In messages `${…}` takes variables and facts (`${format}`, `${pages}` …).
+- Facts: `pages`, `width_mm`, `height_mm`, `format` (standard size – the trim size if the page has one: A4, SRA3,
+  Letter …; `""` = none), `page_format`, `orientation`, `mixed_sizes`, `trim`, `bleed_mm`, `size_mb`,
+  `filename`, `output_intent`, `layers`, and from the document check `errors`, `warnings`, `infos`, `rgb`,
+  `spot_colors`, `spot_names`, `fonts_missing`, `transparency` (the check only runs when a condition needs it);
+  `var.NAME` for variables. `passermark-cli version --json` lists them (`conditions`).
+- A plain value means “equal”, otherwise `{"==" | "!=" | ">" | ">=" | "<" | "<=" | "in" | "matches": value}`
+  (`matches`: pattern with `*` `?`). Several entries in one condition must all hold; `all`, `any`, `not` combine.
+  Texts are compared case-insensitively.
+- `check` reports unknown facts, operators and wrong types. `run --json` reports each decision:
+  `{"event": "condition", "where": "steps[1].choose[0]", "result": true, "why": "format A5 == A5, pages 12 >= 8"}`,
+  `{"event": "branch", …, "taken": 0 | null, "branch": 0 | "else"}`, `{"event": "step_skipped", …}`,
+  `{"event": "stopped", "message": …}`; `done` contains `decisions` and `stopped`.
 
 ## Printing (`"job": "print"`)
 
@@ -177,6 +212,7 @@ Errors (all commands):
 | `not_found` | workflow or input file not found | 1 / 2 |
 | `invalid` | workflow file invalid – details in `problems` | 2 |
 | `failed` | a step failed – `step` and `job` say which | 1 |
+| `rejected` | a `fail` step was reached – `message` from the workflow | 1 |
 | `cancelled` | cancelled | 130 |
 
 `inspect --json`:
@@ -196,6 +232,22 @@ Errors (all commands):
 
 Sizes in mm in reading direction (page rotation applied), boxes in pt as stored in the PDF, pages 1-based.
 `trim_mm`/`bleed_mm` are `null` when the page defines no trim box (or it equals the page).
+
+## Print log
+
+When the print log is on (File → Settings, or forced for everybody in the administration: `print_log` with
+`force`, `dir` – e.g. a network share – and `keep_days`), every print job is written as JSON:
+`printlog/YYYY-MM/<time>_<file>.json` plus a line in `printlog/printlog.csv`. Default folder: Linux
+`~/.local/state/passermark/printlog`, Windows `%LOCALAPPDATA%\Passermark\printlog`.
+
+Each log holds time, user, computer, source (`dialog`, `cli`, `watch`, `rightclick`), file with SHA-256, pages,
+printer, paper, tray, every driver option, the exact options sent, page handling, colour profile, copies, job id and
+the result – plus a ready workflow that prints the job again exactly like this: `passermark-cli reprint log.json`
+(`--dry-run`, `--in other.pdf`). A print inside a workflow logs the original input and the steps before it; the
+reprint runs them again. A changed file is reported.
+
+With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
+and the paper is the target size.
 
 ## Drop folders (`serve`)
 
@@ -235,6 +287,9 @@ The settings are a JSON file – `--config`, otherwise the own `~/.config/passer
   (exit code 1 if a file failed – handy for cron) · `--log FILE`: also append the messages to a file ·
   `SIGTERM`/Ctrl+C: stops after the current step; the file goes back into its folder.
 
+`passermark-cli serve --init` creates a template `watch.json` (with `--system` the one for all users) with an
+example workflow and drop folder – it never overwrites an existing one. Keys starting with `_` are comments.
+
 `--json` events (one per line): `watch_start` (`folders`, `recovered`), `file` (`folder`, `file`, `workflow`), the
 workflow's `step` / `step_done` with `file`, `file_done` (`output`, `moved_to`, `pages`, `prints` [{`printer`,
 `job_id`, `dry_run`}], `notes`, `seconds`), `file_failed` (`moved_to`, `message`, `problems`), `stopped`
@@ -268,6 +323,8 @@ passermark-cli printers                             # Drucker
 passermark-cli caps Canon-C3822i                    # Optionen, Fächer, Formate, Finisher eines Druckers
 passermark-cli serve --check                        # Drop-Ordner prüfen (watch.json)
 passermark-cli serve                                # Drop-Ordner überwachen (--once: einmal durch)
+passermark-cli serve --init                         # Vorlage watch.json (überschreibt nie)
+passermark-cli reprint protokoll.json               # Auftrag aus dem Druckprotokoll genauso nochmal
 passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abweichungen vom Standard kürzen
 ```
 
@@ -280,6 +337,13 @@ Ablauf-Ordner (der erste mit dem Namen gewinnt): eigene unter `~/.config/passerm
 `%APPDATA%\Passermark\workflows\`, dann die vom Admin eingetragenen weiteren Ordner (z. B. Netzwerkfreigabe,
 Schreibrecht über die Ordnerrechte), dann für alle unter `/etc/passermark/workflows/` bzw.
 `%ProgramData%\Passermark\workflows\`. Alte Ordner `ablaeufe` (bis 1.14) werden umbenannt.
+
+Bedingungen im Ablauf: `"if"` an einem Schritt, `{"choose": [{"if": …, "steps": […]}, {"else": […]}]}`,
+Schritte `fail` (abbrechen mit Meldung, Fehlercode `rejected`) und `stop` (vorzeitig fertig). Prüfwerte und
+Vergleiche wie oben unter *Conditions*.
+
+Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
+`passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.
 
 Drop-Ordner: `passermark-cli serve` mit `watch.json` (Aufbau oben) – Ergebnisse nach `output`, Originale nach
 `processed`, Fehler mit `.log` nach `failed`. Als Dienst: `linux/passermark-watch.service`,

@@ -65,7 +65,7 @@ def test_schema_and_settings_check():
     except ImportError:
         jsonschema = None
     sch = workflow.schema()
-    assert set(sch["$defs"]) == {f"settings.{j}" for j in list(core.JOBS) + ["print"]}
+    assert set(sch["$defs"]) == {f"settings.{j}" for j in list(core.JOBS) + ["print"]} | {"step", "condition"}
     bad = {"passermark": "workflow", "version": 1, "steps": [{"job": "impose", "settings": {"sheett": "A4"}}]}
     if jsonschema is not None:
         jsonschema.Draft202012Validator.check_schema(sch)
@@ -265,6 +265,24 @@ def test_workflow_folders_by_name():
         ["user", "shared", "system"]
     r = cli("run", "Team", "t.pdf", "--in", "k.pdf")
     assert r.returncode == 0 and os.path.isfile(os.path.join(TMP, "t.pdf")), r.stdout + r.stderr
+
+
+def test_old_and_new_folder_both_read():
+    """„workflows“ schon von Hand angelegt UND noch ein alter „ablaeufe“: beide werden gelesen, der neue zuerst."""
+    home, sysd = os.path.join(TMP, "cfg2"), os.path.join(TMP, "etc2")
+    env = dict(ENV, XDG_CONFIG_HOME=home, PDFDRUCK_CONFIG_DIR=sysd)
+    new, old = os.path.join(home, "passermark", "workflows"), os.path.join(home, "passermark", "ablaeufe")
+    for d in (new, old, sysd):
+        os.makedirs(d, exist_ok=True)
+    wf = {"passermark": "workflow", "version": 1, "steps": [{"job": "impose", "settings": {"sheet": "A3"}}]}
+    json.dump(dict(wf, description="neu"), open(os.path.join(new, "Gleich.json"), "w"))
+    json.dump(dict(wf, description="alt"), open(os.path.join(old, "Gleich.json"), "w"))
+    json.dump(dict(wf, description="nur alt"), open(os.path.join(old, "Alt.json"), "w"))
+    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "workflows", "--json"], capture_output=True, text=True,
+                       env=env, cwd=TMP, timeout=300)
+    d = {w["name"]: w for w in json.loads(r.stdout)}
+    assert d["Gleich"]["description"] == "neu" and d["Alt"]["description"] == "nur alt", d
+    assert os.path.isdir(old)                       # nichts umbenannt oder überschrieben
 
 
 if __name__ == "__main__":

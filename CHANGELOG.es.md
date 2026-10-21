@@ -5,6 +5,32 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.16.0
+
+### Flujos: condiciones
+- **«if» en cada paso:** un paso solo se ejecuta si se cumple su condición.
+- **Bifurcaciones:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` ejecuta exactamente la rama cuya condición es verdadera.
+- **«fail» y «stop»:** fail rechaza el archivo (código de salida 1, código de error `rejected`), stop termina el flujo sin error. Ambos pueden llevar un mensaje, con `${pages}`, `${format}` etc.
+- `check` señala los errores de escritura en una condición, con la posición exacta.
+- Se puede comprobar: número de páginas, formato, medidas, sangrado, tamaño del archivo, nombre del archivo, errores y avisos del preflight, RGB, colores directos, fuentes que faltan, transparencia, capas y `var.NAME`.
+
+### serve: --init y archivos rechazados
+- `passermark-cli serve --init` (o `--init --system`, para todos) crea una plantilla `watch.json`, un flujo de ejemplo y la carpeta `hotfolder/beispiel`. Nunca se sobrescribe nada existente.
+- El vigilante lleva los archivos rechazados por una condición a `failed/`, junto con el registro.
+- El script de instalación de Linux y el instalador de Windows ejecutan una vez `serve --init --system` después de instalar, si todavía no hay nada.
+
+### Nutzen (step & repeat): paso 2 al imprimir directamente
+- El segundo montaje (paso 2) ahora también se aplica al imprimir directamente desde el diálogo de impresión – no solo con `passermark-cli impose`. Nueve tarjetas de visita en medio SRA3, montadas 2×, llegan así también a un SRA3.
+
+### Preflight: hallazgos clicables
+- Cada hallazgo nombra su sitio con claridad («página 2 – abajo a la derecha, 40 × 20 mm»).
+- Un clic salta hasta él y lo enmarca en rojo; con ◀ ▶ recorres los hallazgos.
+
+### Registro de impresión
+- Se activa por usuario en los ajustes, o se impone como administrador (`print_log`: `force`, `dir`, `keep_days`).
+- Por trabajo se escribe un JSON con los ajustes exactos, además de un `printlog.csv`. Carpeta por defecto: `printlog`.
+- `passermark-cli reprint <log.json>` reimprime el trabajo. Si el original ha cambiado mientras tanto, aparece un aviso.
+
 ## 1.15.1
 ### Nutzen (step & repeat): giro
 - Si la rejilla no cabe entera en la hoja en ninguna orientación, gana ahora la orientación con el menor sobrante. Solo después cuenta «mejor sin girar».

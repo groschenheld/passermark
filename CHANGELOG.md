@@ -2,6 +2,32 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.16.0
+
+### Workflows: conditions
+- **"if" on every step:** a step only runs when its condition holds.
+- **Branches:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` runs exactly the branch whose condition is true.
+- **"fail" and "stop":** `fail` rejects the file (exit code 1, error code `rejected`), `stop` ends the workflow without an error. Both can give a message, with placeholders such as `${pages}` or `${format}`.
+- `check` reports typos in a condition, with the exact position.
+- Conditions can check: number of pages, format, dimensions, bleed, file size, file name, errors and warnings from the preflight, RGB, spot colours, missing fonts, transparency, layers and `var.NAME`.
+
+### serve: --init and rejected files
+- `passermark-cli serve --init` (or `--init --system`, for everybody) creates a template `watch.json`, an example workflow and the folder `hotfolder/beispiel`. Nothing that already exists is ever overwritten.
+- The watcher moves files rejected by a condition to `failed/`, together with the log.
+- The Linux install script and the Windows setup run `serve --init --system` once after installing, if nothing is there yet.
+
+### Step & repeat: step 2 when printing directly
+- The second mounting is now also applied when printing directly from the print dialog – not only with `passermark-cli impose`. Nine business cards on half SRA3, mounted twice, now arrive on SRA3 when printing directly too.
+
+### Preflight: clickable findings
+- Every finding names its position in plain words ("page 2 – bottom right, 40 × 20 mm").
+- A click jumps to the spot and frames it in red; ◀ ▶ walks through the findings.
+
+### Print log
+- Per user in the settings, or forced by the admin (`print_log`: `force`, `dir`, `keep_days`).
+- Every job writes a JSON with the exact settings, plus a `printlog.csv`. Default folder: `printlog`.
+- `passermark-cli reprint <log.json>` prints the job again. If the original has changed in the meantime, there is a warning.
+
 ## 1.15.1
 ### Step & repeat: rotation
 - If the grid does not fit on the sheet in either orientation, the orientation with the smallest overhang wins now. Only after that "prefer unrotated" counts.

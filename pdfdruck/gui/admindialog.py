@@ -141,6 +141,26 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
+        # Druckprotokoll für alle
+        pl = self.cfg.get("print_log") or {}
+        self.chk_plog = QCheckBox(tr("Jeden Druckauftrag protokollieren – für alle Benutzer"))
+        self.chk_plog.setChecked(bool(pl.get("force", False)))
+        f.addRow(tr("Druckprotokoll:"), self.chk_plog)
+        prow = QHBoxLayout()
+        self.ed_plog = QLineEdit(str(pl.get("dir", "") or ""))
+        self.ed_plog.setPlaceholderText(tr("leer = je Benutzer im eigenen Ordner"))
+        b_pl = QPushButton(tr("Wählen …"))
+        b_pl.clicked.connect(lambda: (lambda d: d and self.ed_plog.setText(os.path.normpath(d)))(
+            QFileDialog.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))))
+        prow.addWidget(self.ed_plog, 1)
+        prow.addWidget(b_pl)
+        f.addRow(tr("Protokoll-Ordner:"), prow)
+        self.spn_plkeep = QSpinBox()
+        self.spn_plkeep.setRange(0, 36500)
+        self.spn_plkeep.setSpecialValueText(tr("nie löschen"))
+        self.spn_plkeep.setSuffix(tr(" Tage"))
+        self.spn_plkeep.setValue(int(pl.get("keep_days", 0) or 0))
+        f.addRow(tr("Protokolle aufheben:"), self.spn_plkeep)
         lbl = QLabel(convert.describe_available() + tr(". Fällt ein Konverter aus, wird automatisch der nächste "
                      "verwendet. OnlyOffice/Euro-Office werden über ihren internen Konverter angesprochen."))
         lbl.setWordWrap(True)
@@ -231,6 +251,8 @@ class AdminDialog(QDialog):
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
         self.cfg["workflow_dirs"] = [self.lst_wfdirs.item(i).text() for i in range(self.lst_wfdirs.count())]
+        self.cfg["print_log"] = {"force": self.chk_plog.isChecked(), "dir": self.ed_plog.text().strip(),
+                                 "keep_days": self.spn_plkeep.value()}
         n = self.l_nup.currentData()
         L = dict(self.cfg["layout"])     # remaining fields (poster/booklet) preserved
         L.update({

@@ -5,6 +5,32 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.16.0
+
+### Enchaînements : conditions
+- **« if » à chaque étape :** une étape ne s'exécute que si sa condition est remplie.
+- **Embranchements :** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` exécute exactement la branche dont la condition est vraie.
+- **« fail » et « stop » :** fail rejette le fichier (code de sortie 1, code d'erreur `rejected`), stop termine l'enchaînement sans erreur. Les deux peuvent donner un message, avec `${pages}`, `${format}` etc.
+- `check` signale les fautes de frappe dans une condition, avec la position exacte.
+- Vérifiable : nombre de pages, format, dimensions, débord, taille du fichier, nom du fichier, erreurs et avertissements du prévol, RVB, tons directs, polices manquantes, transparence, calques et `var.NAME`.
+
+### serve : --init et fichiers rejetés
+- `passermark-cli serve --init` (ou `--init --system`, pour tous) crée un modèle `watch.json`, un enchaînement d'exemple et le dossier `hotfolder/beispiel`. Rien de ce qui existe déjà n'est jamais écrasé.
+- La surveillance dépose les fichiers rejetés par une condition dans `failed/`, avec le journal à côté.
+- Le script d'installation Linux et le programme d'installation Windows lancent une fois `serve --init --system` après l'installation, s'il n'y a encore rien.
+
+### Poses (step & repeat) : étape 2 à l'impression directe
+- Le second montage (étape 2) s'applique désormais aussi à l'impression directe depuis le dialogue d'impression – pas seulement avec `passermark-cli impose`. Neuf cartes de visite sur un demi-SRA3, montées deux fois, arrivent ainsi aussi sur un SRA3.
+
+### Prévol : constats cliquables
+- Chaque constat nomme sa position en toutes lettres (« page 2 – en bas à droite, 40 × 20 mm »).
+- Un clic y saute et encadre l'endroit en rouge ; ◀ ▶ fait défiler les constats.
+
+### Journal d'impression
+- À activer par utilisateur dans les réglages, ou à imposer par l'admin (`print_log` : `force`, `dir`, `keep_days`).
+- Chaque travail écrit un JSON avec les réglages exacts, plus un `printlog.csv`. Dossier par défaut : `printlog`.
+- `passermark-cli reprint <log.json>` réimprime le travail. Si l'original a changé entre-temps, un avertissement s'affiche.
+
 ## 1.15.1
 ### Poses (step & repeat) : rotation
 - Si la grille ne tient pas entièrement sur la feuille dans aucune orientation, l'orientation avec le plus petit débord l'emporte désormais. Ce n'est qu'ensuite que « de préférence sans rotation » compte.

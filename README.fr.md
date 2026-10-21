@@ -1,4 +1,4 @@
-# Passermark 1.15.1
+# Passermark 1.16.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -26,7 +26,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Imposition :** ajuster/mettre à l'échelle, N pages par feuille, poster, pas de répétition (step & repeat) ;
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
-  Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2).
+  Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2) – désormais aussi à l'impression directe depuis le dialogue d'impression.
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
@@ -37,7 +37,7 @@ Logiciel libre (GPL-3.0-or-later).
   perdu respectés.
 - **Prévol (preflight) :** vérifie polices, calques et transparences à l'ouverture ; corrections : intégrer
   ou remplacer des polices (polices libres métriquement compatibles ou téléchargement depuis fontsource.org),
-  texte en courbes, figer/supprimer des calques, aplatir la transparence.
+  texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats.
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et
   taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler.
 - Règles et mesure : règles en mm au bord de la vue ; cliquer début et fin pour mesurer (Maj s'aligne
@@ -60,6 +60,8 @@ Logiciel libre (GPL-3.0-or-later).
   Automatisation) avec leur propre barre d'outils.
 - **Préréglages** pour CutContour, CMYK/rognage, mise en page d'impression et données variables – partagés
   avec la ligne de commande.
+- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts, plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé).
+- **Automatisation :** enchaînements étape par étape avec conditions (« if » à chaque étape, embranchements « choose »/« else », « fail »/« stop » avec message) ; `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné – `serve --init` crée un modèle avec un exemple.
 - Réparer/optimiser des PDF, PDF/A, protection par mot de passe (aussi lors de « Enregistrer en PDF » dans le
   dialogue d'impression), fusionner des fichiers, sélectionner et copier du texte.
 - Langues : français, allemand, anglais, espagnol, hongrois.
@@ -104,6 +106,8 @@ imbriqués avec un point (`--set detect.tolerance=40`). Ctrl+C interrompt propre
 écrit). Codes de retour : 0 terminé, 1 erreur, 2 mauvaise indication, 130 interrompu. `--json-progress`
 affiche progression et résultat en lignes JSON. Les grandes tâches utilisent plusieurs cœurs ; limitation
 avec la variable d'environnement `PASSERMARK_WORKERS` (1 = pas de parallélisme).
+
+`passermark-cli serve` surveille les dossiers de dépôt (`--init` crée un modèle avec un exemple) ; `passermark-cli reprint <log.json>` réimprime un travail depuis le journal d'impression.
 
 Où : Linux `install.sh` → `passermark-cli` ; AppImage → `Passermark-*.AppImage --cli …` ;
 Windows → `passermark-cli.exe` dans le dossier d'installation (option d'installation : l'ajouter au PATH).

@@ -18,7 +18,7 @@ HIDDEN = ["win32print", "win32gui", "win32con", "win32event", "win32process", "p
           "PySide6.QtSvg", "PySide6.QtNetwork", "pillow_heif", "img2pdf", "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS,
           "pdfdruck.renderproc", "pdfdruck.gui.renderclient", "pdfdruck.editops", "pdfdruck.pagegeom",
           "pdfdruck.gui.stallwatch", "pdfdruck.fastipc", "pdfdruck.workflow", "pdfdruck.docinfo",
-          "pdfdruck.printcli", "pdfdruck.session", "pdfdruck.watch"]   # Render-/Analyse-Prozess (passermark-cli render-server), Ruckler-Protokoll
+          "pdfdruck.printcli", "pdfdruck.session", "pdfdruck.watch", "pdfdruck.conditions", "pdfdruck.printlog", "pdfdruck.papersizes"]   # Render-/Analyse-Prozess (passermark-cli render-server), Ruckler-Protokoll
 a = Analysis([os.path.join(SPECPATH, "launcher.py")], pathex=[root], binaries=binaries, datas=datas,
              hiddenimports=HIDDEN, excludes=["cups", "tkinter"], noarchive=False)
 pyz = PYZ(a.pure)

@@ -799,6 +799,38 @@ class PageView(QScrollArea):
         self._acc = 0.0
         self.pageChanged.emit(i)
 
+    def show_spot(self, i: int, box=None):
+        """Prüfung: zur Fundstelle springen und sie markieren (Rahmen um den Bereich, sonst um die Seite)."""
+        if not (0 <= i < len(self.pages)):
+            return
+        self.goto(i, force=True)
+        self.pf_mark = (i, tuple(box) if box else None)
+        w = self.pages[i]
+        if box:
+            try:
+                r = self._rect_widget(w, box[0], box[1], box[2], box[3])
+                vb, hb = self.verticalScrollBar(), self.horizontalScrollBar()
+                vh, vw = self.viewport().height(), self.viewport().width()
+                if r.height() < vh:                    # Fundstelle ins obere Drittel holen
+                    vb.setValue(int(w.y() + r.center().y() - vh / 3))
+                else:
+                    vb.setValue(int(w.y() + r.top() - 20))
+                if r.width() < vw:
+                    hb.setValue(int(w.x() + r.center().x() - vw / 2))
+            except Exception:
+                pass
+        for pw in self.pages:
+            pw.update()
+        if not hasattr(self, "_pf_mark_timer"):
+            self._pf_mark_timer = QTimer(self, singleShot=True, interval=6000, timeout=self._clear_spot)
+        self._pf_mark_timer.start()
+
+    def _clear_spot(self):
+        mk = getattr(self, "pf_mark", None)
+        self.pf_mark = None
+        if mk and 0 <= mk[0] < len(self.pages):
+            self.pages[mk[0]].update()
+
     def next_page(self):
         self.goto(self.current + 1)
 
@@ -1438,6 +1470,20 @@ class PageView(QScrollArea):
                 p.setPen(pen)
                 p.setBrush(fill)
                 p.drawRect(self._rect_widget(w, x0, y1, x1, y0))
+            mk = getattr(self, "pf_mark", None)
+            if mk and mk[0] == w.index:                # Fundstelle aus der Prüfung
+                col = QColor(theme.ERROR)
+                pen = QPen(col, 3)
+                fill = QColor(col)
+                fill.setAlpha(45)
+                p.setPen(pen)
+                p.setBrush(fill)
+                if mk[1]:
+                    x0, y0, x1, y1 = mk[1]
+                    p.drawRect(self._rect_widget(w, x0, y0, x1, y1).adjusted(-4, -4, 4, 4))
+                else:
+                    p.setBrush(Qt.BrushStyle.NoBrush)
+                    p.drawRect(QRectF(1.5, 1.5, w.width() - 3, w.height() - 3))
         except Exception:
             pass
 
@@ -2263,6 +2309,7 @@ class MainWindow(QMainWindow):
                 kind, s, suffix=suffix, title=title,
                 src_data=self.pf_panel.take_job_data() if kind == "shrink" else None))
         self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
+        self.pf_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
         self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
         self.pf_dock = QDockWidget(tr("Prüfung"), self)
         self.pf_dock.setWidget(self._dock_scroll(self.pf_panel))

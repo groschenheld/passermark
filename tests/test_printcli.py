@@ -237,6 +237,62 @@ def test_paper_auto():
         assert r["steps"][0]["info"]["paper"] == "A3" and any("ersten Seite" in n for n in r["notes"]), r
 
 
+def test_step2_printed_like_saved():
+    """Mehrfachnutzen mit Schritt 2 direkt drucken: beim Drucker kommen die Schritt-2-Bögen an, Papier =
+        Zielformat (früher nur die Schritt-1-Bögen auf dem Montageblatt) – 1.16."""
+    src = doc(1, (85, 55))
+    lay = {"step_repeat": True, "sr_mode": "grid", "sr_cols": 2, "sr_rows": 3, "sr_pass2": True,
+           "sr2_format": "A3", "sr2_w_mm": 297, "sr2_h_mm": 420}
+    from pdfdruck import layout as _L
+    seen, orig = [], _L.impose_step2
+
+    def spy(src_doc, sheet, plans1, s, **kw):            # Schritt 1 muss aufs Montageblatt A4 gehen
+        seen.append((round(sheet.width / MM), round(sheet.height / MM), len(plans1[0].placements)))
+        return orig(src_doc, sheet, plans1, s, **kw)
+    _L.impose_step2 = spy
+    try:
+        with FakePrinter() as fp:
+            info = printcli.print_pdf(src, printcli.PrintSettings(paper="A4", layout=lay))
+    finally:
+        _L.impose_step2 = orig
+    assert seen == [(210, 297, 6)], seen
+    with FakePrinter() as fp:
+        info = printcli.print_pdf(src, printcli.PrintSettings(paper="A4", layout=lay))
+        sent = fp.sent[-1]
+        assert sent["opts"]["PageSize"] == "A3" and info["paper"] == "A3", (sent["opts"]["PageSize"], info)
+        w, h = sent["size"]
+        assert sorted((round(w / MM), round(h / MM))) == [297, 420], (w / MM, h / MM)
+        assert info["sheet_mm"] in ([297.0, 420.0], [420.0, 297.0]) and sent["pages"] == 1
+        # Zielformat mit eigenen Maßen: passendes Format des Treibers (320 × 450 -> SRA3)
+        info = printcli.print_pdf(src, printcli.PrintSettings(paper="A4", layout=dict(
+            lay, sr2_format="custom", sr2_w_mm=320, sr2_h_mm=450)))
+        assert fp.sent[-1]["opts"]["PageSize"] == "SRA3"
+        try:                                                 # gibt es beim Drucker nicht -> klare Meldung
+            printcli.print_pdf(src, printcli.PrintSettings(paper="A4", layout=dict(
+                lay, sr2_format="custom", sr2_w_mm=500, sr2_h_mm=700)))
+            assert False
+        except ValueError as e:
+            assert "Schritt 2" in str(e) and "500 × 700" in str(e), e
+    # gedruckt == gespeichert: dieselben Bögen wie „Als PDF speichern“
+    import pypdfium2 as pdfium
+    from pdfdruck import layout, printjob
+    from pdfdruck.session import Session
+    from pdfdruck import config
+    with FakePrinter() as fp:
+        sess = Session(config.load())
+        L = layout.LayoutSettings.from_dict(dict(sess.layout.to_dict(), **lay))
+        d = pdfium.PdfDocument(src)
+        printjob.submit_document(d, "x", sess, "Canon", [0], L, values=dict(sess.values_for("Canon"), PageSize="A4"))
+        out = os.path.join(TMP, "gespeichert.pdf")
+        pc = printers.pdf_caps()
+        sess.caps[printers.PDF_TARGET] = pc
+        printjob.submit_document(d, "x", sess, printers.PDF_TARGET, [0], L,
+                                 values={"PageSize": "A4", "__out__": out})
+        saved = pdfium.PdfDocument(out)
+        assert len(saved) == fp.sent[-1]["pages"] and saved.get_page_size(0) == fp.sent[-1]["size"]
+        d.close()
+
+
 def test_cli_run_print_only():
     """passermark-cli run mit nur einem Druckschritt (keine Ausgabedatei): Meldung statt Absturz (1.14.2)."""
     import contextlib

@@ -5,6 +5,32 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.16.0
+
+### Munkafolyamatok: feltételek
+- **„if” minden lépésen:** egy lépés csak akkor fut le, ha a feltétele teljesül.
+- **Elágazások:** a `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` pontosan azt az ágat futtatja, amelynek feltétele igaz.
+- **„fail” és „stop”:** a fail elutasítja a fájlt (1-es kilépési kód, `rejected` hibakód), a stop hiba nélkül zárja le a munkafolyamatot. Mindkettő adhat üzenetet, `${pages}`, `${format}` stb. behelyettesítéssel.
+- A `check` elgépeléseket is jelez egy feltételben, a pontos hely megadásával.
+- Ellenőrizhető: lapszám, formátum, méretek, levágás, fájlméret, fájlnév, a preflight hibái és figyelmeztetései, RGB, direkt színek, hiányzó betűtípusok, átlátszóság, rétegek és `var.NAME`.
+
+### serve: --init és elutasított fájlok
+- A `passermark-cli serve --init` (vagy `--init --system`, mindenki számára) létrehoz egy `watch.json` sablont, egy példa munkafolyamatot és a `hotfolder/beispiel` mappát. A már meglévőket sosem írja felül.
+- A figyelő az elutasított fájlokat (fail feltétel) a naplóval együtt a `failed/` mappába teszi.
+- A linuxos telepítő és a Windows setup a telepítés után egyszer lefuttatja a `serve --init --system` parancsot, ha még nincs semmi.
+
+### Haszonminták (step & repeat): 2. lépés közvetlen nyomtatásnál
+- A második kezelés (2. lépés) most közvetlen nyomtatásnál, a nyomtatási párbeszédablakból is lefut – nem csak a `passermark-cli impose` parancsnál. A fél SRA3-ra rakott kilenc névjegy (2×) így is SRA3-ra kerül.
+
+### Preflight: kattintható leletek
+- Minden lelet szövegesen megnevezi a helyét („2. oldal – jobb alul, 40 × 20 mm”).
+- Egy kattintás odébb ugrik, és piros kerettel jelöli a helyet; a ◀ ▶ gombokkal végigmehetsz a leleteken.
+
+### Nyomtatási napló
+- Felhasználónként bekapcsolható a beállításokban, vagy adminként kikényszeríthető (`print_log`: `force`, `dir`, `keep_days`).
+- Minden munkához egy JSON íródik a pontos beállításokkal, mellé egy `printlog.csv`. Alapértelmezett mappa: `printlog`.
+- A `passermark-cli reprint <log.json>` újranyomtatja a munkát. Ha az eredeti időközben megváltozott, figyelmeztet.
+
 ## 1.15.1
 ### Haszonminták (step & repeat): forgatás
 - Ha a rács egyik tájolásban sem fér teljesen az ívre, most az a tájolás nyer, amelyiken a legkisebb a túllógás. Csak ezután számít az „inkább forgatás nélkül”.

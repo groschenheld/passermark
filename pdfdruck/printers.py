@@ -493,6 +493,22 @@ def fill_page_sizes(caps: "PrinterCaps", opt: "Option", dims: dict, areas: dict,
                 caps.imageable[v] = (l, b, w - r, h - t)
 
 
+def find_paper(caps: "PrinterCaps", w: float, h: float, tol: float = 2 * 72 / 25.4) -> str | None:
+    """Papierformat des Treibers für w × h pt (beide Lagen, Toleranz 2 mm) – ohne Randlos-/Sondervarianten
+        bevorzugt, sonst der kürzeste Name. None = keins."""
+    key = caps.roles.get("pagesize")
+    if not key or key not in caps.options:
+        return None
+    vals = {c.value for c in caps.options[key].choices}
+    hits = [v for v, (pw, ph) in caps.page_sizes.items() if v in vals and
+            ((abs(pw - w) <= tol and abs(ph - h) <= tol) or (abs(pw - h) <= tol and abs(ph - w) <= tol))]
+    if not hits:
+        return None
+    plain = [v for v in hits if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)
+             and not (v[:1] == "T" and v[1:] in hits)]
+    return sorted(plain or hits, key=lambda v: (len(v), v))[0]
+
+
 def size_note(caps: "PrinterCaps", values: dict, label: str = "") -> str:
     """Warnung für den Druckdialog, wenn die Maße des gewählten Papierformats fehlen, ungenau sind oder die PPD
         Fehler hat – mit den PPD-Zeilen, die es beheben (pt, Dezimalpunkt). "" = alles in Ordnung.

@@ -45,6 +45,7 @@ class PreflightPanel(QWidget):
     """Show the check result and repair. Signals: open result, jump to page, recheck."""
     result_ready = Signal(bytes, str, list)      # PDF-Bytes, Namenszusatz, Hinweise
     goto_page = Signal(int)
+    goto_spot = Signal(int, object)               # Seite (1-basiert), Bereich (x0, y0, x1, y1) pt oder None
     job_requested = Signal(str, object, str, str)  # Art, Einstellungen, Namenszusatz, Titel (eigener Prozess)
     recheck = Signal()
 
@@ -80,8 +81,24 @@ class PreflightPanel(QWidget):
         self.tree.setRootIsDecorated(False)
         self.tree.setWordWrap(True)
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.tree.itemDoubleClicked.connect(self._issue_clicked)
+        self.tree.setRootIsDecorated(True)
+        self.tree.itemClicked.connect(self._issue_clicked)
+        self.tree.currentItemChanged.connect(lambda cur, _prev: self._update_nav())
+        self.tree.setToolTip(tr("Klick: zur Fundstelle springen · ▸ aufklappen: alle Fundstellen"))
         lv.addWidget(self.tree, 1)
+        nav = QHBoxLayout()
+        self.btn_prev = QPushButton("◀")
+        self.btn_next = QPushButton("▶")
+        for b, d in ((self.btn_prev, -1), (self.btn_next, +1)):
+            b.setFixedWidth(36)
+            b.clicked.connect(lambda _c=False, d=d: self._step_spot(d))
+        self.lbl_nav = QLabel("")
+        self.lbl_nav.setStyleSheet(f"color: {theme.MUTED};")
+        nav.addWidget(self.btn_prev)
+        nav.addWidget(self.btn_next)
+        nav.addWidget(self.lbl_nav, 1)
+        lv.addLayout(nav)
+        self._update_nav()
         self.btn_fix_all = QPushButton(tr("Empfohlene Reparaturen …"))
         self.btn_fix_all.setToolTip(tr("Ebenen festschreiben (falls ausgeblendete vorhanden) und fehlende Schriften "
                                        "mit Ersatz einbetten – Ergebnis im neuen Fenster"))
@@ -217,12 +234,21 @@ class PreflightPanel(QWidget):
         col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED}
         self.tree.clear()
         for i in rep.issues:
+            spots = list(getattr(i, "spots", None) or [preflight.Spot(p) for p in i.pages])
             it = QTreeWidgetItem([tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT[i.category]), i.message,
                                   preflight._pages_str(i.pages)])
             it.setForeground(0, QBrush(QColor(col[i.severity])))
-            it.setData(0, Qt.ItemDataRole.UserRole, i.pages[0] if i.pages else 0)
+            it.setData(0, Qt.ItemDataRole.UserRole, spots)
+            it.setData(1, Qt.ItemDataRole.UserRole, 0)            # aktuelle Fundstelle (für ◀ ▶)
             it.setToolTip(1, i.message)
             self.tree.addTopLevelItem(it)
+            if len(spots) > 1 or (spots and (spots[0].box is not None or spots[0].label)):
+                for k, sp in enumerate(spots[:500]):
+                    ch = QTreeWidgetItem(["", preflight.where_text(rep, sp), str(sp.page)])
+                    ch.setData(0, Qt.ItemDataRole.UserRole, [sp])
+                    ch.setData(1, Qt.ItemDataRole.UserRole, k)
+                    ch.setToolTip(1, preflight.where_text(rep, sp))
+                    it.addChild(ch)
         self.tree.resizeColumnToContents(0)
         self.btn_hdr.setVisible(bool(getattr(rep, "hdr", None)))
         # Schriften
@@ -366,9 +392,53 @@ class PreflightPanel(QWidget):
 
     # ------------------------------------------------------------------ #
     def _issue_clicked(self, it, _col):
-        p = it.data(0, Qt.ItemDataRole.UserRole)
-        if p:
-            self.goto_page.emit(int(p))
+        """Befund: zur (aktuellen) Fundstelle springen; Fundstelle (Unterpunkt): genau dorthin."""
+        spots = it.data(0, Qt.ItemDataRole.UserRole) or []
+        if not spots:
+            return
+        parent = it.parent()
+        if parent is not None:                         # Unterpunkt: als aktuelle Fundstelle des Befunds merken
+            parent.setData(1, Qt.ItemDataRole.UserRole, int(it.data(1, Qt.ItemDataRole.UserRole) or 0))
+            self._go(spots[0])
+        else:
+            k = int(it.data(1, Qt.ItemDataRole.UserRole) or 0)
+            self._go(spots[min(k, len(spots) - 1)])
+        self._update_nav()
+
+    def _go(self, sp):
+        self.goto_spot.emit(int(sp.page), sp.box)
+
+    def _top(self):
+        it = self.tree.currentItem()
+        return it.parent() or it if it is not None else None
+
+    def _step_spot(self, d: int):
+        top = self._top()
+        if top is None:
+            return
+        spots = top.data(0, Qt.ItemDataRole.UserRole) or []
+        if not spots:
+            return
+        k = (int(top.data(1, Qt.ItemDataRole.UserRole) or 0) + d) % len(spots)
+        top.setData(1, Qt.ItemDataRole.UserRole, k)
+        if k < top.childCount():
+            self.tree.blockSignals(True)
+            self.tree.setCurrentItem(top.child(k))
+            self.tree.blockSignals(False)
+        self._go(spots[k])
+        self._update_nav()
+
+    def _update_nav(self):
+        top = self._top()
+        spots = (top.data(0, Qt.ItemDataRole.UserRole) or []) if top is not None else []
+        many = len(spots) > 1
+        self.btn_prev.setEnabled(many)
+        self.btn_next.setEnabled(many)
+        if not spots:
+            self.lbl_nav.setText(tr("Befund anklicken – springt zur Stelle"))
+        else:
+            k = int(top.data(1, Qt.ItemDataRole.UserRole) or 0)
+            self.lbl_nav.setText(tr("Fundstelle {0}/{1}").format(min(k, len(spots) - 1) + 1, len(spots)))
 
     def _layer_states(self):
         st = {}

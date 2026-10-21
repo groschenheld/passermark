@@ -1,4 +1,4 @@
-# Passermark 1.15.1
+# Passermark 1.16.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -25,7 +25,7 @@ szoftver (GPL-3.0-or-later).
 - **Kiosztás (Ausschießen):** igazítás/skálázás, több lap egy ívre, plakátfelosztás, haszonminták (Nutzen);
   füzetek tűzött kötésként, csoportos ívekként vagy egymásra helyezett ívekként (ragasztott kötés), bundzug
   ( creep) üres lapokkal, hajtási-, passer- és flapjelölésekkel és íváttekintéssel. Parancssorból is
-  (`passermark-cli impose`). A haszonminták másodszor is szabadon választott célformátumra helyezhetők (2. lépés).
+  (`passermark-cli impose`). A haszonminták másodszor is szabadon választott célformátumra helyezhetők (2. lépés) – most közvetlen nyomtatásnál, a nyomtatási párbeszédablakból is.
 - **Dokumentummanipuláció:** CMYK-átalakítás színelőnézettel, formátumra vágás, objektumok szétválasztása,
   **CutContour** vágóplotterekhez (kontúr, formák, túlnyúlás, belső vágások; formák méretezése és mozgatása
   fogantyúkkal). A vágás most már „szélek levágásával” (mm oldalonként, célformátum nélkül) és „fehér tér
@@ -35,7 +35,7 @@ szoftver (GPL-3.0-or-later).
   túlnyúlás figyelembe vételével.
 - **Preflight:** megnyitáskor ellenőrzi a betűket, a rétegeket és az átlátszóságot; javítások: betűk beágyazása
   vagy helyettesítése (szabad, metrikailag kompatibilis betűk vagy letöltés a fontsource.org-ról), szöveg
-  görbékké alakítása, rétegek rögzítése/eltávolítása, átlátszóság lapítása.
+  görbékké alakítása, rétegek rögzítése/eltávolítása, átlátszóság lapítása. Minden lelet megnevezi a helyét (pl. „2. oldal – jobb alul, 40 × 20 mm”); egy kattintás odébb ugrik, és piros kerettel jelöli, a ◀ ▶ gombokkal végigmehetsz a leleteken.
 - **Szerkesztés:** szövegsorok és rétegek kiválasztása egérrel; szöveg, betű és méret változtatása; rétegek
   mozgatása, méretezése, elrejtése, eltávolítása vagy cseréje; visszavonás.
 - Vonalzók és mérés: mm-vonalzók a nézet szélén; kezdő- és végpont kattintása a méréshez (a Shift
@@ -56,6 +56,8 @@ szoftver (GPL-3.0-or-later).
   Automatizálás) saját eszközsorral.
 - **Presetek** a CutContourhoz, CMYK/vágáshoz, nyomdai szerkezethez és változó adatokhoz – a parancssorral
   közösen.
+- **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal, mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott).
+- **Automatizálás:** lépésenkénti munkafolyamatok feltételekkel („if” minden lépésen, „choose”/„else” elágazások, „fail”/„stop” üzenettel); a `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton – a `serve --init` sablont hoz létre példával.
 - PDF-ek javítása/optimalizálása, PDF/A, jelszavas védelem (a nyomtatási párbeszédablak „Mentés PDF-ként”
   funkciójánál is), fájlok egyesítése, szöveg kijelölése és másolása.
 - Nyelvek: magyar, német, angol, spanyol, francia.
@@ -99,6 +101,8 @@ beállítások ponttal (`--set detect.tolerance=40`). A Ctrl+C tisztán megszak�
 Visszatérési értékek: 0 kész, 1 hiba, 2 hibás megadás, 130 megszakítva. A `--json-progress` a haladást és az
 eredményt JSON-sorokként írja ki. A nagy feladatok több magot használnak; korlátozás a `PASSERMARK_WORKERS`
 környezeti változóval (1 = nem párhuzamos).
+
+A `passermark-cli serve` figyeli a bedobómappákat (`--init` sablont hoz létre példával); a `passermark-cli reprint <log.json>` a nyomtatási naplóból nyomtat újra.
 
 Hol: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` a telepítési mappában (telepítési beállítás: felvétel a keresési útvonalba).

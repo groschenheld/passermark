@@ -61,6 +61,29 @@ def resolve_tray(session, printer: str, values: dict, weight: int = 0, live: boo
     return out, p.note, p.warn
 
 
+def step2_values(caps: printers.PrinterCaps, values: dict, settings: layout.LayoutSettings) -> dict:
+    """Mehrfachnutzen mit Schritt 2: Papier = Zielformat aus Schritt 2 (nicht das Montageblatt aus Schritt 1).
+        Das Format aus der Geräteliste, sonst das Format des Treibers mit diesen Maßen. Ohne Schritt 2 unverändert.
+        ValueError, wenn der Drucker das Zielformat nicht hat."""
+    if not layout.is_step2(settings) or caps.backend == "pdf":
+        return values
+    key = caps.roles.get("pagesize")
+    if not key or key not in caps.options:
+        return values
+    out = dict(values)
+    fmt = getattr(settings, "sr2_format", "") or ""
+    if fmt and fmt != "custom" and fmt in {c.value for c in caps.options[key].choices}:
+        out[key] = fmt
+        return out
+    w, h = settings.sr2_w_mm * layout.MM, settings.sr2_h_mm * layout.MM
+    v = printers.find_paper(caps, w, h)
+    if v is None:
+        raise ValueError(tr("Schritt 2: Zielformat {0:g} × {1:g} mm gibt es bei {2} nicht – bitte ein Format aus "
+                            "der Liste des Druckers wählen.").format(settings.sr2_w_mm, settings.sr2_h_mm, caps.name))
+    out[key] = v
+    return out
+
+
 def default_printer(session) -> str | None:
     if session.printer:
         return session.printer
@@ -73,8 +96,31 @@ def default_printer(session) -> str | None:
 
 def submit_document(doc, title: str, session, printer: str, pages: list[int],
                     settings: layout.LayoutSettings, copies: int = 1, collate: bool = True,
-                    reverse: bool = False, values: dict | None = None, manip=None) -> int:
-    """Impose, optional color conversion, assemble the options, send to CUPS."""
+                    reverse: bool = False, values: dict | None = None, manip=None, file: str | None = None) -> int:
+    """Impose, optional color conversion, assemble the options, send to CUPS.
+        values: Papier = Montageblatt (Schritt 1). Mit Schritt 2 wird das Papier hier aufs Zielformat gesetzt.
+        file: Quelldatei fürs Druckprotokoll (falls eingeschaltet)."""
+    from . import printlog
+    if printer == printers.PDF_TARGET or not printlog.enabled(session.cfg):
+        return _submit(doc, title, session, printer, pages, settings, copies, collate, reverse, values, manip, {})
+    caps = session.caps_for(printer)
+    vals = dict(values if values is not None else session.values_for(printer))
+    info = {}
+    try:
+        jid = _submit(doc, title, session, printer, pages, settings, copies, collate, reverse, values, manip, info)
+    except Exception as e:
+        printlog.write(printlog.build(caps, printer, file, title, pages, settings, info.get("values") or vals,
+                                      copies, collate, reverse, session.color_for(printer), None, error=str(e),
+                                      sheet_mm=info.get("sheet_mm")), session.cfg)
+        raise
+    rec = printlog.build(caps, printer, file, title, pages, settings, info.get("values") or vals, copies, collate,
+                         reverse, session.color_for(printer), jid, sheet_mm=info.get("sheet_mm"))
+    rec["job"]["sent"] = info.get("sent")
+    printlog.write(rec, session.cfg)
+    return jid
+
+
+def _submit(doc, title, session, printer, pages, settings, copies, collate, reverse, values, manip, info: dict) -> int:
     caps = session.caps_for(printer)
     if values is None:
         values = session.values_for(printer)
@@ -107,10 +153,21 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
         layout.mark_spread_duplex(plans, spread_from)
     if not plans:
         raise RuntimeError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
+    step2 = layout.is_step2(settings)
+    if step2:                            # Mehrfachnutzen mit Schritt 2: wie beim Speichern beide Schritte,
+        values = step2_values(caps, values, settings)          # Papier = Zielformat aus Schritt 2
+
+    def imposed():
+        if step2:
+            t = layout.step2_sheet(settings)
+            info["sheet_mm"] = [round(t.width / layout.MM, 1), round(t.height / layout.MM, 1)]
+            return layout.impose_step2(doc, sheet, plans, settings)
+        info["sheet_mm"] = [round(sheet.width / layout.MM, 1), round(sheet.height / layout.MM, 1)]
+        return layout.impose_with(doc, sheet, plans, settings)
 
     if caps.backend == "pdf":            # Save as PDF: unchanged, without a color profile
         try:
-            out = layout.impose_with(doc, sheet, plans, settings)
+            out = imposed()
             dst = values["__out__"]
             pw = values.get("__password__")
             if pw:                               # first unencrypted into the cache, then protected to the destination
@@ -139,7 +196,7 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
     tmp = tempfile.mkdtemp(prefix="pdfdruck-", dir=os.environ.get("XDG_RUNTIME_DIR") or None)
     try:
         job = os.path.join(tmp, "job.pdf")
-        out = layout.impose_with(doc, sheet, plans, settings)
+        out = imposed()
         out.save(job)
         out.close()
         job_values = dict(values)
@@ -148,6 +205,8 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
             if dc:
                 opts[dc[0]] = dc[1]
                 job_values[dc[0]] = dc[1]
+        info["values"] = job_values
+        info["sent"] = opts
         if prof:
             conv = os.path.join(tmp, "job-icc.pdf")
             colorconv.convert(job, conv, prof["file"], intent, bool(prof.get("bpc", True)))
@@ -191,8 +250,10 @@ def print_file(path: str, session, password: str | None = None) -> tuple[str, in
         pages = layout.select_pages(len(doc), "", session.subset, rev)
         vals, _note, _warn = resolve_tray(session, printer, session.values_for(printer),
                                           getattr(session, "weights", {}).get(printer, 0))
-        jid = submit_document(doc, os.path.basename(path), session, printer, pages, s,
-                              session.copies, session.collate, session.reverse, values=vals)
+        from . import printlog
+        with printlog.source("rightclick"):
+            jid = submit_document(doc, os.path.basename(path), session, printer, pages, s,
+                                  session.copies, session.collate, session.reverse, values=vals, file=path)
         return printer, jid
     finally:
         doc.close()

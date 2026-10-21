@@ -168,6 +168,32 @@ def test_cli_serve():
     assert r.returncode == 2 and json.loads(r.stdout)["code"] == "not_found"
 
 
+def test_init_never_overwrites():
+    """serve --init: Vorlage + Beispiel-Ablauf + Beispiel-Ordner, sofort lauffähig; zweiter Aufruf ändert nichts."""
+    home = os.path.join(TMP, "inithome")
+    os.makedirs(home)
+    env = dict(ENV, HOME=home, XDG_CONFIG_HOME=os.path.join(home, "cfg"), PDFDRUCK_CONFIG_DIR=os.path.join(home, "etc"))
+
+    def cli(*a):
+        return subprocess.run([sys.executable, "-m", "pdfdruck.cli", "serve", *a], capture_output=True, text=True,
+                              env=env, cwd=home, timeout=300)
+    r = cli("--init", "--json")
+    ev = json.loads(r.stdout)
+    assert r.returncode == 0 and ev["created"] and ev["config"].endswith(os.path.join("passermark", "watch.json")), ev
+    cfgp = ev["config"]
+    assert cli("--check").returncode == 0
+    open(cfgp, "a").write("\n")                             # eigene Änderung
+    before = open(cfgp).read()
+    r = cli("--init")
+    assert r.returncode == 0 and "nichts geändert" in r.stdout and open(cfgp).read() == before
+    pdf(os.path.join(home, "hotfolder", "beispiel", "x.pdf"))
+    r = cli("--once")
+    assert r.returncode == 0 and os.path.isfile(os.path.join(home, "hotfolder", "beispiel", "output", "x.pdf")), \
+        r.stdout + r.stderr
+    r = cli("--init", "--system")                            # für alle: eigener Ort, ebenfalls nie überschreiben
+    assert r.returncode == 0 and os.path.isfile(os.path.join(home, "etc", "watch.json"))
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

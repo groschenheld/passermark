@@ -2,6 +2,32 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.16.0
+
+### Abläufe: Bedingungen
+- **„if“ an jedem Schritt:** ein Schritt läuft nur, wenn seine Bedingung erfüllt ist.
+- **Verzweigungen:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` führt genau den Zweig aus, dessen Bedingung passt.
+- **„fail“ und „stop“:** fail lehnt die Datei ab (Exit-Code 1, Fehlercode `rejected`), stop beendet den Ablauf ohne Fehler. Beide können eine Meldung mitgeben, mit `${pages}`, `${format}` usw.
+- `check` meldet Tippfehler in einer Bedingung, mit genauer Stelle.
+- Prüfbar sind: Seitenzahl, Format, Maße, Anschnitt, Dateigröße, Dateiname, Fehler und Warnungen aus dem Preflight, RGB, Sonderfarben, fehlende Schriften, Transparenz, Ebenen und `var.NAME`.
+
+### serve: --init und abgelehnte Dateien
+- `passermark-cli serve --init` (oder `--init --system`, für alle) legt eine Vorlage `watch.json`, einen Beispiel-Ablauf und den Ordner `hotfolder/beispiel` an. Bestehendes wird nie überschrieben.
+- Der Watcher legt abgelehnte Dateien (Bedingung fail) samt Log nach `failed/`.
+- Das Linux-Installations-Skript und der Windows-Setup rufen nach der Installation einmal `serve --init --system` auf, wenn noch nichts da ist.
+
+### Nutzen (Step & Repeat): Schritt 2 beim Direktdruck
+- Die zweite Montage (Schritt 2) wird jetzt auch beim direkten Drucken aus dem Druckdialog angewendet – nicht nur bei `passermark-cli impose`. Neun Visitenkarten auf halbem SRA3, 2× davon, kommen so auch beim Direktdruck auf SRA3 an.
+
+### Preflight: Funde anklickbar
+- Jeder Fund nennt seine Stelle im Klartext („Seite 2 – unten rechts, 40 × 20 mm“).
+- Ein Klick springt hin und rahmt die Stelle rot ein; mit ◀ ▶ gehst du durch die Stellen.
+
+### Druckprotokoll
+- Einschalten pro Benutzer in den Einstellungen oder vom Admin erzwingen (`print_log`: `force`, `dir`, `keep_days`).
+- Pro Auftrag schreibt Passermark eine JSON mit den exakten Einstellungen, dazu eine `printlog.csv`. Standardordner: `printlog`.
+- `passermark-cli reprint <log.json>` druckt den Auftrag neu. Hat sich das Original inzwischen geändert, gibt es eine Warnung.
+
 ## 1.15.1
 ### Nutzen (Step & Repeat): Drehung
 - Passt das Raster in keiner Lage ganz aufs Blatt, gewinnt jetzt die Lage mit dem kleinsten Überhang. Erst danach zählt „lieber ungedreht“.

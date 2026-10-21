@@ -87,7 +87,7 @@ def validate(cfg, icc_dir: str, windows: bool = False):
         raise ValueError("Konfiguration muss ein Objekt sein")
     allowed = {"version", "default_printer", "layout", "printers", "color_profiles",
                "allow_user_profile_choice", "image_default_dpi", "office_converter", "language",
-               "workflow_dirs"}
+               "workflow_dirs", "print_log"}
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
@@ -99,6 +99,16 @@ def validate(cfg, icc_dir: str, windows: bool = False):
     if cfg.get("office_converter", "auto") not in CONVERTERS:
         raise ValueError("office_converter ungültig")
     check_dirs(cfg.get("workflow_dirs", []), windows)
+    pl = cfg.get("print_log", {})
+    if not isinstance(pl, dict) or set(pl) - {"force", "dir", "keep_days"}:
+        raise ValueError("print_log ungültig")
+    if not isinstance(pl.get("force", False), bool):
+        raise ValueError("print_log.force muss bool sein")
+    kd = pl.get("keep_days", 0)
+    if not isinstance(kd, int) or isinstance(kd, bool) or not 0 <= kd <= 36500:
+        raise ValueError("print_log.keep_days außerhalb 0–36500")
+    if pl.get("dir"):
+        check_dirs([pl["dir"]], windows)
     dp = cfg.get("default_printer", "")
     if dp and not _queue_ok(dp, windows):
         raise ValueError("default_printer ungültig")
