@@ -205,7 +205,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die neun Aufträge", H3))
+    s.append(P("Die zehn Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -217,6 +217,8 @@ def build():
         [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – jede Seite der nächste Datensatz"],
         [c("split"), "Seiten teilen: halbieren oder Raster, z. B. als Doppelseiten exportierte Broschüre in Einzelseiten"],
         [c("shrink"), "Dateigröße verkleinern: verlustfreie Maßnahmen einzeln schaltbar, optional Bilder herunterrechnen"],
+        [c("press"), "Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer einbetten, optional Paket mit "
+         "Profil und Bericht"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -365,6 +367,33 @@ def build():
                      "Das Profil gibt es kostenlos bei der ECI (eci.org). Pfad an deinen Speicherort anpassen.",
                      "passermark-cli manip druck.pdf druck-cmyk.pdf \\\n"
                      "    --set cmyk=true --set target=/pfad/ISOcoated_v2_eci.icc"))
+
+    # ------------------------------------------------------------------ press
+    s.append(P("press – Für die Druckerei ausgeben", H3))
+    s.append(P("Wie <b>Farbe → Für Druckerei ausgeben</b> im Programm: prüft die Datei gegen die Druckbedingung, wandelt "
+               "um, was nötig ist, bettet das Profil immer als Output Intent ein und prüft das Ergebnis. Enthält die "
+               "Datei RGB, muss " + c("rgb") + " gesetzt sein – die Kommandozeile fragt nicht, sie bricht ab."))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("target"), "", "Pfad zum CMYK-Profil der Druckbedingung (.icc), z. B. PSOcoated_v3.icc – Pflicht"],
+        [c("cmyk_mode"), c("auto"), c("auto") + " (wie die Farbprüfung empfiehlt), " + c("rgb_only") + ", " + c("all")
+         + " (alles neu separieren), " + c("none") + " (nur Output Intent)"],
+        [c("rgb"), c("ask"), c("convert") + " (nach dem Zielprofil umwandeln), " + c("keep") + " (RGB mit Profil "
+         "weitergeben, RGB ohne Profil wird sRGB), " + c("ask") + " = Fehler, wenn RGB vorkommt"],
+        [c("source"), "", "Quellprofil für vorhandenes CMYK bei " + c("all") + " (leer = aus dem Output Intent der Datei)"],
+        [c("intent"), c("relative"), c("perceptual") + ", " + c("relative") + ", " + c("saturation") + ", "
+         + c("absolute")],
+        [c("tac_limit"), "0", "Richtwert Farbauftrag in % (0 = üblicher Wert der Druckbedingung)"],
+        [c("package"), c("false"), "zusätzlich " + c("&lt;ausgabe&gt;_Druckerei.zip") + ": PDF, verwendete Profile, "
+         "Bericht.txt"],
+    ], [32 * mm, 22 * mm, W - 54 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(example("Flyer für die Offsetdruckerei (gestrichenes Papier)",
+                     "RGB-Bilder werden umgewandelt, das Profil als Output Intent eingebettet, dazu das Paket für "
+                     "Rückfragen. Die Profile der Standard-Druckbedingungen holt man im Programm unter Farbe → "
+                     "Standardprofile holen.",
+                     "passermark-cli press flyer.pdf flyer-druck.pdf \\\n"
+                     "    --set target=/pfad/PSOcoated_v3.icc --set rgb=convert --set package=true"))
 
     # ------------------------------------------------------------------ repair
     s.append(P("repair – Reparieren, optimieren, PDF/A, Passwort", H3))
@@ -743,15 +772,19 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                + c("%LOCALAPPDATA%\\Passermark\\printlog") + " oder der vom Admin vorgegebene. Genau so "
                "nochmal drucken: " + c("passermark-cli reprint protokoll.json") + " (" + c("--dry-run")
                + " zum Testen, " + c("--in") + " für eine andere Datei)."))
-    s.append(P("Materialien und Softproof", H3))
-    s.append(P("Papiere werden im Programm registriert: <b>Verwaltung → Standardeinstellungen → Materialien</b> – "
-               "Name, Grammatur, Oberfläche, gemessenes Papierweiß (Messgerät über ArgyllCMS, Messdatei oder von "
-               "Hand) und je Drucker das passende Profil; Vorschläge nach Papierweiß (ΔE), Oberfläche und Drucker. "
-               "Im Druckdialog setzt das Material Profil und Intent, bei der CMYK-Umwandlung Zielprofil und Methode. "
-               "<b>Ansicht → Softproof</b> (" + c("Strg+Y") + ") zeigt die Seite in den Druckfarben des Materials "
-               "oder Profils – mit Papierweiß, Schwarz, Farbumfang- und Farbauftrag-Warnung. Messen und "
-               "Vorschläge gibt es nur im Programm; der Druck über die Kommandozeile nimmt das Profil des Druckers "
-               "aus der Verwaltung."))
+    s.append(P("Farbe: Papiere, Softproof, Farbprüfung", H3))
+    s.append(P("Alles zur Farbe steht im Programm im Menü <b>Farbe</b> (und im Arbeitsbereich Druckaufbereitung). "
+               "<b>Papiere und Messungen</b>: eigene Papiere ohne Adminrechte – Name, Grammatur, Oberfläche, "
+               "gemessenes Papierweiß (Messgerät über ArgyllCMS, Messdatei oder von Hand) und je Drucker das "
+               "passende Profil; Vorschläge nach Papierweiß (ΔE), Oberfläche und Drucker. Papiere für alle legt der "
+               "Admin unter <b>Verwaltung → Standardeinstellungen → Materialien</b> an. <b>Standardprofile "
+               "holen</b> lädt PSO Coated v3, PSO Uncoated v3, FOGRA39 … kostenlos von registry.color.org. "
+               "<b>Farbprüfung</b> (" + c("Strg+Umschalt+F") + ") prüft das Dokument gegen die Druckbedingung (RGB, "
+               "Output Intent, Farbauftrag, Sonderfarben, Papierweiß, Schriften) und schlägt vor, was zu tun ist – "
+               "mit Knopf zum Ausführen. <b>Softproof</b> (" + c("Strg+Y") + ") zeigt die Seite in den Druckfarben. "
+               "<b>Für Druckerei ausgeben</b> entspricht dem Auftrag " + c("press") + ". Messen und Vorschläge gibt "
+               "es nur im Programm; der Druck über die Kommandozeile nimmt das Profil des Druckers aus der "
+               "Verwaltung."))
 
     # ------------------------------------------------------------------ inspect
     s.append(P("7 · Dokumente untersuchen", H2))

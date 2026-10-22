@@ -1,4 +1,4 @@
-# Passermark 1.16.5
+# Passermark 1.17.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -59,6 +59,10 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Automatisierung:** Schritt-für-Schritt-Abläufe mit Bedingungen („if“ an jedem Schritt, „choose“/„else“-Verzweigungen, „fail“/„stop“ mit Meldung); `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf – `serve --init` legt eine Vorlage mit Beispiel an.
 - **Softproof:** das Druckergebnis in der Seitenansicht simulieren (Strg+Y) – als Druckbedingung ein Material, ein Profil aus der Verwaltung oder ein System-CMYK-Profil, mit Intent und BPC; Papierfarbe und schwarze Druckfarbe simulieren, Warnungen für Farben außerhalb des Farbumfangs und für Farbauftrag über einer Grenze in %.
 - **Materialien:** Papiere registrieren (Grammatur, Oberfläche, Render-Intent, Profil je Drucker); Papierweiß mit ArgyllCMS (spotread) messen, aus einer CGATS-Messdatei oder per Hand; Profilvorschläge nach ΔE2000. Materialien setzen Profil und Intent im Druckdialog und in der CMYK-Umwandlung, die Farbvorschau nimmt das gemessene Papierweiß.
+- **Farbprüfung:** im neuen Menü Farbe (Strg+Umschalt+F) – eine Seitenleiste wie der Preflight: Druckbedingung wählen, Passermark zeigt, was im Dokument steckt (RGB, Farbauftrag, Sonderfarben, Output Intent), und Befunde in Klartext, jeder mit Knopf zum Beheben; Fundstellen anklickbar.
+- **Für Druckerei ausgeben:** Assistent in vier Schritten – Druckbedingung wählen, nach Empfehlung umwandeln, prüfen, speichern; ICC immer als Output Intent, bei RGB immer Rückfrage; optional Paket aus PDF, Profilen und Bericht. Auch auf der Kommandozeile (`passermark-cli press`).
+- **Papiere und Messungen:** eigene Materialien ohne Adminrechte (`~/.config/passermark/materials.json`, sofort gespeichert); „Papier messen …“ legt das Papier an und startet die Messung, „Gerät suchen“ findet das X-Rite-Gerät über ArgyllCMS; die leere Materialliste im Admin-Dialog erklärt jetzt die ersten Schritte.
+- **Standardprofile:** PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL und SWOP mit „Standardprofile holen“ von registry.color.org in den eigenen ICC-Ordner laden (mitgeliefert werden sie aus Lizenzgründen nicht); Vorschläge zeigen auch noch nicht installierte.
 - PDFs reparieren/optimieren, PDF/A, Passwortschutz (auch beim „Als PDF speichern“ im Druckdialog), Dateien
   zusammenführen, Text markieren und kopieren.
 - Sprachen: Deutsch, Englisch, Ungarisch, Spanisch, Französisch.
@@ -97,7 +101,7 @@ passermark-cli presets                                # im Programm gespeicherte
 ```
 
 Aufträge: `cutcontour`, `separate`, `manip` (CMYK/Beschneiden), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`; dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
+`split`, `press` (Druckerei-Export); dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
 Einstellungen mit Punkt (`--set detect.tolerance=40`). Strg+C bricht sauber ab (keine halbe Datei).
 Rückgabewerte: 0 fertig, 1 Fehler, 2 falsche Angabe, 130 abgebrochen. `--json-progress` gibt Fortschritt und
 Ergebnis als JSON-Zeilen aus. Große Aufträge nutzen mehrere Rechenkerne; begrenzen mit der Umgebungsvariable

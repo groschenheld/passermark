@@ -120,13 +120,20 @@ def _desc(path):
 
 
 def system_profile_dirs() -> list[str]:
+    """Ordner mit ICC-Profilen: System, dazu der eigene Profilordner (usercolor.icc_dir – Standardprofile holen)."""
+    from . import usercolor
     if _platform.IS_WIN:
         win = os.environ.get("WINDIR", r"C:\Windows")
-        return [os.path.join(win, "System32", "spool", "drivers", "color")]
-    home = os.path.expanduser("~")
-    return ["/usr/share/color/icc", "/usr/local/share/color/icc", "/var/lib/color/icc",
-            os.path.join(home, ".local", "share", "icc"), os.path.join(home, ".color", "icc"),
-            "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles", "/usr/share/ghostscript"]
+        dirs = [os.path.join(win, "System32", "spool", "drivers", "color")]
+    else:
+        home = os.path.expanduser("~")
+        dirs = ["/usr/share/color/icc", "/usr/local/share/color/icc", "/var/lib/color/icc",
+                os.path.join(home, ".local", "share", "icc"), os.path.join(home, ".color", "icc"),
+                "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles", "/usr/share/ghostscript"]
+    own = usercolor.icc_dir()
+    if own not in dirs:
+        dirs.insert(0, own)
+    return dirs
 
 
 def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:

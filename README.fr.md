@@ -1,4 +1,4 @@
-# Passermark 1.16.5
+# Passermark 1.17.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -64,6 +64,10 @@ Logiciel libre (GPL-3.0-or-later).
 - **Automatisation :** enchaînements étape par étape avec conditions (« if » à chaque étape, embranchements « choose »/« else », « fail »/« stop » avec message) ; `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné – `serve --init` crée un modèle avec un exemple.
 - **Softproof :** simuler le résultat d'impression dans la vue (Ctrl+Y) – comme condition d'impression, une matière, un profil de l'administration ou un profil CMYK du système, avec le rendu (intent) et la BPC ; simuler la couleur du papier et l'encre noire d'impression, avertissements pour les couleurs hors gamme imprimable et pour la couverture d'encre au-delà d'une limite en %.
 - **Matières :** enregistrer des papiers (grammage, surface, rendu, profil par imprimante) ; blanc de papier mesuré avec ArgyllCMS (spotread), à partir d'un fichier de mesure CGATS ou à la main ; suggestions de profils classées selon le ΔE2000. Les matières définissent le profil et le rendu dans le dialogue d'impression et dans la conversion CMYK ; l'aperçu couleur prend le blanc de papier mesuré.
+- **Contrôle couleur :** dans le nouveau menu Couleur (Ctrl+Maj+F) – un panneau latéral comme le prévol : choisir la condition d'impression, Passermark montre ce que contient le document (RVB, couverture d'encre, tons directs, output intent) et des constats en clair, chacun avec un bouton pour corriger ; les constats sont cliquables.
+- **Export pour l'imprimeur :** un assistant en quatre étapes – choisir la condition d'impression, convertir selon la recommandation, contrôler, enregistrer ; l'ICC toujours intégré comme output intent, le RVB demande toujours ; paquet facultatif avec PDF, profils et rapport. Aussi en ligne de commande (`passermark-cli press`).
+- **Papiers et mesures :** des matières personnelles sans droits d'administration (`~/.config/passermark/materials.json`, enregistrées immédiatement) ; le bouton « Mesurer le papier … » crée le papier et lance la mesure, « Rechercher l'appareil » trouve l'appareil X-Rite via ArgyllCMS ; la liste des matières vide dans le dialogue d'admin explique maintenant les premières étapes.
+- **Profils standard :** charger PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL et SWOP depuis registry.color.org dans son propre dossier ICC avec « Obtenir les profils standard » (pas fournis pour des raisons de licence) ; les suggestions montrent aussi les profils pas encore installés.
 - Réparer/optimiser des PDF, PDF/A, protection par mot de passe (aussi lors de « Enregistrer en PDF » dans le
   dialogue d'impression), fusionner des fichiers, sélectionner et copier du texte.
 - Langues : français, allemand, anglais, espagnol, hongrois.
@@ -103,7 +107,7 @@ passermark-cli presets                                # préréglages enregistr�
 ```
 
 Tâches : `cutcontour`, `separate`, `manip` (CMYK/rognage), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split` ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
+`split`, `press` (export pour l'imprimeur) ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
 imbriqués avec un point (`--set detect.tolerance=40`). Ctrl+C interrompt proprement (pas de fichier à moitié
 écrit). Codes de retour : 0 terminé, 1 erreur, 2 mauvaise indication, 130 interrompu. `--json-progress`
 affiche progression et résultat en lignes JSON. Les grandes tâches utilisent plusieurs cœurs ; limitation

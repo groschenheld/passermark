@@ -2,6 +2,44 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.0
+
+### Colour menu
+- A new **Colour** main menu (between Document manipulation and View) brings everything colour together: colour check, soft proofing (Ctrl+Y, configured as before with Ctrl+Shift+Y), export for the press, CMYK conversion, papers and measurements, get standard profiles, and the short guide “Colour management in brief”.
+- The print preparation workspace has the same functions as buttons in the toolbar.
+- Soft proofing moves from the View menu to the Colour menu; Ctrl+Y stays.
+- If ArgyllCMS (spotread) for measuring is missing, the help menu shows a link with installation help.
+
+### Colour check (Ctrl+Shift+F)
+- A side panel like the preflight, only for paper: pick the print condition at the top (material or system profile); below, Passermark shows what is in the document – RGB images per page, the highest ink coverage per page, spot colours and the output intent. For the print condition you see the profile or material and the ΔE2000 to the paper white.
+- Findings are in plain text, each with its own button: convert, embed the output intent, re-separate, measure paper, get matching profiles, or document check. Findings are clickable like in the preflight (◀ ▶, red frame).
+- Checked: RGB present; ink coverage above the profile's limit; output intent missing or not matching the print condition; spot colours present (hint only).
+
+### Export for the press
+- A wizard in four steps: pick the print condition (material or system profile), convert as recommended, check (before and after), save.
+- The ICC profile is always embedded as output intent.
+- If the file contains RGB, Passermark always asks: convert, or pass it on with its profile? There is no preselection.
+- Optionally Passermark creates a package `…_Druckerei.zip`: PDF, the ICC profiles used and a report (print condition, intent, paper white, warnings).
+- The result is PDF/X-4-capable by Passermark's rules: RGB settled, output intent in place, ink coverage within the limit. The file is not flagged as PDF/X-4 and not validated.
+- Deliberately not included: a soft proof before/after comparison in the wizard – the result can be viewed with “Open in Passermark”.
+
+### CLI: press
+- `passermark-cli press in.pdf out.pdf` does the press export for workflows and watchers too: print condition, conversion as recommended, output intent always embedded.
+- If the file contains RGB and `rgb` is not set, the job aborts instead of guessing.
+- The CLI manual has its own section on press.
+
+### Papers and measurements
+- Own materials without admin rights: they live in `~/.config/passermark/materials.json` and are saved immediately. The materials from the administration stay; both show up everywhere.
+- The “Measure paper …” button creates the paper and starts the measurement right away. “Find device” finds the X-Rite device via ArgyllCMS (spotread); if ArgyllCMS is missing, installation help is offered (Linux package, Windows download).
+- Tooltips explain paper white, ΔE, intent and output intent.
+- In the admin dialog, the empty material list now explains the four steps (create the paper, measure the paper white, assign a profile, pick it), instead of being greyed out and saying nothing.
+- Still deliberately not included: creating own profiles from a test chart.
+
+### Standard profiles
+- “Get standard profiles” loads PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL and SWOP from registry.color.org into your own ICC folder.
+- They are not bundled: according to the registry, the ECI profiles may only be passed on with ECI's permission – using and embedding them is free.
+- The profile suggestions also show standard profiles that are not installed yet; “Apply” fetches and assigns them.
+
 ## 1.16.5
 
 ### Workflows: conditions

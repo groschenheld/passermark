@@ -5,6 +5,44 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.17.0
+
+### Menú Color
+- Un nuevo menú principal **Color** (entre Manipulación de documento y Ver) reúne todo lo relativo al color: comprobación de color, Softproof (Ctrl+Y, se configura como antes con Ctrl+Mayús+Y), exportar para la imprenta, conversión CMYK, papeles y mediciones, obtener perfiles estándar y la ayuda breve «La gestión del color en pocas palabras».
+- Lo mismo como botones en la barra de herramientas del espacio de trabajo de preparación de impresión.
+- El Softproof pasa del menú Ver al menú Color; Ctrl+Y se mantiene.
+- Si falta ArgyllCMS (spotread) para medir, el menú de ayuda muestra un enlace con ayuda de instalación.
+
+### Comprobación de color (Ctrl+Mayús+F)
+- Una barra lateral como el preflight, pero para el papel: arriba eliges la condición de impresión (material o perfil del sistema); debajo aparece lo que contiene el documento – imágenes RGB por página, la mayor cobertura de tinta por página, colores directos y el output intent presente. Para la condición de impresión ves el perfil o el material y el ΔE2000 respecto al blanco de papel.
+- Los hallazgos están en texto claro, cada uno con su botón: convertir, incrustar el output intent, separar de nuevo, medir papel, obtener perfiles adecuados o comprobación del documento. Los hallazgos se pueden pulsar como en el preflight (◀ ▶, marco rojo).
+- Se comprueba: presencia de RGB; cobertura de tinta por encima del límite del perfil; output intent ausente o que no corresponde a la condición de impresión; colores directos presentes (solo aviso).
+
+### Exportar para la imprenta
+- Un asistente en cuatro pasos: elegir la condición de impresión (material o perfil del sistema), convertir según la recomendación, comprobar (antes y después), guardar.
+- El perfil ICC se incrusta siempre como output intent.
+- Si el archivo contiene RGB, Passermark pregunta siempre: ¿convertir o entregarlo con su perfil? No hay preselección.
+- Opcionalmente Passermark crea un paquete `…_Druckerei.zip`: el PDF, los perfiles ICC utilizados y un informe (condición de impresión, intent, blanco de papel, avisos).
+- El resultado es apto para PDF/X-4 según las reglas de Passermark: RGB resuelto, output intent en su sitio, cobertura de tinta dentro del límite. El archivo no se marca como PDF/X-4 y no se valida.
+- Deliberadamente no incluido: una comparación de Softproof antes/después en el asistente – el resultado se ve con «Abrir en Passermark».
+
+### CLI: press
+- `passermark-cli press entrada.pdf salida.pdf` también hace la exportación para la imprenta en los flujos y los vigilantes: condición de impresión, conversión según la recomendación, output intent siempre incrustado.
+- Si el archivo contiene RGB y `rgb` no está fijado, el trabajo se interrumpe en lugar de adivinar.
+- El manual de la CLI tiene su propia sección sobre press.
+
+### Papeles y mediciones
+- Materiales propios sin derechos de administrador: viven en `~/.config/passermark/materials.json` y se guardan al instante. Los materiales de la administración se quedan; ambos aparecen en todas partes.
+- El botón «Medir papel …» crea el papel e inicia la medición enseguida. «Buscar dispositivo» encuentra el aparato X-Rite a través de ArgyllCMS (spotread); si falta ArgyllCMS, se ofrece ayuda de instalación (paquete de Linux, descarga de Windows).
+- Los tooltips explican el blanco de papel, el ΔE, la intención de renderizado (intent) y el output intent.
+- En el diálogo de administración, la lista de materiales vacía ahora explica los cuatro pasos (crear el papel, medir el blanco de papel, asignar un perfil, elegirlo), en vez de estar en gris sin decir nada.
+- Deliberadamente sigue sin incluirse: crear perfiles propios con una carta de pruebas.
+
+### Perfiles estándar
+- «Obtener perfiles estándar» carga PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL y SWOP desde registry.color.org en tu propia carpeta de ICC.
+- No se incluyen en el programa: según el registro, los perfiles ECI solo pueden transmitirse con permiso de la ECI – usarlos e incrustarlos es libre.
+- Las sugerencias de perfiles también muestran perfiles estándar aún no instalados; «Aplicar» los descarga y los asigna.
+
 ## 1.16.5
 
 ### Flujos: condiciones

@@ -14,8 +14,24 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFileDialog
                                QSpinBox, QVBoxLayout)
 
 from .. import colorlab
+from .. import platform as _platform
 from ..l10n import tr
 from . import theme
+
+
+def install_help() -> str:
+    """Hinweis, wenn ArgyllCMS fehlt (Rich Text mit Link)."""
+    link = '<a style="color:{0}" href="https://www.argyllcms.com/">argyllcms.com</a>'.format(theme.ACCENT)
+    if _platform.IS_WIN:
+        how = tr("Windows: ArgyllCMS von {0} laden, entpacken (z. B. nach C:\\Argyll) und den Gerätetreiber laut "
+                 "Anleitung installieren. Passermark findet spotread dort von selbst.").format(link)
+    else:
+        how = tr("Linux: Paket installieren – Debian/Ubuntu <tt>sudo apt install argyll</tt>, Fedora "
+                 "<tt>sudo dnf install argyllcms</tt>, Arch <tt>sudo pacman -S argyllcms</tt>. Danach das Messgerät "
+                 "neu anstecken. Mehr auf {0}.").format(link)
+    return (tr("<b>ArgyllCMS (spotread) nicht gefunden.</b> Damit spricht Passermark das Messgerät an (X-Rite i1Pro, "
+               "i1Studio, ColorMunki …).") + "<br>" + how + "<br>" +
+            tr("Bis dahin: Messdatei laden oder Werte eingeben."))
 
 
 class MeasureDialog(QDialog):
@@ -29,17 +45,27 @@ class MeasureDialog(QDialog):
         self.buf = ""
         v = QVBoxLayout(self)
 
+        intro = QLabel(tr("Papierweiß = die Farbe des unbedruckten Papiers (Lab-Wert). Daran erkennt Passermark, welches "
+                          "Profil zum Papier passt, und der Softproof zeigt das echte Papier. Mehrere Messungen an "
+                          "verschiedenen Stellen werden gemittelt."))
+        intro.setWordWrap(True)
+        intro.setStyleSheet(f"color: {theme.MUTED};")
+        v.addWidget(intro)
+
         # Messgerät
         box = QGroupBox(tr("Messgerät (ArgyllCMS spotread)"))
         bv = QVBoxLayout(box)
         self.exe = colorlab.spotread()
-        self.lbl_dev = QLabel(tr("Gefunden: {0}").format(self.exe) if self.exe else tr(
-            "ArgyllCMS (spotread) nicht gefunden. Linux: sudo apt install argyll – Windows: von argyllcms.com "
-            "entpacken (z. B. nach C:\\Argyll) und den Gerätetreiber laut Anleitung einrichten. Bis dahin: Messdatei "
-            "laden oder Werte eingeben."))
+        self.lbl_dev = QLabel(tr("Gefunden: {0}").format(self.exe) if self.exe else install_help())
         self.lbl_dev.setWordWrap(True)
+        self.lbl_dev.setOpenExternalLinks(True)
+        self.lbl_dev.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         bv.addWidget(self.lbl_dev)
         h = QHBoxLayout()
+        self.btn_find = QPushButton(tr("Gerät suchen"))
+        self.btn_find.setToolTip(tr("Fragt ArgyllCMS, welche Messgeräte angeschlossen sind, und wählt das erste"))
+        self.btn_find.clicked.connect(self._find)
+        h.addWidget(self.btn_find)
         h.addWidget(QLabel(tr("Anschluss:")))
         self.spn_port = QSpinBox()
         self.spn_port.setRange(1, 9)
@@ -50,11 +76,15 @@ class MeasureDialog(QDialog):
         h.addWidget(self.chk_nocal)
         h.addStretch()
         self.btn_measure = QPushButton(tr("Messen"))
+        self.btn_measure.setToolTip(tr("Startet spotread: zuerst kalibrieren (Gerät auf die Kalibrierstellung), dann "
+                                       "aufs Papier setzen – das Programm sagt jeweils, was zu tun ist"))
         self.btn_measure.clicked.connect(self._start)
         self.btn_next = QPushButton(tr("Weiter"))
+        self.btn_next.setToolTip(tr("Gerät liegt richtig – Kalibrierung bzw. Messung auslösen (wie die Taste am Gerät)"))
         self.btn_next.setEnabled(False)
         self.btn_next.clicked.connect(self._key)
         self.btn_stop = QPushButton(tr("Abbrechen"))
+        self.btn_stop.setToolTip(tr("spotread beenden"))
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self._stop)
         for b in (self.btn_measure, self.btn_next, self.btn_stop):
@@ -70,7 +100,7 @@ class MeasureDialog(QDialog):
         self.log.setMaximumHeight(110)
         self.log.setFont(theme.mono_font(9))
         bv.addWidget(self.log)
-        for w in (self.spn_port, self.chk_nocal, self.btn_measure):
+        for w in (self.spn_port, self.chk_nocal, self.btn_measure, self.btn_find):
             w.setEnabled(bool(self.exe))
         v.addWidget(box)
 
@@ -172,6 +202,30 @@ class MeasureDialog(QDialog):
         self._add(lab, f"{os.path.basename(path)}: {why}")
 
     # ---------------- spotread ---------------- #
+    def _find(self):
+        """spotread -? listet die Anschlüsse – angeschlossene Messgeräte stehen mit Namen darin."""
+        if self.proc is not None or not self.exe:
+            return
+        p = QProcess(self)
+        p.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        p.start(self.exe, ["-?"])
+        p.waitForFinished(8000)
+        text = bytes(p.readAllStandardOutput()).decode("utf-8", "replace")
+        if p.state() != QProcess.ProcessState.NotRunning:
+            p.kill()
+            p.waitForFinished(1000)
+        ports = colorlab.spotread_ports(text)
+        inst = [(n, d) for n, d in ports if colorlab.is_instrument(d)]
+        if inst:
+            self.spn_port.setValue(inst[0][0])
+            self.lbl_state.setText(tr("Messgerät gefunden: {0} (Anschluss {1}). Jetzt „Messen“.").format(
+                inst[0][1], inst[0][0]))
+        else:
+            self.lbl_state.setText(tr("Kein Messgerät erkannt. Angesteckt? Unter Windows braucht ArgyllCMS einen eigenen "
+                                      "Treiber (siehe argyllcms.com → Installation), unter Linux die udev-Regel aus dem "
+                                      "Paket argyll."))
+        self.log.appendPlainText("$ spotread -?\n" + "\n".join(f"{n} = {d}" for n, d in ports))
+
     def _start(self):
         if self.proc is not None:
             return

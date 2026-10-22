@@ -2101,9 +2101,10 @@ class MainWindow(QMainWindow):
         self.lbl_size.setFont(theme.mono_font(9.5))
         self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
+        self._build_color(dock)
         self._build_edit(dock)
         self._dock_widths = {}
-        for d in (dock, self.pf_dock, self.edit_dock):
+        for d in (dock, self.pf_dock, self.color_dock, self.edit_dock):
             d.visibilityChanged.connect(lambda vis, d=d: self._dock_vis(d, vis))
         self._build_workspaces(dock)
         self.lbl_measure = QLabel()
@@ -2131,7 +2132,8 @@ class MainWindow(QMainWindow):
         self.a_vdp_howto = self._act(tr("Variable Daten – Anleitung (PDF)"), self._open_vdp_howto, None, "book")
         self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
         tools = {"view": [(self.a_copy, tr("Text kopieren"))],
-                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_manip_cmyk, tr("CMYK")),
+                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_colorcheck, tr("Farbe")),
+                          (self.a_press, tr("Für Druckerei")), (self.a_manip_cmyk, tr("CMYK")),
                           (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
                           (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
                  "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
@@ -2315,6 +2317,140 @@ class MainWindow(QMainWindow):
             self._apply_proof(spec)
         else:
             self._apply_proof(None)
+
+    def _proof_for_choice(self, choice):
+        """Farbprüfung → Softproof: diese Druckbedingung im Softproof zeigen."""
+        from .softproofdialog import build_spec, load_saved, save
+        saved = dict(load_saved(), key=choice["key"])
+        save(saved)
+        self._proof_dlg = None                      # Auswahl neu einlesen
+        spec = build_spec(self.session.cfg, saved)
+        if spec:
+            self._apply_proof(spec)
+
+    # ---------------- Farbe ---------------- #
+    def _build_color(self, pages_dock):
+        from .colorpanel import ColorPanel
+        self.color_panel = ColorPanel(self)
+        self.color_panel.data_fn = lambda: self._doc_bytes() if self.doc is not None else None
+        self.color_panel.cfg_fn = lambda: self.session.cfg
+        self.color_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
+        self.color_panel.action_requested.connect(self._color_action)
+        self.color_panel.proof_requested.connect(self._proof_for_choice)
+        self.color_dock = QDockWidget(tr("Farbe"), self)
+        self.color_dock.setWidget(self._dock_scroll(self.color_panel))
+        self.color_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
+                                    | QDockWidget.DockWidgetFeature.DockWidgetMovable)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.color_dock)
+        self.tabifyDockWidget(pages_dock, self.color_dock)
+        self.color_dock.hide()
+
+    def color_check(self):
+        if self.doc is None:
+            return
+        self.color_panel.reload_choices()
+        self.color_dock.show()
+        self.color_dock.raise_()
+        self.color_panel.start()
+
+    def _color_refresh(self):
+        """Papiere/Profile geändert: Auswahl in Farbprüfung und Softproof neu einlesen."""
+        from .. import colorlab
+        colorlab._WHITE_CACHE.clear()
+        self._proof_dlg = None
+        if hasattr(self, "color_panel"):
+            self.color_panel.reload_choices()
+            if self.color_dock.isVisible() and self.color_panel.facts is not None:
+                self.color_panel.start()
+
+    def materials_dialog(self, select: str = "", measure: bool = False):
+        from .materialsdialog import MaterialsDialog
+        dlg = MaterialsDialog(self, self.session.cfg, select, measure)
+        dlg.changed.connect(self._color_refresh)
+        dlg.exec()
+
+    def standard_profiles(self, surface: str = ""):
+        from .materialsdialog import StandardProfilesDialog
+        dlg = StandardProfilesDialog(self, surface)
+        dlg.exec()
+        if dlg.fetched:
+            self._color_refresh()
+
+    def _color_help(self):
+        from .materialsdialog import show_help
+        show_help(self)
+
+    def press_dialog(self):
+        if self.doc is None:
+            return
+        from .colorpanel import load_choice
+        from .pressdialog import PressDialog
+        ch = load_choice()
+        base = os.path.splitext(self.display_name or tr("Dokument"))[0]
+        folder = os.path.dirname(self.path) if self.path else (getattr(self, "_suggest_dir", "") or os.path.expanduser("~"))
+        dlg = PressDialog(self, self._doc_bytes, self.session.cfg, os.path.join(folder, base + tr("_Druck") + ".pdf"),
+                          ch.get("key", ""), ch.get("intent", ""), int(ch.get("tac", 0) or 0))
+        dlg.open_result.connect(lambda path: self.ctl.open_paths([path], tab_of=self))
+        dlg.exec()
+
+    def _ask_rgb(self, target_name: str) -> str:
+        """RGB immer fragen: "convert" | "keep" | "" (abgebrochen)."""
+        box = QMessageBox(QMessageBox.Icon.Question, tr("RGB im Dokument"), tr(
+            "Die Datei enthält RGB. Nach „{0}“ umwandeln oder RGB mit Profil weitergeben (die Druckerei rechnet "
+            "um)?").format(target_name), parent=self)
+        b_conv = box.addButton(tr("Umwandeln"), QMessageBox.ButtonRole.AcceptRole)
+        b_keep = box.addButton(tr("Mit Profil weitergeben"), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        return "convert" if box.clickedButton() is b_conv else "keep" if box.clickedButton() is b_keep else ""
+
+    def _color_action(self, kind: str, p: dict):
+        from .. import colorlab, core, pressexport
+        p = p or {}
+        if kind == "press":
+            self.press_dialog()
+        elif kind in ("convert", "embed_oi"):
+            if self.doc is None or not p.get("target"):
+                return
+            rgb = "convert"
+            if p.get("has_rgb"):
+                rgb = self._ask_rgb(colorlab.profile_desc(p["target"]))
+                if not rgb:
+                    return
+            s = pressexport.PressSettings(target=p["target"], intent=p.get("intent") or "relative",
+                                          cmyk_mode=p.get("cmyk_mode") or "rgb_only" if kind == "convert" else "none",
+                                          source=p.get("source") or "", rgb=rgb,
+                                          tac_limit=int(p.get("tac_limit") or 0), material=p.get("material") or "")
+            self.start_job("press", core.settings_to_dict(s), suffix=tr("_Druck"), title=tr("Farbe"))
+        elif kind == "preflight":
+            self.pf_dock.show()
+            self.pf_dock.raise_()
+            self._pf_start(force=True)
+        elif kind == "measure":
+            mid = p.get("material") or ""
+            m = colorlab.material_by_id(self.session.cfg, mid) if mid else None
+            if m is not None and m.get("scope") == "admin":
+                if QMessageBox.question(self, tr("Papier messen"), tr(
+                        "„{0}“ ist ein Papier der Verwaltung (für alle). Als eigenes Papier übernehmen und messen? "
+                        "Ändern für alle geht unter Verwaltung → Standardeinstellungen → Materialien.").format(
+                            m.get("name") or mid)) != QMessageBox.StandardButton.Yes:
+                    return
+                from .. import usercolor
+                mats = usercolor.load_materials()
+                n = {k: v for k, v in m.items() if k in usercolor.FIELDS}
+                n["id"] = usercolor.new_id(m.get("name") or mid, {x["id"] for x in mats})
+                mats.append(n)
+                try:
+                    usercolor.save_materials(mats)
+                except (OSError, ValueError) as e:
+                    QMessageBox.warning(self, tr("Papiere"), str(e))
+                    return
+                mid = n["id"]
+            self.materials_dialog(mid, measure=bool(mid))
+        elif kind == "get_profiles":
+            self.standard_profiles(p.get("surface") or "")
+        elif kind == "choose_target":
+            self.color_panel.focus_choice()
 
     def _show_boxes(self, on: bool):
         self.view.show_boxes = bool(on)
@@ -2582,6 +2718,25 @@ class MainWindow(QMainWindow):
         for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
                   self.a_cut, None, self.a_vdp, self.a_data):
             m.addSeparator() if a is None else m.addAction(a)
+        m = mb.addMenu(tr("&Farbe"))
+        self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
+        self.a_proof.setCheckable(True)
+        self.a_proof.toggled.connect(self._toggle_proof)
+        self.a_colorcheck = A(tr("Farbprüfung …"), self.color_check, "Ctrl+Shift+F", "check")
+        self.a_colorcheck.setToolTip(tr("Dokument gegen eine Druckbedingung prüfen – mit Empfehlungen"))
+        self.a_press = A(tr("Für Druckerei ausgeben …"), lambda: self.press_dialog(), None, "export")
+        self.a_press.setToolTip(tr("Umwandeln, Output Intent einbetten, prüfen, speichern – optional als Paket"))
+        for a in (self.a_colorcheck, self.a_proof):
+            m.addAction(a)
+        m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
+        m.addSeparator()
+        m.addAction(self.a_press)
+        m.addAction(self.a_manip_cmyk)
+        m.addSeparator()
+        m.addAction(A(tr("Papiere und Messungen …"), lambda: self.materials_dialog(), None, "material"))
+        m.addAction(A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None))
+        m.addSeparator()
+        m.addAction(A(tr("Farbmanagement kurz erklärt"), self._color_help, None, "info"))
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
         self.a_single.setCheckable(True)
@@ -2604,11 +2759,7 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_measure)
         m.addAction(self.a_boxes)
         m.addSeparator()
-        self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
-        self.a_proof.setCheckable(True)
-        self.a_proof.toggled.connect(self._toggle_proof)
         m.addAction(self.a_proof)
-        m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
         m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
@@ -3463,6 +3614,12 @@ class MainWindow(QMainWindow):
 
     def _stop_jobs(self):
         """Window is closing: cancel running jobs."""
+        cp = self.__dict__.get("color_panel")
+        if cp is not None:                              # Farbprüfung im Hintergrund: abbrechen und warten
+            if cp._worker is not None:
+                cp._worker.cancel()
+            for th in list(cp._threads):
+                th.wait(10000)
         for entry in list(self._jobs):
             entry["job"].cancel()
         for entry in list(self._jobs):

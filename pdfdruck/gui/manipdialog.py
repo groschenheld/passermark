@@ -53,8 +53,9 @@ class ManipPanel(QWidget):
         self.material_white = None
         self._facts = None
         self.cmb_material = QComboBox()
-        self.cmb_material.setToolTip(tr("Papier aus der Verwaltung – wählt Zielprofil, Intent und die passende Methode"))
-        mats = [m for m in cfg.get("materials", []) if colorlab.cmyk_profile_of(cfg, m)]
+        self.cmb_material.setToolTip(tr("Papier (Verwaltung oder eigenes) – wählt Zielprofil, Intent und die passende "
+                                        "Methode"))
+        mats = [m for m in colorlab.all_materials(cfg) if colorlab.cmyk_profile_of(cfg, m)]
         fill_combo(self.cmb_material, [("", tr("– keins –"))] + [(m["id"], m.get("name") or m["id"]) for m in mats], "")
         f.addRow(tr("Material:"), self.cmb_material)
         if not mats:
@@ -205,7 +206,7 @@ class ManipPanel(QWidget):
             self.lbl_cmyk.setText(tr("Kein CMYK-Druckprofil gefunden. Profile der Standard-Druckbedingungen (z. B. "
                                      "PSO Coated v3 / FOGRA51, PSO Uncoated v3 / FOGRA52) gibt es kostenlos bei der "
                                      "ECI: ") + f'<a style="color:{theme.ACCENT}" href="{cmyk.ECI_URL}">eci.org</a>. '
-                                  + tr("Einbinden über „Datei…“ oder im Admin unter Farbprofile."))
+                                  + tr("Einbinden über „Datei…“, im Admin unter Farbprofile oder mit Farbe → Standardprofile holen."))
 
     def _material_changed(self, *_):
         """Material gewählt: Zielprofil + Intent vom Material, Methode nach der Datei (Ausgabebedingung, CMYK)."""

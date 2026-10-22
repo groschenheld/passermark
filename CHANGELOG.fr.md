@@ -5,6 +5,44 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.17.0
+
+### Menu Couleur
+- Un nouveau menu principal **Couleur** (entre Manipulation de document et Affichage) rassemble tout ce qui touche à la couleur : contrôle couleur, épreuvage (Softproof) (Ctrl+Y, réglé comme avant avec Ctrl+Maj+Y), export pour l'imprimeur, conversion CMYK, papiers et mesures, obtenir les profils standard et le mini-guide « La gestion de couleur en bref ».
+- Les mêmes fonctions en boutons dans la barre d'outils de l'espace de travail de préparation d'impression.
+- L'épreuvage passe du menu Affichage au menu Couleur ; Ctrl+Y ne change pas.
+- S'il manque ArgyllCMS (spotread) pour mesurer, le menu Aide montre un lien avec une aide d'installation.
+
+### Contrôle couleur (Ctrl+Maj+F)
+- Un panneau latéral comme le prévol, mais pour le papier : en haut, choix de la condition d'impression (matière ou profil système) ; en dessous apparaît ce que contient le document – images RVB par page, plus forte couverture d'encre par page, tons directs et l'output intent présent. Pour la condition d'impression : le profil ou la matière et le ΔE2000 par rapport au blanc de papier.
+- Les constats sont en clair, chacun avec son bouton : convertir, intégrer l'output intent, reséparer, mesurer le papier, obtenir des profils adaptés ou contrôle du document. Les constats sont cliquables comme dans le prévol (◀ ▶, cadre rouge).
+- Sont contrôlés : présence de RVB ; couverture d'encre au-delà de la limite du profil ; output intent manquant ou ne correspondant pas à la condition d'impression ; tons directs présents (simple avis).
+
+### Export pour l'imprimeur
+- Un assistant en quatre étapes : choisir la condition d'impression (matière ou profil système), convertir selon la recommandation, contrôler (avant et après), enregistrer.
+- Le profil ICC est toujours intégré comme output intent.
+- Si le fichier contient du RVB, Passermark demande toujours : convertir, ou le laisser avec son profil ? Pas de présélection.
+- En option, Passermark crée un paquet `…_Druckerei.zip` : le PDF, les profils ICC utilisés et un rapport (condition d'impression, intent, blanc de papier, avertissements).
+- Le résultat est propre à PDF/X-4 selon les règles de Passermark : RVB réglé, output intent en place, couverture d'encre dans la limite. Le fichier n'est pas marqué PDF/X-4 et n'est pas validé.
+- Volontairement absent : une comparaison avant/après dans l'assistant – le résultat se regarde avec « Ouvrir dans Passermark ».
+
+### CLI : press
+- `passermark-cli press entree.pdf sortie.pdf` fait aussi l'export pour l'imprimeur dans les enchaînements et les watchers : condition d'impression, conversion selon la recommandation, output intent toujours intégré.
+- Si le fichier contient du RVB et que `rgb` n'est pas réglé, le travail s'arrête au lieu de deviner.
+- Le manuel CLI a sa propre section sur press.
+
+### Papiers et mesures
+- Des matières personnelles sans droits d'administration : elles vivent dans `~/.config/passermark/materials.json` et sont enregistrées immédiatement. Les matières de l'administration restent ; les deux apparaissent partout.
+- Le bouton « Mesurer le papier … » crée le papier et lance la mesure directement. « Rechercher l'appareil » trouve l'appareil X-Rite via ArgyllCMS (spotread) ; s'il manque ArgyllCMS, une aide d'installation s'affiche (paquet Linux, téléchargement Windows).
+- Des infobulles expliquent le blanc de papier, le ΔE, le rendu (intent) et l'output intent.
+- Dans le dialogue d'admin, la liste des matières vide explique maintenant les quatre étapes (créer le papier, mesurer le blanc de papier, attribuer un profil, le choisir), au lieu d'être grisée sans rien dire.
+- Volontairement toujours absent : créer ses propres profils à partir d'une charte de test.
+
+### Profils standard
+- « Obtenir les profils standard » charge PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL et SWOP depuis registry.color.org dans son propre dossier ICC.
+- Ils ne sont pas fournis : selon le registre, les profils ECI ne peuvent être transmis qu'avec l'autorisation de l'ECI – les utiliser et les intégrer est libre.
+- Les suggestions de profils montrent aussi des profils standard pas encore installés ; « Reprendre » les récupère et les attribue.
+
 ## 1.16.5
 
 ### Enchaînements : conditions

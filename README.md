@@ -1,4 +1,4 @@
-# Passermark 1.16.5
+# Passermark 1.17.0
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -54,6 +54,10 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Automation:** step-by-step workflows with conditions ("if" on every step, "choose"/"else" branches, "fail"/"stop" with a message); `passermark-cli serve` watches folders and sends every file through the assigned workflow – `serve --init` sets up a template with an example.
 - **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
 - **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.
+- **Colour check:** in the new Colour menu (Ctrl+Shift+F) – a side panel like the preflight: pick the print condition, Passermark shows what is in the document (RGB, ink coverage, spot colours, output intent) and plain-text findings, each with a button to fix it; findings are clickable.
+- **Export for the press:** a wizard in four steps – pick the print condition, convert as recommended, check, save; the ICC profile always embedded as output intent, RGB always asks; optional package with PDF, profiles and a report. Also on the command line (`passermark-cli press`).
+- **Papers and measurements:** own materials without admin rights (`~/.config/passermark/materials.json`, saved immediately); “Measure paper …” creates the paper and starts the measurement, “Find device” finds the X-Rite device via ArgyllCMS; the empty material list in the admin dialog now explains the first steps.
+- **Standard profiles:** load PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL and SWOP from registry.color.org into your own ICC folder with “Get standard profiles” (not bundled for licence reasons); suggestions also show profiles that are not installed yet.
 - Repair/optimise PDFs, PDF/A, password protection (also when saving as PDF from the print dialog), merge files,
   select and copy text.
 - Languages: English, German, Hungarian, Spanish, French.
@@ -90,7 +94,7 @@ passermark-cli cutcontour in.pdf out.pdf --preset "Sticker rund"   # preset save
 passermark-cli presets                                # list presets saved in the program
 ```
 
-Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`, `impose`, `vdp`, `split`;
+Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`, `impose`, `vdp`, `split`, `press` (export for the press);
 plus `beispiele` (examples), `datenarten`, `datenvorlage`, `datencheck` (data tables). Nested settings with a dot
 (`--set detect.tolerance=40`). Ctrl+C cancels cleanly (no half-written file). Exit codes: 0 ok, 1 error,
 2 wrong usage, 130 cancelled. `--json-progress` prints progress and result as JSON lines. Large jobs use several CPU cores;

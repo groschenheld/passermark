@@ -12,8 +12,10 @@
 * suggestions: which installed profile fits a paper (ΔE of the paper white, surface, printer) and which
   conversion fits a document (output intent of the file -> profile of the paper)
 
-Materials live in the admin defaults ("materials"), like the colour profiles – only the administrator
-registers them; measuring needs the instrument and stays in the program (not in the CLI).
+Materials live in the admin defaults ("materials", for everybody, only the administrator changes them) and –
+since 1.17 – per user (usercolor.py, no admin rights). all_materials() shows both. A material assigns each
+printer (or "*" = all) a profile: an admin profile id or, for own materials, the path of an ICC file.
+Measuring needs the instrument and stays in the program (not in the CLI).
 """
 from __future__ import annotations
 
@@ -325,6 +327,20 @@ def spotread() -> str | None:
     return shutil.which("spotread")
 
 
+RX_PORT = re.compile(r"^\s*(\d+)\s*=\s*'([^']*)'", re.M)
+
+
+def spotread_ports(text: str) -> list:
+    """Anschlüsse aus der Hilfe von spotread (-?): [(Nummer, Beschreibung)]."""
+    return [(int(n), d.strip()) for n, d in RX_PORT.findall(text or "")]
+
+
+def is_instrument(desc: str) -> bool:
+    """Steht ein Messgerät an diesem Anschluss (nicht nur eine serielle Schnittstelle)?"""
+    return bool(re.search(r"x-?rite|i1|colormunki|munki|spyder|datacolor|dtp\d|spectro|colorimet|huey|"
+                          r"\(.*\)", desc or "", re.I))
+
+
 def spotread_args(port: int = 1, skip_cal: bool = False) -> list:
     """Einmal kalibrieren (falls nötig) und messen, dann beenden; Lab D50 wie die Profile."""
     a = ["-O", "-c", str(max(1, int(port)))]
@@ -366,22 +382,49 @@ def new_material(mid: str, name: str) -> dict:
             "profiles": {}, "intent": "", "notes": ""}
 
 
+def all_materials(cfg: dict) -> list:
+    """Materialien der Verwaltung, dann die eigenen des Benutzers – jeweils Kopien mit "scope": "admin"/"user"."""
+    out = [dict(m, scope="admin") for m in (cfg or {}).get("materials", []) if isinstance(m, dict)]
+    if (cfg or {}).get("_no_user_materials"):
+        return out
+    try:
+        from . import usercolor
+        out += [dict(m, scope="user") for m in usercolor.load_materials()]
+    except Exception:
+        pass
+    return out
+
+
 def material_by_id(cfg: dict, mid: str):
-    return next((m for m in (cfg or {}).get("materials", []) if m.get("id") == mid), None)
+    return next((m for m in all_materials(cfg) if m.get("id") == mid), None) if mid else None
 
 
 def materials_for(cfg: dict, printer: str = "") -> list:
     """Materialien, die für diesen Drucker ein Profil haben (oder ein allgemeines) – zuerst die passenden."""
-    ms = list((cfg or {}).get("materials", []))
+    ms = all_materials(cfg)
     if not printer:
         return ms
     return sorted(ms, key=lambda m: 0 if printer in (m.get("profiles") or {}) else 1)
 
 
 def profile_for(cfg: dict, material: dict, printer: str = ""):
-    """Profil-ID des Materials für den Drucker (eigene Zuordnung, sonst die allgemeine "*")."""
+    """Profil eines Materials für den Drucker (eigene Zuordnung, sonst die allgemeine "*"):
+        Profil-ID der Verwaltung oder – bei eigenen Materialien – Pfad einer ICC-Datei."""
     prof = (material or {}).get("profiles") or {}
     return prof.get(printer) or prof.get("*") or ""
+
+
+def resolve_profile(cfg: dict, ref: str):
+    """Profil-Verweis (ID der Verwaltung oder Pfad) -> {"id", "name", "file", "admin"} oder None."""
+    if not ref:
+        return None
+    p = next((p for p in (cfg or {}).get("color_profiles", []) if p.get("id") == ref), None)
+    if p is not None:
+        f = p.get("file") or ""
+        return {"id": ref, "name": p.get("name") or ref, "file": f, "admin": True} if os.path.isfile(f) else None
+    if os.path.isabs(ref) and os.path.isfile(ref):
+        return {"id": "", "name": profile_desc(ref), "file": ref, "admin": False}
+    return None
 
 
 def candidates(cfg: dict, extra_cmyk: bool = True) -> list:
@@ -457,20 +500,39 @@ def suggest(material: dict, cands: list, printer: str = "", limit: int = 6) -> l
             why.append(tr("für {0} eingerichtet").format(printer))
         elif printer and c["space"] == "CMYK" and not c["admin"]:
             score += 1.0                               # Standardprofil (Offset) – für den Drucker nur Ersatz
-        res.append(dict(c, de=de, score=round(score, 2), why=", ".join(why), verdict=verdict(de)))
+        v = verdict(de)
+        if c.get("std"):                               # Standardprofil, noch nicht geladen
+            score += 0.5
+            why.append(tr("noch nicht installiert"))
+            v = tr("Standard – erst holen")
+        res.append(dict(c, de=de, score=round(score, 2), why=", ".join(why), verdict=v))
     res.sort(key=lambda r: (r["score"], r["name"].casefold()))
     return res[:limit]
 
 
 def standard_tip(material: dict, best) -> str:
-    """Hinweis, wenn kein installiertes Profil gut passt: welches Standardprofil (eci.org) sich lohnt."""
+    """Hinweis, wenn kein installiertes Profil gut passt: welches Standardprofil sich lohnt."""
     if best and best.get("de") is not None and best["de"] <= 4:
         return ""
     tip = STANDARD_TIPS.get(_surface_group(material.get("surface") or ""))
     if not tip:
         return tr("Kein gut passendes Profil – für dieses Papier ein eigenes Profil messen (Testchart).")
-    return tr("Kein gut passendes Profil installiert – für diese Oberfläche üblich: {0} (eci.org), "
-              "sonst ein eigenes Profil messen.").format(tip)
+    return tr("Kein gut passendes Profil installiert – für diese Oberfläche üblich: {0}. Mit „Standardprofile "
+              "holen …“ laden (kostenlos), sonst ein eigenes Profil messen.").format(tip)
+
+
+def standard_candidates(installed_files=()) -> list:
+    """Standardprofile, die noch nicht installiert sind, als Kandidaten für Vorschläge (ohne Datei, "std" = Schlüssel).
+        Papierweiß unbekannt -> sie zählen nur über die Oberfläche."""
+    from . import usercolor
+    have = {os.path.splitext(os.path.basename(f))[0].lower() for f in installed_files}
+    out = []
+    for p in usercolor.STANDARD_PROFILES:
+        if p["key"].lower() in have or usercolor.standard_installed(p):
+            continue
+        out.append({"id": "", "name": f"{p['name']} ({p['condition']})", "file": "", "printers": [],
+                    "space": "CMYK", "white": None, "admin": False, "surface": p["surface"], "std": p["key"]})
+    return out
 
 
 def recommend_conversion(output_intents: list, has_cmyk: bool, target_file: str, cands: list) -> dict:
@@ -511,20 +573,21 @@ def proof_choices(cfg: dict) -> list:
         Verwaltung, dann die CMYK-Profile im System.
         -> [{"key", "label", "icc", "space", "name", "white", "material", "printer"}]"""
     out = []
-    by_id = {p["id"]: p for p in (cfg or {}).get("color_profiles", []) if p.get("file")}
-    for m in (cfg or {}).get("materials", []):
-        for printer, pid in sorted((m.get("profiles") or {}).items(), key=lambda kv: (kv[0] != "*", kv[0])):
-            p = by_id.get(pid)
-            if not p or not os.path.isfile(p["file"]):
+    for m in all_materials(cfg):
+        for printer, ref in sorted((m.get("profiles") or {}).items(), key=lambda kv: (kv[0] != "*", kv[0])):
+            p = resolve_profile(cfg, ref)
+            if not p:
                 continue
             try:
                 space = profile_space(p["file"])
             except (OSError, ValueError):
                 continue
             where = tr("alle Drucker") if printer == "*" else printer
-            out.append({"key": f"m:{m['id']}:{printer}", "icc": p["file"], "space": space,
-                        "label": tr("Material: {0} – {1} ({2})").format(m.get("name") or m["id"], p.get("name") or pid, where),
-                        "name": f"{m.get('name') or m['id']} / {p.get('name') or pid}",
+            mname = m.get("name") or m["id"]
+            label = (tr("Eigenes Material: {0} – {1} ({2})") if m.get("scope") == "user"
+                     else tr("Material: {0} – {1} ({2})")).format(mname, p["name"], where)
+            out.append({"key": f"m:{m['id']}:{printer}", "icc": p["file"], "space": space, "label": label,
+                        "name": f"{mname} / {p['name']}",
                         "white": list(m["white"]) if m.get("white") else None, "material": m["id"],
                         "printer": "" if printer == "*" else printer, "intent": m.get("intent") or ""})
     for c in candidates(cfg):
@@ -576,11 +639,10 @@ def doc_color_facts(path, max_pages: int = 50) -> tuple:
 def cmyk_profile_of(cfg: dict, material: dict) -> str:
     """Datei des CMYK-Profils eines Materials (für die CMYK-Umwandlung): die allgemeine Zuordnung, sonst die
         erste CMYK-Zuordnung eines Druckers. "" = keins."""
-    by_id = {p["id"]: p for p in (cfg or {}).get("color_profiles", [])}
     prof = (material or {}).get("profiles") or {}
     for q in ["*"] + sorted(k for k in prof if k != "*"):
-        p = by_id.get(prof.get(q, ""))
-        if p and os.path.isfile(p.get("file", "")):
+        p = resolve_profile(cfg, prof.get(q, ""))
+        if p:
             try:
                 if profile_space(p["file"]) == "CMYK":
                     return p["file"]

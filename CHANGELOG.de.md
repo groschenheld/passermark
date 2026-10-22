@@ -2,6 +2,44 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.0
+
+### Menü „Farbe“
+- Neues Hauptmenü **Farbe** (zwischen Dokument-Manipulation und Ansicht) bündelt alles Farbliche: Farbprüfung, Softproof (Strg+Y, eingerichtet wie bisher mit Strg+Umschalt+Y), Für Druckerei ausgeben, CMYK-Umwandlung, Papiere und Messungen, Standardprofile holen und die Kurzhilfe „Farbmanagement kurz erklärt“.
+- Im Arbeitsbereich Druckaufbereitung gibt es dieselben Funktionen als Knöpfe in der Werkzeugleiste.
+- Der Softproof zieht vom Menü Ansicht ins Menü Farbe um; Strg+Y bleibt.
+- Fehlt ArgyllCMS (spotread) zum Messen, zeigt das Hilfemenü einen Link mit Installationshilfe.
+
+### Farbprüfung (Strg+Umschalt+F)
+- Eine Seitenleiste wie der Preflight, nur fürs Papier: Oben wählst du die Druckbedingung (Material oder Systemprofil), darunter steht, was im Dokument steckt – RGB-Bilder je Seite, größter Farbauftrag je Seite, Sonderfarben und der vorhandene Output Intent. Zur Druckbedingung siehst du Profil bzw. Material und den ΔE2000 vom Papierweiß.
+- Die Befunde stehen in Klartext, jeder mit eigenem Knopf: umwandeln, Output Intent einbetten, neu separieren, Papier messen, passende Profile holen oder Dokumentprüfung. Die Fundstellen sind anklickbar wie im Preflight (◀ ▶, roter Rahmen).
+- Geprüft wird: RGB vorhanden; Farbauftrag über dem Limit des Profils; Output Intent fehlt oder passt nicht zur Druckbedingung; Sonderfarben vorhanden (nur Hinweis).
+
+### Für Druckerei ausgeben
+- Ein Assistent in vier Schritten: Druckbedingung wählen (Material oder Systemprofil), nach Empfehlung umwandeln, prüfen (vorher und nachher), speichern.
+- Das ICC-Profil wird immer als Output Intent eingebettet.
+- Steckt RGB in der Datei, fragt Passermark immer: umwandeln oder mit Profil weitergeben? Es gibt keine Vorauswahl.
+- Optional legt Passermark ein Paket `…_Druckerei.zip` an: PDF, die verwendeten ICC-Profile und ein Bericht (Druckbedingung, Intent, Papierweiß, Warnungen).
+- Das Ergebnis ist nach Passermarks Regeln PDF/X-4-tauglich: RGB geregelt, Output Intent drin, Farbauftrag im Limit. Die Datei wird nicht als PDF/X-4 gekennzeichnet und nicht validiert.
+- Bewusst nicht drin: ein Softproof-Vergleich vorher/nachher im Assistenten – das Ergebnis lässt sich mit „In Passermark öffnen“ ansehen.
+
+### CLI: press
+- `passermark-cli press ein.pdf aus.pdf` macht den Druckerei-Export auch für Abläufe und Watcher: Druckbedingung, Umwandlung nach Empfehlung, Output Intent immer drin.
+- Steckt RGB in der Datei und `rgb` ist nicht gesetzt, bricht der Auftrag ab, statt zu raten.
+- Die CLI-Anleitung hat einen eigenen Abschnitt zu press.
+
+### Papiere und Messungen
+- Eigene Materialien ohne Adminrechte: Sie liegen in `~/.config/passermark/materials.json` und werden sofort gespeichert. Die Materialien aus der Verwaltung bleiben, beide erscheinen überall.
+- Der Knopf „Papier messen …“ legt das Papier an und startet gleich die Messung. „Gerät suchen“ findet das X-Rite-Gerät über ArgyllCMS (spotread); fehlt ArgyllCMS, hilft eine Installationsanleitung (Linux-Paket, Windows-Download).
+- Tooltips erklären Papierweiß, ΔE, Intent und Output Intent.
+- Im Admin-Dialog erklärt die leere Materialliste jetzt die vier Schritte (Papier anlegen, Papierweiß messen, Profil zuordnen, auswählen), statt ausgegraut nichts zu sagen.
+- Bewusst weiter nicht drin: eigene Profile per Testchart erstellen.
+
+### Standardprofile
+- „Standardprofile holen“ lädt PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL und SWOP von registry.color.org in deinen eigenen ICC-Ordner.
+- Mitgeliefert werden sie nicht: Die ECI-Profile dürfen laut Registry nur mit Erlaubnis der ECI weitergegeben werden – benutzen und einbetten ist frei.
+- Die Profilvorschläge zeigen auch noch nicht installierte Standardprofile; „Übernehmen“ holt sie und ordnet sie zu.
+
 ## 1.16.5
 
 ### Abläufe: Bedingungen

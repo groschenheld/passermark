@@ -68,13 +68,18 @@ class SoftproofDialog(QDialog):
                    list(config.INTENTS.items()), saved.get("intent", ""))
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         self.chk_bpc = QCheckBox(tr("Tiefenkompensierung (BPC)"))
+        self.chk_bpc.setToolTip(tr("Hält dunkle Bildstellen durchgezeichnet – meist an lassen"))
         self.chk_bpc.setChecked(bool(saved.get("bpc", True)))
         f.addRow("", self.chk_bpc)
         self.chk_paper = QCheckBox(tr("Papierfarbe simulieren"))
+        self.chk_paper.setToolTip(tr("Zeigt Weiß als Papierweiß (gelblich, grau …) – so wirkt der Druck neben dem Papier"))
         self.chk_paper.setChecked(bool(saved.get("paper", False)))
         self.chk_black = QCheckBox(tr("Schwarze Druckfarbe simulieren"))
+        self.chk_black.setToolTip(tr("Zeigt das tiefste Schwarz, das der Druck schafft – meist ein dunkles Grau"))
         self.chk_black.setChecked(bool(saved.get("black", False)))
         self.chk_measured = QCheckBox(tr("Gemessenes Papierweiß des Materials verwenden"))
+        self.chk_measured.setToolTip(tr("Statt des Papierweiß aus dem Profil das gemessene des Materials (Farbe → Papiere "
+                                        "und Messungen)"))
         self.chk_measured.setChecked(bool(saved.get("measured", True)))
         f.addRow(tr("Anzeigen:"), self.chk_paper)
         f.addRow("", self.chk_black)
@@ -82,8 +87,11 @@ class SoftproofDialog(QDialog):
         h = QHBoxLayout()
         self.grp = QButtonGroup(self)
         self.rb = {}
+        tips = {"none": "", "gamut": tr("Markiert Farben, die auf diesem Papier nicht druckbar sind (werden flauer)"),
+                "tac": tr("Markiert Stellen mit mehr Farbe als erlaubt (C+M+Y+K)")}
         for k, t in (("none", tr("keine")), ("gamut", tr("Farbumfang")), ("tac", tr("Farbauftrag über"))):
             rb = QRadioButton(t)
+            rb.setToolTip(tips[k])
             self.grp.addButton(rb)
             self.rb[k] = rb
             h.addWidget(rb)
@@ -100,6 +108,10 @@ class SoftproofDialog(QDialog):
         self.lbl.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(self.lbl)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        if hasattr(parent, "color_check"):
+            b = bb.addButton(tr("Farbprüfung mit Empfehlungen …"), QDialogButtonBox.ButtonRole.ActionRole)
+            b.setToolTip(tr("Was ist am Dokument für diese Druckbedingung zu tun? (Farbe → Farbprüfung)"))
+            b.clicked.connect(parent.color_check)
         bb.rejected.connect(self.reject)
         bb.accepted.connect(self.accept)
         v.addWidget(bb)

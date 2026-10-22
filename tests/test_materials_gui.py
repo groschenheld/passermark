@@ -76,7 +76,10 @@ m["white"], m["white_source"] = [92.0, 0.5, 7.0], "gemessen"
 t._show()
 assert t.tree.topLevelItemCount() >= 1 and "FOGRA52" in t.lbl_tip.text(), t.lbl_tip.text()
 t.cmb_for.setCurrentIndex(t.cmb_for.findData("epson"))
-t.tree.setCurrentItem(t.tree.topLevelItem(0))
+from PySide6.QtCore import Qt
+items = [t.tree.topLevelItem(i) for i in range(t.tree.topLevelItemCount())]
+assert any((it.data(0, Qt.ItemDataRole.UserRole) or {}).get("std") for it in items)   # Standards (noch nicht geholt)
+t.tree.setCurrentItem(next(it for it in items if not it.data(0, Qt.ItemDataRole.UserRole).get("std")))
 t._take()                                            # Systemprofil -> importiert und zugeordnet
 pid = m["profiles"]["epson"]
 assert pid in d.new_icc and d.new_icc[pid] == F, (pid, d.new_icc)

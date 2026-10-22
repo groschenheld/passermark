@@ -5,6 +5,44 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.17.0
+
+### Szín menü
+- Új **Szín** főmenü (a Dokumentum-manipuláció és a Nézet között) egy helyre gyűjti a színekhez valót: színellenőrzés, Softproof (Ctrl+Y, beállítása a megszokott módon Ctrl+Shift+Y), kimenet a nyomdának, CMYK-átalakítás, papírok és mérések, szabványprofilok letöltése és a rövid súgó „A színkezelés röviden”.
+- A nyomtatás-előkészítő munkaterületen ugyanezek gombokként is elérhetők az eszközsorban.
+- A Softproof átkerül a Nézet menüből a Szín menübe; a Ctrl+Y marad.
+- Ha a méréshez hiányzik az ArgyllCMS (spotread), a Súgó menü telepítési segítséget mutató linket ad.
+
+### Színellenőrzés (Ctrl+Shift+F)
+- Oldalsáv, mint a preflight, csak a papírhoz: fent a nyomtatási feltételt választod (anyag vagy rendszerprofil), alatta látszik, mi van a dokumentumban – oldalanként az RGB-képek, az oldal legnagyobb festékmennyisége, a direkt színek és a meglévő output intent. A nyomtatási feltételhez látod a profilt illetve anyagot és a ΔE2000-t a papírfehérhez.
+- A leletek közérthető szöveggel jelennek meg, mindegyikhez saját gomb: átalakítás, output intent beágyazása, újraszeparálás, papír mérése, megfelelő profilok letöltése vagy dokumentum-ellenőrzés. A lelőhelyek kattinthatók, mint a preflightben (◀ ▶, piros keret).
+- Ellenőrzés: van-e RGB; a festékmennyiség a profil határértéke felett; hiányzó vagy a nyomtatási feltételhez nem illő output intent; direkt színek (csak figyelmeztetés).
+
+### Kimenet a nyomdának
+- Négy lépéses varázsló: nyomtatási feltétel kiválasztása (anyag vagy rendszerprofil), átalakítás a javaslat szerint, ellenőrzés (előtte és utána), mentés.
+- Az ICC-profil mindig output intentként ágyazódik be.
+- Ha RGB van a fájlban, a Passermark mindig rákérdez: átalakítás vagy profil küldése tovább? Nincs előre kiválasztott válasz.
+- Opcionálisan a Passermark csomagot készít: `…_Druckerei.zip` a PDF-fel, a használt ICC-profilokkal és egy jelentéssel (nyomtatási feltétel, intent, papírfehér, figyelmeztetések).
+- Az eredmény a Passermark szabályai szerint PDF/X-4-alkalmas: az RGB rendezve, az output intent a helyén, a festékmennyiség a határértéken belül. A fájl nem kap PDF/X-4 jelölést, és nem is kerül érvényesítésre.
+- Tudatosan nincs benne: előtte/utána Softproof-összehasonlítás a varázslóban – az eredmény a „Megnyitás Passermarkban” gombbal nézhető meg.
+
+### Parancssor: press
+- A `passermark-cli press be.pdf ki.pdf` a nyomdai exportot a munkafolyamatokhoz és a figyelőkhöz is elvégzi: nyomtatási feltétel, átalakítás a javaslat szerint, az output intent mindig benne.
+- Ha RGB van a fájlban és az `rgb` nincs beállítva, a munka leáll, nem találgat.
+- A CLI-kézikönyvben saját fejezet szól a pressről.
+
+### Papírok és mérések
+- Saját anyagok adminjogok nélkül: a `~/.config/passermark/materials.json` fájlban vannak, és azonnal mentődnek. A felügyelet anyagai megmaradnak, mindkettő mindenhol látszik.
+- A „Papír mérése …” gomb létrehozza a papírt, és rögtön elindítja a mérést. Az „Eszköz keresése” megtalálja az X-Rite eszközt ArgyllCMS-en (spotread) keresztül; ha hiányzik az ArgyllCMS, telepítési segítség jön (Linux-csomag, Windows-letöltés).
+- Az eszköztippek elmagyarázzák a papírfehéret, a ΔE-t, az intentet és az output intentet.
+- Az admin párbeszédablakában az üres anyaglista most elmagyarázza a négy lépést (papír létrehozása, papírfehér mérése, profil hozzárendelése, kiválasztás), ahelyett hogy kikapcsolva nem mondana semmit.
+- Tudatosan továbbra sincs benne: saját profil készítése teszttábláról.
+
+### Szabványprofilok
+- A „Szabványprofilok letöltése” PSO Coated v3-at, PSO Uncoated v3-at (FOGRA52), FOGRA39/47-et, SC-B-t, GRACoL-t és SWOP-ot tölt le a registry.color.org-ról a saját ICC-mappádba.
+- Nem kerülnek a programba: a Registry szerint az ECI-profilok csak az ECI engedélyével adhatók tovább – a használat és a beágyazás szabad.
+- A profiljavaslatok a még nem telepített szabványprofilokat is mutatják; az „Átvétel” letölti és hozzárendeli őket.
+
 ## 1.16.5
 
 ### Munkafolyamatok: feltételek
