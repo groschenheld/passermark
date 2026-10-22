@@ -49,6 +49,21 @@ class ManipPanel(QWidget):
         self.chk_cmyk = QCheckBox(tr("Dokument in CMYK umwandeln"))
         self.chk_cmyk.setChecked(settings.cmyk)
         f.addRow(self.chk_cmyk)
+        from .. import colorlab
+        self.material_white = None
+        self._facts = None
+        self.cmb_material = QComboBox()
+        self.cmb_material.setToolTip(tr("Papier aus der Verwaltung – wählt Zielprofil, Intent und die passende Methode"))
+        mats = [m for m in cfg.get("materials", []) if colorlab.cmyk_profile_of(cfg, m)]
+        fill_combo(self.cmb_material, [("", tr("– keins –"))] + [(m["id"], m.get("name") or m["id"]) for m in mats], "")
+        f.addRow(tr("Material:"), self.cmb_material)
+        if not mats:
+            f.setRowVisible(self.cmb_material, False)
+        self.lbl_rec = QLabel()
+        self.lbl_rec.setWordWrap(True)
+        self.lbl_rec.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_rec.hide()
+        f.addRow(self.lbl_rec)
         self.cmb_mode = QComboBox()
         fill_combo(self.cmb_mode, MODES, settings.cmyk_mode)
         f.addRow(tr("Methode:"), self.cmb_mode)
@@ -171,6 +186,7 @@ class ManipPanel(QWidget):
             w.toggled.connect(self._changed)
         for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
             w.currentIndexChanged.connect(self._changed)
+        self.cmb_material.currentIndexChanged.connect(self._material_changed)
         for w in (self.spn_w, self.spn_h, self.spn_inset,
                   self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb, self.spn_wm):
             w.valueChanged.connect(self._changed)
@@ -190,6 +206,49 @@ class ManipPanel(QWidget):
                                      "PSO Coated v3 / FOGRA51, PSO Uncoated v3 / FOGRA52) gibt es kostenlos bei der "
                                      "ECI: ") + f'<a style="color:{theme.ACCENT}" href="{cmyk.ECI_URL}">eci.org</a>. '
                                   + tr("Einbinden über „Datei…“ oder im Admin unter Farbprofile."))
+
+    def _material_changed(self, *_):
+        """Material gewählt: Zielprofil + Intent vom Material, Methode nach der Datei (Ausgabebedingung, CMYK)."""
+        import io
+        from .. import colorlab
+        m = colorlab.material_by_id(self.cfg, self.cmb_material.currentData() or "")
+        self.material_white = list(m["white"]) if m and m.get("white") else None
+        if m is None:
+            self.lbl_rec.hide()
+            return
+        target = colorlab.cmyk_profile_of(self.cfg, m)
+        if self.cmb_target.findData(target) < 0 and target:
+            self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(target), target, "file"))
+            self._fill_profiles()
+        if self._facts is None and self.doc is not None:
+            buf = io.BytesIO()
+            try:
+                self.doc.save(buf)
+                self._facts = colorlab.doc_color_facts(buf.getvalue())
+            except Exception:
+                self._facts = ([], True)
+        ois, has_cmyk = self._facts or ([], True)
+        rec = colorlab.recommend_conversion(ois, has_cmyk, target, colorlab.candidates(self.cfg))
+        for cmb, val in ((self.cmb_target, target), (self.cmb_mode, rec["mode"]), (self.cmb_source, rec["source"]),
+                         (self.cmb_intent, m.get("intent") or "")):
+            if val or cmb is self.cmb_source:
+                i = cmb.findData(val)
+                if i < 0 and cmb is self.cmb_source and val:
+                    self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(val), val, "file"))
+                    self._fill_profiles()
+                    i = cmb.findData(val)
+                if i >= 0:
+                    cmb.setCurrentIndex(i)
+        if not self.chk_cmyk.isHidden():
+            self.chk_cmyk.setChecked(True)
+        txt = rec["text"]
+        if m.get("white"):
+            pw = colorlab.profile_white(target)
+            if pw:
+                de = colorlab.delta_e(m["white"], pw)
+                txt += " " + tr("Papierweiß zum Profil: ΔE {0:.1f} – {1}.").format(de, colorlab.verdict(de))
+        self.lbl_rec.setText(txt)
+        self.lbl_rec.show()
 
     def _pick_file(self):
         p, _ = QFileDialog.getOpenFileName(self, tr("ICC-Profil wählen"), "", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)"))
@@ -336,21 +395,21 @@ class ManipPanel(QWidget):
         if s.cmyk_mode != "gray" and not s.target:
             QMessageBox.warning(self, tr("Farbvorschau"), tr("Bitte zuerst ein CMYK-Zielprofil wählen."))
             return
-        ColorPreviewDialog(self, self.doc, s, self.current).exec()
+        ColorPreviewDialog(self, self.doc, s, self.current, self.material_white).exec()
 
 
 # --------------------------------------------------------------------------- #
 class _PreviewWorker(QThread):
     done = Signal(object, str)
 
-    def __init__(self, path, page, s, dpi, paper):
+    def __init__(self, path, page, s, dpi, paper, white=None):
         super().__init__()
-        self.args = (path, page, s, dpi, paper)
+        self.args = (path, page, s, dpi, paper, white)
 
     def run(self):
         try:
-            path, page, s, dpi, paper = self.args
-            self.done.emit(cmyk.render_preview(path, page, s, dpi, paper), "")
+            path, page, s, dpi, paper, white = self.args
+            self.done.emit(cmyk.render_preview(path, page, s, dpi, paper, white), "")
         except Exception as e:
             self.done.emit(None, str(e))
 
@@ -361,9 +420,10 @@ class ColorPreviewDialog(QDialog):
     VIEWS = [("both", "Vorher | Nachher"), ("after", "Nur Nachher"), ("c", "Auszug Cyan"), ("m", "Auszug Magenta"),
              ("y", "Auszug Gelb"), ("k", "Auszug Schwarz"), ("tac", "Farbauftrag (TAC) – Warnung")]
 
-    def __init__(self, parent, doc, s: cmyk.ManipSettings, page: int = 0):
+    def __init__(self, parent, doc, s: cmyk.ManipSettings, page: int = 0, white=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Farbvorschau – Passermark"))
+        self.white = white
         self.resize(1200, 820)
         self.s = s
         self.tmp = tempfile.mkdtemp(prefix="passermark-cprev-")
@@ -401,7 +461,7 @@ class ColorPreviewDialog(QDialog):
         self.spn_tac.setSuffix(" %")
         self.spn_tac.setToolTip(tr("Maximaler Farbauftrag der Druckbedingung (gestrichen meist 300–330 %, ungestrichen 280–300 %)"))
         bar.addWidget(self.spn_tac)
-        self.chk_paper = QCheckBox(tr("Papierweiß simulieren"))
+        self.chk_paper = QCheckBox(tr("Papierweiß simulieren") + (tr(" (gemessen)") if white else ""))
         bar.addWidget(self.chk_paper)
         bar.addWidget(QLabel(tr("Auflösung:")))
         self.cmb_dpi = QComboBox()
@@ -446,7 +506,7 @@ class ColorPreviewDialog(QDialog):
         self.lbl_info.setText(tr("Berechne Vorschau …"))
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         self.worker = _PreviewWorker(self.path, self.spn_page.value() - 1, self.s,
-                                     self.cmb_dpi.currentData(), self.chk_paper.isChecked())
+                                     self.cmb_dpi.currentData(), self.chk_paper.isChecked(), self.white)
         self.worker.done.connect(self._done)
         self.worker.start()
 

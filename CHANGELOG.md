@@ -2,7 +2,7 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-## 1.16.0
+## 1.16.5
 
 ### Workflows: conditions
 - **"if" on every step:** a step only runs when its condition holds.
@@ -28,6 +28,26 @@
 - Every job writes a JSON with the exact settings, plus a `printlog.csv`. Default folder: `printlog`.
 - `passermark-cli reprint <log.json>` prints the job again. If the original has changed in the meantime, there is a warning.
 
+### Soft proofing
+- In the view under View → Soft proof (Ctrl+Y), or with the button in the toolbar. Set up with Ctrl+Shift+Y; changes apply immediately and the setting is remembered.
+- The print condition is a material (per printer), a profile from the administration or a CMYK profile from the system. Plus intent and BPC.
+- Choose: simulate paper colour, simulate black printing ink, use the material's measured paper white.
+- Warnings for the gamut (colours that cannot be printed turn magenta) and for the ink coverage above an adjustable limit in %.
+- With a CMYK profile and Ghostscript the page is truly separated, as in the CMYK conversion: existing CMYK stays, RGB and grey are converted. Without Ghostscript, or with an RGB printer profile, the screen image is used as an approximation. The bottom right always says what is currently being simulated.
+### Materials
+- Administration → new tab "Materials", stored with admin rights like the profiles.
+- Per paper: name, grammage, surface, rendering intent, notes and the profile per printer (or for all printers).
+- Grammage and surface are pre-filled from the name, e.g. "uncoated 120 g".
+- Paper white in three ways: with the measuring device via ArgyllCMS (spotread), with calibrating and several measurements that are averaged – the spread is shown; from a measurement file (CGATS from i1Profiler or ArgyllCMS, the field without colour is taken); or by hand as L*a*b*.
+- Profile suggestions rank the profiles by ΔE2000 to the paper white, with the same surface and printer, with a score and a reason. "Apply" assigns the profile; a system profile is imported in the process.
+- If nothing fits well, there is a hint, e.g. FOGRA52 from eci.org or measure your own profile.
+- When a profile is removed, the materials lose that assignment automatically.
+- Deliberately not included: creating a profile from a test chart; materials in the command line (printing continues with the printer profile from the administration).
+- install.sh optionally adds argyll to the apt packages (otherwise there is no measuring device under Linux).
+### Material in the print dialog
+- Picking a material sets profile and intent, and shows the ΔE value from the paper white to the profile. Changing the profile by hand deselects the material again.
+### Material in the CMYK conversion
+- The material sets the destination profile and intent. The method is recommended according to the file: if the file was already created for this profile, CMYK stays. If it was created for something else (e.g. FOGRA39), everything is separated anew, with that source profile if it is installed. The colour preview takes the measured paper white.
 ## 1.15.1
 ### Step & repeat: rotation
 - If the grid does not fit on the sheet in either orientation, the orientation with the smallest overhang wins now. Only after that "prefer unrotated" counts.

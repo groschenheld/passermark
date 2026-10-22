@@ -1,4 +1,4 @@
-# Passermark 1.16.0
+# Passermark 1.16.5
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -57,6 +57,8 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   Kommandozeile.
 - **Druckprotokoll:** pro Benutzer in den Einstellungen oder vom Admin erzwungen – eine JSON je Auftrag mit den exakten Einstellungen, dazu eine `printlog.csv`; mit `passermark-cli reprint <log.json>` druckst du einen Auftrag jederzeit neu (mit Warnung, wenn sich das Original geändert hat).
 - **Automatisierung:** Schritt-für-Schritt-Abläufe mit Bedingungen („if“ an jedem Schritt, „choose“/„else“-Verzweigungen, „fail“/„stop“ mit Meldung); `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf – `serve --init` legt eine Vorlage mit Beispiel an.
+- **Softproof:** das Druckergebnis in der Seitenansicht simulieren (Strg+Y) – als Druckbedingung ein Material, ein Profil aus der Verwaltung oder ein System-CMYK-Profil, mit Intent und BPC; Papierfarbe und schwarze Druckfarbe simulieren, Warnungen für Farben außerhalb des Farbumfangs und für Farbauftrag über einer Grenze in %.
+- **Materialien:** Papiere registrieren (Grammatur, Oberfläche, Render-Intent, Profil je Drucker); Papierweiß mit ArgyllCMS (spotread) messen, aus einer CGATS-Messdatei oder per Hand; Profilvorschläge nach ΔE2000. Materialien setzen Profil und Intent im Druckdialog und in der CMYK-Umwandlung, die Farbvorschau nimmt das gemessene Papierweiß.
 - PDFs reparieren/optimieren, PDF/A, Passwortschutz (auch beim „Als PDF speichern“ im Druckdialog), Dateien
   zusammenführen, Text markieren und kopieren.
 - Sprachen: Deutsch, Englisch, Ungarisch, Spanisch, Französisch.
@@ -79,7 +81,7 @@ sudo ./install.sh        # installiert Abhängigkeiten über apt, Startmenü-Ein
 sudo ./uninstall.sh      # wieder entfernen (--dry-run zeigt vorher an, --purge entfernt auch /etc/passermark)
 ```
 
-Optional: LibreOffice (Office-Dateien), 7-Zip (ICC-Profile aus Archiven importieren).
+Optional: LibreOffice (Office-Dateien), 7-Zip (ICC-Profile aus Archiven importieren), ArgyllCMS (Papierweiß der Materialien messen – Linux-Paket `argyll`).
 
 ## Kommandozeile
 

@@ -5,7 +5,7 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
-## 1.16.0
+## 1.16.5
 
 ### Flujos: condiciones
 - **«if» en cada paso:** un paso solo se ejecuta si se cumple su condición.
@@ -31,6 +31,26 @@
 - Por trabajo se escribe un JSON con los ajustes exactos, además de un `printlog.csv`. Carpeta por defecto: `printlog`.
 - `passermark-cli reprint <log.json>` reimprime el trabajo. Si el original ha cambiado mientras tanto, aparece un aviso.
 
+### Softproof
+- En la vista: Ver → Softproof (Ctrl+Y) o con el botón de la barra de herramientas. Se configura con Ctrl+Mayús+Y; los cambios surten efecto de inmediato y el ajuste se recuerda.
+- La condición de impresión es un material (por impresora), un perfil de la administración o un perfil CMYK del sistema. Se añaden la intención de renderizado (intent) y la BPC.
+- A elegir: simular el color del papel, simular la tinta negra de impresión, usar el blanco de papel medido del material.
+- Avisos para el intervalo de colores (los no imprimibles se vuelven magenta) y para la cobertura de tinta por encima de un límite ajustable en %.
+- Con un perfil CMYK y Ghostscript la página se separa de verdad, como en la conversión CMYK: el CMYK existante permanece, el RGB y el gris se convierten. Sin Ghostscript, o con un perfil RGB de impresora, se aproxima mediante la imagen de pantalla. Abajo a la derecha se indica siempre qué se está simulando.
+### Materiales
+- Administración → nueva pestaña «Materiales», guardada con derechos de administrador como los perfiles.
+- Por papel: nombre, gramaje, superficie, intención de renderizado, notas y el perfil por impresora (o para todas las impresoras).
+- El gramaje y la superficie se rellenan previamente a partir del nombre, p. ej. «ungestrichen 120 g».
+- El blanco de papel de tres maneras: con el aparato de medición a través de ArgyllCMS (spotread), con calibración y varias mediciones que se promedian – la dispersión se muestra; desde un archivo de medición (CGATS de i1Profiler o ArgyllCMS, se toma el campo sin color); o a mano como L*a*b*.
+- Las sugerencias de perfiles ordenan los perfiles por ΔE2000 respecto al blanco de papel, con la misma superficie e impresora, con valoración y justificación. «Aplicar» asigna el perfil; un perfil del sistema se importa al mismo tiempo.
+- Si nada encaja bien, aparece una sugerencia, p. ej. FOGRA52 de eci.org o medir un perfil propio.
+- Al eliminar un perfil, los materiales pierden esa asignación automáticamente.
+- Deliberadamente no incluido: crear un perfil con una carta de pruebas; los materiales en la línea de comandos (se sigue imprimiendo con el perfil de impresora de la administración).
+- install.sh añade opcionalmente argyll a los paquetes apt (de lo contrario no hay aparato de medición en Linux).
+### Material en el diálogo de impresión
+- Al elegir un material se ajustan el perfil y la intención, y se ve el valor ΔE del blanco de papel al perfil. Al cambiar el perfil a mano, el material se deselecciona de nuevo.
+### Material en la conversión CMYK
+- El material ajusta el perfil de destino y la intención. El método se recomienda según el archivo: si el archivo ya se creó para ese perfil, el CMYK se mantiene; si se creó para otra cosa (p. ej. FOGRA39), todo se separa de nuevo, con ese perfil de origen si está instalado. La vista previa de color toma el blanco de papel medido.
 ## 1.15.1
 ### Nutzen (step & repeat): giro
 - Si la rejilla no cabe entera en la hoja en ninguna orientación, gana ahora la orientación con el menor sobrante. Solo después cuenta «mejor sin girar».

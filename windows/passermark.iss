@@ -81,7 +81,7 @@ Source: "..\dist\passermark\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreve
 [Dirs]
 Name: "{commonappdata}\Passermark"
 Name: "{commonappdata}\Passermark\icc"
-Name: "{commonappdata}\Passermark\ablaeufe"
+Name: "{commonappdata}\Passermark\workflows"
 
 [Icons]
 Name: "{group}\Passermark"; Filename: "{app}\passermark.exe"
@@ -95,6 +95,7 @@ Name: "addtopath"; Description: "{cm:AddPath}"; Flags: unchecked
 ; Admin defaults: only Administrators and SYSTEM may write, users read-only (SIDs = language-independent)
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark"" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX"; Flags: runhidden waituntilterminated
 Filename: "{app}\passermark.exe"; Description: "{cm:Launch}"; Flags: postinstall nowait skipifsilent unchecked
+Filename: "{app}\passermark-cli.exe"; Parameters: "serve --init --system"; Flags: runhidden
 
 [Registry]
 ; CLI: add program folder to the system PATH (optional, removed again on uninstall – see [Code])

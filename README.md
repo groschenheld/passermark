@@ -1,4 +1,4 @@
-# Passermark 1.16.0
+# Passermark 1.16.5
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -52,6 +52,8 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
 - **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings, plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
 - **Automation:** step-by-step workflows with conditions ("if" on every step, "choose"/"else" branches, "fail"/"stop" with a message); `passermark-cli serve` watches folders and sends every file through the assigned workflow – `serve --init` sets up a template with an example.
+- **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
+- **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.
 - Repair/optimise PDFs, PDF/A, password protection (also when saving as PDF from the print dialog), merge files,
   select and copy text.
 - Languages: English, German, Hungarian, Spanish, French.
@@ -73,7 +75,7 @@ sudo ./install.sh        # installs dependencies via apt, desktop entry, Nautilu
 sudo ./uninstall.sh      # remove again (--dry-run to preview, --purge also removes /etc/passermark)
 ```
 
-Optional: LibreOffice (Office files), 7-Zip (ICC profile import from archives).
+Optional: LibreOffice (Office files), 7-Zip (ICC profile import from archives), ArgyllCMS (measuring the paper white of materials – Linux package `argyll`).
 
 ## Command line
 

@@ -31,6 +31,8 @@ _SHAPES = {
     "insert": '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M12 8v8M8 12h8"/>',
     "delete": '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>',
     "fit_width": '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M7 12h10M9 10l-2 2 2 2M15 10l2 2-2 2"/>',
+    "proof": '<rect x="3.5" y="5" width="13" height="15" rx="1"/><path d="M14 3.5h5.5a1 1 0 0 1 1 1V16"/><path d="M10 8.5c-2 2.6-3 4.3-3 5.5a3 3 0 0 0 6 0c0-1.2-1-2.9-3-5.5z"/>',
+    "material": '<path d="M4 6l8-3 8 3-8 3z"/><path d="M4 10.5l8 3 8-3"/><path d="M4 15l8 3 8-3"/>',
     "fit_page": '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/>',
     "ruler": '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2"/>',
     "actual": '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M8 9.5l2-1.5v8M14 9.5l2-1.5v8"/>',

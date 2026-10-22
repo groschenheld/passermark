@@ -23,6 +23,7 @@ class Session:
         self.layout = LayoutSettings.from_dict(cfg.get("layout"))
         self.values: dict[str, dict[str, str]] = {}       # drucker -> Optionen
         self.color: dict[str, tuple[str, str]] = {}       # drucker -> (profil-id, intent)
+        self.material: dict[str, str] = {}                 # drucker -> Material-ID (Druckdialog)
         self.caps: dict[str, printers.PrinterCaps] = {}
         from .cmyk import ManipSettings
         self.manip = ManipSettings()          # Dokument-Manipulation (nur diese Sitzung)

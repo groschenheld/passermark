@@ -937,14 +937,19 @@ class PrintDialog(QDialog):
         # Farbe
         sec = self._section(tr("Farbmanagement"))
         f = sec.form
+        self.cmb_material = QComboBox()
+        self.cmb_material.setToolTip(tr("Papier aus der Verwaltung – setzt das passende Profil und den Intent"))
         self.cmb_profile = QComboBox()
         self.cmb_intent = QComboBox()
         self.lbl_profile_note = QLabel()
         self.lbl_profile_note.setWordWrap(True)
         self.lbl_profile_note.setStyleSheet(f"color: {theme.MUTED};")
+        self.row_material = f.rowCount()
+        f.addRow(tr("Material:"), self.cmb_material)
         f.addRow(tr("Ausgabeprofil:"), self.cmb_profile)
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         f.addRow("", self.lbl_profile_note)
+        self.color_form = f
 
         # Seltenes gut sichtbar, aber eingeklappt:
         sec = CollapsibleSection(tr("Spiegeln (z. B. Transferpapier, Folienrückseite)"))
@@ -997,6 +1002,7 @@ class PrintDialog(QDialog):
             w.valueChanged.connect(self._changed)
         self.cmb_profile.currentIndexChanged.connect(self._profile_changed)
         self.cmb_intent.currentIndexChanged.connect(self._profile_changed)
+        self.cmb_material.currentIndexChanged.connect(self._material_changed)
         self._sync_enabled()
 
     def _fill_sr2_formats(self):
@@ -1124,6 +1130,7 @@ class PrintDialog(QDialog):
         name = self.caps.name
         self.s.values.pop(name, None)
         self.s.color.pop(name, None)
+        self.s.material.pop(name, None)
         self.values = self.s.values_for(name)
         self._build_paper()
         self._build_driver_tab()
@@ -1615,6 +1622,43 @@ class PrintDialog(QDialog):
         self.cmb_intent.setEnabled(user and bool(self.cmb_profile.currentData()))
         self.cmb_profile.blockSignals(False)
         self.cmb_intent.blockSignals(False)
+        self._build_materials(name, user and bool(profs))
+        self._profile_note()
+
+    def _build_materials(self, printer: str, enabled: bool):
+        """Materialien mit einem Profil für diesen Drucker (eigene Zuordnung oder „alle Drucker“)."""
+        from .. import colorlab
+        allowed = {p["id"] for p in config.profiles_for(self.cfg, printer)}
+        mats = [m for m in colorlab.materials_for(self.cfg, printer)
+                if colorlab.profile_for(self.cfg, m, printer) in allowed]
+        cur = getattr(self.s, "material", {}).get(printer, "")
+        self.cmb_material.blockSignals(True)
+        fill_combo(self.cmb_material, [("", tr("– keins –"))] + [
+            (m["id"], (m.get("name") or m["id"]) + (f"  ({m['weight']} g/m²)" if m.get("weight") else ""))
+            for m in mats], cur if cur in [m["id"] for m in mats] else "")
+        self.cmb_material.blockSignals(False)
+        self.cmb_material.setEnabled(enabled and bool(mats))
+        self.color_form.setRowVisible(self.row_material, bool(mats))
+
+    def _material_changed(self, *_):
+        from .. import colorlab
+        printer = self.caps.name
+        mid = self.cmb_material.currentData() or ""
+        if not hasattr(self.s, "material"):
+            self.s.material = {}
+        self.s.material[printer] = mid
+        m = colorlab.material_by_id(self.cfg, mid)
+        if m is None:
+            self._profile_note()
+            return
+        pid = colorlab.profile_for(self.cfg, m, printer)
+        i = self.cmb_profile.findData(pid)
+        if i >= 0:
+            self.cmb_profile.setCurrentIndex(i)
+        if m.get("intent"):
+            j = self.cmb_intent.findData(m["intent"])
+            if j >= 0:
+                self.cmb_intent.setCurrentIndex(j)
         self._profile_note()
 
     def _fill_intents(self, current):
@@ -1636,11 +1680,25 @@ class PrintDialog(QDialog):
 
     def _profile_note(self):
         p = config.profile_by_id(self.cfg, self.cmb_profile.currentData() or "")
+        from .. import colorlab
+        m = colorlab.material_by_id(self.cfg, self.cmb_material.currentData() or "")
+        if m is not None and colorlab.profile_for(self.cfg, m, self.caps.name) != (self.cmb_profile.currentData() or ""):
+            self.cmb_material.blockSignals(True)                # Profil von Hand geändert: kein Material mehr
+            self.cmb_material.setCurrentIndex(0)
+            self.cmb_material.blockSignals(False)
+            getattr(self.s, "material", {}).pop(self.caps.name, None)
+            m = None
         if not p:
             self.lbl_profile_note.setText("")
             return
         dopts = p.get("driver_options") or {}
         txt = tr("Das PDF wird vor dem Senden mit diesem Profil in Gerätefarben umgerechnet.")
+        if m is not None and m.get("white"):
+            pw = colorlab.profile_white(p.get("file", ""))
+            if pw:
+                de = colorlab.delta_e(m["white"], pw)
+                txt += " " + tr("Papierweiß {0} zum Profil: ΔE {1:.1f} – {2}.").format(
+                    m.get("name") or m["id"], de, colorlab.verdict(de))
         if dopts:
             txt += tr(" Profil setzt Treiberoptionen: ") + ", ".join(f"{k}={v}" for k, v in dopts.items())
         self.lbl_profile_note.setText(txt)

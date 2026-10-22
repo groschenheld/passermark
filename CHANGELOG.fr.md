@@ -5,7 +5,7 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
-## 1.16.0
+## 1.16.5
 
 ### Enchaînements : conditions
 - **« if » à chaque étape :** une étape ne s'exécute que si sa condition est remplie.
@@ -31,6 +31,26 @@
 - Chaque travail écrit un JSON avec les réglages exacts, plus un `printlog.csv`. Dossier par défaut : `printlog`.
 - `passermark-cli reprint <log.json>` réimprime le travail. Si l'original a changé entre-temps, un avertissement s'affiche.
 
+### Softproof
+- Dans la vue : Affichage → Softproof (Ctrl+Y), ou avec le bouton de la barre d'outils. Réglage avec Ctrl+Maj+Y ; les changements s'appliquent immédiatement et le réglage est mémorisé.
+- La condition d'impression est une matière (par imprimante), un profil de l'administration ou un profil CMYK du système. S'ajoutent le rendu (intent) et la BPC.
+- Au choix : simuler la couleur du papier, simuler l'encre noire d'impression, utiliser le blanc de papier mesuré de la matière.
+- Avertissements pour la gamme (les couleurs non imprimables passent au magenta) et pour la couverture d'encre au-delà d'une limite réglable en %.
+- Avec un profil CMYK et Ghostscript, la page est véritablement séparée, comme dans la conversion CMYK : le CMYK existant reste, le RVB et le gris sont convertis. Sans Ghostscript, ou avec un profil d'imprimante RVB, l'approximation se fait via l'image écran. En bas à droite, il est toujours indiqué ce qui est simulé.
+### Matières
+- Administration → nouvel onglet « Matières », enregistré avec des droits admin comme les profils.
+- Par papier : nom, grammage, surface, rendu, notes et le profil par imprimante (ou pour toutes les imprimantes).
+- Le grammage et la surface sont préremplis depuis le nom, p. ex. « ungestrichen 120 g ».
+- Le blanc de papier de trois façons : avec l'appareil de mesure via ArgyllCMS (spotread), avec calibration et plusieurs mesures dont la moyenne est faite – la dispersion est affichée ; depuis un fichier de mesure (CGATS d'i1Profiler ou d'ArgyllCMS, le champ sans couleur est pris) ; ou à la main en L*a*b*.
+- Les suggestions de profils classent les profils selon le ΔE2000 par rapport au blanc de papier, à surface et imprimante identiques, avec une note et une justification. « Reprendre » assigne le profil ; un profil système est importé au passage.
+- Si rien ne convient bien, une indication apparaît, p. ex. FOGRA52 sur eci.org ou mesurer son propre profil.
+- Quand un profil est supprimé, les matières perdent automatiquement cette attribution.
+- Volontairement absent : créer un profil à partir d'une charte de test ; les matières en ligne de commande (l'impression continue avec le profil d'imprimante de l'administration).
+- install.sh ajoute optionnellement argyll aux paquets apt (sinon pas d'appareil de mesure sous Linux).
+### Matière dans le dialogue d'impression
+- En choisissant une matière, le profil et le rendu sont réglés, et la valeur ΔE du blanc de papier au profil s'affiche. En changeant le profil à la main, la matière est désélectionnée de nouveau.
+### Matière dans la conversion CMYK
+- La matière règle le profil de destination et le rendu. La méthode est proposée selon le fichier : si le fichier a déjà été créé pour ce profil, le CMYK reste. S'il a été créé pour autre chose (p. ex. FOGRA39), tout est reséparé, avec ce profil source s'il est installé. L'aperçu couleur prend le blanc de papier mesuré.
 ## 1.15.1
 ### Poses (step & repeat) : rotation
 - Si la grille ne tient pas entièrement sur la feuille dans aucune orientation, l'orientation avec le plus petit débord l'emporte désormais. Ce n'est qu'ensuite que « de préférence sans rotation » compte.

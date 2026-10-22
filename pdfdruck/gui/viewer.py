@@ -407,6 +407,8 @@ class PageView(QScrollArea):
         self.setWidget(self.container)
         self._timer = QTimer(self, singleShot=True, interval=30, timeout=self._render_visible)
         self._gen = 0             # Dokument-Stand: Ergebnisse älterer Stände werden verworfen
+        self.proof = None         # Softproof der Ansicht (proof.proofed_render) oder None
+        self._pkey = ()           # dazu: Schlüssel – Bilder mit anderem Softproof werden verworfen
         self._rkey = None         # Dokument im Render-Prozess
         self._src_path = None
         self._tmp = None          # eigene Zwischendatei für den Render-Prozess
@@ -547,6 +549,20 @@ class PageView(QScrollArea):
         want = self.MASTER_FACTOR * max(fit * 0.5, min(S, fit))
         return max(0.02, min(want, cap))
 
+    def set_proof(self, spec):
+        """Softproof an (spec) oder aus (None): alle Seitenbilder neu, die alten bleiben bis dahin stehen."""
+        from .. import proof
+        key = proof.spec_key(spec) if spec else ()
+        if key == self._pkey:
+            return
+        self.proof, self._pkey = (dict(spec) if spec else None), key
+        for w in self.pages:
+            if w.master is not None:
+                w.mstale = True
+            w.drop(tile_only=True)
+            w.update()
+        self._timer.start()
+
     def tile_key(self, w):
         return (round(self._dev_scale(w.index), 4), self.rotation)
 
@@ -566,7 +582,9 @@ class PageView(QScrollArea):
         if self.doc is None or getattr(self.doc, "raw", None) is None or not self.pages:
             return None
         rot = self.rotation
-        base = {"doc": self._rkey, "gen": self._gen, "rotation": rot}
+        base = {"doc": self._rkey, "gen": self._gen, "rotation": rot, "pkey": self._pkey}
+        if self.proof:
+            base["proof"] = self.proof
         vis = self._wanted_pages()
         for w in vis:
             i = w.index
@@ -608,6 +626,8 @@ class PageView(QScrollArea):
     def render_done(self, req, img, err):
         if req.get("gen") != self._gen or (req.get("doc") is not None and req.get("doc") != self._rkey):
             return
+        if req.get("pkey", ()) != self._pkey:
+            return                                      # mit einem anderen Softproof gerendert
         i = req["page"]
         if not (0 <= i < len(self.pages)):
             return
@@ -633,6 +653,12 @@ class PageView(QScrollArea):
         page = self.doc[req["page"]]
         try:
             crop = tuple(req["crop"]) if req.get("crop") else (0, 0, 0, 0)
+            if req.get("proof"):
+                from .. import proof
+                im = proof.proofed_render(page, req["scale"], req["rotation"], crop, req["proof"], self._src_path,
+                                          req["page"])
+                return QImage(im.tobytes("raw", "RGB"), im.width, im.height, im.width * 3,
+                              QImage.Format.Format_RGB888).copy()
             bmp = page.render(scale=req["scale"], rotation=req["rotation"] % 360, crop=crop, prefer_bgrx=True,
                               may_draw_forms=True, draw_annots=True)
             fmt = QImage.Format.Format_RGB32 if bmp.n_channels == 4 else QImage.Format.Format_BGR888
@@ -2086,6 +2112,11 @@ class MainWindow(QMainWindow):
         self.lbl_measure.setToolTip(tr("Messung: Länge, waagrechter und senkrechter Abstand, Winkel"))
         self.statusBar().addPermanentWidget(self.lbl_measure)     # bottom far right, does not get in the way
         self.view.on_measure = self.lbl_measure.setText
+        self.lbl_proof = QLabel()
+        self.lbl_proof.setContentsMargins(8, 0, 8, 0)
+        self.lbl_proof.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_proof.hide()
+        self.statusBar().addPermanentWidget(self.lbl_proof)
         self._update_title()
 
     # ---------------- Arbeitsbereiche ---------------- #
@@ -2250,6 +2281,40 @@ class MainWindow(QMainWindow):
         self.ruler_h.cursor_px = gpos
         self.ruler_v.cursor_px = gpos
         self._rulers_update()
+
+    # ---------------- Softproof ---------------- #
+    def _toggle_proof(self, on: bool):
+        from .softproofdialog import build_spec, load_saved
+        spec = build_spec(self.session.cfg, load_saved()) if on else None
+        if on and spec is None:
+            self.softproof_dialog()                     # noch nichts gewählt (oder Profil weg): einrichten
+            return
+        self._apply_proof(spec)
+
+    def _apply_proof(self, spec):
+        from .. import proof
+        self.view.set_proof(spec)
+        self.lbl_proof.setText(proof.describe_spec(spec))
+        self.lbl_proof.setVisible(bool(spec))
+        if bool(spec) != self.a_proof.isChecked():
+            self.a_proof.blockSignals(True)
+            self.a_proof.setChecked(bool(spec))
+            self.a_proof.blockSignals(False)
+
+    def softproof_dialog(self):
+        from .softproofdialog import SoftproofDialog, build_spec, load_saved
+        dlg = getattr(self, "_proof_dlg", None)
+        if dlg is None:
+            dlg = SoftproofDialog(self, self.session.cfg)
+            dlg.changed.connect(self._apply_proof)
+            self._proof_dlg = dlg
+        dlg.show()
+        dlg.raise_()
+        spec = build_spec(self.session.cfg, load_saved())
+        if spec:
+            self._apply_proof(spec)
+        else:
+            self._apply_proof(None)
 
     def _show_boxes(self, on: bool):
         self.view.show_boxes = bool(on)
@@ -2539,6 +2604,12 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_measure)
         m.addAction(self.a_boxes)
         m.addSeparator()
+        self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
+        self.a_proof.setCheckable(True)
+        self.a_proof.toggled.connect(self._toggle_proof)
+        m.addAction(self.a_proof)
+        m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
+        m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
         self.a_fitpage = A(tr("Ganze Seite"), lambda: self.view.set_zoom("page"), "Ctrl+1", "fit_page")
@@ -2599,6 +2670,7 @@ class MainWindow(QMainWindow):
         tb.addAction(self.a_rulers)
         tb.addAction(self.a_measure)
         tb.addAction(self.a_boxes)
+        tb.addAction(self.a_proof)
         tb.addSeparator()
         tb.addAction(A(tr("Verkleinern"), lambda: self.view.step_zoom(1 / 1.2), QKeySequence.StandardKey.ZoomOut, "zoom_out"))
         self.zoom_combo = QComboBox()

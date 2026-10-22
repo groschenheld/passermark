@@ -1,4 +1,4 @@
-# Passermark 1.16.0
+# Passermark 1.16.5
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -63,6 +63,8 @@ Software libre (GPL-3.0-or-later).
   línea de comandos.
 - **Registro de impresión:** por usuario en los ajustes, o impuesto por el administrador – un JSON por trabajo con los ajustes exactos, además de un `printlog.csv`; `passermark-cli reprint <log.json>` reimprime un trabajo en cualquier momento (con aviso si el original ha cambiado).
 - **Automatización:** flujos paso a paso con condiciones («if» en cada paso, bifurcaciones «choose»/«else», «fail»/«stop» con mensaje); `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado – `serve --init` crea una plantilla con un ejemplo.
+- **Softproof:** simular el resultado de impresión en la vista (Ctrl+Y) – como condición de impresión, un material, un perfil de la administración o un perfil CMYK del sistema, con intención de renderizado (intent) y BPC; simular el color del papel y la tinta negra de impresión, avisos para los colores fuera del intervalo imprimible y para la cobertura de tinta por encima de un límite en %.
+- **Materiales:** registrar papeles (gramaje, superficie, intención de renderizado, perfil por impresora); blanco de papel medido con ArgyllCMS (spotread), desde un archivo de medición CGATS o a mano; sugerencias de perfiles ordenadas por ΔE2000. Los materiales ajustan perfil e intención en el diálogo de impresión y en la conversión CMYK; la vista previa de color toma el blanco de papel medido.
 - Reparar/optimizar PDF, PDF/A, protección con contraseña (también al «Guardar como PDF» en el diálogo de
   impresión), fusionar archivos, seleccionar y copiar texto.
 - Idiomas: español, alemán, inglés, húngaro, francés.
@@ -85,7 +87,7 @@ sudo ./install.sh        # instala dependencias vía apt, entrada de menú, men�
 sudo ./uninstall.sh      # eliminar de nuevo (--dry-run muestra una vista previa, --purge también elimina /etc/passermark)
 ```
 
-Opcional: LibreOffice (archivos de Office), 7-Zip (importar perfiles ICC desde archivos).
+Opcional: LibreOffice (archivos de Office), 7-Zip (importar perfiles ICC desde archivos), ArgyllCMS (medir el blanco de papel de los materiales – paquete de Linux `argyll`).
 
 ## Línea de comandos
 

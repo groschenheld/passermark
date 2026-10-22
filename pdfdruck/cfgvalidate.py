@@ -82,12 +82,62 @@ def check_devmode(s, where):
         raise ValueError(f"{where}: Treiberdaten ungültig")
 
 
+SURFACES = ("", "coated", "uncoated", "matte", "glossy", "silk", "recycled", "special")
+RX_TEXT = re.compile(r"^[^\x00-\x08\x0b-\x1f]*$")
+
+
+def _num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def check_materials(mats, profile_ids: set, windows: bool):
+    """Materialien (Papiere): höchstens 200, Lab-Werte im Bereich, Profile nur aus der Verwaltung."""
+    if not isinstance(mats, list) or len(mats) > 200:
+        raise ValueError("materials: Liste mit höchstens 200 Einträgen erwartet")
+    seen = set()
+    for m in mats:
+        if not isinstance(m, dict) or not RX_ID.match(str(m.get("id", ""))):
+            raise ValueError("Material: id ungültig")
+        if m["id"] in seen:
+            raise ValueError(f"Material {m['id']}: doppelt")
+        seen.add(m["id"])
+        extra = set(m) - {"id", "name", "weight", "surface", "white", "white_source", "profiles", "intent", "notes"}
+        if extra:
+            raise ValueError(f"Material {m['id']}: unbekannte Felder {sorted(extra)}")
+        if not isinstance(m.get("name", ""), str) or not RX_NAME.match(m.get("name") or m["id"]):
+            raise ValueError(f"Material {m['id']}: Name ungültig")
+        w = m.get("weight", 0)
+        if not isinstance(w, int) or isinstance(w, bool) or not 0 <= w <= 2000:
+            raise ValueError(f"Material {m['id']}: Grammatur ungültig")
+        if m.get("surface", "") not in SURFACES:
+            raise ValueError(f"Material {m['id']}: Oberfläche ungültig")
+        wh = m.get("white")
+        if wh is not None:
+            if (not isinstance(wh, list) or len(wh) != 3 or not all(_num(x) for x in wh)
+                    or not 0 <= wh[0] <= 100 or not all(-128 <= x <= 128 for x in wh[1:])):
+                raise ValueError(f"Material {m['id']}: Papierweiß (Lab) ungültig")
+        for k, lim in (("white_source", 200), ("notes", 2000)):
+            t = m.get(k, "")
+            if not isinstance(t, str) or len(t) > lim or not RX_TEXT.match(t):
+                raise ValueError(f"Material {m['id']}: {k} ungültig")
+        if m.get("intent", "") not in ("",) + INTENTS:
+            raise ValueError(f"Material {m['id']}: Intent ungültig")
+        prof = m.get("profiles", {})
+        if not isinstance(prof, dict) or len(prof) > 100:
+            raise ValueError(f"Material {m['id']}: Profile ungültig")
+        for q, pid in prof.items():
+            if q != "*" and not _queue_ok(q, windows):
+                raise ValueError(f"Material {m['id']}: Druckername ungültig")
+            if pid not in profile_ids:
+                raise ValueError(f"Material {m['id']}: unbekanntes Profil {pid!r}")
+
+
 def validate(cfg, icc_dir: str, windows: bool = False):
     if not isinstance(cfg, dict):
         raise ValueError("Konfiguration muss ein Objekt sein")
     allowed = {"version", "default_printer", "layout", "printers", "color_profiles",
                "allow_user_profile_choice", "image_default_dpi", "office_converter", "language",
-               "workflow_dirs", "print_log"}
+               "workflow_dirs", "print_log", "materials"}
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
@@ -145,6 +195,7 @@ def validate(cfg, icc_dir: str, windows: bool = False):
         if any(i not in INTENTS for i in p.get("intents", [])):
             raise ValueError("Farbprofil: Intent ungültig")
         check_opts(p.get("driver_options", {}), f"Profil {p['id']}")
+    check_materials(cfg.get("materials", []), ids, windows)
     printers = cfg.get("printers", {})
     if not isinstance(printers, dict):
         raise ValueError("printers ungültig")

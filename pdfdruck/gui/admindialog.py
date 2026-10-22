@@ -83,6 +83,10 @@ class AdminDialog(QDialog):
         tabs.addTab(_scroll(self._tab_general()), tr("Allgemein"))
         tabs.addTab(_scroll(self._tab_printers()), tr("Druckerstandards"))
         tabs.addTab(_scroll(self._tab_profiles()), tr("Farbprofile"))
+        from .materialtab import MaterialTab
+        self.mat_tab = MaterialTab(self)
+        tabs.addTab(_scroll(self.mat_tab), tr("Materialien"))
+        tabs.currentChanged.connect(lambda _i: self.mat_tab.invalidate())
         fit_width(self)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._save)
@@ -758,6 +762,25 @@ class AdminDialog(QDialog):
         self._refresh_profiles(pid)
         self.pf_space.setText(space)
 
+    def import_profile_file(self, path: str, name: str = "") -> str:
+        """ICC-Datei in die Verwaltung übernehmen (wird beim Speichern installiert) -> neue Profil-ID ("" = Fehler)."""
+        try:
+            colorconv.icc_colorspace(path)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, tr("ICC"), str(e))
+            return ""
+        from .. import iccfetch
+        pid = iccfetch.profile_id(name or os.path.splitext(os.path.basename(path))[0],
+                                  {p["id"] for p in self.cfg["color_profiles"]})
+        self.new_icc[pid] = path
+        self.removed_icc.discard(pid)
+        self.cfg["color_profiles"].append({
+            "id": pid, "name": (name or pid)[:128], "file": str(config.ICC_DIR / f"{pid}.icc"),
+            "printers": [], "intents": ["perceptual", "relative"], "bpc": True, "driver_options": {},
+        })
+        self._refresh_profiles(pid)
+        return pid
+
     def _download_profiles(self):
         import tempfile
         from .. import iccfetch
@@ -807,7 +830,11 @@ class AdminDialog(QDialog):
         for pc in self.cfg.get("printers", {}).values():
             if pc.get("color_profile") == p["id"]:
                 pc["color_profile"] = ""
+        for m in self.cfg.get("materials", []):           # Materialien verlieren die Zuordnung
+            m["profiles"] = {q: pid for q, pid in (m.get("profiles") or {}).items() if pid != p["id"]}
         self._refresh_profiles()
+        if hasattr(self, "mat_tab"):
+            self.mat_tab.invalidate()
 
     # ================================================================== #
     def _save(self):

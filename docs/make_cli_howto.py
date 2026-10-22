@@ -743,6 +743,15 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                + c("%LOCALAPPDATA%\\Passermark\\printlog") + " oder der vom Admin vorgegebene. Genau so "
                "nochmal drucken: " + c("passermark-cli reprint protokoll.json") + " (" + c("--dry-run")
                + " zum Testen, " + c("--in") + " für eine andere Datei)."))
+    s.append(P("Materialien und Softproof", H3))
+    s.append(P("Papiere werden im Programm registriert: <b>Verwaltung → Standardeinstellungen → Materialien</b> – "
+               "Name, Grammatur, Oberfläche, gemessenes Papierweiß (Messgerät über ArgyllCMS, Messdatei oder von "
+               "Hand) und je Drucker das passende Profil; Vorschläge nach Papierweiß (ΔE), Oberfläche und Drucker. "
+               "Im Druckdialog setzt das Material Profil und Intent, bei der CMYK-Umwandlung Zielprofil und Methode. "
+               "<b>Ansicht → Softproof</b> (" + c("Strg+Y") + ") zeigt die Seite in den Druckfarben des Materials "
+               "oder Profils – mit Papierweiß, Schwarz, Farbumfang- und Farbauftrag-Warnung. Messen und "
+               "Vorschläge gibt es nur im Programm; der Druck über die Kommandozeile nimmt das Profil des Druckers "
+               "aus der Verwaltung."))
 
     # ------------------------------------------------------------------ inspect
     s.append(P("7 · Dokumente untersuchen", H2))

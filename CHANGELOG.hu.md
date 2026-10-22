@@ -5,7 +5,7 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
-## 1.16.0
+## 1.16.5
 
 ### Munkafolyamatok: feltételek
 - **„if” minden lépésen:** egy lépés csak akkor fut le, ha a feltétele teljesül.
@@ -31,6 +31,26 @@
 - Minden munkához egy JSON íródik a pontos beállításokkal, mellé egy `printlog.csv`. Alapértelmezett mappa: `printlog`.
 - A `passermark-cli reprint <log.json>` újranyomtatja a munkát. Ha az eredeti időközben megváltozott, figyelmeztet.
 
+### Softproof
+- A nézetben: Nézet → Softproof (Ctrl+Y), vagy az eszközsor gombjával. Beállítása Ctrl+Shift+Y; a változtatások azonnal hatnak, a beállítás megmarad.
+- A nyomtatási feltétel egy anyag (nyomtatónként), a felügyelet egy profilja vagy egy rendszerbeli CMYK-profil. Ehhez intent és BPC.
+- Válaszható: papírszín szimulálása, fekete nyomtatási szín szimulálása, az anyag mért papírfehérjének használata.
+- Figyelmeztetés a színtartományra (a nem nyomtatható színek magenta lesznek) és a beállítható határérték feletti festékmennyiségre %-ban.
+- CMYK-profil és Ghostscript esetén az oldal valódi szeparációval készül, mint a CMYK-átalakításnál: a meglévő CMYK marad, az RGB és a szürke átszámítódik. Ghostscript nélkül, vagy RGB-nyomtatóprofilnál a képernyőkép alapján közelít. Jobb alul mindig látszik, mi van éppen szimulálva.
+### Anyagok
+- Felügyelet → új „Anyagok” fül; mentése a profilokhoz hasonlóan adminjogokkal történik.
+- Papíronként: név, grammage, felület, render intent, jegyzetek és a profil nyomtatónként (vagy minden nyomtatóra).
+- A grammage és a felület a névből előre kitöltésre kerül, pl. „ungestrichen 120 g”.
+- A papírfehér három úton: mérőeszközzel az ArgyllCMS-en (spotread) keresztül, kalibrálással és több, átlagolt méréssel – a szórás megjelenik; mérőfájlból (CGATS i1Profilerből vagy ArgyllCMS-ből, a szín nélküli mező kerül kiolvasásra); vagy kézzel, L*a*b*-ként.
+- A profiljavaslatok ΔE2000 szerint rangsorolják a profilokat a papírfehérhez, azonos felület és nyomtató mellett, értékeléssel és indoklással. Az „Átvétel” hozzárendeli a profilt; a rendszerprofil ilyenkor egyből importálódik.
+- Ha semmi sem illik jól, tipp jön, pl. FOGRA52 az eci.org-ról, vagy saját profil mérése.
+- Egy profil törlésekor az anyagok automatikusan elvesztik ezt a hozzárendelést.
+- Tudatosan nincs benne: profil készítése teszttábláról; anyagok a parancssorban (a nyomtatás továbbra is a felügyelet nyomtatóprofiljával történik).
+- Az install.sh opcionálisan felveszi az argyll csomagot az apt-csomagok közé (különben Linuxon nincs mérőeszköz).
+### Anyag a nyomtatási párbeszédablakban
+- Anyag választásakor a profil és az intent beállításra kerül, és látszik a ΔE-érték a papírfehér és a profil között. A profil kézi megváltoztatásakor az anyag ismét kijelöletlenné válik.
+### Anyag a CMYK-átalakításban
+- Az anyag beállítja a célprofilt és az intentet. A módszer a fájl szerint javasolt: ha a fájl már ehhez a profilhoz készült, a CMYK marad; ha más profilra készült (pl. FOGRA39), minden újraszeparálódik, ezzel a forrásprofillal, ha telepítve van. A szín-előnézet a mért papírfehérjet használja.
 ## 1.15.1
 ### Haszonminták (step & repeat): forgatás
 - Ha a rács egyik tájolásban sem fér teljesen az ívre, most az a tájolás nyer, amelyiken a legkisebb a túllógás. Csak ezután számít az „inkább forgatás nélkül”.

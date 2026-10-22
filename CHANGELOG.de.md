@@ -2,7 +2,7 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
-## 1.16.0
+## 1.16.5
 
 ### Abläufe: Bedingungen
 - **„if“ an jedem Schritt:** ein Schritt läuft nur, wenn seine Bedingung erfüllt ist.
@@ -28,6 +28,26 @@
 - Pro Auftrag schreibt Passermark eine JSON mit den exakten Einstellungen, dazu eine `printlog.csv`. Standardordner: `printlog`.
 - `passermark-cli reprint <log.json>` druckt den Auftrag neu. Hat sich das Original inzwischen geändert, gibt es eine Warnung.
 
+### Softproof
+- In der Seitenansicht unter Ansicht → Softproof (Strg+Y) oder über den Knopf in der Werkzeugleiste. Eingerichtet wird mit Strg+Umschalt+Y; Änderungen wirken sofort, die Einstellung wird gemerkt.
+- Die Druckbedingung ist ein Material (je Drucker), ein Profil aus der Verwaltung oder ein CMYK-Profil vom System. Dazu Intent und BPC.
+- Wählbar: Papierfarbe simulieren, schwarze Druckfarbe simulieren, gemessenes Papierweiß des Materials verwenden.
+- Warnungen für den Farbumfang (nicht druckbare Farben werden magenta) und für den Farbauftrag über einer einstellbaren Grenze in %.
+- Mit CMYK-Profil und Ghostscript wird die Seite echt separiert wie bei der CMYK-Umwandlung: Vorhandenes CMYK bleibt, RGB und Grau werden umgerechnet. Ohne Ghostscript oder bei einem RGB-Druckerprofil wird über das Bildschirmbild angenähert. Unten rechts steht immer, was gerade simuliert wird.
+### Materialien
+- Verwaltung → neuer Reiter „Materialien“; gespeichert wird wie die Profile mit Admin-Rechten.
+- Pro Papier: Name, Grammatur, Oberfläche, Render-Intent, Notizen und das Profil je Drucker (oder für alle Drucker).
+- Grammatur und Oberfläche werden aus dem Namen vorbelegt, etwa „ungestrichen 120 g“.
+- Papierweiß auf drei Wegen: mit dem Messgerät über ArgyllCMS (spotread), mit Kalibrieren und mehreren Messungen, die gemittelt werden – die Streuung wird angezeigt; aus einer Messdatei (CGATS von i1Profiler oder ArgyllCMS, das Feld ohne Farbe wird genommen); oder per Hand als L*a*b*.
+- Profilvorschläge reihen die Profile nach ΔE2000 zum Papierweiß, bei gleicher Oberfläche und Drucker, mit Bewertung und Begründung. „Übernehmen“ ordnet das Profil zu; ein Systemprofil wird dabei gleich importiert.
+- Passt nichts gut, kommt ein Tipp, z. B. FOGRA52 von eci.org oder ein eigenes Profil messen.
+- Wird ein Profil entfernt, verlieren die Materialien diese Zuordnung automatisch.
+- Bewusst nicht drin: ein Profil per Testchart erstellen; Materialien in der Kommandozeile (gedruckt wird weiter mit dem Druckerprofil aus der Verwaltung).
+- install.sh nimmt optional argyll in die apt-Pakete auf (sonst gibt es unter Linux kein Messgerät).
+### Material im Druckdialog
+- Wählst du ein Material, werden Profil und Intent gesetzt, und du siehst den ΔE-Wert vom Papierweiß zum Profil. Änderst du das Profil von Hand, wird das Material wieder abgewählt.
+### Material in der CMYK-Umwandlung
+- Das Material setzt Zielprofil und Intent. Die Methode wird nach der Datei empfohlen: Ist die Datei schon für dieses Profil angelegt, bleibt CMYK. Ist sie für etwas anderes angelegt (z. B. FOGRA39), wird alles neu separiert, mit diesem Quellprofil, wenn es installiert ist. Die Farbvorschau nimmt das gemessene Papierweiß.
 ## 1.15.1
 ### Nutzen (Step & Repeat): Drehung
 - Passt das Raster in keiner Lage ganz aufs Blatt, gewinnt jetzt die Lage mit dem kleinsten Überhang. Erst danach zählt „lieber ungedreht“.

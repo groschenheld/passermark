@@ -59,6 +59,9 @@ BUILTIN = {
     "workflow_dirs": [],            # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
     # Druckprotokoll: force = für alle an, dir = gemeinsamer Ordner ("" = je Benutzer), keep_days 0 = nie löschen
     "print_log": {"force": False, "dir": "", "keep_days": 0},
+    # Materialien (Papiere): [{"id", "name", "weight" g/m², "surface", "white": [L, a, b] | None (gemessen, D50),
+    #   "white_source": Herkunft der Messung, "profiles": {"*" | "<Drucker>": "<Profil-ID>"}, "intent", "notes"}]
+    "materials": [],
 }
 
 
