@@ -2503,4 +2503,8 @@ MESSAGES = {
     'Neue Größe: {0:.1f} pt': 'New size: {0:.1f} pt',
     'Neue Größe: {0:.1f} × {1:.1f} mm': 'New size: {0:.1f} × {1:.1f} mm',
     'Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher umordnen (Struktur der Seite nicht erkannt).': 'The drawing order cannot be rearranged safely for this selection (page structure not recognised).',
+    'Leerseite einfügen – vor Auswahl': 'Insert blank page – before selection',
+    'Leerseite einfügen – nach Auswahl': 'Insert blank page – after selection',
+    'Leerseite einfügen': 'Insert blank page',
+    '{0} Leerseite(n) eingefügt.': '{0} blank page(s) inserted.',
 }

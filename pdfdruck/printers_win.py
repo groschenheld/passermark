@@ -328,6 +328,17 @@ def choose_mode(gdi, hdc, wanted: str) -> str:
     return wanted
 
 
+PUMP = None      # Oberfläche: zwischen den Streifen kurz Ereignisse abarbeiten (Fenster bleibt lebendig)
+
+
+def _pump():
+    if PUMP is not None:
+        try:
+            PUMP()
+        except Exception:
+            pass
+
+
 def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jpeg):
     """Rasterize the page in horizontal strips and hand it to the driver (BGR DIB or JPEG, if possible)."""
     import ctypes
@@ -369,6 +380,7 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
         stats["bands"] += 1
         stats["jpeg_bands"] += int(bih.biCompression == BI_JPEG)
         y_pt = y2
+        _pump()
     return stats
 
 
@@ -443,6 +455,7 @@ def print_pdf(printer: str, pdf_path: str, title: str, values: dict, copies: int
                 page.close()
             win32print.EndPage(hdc)
             info["pages"] += 1
+            _pump()
         win32print.EndDoc(hdc)
         _log_job(info)
         LAST_INFO.clear(); LAST_INFO.update(info)

@@ -192,6 +192,16 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _safe_streams():
+    """Windows-Konsole/Pipe mit Codepage 1252/850: Zeichen wie „→“ oder „ΔE“ ließen den ganzen Auftrag abstürzen
+    (UnicodeEncodeError). Nicht darstellbare Zeichen werden jetzt ersetzt statt den Auftrag abzubrechen."""
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     import faulthandler
     faulthandler.enable()                   # hard crash -> output to stderr (ends up in the GUI log)
@@ -200,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv[:1] == ["render-server"]:       # intern: Render-Prozess der Seitenansicht (kein Auftrag)
         from .renderproc import main as render_main
         return render_main()
+    _safe_streams()
     if argv[:1] and argv[0] in API_COMMANDS:
         return api_main(argv[0], argv[1:])
     from . import core

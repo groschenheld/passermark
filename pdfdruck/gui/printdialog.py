@@ -228,6 +228,29 @@ class SideTab(QPushButton):
         super().leaveEvent(e)
 
 
+class _print_pump:
+    """Windows-Druck rastert Seite für Seite im Hauptfenster (2–6 s bei großen Blättern). Dazwischen darf das Fenster
+        sich neu zeichnen und der Herzschlag weiterlaufen – Eingaben bleiben bis zum Ende gesperrt."""
+
+    def __init__(self):
+        self._mod = None
+        if os.name != "nt":
+            return
+        try:
+            from PySide6.QtCore import QEventLoop
+            from .. import printers_win
+            flags = QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+            printers_win.PUMP = lambda: QApplication.processEvents(flags)
+            self._mod = printers_win
+        except Exception:                        # noqa: BLE001 – ohne Pumpe druckt es wie bisher
+            self._mod = None
+
+    def close(self):
+        if self._mod is not None:
+            self._mod.PUMP = None
+            self._mod = None
+
+
 class PrintDialog(QDialog):
     def __init__(self, parent, doc, path: str, current: int, session: Session, src_path: str | None = None,
                  pinfo: list | None = None):
@@ -1512,8 +1535,10 @@ class PrintDialog(QDialog):
 
     def _win_driver_dialog(self):
         from ..printers_win import DEVMODE_KEY, driver_dialog
+        from .stallwatch import paused
         try:
-            res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
+            with paused():                       # Windows-Dialog mit eigener Schleife: kein Ruckler
+                res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
         except Exception as e:
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
             return
@@ -2564,6 +2589,7 @@ class PrintDialog(QDialog):
         if pkey and pkey in self.values:      # Blatt für Schritt 1 wie gewählt – das Zielformat setzt submit_document
             values = dict(values, **{pkey: self.values[pkey]})
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        pump = _print_pump()
         try:
             jid = printjob.submit_document(
                 self.doc, os.path.basename(self.path or "Dokument"), self.s, name, pages,
@@ -2571,9 +2597,11 @@ class PrintDialog(QDialog):
                 self.chk_reverse.isChecked(), values=values,
                 file=self.path if self.path and os.path.isfile(self.path) else None)
         except Exception as e:
+            pump.close()
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckfehler"), str(e))
             return
+        pump.close()
         QApplication.restoreOverrideCursor()
         self.parent().statusBar().showMessage(tr("Auftrag {0} an {1} gesendet.").format(jid, name), 8000)
         self.accept()

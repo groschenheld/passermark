@@ -2,6 +2,29 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.1
+
+### Zusammenführen per Rechtsklick (Windows)
+- Der Explorer startet pro markierter Datei einen eigenen Passermark-Prozess. Ohne laufende Instanz wurden mehrere davon gleichzeitig zum Server, weil unter Windows `listen()` nicht fehlschlägt, wenn auf dem Namen schon einer lauscht – jeder Prozess bekam so nur einen Teil der Dateien. Ab dem dritten oder sechsten Versuch klappte es, weil dann schon eine Instanz offen war.
+- Jetzt gibt es eine Startsperre (unter Windows ein Named Mutex, sonst `flock`), noch bevor Qt lädt: Genau ein Prozess wird Hauptinstanz, die anderen warten und reichen ihre Dateien an ihn weiter.
+- Zusätzlich prüft der Start unter Windows vor `listen()`, ob schon ein Server läuft. Das Sammeln der Dateien beginnt erst, wenn die Ereignisschleife läuft.
+- Unter Linux mit 10 parallel gestarteten Prozessen getestet: ein Server, alle Dateien drin. Der Mutex-Teil für Windows ist ungetestet.
+
+### Leerseite einfügen
+- Im Rechtsklick-Menü der Seitenleiste und im Menü Seiten: „Leerseite einfügen – vor Auswahl“ und „Leerseite einfügen – nach Auswahl“ (Strg+Alt+I).
+- Die neue Seite übernimmt Format, Drehung und Trim-/Bleed-Box der Nachbarseite. Übersetzungen in allen Sprachen.
+
+### Ruckler
+- Der Mausrad-Schutz (Combo-, Spin- und Slider-Felder) lief als Filter über jedes Ereignis der App – fast alle 0,4–0,5 s beim Öffnen von Tabs und Fenstern kamen daher. Jetzt wird `wheelEvent` dieser Felder direkt ersetzt; beim Start prüft Passermark, ob das greift, und fällt sonst auf den alten Filter zurück.
+- Der Treiberdialog (4–6 s) war kein echter Hänger, sondern der offene Windows-Dialog; er wird nicht mehr protokolliert.
+- Beim Rastern beim Drucken (2–5,7 s) zeichnet das Fenster jetzt zwischen den Streifen weiter – schneller wird der Druck dadurch nicht.
+- `load_settings` liest die Datei nur noch neu, wenn sie sich geändert hat.
+- Das erste Fenster: Der Preflight lädt urllib/SSL erst, wenn sie gebraucht werden.
+- Nicht angegriffen (bräuchten einen Umbau in einen Hintergrund-Thread oder -prozess): `get_page` in `page_doc_bleeds` (1–1,5 s), `paintEvent` und der Preflight-Analyse-Aufruf im Bearbeiten-Panel.
+
+### CLI: Absturz bei Zeichen, die die Konsole nicht kann
+- Die Absturzberichte („→“, cp1252) stammten noch von 1.10.4 – das `emit` war schon gefixt. Jetzt sind alle CLI-Ausgaben abgesichert: Zeichen, die die Konsole nicht darstellen kann, werden ersetzt, statt das Programm zum Absturz zu bringen.
+
 ## 1.17.0
 
 ### Menü „Farbe“

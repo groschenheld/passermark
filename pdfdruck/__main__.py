@@ -47,8 +47,11 @@ def main():
     # läuft schon eine Instanz? Dann sofort weiterreichen – noch bevor Qt und die Oberfläche geladen werden
     # (Explorer-Mehrfachauswahl startet einen Prozess je Datei; so sind die nach Sekundenbruchteilen wieder weg)
     early_cmd = "print" if args.do_print else "repair" if args.repair else "merge" if args.merge else "open"
+    # Mehrere gleichzeitig gestartete Prozesse (Explorer: je Datei einer) warten hier an einer Startsperre – genau
+    # einer wird Hauptinstanz, die übrigen reichen danach ihre Datei an ihn weiter.
     from . import fastipc
-    if fastipc.send(early_cmd, [os.path.abspath(f) for f in args.files]):
+    start_lock = fastipc.hand_over_or_lock(early_cmd, [os.path.abspath(f) for f in args.files])
+    if start_lock is None:
         return 0
 
     from PySide6.QtWidgets import QApplication
@@ -93,12 +96,15 @@ def main():
         time.sleep(0.15)
     if ctl is None:
         ctl = appmod.Controller()
+    start_lock.release()             # Server lauscht: wartende Prozesse dürfen jetzt weiterreichen
     ctl.headless = cmd in ("print", "repair")
+    from PySide6.QtCore import QTimer
     if files or cmd != "open":
-        ctl.queue_request(cmd, files)
+        # erst in der laufenden Ereignisschleife sammeln – sonst kann das Sammelfenster schon ablaufen, bevor die
+        # gleichzeitig gestarteten Prozesse ihre Dateien überhaupt abgeben konnten
+        QTimer.singleShot(0, lambda: ctl.queue_request(cmd, files))
     if not files and cmd == "open":
         ctl.new_window()
-    from PySide6.QtCore import QTimer
     QTimer.singleShot(1200, crashui.notify_previous_crashes)  # Absturz beim letzten Mal? -> einmal melden
     return app.exec()
 

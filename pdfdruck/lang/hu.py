@@ -2503,4 +2503,8 @@ MESSAGES = {
     'Neue Größe: {0:.1f} pt': 'Új méret: {0:.1f} pt',
     'Neue Größe: {0:.1f} × {1:.1f} mm': 'Új méret: {0:.1f} × {1:.1f} mm',
     'Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher umordnen (Struktur der Seite nicht erkannt).': 'A rajzsorrend ehhez a kijelöléshez nem rendezhető át biztonságosan (oldalszerkezet nem felismerhető).',
+    'Leerseite einfügen – vor Auswahl': 'Üres oldal beszúrása – a kijelölés elé',
+    'Leerseite einfügen – nach Auswahl': 'Üres oldal beszúrása – a kijelölés után',
+    'Leerseite einfügen': 'Üres oldal beszúrása',
+    '{0} Leerseite(n) eingefügt.': '{0} üres oldal beszúrva.',
 }

@@ -5,6 +5,29 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.17.1
+
+### Fusionar con clic derecho (Windows)
+- El Explorador inicia un proceso Passermark por cada archivo seleccionado (MultiSelectModel=Player). Sin una instancia en marcha, varios de ellos se convertían a la vez en servidores, porque en Windows `listen()` no falla aunque alguien ya escuche el nombre – cada proceso recibía solo una parte de los archivos. A partir del tercer o sexto intento funcionaba, porque entonces ya había una instancia abierta.
+- Ahora hay un bloqueo de arranque (un named mutex en Windows, si no `flock`), antes de cargar Qt: exactamente un proceso se convierte en la instancia principal; los demás esperan y le pasan sus archivos.
+- Además, el arranque en Windows comprueba antes de `listen()` si ya corre un servidor. Los archivos se reúnen solo cuando corre el bucle de eventos.
+- Probado con 10 procesos iniciados en paralelo en Linux: un servidor, todos los archivos dentro. La parte del mutex para Windows no está probada.
+
+### Insertar página en blanco
+- En el menú contextual de la barra lateral de páginas y en el menú Páginas: «Insertar página en blanco – antes de la selección» y «Insertar página en blanco – después de la selección» (Ctrl+Alt+I).
+- La página nueva toma el formato, la rotación y la caja trim/bleed de la página vecina. Traducido en todos los idiomas.
+
+### Tirones
+- La protección de la rueda del ratón (campos combo, spin y slider) corría como filtro sobre cada evento de la app – casi todos los 0,4–0,5 s al abrir pestañas y ventanas venían de ahí. Ahora se sustituye directamente el `wheelEvent` de esos campos; al arrancar, Passermark comprueba que funciona y, si no, vuelve al filtro antiguo.
+- El diálogo de controladores (4–6 s) no era un cuelgue real, sino el diálogo abierto de Windows; ya no se registra en el protocolo.
+- Al rasterizar durante la impresión (2–5,7 s), la ventana sigue dibujando entre las franjas – la impresión no se vuelve más rápida por ello.
+- `load_settings` solo relee el archivo cuando ha cambiado.
+- Primera ventana: el preflight carga urllib/SSL solo cuando hace falta.
+- No atacado (exigiría rehacerlo en un hilo o proceso en segundo plano): `get_page` en `page_doc_bleeds` (1–1,5 s), `paintEvent` y la llamada de análisis del preflight en el panel de edición.
+
+### CLI: caída con caracteres que la consola no puede mostrar
+- Los informes de caída («→», cp1252) venían todavía de 1.10.4 – `emit` ya estaba corregido. Ahora todas las salidas de la CLI están aseguradas: los caracteres que la consola no puede mostrar se sustituyen en lugar de hacer caer el programa.
+
 ## 1.17.0
 
 ### Menú Color

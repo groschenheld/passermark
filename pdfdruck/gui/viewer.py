@@ -2681,6 +2681,9 @@ class MainWindow(QMainWindow):
         self.a_ins_before = A(tr("Seiten einfügen – vor Auswahl…"), lambda: self.insert_dialog("before"))
         self.a_ins_after = A(tr("Seiten einfügen – nach Auswahl…"), lambda: self.insert_dialog("after"), "Ctrl+I", "insert")
         self.a_ins_end = A(tr("Seiten anhängen (am Ende)…"), lambda: self.insert_dialog("end"), "Ctrl+Shift+I")
+        self.a_blank_before = A(tr("Leerseite einfügen – vor Auswahl"), lambda: self.insert_blank("before"))
+        self.a_blank_after = A(tr("Leerseite einfügen – nach Auswahl"), lambda: self.insert_blank("after"),
+                               "Ctrl+Alt+I")
         self.a_export = A(tr("Auswahl als ein PDF exportieren…"), self.export_selection, "Ctrl+E", "export")
         self.a_export_each = A(tr("Auswahl als einzelne PDFs exportieren…"), self.export_each, "Ctrl+Shift+E")
         self.a_delete = A(tr("Seiten löschen"), self.delete_pages, QKeySequence.StandardKey.Delete, "delete")
@@ -2699,7 +2702,8 @@ class MainWindow(QMainWindow):
                   self.a_props, None, self.a_print, None, self.a_settings, None, self.a_close):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Seiten"))
-        for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, None, self.a_export,
+        for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, self.a_blank_before, self.a_blank_after,
+                  None, self.a_export,
                   self.a_export_each, None, self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None,
                   self.a_split, self.a_split_spreads, None,
                   self.a_delete, None, self.a_selall, None, self.a_copy, self.a_seltext):
@@ -2856,7 +2860,7 @@ class MainWindow(QMainWindow):
     def _update_actions(self):
         has = self.doc is not None
         for a in (self.a_save, self.a_saveas, self.a_print, self.a_ins_before, self.a_ins_after,
-                  self.a_ins_end, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
+                  self.a_ins_end, self.a_blank_before, self.a_blank_after, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
                   self.a_rot_r, self.a_up, self.a_down, self.a_selall, self.a_manip, self.a_manip_cmyk,
                   self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit, self.a_vdp,
                   self.a_split, self.a_split_spreads):
@@ -3126,6 +3130,27 @@ class MainWindow(QMainWindow):
         self._changed_doc(start, list(range(start, pos)))
         self.statusBar().showMessage(tr("{0} Seite(n) eingefügt.").format(pos - start), 6000)
 
+    def insert_blank(self, where: str, count: int = 1):
+        """Leerseite(n) vor/nach der Auswahl – im Format der Nachbarseite (Rahmen und Drehung inklusive)."""
+        if self.doc is None:
+            return
+        from .. import pageops
+        sel = self.selected_pages()
+        n = len(self.doc)
+        if where == "before":
+            pos = sel[0] if sel else 0
+            ref = pos if pos < n else n - 1
+        else:
+            pos = (sel[-1] + 1) if sel else n
+            ref = pos - 1 if pos > 0 else 0
+        try:
+            k = pageops.insert_blank(self.doc, pos, ref if n else None, count)
+        except Exception as e:                   # noqa: BLE001
+            QMessageBox.critical(self, tr("Leerseite einfügen"), str(e))
+            return
+        self._changed_doc(pos, list(range(pos, pos + k)))
+        self.statusBar().showMessage(tr("{0} Leerseite(n) eingefügt.").format(k), 6000)
+
     def delete_pages(self):
         pages = self.selected_pages()
         if not pages:
@@ -3187,8 +3212,8 @@ class MainWindow(QMainWindow):
         n = len(self.selected_pages())
         m = QMenu(self)
         m.addSection(tr("{0} Seite(n) ausgewählt").format(n))
-        for a in (self.a_ins_before, self.a_ins_after, None, self.a_export, self.a_export_each, None,
-                  self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None):
+        for a in (self.a_ins_before, self.a_ins_after, self.a_blank_before, self.a_blank_after, None,
+                  self.a_export, self.a_export_each, None, self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None):
             m.addSeparator() if a is None else m.addAction(a)
         sm = m.addMenu(svg_icon("split"), tr("Teilen"))
         sm.addAction(tr("Senkrecht halbieren (links | rechts)"), lambda: self.split_selected("halves_v"))

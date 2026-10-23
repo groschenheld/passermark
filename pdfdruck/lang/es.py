@@ -2503,4 +2503,8 @@ MESSAGES = {
     'Neue Größe: {0:.1f} pt': 'Nuevo tamaño: {0:.1f} pt',
     'Neue Größe: {0:.1f} × {1:.1f} mm': 'Nuevo tamaño: {0:.1f} × {1:.1f} mm',
     'Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher umordnen (Struktur der Seite nicht erkannt).': 'El orden de dibujo no se puede reordenar con seguridad para esta selección (estructura de página no reconocida).',
+    'Leerseite einfügen – vor Auswahl': 'Insertar página en blanco – antes de la selección',
+    'Leerseite einfügen – nach Auswahl': 'Insertar página en blanco – después de la selección',
+    'Leerseite einfügen': 'Insertar página en blanco',
+    '{0} Leerseite(n) eingefügt.': '{0} página(s) en blanco insertada(s).',
 }

@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import tempfile
 
-from PySide6.QtCore import QEvent, QObject
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import (QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
                                QSlider)
@@ -141,9 +141,36 @@ QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled 
 """
 
 
+def _scroll_area_of(target):
+    area = target.parentWidget()
+    while area is not None and not isinstance(area, QAbstractScrollArea):
+        area = area.parentWidget()
+    return area
+
+
+def _guarded_wheel(self, ev):
+    """Ersetzt wheelEvent von Auswahlfeldern/Drehfeldern/Schiebereglern: nie den Wert ändern, sondern die
+        Umgebung scrollen (wie vorher der Ereignisfilter – nur ohne Kosten für alle anderen Ereignisse)."""
+    global _wheel_hit
+    _wheel_hit = True
+    area = _scroll_area_of(self)
+    if area is not None and area.verticalScrollBar().isVisible():
+        QApplication.sendEvent(area.verticalScrollBar(), ev)
+        ev.accept()
+        return
+    ev.ignore()
+
+
+_wheel_hit = False
+
+
 class WheelGuard(QObject):
     """The mouse wheel NEVER changes selection fields/spin boxes – it always scrolls the surroundings.
         Values are changed by clicking or via the keyboard.
+
+        Nur noch Rückfall: als Filter auf der ganzen Anwendung lief jedes einzelne Ereignis (Zeichnen, Layout,
+        Fokus …) durch Python – beim Öffnen eines Reiters/Fensters zigtausendmal, das waren die 0,4–0,5-s-Ruckler
+        in theme.py eventFilter. Normal wird stattdessen wheelEvent der drei Widget-Arten ersetzt (install_wheel_guard).
     """
 
     TYPES = (QComboBox, QAbstractSpinBox, QSlider)
@@ -161,12 +188,32 @@ class WheelGuard(QObject):
             w = w.parentWidget()
         if target is None:
             return False
-        area = target.parentWidget()
-        while area is not None and not isinstance(area, QAbstractScrollArea):
-            area = area.parentWidget()
+        area = _scroll_area_of(target)
         if area is not None and area.verticalScrollBar().isVisible():
             QApplication.sendEvent(area.verticalScrollBar(), ev)
         return True
+
+
+def install_wheel_guard(app) -> bool:
+    """wheelEvent der Auswahl-/Drehfelder/Schieberegler ersetzen und prüfen, ob Qt den Ersatz wirklich aufruft.
+        True = geklappt (kein globaler Filter nötig)."""
+    global _wheel_hit
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtGui import QWheelEvent
+    for cls in WheelGuard.TYPES:
+        cls.wheelEvent = _guarded_wheel
+    try:
+        probe = QComboBox()
+        probe.addItems(["a", "b"])
+        _wheel_hit = False
+        ev = QWheelEvent(QPointF(1, 1), QPointF(1, 1), QPoint(0, 0), QPoint(0, -120),
+                         Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+        QApplication.sendEvent(probe, ev)
+        ok = _wheel_hit and probe.currentIndex() == 0
+        probe.deleteLater()
+        return ok
+    except Exception:                            # noqa: BLE001
+        return False
 
 
 _guard = None
@@ -195,5 +242,6 @@ def apply(app: QApplication):
     f.setPointSizeF(10)
     app.setFont(f)
     app.setStyleSheet(QSS + _indicator_qss())
-    _guard = WheelGuard(app)
-    app.installEventFilter(_guard)
+    if not install_wheel_guard(app):             # Rückfall: wie bisher als Filter für die ganze Anwendung
+        _guard = WheelGuard(app)
+        app.installEventFilter(_guard)

@@ -5,6 +5,29 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.17.1
+
+### Egyesítés jobb kattintással (Windows)
+- Az Explorer Passermarkonként külön folyamatot indít a kijelölt fájlokhoz (MultiSelectModel=Player). Futó példány nélkül közülük több egyszerre lett szerver, mert Windowson a `listen()` nem hibázik, ha már figyel valaki a néven – így minden folyamat csak a fájlok egy részét kapta meg. Harmadik–hatodik próbára azért sikerült, mert akkor már volt nyitott példány.
+- Most indulási zár van (Windowson named mutex, egyébként `flock`), még a Qt betöltése előtt: pontosan egy folyamat lesz a fő példány, a többiek várnak, és átadják neki a fájljaikat.
+- Ezen felül a Windowsos indítás a `listen()` előtt ellenőrzi, hogy fut-e már szerver. A fájlok gyűjtése csak akkor kezdődik, amikor már fut az eseményhurok.
+- Linuxon 10 párhuzamosan indított folyamattal tesztelve: egy szerver, minden fájl benne. A Windowsos mutex-rész nincs tesztelve.
+
+### Üres oldal beszúrása
+- Az oldalpanel helyi menüjében és az Oldalak menüben: „Üres oldal beszúrása – a kijelölés elé” és „Üres oldal beszúrása – a kijelölés után” (Ctrl+Alt+I).
+- Az új oldal átveszi a szomszédos oldal formátumát, forgatását és Trim/Bleed-dobozát. Minden nyelven lefordítva.
+
+### Akadozás
+- A görgetőkerék-védelem (combo-, spin- és slider-mezők) az app minden eseményén szűrőként futott – a lapok és ablakok nyitásakori 0,4–0,5 s szinte mindegyike ettől volt. Most e mezők `wheelEvent`-jét cserélik ki közvetlenül; induláskor a Passermark ellenőrzi, hogy működik-e, és különben a régi szűrőre esik vissza.
+- A meghajtó párbeszédablaka (4–6 s) nem igazi akadás volt, hanem a nyitott Windows-párbeszéd; már nem kerül naplózásra.
+- A nyomtatás alatti raszterezésnél (2–5,7 s) az ablak a sávok között is tovább rajzol – a nyomtatás ettől nem lesz gyorsabb.
+- A `load_settings` csak akkor olvassa újra a fájlt, ha változott.
+- Első ablak: a preflight csak akkor tölti be az urllib/SSL-t, amikor kell.
+- Nem megtámadva (háttérszálba vagy -folyamatba való átépítést igényelne): a `get_page` a `page_doc_bleeds`-ben (1–1,5 s), a `paintEvent` és a preflight-elemzés hívása a szerkesztőpanelben.
+
+### CLI: leállás, ha a konzol nem tudja a karaktert
+- A leállási jelentések („→”, cp1252) még az 1.10.4-ből származtak – az `emit` már javítva volt. Most minden CLI-kimenet védett: a konzol által nem megjeleníthető karakterek helyettesítve lesznek, ahelyett hogy a program leállna.
+
 ## 1.17.0
 
 ### Szín menü

@@ -27,8 +27,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 
 from . import platform as _platform
@@ -943,6 +941,7 @@ def free_alternative(name: str) -> str:
 
 
 def _get_json(url):
+    import urllib.request                        # erst bei Bedarf: lädt SSL – kostete beim ersten Fenster spürbar Zeit
     req = urllib.request.Request(url, headers={"User-Agent": "Passermark"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -976,6 +975,8 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
     """Fetch a free font (OFL/Apache) from fontsource.org -> (file paths, family actually loaded).
         Commercial names (Arial, Calibri …) are redirected to their free twin.
     """
+    import urllib.error
+    import urllib.request
     used = free_alternative(family) or family.strip()
     fid = re.sub(r"[^a-z0-9]+", "-", used.lower()).strip("-")
     cdn = "https://cdn.jsdelivr.net/fontsource/fonts/{0}@latest/latin-{1}-{2}.ttf"

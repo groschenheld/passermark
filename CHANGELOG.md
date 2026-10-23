@@ -2,6 +2,29 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.1
+
+### Merge via right-click (Windows)
+- The Explorer starts one Passermark process per selected file (MultiSelectModel=Player). Without a running instance, several of them became servers at the same time, because on Windows `listen()` does not fail when someone is already listening on the name – each process got only part of the files. From around the third or sixth attempt it worked, because an instance was already open by then.
+- There is now a startup lock (a named mutex on Windows, `flock` otherwise), before Qt even loads: exactly one process becomes the main instance; the others wait and pass their files on to it.
+- In addition, startup on Windows checks before `listen()` whether a server is already running. Files are only collected once the event loop runs.
+- Tested with 10 processes started in parallel on Linux: one server, all files in. The mutex part for Windows is untested.
+
+### Insert blank page
+- In the context menu of the page sidebar and in the Pages menu: “Insert blank page – before selection” and “Insert blank page – after selection” (Ctrl+Alt+I).
+- The new page takes over the format, rotation and trim/bleed box of the neighbouring page. Translated in all languages.
+
+### Jank
+- The mouse-wheel guard (combo, spin and slider fields) ran as a filter over every event of the app – almost all of the 0.4–0.5 s when opening tabs and windows came from there. Now the `wheelEvent` of these fields is replaced directly; at startup Passermark checks whether that works and falls back to the old filter otherwise.
+- The driver dialog (4–6 s) was not a real hang but the open Windows dialog; it is no longer logged.
+- While rasterising during printing (2–5.7 s) the window now keeps drawing between the strips – printing does not get faster by that.
+- `load_settings` re-reads the file only when it has changed.
+- First window: the preflight loads urllib/SSL only when they are needed.
+- Not tackled (would need a move to a background thread or process): `get_page` in `page_doc_bleeds` (1–1.5 s), `paintEvent` and the preflight analysis call in the editing panel.
+
+### CLI: crash on characters the console cannot show
+- The crash reports (“→”, cp1252) still came from 1.10.4 – `emit` was already fixed. All CLI output is now sanitised: characters the console cannot display are replaced instead of crashing the program.
+
 ## 1.17.0
 
 ### Colour menu

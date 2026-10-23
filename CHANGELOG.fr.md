@@ -5,6 +5,29 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.17.1
+
+### Fusion par clic droit (Windows)
+- L'Explorateur démarre un processus Passermark par fichier sélectionné (MultiSelectModel=Player). Sans instance en cours, plusieurs d'entre eux devenaient serveurs en même temps, car sous Windows, `listen()` n'échoue pas quand quelqu'un écoute déjà sur le nom – chaque processus ne recevait qu'une partie des fichiers. À partir de la troisième ou sixième tentative, ça marchait, parce qu'une instance était déjà ouverte.
+- Il y a maintenant un verrou au démarrage (un named mutex sous Windows, sinon `flock`), avant même le chargement de Qt : exactement un processus devient l'instance principale ; les autres attendent et lui transmettent leurs fichiers.
+- En plus, le démarrage sous Windows vérifie avant `listen()` si un serveur tourne déjà. Les fichiers ne sont collectés que lorsque la boucle d'événements tourne.
+- Testé avec 10 processus démarrés en parallèle sous Linux : un serveur, tous les fichiers dedans. La partie mutex pour Windows n'est pas testée.
+
+### Insérer une page blanche
+- Dans le menu contextuel du panneau latéral des pages et dans le menu Pages : « Insérer une page blanche – avant la sélection » et « Insérer une page blanche – après la sélection » (Ctrl+Alt+I).
+- La nouvelle page reprend le format, la rotation et la boîte trim/bleed de la page voisine. Traduit dans toutes les langues.
+
+### Saccades
+- La protection contre la molette (champs combo, spin et slider) tournait comme un filtre sur chaque événement de l'app – presque toutes les 0,4–0,5 s à l'ouverture des onglets et fenêtres venaient de là. Désormais, le `wheelEvent` de ces champs est remplacé directement ; au démarrage, Passermark vérifie que ça marche et retombe sinon sur l'ancien filtre.
+- Le dialogue de pilote (4–6 s) n'était pas un vrai blocage, mais le dialogue Windows ouvert ; il n'est plus journalisé.
+- Pendant la rastérisation à l'impression (2–5,7 s), la fenêtre continue de se dessiner entre les bandes – l'impression n'en est pas plus rapide.
+- `load_settings` ne relit le fichier que s'il a changé.
+- Première fenêtre : le prévol ne charge urllib/SSL que lorsque c'est nécessaire.
+- Pas attaqué (exigerait un passage dans un thread ou un processus en arrière-plan) : `get_page` dans `page_doc_bleeds` (1–1,5 s), `paintEvent` et l'appel d'analyse du prévol dans le panneau d'édition.
+
+### CLI : plantage sur des caractères que la console ne sait pas afficher
+- Les rapports de plantage (« → », cp1252) venaient encore de 1.10.4 – `emit` était déjà corrigé. Toutes les sorties CLI sont maintenant protégées : les caractères que la console ne peut pas afficher sont remplacés au lieu de faire planter le programme.
+
 ## 1.17.0
 
 ### Menu Couleur
