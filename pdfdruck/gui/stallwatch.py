@@ -22,6 +22,23 @@ import traceback
 THRESHOLD = 0.4              # s ohne Herzschlag = Hänger
 MAX_BYTES = 512 * 1024       # Logdatei klein halten
 
+_paused = 0
+
+
+class paused:
+    """Kein Ruckler, sondern gewollt: z. B. der Original-Treiberdialog von Windows (modal, eigene Nachrichten-
+        schleife) – solange er offen ist, schlägt das Herz nicht. Mit  with stallwatch.paused(): …  nicht mitschreiben."""
+
+    def __enter__(self):
+        global _paused
+        _paused += 1
+        return self
+
+    def __exit__(self, *exc):
+        global _paused
+        _paused = max(0, _paused - 1)
+        return False
+
 
 class StallWatch:
     def __init__(self, log_path: str, context=None):
@@ -59,17 +76,22 @@ class StallWatch:
     def _run(self):
         while not self._stop.wait(0.05):
             lag = time.monotonic() - self.beat
-            if lag < THRESHOLD:
+            if lag < THRESHOLD or _paused:
                 continue
             start = self.beat
             samples = collections.Counter()
+            was_paused = False
             while not self._stop.is_set() and self.beat == start:
+                if _paused:
+                    was_paused = True
+                    time.sleep(0.05)
+                    continue
                 s = self._sample()
                 if s:
                     samples[s] += 1
                 time.sleep(0.05)
             dur = time.monotonic() - start - 0.1
-            if dur >= THRESHOLD and samples:
+            if dur >= THRESHOLD and samples and not was_paused:
                 self._write(dur, samples)
 
     def _write(self, dur, samples: collections.Counter):

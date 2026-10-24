@@ -166,7 +166,7 @@ def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, st
     """Papier passend zur PDF ("paper": "auto"): bei „Größe“ die Seite, bei der Broschüre zwei Seiten nebeneinander.
         Gemessen wird die erste zu druckende Seite. -> (Treiberwert, Hinweis bei gemischten Formaten)."""
     MM = 72 / 25.4
-    if lay.handling not in ("size", "booklet"):
+    if lay.handling not in ("size", "booklet") or getattr(lay, "step_repeat", False):
         raise ValueError(tr("\"paper\": \"auto\" geht nur bei Seitenhandhabung Größe oder Broschüre – "
                             "für Nutzen und Poster das Papier angeben."))
     key = caps.roles.get("pagesize")
@@ -233,6 +233,10 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
         vals, probs = resolve(caps, session.values_for(printer), s, presets)
         if probs:
             raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
+        eff = layout.spread_settings(lay) if layout.is_booklet_spreads(lay) else lay
+        pkey = caps.roles.get("pagesize") or ""
+        paper1 = vals.get(pkey)                          # Montageblatt (Schritt 1)
+        vals = printjob.step2_values(caps, vals, eff)    # Mehrfachnutzen mit Schritt 2: Papier = Zielformat
         if s.profile != "admin" or s.intent:
             pid, intent = session.color_for(printer)
             session.color[printer] = ("" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
@@ -259,8 +263,12 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
             if progress:
                 progress(1, 1, "")
             return info
-        info["job_id"] = printjob.submit_document(doc, s.title or os.path.basename(path), session, printer, sel, lay,
-                                                  max(1, int(s.copies)), s.collate, rev, values=vals)
+        send = dict(vals, **({pkey: paper1} if pkey and paper1 is not None else {}))   # Blatt für Schritt 1;
+        from . import printlog
+        with printlog.source(printlog.current() if printlog.current() != "dialog" else "cli"):
+            info["job_id"] = printjob.submit_document(doc, s.title or os.path.basename(path), session, printer, sel,
+                                                      lay, max(1, int(s.copies)), s.collate, rev, values=send,
+                                                      file=path)      # Zielformat (Schritt 2) setzt submit_document
         if progress:
             progress(1, 1, "")
         return info

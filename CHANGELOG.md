@@ -2,6 +2,113 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.1
+
+### Merge via right-click (Windows)
+- The Explorer starts one Passermark process per selected file (MultiSelectModel=Player). Without a running instance, several of them became servers at the same time, because on Windows `listen()` does not fail when someone is already listening on the name – each process got only part of the files. From around the third or sixth attempt it worked, because an instance was already open by then.
+- There is now a startup lock (a named mutex on Windows, `flock` otherwise), before Qt even loads: exactly one process becomes the main instance; the others wait and pass their files on to it.
+- In addition, startup on Windows checks before `listen()` whether a server is already running. Files are only collected once the event loop runs.
+- Tested with 10 processes started in parallel on Linux: one server, all files in. The mutex part for Windows is untested.
+
+### Insert blank page
+- In the context menu of the page sidebar and in the Pages menu: “Insert blank page – before selection” and “Insert blank page – after selection” (Ctrl+Alt+I).
+- The new page takes over the format, rotation and trim/bleed box of the neighbouring page. Translated in all languages.
+
+### Jank
+- The mouse-wheel guard (combo, spin and slider fields) ran as a filter over every event of the app – almost all of the 0.4–0.5 s when opening tabs and windows came from there. Now the `wheelEvent` of these fields is replaced directly; at startup Passermark checks whether that works and falls back to the old filter otherwise.
+- The driver dialog (4–6 s) was not a real hang but the open Windows dialog; it is no longer logged.
+- While rasterising during printing (2–5.7 s) the window now keeps drawing between the strips – printing does not get faster by that.
+- `load_settings` re-reads the file only when it has changed.
+- First window: the preflight loads urllib/SSL only when they are needed.
+- Not tackled (would need a move to a background thread or process): `get_page` in `page_doc_bleeds` (1–1.5 s), `paintEvent` and the preflight analysis call in the editing panel.
+
+### CLI: crash on characters the console cannot show
+- The crash reports (“→”, cp1252) still came from 1.10.4 – `emit` was already fixed. All CLI output is now sanitised: characters the console cannot display are replaced instead of crashing the program.
+
+## 1.17.0
+
+### Colour menu
+- A new **Colour** main menu (between Document manipulation and View) brings everything colour together: colour check, soft proofing (Ctrl+Y, configured as before with Ctrl+Shift+Y), export for the press, CMYK conversion, papers and measurements, get standard profiles, and the short guide “Colour management in brief”.
+- The print preparation workspace has the same functions as buttons in the toolbar.
+- Soft proofing moves from the View menu to the Colour menu; Ctrl+Y stays.
+- If ArgyllCMS (spotread) for measuring is missing, the help menu shows a link with installation help.
+
+### Colour check (Ctrl+Shift+F)
+- A side panel like the preflight, only for paper: pick the print condition at the top (material or system profile); below, Passermark shows what is in the document – RGB images per page, the highest ink coverage per page, spot colours and the output intent. For the print condition you see the profile or material and the ΔE2000 to the paper white.
+- Findings are in plain text, each with its own button: convert, embed the output intent, re-separate, measure paper, get matching profiles, or document check. Findings are clickable like in the preflight (◀ ▶, red frame).
+- Checked: RGB present; ink coverage above the profile's limit; output intent missing or not matching the print condition; spot colours present (hint only).
+
+### Export for the press
+- A wizard in four steps: pick the print condition (material or system profile), convert as recommended, check (before and after), save.
+- The ICC profile is always embedded as output intent.
+- If the file contains RGB, Passermark always asks: convert, or pass it on with its profile? There is no preselection.
+- Optionally Passermark creates a package `…_Druckerei.zip`: PDF, the ICC profiles used and a report (print condition, intent, paper white, warnings).
+- The result is PDF/X-4-capable by Passermark's rules: RGB settled, output intent in place, ink coverage within the limit. The file is not flagged as PDF/X-4 and not validated.
+- Deliberately not included: a soft proof before/after comparison in the wizard – the result can be viewed with “Open in Passermark”.
+
+### CLI: press
+- `passermark-cli press in.pdf out.pdf` does the press export for workflows and watchers too: print condition, conversion as recommended, output intent always embedded.
+- If the file contains RGB and `rgb` is not set, the job aborts instead of guessing.
+- The CLI manual has its own section on press.
+
+### Papers and measurements
+- Own materials without admin rights: they live in `~/.config/passermark/materials.json` and are saved immediately. The materials from the administration stay; both show up everywhere.
+- The “Measure paper …” button creates the paper and starts the measurement right away. “Find device” finds the X-Rite device via ArgyllCMS (spotread); if ArgyllCMS is missing, installation help is offered (Linux package, Windows download).
+- Tooltips explain paper white, ΔE, intent and output intent.
+- In the admin dialog, the empty material list now explains the four steps (create the paper, measure the paper white, assign a profile, pick it), instead of being greyed out and saying nothing.
+- Still deliberately not included: creating own profiles from a test chart.
+
+### Standard profiles
+- “Get standard profiles” loads PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL and SWOP from registry.color.org into your own ICC folder.
+- They are not bundled: according to the registry, the ECI profiles may only be passed on with ECI's permission – using and embedding them is free.
+- The profile suggestions also show standard profiles that are not installed yet; “Apply” fetches and assigns them.
+
+## 1.16.5
+
+### Workflows: conditions
+- **"if" on every step:** a step only runs when its condition holds.
+- **Branches:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` runs exactly the branch whose condition is true.
+- **"fail" and "stop":** `fail` rejects the file (exit code 1, error code `rejected`), `stop` ends the workflow without an error. Both can give a message, with placeholders such as `${pages}` or `${format}`.
+- `check` reports typos in a condition, with the exact position.
+- Conditions can check: number of pages, format, dimensions, bleed, file size, file name, errors and warnings from the preflight, RGB, spot colours, missing fonts, transparency, layers and `var.NAME`.
+
+### serve: --init and rejected files
+- `passermark-cli serve --init` (or `--init --system`, for everybody) creates a template `watch.json`, an example workflow and the folder `hotfolder/beispiel`. Nothing that already exists is ever overwritten.
+- The watcher moves files rejected by a condition to `failed/`, together with the log.
+- The Linux install script and the Windows setup run `serve --init --system` once after installing, if nothing is there yet.
+
+### Step & repeat: step 2 when printing directly
+- The second mounting is now also applied when printing directly from the print dialog – not only with `passermark-cli impose`. Nine business cards on half SRA3, mounted twice, now arrive on SRA3 when printing directly too.
+
+### Preflight: clickable findings
+- Every finding names its position in plain words ("page 2 – bottom right, 40 × 20 mm").
+- A click jumps to the spot and frames it in red; ◀ ▶ walks through the findings.
+
+### Print log
+- Per user in the settings, or forced by the admin (`print_log`: `force`, `dir`, `keep_days`).
+- Every job writes a JSON with the exact settings, plus a `printlog.csv`. Default folder: `printlog`.
+- `passermark-cli reprint <log.json>` prints the job again. If the original has changed in the meantime, there is a warning.
+
+### Soft proofing
+- In the view under View → Soft proof (Ctrl+Y), or with the button in the toolbar. Set up with Ctrl+Shift+Y; changes apply immediately and the setting is remembered.
+- The print condition is a material (per printer), a profile from the administration or a CMYK profile from the system. Plus intent and BPC.
+- Choose: simulate paper colour, simulate black printing ink, use the material's measured paper white.
+- Warnings for the gamut (colours that cannot be printed turn magenta) and for the ink coverage above an adjustable limit in %.
+- With a CMYK profile and Ghostscript the page is truly separated, as in the CMYK conversion: existing CMYK stays, RGB and grey are converted. Without Ghostscript, or with an RGB printer profile, the screen image is used as an approximation. The bottom right always says what is currently being simulated.
+### Materials
+- Administration → new tab "Materials", stored with admin rights like the profiles.
+- Per paper: name, grammage, surface, rendering intent, notes and the profile per printer (or for all printers).
+- Grammage and surface are pre-filled from the name, e.g. "uncoated 120 g".
+- Paper white in three ways: with the measuring device via ArgyllCMS (spotread), with calibrating and several measurements that are averaged – the spread is shown; from a measurement file (CGATS from i1Profiler or ArgyllCMS, the field without colour is taken); or by hand as L*a*b*.
+- Profile suggestions rank the profiles by ΔE2000 to the paper white, with the same surface and printer, with a score and a reason. "Apply" assigns the profile; a system profile is imported in the process.
+- If nothing fits well, there is a hint, e.g. FOGRA52 from eci.org or measure your own profile.
+- When a profile is removed, the materials lose that assignment automatically.
+- Deliberately not included: creating a profile from a test chart; materials in the command line (printing continues with the printer profile from the administration).
+- install.sh optionally adds argyll to the apt packages (otherwise there is no measuring device under Linux).
+### Material in the print dialog
+- Picking a material sets profile and intent, and shows the ΔE value from the paper white to the profile. Changing the profile by hand deselects the material again.
+### Material in the CMYK conversion
+- The material sets the destination profile and intent. The method is recommended according to the file: if the file was already created for this profile, CMYK stays. If it was created for something else (e.g. FOGRA39), everything is separated anew, with that source profile if it is installed. The colour preview takes the measured paper white.
 ## 1.15.1
 ### Step & repeat: rotation
 - If the grid does not fit on the sheet in either orientation, the orientation with the smallest overhang wins now. Only after that "prefer unrotated" counts.

@@ -35,6 +35,7 @@ class ImageUse:
     codec: str = ""            # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
     mask: bool = False         # 1-Bit-Maske (Strich)
     key: tuple | None = None   # Objektnummer des Bildes (None = eingebettet/inline)
+    bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, Seitenkoordinaten – wo es auf der Seite liegt
 
     def max_mm(self, dpi: float) -> tuple:
         """Größte Druckgröße bei dieser Auflösung."""
@@ -240,7 +241,11 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
             key = img.objgen if img.objgen != (0, 0) else None
         except Exception:
             key = None
-        rep.images.append(ImageUse(pno, name, (w, h), (pw, ph), dpi, space, prof, bits, _codec(img), is_mask, key))
+        pts = [(ctm[4] + ctm[0] * u + ctm[2] * v, ctm[5] + ctm[1] * u + ctm[3] * v) for u, v in
+               ((0, 0), (1, 0), (0, 1), (1, 1))]
+        bbox = (min(x for x, _ in pts), min(y for _, y in pts), max(x for x, _ in pts), max(y for _, y in pts))
+        rep.images.append(ImageUse(pno, name, (w, h), (pw, ph), dpi, space, prof, bits, _codec(img), is_mask, key,
+                                   bbox))
         if not is_mask:
             add_color(pno, space)
 

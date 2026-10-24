@@ -215,7 +215,7 @@ class RenderService(QObject):
         req["id"] = self._id
         self.busy = req
         wire = {k: v for k, v in req.items()
-                if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind")}
+                if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind", "proof")}
         payload = b""
         if req.get("op") == "call":                         # Argumente können Objekte sein (Zeilen, Objekte)
             payload = pickle.dumps(req.get("args") or {})

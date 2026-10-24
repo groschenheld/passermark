@@ -12,7 +12,7 @@ VENV="$LIB/venv"
 if command -v apt-get >/dev/null; then
     apt-get update
     apt-get install -y python3-venv python3-cups ghostscript librsvg2-bin fontconfig fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-urw-base35 fonts-dejavu-core polkitd pkexec libxcb-cursor0 \
-        python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full
+        python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full argyll
 fi
 
 [ -d /etc/passermark/ablaeufe ] && [ ! -e /etc/passermark/workflows ] && mv /etc/passermark/ablaeufe /etc/passermark/workflows
@@ -40,7 +40,6 @@ install -D -m 644 data/passermark_nautilus.py /usr/share/nautilus-python/extensi
 
 [ -f /etc/passermark/defaults.json ] || echo '{}' > /etc/passermark/defaults.json
 chown root:root /etc/passermark/defaults.json; chmod 644 /etc/passermark/defaults.json
-
 cat > /usr/local/bin/passermark <<SH
 #!/bin/sh
 PYTHONPATH="$LIB" exec "$VENV/bin/python" -m pdfdruck "\$@"
@@ -51,6 +50,7 @@ cat > /usr/local/bin/passermark-cli <<SH
 PYTHONPATH="$LIB" exec "$VENV/bin/python" -m pdfdruck.cli "\$@"
 SH
 chmod 755 /usr/local/bin/passermark-cli
+[ -e /etc/passermark/watch.json ] || /usr/local/bin/passermark-cli serve --init --system
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
 command -v update-desktop-database >/dev/null && update-desktop-database -q || true
 if ! command -v soffice >/dev/null && ! ls /opt/*/desktopeditors/converter/x2t >/dev/null 2>&1; then

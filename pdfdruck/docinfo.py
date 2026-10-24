@@ -209,7 +209,10 @@ def _check(data: bytes) -> dict:
     return {
         "counts": rep.counts(),
         "issues": [{"severity": i.severity, "category": i.category, "message": i.message,
-                    "pages": sorted(i.pages)} for i in rep.issues],
+                    "pages": sorted(i.pages),
+                    "spots": [{"page": sp.page, "box_pt": None if sp.box is None else [round(v, 2) for v in sp.box],
+                               "label": sp.label, "where": preflight.where_text(rep, sp)}
+                              for sp in getattr(i, "spots", []) or []]} for i in rep.issues],
         "fonts": [{"name": f.name, "subtype": f.subtype, "embedded": f.embedded, "subset": f.subset,
                    "pages": sorted(f.pages)} for f in rep.fonts],
         "layers": [{"name": L.name, "view": L.view_on, "print": L.print_on, "locked": L.locked}

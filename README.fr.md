@@ -1,4 +1,4 @@
-# Passermark 1.15.1
+# Passermark 1.17.1
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -26,7 +26,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Imposition :** ajuster/mettre à l'échelle, N pages par feuille, poster, pas de répétition (step & repeat) ;
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
-  Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2).
+  Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2) – désormais aussi à l'impression directe depuis le dialogue d'impression.
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
@@ -37,7 +37,7 @@ Logiciel libre (GPL-3.0-or-later).
   perdu respectés.
 - **Prévol (preflight) :** vérifie polices, calques et transparences à l'ouverture ; corrections : intégrer
   ou remplacer des polices (polices libres métriquement compatibles ou téléchargement depuis fontsource.org),
-  texte en courbes, figer/supprimer des calques, aplatir la transparence.
+  texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats.
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et
   taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler.
 - Règles et mesure : règles en mm au bord de la vue ; cliquer début et fin pour mesurer (Maj s'aligne
@@ -60,6 +60,14 @@ Logiciel libre (GPL-3.0-or-later).
   Automatisation) avec leur propre barre d'outils.
 - **Préréglages** pour CutContour, CMYK/rognage, mise en page d'impression et données variables – partagés
   avec la ligne de commande.
+- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts, plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé).
+- **Automatisation :** enchaînements étape par étape avec conditions (« if » à chaque étape, embranchements « choose »/« else », « fail »/« stop » avec message) ; `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné – `serve --init` crée un modèle avec un exemple.
+- **Softproof :** simuler le résultat d'impression dans la vue (Ctrl+Y) – comme condition d'impression, une matière, un profil de l'administration ou un profil CMYK du système, avec le rendu (intent) et la BPC ; simuler la couleur du papier et l'encre noire d'impression, avertissements pour les couleurs hors gamme imprimable et pour la couverture d'encre au-delà d'une limite en %.
+- **Matières :** enregistrer des papiers (grammage, surface, rendu, profil par imprimante) ; blanc de papier mesuré avec ArgyllCMS (spotread), à partir d'un fichier de mesure CGATS ou à la main ; suggestions de profils classées selon le ΔE2000. Les matières définissent le profil et le rendu dans le dialogue d'impression et dans la conversion CMYK ; l'aperçu couleur prend le blanc de papier mesuré.
+- **Contrôle couleur :** dans le nouveau menu Couleur (Ctrl+Maj+F) – un panneau latéral comme le prévol : choisir la condition d'impression, Passermark montre ce que contient le document (RVB, couverture d'encre, tons directs, output intent) et des constats en clair, chacun avec un bouton pour corriger ; les constats sont cliquables.
+- **Export pour l'imprimeur :** un assistant en quatre étapes – choisir la condition d'impression, convertir selon la recommandation, contrôler, enregistrer ; l'ICC toujours intégré comme output intent, le RVB demande toujours ; paquet facultatif avec PDF, profils et rapport. Aussi en ligne de commande (`passermark-cli press`).
+- **Papiers et mesures :** des matières personnelles sans droits d'administration (`~/.config/passermark/materials.json`, enregistrées immédiatement) ; le bouton « Mesurer le papier … » crée le papier et lance la mesure, « Rechercher l'appareil » trouve l'appareil X-Rite via ArgyllCMS ; la liste des matières vide dans le dialogue d'admin explique maintenant les premières étapes.
+- **Profils standard :** charger PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL et SWOP depuis registry.color.org dans son propre dossier ICC avec « Obtenir les profils standard » (pas fournis pour des raisons de licence) ; les suggestions montrent aussi les profils pas encore installés.
 - Réparer/optimiser des PDF, PDF/A, protection par mot de passe (aussi lors de « Enregistrer en PDF » dans le
   dialogue d'impression), fusionner des fichiers, sélectionner et copier du texte.
 - Langues : français, allemand, anglais, espagnol, hongrois.
@@ -82,7 +90,7 @@ sudo ./install.sh        # installe les dépendances via apt, entrée de menu, m
 sudo ./uninstall.sh      # supprimer à nouveau (--dry-run pour prévisualiser, --purge supprime aussi /etc/passermark)
 ```
 
-Optionnel : LibreOffice (fichiers Office), 7-Zip (import de profils ICC depuis des archives).
+Optionnel : LibreOffice (fichiers Office), 7-Zip (import de profils ICC depuis des archives), ArgyllCMS (mesurer le blanc de papier des matières – paquet Linux `argyll`).
 
 ## Ligne de commande
 
@@ -99,11 +107,13 @@ passermark-cli presets                                # préréglages enregistr�
 ```
 
 Tâches : `cutcontour`, `separate`, `manip` (CMYK/rognage), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split` ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
+`split`, `press` (export pour l'imprimeur) ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
 imbriqués avec un point (`--set detect.tolerance=40`). Ctrl+C interrompt proprement (pas de fichier à moitié
 écrit). Codes de retour : 0 terminé, 1 erreur, 2 mauvaise indication, 130 interrompu. `--json-progress`
 affiche progression et résultat en lignes JSON. Les grandes tâches utilisent plusieurs cœurs ; limitation
 avec la variable d'environnement `PASSERMARK_WORKERS` (1 = pas de parallélisme).
+
+`passermark-cli serve` surveille les dossiers de dépôt (`--init` crée un modèle avec un exemple) ; `passermark-cli reprint <log.json>` réimprime un travail depuis le journal d'impression.
 
 Où : Linux `install.sh` → `passermark-cli` ; AppImage → `Passermark-*.AppImage --cli …` ;
 Windows → `passermark-cli.exe` dans le dossier d'installation (option d'installation : l'ajouter au PATH).

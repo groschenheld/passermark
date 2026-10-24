@@ -412,6 +412,18 @@ def _cut_settings():
     return CutSettings
 
 
+def _job_press(src, dst, s, opts, progress, cancel):
+    """Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer, optional Paket (pressexport.py)."""
+    from . import pressexport
+    r = pressexport.run(src, dst, s, progress=lambda d, t, x: _report(progress, d, t, x), cancel=cancel)
+    return JobResult(dst, r["info"], r["notes"])
+
+
+def _press_settings():
+    from .pressexport import PressSettings
+    return PressSettings
+
+
 def _manip_settings():
     from .cmyk import ManipSettings
     return ManipSettings
@@ -428,6 +440,7 @@ JOBS = {
     "vdp": (_vdp_settings, _job_vdp),
     "split": (_split_settings, _job_split),
     "shrink": (_shrink_settings, _job_shrink),
+    "press": (_press_settings, _job_press),
 }
 
 

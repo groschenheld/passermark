@@ -93,7 +93,7 @@ def load_config(path: str) -> dict:
         probs.append(("version", tr("Einstellung ist für eine neuere Passermark-Version (Format {0}, unterstützt: {1})")
                       .format(ver, VERSION)))
     for k in data:
-        if k not in _TOP:
+        if k not in _TOP and not str(k).startswith("_"):       # "_hinweis" … = Kommentar
             probs.append((k, tr("unbekannter Eintrag")))
     out = {"file": os.path.abspath(path), "interval": 5.0, "settle": 5.0, "folders": []}
     for k in ("interval", "settle"):
@@ -113,7 +113,7 @@ def load_config(path: str) -> dict:
             probs.append((w, tr("Objekt erwartet")))
             continue
         for k in f:
-            if k not in _FOLDER:
+            if k not in _FOLDER and not str(k).startswith("_"):
                 probs.append((f"{w}.{k}", tr("unbekannter Eintrag")))
         d = {}
         for k in ("in", "workflow"):
@@ -165,6 +165,52 @@ def load_config(path: str) -> dict:
     if probs:
         raise WatchError(probs)
     return out
+
+
+def init_config(system: bool = False) -> tuple[str, bool, list]:
+    """Vorlage watch.json anlegen (eigene, mit system=True die für alle) – NIE überschreiben.
+        -> (Pfad, neu angelegt?, angelegte Dateien/Ordner). Dazu ein harmloser Beispiel-Ablauf (verkleinern) und der
+        Beispiel-Ordner – nur wenn es sie noch nicht gibt."""
+    from .platform import IS_WIN
+    path = config_paths()[1 if system else 0]
+    if os.path.exists(path):
+        return path, False, []
+    base = os.path.dirname(path)
+    if system:
+        drop = "C:/Hotfolder/beispiel" if IS_WIN else "/srv/passermark/hotfolder/beispiel"
+    else:
+        drop = os.path.abspath(os.path.join(os.path.expanduser("~"), "hotfolder", "beispiel")).replace("\\", "/")
+    made = []
+    os.makedirs(base, exist_ok=True)
+    wf = os.path.join(base, "beispiel-verkleinern.json")
+    if not os.path.exists(wf):
+        with open(wf, "w", encoding="utf-8") as f:
+            json.dump({"passermark": "workflow", "version": 1, "name": "Beispiel: verkleinern",
+                       "description": "Harmloser Test für den Watcher – das Ergebnis landet in output/",
+                       "steps": [{"job": "shrink"}]}, f, ensure_ascii=False, indent=2)
+        made.append(wf)
+    data = {
+        "_hinweis": "Vorlage – je Ordner: in (Drop-Ordner), workflow (Name aus den Ablauf-Ordnern oder JSON-Datei); "
+                    "optional out/done/error (Standard output/processed/failed, \"\" = kein Ergebnis bzw. löschen), "
+                    "patterns, vars, name. Prüfen: passermark-cli serve --check",
+        "passermark": KIND, "version": VERSION,
+        "interval": 5, "settle": 5,
+        "folders": [{"in": drop, "workflow": "beispiel-verkleinern.json", "name": "Beispiel"}],
+    }
+    tmp = path + ".part"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    if os.path.exists(path):                     # inzwischen von woanders angelegt: nichts überschreiben
+        os.remove(tmp)
+        return path, False, made
+    os.replace(tmp, path)
+    made.insert(0, path)
+    try:
+        os.makedirs(drop, exist_ok=True)
+        made.append(drop)
+    except OSError:
+        pass
+    return path, True, made
 
 
 def check(cfg: dict) -> list:
@@ -326,7 +372,9 @@ class Watcher:
 
             def ev(e):
                 self.emit(**dict(e, file=path))
-            r = workflow.run(plan, ev, cancel=self.cancel)
+            from . import printlog
+            with printlog.source("watch"):
+                r = workflow.run(plan, ev, cancel=self.cancel, variables=_vars(f, path))
         except (core.Cancelled, KeyboardInterrupt):
             _move(work, f["in"], name)
             raise

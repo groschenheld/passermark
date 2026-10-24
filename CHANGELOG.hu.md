@@ -5,6 +5,113 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.17.1
+
+### Egyesítés jobb kattintással (Windows)
+- Az Explorer Passermarkonként külön folyamatot indít a kijelölt fájlokhoz (MultiSelectModel=Player). Futó példány nélkül közülük több egyszerre lett szerver, mert Windowson a `listen()` nem hibázik, ha már figyel valaki a néven – így minden folyamat csak a fájlok egy részét kapta meg. Harmadik–hatodik próbára azért sikerült, mert akkor már volt nyitott példány.
+- Most indulási zár van (Windowson named mutex, egyébként `flock`), még a Qt betöltése előtt: pontosan egy folyamat lesz a fő példány, a többiek várnak, és átadják neki a fájljaikat.
+- Ezen felül a Windowsos indítás a `listen()` előtt ellenőrzi, hogy fut-e már szerver. A fájlok gyűjtése csak akkor kezdődik, amikor már fut az eseményhurok.
+- Linuxon 10 párhuzamosan indított folyamattal tesztelve: egy szerver, minden fájl benne. A Windowsos mutex-rész nincs tesztelve.
+
+### Üres oldal beszúrása
+- Az oldalpanel helyi menüjében és az Oldalak menüben: „Üres oldal beszúrása – a kijelölés elé” és „Üres oldal beszúrása – a kijelölés után” (Ctrl+Alt+I).
+- Az új oldal átveszi a szomszédos oldal formátumát, forgatását és Trim/Bleed-dobozát. Minden nyelven lefordítva.
+
+### Akadozás
+- A görgetőkerék-védelem (combo-, spin- és slider-mezők) az app minden eseményén szűrőként futott – a lapok és ablakok nyitásakori 0,4–0,5 s szinte mindegyike ettől volt. Most e mezők `wheelEvent`-jét cserélik ki közvetlenül; induláskor a Passermark ellenőrzi, hogy működik-e, és különben a régi szűrőre esik vissza.
+- A meghajtó párbeszédablaka (4–6 s) nem igazi akadás volt, hanem a nyitott Windows-párbeszéd; már nem kerül naplózásra.
+- A nyomtatás alatti raszterezésnél (2–5,7 s) az ablak a sávok között is tovább rajzol – a nyomtatás ettől nem lesz gyorsabb.
+- A `load_settings` csak akkor olvassa újra a fájlt, ha változott.
+- Első ablak: a preflight csak akkor tölti be az urllib/SSL-t, amikor kell.
+- Nem megtámadva (háttérszálba vagy -folyamatba való átépítést igényelne): a `get_page` a `page_doc_bleeds`-ben (1–1,5 s), a `paintEvent` és a preflight-elemzés hívása a szerkesztőpanelben.
+
+### CLI: leállás, ha a konzol nem tudja a karaktert
+- A leállási jelentések („→”, cp1252) még az 1.10.4-ből származtak – az `emit` már javítva volt. Most minden CLI-kimenet védett: a konzol által nem megjeleníthető karakterek helyettesítve lesznek, ahelyett hogy a program leállna.
+
+## 1.17.0
+
+### Szín menü
+- Új **Szín** főmenü (a Dokumentum-manipuláció és a Nézet között) egy helyre gyűjti a színekhez valót: színellenőrzés, Softproof (Ctrl+Y, beállítása a megszokott módon Ctrl+Shift+Y), kimenet a nyomdának, CMYK-átalakítás, papírok és mérések, szabványprofilok letöltése és a rövid súgó „A színkezelés röviden”.
+- A nyomtatás-előkészítő munkaterületen ugyanezek gombokként is elérhetők az eszközsorban.
+- A Softproof átkerül a Nézet menüből a Szín menübe; a Ctrl+Y marad.
+- Ha a méréshez hiányzik az ArgyllCMS (spotread), a Súgó menü telepítési segítséget mutató linket ad.
+
+### Színellenőrzés (Ctrl+Shift+F)
+- Oldalsáv, mint a preflight, csak a papírhoz: fent a nyomtatási feltételt választod (anyag vagy rendszerprofil), alatta látszik, mi van a dokumentumban – oldalanként az RGB-képek, az oldal legnagyobb festékmennyisége, a direkt színek és a meglévő output intent. A nyomtatási feltételhez látod a profilt illetve anyagot és a ΔE2000-t a papírfehérhez.
+- A leletek közérthető szöveggel jelennek meg, mindegyikhez saját gomb: átalakítás, output intent beágyazása, újraszeparálás, papír mérése, megfelelő profilok letöltése vagy dokumentum-ellenőrzés. A lelőhelyek kattinthatók, mint a preflightben (◀ ▶, piros keret).
+- Ellenőrzés: van-e RGB; a festékmennyiség a profil határértéke felett; hiányzó vagy a nyomtatási feltételhez nem illő output intent; direkt színek (csak figyelmeztetés).
+
+### Kimenet a nyomdának
+- Négy lépéses varázsló: nyomtatási feltétel kiválasztása (anyag vagy rendszerprofil), átalakítás a javaslat szerint, ellenőrzés (előtte és utána), mentés.
+- Az ICC-profil mindig output intentként ágyazódik be.
+- Ha RGB van a fájlban, a Passermark mindig rákérdez: átalakítás vagy profil küldése tovább? Nincs előre kiválasztott válasz.
+- Opcionálisan a Passermark csomagot készít: `…_Druckerei.zip` a PDF-fel, a használt ICC-profilokkal és egy jelentéssel (nyomtatási feltétel, intent, papírfehér, figyelmeztetések).
+- Az eredmény a Passermark szabályai szerint PDF/X-4-alkalmas: az RGB rendezve, az output intent a helyén, a festékmennyiség a határértéken belül. A fájl nem kap PDF/X-4 jelölést, és nem is kerül érvényesítésre.
+- Tudatosan nincs benne: előtte/utána Softproof-összehasonlítás a varázslóban – az eredmény a „Megnyitás Passermarkban” gombbal nézhető meg.
+
+### Parancssor: press
+- A `passermark-cli press be.pdf ki.pdf` a nyomdai exportot a munkafolyamatokhoz és a figyelőkhöz is elvégzi: nyomtatási feltétel, átalakítás a javaslat szerint, az output intent mindig benne.
+- Ha RGB van a fájlban és az `rgb` nincs beállítva, a munka leáll, nem találgat.
+- A CLI-kézikönyvben saját fejezet szól a pressről.
+
+### Papírok és mérések
+- Saját anyagok adminjogok nélkül: a `~/.config/passermark/materials.json` fájlban vannak, és azonnal mentődnek. A felügyelet anyagai megmaradnak, mindkettő mindenhol látszik.
+- A „Papír mérése …” gomb létrehozza a papírt, és rögtön elindítja a mérést. Az „Eszköz keresése” megtalálja az X-Rite eszközt ArgyllCMS-en (spotread) keresztül; ha hiányzik az ArgyllCMS, telepítési segítség jön (Linux-csomag, Windows-letöltés).
+- Az eszköztippek elmagyarázzák a papírfehéret, a ΔE-t, az intentet és az output intentet.
+- Az admin párbeszédablakában az üres anyaglista most elmagyarázza a négy lépést (papír létrehozása, papírfehér mérése, profil hozzárendelése, kiválasztás), ahelyett hogy kikapcsolva nem mondana semmit.
+- Tudatosan továbbra sincs benne: saját profil készítése teszttábláról.
+
+### Szabványprofilok
+- A „Szabványprofilok letöltése” PSO Coated v3-at, PSO Uncoated v3-at (FOGRA52), FOGRA39/47-et, SC-B-t, GRACoL-t és SWOP-ot tölt le a registry.color.org-ról a saját ICC-mappádba.
+- Nem kerülnek a programba: a Registry szerint az ECI-profilok csak az ECI engedélyével adhatók tovább – a használat és a beágyazás szabad.
+- A profiljavaslatok a még nem telepített szabványprofilokat is mutatják; az „Átvétel” letölti és hozzárendeli őket.
+
+## 1.16.5
+
+### Munkafolyamatok: feltételek
+- **„if” minden lépésen:** egy lépés csak akkor fut le, ha a feltétele teljesül.
+- **Elágazások:** a `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` pontosan azt az ágat futtatja, amelynek feltétele igaz.
+- **„fail” és „stop”:** a fail elutasítja a fájlt (1-es kilépési kód, `rejected` hibakód), a stop hiba nélkül zárja le a munkafolyamatot. Mindkettő adhat üzenetet, `${pages}`, `${format}` stb. behelyettesítéssel.
+- A `check` elgépeléseket is jelez egy feltételben, a pontos hely megadásával.
+- Ellenőrizhető: lapszám, formátum, méretek, levágás, fájlméret, fájlnév, a preflight hibái és figyelmeztetései, RGB, direkt színek, hiányzó betűtípusok, átlátszóság, rétegek és `var.NAME`.
+
+### serve: --init és elutasított fájlok
+- A `passermark-cli serve --init` (vagy `--init --system`, mindenki számára) létrehoz egy `watch.json` sablont, egy példa munkafolyamatot és a `hotfolder/beispiel` mappát. A már meglévőket sosem írja felül.
+- A figyelő az elutasított fájlokat (fail feltétel) a naplóval együtt a `failed/` mappába teszi.
+- A linuxos telepítő és a Windows setup a telepítés után egyszer lefuttatja a `serve --init --system` parancsot, ha még nincs semmi.
+
+### Haszonminták (step & repeat): 2. lépés közvetlen nyomtatásnál
+- A második kezelés (2. lépés) most közvetlen nyomtatásnál, a nyomtatási párbeszédablakból is lefut – nem csak a `passermark-cli impose` parancsnál. A fél SRA3-ra rakott kilenc névjegy (2×) így is SRA3-ra kerül.
+
+### Preflight: kattintható leletek
+- Minden lelet szövegesen megnevezi a helyét („2. oldal – jobb alul, 40 × 20 mm”).
+- Egy kattintás odébb ugrik, és piros kerettel jelöli a helyet; a ◀ ▶ gombokkal végigmehetsz a leleteken.
+
+### Nyomtatási napló
+- Felhasználónként bekapcsolható a beállításokban, vagy adminként kikényszeríthető (`print_log`: `force`, `dir`, `keep_days`).
+- Minden munkához egy JSON íródik a pontos beállításokkal, mellé egy `printlog.csv`. Alapértelmezett mappa: `printlog`.
+- A `passermark-cli reprint <log.json>` újranyomtatja a munkát. Ha az eredeti időközben megváltozott, figyelmeztet.
+
+### Softproof
+- A nézetben: Nézet → Softproof (Ctrl+Y), vagy az eszközsor gombjával. Beállítása Ctrl+Shift+Y; a változtatások azonnal hatnak, a beállítás megmarad.
+- A nyomtatási feltétel egy anyag (nyomtatónként), a felügyelet egy profilja vagy egy rendszerbeli CMYK-profil. Ehhez intent és BPC.
+- Válaszható: papírszín szimulálása, fekete nyomtatási szín szimulálása, az anyag mért papírfehérjének használata.
+- Figyelmeztetés a színtartományra (a nem nyomtatható színek magenta lesznek) és a beállítható határérték feletti festékmennyiségre %-ban.
+- CMYK-profil és Ghostscript esetén az oldal valódi szeparációval készül, mint a CMYK-átalakításnál: a meglévő CMYK marad, az RGB és a szürke átszámítódik. Ghostscript nélkül, vagy RGB-nyomtatóprofilnál a képernyőkép alapján közelít. Jobb alul mindig látszik, mi van éppen szimulálva.
+### Anyagok
+- Felügyelet → új „Anyagok” fül; mentése a profilokhoz hasonlóan adminjogokkal történik.
+- Papíronként: név, grammage, felület, render intent, jegyzetek és a profil nyomtatónként (vagy minden nyomtatóra).
+- A grammage és a felület a névből előre kitöltésre kerül, pl. „ungestrichen 120 g”.
+- A papírfehér három úton: mérőeszközzel az ArgyllCMS-en (spotread) keresztül, kalibrálással és több, átlagolt méréssel – a szórás megjelenik; mérőfájlból (CGATS i1Profilerből vagy ArgyllCMS-ből, a szín nélküli mező kerül kiolvasásra); vagy kézzel, L*a*b*-ként.
+- A profiljavaslatok ΔE2000 szerint rangsorolják a profilokat a papírfehérhez, azonos felület és nyomtató mellett, értékeléssel és indoklással. Az „Átvétel” hozzárendeli a profilt; a rendszerprofil ilyenkor egyből importálódik.
+- Ha semmi sem illik jól, tipp jön, pl. FOGRA52 az eci.org-ról, vagy saját profil mérése.
+- Egy profil törlésekor az anyagok automatikusan elvesztik ezt a hozzárendelést.
+- Tudatosan nincs benne: profil készítése teszttábláról; anyagok a parancssorban (a nyomtatás továbbra is a felügyelet nyomtatóprofiljával történik).
+- Az install.sh opcionálisan felveszi az argyll csomagot az apt-csomagok közé (különben Linuxon nincs mérőeszköz).
+### Anyag a nyomtatási párbeszédablakban
+- Anyag választásakor a profil és az intent beállításra kerül, és látszik a ΔE-érték a papírfehér és a profil között. A profil kézi megváltoztatásakor az anyag ismét kijelöletlenné válik.
+### Anyag a CMYK-átalakításban
+- Az anyag beállítja a célprofilt és az intentet. A módszer a fájl szerint javasolt: ha a fájl már ehhez a profilhoz készült, a CMYK marad; ha más profilra készült (pl. FOGRA39), minden újraszeparálódik, ezzel a forrásprofillal, ha telepítve van. A szín-előnézet a mért papírfehérjet használja.
 ## 1.15.1
 ### Haszonminták (step & repeat): forgatás
 - Ha a rács egyik tájolásban sem fér teljesen az ívre, most az a tájolás nyer, amelyiken a legkisebb a túllógás. Csak ezután számít az „inkább forgatás nélkül”.

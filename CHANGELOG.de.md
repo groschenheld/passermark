@@ -2,6 +2,113 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.17.1
+
+### Zusammenführen per Rechtsklick (Windows)
+- Der Explorer startet pro markierter Datei einen eigenen Passermark-Prozess. Ohne laufende Instanz wurden mehrere davon gleichzeitig zum Server, weil unter Windows `listen()` nicht fehlschlägt, wenn auf dem Namen schon einer lauscht – jeder Prozess bekam so nur einen Teil der Dateien. Ab dem dritten oder sechsten Versuch klappte es, weil dann schon eine Instanz offen war.
+- Jetzt gibt es eine Startsperre (unter Windows ein Named Mutex, sonst `flock`), noch bevor Qt lädt: Genau ein Prozess wird Hauptinstanz, die anderen warten und reichen ihre Dateien an ihn weiter.
+- Zusätzlich prüft der Start unter Windows vor `listen()`, ob schon ein Server läuft. Das Sammeln der Dateien beginnt erst, wenn die Ereignisschleife läuft.
+- Unter Linux mit 10 parallel gestarteten Prozessen getestet: ein Server, alle Dateien drin. Der Mutex-Teil für Windows ist ungetestet.
+
+### Leerseite einfügen
+- Im Rechtsklick-Menü der Seitenleiste und im Menü Seiten: „Leerseite einfügen – vor Auswahl“ und „Leerseite einfügen – nach Auswahl“ (Strg+Alt+I).
+- Die neue Seite übernimmt Format, Drehung und Trim-/Bleed-Box der Nachbarseite. Übersetzungen in allen Sprachen.
+
+### Ruckler
+- Der Mausrad-Schutz (Combo-, Spin- und Slider-Felder) lief als Filter über jedes Ereignis der App – fast alle 0,4–0,5 s beim Öffnen von Tabs und Fenstern kamen daher. Jetzt wird `wheelEvent` dieser Felder direkt ersetzt; beim Start prüft Passermark, ob das greift, und fällt sonst auf den alten Filter zurück.
+- Der Treiberdialog (4–6 s) war kein echter Hänger, sondern der offene Windows-Dialog; er wird nicht mehr protokolliert.
+- Beim Rastern beim Drucken (2–5,7 s) zeichnet das Fenster jetzt zwischen den Streifen weiter – schneller wird der Druck dadurch nicht.
+- `load_settings` liest die Datei nur noch neu, wenn sie sich geändert hat.
+- Das erste Fenster: Der Preflight lädt urllib/SSL erst, wenn sie gebraucht werden.
+- Nicht angegriffen (bräuchten einen Umbau in einen Hintergrund-Thread oder -prozess): `get_page` in `page_doc_bleeds` (1–1,5 s), `paintEvent` und der Preflight-Analyse-Aufruf im Bearbeiten-Panel.
+
+### CLI: Absturz bei Zeichen, die die Konsole nicht kann
+- Die Absturzberichte („→“, cp1252) stammten noch von 1.10.4 – das `emit` war schon gefixt. Jetzt sind alle CLI-Ausgaben abgesichert: Zeichen, die die Konsole nicht darstellen kann, werden ersetzt, statt das Programm zum Absturz zu bringen.
+
+## 1.17.0
+
+### Menü „Farbe“
+- Neues Hauptmenü **Farbe** (zwischen Dokument-Manipulation und Ansicht) bündelt alles Farbliche: Farbprüfung, Softproof (Strg+Y, eingerichtet wie bisher mit Strg+Umschalt+Y), Für Druckerei ausgeben, CMYK-Umwandlung, Papiere und Messungen, Standardprofile holen und die Kurzhilfe „Farbmanagement kurz erklärt“.
+- Im Arbeitsbereich Druckaufbereitung gibt es dieselben Funktionen als Knöpfe in der Werkzeugleiste.
+- Der Softproof zieht vom Menü Ansicht ins Menü Farbe um; Strg+Y bleibt.
+- Fehlt ArgyllCMS (spotread) zum Messen, zeigt das Hilfemenü einen Link mit Installationshilfe.
+
+### Farbprüfung (Strg+Umschalt+F)
+- Eine Seitenleiste wie der Preflight, nur fürs Papier: Oben wählst du die Druckbedingung (Material oder Systemprofil), darunter steht, was im Dokument steckt – RGB-Bilder je Seite, größter Farbauftrag je Seite, Sonderfarben und der vorhandene Output Intent. Zur Druckbedingung siehst du Profil bzw. Material und den ΔE2000 vom Papierweiß.
+- Die Befunde stehen in Klartext, jeder mit eigenem Knopf: umwandeln, Output Intent einbetten, neu separieren, Papier messen, passende Profile holen oder Dokumentprüfung. Die Fundstellen sind anklickbar wie im Preflight (◀ ▶, roter Rahmen).
+- Geprüft wird: RGB vorhanden; Farbauftrag über dem Limit des Profils; Output Intent fehlt oder passt nicht zur Druckbedingung; Sonderfarben vorhanden (nur Hinweis).
+
+### Für Druckerei ausgeben
+- Ein Assistent in vier Schritten: Druckbedingung wählen (Material oder Systemprofil), nach Empfehlung umwandeln, prüfen (vorher und nachher), speichern.
+- Das ICC-Profil wird immer als Output Intent eingebettet.
+- Steckt RGB in der Datei, fragt Passermark immer: umwandeln oder mit Profil weitergeben? Es gibt keine Vorauswahl.
+- Optional legt Passermark ein Paket `…_Druckerei.zip` an: PDF, die verwendeten ICC-Profile und ein Bericht (Druckbedingung, Intent, Papierweiß, Warnungen).
+- Das Ergebnis ist nach Passermarks Regeln PDF/X-4-tauglich: RGB geregelt, Output Intent drin, Farbauftrag im Limit. Die Datei wird nicht als PDF/X-4 gekennzeichnet und nicht validiert.
+- Bewusst nicht drin: ein Softproof-Vergleich vorher/nachher im Assistenten – das Ergebnis lässt sich mit „In Passermark öffnen“ ansehen.
+
+### CLI: press
+- `passermark-cli press ein.pdf aus.pdf` macht den Druckerei-Export auch für Abläufe und Watcher: Druckbedingung, Umwandlung nach Empfehlung, Output Intent immer drin.
+- Steckt RGB in der Datei und `rgb` ist nicht gesetzt, bricht der Auftrag ab, statt zu raten.
+- Die CLI-Anleitung hat einen eigenen Abschnitt zu press.
+
+### Papiere und Messungen
+- Eigene Materialien ohne Adminrechte: Sie liegen in `~/.config/passermark/materials.json` und werden sofort gespeichert. Die Materialien aus der Verwaltung bleiben, beide erscheinen überall.
+- Der Knopf „Papier messen …“ legt das Papier an und startet gleich die Messung. „Gerät suchen“ findet das X-Rite-Gerät über ArgyllCMS (spotread); fehlt ArgyllCMS, hilft eine Installationsanleitung (Linux-Paket, Windows-Download).
+- Tooltips erklären Papierweiß, ΔE, Intent und Output Intent.
+- Im Admin-Dialog erklärt die leere Materialliste jetzt die vier Schritte (Papier anlegen, Papierweiß messen, Profil zuordnen, auswählen), statt ausgegraut nichts zu sagen.
+- Bewusst weiter nicht drin: eigene Profile per Testchart erstellen.
+
+### Standardprofile
+- „Standardprofile holen“ lädt PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL und SWOP von registry.color.org in deinen eigenen ICC-Ordner.
+- Mitgeliefert werden sie nicht: Die ECI-Profile dürfen laut Registry nur mit Erlaubnis der ECI weitergegeben werden – benutzen und einbetten ist frei.
+- Die Profilvorschläge zeigen auch noch nicht installierte Standardprofile; „Übernehmen“ holt sie und ordnet sie zu.
+
+## 1.16.5
+
+### Abläufe: Bedingungen
+- **„if“ an jedem Schritt:** ein Schritt läuft nur, wenn seine Bedingung erfüllt ist.
+- **Verzweigungen:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` führt genau den Zweig aus, dessen Bedingung passt.
+- **„fail“ und „stop“:** fail lehnt die Datei ab (Exit-Code 1, Fehlercode `rejected`), stop beendet den Ablauf ohne Fehler. Beide können eine Meldung mitgeben, mit `${pages}`, `${format}` usw.
+- `check` meldet Tippfehler in einer Bedingung, mit genauer Stelle.
+- Prüfbar sind: Seitenzahl, Format, Maße, Anschnitt, Dateigröße, Dateiname, Fehler und Warnungen aus dem Preflight, RGB, Sonderfarben, fehlende Schriften, Transparenz, Ebenen und `var.NAME`.
+
+### serve: --init und abgelehnte Dateien
+- `passermark-cli serve --init` (oder `--init --system`, für alle) legt eine Vorlage `watch.json`, einen Beispiel-Ablauf und den Ordner `hotfolder/beispiel` an. Bestehendes wird nie überschrieben.
+- Der Watcher legt abgelehnte Dateien (Bedingung fail) samt Log nach `failed/`.
+- Das Linux-Installations-Skript und der Windows-Setup rufen nach der Installation einmal `serve --init --system` auf, wenn noch nichts da ist.
+
+### Nutzen (Step & Repeat): Schritt 2 beim Direktdruck
+- Die zweite Montage (Schritt 2) wird jetzt auch beim direkten Drucken aus dem Druckdialog angewendet – nicht nur bei `passermark-cli impose`. Neun Visitenkarten auf halbem SRA3, 2× davon, kommen so auch beim Direktdruck auf SRA3 an.
+
+### Preflight: Funde anklickbar
+- Jeder Fund nennt seine Stelle im Klartext („Seite 2 – unten rechts, 40 × 20 mm“).
+- Ein Klick springt hin und rahmt die Stelle rot ein; mit ◀ ▶ gehst du durch die Stellen.
+
+### Druckprotokoll
+- Einschalten pro Benutzer in den Einstellungen oder vom Admin erzwingen (`print_log`: `force`, `dir`, `keep_days`).
+- Pro Auftrag schreibt Passermark eine JSON mit den exakten Einstellungen, dazu eine `printlog.csv`. Standardordner: `printlog`.
+- `passermark-cli reprint <log.json>` druckt den Auftrag neu. Hat sich das Original inzwischen geändert, gibt es eine Warnung.
+
+### Softproof
+- In der Seitenansicht unter Ansicht → Softproof (Strg+Y) oder über den Knopf in der Werkzeugleiste. Eingerichtet wird mit Strg+Umschalt+Y; Änderungen wirken sofort, die Einstellung wird gemerkt.
+- Die Druckbedingung ist ein Material (je Drucker), ein Profil aus der Verwaltung oder ein CMYK-Profil vom System. Dazu Intent und BPC.
+- Wählbar: Papierfarbe simulieren, schwarze Druckfarbe simulieren, gemessenes Papierweiß des Materials verwenden.
+- Warnungen für den Farbumfang (nicht druckbare Farben werden magenta) und für den Farbauftrag über einer einstellbaren Grenze in %.
+- Mit CMYK-Profil und Ghostscript wird die Seite echt separiert wie bei der CMYK-Umwandlung: Vorhandenes CMYK bleibt, RGB und Grau werden umgerechnet. Ohne Ghostscript oder bei einem RGB-Druckerprofil wird über das Bildschirmbild angenähert. Unten rechts steht immer, was gerade simuliert wird.
+### Materialien
+- Verwaltung → neuer Reiter „Materialien“; gespeichert wird wie die Profile mit Admin-Rechten.
+- Pro Papier: Name, Grammatur, Oberfläche, Render-Intent, Notizen und das Profil je Drucker (oder für alle Drucker).
+- Grammatur und Oberfläche werden aus dem Namen vorbelegt, etwa „ungestrichen 120 g“.
+- Papierweiß auf drei Wegen: mit dem Messgerät über ArgyllCMS (spotread), mit Kalibrieren und mehreren Messungen, die gemittelt werden – die Streuung wird angezeigt; aus einer Messdatei (CGATS von i1Profiler oder ArgyllCMS, das Feld ohne Farbe wird genommen); oder per Hand als L*a*b*.
+- Profilvorschläge reihen die Profile nach ΔE2000 zum Papierweiß, bei gleicher Oberfläche und Drucker, mit Bewertung und Begründung. „Übernehmen“ ordnet das Profil zu; ein Systemprofil wird dabei gleich importiert.
+- Passt nichts gut, kommt ein Tipp, z. B. FOGRA52 von eci.org oder ein eigenes Profil messen.
+- Wird ein Profil entfernt, verlieren die Materialien diese Zuordnung automatisch.
+- Bewusst nicht drin: ein Profil per Testchart erstellen; Materialien in der Kommandozeile (gedruckt wird weiter mit dem Druckerprofil aus der Verwaltung).
+- install.sh nimmt optional argyll in die apt-Pakete auf (sonst gibt es unter Linux kein Messgerät).
+### Material im Druckdialog
+- Wählst du ein Material, werden Profil und Intent gesetzt, und du siehst den ΔE-Wert vom Papierweiß zum Profil. Änderst du das Profil von Hand, wird das Material wieder abgewählt.
+### Material in der CMYK-Umwandlung
+- Das Material setzt Zielprofil und Intent. Die Methode wird nach der Datei empfohlen: Ist die Datei schon für dieses Profil angelegt, bleibt CMYK. Ist sie für etwas anderes angelegt (z. B. FOGRA39), wird alles neu separiert, mit diesem Quellprofil, wenn es installiert ist. Die Farbvorschau nimmt das gemessene Papierweiß.
 ## 1.15.1
 ### Nutzen (Step & Repeat): Drehung
 - Passt das Raster in keiner Lage ganz aufs Blatt, gewinnt jetzt die Lage mit dem kleinsten Überhang. Erst danach zählt „lieber ungedreht“.

@@ -1,4 +1,4 @@
-# Passermark 1.15.1
+# Passermark 1.17.1
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -24,7 +24,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   die vorhandenen Druckertreiber (CUPS unter Linux, Windows-Treiber) mit allen ihren Optionen.
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
-  Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2).
+  Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.
 - **Dokument-Manipulation:** CMYK-Umwandlung mit Farbvorschau, auf Format beschneiden, Objekte trennen,
   **CutContour** für Schneideplotter (Kontur, Formen, Überfüller, Innenschnitte; Formen mit Griffen skalieren
   und verschieben). Beschneiden zusätzlich mit „Kanten abschneiden“ (mm je Seite, ohne Zielformat) und
@@ -34,7 +34,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   berücksichtigt.
 - **Preflight:** prüft beim Öffnen Schriften, Ebenen und Transparenzen; Reparaturen: Schriften einbetten oder
   ersetzen (freie, metrisch kompatible Schriften oder Download von fontsource.org), Text in Pfade, Ebenen
-  festschreiben/entfernen, Transparenzen reduzieren.
+  festschreiben/entfernen, Transparenzen reduzieren. Jeder Fund nennt seine Stelle (z. B. „Seite 2 – unten rechts, 40 × 20 mm“); ein Klick springt hin und rahmt sie rot ein, mit ◀ ▶ gehst du durch die Stellen.
 - **Bearbeiten:** Textzeilen und Ebenen mit der Maus wählen; Text, Schrift und Größe ändern; Ebenen
   verschieben, skalieren, ausblenden, entfernen oder ersetzen; Rückgängig.
 - Lineale und Messen: Lineale in mm am Rand der Ansicht; Start und Ende anklicken zum Messen (Umschalt rastet
@@ -55,6 +55,14 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   eigener Werkzeugleiste.
 - **Presets** für CutContour, CMYK/Beschneiden, Druck-Layout und Variable Daten – gemeinsam mit der
   Kommandozeile.
+- **Druckprotokoll:** pro Benutzer in den Einstellungen oder vom Admin erzwungen – eine JSON je Auftrag mit den exakten Einstellungen, dazu eine `printlog.csv`; mit `passermark-cli reprint <log.json>` druckst du einen Auftrag jederzeit neu (mit Warnung, wenn sich das Original geändert hat).
+- **Automatisierung:** Schritt-für-Schritt-Abläufe mit Bedingungen („if“ an jedem Schritt, „choose“/„else“-Verzweigungen, „fail“/„stop“ mit Meldung); `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf – `serve --init` legt eine Vorlage mit Beispiel an.
+- **Softproof:** das Druckergebnis in der Seitenansicht simulieren (Strg+Y) – als Druckbedingung ein Material, ein Profil aus der Verwaltung oder ein System-CMYK-Profil, mit Intent und BPC; Papierfarbe und schwarze Druckfarbe simulieren, Warnungen für Farben außerhalb des Farbumfangs und für Farbauftrag über einer Grenze in %.
+- **Materialien:** Papiere registrieren (Grammatur, Oberfläche, Render-Intent, Profil je Drucker); Papierweiß mit ArgyllCMS (spotread) messen, aus einer CGATS-Messdatei oder per Hand; Profilvorschläge nach ΔE2000. Materialien setzen Profil und Intent im Druckdialog und in der CMYK-Umwandlung, die Farbvorschau nimmt das gemessene Papierweiß.
+- **Farbprüfung:** im neuen Menü Farbe (Strg+Umschalt+F) – eine Seitenleiste wie der Preflight: Druckbedingung wählen, Passermark zeigt, was im Dokument steckt (RGB, Farbauftrag, Sonderfarben, Output Intent), und Befunde in Klartext, jeder mit Knopf zum Beheben; Fundstellen anklickbar.
+- **Für Druckerei ausgeben:** Assistent in vier Schritten – Druckbedingung wählen, nach Empfehlung umwandeln, prüfen, speichern; ICC immer als Output Intent, bei RGB immer Rückfrage; optional Paket aus PDF, Profilen und Bericht. Auch auf der Kommandozeile (`passermark-cli press`).
+- **Papiere und Messungen:** eigene Materialien ohne Adminrechte (`~/.config/passermark/materials.json`, sofort gespeichert); „Papier messen …“ legt das Papier an und startet die Messung, „Gerät suchen“ findet das X-Rite-Gerät über ArgyllCMS; die leere Materialliste im Admin-Dialog erklärt jetzt die ersten Schritte.
+- **Standardprofile:** PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL und SWOP mit „Standardprofile holen“ von registry.color.org in den eigenen ICC-Ordner laden (mitgeliefert werden sie aus Lizenzgründen nicht); Vorschläge zeigen auch noch nicht installierte.
 - PDFs reparieren/optimieren, PDF/A, Passwortschutz (auch beim „Als PDF speichern“ im Druckdialog), Dateien
   zusammenführen, Text markieren und kopieren.
 - Sprachen: Deutsch, Englisch, Ungarisch, Spanisch, Französisch.
@@ -77,7 +85,7 @@ sudo ./install.sh        # installiert Abhängigkeiten über apt, Startmenü-Ein
 sudo ./uninstall.sh      # wieder entfernen (--dry-run zeigt vorher an, --purge entfernt auch /etc/passermark)
 ```
 
-Optional: LibreOffice (Office-Dateien), 7-Zip (ICC-Profile aus Archiven importieren).
+Optional: LibreOffice (Office-Dateien), 7-Zip (ICC-Profile aus Archiven importieren), ArgyllCMS (Papierweiß der Materialien messen – Linux-Paket `argyll`).
 
 ## Kommandozeile
 
@@ -93,11 +101,13 @@ passermark-cli presets                                # im Programm gespeicherte
 ```
 
 Aufträge: `cutcontour`, `separate`, `manip` (CMYK/Beschneiden), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`; dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
+`split`, `press` (Druckerei-Export); dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
 Einstellungen mit Punkt (`--set detect.tolerance=40`). Strg+C bricht sauber ab (keine halbe Datei).
 Rückgabewerte: 0 fertig, 1 Fehler, 2 falsche Angabe, 130 abgebrochen. `--json-progress` gibt Fortschritt und
 Ergebnis als JSON-Zeilen aus. Große Aufträge nutzen mehrere Rechenkerne; begrenzen mit der Umgebungsvariable
 `PASSERMARK_WORKERS` (1 = nicht parallel).
+
+`passermark-cli serve` überwacht Drop-Ordner (`--init` legt eine Vorlage mit Beispiel an); `passermark-cli reprint <log.json>` druckt aus dem Druckprotokoll neu nach.
 
 Wo: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` im Installationsordner (Setup-Option: in den Suchpfad aufnehmen).

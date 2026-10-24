@@ -162,6 +162,14 @@ class Controller(QObject):
     # ---------------------------------------------------------------- #
     def start_server(self) -> bool:
         """Als Einzelinstanz-Server lauschen. False, wenn gerade eine andere Instanz Server wurde."""
+        if os.name == "nt":
+            # Windows: listen() klappt auch, wenn auf dem Namen schon eine Instanz lauscht (Named Pipe ohne
+            # „erste Instanz“) – dann gäbe es zwei Server, und die Dateien einer Mehrfachauswahl würden aufgeteilt.
+            probe = QLocalSocket()
+            probe.connectToServer(server_name())
+            if probe.waitForConnected(200):
+                probe.disconnectFromServer()
+                return False
         self.server = QLocalServer(self)
         self.server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
         self.server.newConnection.connect(self._on_connection)

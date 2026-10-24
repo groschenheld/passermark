@@ -83,6 +83,10 @@ class AdminDialog(QDialog):
         tabs.addTab(_scroll(self._tab_general()), tr("Allgemein"))
         tabs.addTab(_scroll(self._tab_printers()), tr("Druckerstandards"))
         tabs.addTab(_scroll(self._tab_profiles()), tr("Farbprofile"))
+        from .materialtab import MaterialTab
+        self.mat_tab = MaterialTab(self)
+        tabs.addTab(_scroll(self.mat_tab), tr("Materialien"))
+        tabs.currentChanged.connect(lambda _i: self.mat_tab.invalidate())
         fit_width(self)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self._save)
@@ -141,6 +145,26 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
+        # Druckprotokoll für alle
+        pl = self.cfg.get("print_log") or {}
+        self.chk_plog = QCheckBox(tr("Jeden Druckauftrag protokollieren – für alle Benutzer"))
+        self.chk_plog.setChecked(bool(pl.get("force", False)))
+        f.addRow(tr("Druckprotokoll:"), self.chk_plog)
+        prow = QHBoxLayout()
+        self.ed_plog = QLineEdit(str(pl.get("dir", "") or ""))
+        self.ed_plog.setPlaceholderText(tr("leer = je Benutzer im eigenen Ordner"))
+        b_pl = QPushButton(tr("Wählen …"))
+        b_pl.clicked.connect(lambda: (lambda d: d and self.ed_plog.setText(os.path.normpath(d)))(
+            QFileDialog.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))))
+        prow.addWidget(self.ed_plog, 1)
+        prow.addWidget(b_pl)
+        f.addRow(tr("Protokoll-Ordner:"), prow)
+        self.spn_plkeep = QSpinBox()
+        self.spn_plkeep.setRange(0, 36500)
+        self.spn_plkeep.setSpecialValueText(tr("nie löschen"))
+        self.spn_plkeep.setSuffix(tr(" Tage"))
+        self.spn_plkeep.setValue(int(pl.get("keep_days", 0) or 0))
+        f.addRow(tr("Protokolle aufheben:"), self.spn_plkeep)
         lbl = QLabel(convert.describe_available() + tr(". Fällt ein Konverter aus, wird automatisch der nächste "
                      "verwendet. OnlyOffice/Euro-Office werden über ihren internen Konverter angesprochen."))
         lbl.setWordWrap(True)
@@ -231,6 +255,8 @@ class AdminDialog(QDialog):
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
         self.cfg["workflow_dirs"] = [self.lst_wfdirs.item(i).text() for i in range(self.lst_wfdirs.count())]
+        self.cfg["print_log"] = {"force": self.chk_plog.isChecked(), "dir": self.ed_plog.text().strip(),
+                                 "keep_days": self.spn_plkeep.value()}
         n = self.l_nup.currentData()
         L = dict(self.cfg["layout"])     # remaining fields (poster/booklet) preserved
         L.update({
@@ -736,6 +762,25 @@ class AdminDialog(QDialog):
         self._refresh_profiles(pid)
         self.pf_space.setText(space)
 
+    def import_profile_file(self, path: str, name: str = "") -> str:
+        """ICC-Datei in die Verwaltung übernehmen (wird beim Speichern installiert) -> neue Profil-ID ("" = Fehler)."""
+        try:
+            colorconv.icc_colorspace(path)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, tr("ICC"), str(e))
+            return ""
+        from .. import iccfetch
+        pid = iccfetch.profile_id(name or os.path.splitext(os.path.basename(path))[0],
+                                  {p["id"] for p in self.cfg["color_profiles"]})
+        self.new_icc[pid] = path
+        self.removed_icc.discard(pid)
+        self.cfg["color_profiles"].append({
+            "id": pid, "name": (name or pid)[:128], "file": str(config.ICC_DIR / f"{pid}.icc"),
+            "printers": [], "intents": ["perceptual", "relative"], "bpc": True, "driver_options": {},
+        })
+        self._refresh_profiles(pid)
+        return pid
+
     def _download_profiles(self):
         import tempfile
         from .. import iccfetch
@@ -785,7 +830,11 @@ class AdminDialog(QDialog):
         for pc in self.cfg.get("printers", {}).values():
             if pc.get("color_profile") == p["id"]:
                 pc["color_profile"] = ""
+        for m in self.cfg.get("materials", []):           # Materialien verlieren die Zuordnung
+            m["profiles"] = {q: pid for q, pid in (m.get("profiles") or {}).items() if pid != p["id"]}
         self._refresh_profiles()
+        if hasattr(self, "mat_tab"):
+            self.mat_tab.invalidate()
 
     # ================================================================== #
     def _save(self):

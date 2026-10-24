@@ -5,6 +5,113 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.17.1
+
+### Fusion par clic droit (Windows)
+- L'Explorateur démarre un processus Passermark par fichier sélectionné (MultiSelectModel=Player). Sans instance en cours, plusieurs d'entre eux devenaient serveurs en même temps, car sous Windows, `listen()` n'échoue pas quand quelqu'un écoute déjà sur le nom – chaque processus ne recevait qu'une partie des fichiers. À partir de la troisième ou sixième tentative, ça marchait, parce qu'une instance était déjà ouverte.
+- Il y a maintenant un verrou au démarrage (un named mutex sous Windows, sinon `flock`), avant même le chargement de Qt : exactement un processus devient l'instance principale ; les autres attendent et lui transmettent leurs fichiers.
+- En plus, le démarrage sous Windows vérifie avant `listen()` si un serveur tourne déjà. Les fichiers ne sont collectés que lorsque la boucle d'événements tourne.
+- Testé avec 10 processus démarrés en parallèle sous Linux : un serveur, tous les fichiers dedans. La partie mutex pour Windows n'est pas testée.
+
+### Insérer une page blanche
+- Dans le menu contextuel du panneau latéral des pages et dans le menu Pages : « Insérer une page blanche – avant la sélection » et « Insérer une page blanche – après la sélection » (Ctrl+Alt+I).
+- La nouvelle page reprend le format, la rotation et la boîte trim/bleed de la page voisine. Traduit dans toutes les langues.
+
+### Saccades
+- La protection contre la molette (champs combo, spin et slider) tournait comme un filtre sur chaque événement de l'app – presque toutes les 0,4–0,5 s à l'ouverture des onglets et fenêtres venaient de là. Désormais, le `wheelEvent` de ces champs est remplacé directement ; au démarrage, Passermark vérifie que ça marche et retombe sinon sur l'ancien filtre.
+- Le dialogue de pilote (4–6 s) n'était pas un vrai blocage, mais le dialogue Windows ouvert ; il n'est plus journalisé.
+- Pendant la rastérisation à l'impression (2–5,7 s), la fenêtre continue de se dessiner entre les bandes – l'impression n'en est pas plus rapide.
+- `load_settings` ne relit le fichier que s'il a changé.
+- Première fenêtre : le prévol ne charge urllib/SSL que lorsque c'est nécessaire.
+- Pas attaqué (exigerait un passage dans un thread ou un processus en arrière-plan) : `get_page` dans `page_doc_bleeds` (1–1,5 s), `paintEvent` et l'appel d'analyse du prévol dans le panneau d'édition.
+
+### CLI : plantage sur des caractères que la console ne sait pas afficher
+- Les rapports de plantage (« → », cp1252) venaient encore de 1.10.4 – `emit` était déjà corrigé. Toutes les sorties CLI sont maintenant protégées : les caractères que la console ne peut pas afficher sont remplacés au lieu de faire planter le programme.
+
+## 1.17.0
+
+### Menu Couleur
+- Un nouveau menu principal **Couleur** (entre Manipulation de document et Affichage) rassemble tout ce qui touche à la couleur : contrôle couleur, épreuvage (Softproof) (Ctrl+Y, réglé comme avant avec Ctrl+Maj+Y), export pour l'imprimeur, conversion CMYK, papiers et mesures, obtenir les profils standard et le mini-guide « La gestion de couleur en bref ».
+- Les mêmes fonctions en boutons dans la barre d'outils de l'espace de travail de préparation d'impression.
+- L'épreuvage passe du menu Affichage au menu Couleur ; Ctrl+Y ne change pas.
+- S'il manque ArgyllCMS (spotread) pour mesurer, le menu Aide montre un lien avec une aide d'installation.
+
+### Contrôle couleur (Ctrl+Maj+F)
+- Un panneau latéral comme le prévol, mais pour le papier : en haut, choix de la condition d'impression (matière ou profil système) ; en dessous apparaît ce que contient le document – images RVB par page, plus forte couverture d'encre par page, tons directs et l'output intent présent. Pour la condition d'impression : le profil ou la matière et le ΔE2000 par rapport au blanc de papier.
+- Les constats sont en clair, chacun avec son bouton : convertir, intégrer l'output intent, reséparer, mesurer le papier, obtenir des profils adaptés ou contrôle du document. Les constats sont cliquables comme dans le prévol (◀ ▶, cadre rouge).
+- Sont contrôlés : présence de RVB ; couverture d'encre au-delà de la limite du profil ; output intent manquant ou ne correspondant pas à la condition d'impression ; tons directs présents (simple avis).
+
+### Export pour l'imprimeur
+- Un assistant en quatre étapes : choisir la condition d'impression (matière ou profil système), convertir selon la recommandation, contrôler (avant et après), enregistrer.
+- Le profil ICC est toujours intégré comme output intent.
+- Si le fichier contient du RVB, Passermark demande toujours : convertir, ou le laisser avec son profil ? Pas de présélection.
+- En option, Passermark crée un paquet `…_Druckerei.zip` : le PDF, les profils ICC utilisés et un rapport (condition d'impression, intent, blanc de papier, avertissements).
+- Le résultat est propre à PDF/X-4 selon les règles de Passermark : RVB réglé, output intent en place, couverture d'encre dans la limite. Le fichier n'est pas marqué PDF/X-4 et n'est pas validé.
+- Volontairement absent : une comparaison avant/après dans l'assistant – le résultat se regarde avec « Ouvrir dans Passermark ».
+
+### CLI : press
+- `passermark-cli press entree.pdf sortie.pdf` fait aussi l'export pour l'imprimeur dans les enchaînements et les watchers : condition d'impression, conversion selon la recommandation, output intent toujours intégré.
+- Si le fichier contient du RVB et que `rgb` n'est pas réglé, le travail s'arrête au lieu de deviner.
+- Le manuel CLI a sa propre section sur press.
+
+### Papiers et mesures
+- Des matières personnelles sans droits d'administration : elles vivent dans `~/.config/passermark/materials.json` et sont enregistrées immédiatement. Les matières de l'administration restent ; les deux apparaissent partout.
+- Le bouton « Mesurer le papier … » crée le papier et lance la mesure directement. « Rechercher l'appareil » trouve l'appareil X-Rite via ArgyllCMS (spotread) ; s'il manque ArgyllCMS, une aide d'installation s'affiche (paquet Linux, téléchargement Windows).
+- Des infobulles expliquent le blanc de papier, le ΔE, le rendu (intent) et l'output intent.
+- Dans le dialogue d'admin, la liste des matières vide explique maintenant les quatre étapes (créer le papier, mesurer le blanc de papier, attribuer un profil, le choisir), au lieu d'être grisée sans rien dire.
+- Volontairement toujours absent : créer ses propres profils à partir d'une charte de test.
+
+### Profils standard
+- « Obtenir les profils standard » charge PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL et SWOP depuis registry.color.org dans son propre dossier ICC.
+- Ils ne sont pas fournis : selon le registre, les profils ECI ne peuvent être transmis qu'avec l'autorisation de l'ECI – les utiliser et les intégrer est libre.
+- Les suggestions de profils montrent aussi des profils standard pas encore installés ; « Reprendre » les récupère et les attribue.
+
+## 1.16.5
+
+### Enchaînements : conditions
+- **« if » à chaque étape :** une étape ne s'exécute que si sa condition est remplie.
+- **Embranchements :** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` exécute exactement la branche dont la condition est vraie.
+- **« fail » et « stop » :** fail rejette le fichier (code de sortie 1, code d'erreur `rejected`), stop termine l'enchaînement sans erreur. Les deux peuvent donner un message, avec `${pages}`, `${format}` etc.
+- `check` signale les fautes de frappe dans une condition, avec la position exacte.
+- Vérifiable : nombre de pages, format, dimensions, débord, taille du fichier, nom du fichier, erreurs et avertissements du prévol, RVB, tons directs, polices manquantes, transparence, calques et `var.NAME`.
+
+### serve : --init et fichiers rejetés
+- `passermark-cli serve --init` (ou `--init --system`, pour tous) crée un modèle `watch.json`, un enchaînement d'exemple et le dossier `hotfolder/beispiel`. Rien de ce qui existe déjà n'est jamais écrasé.
+- La surveillance dépose les fichiers rejetés par une condition dans `failed/`, avec le journal à côté.
+- Le script d'installation Linux et le programme d'installation Windows lancent une fois `serve --init --system` après l'installation, s'il n'y a encore rien.
+
+### Poses (step & repeat) : étape 2 à l'impression directe
+- Le second montage (étape 2) s'applique désormais aussi à l'impression directe depuis le dialogue d'impression – pas seulement avec `passermark-cli impose`. Neuf cartes de visite sur un demi-SRA3, montées deux fois, arrivent ainsi aussi sur un SRA3.
+
+### Prévol : constats cliquables
+- Chaque constat nomme sa position en toutes lettres (« page 2 – en bas à droite, 40 × 20 mm »).
+- Un clic y saute et encadre l'endroit en rouge ; ◀ ▶ fait défiler les constats.
+
+### Journal d'impression
+- À activer par utilisateur dans les réglages, ou à imposer par l'admin (`print_log` : `force`, `dir`, `keep_days`).
+- Chaque travail écrit un JSON avec les réglages exacts, plus un `printlog.csv`. Dossier par défaut : `printlog`.
+- `passermark-cli reprint <log.json>` réimprime le travail. Si l'original a changé entre-temps, un avertissement s'affiche.
+
+### Softproof
+- Dans la vue : Affichage → Softproof (Ctrl+Y), ou avec le bouton de la barre d'outils. Réglage avec Ctrl+Maj+Y ; les changements s'appliquent immédiatement et le réglage est mémorisé.
+- La condition d'impression est une matière (par imprimante), un profil de l'administration ou un profil CMYK du système. S'ajoutent le rendu (intent) et la BPC.
+- Au choix : simuler la couleur du papier, simuler l'encre noire d'impression, utiliser le blanc de papier mesuré de la matière.
+- Avertissements pour la gamme (les couleurs non imprimables passent au magenta) et pour la couverture d'encre au-delà d'une limite réglable en %.
+- Avec un profil CMYK et Ghostscript, la page est véritablement séparée, comme dans la conversion CMYK : le CMYK existant reste, le RVB et le gris sont convertis. Sans Ghostscript, ou avec un profil d'imprimante RVB, l'approximation se fait via l'image écran. En bas à droite, il est toujours indiqué ce qui est simulé.
+### Matières
+- Administration → nouvel onglet « Matières », enregistré avec des droits admin comme les profils.
+- Par papier : nom, grammage, surface, rendu, notes et le profil par imprimante (ou pour toutes les imprimantes).
+- Le grammage et la surface sont préremplis depuis le nom, p. ex. « ungestrichen 120 g ».
+- Le blanc de papier de trois façons : avec l'appareil de mesure via ArgyllCMS (spotread), avec calibration et plusieurs mesures dont la moyenne est faite – la dispersion est affichée ; depuis un fichier de mesure (CGATS d'i1Profiler ou d'ArgyllCMS, le champ sans couleur est pris) ; ou à la main en L*a*b*.
+- Les suggestions de profils classent les profils selon le ΔE2000 par rapport au blanc de papier, à surface et imprimante identiques, avec une note et une justification. « Reprendre » assigne le profil ; un profil système est importé au passage.
+- Si rien ne convient bien, une indication apparaît, p. ex. FOGRA52 sur eci.org ou mesurer son propre profil.
+- Quand un profil est supprimé, les matières perdent automatiquement cette attribution.
+- Volontairement absent : créer un profil à partir d'une charte de test ; les matières en ligne de commande (l'impression continue avec le profil d'imprimante de l'administration).
+- install.sh ajoute optionnellement argyll aux paquets apt (sinon pas d'appareil de mesure sous Linux).
+### Matière dans le dialogue d'impression
+- En choisissant une matière, le profil et le rendu sont réglés, et la valeur ΔE du blanc de papier au profil s'affiche. En changeant le profil à la main, la matière est désélectionnée de nouveau.
+### Matière dans la conversion CMYK
+- La matière règle le profil de destination et le rendu. La méthode est proposée selon le fichier : si le fichier a déjà été créé pour ce profil, le CMYK reste. S'il a été créé pour autre chose (p. ex. FOGRA39), tout est reséparé, avec ce profil source s'il est installé. L'aperçu couleur prend le blanc de papier mesuré.
 ## 1.15.1
 ### Poses (step & repeat) : rotation
 - Si la grille ne tient pas entièrement sur la feuille dans aucune orientation, l'orientation avec le plus petit débord l'emporte désormais. Ce n'est qu'ensuite que « de préférence sans rotation » compte.

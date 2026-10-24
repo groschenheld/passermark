@@ -5,6 +5,113 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.17.1
+
+### Fusionar con clic derecho (Windows)
+- El Explorador inicia un proceso Passermark por cada archivo seleccionado (MultiSelectModel=Player). Sin una instancia en marcha, varios de ellos se convertían a la vez en servidores, porque en Windows `listen()` no falla aunque alguien ya escuche el nombre – cada proceso recibía solo una parte de los archivos. A partir del tercer o sexto intento funcionaba, porque entonces ya había una instancia abierta.
+- Ahora hay un bloqueo de arranque (un named mutex en Windows, si no `flock`), antes de cargar Qt: exactamente un proceso se convierte en la instancia principal; los demás esperan y le pasan sus archivos.
+- Además, el arranque en Windows comprueba antes de `listen()` si ya corre un servidor. Los archivos se reúnen solo cuando corre el bucle de eventos.
+- Probado con 10 procesos iniciados en paralelo en Linux: un servidor, todos los archivos dentro. La parte del mutex para Windows no está probada.
+
+### Insertar página en blanco
+- En el menú contextual de la barra lateral de páginas y en el menú Páginas: «Insertar página en blanco – antes de la selección» y «Insertar página en blanco – después de la selección» (Ctrl+Alt+I).
+- La página nueva toma el formato, la rotación y la caja trim/bleed de la página vecina. Traducido en todos los idiomas.
+
+### Tirones
+- La protección de la rueda del ratón (campos combo, spin y slider) corría como filtro sobre cada evento de la app – casi todos los 0,4–0,5 s al abrir pestañas y ventanas venían de ahí. Ahora se sustituye directamente el `wheelEvent` de esos campos; al arrancar, Passermark comprueba que funciona y, si no, vuelve al filtro antiguo.
+- El diálogo de controladores (4–6 s) no era un cuelgue real, sino el diálogo abierto de Windows; ya no se registra en el protocolo.
+- Al rasterizar durante la impresión (2–5,7 s), la ventana sigue dibujando entre las franjas – la impresión no se vuelve más rápida por ello.
+- `load_settings` solo relee el archivo cuando ha cambiado.
+- Primera ventana: el preflight carga urllib/SSL solo cuando hace falta.
+- No atacado (exigiría rehacerlo en un hilo o proceso en segundo plano): `get_page` en `page_doc_bleeds` (1–1,5 s), `paintEvent` y la llamada de análisis del preflight en el panel de edición.
+
+### CLI: caída con caracteres que la consola no puede mostrar
+- Los informes de caída («→», cp1252) venían todavía de 1.10.4 – `emit` ya estaba corregido. Ahora todas las salidas de la CLI están aseguradas: los caracteres que la consola no puede mostrar se sustituyen en lugar de hacer caer el programa.
+
+## 1.17.0
+
+### Menú Color
+- Un nuevo menú principal **Color** (entre Manipulación de documento y Ver) reúne todo lo relativo al color: comprobación de color, Softproof (Ctrl+Y, se configura como antes con Ctrl+Mayús+Y), exportar para la imprenta, conversión CMYK, papeles y mediciones, obtener perfiles estándar y la ayuda breve «La gestión del color en pocas palabras».
+- Lo mismo como botones en la barra de herramientas del espacio de trabajo de preparación de impresión.
+- El Softproof pasa del menú Ver al menú Color; Ctrl+Y se mantiene.
+- Si falta ArgyllCMS (spotread) para medir, el menú de ayuda muestra un enlace con ayuda de instalación.
+
+### Comprobación de color (Ctrl+Mayús+F)
+- Una barra lateral como el preflight, pero para el papel: arriba eliges la condición de impresión (material o perfil del sistema); debajo aparece lo que contiene el documento – imágenes RGB por página, la mayor cobertura de tinta por página, colores directos y el output intent presente. Para la condición de impresión ves el perfil o el material y el ΔE2000 respecto al blanco de papel.
+- Los hallazgos están en texto claro, cada uno con su botón: convertir, incrustar el output intent, separar de nuevo, medir papel, obtener perfiles adecuados o comprobación del documento. Los hallazgos se pueden pulsar como en el preflight (◀ ▶, marco rojo).
+- Se comprueba: presencia de RGB; cobertura de tinta por encima del límite del perfil; output intent ausente o que no corresponde a la condición de impresión; colores directos presentes (solo aviso).
+
+### Exportar para la imprenta
+- Un asistente en cuatro pasos: elegir la condición de impresión (material o perfil del sistema), convertir según la recomendación, comprobar (antes y después), guardar.
+- El perfil ICC se incrusta siempre como output intent.
+- Si el archivo contiene RGB, Passermark pregunta siempre: ¿convertir o entregarlo con su perfil? No hay preselección.
+- Opcionalmente Passermark crea un paquete `…_Druckerei.zip`: el PDF, los perfiles ICC utilizados y un informe (condición de impresión, intent, blanco de papel, avisos).
+- El resultado es apto para PDF/X-4 según las reglas de Passermark: RGB resuelto, output intent en su sitio, cobertura de tinta dentro del límite. El archivo no se marca como PDF/X-4 y no se valida.
+- Deliberadamente no incluido: una comparación de Softproof antes/después en el asistente – el resultado se ve con «Abrir en Passermark».
+
+### CLI: press
+- `passermark-cli press entrada.pdf salida.pdf` también hace la exportación para la imprenta en los flujos y los vigilantes: condición de impresión, conversión según la recomendación, output intent siempre incrustado.
+- Si el archivo contiene RGB y `rgb` no está fijado, el trabajo se interrumpe en lugar de adivinar.
+- El manual de la CLI tiene su propia sección sobre press.
+
+### Papeles y mediciones
+- Materiales propios sin derechos de administrador: viven en `~/.config/passermark/materials.json` y se guardan al instante. Los materiales de la administración se quedan; ambos aparecen en todas partes.
+- El botón «Medir papel …» crea el papel e inicia la medición enseguida. «Buscar dispositivo» encuentra el aparato X-Rite a través de ArgyllCMS (spotread); si falta ArgyllCMS, se ofrece ayuda de instalación (paquete de Linux, descarga de Windows).
+- Los tooltips explican el blanco de papel, el ΔE, la intención de renderizado (intent) y el output intent.
+- En el diálogo de administración, la lista de materiales vacía ahora explica los cuatro pasos (crear el papel, medir el blanco de papel, asignar un perfil, elegirlo), en vez de estar en gris sin decir nada.
+- Deliberadamente sigue sin incluirse: crear perfiles propios con una carta de pruebas.
+
+### Perfiles estándar
+- «Obtener perfiles estándar» carga PSO Coated v3, PSO Uncoated v3 (FOGRA52), FOGRA39/47, SC-B, GRACoL y SWOP desde registry.color.org en tu propia carpeta de ICC.
+- No se incluyen en el programa: según el registro, los perfiles ECI solo pueden transmitirse con permiso de la ECI – usarlos e incrustarlos es libre.
+- Las sugerencias de perfiles también muestran perfiles estándar aún no instalados; «Aplicar» los descarga y los asigna.
+
+## 1.16.5
+
+### Flujos: condiciones
+- **«if» en cada paso:** un paso solo se ejecuta si se cumple su condición.
+- **Bifurcaciones:** `{"choose": [{"if": …, "steps": […]}, {"else": …}]}` ejecuta exactamente la rama cuya condición es verdadera.
+- **«fail» y «stop»:** fail rechaza el archivo (código de salida 1, código de error `rejected`), stop termina el flujo sin error. Ambos pueden llevar un mensaje, con `${pages}`, `${format}` etc.
+- `check` señala los errores de escritura en una condición, con la posición exacta.
+- Se puede comprobar: número de páginas, formato, medidas, sangrado, tamaño del archivo, nombre del archivo, errores y avisos del preflight, RGB, colores directos, fuentes que faltan, transparencia, capas y `var.NAME`.
+
+### serve: --init y archivos rechazados
+- `passermark-cli serve --init` (o `--init --system`, para todos) crea una plantilla `watch.json`, un flujo de ejemplo y la carpeta `hotfolder/beispiel`. Nunca se sobrescribe nada existente.
+- El vigilante lleva los archivos rechazados por una condición a `failed/`, junto con el registro.
+- El script de instalación de Linux y el instalador de Windows ejecutan una vez `serve --init --system` después de instalar, si todavía no hay nada.
+
+### Nutzen (step & repeat): paso 2 al imprimir directamente
+- El segundo montaje (paso 2) ahora también se aplica al imprimir directamente desde el diálogo de impresión – no solo con `passermark-cli impose`. Nueve tarjetas de visita en medio SRA3, montadas 2×, llegan así también a un SRA3.
+
+### Preflight: hallazgos clicables
+- Cada hallazgo nombra su sitio con claridad («página 2 – abajo a la derecha, 40 × 20 mm»).
+- Un clic salta hasta él y lo enmarca en rojo; con ◀ ▶ recorres los hallazgos.
+
+### Registro de impresión
+- Se activa por usuario en los ajustes, o se impone como administrador (`print_log`: `force`, `dir`, `keep_days`).
+- Por trabajo se escribe un JSON con los ajustes exactos, además de un `printlog.csv`. Carpeta por defecto: `printlog`.
+- `passermark-cli reprint <log.json>` reimprime el trabajo. Si el original ha cambiado mientras tanto, aparece un aviso.
+
+### Softproof
+- En la vista: Ver → Softproof (Ctrl+Y) o con el botón de la barra de herramientas. Se configura con Ctrl+Mayús+Y; los cambios surten efecto de inmediato y el ajuste se recuerda.
+- La condición de impresión es un material (por impresora), un perfil de la administración o un perfil CMYK del sistema. Se añaden la intención de renderizado (intent) y la BPC.
+- A elegir: simular el color del papel, simular la tinta negra de impresión, usar el blanco de papel medido del material.
+- Avisos para el intervalo de colores (los no imprimibles se vuelven magenta) y para la cobertura de tinta por encima de un límite ajustable en %.
+- Con un perfil CMYK y Ghostscript la página se separa de verdad, como en la conversión CMYK: el CMYK existante permanece, el RGB y el gris se convierten. Sin Ghostscript, o con un perfil RGB de impresora, se aproxima mediante la imagen de pantalla. Abajo a la derecha se indica siempre qué se está simulando.
+### Materiales
+- Administración → nueva pestaña «Materiales», guardada con derechos de administrador como los perfiles.
+- Por papel: nombre, gramaje, superficie, intención de renderizado, notas y el perfil por impresora (o para todas las impresoras).
+- El gramaje y la superficie se rellenan previamente a partir del nombre, p. ej. «ungestrichen 120 g».
+- El blanco de papel de tres maneras: con el aparato de medición a través de ArgyllCMS (spotread), con calibración y varias mediciones que se promedian – la dispersión se muestra; desde un archivo de medición (CGATS de i1Profiler o ArgyllCMS, se toma el campo sin color); o a mano como L*a*b*.
+- Las sugerencias de perfiles ordenan los perfiles por ΔE2000 respecto al blanco de papel, con la misma superficie e impresora, con valoración y justificación. «Aplicar» asigna el perfil; un perfil del sistema se importa al mismo tiempo.
+- Si nada encaja bien, aparece una sugerencia, p. ej. FOGRA52 de eci.org o medir un perfil propio.
+- Al eliminar un perfil, los materiales pierden esa asignación automáticamente.
+- Deliberadamente no incluido: crear un perfil con una carta de pruebas; los materiales en la línea de comandos (se sigue imprimiendo con el perfil de impresora de la administración).
+- install.sh añade opcionalmente argyll a los paquetes apt (de lo contrario no hay aparato de medición en Linux).
+### Material en el diálogo de impresión
+- Al elegir un material se ajustan el perfil y la intención, y se ve el valor ΔE del blanco de papel al perfil. Al cambiar el perfil a mano, el material se deselecciona de nuevo.
+### Material en la conversión CMYK
+- El material ajusta el perfil de destino y la intención. El método se recomienda según el archivo: si el archivo ya se creó para ese perfil, el CMYK se mantiene; si se creó para otra cosa (p. ej. FOGRA39), todo se separa de nuevo, con ese perfil de origen si está instalado. La vista previa de color toma el blanco de papel medido.
 ## 1.15.1
 ### Nutzen (step & repeat): giro
 - Si la rejilla no cabe entera en la hoja en ninguna orientación, gana ahora la orientación con el menor sobrante. Solo después cuenta «mejor sin girar».

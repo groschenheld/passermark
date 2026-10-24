@@ -11,7 +11,8 @@ delays its own picture. Started as  passermark-cli render-server  (Windows: cons
 Protocol (stdin/stdout, binary-safe):
   request   one JSON line:  {"op": "open", "id": 1, "doc": "w1", "path": "…pdf", "password": null}
                             {"op": "render", "id": 2, "doc": "w1", "page": 0, "scale": 2.0, "rotation": 0,
-                             "crop": [left, bottom, right, top] | null}
+                             "crop": [left, bottom, right, top] | null, "proof": {…} | null}
+                            (proof = Softproof der Ansicht, siehe proof.proofed_render)
                             {"op": "chars", "id": 4, "doc": "w1", "page": 0}      (Zeichenkästen, für den Cursor)
                             {"op": "call", "id": 5, "fn": "preflight", "args": {…}}  (siehe CALLS)
                             {"op": "close", "id": 3, "doc": "w1"}      {"op": "quit"}
@@ -259,6 +260,7 @@ CALLS = {"inspect": _call_inspect, "preflight": _call_preflight, "verify": _call
 def serve(inp, out) -> int:
     import pypdfium2 as pdfium
     docs: dict = {}
+    paths: dict = {}                                        # Dokument -> (Pfad, Passwort) für den Softproof
     pages: OrderedDict = OrderedDict()
 
     def send(head: dict, payload: bytes = b""):
@@ -274,6 +276,7 @@ def serve(inp, out) -> int:
                 pages.pop(k).close()
             except Exception:
                 pass
+        paths.pop(key, None)
         d = docs.pop(key, None)
         if d is not None:
             try:
@@ -319,6 +322,7 @@ def serve(inp, out) -> int:
                 with open(req["path"], "rb") as f:         # in den Speicher: Datei bleibt frei (Windows:
                     data = f.read()                          # Speichern über die offene Datei, Zwischendatei löschen)
                 docs[key] = pdfium.PdfDocument(data, password=req.get("password") or None)
+                paths[key] = (req["path"], req.get("password") or None)
                 try:
                     info = page_info(data)
                 except Exception:
@@ -350,6 +354,14 @@ def serve(inp, out) -> int:
             elif op == "render":
                 pg = page_of(key, int(req["page"]))
                 crop = tuple(float(c) for c in req["crop"]) if req.get("crop") else (0, 0, 0, 0)
+                if req.get("proof"):
+                    from . import proof
+                    path, pw = paths.get(key, (None, None))
+                    img = proof.proofed_render(pg, float(req["scale"]), int(req.get("rotation", 0)), crop, req["proof"],
+                                               path, int(req["page"]), pw)
+                    send({"id": rid, "ok": True, "w": img.width, "h": img.height, "stride": img.width * 4,
+                          "fmt": "bgrx"}, img.tobytes("raw", "BGRX"))
+                    continue
                 bmp = pg.render(scale=float(req["scale"]), rotation=int(req.get("rotation", 0)) % 360, crop=crop,
                                 prefer_bgrx=True, may_draw_forms=True, draw_annots=True)
                 try:

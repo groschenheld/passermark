@@ -120,13 +120,20 @@ def _desc(path):
 
 
 def system_profile_dirs() -> list[str]:
+    """Ordner mit ICC-Profilen: System, dazu der eigene Profilordner (usercolor.icc_dir – Standardprofile holen)."""
+    from . import usercolor
     if _platform.IS_WIN:
         win = os.environ.get("WINDIR", r"C:\Windows")
-        return [os.path.join(win, "System32", "spool", "drivers", "color")]
-    home = os.path.expanduser("~")
-    return ["/usr/share/color/icc", "/usr/local/share/color/icc", "/var/lib/color/icc",
-            os.path.join(home, ".local", "share", "icc"), os.path.join(home, ".color", "icc"),
-            "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles", "/usr/share/ghostscript"]
+        dirs = [os.path.join(win, "System32", "spool", "drivers", "color")]
+    else:
+        home = os.path.expanduser("~")
+        dirs = ["/usr/share/color/icc", "/usr/local/share/color/icc", "/var/lib/color/icc",
+                os.path.join(home, ".local", "share", "icc"), os.path.join(home, ".color", "icc"),
+                "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles", "/usr/share/ghostscript"]
+    own = usercolor.icc_dir()
+    if own not in dirs:
+        dirs.insert(0, own)
+    return dirs
 
 
 def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
@@ -247,7 +254,8 @@ class Preview:
     notes: list = field(default_factory=list)
 
 
-def render_preview(src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False) -> Preview:
+def render_preview(src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False,
+                   white_lab=None) -> Preview:
     from PIL import Image
     gs = ghostscript()
     if not gs:
@@ -267,15 +275,19 @@ def render_preview(src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, pa
         cmyk = Image.open(a)
         cmyk.load()
         cmyk = cmyk.convert("CMYK") if cmyk.mode != "CMYK" else cmyk
-        after = cmyk_to_screen(cmyk, s.target, paper_white)
+        after = cmyk_to_screen(cmyk, s.target, paper_white, white_lab)
         return Preview(before, after, cmyk)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False):
-    """CMYK-Werte so anzeigen, wie sie mit diesem Profil gedruckt aussehen (LittleCMS)."""
+def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None):
+    """CMYK-Werte so anzeigen, wie sie mit diesem Profil gedruckt aussehen (LittleCMS). white_lab = gemessenes
+        Papierweiß des Materials (statt des Profilweiß) für die Papiersimulation."""
     from PIL import ImageCms
+    if paper_white and white_lab:
+        from . import proof
+        return proof.device_to_screen(cmyk, {"icc": profile, "space": "CMYK", "paper": True, "white": list(white_lab)})
     src = ImageCms.getOpenProfile(profile)
     dst = ImageCms.createProfile("sRGB")
     intent = ImageCms.Intent.ABSOLUTE_COLORIMETRIC if paper_white else ImageCms.Intent.RELATIVE_COLORIMETRIC

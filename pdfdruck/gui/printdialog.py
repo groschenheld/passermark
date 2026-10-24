@@ -228,6 +228,29 @@ class SideTab(QPushButton):
         super().leaveEvent(e)
 
 
+class _print_pump:
+    """Windows-Druck rastert Seite für Seite im Hauptfenster (2–6 s bei großen Blättern). Dazwischen darf das Fenster
+        sich neu zeichnen und der Herzschlag weiterlaufen – Eingaben bleiben bis zum Ende gesperrt."""
+
+    def __init__(self):
+        self._mod = None
+        if os.name != "nt":
+            return
+        try:
+            from PySide6.QtCore import QEventLoop
+            from .. import printers_win
+            flags = QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+            printers_win.PUMP = lambda: QApplication.processEvents(flags)
+            self._mod = printers_win
+        except Exception:                        # noqa: BLE001 – ohne Pumpe druckt es wie bisher
+            self._mod = None
+
+    def close(self):
+        if self._mod is not None:
+            self._mod.PUMP = None
+            self._mod = None
+
+
 class PrintDialog(QDialog):
     def __init__(self, parent, doc, path: str, current: int, session: Session, src_path: str | None = None,
                  pinfo: list | None = None):
@@ -937,14 +960,19 @@ class PrintDialog(QDialog):
         # Farbe
         sec = self._section(tr("Farbmanagement"))
         f = sec.form
+        self.cmb_material = QComboBox()
+        self.cmb_material.setToolTip(tr("Papier aus der Verwaltung – setzt das passende Profil und den Intent"))
         self.cmb_profile = QComboBox()
         self.cmb_intent = QComboBox()
         self.lbl_profile_note = QLabel()
         self.lbl_profile_note.setWordWrap(True)
         self.lbl_profile_note.setStyleSheet(f"color: {theme.MUTED};")
+        self.row_material = f.rowCount()
+        f.addRow(tr("Material:"), self.cmb_material)
         f.addRow(tr("Ausgabeprofil:"), self.cmb_profile)
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         f.addRow("", self.lbl_profile_note)
+        self.color_form = f
 
         # Seltenes gut sichtbar, aber eingeklappt:
         sec = CollapsibleSection(tr("Spiegeln (z. B. Transferpapier, Folienrückseite)"))
@@ -997,6 +1025,7 @@ class PrintDialog(QDialog):
             w.valueChanged.connect(self._changed)
         self.cmb_profile.currentIndexChanged.connect(self._profile_changed)
         self.cmb_intent.currentIndexChanged.connect(self._profile_changed)
+        self.cmb_material.currentIndexChanged.connect(self._material_changed)
         self._sync_enabled()
 
     def _fill_sr2_formats(self):
@@ -1124,6 +1153,7 @@ class PrintDialog(QDialog):
         name = self.caps.name
         self.s.values.pop(name, None)
         self.s.color.pop(name, None)
+        self.s.material.pop(name, None)
         self.values = self.s.values_for(name)
         self._build_paper()
         self._build_driver_tab()
@@ -1505,8 +1535,10 @@ class PrintDialog(QDialog):
 
     def _win_driver_dialog(self):
         from ..printers_win import DEVMODE_KEY, driver_dialog
+        from .stallwatch import paused
         try:
-            res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
+            with paused():                       # Windows-Dialog mit eigener Schleife: kein Ruckler
+                res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
         except Exception as e:
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
             return
@@ -1615,6 +1647,43 @@ class PrintDialog(QDialog):
         self.cmb_intent.setEnabled(user and bool(self.cmb_profile.currentData()))
         self.cmb_profile.blockSignals(False)
         self.cmb_intent.blockSignals(False)
+        self._build_materials(name, user and bool(profs))
+        self._profile_note()
+
+    def _build_materials(self, printer: str, enabled: bool):
+        """Materialien mit einem Profil für diesen Drucker (eigene Zuordnung oder „alle Drucker“)."""
+        from .. import colorlab
+        allowed = {p["id"] for p in config.profiles_for(self.cfg, printer)}
+        mats = [m for m in colorlab.materials_for(self.cfg, printer)
+                if colorlab.profile_for(self.cfg, m, printer) in allowed]
+        cur = getattr(self.s, "material", {}).get(printer, "")
+        self.cmb_material.blockSignals(True)
+        fill_combo(self.cmb_material, [("", tr("– keins –"))] + [
+            (m["id"], (m.get("name") or m["id"]) + (f"  ({m['weight']} g/m²)" if m.get("weight") else ""))
+            for m in mats], cur if cur in [m["id"] for m in mats] else "")
+        self.cmb_material.blockSignals(False)
+        self.cmb_material.setEnabled(enabled and bool(mats))
+        self.color_form.setRowVisible(self.row_material, bool(mats))
+
+    def _material_changed(self, *_):
+        from .. import colorlab
+        printer = self.caps.name
+        mid = self.cmb_material.currentData() or ""
+        if not hasattr(self.s, "material"):
+            self.s.material = {}
+        self.s.material[printer] = mid
+        m = colorlab.material_by_id(self.cfg, mid)
+        if m is None:
+            self._profile_note()
+            return
+        pid = colorlab.profile_for(self.cfg, m, printer)
+        i = self.cmb_profile.findData(pid)
+        if i >= 0:
+            self.cmb_profile.setCurrentIndex(i)
+        if m.get("intent"):
+            j = self.cmb_intent.findData(m["intent"])
+            if j >= 0:
+                self.cmb_intent.setCurrentIndex(j)
         self._profile_note()
 
     def _fill_intents(self, current):
@@ -1636,11 +1705,25 @@ class PrintDialog(QDialog):
 
     def _profile_note(self):
         p = config.profile_by_id(self.cfg, self.cmb_profile.currentData() or "")
+        from .. import colorlab
+        m = colorlab.material_by_id(self.cfg, self.cmb_material.currentData() or "")
+        if m is not None and colorlab.profile_for(self.cfg, m, self.caps.name) != (self.cmb_profile.currentData() or ""):
+            self.cmb_material.blockSignals(True)                # Profil von Hand geändert: kein Material mehr
+            self.cmb_material.setCurrentIndex(0)
+            self.cmb_material.blockSignals(False)
+            getattr(self.s, "material", {}).pop(self.caps.name, None)
+            m = None
         if not p:
             self.lbl_profile_note.setText("")
             return
         dopts = p.get("driver_options") or {}
         txt = tr("Das PDF wird vor dem Senden mit diesem Profil in Gerätefarben umgerechnet.")
+        if m is not None and m.get("white"):
+            pw = colorlab.profile_white(p.get("file", ""))
+            if pw:
+                de = colorlab.delta_e(m["white"], pw)
+                txt += " " + tr("Papierweiß {0} zum Profil: ΔE {1:.1f} – {2}.").format(
+                    m.get("name") or m["id"], de, colorlab.verdict(de))
         if dopts:
             txt += tr(" Profil setzt Treiberoptionen: ") + ", ".join(f"{k}={v}" for k, v in dopts.items())
         self.lbl_profile_note.setText(txt)
@@ -2487,26 +2570,38 @@ class PrintDialog(QDialog):
                 self.parent().ctl.open_paths([out], tab_of=self.parent())
             self.accept()
             return
+        try:                                  # Mehrfachnutzen mit Schritt 2: Papier = Zielformat (wie beim Speichern)
+            values = printjob.step2_values(self.caps, self.values, self._eff_settings())
+        except ValueError as e:
+            QMessageBox.warning(self, tr("Schritt 2"), str(e))
+            return
         skey = self.caps.roles.get("source")
         if getattr(self, "_auto_slot", None) and skey and self.values.get(skey) == self._auto_slot:
             weight = self.cmb_weight.currentData() if getattr(self, "cmb_weight", None) else 0
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            values, note, warn = printjob.resolve_tray(self.s, name, self.values, weight or 0, live=True)
+            values, note, warn = printjob.resolve_tray(self.s, name, values, weight or 0, live=True)
             QApplication.restoreOverrideCursor()
             if warn and values.get(skey) == self.values.get(skey) and "leer" in note:
                 if QMessageBox.question(self, tr("Fach leer"), note + tr("\n\nTrotzdem drucken?")) \
                         != QMessageBox.StandardButton.Yes:
                     return
+        pkey = self.caps.roles.get("pagesize")
+        if pkey and pkey in self.values:      # Blatt für Schritt 1 wie gewählt – das Zielformat setzt submit_document
+            values = dict(values, **{pkey: self.values[pkey]})
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        pump = _print_pump()
         try:
             jid = printjob.submit_document(
                 self.doc, os.path.basename(self.path or "Dokument"), self.s, name, pages,
                 self._settings(), self.spn_copies.value(), self.chk_collate.isChecked(),
-                self.chk_reverse.isChecked(), values=values)
+                self.chk_reverse.isChecked(), values=values,
+                file=self.path if self.path and os.path.isfile(self.path) else None)
         except Exception as e:
+            pump.close()
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckfehler"), str(e))
             return
+        pump.close()
         QApplication.restoreOverrideCursor()
         self.parent().statusBar().showMessage(tr("Auftrag {0} an {1} gesendet.").format(jid, name), 8000)
         self.accept()

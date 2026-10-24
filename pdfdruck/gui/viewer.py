@@ -407,6 +407,8 @@ class PageView(QScrollArea):
         self.setWidget(self.container)
         self._timer = QTimer(self, singleShot=True, interval=30, timeout=self._render_visible)
         self._gen = 0             # Dokument-Stand: Ergebnisse älterer Stände werden verworfen
+        self.proof = None         # Softproof der Ansicht (proof.proofed_render) oder None
+        self._pkey = ()           # dazu: Schlüssel – Bilder mit anderem Softproof werden verworfen
         self._rkey = None         # Dokument im Render-Prozess
         self._src_path = None
         self._tmp = None          # eigene Zwischendatei für den Render-Prozess
@@ -547,6 +549,20 @@ class PageView(QScrollArea):
         want = self.MASTER_FACTOR * max(fit * 0.5, min(S, fit))
         return max(0.02, min(want, cap))
 
+    def set_proof(self, spec):
+        """Softproof an (spec) oder aus (None): alle Seitenbilder neu, die alten bleiben bis dahin stehen."""
+        from .. import proof
+        key = proof.spec_key(spec) if spec else ()
+        if key == self._pkey:
+            return
+        self.proof, self._pkey = (dict(spec) if spec else None), key
+        for w in self.pages:
+            if w.master is not None:
+                w.mstale = True
+            w.drop(tile_only=True)
+            w.update()
+        self._timer.start()
+
     def tile_key(self, w):
         return (round(self._dev_scale(w.index), 4), self.rotation)
 
@@ -566,7 +582,9 @@ class PageView(QScrollArea):
         if self.doc is None or getattr(self.doc, "raw", None) is None or not self.pages:
             return None
         rot = self.rotation
-        base = {"doc": self._rkey, "gen": self._gen, "rotation": rot}
+        base = {"doc": self._rkey, "gen": self._gen, "rotation": rot, "pkey": self._pkey}
+        if self.proof:
+            base["proof"] = self.proof
         vis = self._wanted_pages()
         for w in vis:
             i = w.index
@@ -608,6 +626,8 @@ class PageView(QScrollArea):
     def render_done(self, req, img, err):
         if req.get("gen") != self._gen or (req.get("doc") is not None and req.get("doc") != self._rkey):
             return
+        if req.get("pkey", ()) != self._pkey:
+            return                                      # mit einem anderen Softproof gerendert
         i = req["page"]
         if not (0 <= i < len(self.pages)):
             return
@@ -633,6 +653,12 @@ class PageView(QScrollArea):
         page = self.doc[req["page"]]
         try:
             crop = tuple(req["crop"]) if req.get("crop") else (0, 0, 0, 0)
+            if req.get("proof"):
+                from .. import proof
+                im = proof.proofed_render(page, req["scale"], req["rotation"], crop, req["proof"], self._src_path,
+                                          req["page"])
+                return QImage(im.tobytes("raw", "RGB"), im.width, im.height, im.width * 3,
+                              QImage.Format.Format_RGB888).copy()
             bmp = page.render(scale=req["scale"], rotation=req["rotation"] % 360, crop=crop, prefer_bgrx=True,
                               may_draw_forms=True, draw_annots=True)
             fmt = QImage.Format.Format_RGB32 if bmp.n_channels == 4 else QImage.Format.Format_BGR888
@@ -798,6 +824,38 @@ class PageView(QScrollArea):
             vb.setValue(self.pages[i].y() - PAGE_GAP)
         self._acc = 0.0
         self.pageChanged.emit(i)
+
+    def show_spot(self, i: int, box=None):
+        """Prüfung: zur Fundstelle springen und sie markieren (Rahmen um den Bereich, sonst um die Seite)."""
+        if not (0 <= i < len(self.pages)):
+            return
+        self.goto(i, force=True)
+        self.pf_mark = (i, tuple(box) if box else None)
+        w = self.pages[i]
+        if box:
+            try:
+                r = self._rect_widget(w, box[0], box[1], box[2], box[3])
+                vb, hb = self.verticalScrollBar(), self.horizontalScrollBar()
+                vh, vw = self.viewport().height(), self.viewport().width()
+                if r.height() < vh:                    # Fundstelle ins obere Drittel holen
+                    vb.setValue(int(w.y() + r.center().y() - vh / 3))
+                else:
+                    vb.setValue(int(w.y() + r.top() - 20))
+                if r.width() < vw:
+                    hb.setValue(int(w.x() + r.center().x() - vw / 2))
+            except Exception:
+                pass
+        for pw in self.pages:
+            pw.update()
+        if not hasattr(self, "_pf_mark_timer"):
+            self._pf_mark_timer = QTimer(self, singleShot=True, interval=6000, timeout=self._clear_spot)
+        self._pf_mark_timer.start()
+
+    def _clear_spot(self):
+        mk = getattr(self, "pf_mark", None)
+        self.pf_mark = None
+        if mk and 0 <= mk[0] < len(self.pages):
+            self.pages[mk[0]].update()
 
     def next_page(self):
         self.goto(self.current + 1)
@@ -1438,6 +1496,20 @@ class PageView(QScrollArea):
                 p.setPen(pen)
                 p.setBrush(fill)
                 p.drawRect(self._rect_widget(w, x0, y1, x1, y0))
+            mk = getattr(self, "pf_mark", None)
+            if mk and mk[0] == w.index:                # Fundstelle aus der Prüfung
+                col = QColor(theme.ERROR)
+                pen = QPen(col, 3)
+                fill = QColor(col)
+                fill.setAlpha(45)
+                p.setPen(pen)
+                p.setBrush(fill)
+                if mk[1]:
+                    x0, y0, x1, y1 = mk[1]
+                    p.drawRect(self._rect_widget(w, x0, y0, x1, y1).adjusted(-4, -4, 4, 4))
+                else:
+                    p.setBrush(Qt.BrushStyle.NoBrush)
+                    p.drawRect(QRectF(1.5, 1.5, w.width() - 3, w.height() - 3))
         except Exception:
             pass
 
@@ -2029,9 +2101,10 @@ class MainWindow(QMainWindow):
         self.lbl_size.setFont(theme.mono_font(9.5))
         self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
+        self._build_color(dock)
         self._build_edit(dock)
         self._dock_widths = {}
-        for d in (dock, self.pf_dock, self.edit_dock):
+        for d in (dock, self.pf_dock, self.color_dock, self.edit_dock):
             d.visibilityChanged.connect(lambda vis, d=d: self._dock_vis(d, vis))
         self._build_workspaces(dock)
         self.lbl_measure = QLabel()
@@ -2040,6 +2113,11 @@ class MainWindow(QMainWindow):
         self.lbl_measure.setToolTip(tr("Messung: Länge, waagrechter und senkrechter Abstand, Winkel"))
         self.statusBar().addPermanentWidget(self.lbl_measure)     # bottom far right, does not get in the way
         self.view.on_measure = self.lbl_measure.setText
+        self.lbl_proof = QLabel()
+        self.lbl_proof.setContentsMargins(8, 0, 8, 0)
+        self.lbl_proof.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_proof.hide()
+        self.statusBar().addPermanentWidget(self.lbl_proof)
         self._update_title()
 
     # ---------------- Arbeitsbereiche ---------------- #
@@ -2054,7 +2132,8 @@ class MainWindow(QMainWindow):
         self.a_vdp_howto = self._act(tr("Variable Daten – Anleitung (PDF)"), self._open_vdp_howto, None, "book")
         self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
         tools = {"view": [(self.a_copy, tr("Text kopieren"))],
-                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_manip_cmyk, tr("CMYK")),
+                 "prep": [(self.a_preflight, tr("Prüfen")), (self.a_colorcheck, tr("Farbe")),
+                          (self.a_press, tr("Für Druckerei")), (self.a_manip_cmyk, tr("CMYK")),
                           (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
                           (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
                  "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
@@ -2205,6 +2284,174 @@ class MainWindow(QMainWindow):
         self.ruler_v.cursor_px = gpos
         self._rulers_update()
 
+    # ---------------- Softproof ---------------- #
+    def _toggle_proof(self, on: bool):
+        from .softproofdialog import build_spec, load_saved
+        spec = build_spec(self.session.cfg, load_saved()) if on else None
+        if on and spec is None:
+            self.softproof_dialog()                     # noch nichts gewählt (oder Profil weg): einrichten
+            return
+        self._apply_proof(spec)
+
+    def _apply_proof(self, spec):
+        from .. import proof
+        self.view.set_proof(spec)
+        self.lbl_proof.setText(proof.describe_spec(spec))
+        self.lbl_proof.setVisible(bool(spec))
+        if bool(spec) != self.a_proof.isChecked():
+            self.a_proof.blockSignals(True)
+            self.a_proof.setChecked(bool(spec))
+            self.a_proof.blockSignals(False)
+
+    def softproof_dialog(self):
+        from .softproofdialog import SoftproofDialog, build_spec, load_saved
+        dlg = getattr(self, "_proof_dlg", None)
+        if dlg is None:
+            dlg = SoftproofDialog(self, self.session.cfg)
+            dlg.changed.connect(self._apply_proof)
+            self._proof_dlg = dlg
+        dlg.show()
+        dlg.raise_()
+        spec = build_spec(self.session.cfg, load_saved())
+        if spec:
+            self._apply_proof(spec)
+        else:
+            self._apply_proof(None)
+
+    def _proof_for_choice(self, choice):
+        """Farbprüfung → Softproof: diese Druckbedingung im Softproof zeigen."""
+        from .softproofdialog import build_spec, load_saved, save
+        saved = dict(load_saved(), key=choice["key"])
+        save(saved)
+        self._proof_dlg = None                      # Auswahl neu einlesen
+        spec = build_spec(self.session.cfg, saved)
+        if spec:
+            self._apply_proof(spec)
+
+    # ---------------- Farbe ---------------- #
+    def _build_color(self, pages_dock):
+        from .colorpanel import ColorPanel
+        self.color_panel = ColorPanel(self)
+        self.color_panel.data_fn = lambda: self._doc_bytes() if self.doc is not None else None
+        self.color_panel.cfg_fn = lambda: self.session.cfg
+        self.color_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
+        self.color_panel.action_requested.connect(self._color_action)
+        self.color_panel.proof_requested.connect(self._proof_for_choice)
+        self.color_dock = QDockWidget(tr("Farbe"), self)
+        self.color_dock.setWidget(self._dock_scroll(self.color_panel))
+        self.color_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable
+                                    | QDockWidget.DockWidgetFeature.DockWidgetMovable)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.color_dock)
+        self.tabifyDockWidget(pages_dock, self.color_dock)
+        self.color_dock.hide()
+
+    def color_check(self):
+        if self.doc is None:
+            return
+        self.color_panel.reload_choices()
+        self.color_dock.show()
+        self.color_dock.raise_()
+        self.color_panel.start()
+
+    def _color_refresh(self):
+        """Papiere/Profile geändert: Auswahl in Farbprüfung und Softproof neu einlesen."""
+        from .. import colorlab
+        colorlab._WHITE_CACHE.clear()
+        self._proof_dlg = None
+        if hasattr(self, "color_panel"):
+            self.color_panel.reload_choices()
+            if self.color_dock.isVisible() and self.color_panel.facts is not None:
+                self.color_panel.start()
+
+    def materials_dialog(self, select: str = "", measure: bool = False):
+        from .materialsdialog import MaterialsDialog
+        dlg = MaterialsDialog(self, self.session.cfg, select, measure)
+        dlg.changed.connect(self._color_refresh)
+        dlg.exec()
+
+    def standard_profiles(self, surface: str = ""):
+        from .materialsdialog import StandardProfilesDialog
+        dlg = StandardProfilesDialog(self, surface)
+        dlg.exec()
+        if dlg.fetched:
+            self._color_refresh()
+
+    def _color_help(self):
+        from .materialsdialog import show_help
+        show_help(self)
+
+    def press_dialog(self):
+        if self.doc is None:
+            return
+        from .colorpanel import load_choice
+        from .pressdialog import PressDialog
+        ch = load_choice()
+        base = os.path.splitext(self.display_name or tr("Dokument"))[0]
+        folder = os.path.dirname(self.path) if self.path else (getattr(self, "_suggest_dir", "") or os.path.expanduser("~"))
+        dlg = PressDialog(self, self._doc_bytes, self.session.cfg, os.path.join(folder, base + tr("_Druck") + ".pdf"),
+                          ch.get("key", ""), ch.get("intent", ""), int(ch.get("tac", 0) or 0))
+        dlg.open_result.connect(lambda path: self.ctl.open_paths([path], tab_of=self))
+        dlg.exec()
+
+    def _ask_rgb(self, target_name: str) -> str:
+        """RGB immer fragen: "convert" | "keep" | "" (abgebrochen)."""
+        box = QMessageBox(QMessageBox.Icon.Question, tr("RGB im Dokument"), tr(
+            "Die Datei enthält RGB. Nach „{0}“ umwandeln oder RGB mit Profil weitergeben (die Druckerei rechnet "
+            "um)?").format(target_name), parent=self)
+        b_conv = box.addButton(tr("Umwandeln"), QMessageBox.ButtonRole.AcceptRole)
+        b_keep = box.addButton(tr("Mit Profil weitergeben"), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        return "convert" if box.clickedButton() is b_conv else "keep" if box.clickedButton() is b_keep else ""
+
+    def _color_action(self, kind: str, p: dict):
+        from .. import colorlab, core, pressexport
+        p = p or {}
+        if kind == "press":
+            self.press_dialog()
+        elif kind in ("convert", "embed_oi"):
+            if self.doc is None or not p.get("target"):
+                return
+            rgb = "convert"
+            if p.get("has_rgb"):
+                rgb = self._ask_rgb(colorlab.profile_desc(p["target"]))
+                if not rgb:
+                    return
+            s = pressexport.PressSettings(target=p["target"], intent=p.get("intent") or "relative",
+                                          cmyk_mode=p.get("cmyk_mode") or "rgb_only" if kind == "convert" else "none",
+                                          source=p.get("source") or "", rgb=rgb,
+                                          tac_limit=int(p.get("tac_limit") or 0), material=p.get("material") or "")
+            self.start_job("press", core.settings_to_dict(s), suffix=tr("_Druck"), title=tr("Farbe"))
+        elif kind == "preflight":
+            self.pf_dock.show()
+            self.pf_dock.raise_()
+            self._pf_start(force=True)
+        elif kind == "measure":
+            mid = p.get("material") or ""
+            m = colorlab.material_by_id(self.session.cfg, mid) if mid else None
+            if m is not None and m.get("scope") == "admin":
+                if QMessageBox.question(self, tr("Papier messen"), tr(
+                        "„{0}“ ist ein Papier der Verwaltung (für alle). Als eigenes Papier übernehmen und messen? "
+                        "Ändern für alle geht unter Verwaltung → Standardeinstellungen → Materialien.").format(
+                            m.get("name") or mid)) != QMessageBox.StandardButton.Yes:
+                    return
+                from .. import usercolor
+                mats = usercolor.load_materials()
+                n = {k: v for k, v in m.items() if k in usercolor.FIELDS}
+                n["id"] = usercolor.new_id(m.get("name") or mid, {x["id"] for x in mats})
+                mats.append(n)
+                try:
+                    usercolor.save_materials(mats)
+                except (OSError, ValueError) as e:
+                    QMessageBox.warning(self, tr("Papiere"), str(e))
+                    return
+                mid = n["id"]
+            self.materials_dialog(mid, measure=bool(mid))
+        elif kind == "get_profiles":
+            self.standard_profiles(p.get("surface") or "")
+        elif kind == "choose_target":
+            self.color_panel.focus_choice()
+
     def _show_boxes(self, on: bool):
         self.view.show_boxes = bool(on)
         for w in self.view.pages:
@@ -2263,6 +2510,7 @@ class MainWindow(QMainWindow):
                 kind, s, suffix=suffix, title=title,
                 src_data=self.pf_panel.take_job_data() if kind == "shrink" else None))
         self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
+        self.pf_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
         self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
         self.pf_dock = QDockWidget(tr("Prüfung"), self)
         self.pf_dock.setWidget(self._dock_scroll(self.pf_panel))
@@ -2433,6 +2681,9 @@ class MainWindow(QMainWindow):
         self.a_ins_before = A(tr("Seiten einfügen – vor Auswahl…"), lambda: self.insert_dialog("before"))
         self.a_ins_after = A(tr("Seiten einfügen – nach Auswahl…"), lambda: self.insert_dialog("after"), "Ctrl+I", "insert")
         self.a_ins_end = A(tr("Seiten anhängen (am Ende)…"), lambda: self.insert_dialog("end"), "Ctrl+Shift+I")
+        self.a_blank_before = A(tr("Leerseite einfügen – vor Auswahl"), lambda: self.insert_blank("before"))
+        self.a_blank_after = A(tr("Leerseite einfügen – nach Auswahl"), lambda: self.insert_blank("after"),
+                               "Ctrl+Alt+I")
         self.a_export = A(tr("Auswahl als ein PDF exportieren…"), self.export_selection, "Ctrl+E", "export")
         self.a_export_each = A(tr("Auswahl als einzelne PDFs exportieren…"), self.export_each, "Ctrl+Shift+E")
         self.a_delete = A(tr("Seiten löschen"), self.delete_pages, QKeySequence.StandardKey.Delete, "delete")
@@ -2451,7 +2702,8 @@ class MainWindow(QMainWindow):
                   self.a_props, None, self.a_print, None, self.a_settings, None, self.a_close):
             m.addSeparator() if a is None else m.addAction(a)
         m = mb.addMenu(tr("&Seiten"))
-        for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, None, self.a_export,
+        for a in (self.a_ins_before, self.a_ins_after, self.a_ins_end, self.a_blank_before, self.a_blank_after,
+                  None, self.a_export,
                   self.a_export_each, None, self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None,
                   self.a_split, self.a_split_spreads, None,
                   self.a_delete, None, self.a_selall, None, self.a_copy, self.a_seltext):
@@ -2470,6 +2722,25 @@ class MainWindow(QMainWindow):
         for a in (self.a_edit, None, self.a_manip_cmyk, self.a_manip_crop, None, self.a_manip, None, self.a_separate,
                   self.a_cut, None, self.a_vdp, self.a_data):
             m.addSeparator() if a is None else m.addAction(a)
+        m = mb.addMenu(tr("&Farbe"))
+        self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
+        self.a_proof.setCheckable(True)
+        self.a_proof.toggled.connect(self._toggle_proof)
+        self.a_colorcheck = A(tr("Farbprüfung …"), self.color_check, "Ctrl+Shift+F", "check")
+        self.a_colorcheck.setToolTip(tr("Dokument gegen eine Druckbedingung prüfen – mit Empfehlungen"))
+        self.a_press = A(tr("Für Druckerei ausgeben …"), lambda: self.press_dialog(), None, "export")
+        self.a_press.setToolTip(tr("Umwandeln, Output Intent einbetten, prüfen, speichern – optional als Paket"))
+        for a in (self.a_colorcheck, self.a_proof):
+            m.addAction(a)
+        m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
+        m.addSeparator()
+        m.addAction(self.a_press)
+        m.addAction(self.a_manip_cmyk)
+        m.addSeparator()
+        m.addAction(A(tr("Papiere und Messungen …"), lambda: self.materials_dialog(), None, "material"))
+        m.addAction(A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None))
+        m.addSeparator()
+        m.addAction(A(tr("Farbmanagement kurz erklärt"), self._color_help, None, "info"))
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
         self.a_single.setCheckable(True)
@@ -2491,6 +2762,8 @@ class MainWindow(QMainWindow):
         m.addAction(self.a_rulers)
         m.addAction(self.a_measure)
         m.addAction(self.a_boxes)
+        m.addSeparator()
+        m.addAction(self.a_proof)
         m.addSeparator()
         m.addAction(dock.toggleViewAction())
         self.a_actual = A(tr("Tatsächliche Größe"), lambda: self.view.set_zoom("fixed", 1.0), "Ctrl+0", "actual")
@@ -2552,6 +2825,7 @@ class MainWindow(QMainWindow):
         tb.addAction(self.a_rulers)
         tb.addAction(self.a_measure)
         tb.addAction(self.a_boxes)
+        tb.addAction(self.a_proof)
         tb.addSeparator()
         tb.addAction(A(tr("Verkleinern"), lambda: self.view.step_zoom(1 / 1.2), QKeySequence.StandardKey.ZoomOut, "zoom_out"))
         self.zoom_combo = QComboBox()
@@ -2586,7 +2860,7 @@ class MainWindow(QMainWindow):
     def _update_actions(self):
         has = self.doc is not None
         for a in (self.a_save, self.a_saveas, self.a_print, self.a_ins_before, self.a_ins_after,
-                  self.a_ins_end, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
+                  self.a_ins_end, self.a_blank_before, self.a_blank_after, self.a_export, self.a_export_each, self.a_delete, self.a_rot_l,
                   self.a_rot_r, self.a_up, self.a_down, self.a_selall, self.a_manip, self.a_manip_cmyk,
                   self.a_manip_crop, self.a_repair, self.a_separate, self.a_cut, self.a_edit, self.a_vdp,
                   self.a_split, self.a_split_spreads):
@@ -2856,6 +3130,27 @@ class MainWindow(QMainWindow):
         self._changed_doc(start, list(range(start, pos)))
         self.statusBar().showMessage(tr("{0} Seite(n) eingefügt.").format(pos - start), 6000)
 
+    def insert_blank(self, where: str, count: int = 1):
+        """Leerseite(n) vor/nach der Auswahl – im Format der Nachbarseite (Rahmen und Drehung inklusive)."""
+        if self.doc is None:
+            return
+        from .. import pageops
+        sel = self.selected_pages()
+        n = len(self.doc)
+        if where == "before":
+            pos = sel[0] if sel else 0
+            ref = pos if pos < n else n - 1
+        else:
+            pos = (sel[-1] + 1) if sel else n
+            ref = pos - 1 if pos > 0 else 0
+        try:
+            k = pageops.insert_blank(self.doc, pos, ref if n else None, count)
+        except Exception as e:                   # noqa: BLE001
+            QMessageBox.critical(self, tr("Leerseite einfügen"), str(e))
+            return
+        self._changed_doc(pos, list(range(pos, pos + k)))
+        self.statusBar().showMessage(tr("{0} Leerseite(n) eingefügt.").format(k), 6000)
+
     def delete_pages(self):
         pages = self.selected_pages()
         if not pages:
@@ -2917,8 +3212,8 @@ class MainWindow(QMainWindow):
         n = len(self.selected_pages())
         m = QMenu(self)
         m.addSection(tr("{0} Seite(n) ausgewählt").format(n))
-        for a in (self.a_ins_before, self.a_ins_after, None, self.a_export, self.a_export_each, None,
-                  self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None):
+        for a in (self.a_ins_before, self.a_ins_after, self.a_blank_before, self.a_blank_after, None,
+                  self.a_export, self.a_export_each, None, self.a_rot_l, self.a_rot_r, self.a_up, self.a_down, None):
             m.addSeparator() if a is None else m.addAction(a)
         sm = m.addMenu(svg_icon("split"), tr("Teilen"))
         sm.addAction(tr("Senkrecht halbieren (links | rechts)"), lambda: self.split_selected("halves_v"))
@@ -3344,6 +3639,12 @@ class MainWindow(QMainWindow):
 
     def _stop_jobs(self):
         """Window is closing: cancel running jobs."""
+        cp = self.__dict__.get("color_panel")
+        if cp is not None:                              # Farbprüfung im Hintergrund: abbrechen und warten
+            if cp._worker is not None:
+                cp._worker.cancel()
+            for th in list(cp._threads):
+                th.wait(10000)
         for entry in list(self._jobs):
             entry["job"].cancel()
         for entry in list(self._jobs):

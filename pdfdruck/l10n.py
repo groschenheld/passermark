@@ -33,16 +33,37 @@ def _settings_file() -> str:
     return os.path.join(base, "passermark", "settings.json")
 
 
+_settings_cache: tuple | None = None      # (Pfad, Stand der Datei, Inhalt)
+
+
 def load_settings() -> dict:
+    """Benutzereinstellungen. Gelesen wird nur, wenn sich die Datei geändert hat – beim Aufbau eines Fensters wird
+        das Dutzende Male abgefragt; auf Windows (Virenscanner, servergespeichertes Profil) kostete jedes Öffnen Zeit."""
+    global _settings_cache
+    p = _settings_file()
     try:
-        with open(_settings_file(), encoding="utf-8") as f:
-            d = json.load(f)
-        return d if isinstance(d, dict) else {}
+        st = os.stat(p)
+        stamp = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return {}
+    c = _settings_cache
+    if c is not None and c[0] == p and c[1] == stamp:
+        return json.loads(c[2])                  # frische Kopie: Aufrufer ändern das Ergebnis und speichern es
+    try:
+        with open(p, encoding="utf-8") as f:
+            text = f.read()
+        d = json.loads(text)
     except (OSError, ValueError):
         return {}
+    if not isinstance(d, dict):
+        return {}
+    _settings_cache = (p, stamp, text)
+    return d
 
 
 def save_settings(d: dict):
+    global _settings_cache
+    _settings_cache = None
     p = _settings_file()
     os.makedirs(os.path.dirname(p), exist_ok=True)
     tmp = p + ".tmp"

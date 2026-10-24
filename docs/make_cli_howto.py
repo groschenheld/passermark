@@ -149,6 +149,20 @@ WORKFLOWS = {
       "dry_run": true}}
   ]
 }""",
+    "verteilen.json": """{
+  "passermark": "workflow", "version": 1,
+  "output": "${dir}/fertig/${stem}.pdf",
+  "steps": [
+    {"job": "shrink", "if": {"size_mb": {">": 20}}},
+    {"choose": [
+      {"if": {"format": "A5", "pages": {">=": 8}},
+       "steps": [{"job": "impose", "settings": {"sheet": "A4", "handling": "booklet"}}]},
+      {"if": {"format": "A4"},
+       "steps": [{"job": "stop", "message": "A4 – bleibt wie es ist"}]},
+      {"else": [{"job": "fail", "message": "Format ${format} wird hier nicht verarbeitet"}]}
+    ]}
+  ]
+}""",
 }
 
 # Watcher-Beispiel: im Handbuch gezeigt und in tests/test_cli_howto.py geprüft
@@ -191,7 +205,7 @@ def build():
                "Fehler oder Abbruch bleibt keine halbe Datei liegen. Eingabe und Ausgabe dürfen nicht dieselbe "
                "Datei sein."))
 
-    s.append(P("Die neun Aufträge", H3))
+    s.append(P("Die zehn Aufträge", H3))
     s.append(table([
         ["Auftrag", "Was er macht"],
         [c("cutcontour"), "Schnittlinie für Schneideplotter (Sonderfarbe CutContour), optional mit Überfüller"],
@@ -203,6 +217,8 @@ def build():
         [c("vdp"), "Variable Daten: Nummern, Texte aus CSV, QR-Codes, Code 128, EAN-13 – jede Seite der nächste Datensatz"],
         [c("split"), "Seiten teilen: halbieren oder Raster, z. B. als Doppelseiten exportierte Broschüre in Einzelseiten"],
         [c("shrink"), "Dateigröße verkleinern: verlustfreie Maßnahmen einzeln schaltbar, optional Bilder herunterrechnen"],
+        [c("press"), "Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer einbetten, optional Paket mit "
+         "Profil und Bericht"],
     ], [32 * mm, W - 32 * mm]))
 
     s.append(P("Optionen", H3))
@@ -221,6 +237,7 @@ def build():
         [c("settings <auftrag>"), "alle Einstellungen eines Auftrags mit Standardwerten als JSON – die Vorlage "
          "für eigene Presets"],
         [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
+        [c("reprint protokoll.json"), "Druckauftrag aus dem Druckprotokoll genauso nochmal drucken (Abschnitt 6)"],
         [c("tidy datei.json"), "Preset oder Ablauf auf die Werte kürzen, die vom Standard abweichen ("
          + c("--full") + " = Preset mit allen Werten, " + c("--print") + " = nur anzeigen)"],
         [c("beispiele [ordner]"), "Beispiele für Variable Daten in den Benutzerordner kopieren (Standard: "
@@ -350,6 +367,33 @@ def build():
                      "Das Profil gibt es kostenlos bei der ECI (eci.org). Pfad an deinen Speicherort anpassen.",
                      "passermark-cli manip druck.pdf druck-cmyk.pdf \\\n"
                      "    --set cmyk=true --set target=/pfad/ISOcoated_v2_eci.icc"))
+
+    # ------------------------------------------------------------------ press
+    s.append(P("press – Für die Druckerei ausgeben", H3))
+    s.append(P("Wie <b>Farbe → Für Druckerei ausgeben</b> im Programm: prüft die Datei gegen die Druckbedingung, wandelt "
+               "um, was nötig ist, bettet das Profil immer als Output Intent ein und prüft das Ergebnis. Enthält die "
+               "Datei RGB, muss " + c("rgb") + " gesetzt sein – die Kommandozeile fragt nicht, sie bricht ab."))
+    s.append(table([
+        ["Einstellung", "Standard", "Bedeutung"],
+        [c("target"), "", "Pfad zum CMYK-Profil der Druckbedingung (.icc), z. B. PSOcoated_v3.icc – Pflicht"],
+        [c("cmyk_mode"), c("auto"), c("auto") + " (wie die Farbprüfung empfiehlt), " + c("rgb_only") + ", " + c("all")
+         + " (alles neu separieren), " + c("none") + " (nur Output Intent)"],
+        [c("rgb"), c("ask"), c("convert") + " (nach dem Zielprofil umwandeln), " + c("keep") + " (RGB mit Profil "
+         "weitergeben, RGB ohne Profil wird sRGB), " + c("ask") + " = Fehler, wenn RGB vorkommt"],
+        [c("source"), "", "Quellprofil für vorhandenes CMYK bei " + c("all") + " (leer = aus dem Output Intent der Datei)"],
+        [c("intent"), c("relative"), c("perceptual") + ", " + c("relative") + ", " + c("saturation") + ", "
+         + c("absolute")],
+        [c("tac_limit"), "0", "Richtwert Farbauftrag in % (0 = üblicher Wert der Druckbedingung)"],
+        [c("package"), c("false"), "zusätzlich " + c("&lt;ausgabe&gt;_Druckerei.zip") + ": PDF, verwendete Profile, "
+         "Bericht.txt"],
+    ], [32 * mm, 22 * mm, W - 54 * mm]))
+    s.append(Spacer(1, 4))
+    s.append(example("Flyer für die Offsetdruckerei (gestrichenes Papier)",
+                     "RGB-Bilder werden umgewandelt, das Profil als Output Intent eingebettet, dazu das Paket für "
+                     "Rückfragen. Die Profile der Standard-Druckbedingungen holt man im Programm unter Farbe → "
+                     "Standardprofile holen.",
+                     "passermark-cli press flyer.pdf flyer-druck.pdf \\\n"
+                     "    --set target=/pfad/PSOcoated_v3.icc --set rgb=convert --set package=true"))
 
     # ------------------------------------------------------------------ repair
     s.append(P("repair – Reparieren, optimieren, PDF/A, Passwort", H3))
@@ -636,6 +680,33 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                      "passermark-cli run kunde.json heft.pdf --in katalog.pdf --var kunde=Muster"))
     s.append(code(WORKFLOWS["kunde.json"]))
 
+    s.append(P("Bedingungen: wenn – sonst", H3))
+    s.append(P("Ein Schritt mit " + c('"if"') + " läuft nur, wenn die Bedingung stimmt. " + c('"choose"')
+               + " nimmt den ersten Zweig, dessen Bedingung stimmt, sonst " + c('"else"') + ". " + c("fail")
+               + " bricht mit einer Meldung ab (der Watcher legt die Datei nach " + c("failed/") + "), " + c("stop")
+               + " ist vorzeitig fertig. Geprüft wird immer die PDF, wie sie nach den Schritten davor aussieht."))
+    s.append(code(WORKFLOWS["verteilen.json"]))
+    s.append(table([
+        ["Prüfwert", "Bedeutung"],
+        [c("pages") + ", " + c("size_mb"), "Seitenzahl, Dateigröße in MB"],
+        [c("format") + ", " + c("page_format"), "Normformat der ersten Seite (Endformat, falls vorhanden) bzw. der "
+         "Seite selbst: " + c("A4") + ", " + c("SRA3") + " …, " + c('""') + " = keins"],
+        [c("width_mm") + ", " + c("height_mm") + ", " + c("orientation") + ", " + c("mixed_sizes"),
+         "Maße, Lage (" + c("portrait") + "/" + c("landscape") + "), verschiedene Seitengrößen"],
+        [c("trim") + ", " + c("bleed_mm"), "Endformat vorhanden, Anschnitt in mm"],
+        [c("errors") + ", " + c("warnings") + ", " + c("rgb") + ", " + c("spot_colors") + ", "
+         + c("fonts_missing") + ", " + c("transparency"), "Ergebnisse der Prüfung (läuft nur, wenn gebraucht)"],
+        [c("filename") + ", " + c("output_intent") + ", " + c("layers"), "Dateiname, Ausgabeprofil, Anzahl Ebenen"],
+        [c("var.NAME"), "Variable aus " + c("--var") + " bzw. " + c("vars") + " des Watchers"],
+    ], [62 * mm, W - 62 * mm]))
+    s.append(P("Vergleiche: ein Wert allein heißt „gleich“, sonst " + c('{">=": 8}') + " – möglich sind "
+               + c("== != > >= < <= in matches") + " (" + c("matches") + " = Muster mit * und ?). Mehrere Angaben "
+               "gelten zusammen, " + c("any") + ", " + c("all") + " und " + c("not") + " verknüpfen. In Meldungen "
+               "werden " + c("${format}") + ", " + c("${pages}") + " … eingesetzt.", NOTE))
+    s.append(example("Bedingungen prüfen", c("check") + " zeigt die Verzweigungen und meldet Tippfehler; "
+                     + c("run --json") + " meldet jede Entscheidung mit Begründung.",
+                     "passermark-cli check verteilen.json --in heft.pdf"))
+
     s.append(P("Ablauf-Ordner: Abläufe beim Namen aufrufen", H3))
     s.append(P("Liegt ein Ablauf in einem der Ablauf-Ordner, genügt sein Name (Dateiname ohne " + c(".json")
                + "). Gesucht wird in dieser Reihenfolge – der erste Ablauf mit dem Namen gilt. Presets und "
@@ -692,6 +763,28 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                "Treiber mit der eingetragenen Hardware nicht kann (z. B. Lochen ohne Locher), wird abgelehnt. "
                "Druckernamen mit Leerzeichen in Anführungszeichen; unter Linux hat die CUPS-Warteschlange keine "
                "Leerzeichen (" + c("Canon_iR-ADV_C3822i") + ").", NOTE))
+    s.append(P("Mehrfachnutzen mit Schritt 2: Gedruckt wird wie gespeichert – die fertigen Schritt-2-Bögen, als "
+               "Papier das Zielformat aus Schritt 2.", NOTE))
+    s.append(P("Druckprotokoll", H3))
+    s.append(P("Ist das Druckprotokoll eingeschaltet (<b>Datei → Einstellungen</b>, oder vom Admin für alle), wird "
+               "jeder Druckauftrag mit allen Einstellungen als JSON abgelegt – dazu eine Liste " + c("printlog.csv")
+               + ". Ordner: " + c("~/.local/state/passermark/printlog") + " bzw. "
+               + c("%LOCALAPPDATA%\\Passermark\\printlog") + " oder der vom Admin vorgegebene. Genau so "
+               "nochmal drucken: " + c("passermark-cli reprint protokoll.json") + " (" + c("--dry-run")
+               + " zum Testen, " + c("--in") + " für eine andere Datei)."))
+    s.append(P("Farbe: Papiere, Softproof, Farbprüfung", H3))
+    s.append(P("Alles zur Farbe steht im Programm im Menü <b>Farbe</b> (und im Arbeitsbereich Druckaufbereitung). "
+               "<b>Papiere und Messungen</b>: eigene Papiere ohne Adminrechte – Name, Grammatur, Oberfläche, "
+               "gemessenes Papierweiß (Messgerät über ArgyllCMS, Messdatei oder von Hand) und je Drucker das "
+               "passende Profil; Vorschläge nach Papierweiß (ΔE), Oberfläche und Drucker. Papiere für alle legt der "
+               "Admin unter <b>Verwaltung → Standardeinstellungen → Materialien</b> an. <b>Standardprofile "
+               "holen</b> lädt PSO Coated v3, PSO Uncoated v3, FOGRA39 … kostenlos von registry.color.org. "
+               "<b>Farbprüfung</b> (" + c("Strg+Umschalt+F") + ") prüft das Dokument gegen die Druckbedingung (RGB, "
+               "Output Intent, Farbauftrag, Sonderfarben, Papierweiß, Schriften) und schlägt vor, was zu tun ist – "
+               "mit Knopf zum Ausführen. <b>Softproof</b> (" + c("Strg+Y") + ") zeigt die Seite in den Druckfarben. "
+               "<b>Für Druckerei ausgeben</b> entspricht dem Auftrag " + c("press") + ". Messen und Vorschläge gibt "
+               "es nur im Programm; der Druck über die Kommandozeile nimmt das Profil des Druckers aus der "
+               "Verwaltung."))
 
     # ------------------------------------------------------------------ inspect
     s.append(P("7 · Dokumente untersuchen", H2))
@@ -743,6 +836,9 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                      "passermark-cli serve --config watch.json --check\n"
                      "passermark-cli serve --config watch.json --once\n"
                      "passermark-cli serve --config watch.json"))
+    s.append(P("Eine fertige Vorlage legt " + c("passermark-cli serve --init") + " an – samt Beispiel-Ablauf und "
+               "Beispiel-Ordner " + c("hotfolder/beispiel") + "; " + c("--system") + " für alle Benutzer. Eine "
+               "bestehende " + c("watch.json") + " wird nie überschrieben.", NOTE))
     s.append(P("Als Dienst ohne angemeldeten Benutzer", H3))
     s.append(P("Am besten mit einem eigenen Benutzer ohne besondere Rechte, der in die Drop-Ordner schreiben darf. "
                "Linux: " + c("linux/passermark-watch.service") + " (systemd, die Schritte stehen in der Datei), "

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QProcess, Qt
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QGroupBox,
                                QLabel, QMessageBox, QVBoxLayout)
 
@@ -44,6 +44,24 @@ class SettingsDialog(QDialog):
         self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
         f2.addRow(self.chk_pf)
         v.addWidget(g2)
+        from .. import printlog
+        g5 = QGroupBox(tr("Druckprotokoll"))
+        f5 = QFormLayout(g5)
+        self.chk_plog = QCheckBox(tr("Jeden Druckauftrag mit allen Einstellungen protokollieren"))
+        forced = bool(printlog.admin_cfg().get("force"))
+        self.chk_plog.setChecked(forced or bool(self.settings.get("print_log", False)))
+        self.chk_plog.setEnabled(not forced)
+        if forced:
+            self.chk_plog.setToolTip(tr("Vom Administrator für alle eingeschaltet"))
+        f5.addRow(self.chk_plog)
+        lbl = QLabel(tr("Ordner: {0}").format(printlog.folder()) + "\n" +
+                     tr("Je Auftrag eine JSON-Datei plus printlog.csv – nochmal genauso drucken: "
+                        "passermark-cli reprint <datei.json>"))
+        lbl.setWordWrap(True)
+        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
+        lbl.setStyleSheet(f"color: {theme.MUTED};")
+        f5.addRow(lbl)
+        v.addWidget(g5)
         g4 = QGroupBox(tr("Fenster"))
         f4 = QFormLayout(g4)
         self.chk_tabs = QCheckBox(tr("Im Programm Geöffnetes als Reiter im selben Fenster"))
@@ -91,6 +109,8 @@ class SettingsDialog(QDialog):
             self.settings["win_raster_dpi"] = int(self.cmb_wdpi.currentData() or 0)
         self.settings["preflight_on_open"] = self.chk_pf.isChecked()
         self.settings["open_in_tabs"] = self.chk_tabs.isChecked()
+        if self.chk_plog.isEnabled():
+            self.settings["print_log"] = self.chk_plog.isChecked()
         try:
             l10n.save_settings(self.settings)
         except OSError as e:

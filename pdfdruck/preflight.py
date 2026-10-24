@@ -27,8 +27,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 
 from . import platform as _platform
@@ -57,11 +55,20 @@ SEV_ORDER = {"error": 0, "warning": 1, "info": 2}
 
 
 @dataclass
+class Spot:
+    """Eine Fundstelle: Seite (1-basiert), optional der Bereich auf der Seite (pt, Seitenkoordinaten)."""
+    page: int
+    box: tuple | None = None
+    label: str = ""            # was genau dort ist („72 dpi, 400 × 300 px“, Schriftname …)
+
+
+@dataclass
 class Issue:
     severity: str              # error | warning | info
     category: str              # font | layer | transparency | text | image
     message: str
     pages: list = field(default_factory=list)
+    spots: list = field(default_factory=list)   # [Spot] – wo genau (leer: nur die Seiten)
 
 
 @dataclass
@@ -113,6 +120,8 @@ class Report:
     colors: object = None                              # imagecheck.ColorReport: Bilder (dpi, Farbraum), Farben
     size: object = None                                # shrink.SizeReport: wofür der Platz draufgeht
     issues: list = field(default_factory=list)
+    boxes: dict = field(default_factory=dict)          # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
+    located: dict = field(default_factory=dict)        # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
 
     def counts(self):
         c = {"error": 0, "warning": 0, "info": 0}
@@ -237,6 +246,10 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                     pass
 
         for i, page in enumerate(pdf.pages, start=1):
+            try:
+                rep.boxes[i] = tuple(float(v) for v in page.MediaBox)
+            except Exception:
+                pass
             seen = set()
             _walk_resources(_resources(page), i, visit, seen)
             for a in page.obj.get("/Annots") or []:
@@ -293,6 +306,10 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
 def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
     """pdfium parts of the check (strange characters, layers outside the page) – call in the main thread."""
     rep.garbled = _garbled(data)
+    try:
+        rep.located = _locate(data, rep)
+    except Exception:
+        rep.located = {}
     if deep_layers and rep.layers:
         try:
             _layers_outside(data, rep.layers)
@@ -328,6 +345,131 @@ def _font_info(f, k) -> FontInfo:
             encoding = "private"
     return FontInfo(k, name, raw, subtype, embedded, subset, "/ToUnicode" in f, encoding, cid,
                     name in STANDARD14 and subtype == "Type1")
+
+
+def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000) -> dict:
+    """Wo genau? Text-Objekte je nicht eingebetteter/auffälliger Schrift und Objekte mit Transparenz – Bereiche je
+        Seite (pdfium, Seitenkoordinaten). Nur für Schriften, zu denen es einen Befund gibt."""
+    import ctypes
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as r
+    want = {f.name for f in rep.fonts if f.status in ("missing", "std14", "type3") or not f.tounicode}
+    tpages = set(rep.transparency)
+    if not want and not tpages:
+        return {}
+    get_name = getattr(r, "FPDFFont_GetBaseFontName", None) or getattr(r, "FPDFFont_GetFontName", None)
+    has_tr = getattr(r, "FPDFPageObj_HasTransparency", None)
+    out: dict = {}
+    doc = pdfium.PdfDocument(data)
+    order = _text_fonts_in_order(data) if want else {}
+    try:
+        pages = sorted({p for f in rep.fonts if f.name in want for p in f.pages} | tpages)[:max_pages]
+        for p in pages:
+            if not 1 <= p <= len(doc):
+                continue
+            pg = doc[p - 1]
+            try:
+                n = min(r.FPDFPage_CountObjects(pg.raw), max_objs)
+                n_text = sum(1 for k in range(n) if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(pg.raw, k))
+                             == r.FPDF_PAGEOBJ_TEXT)
+                seq = order.get(p) or []
+                use_seq = len(seq) == n_text                 # je Textobjekt die Schrift laut Inhaltsstrom
+                ti = -1
+                for k in range(n):
+                    obj = r.FPDFPage_GetObject(pg.raw, k)
+                    typ = r.FPDFPageObj_GetType(obj)
+                    l, b, rr, t = (ctypes.c_float() for _ in range(4))
+                    if not r.FPDFPageObj_GetBounds(obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr),
+                                                   ctypes.byref(t)):
+                        continue
+                    box = (l.value, b.value, rr.value, t.value)
+                    if has_tr is not None and p in tpages and has_tr(obj):
+                        out.setdefault(("transparency",), {}).setdefault(p, []).append(box)
+                    if typ == r.FPDF_PAGEOBJ_TEXT:
+                        ti += 1
+                    if typ == r.FPDF_PAGEOBJ_TEXT and want:
+                        if use_seq:
+                            name = seq[ti]
+                        else:                              # pdfium nennt bei Ersatzschriften oft den Ersatz
+                            if get_name is None:
+                                continue
+                            font = r.FPDFTextObj_GetFont(obj)
+                            size = get_name(font, None, 0) if font else 0
+                            if not size:
+                                continue
+                            buf = ctypes.create_string_buffer(size)
+                            get_name(font, buf, size)
+                            name = buf.value.decode("latin-1", "replace")
+                        name = name.split("+", 1)[1] if re.match(r"^[A-Z]{6}\+", name) else name
+                        if name in want:
+                            out.setdefault(("font", name), {}).setdefault(p, []).append(box)
+            finally:
+                pg.close()
+    finally:
+        doc.close()
+    return out
+
+
+def _text_fonts_in_order(data: bytes) -> dict:
+    """Seite -> [Schriftname je Text-Ausgabe (Tj, TJ, ', ")] in der Reihenfolge des Inhaltsstroms der Seite
+        (ohne Formulare) – so viele, wie pdfium Textobjekte direkt auf der Seite hat."""
+    import pikepdf
+    out = {}
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        for i, page in enumerate(pdf.pages, start=1):
+            fonts = (_resources(page).get("/Font") or {}) if _resources(page) is not None else {}
+            cur, seq = "", []
+            try:
+                ops = pikepdf.parse_content_stream(page)
+            except Exception:
+                continue
+            for ins in ops:
+                op = str(getattr(ins, "operator", ""))
+                if op == "Tf" and ins.operands:
+                    f = fonts.get(str(ins.operands[0]))
+                    raw = str(f.get("/BaseFont", "/?"))[1:] if f is not None else ""
+                    cur = raw.split("+", 1)[1] if re.match(r"^[A-Z]{6}\+", raw) else raw
+                elif op in ("Tj", "TJ", "'", '"'):
+                    seq.append(cur)
+            out[i] = seq
+    finally:
+        pdf.close()
+    return out
+
+
+def _merge_boxes(boxes: list, limit: int = 6) -> list:
+    """Viele Kästen einer Seite (z. B. jede Textzeile) zu wenigen zusammenfassen: nahe beieinander -> ein Bereich."""
+    out = []
+    for b in sorted(boxes, key=lambda b: (-b[3], b[0])):
+        for i, m in enumerate(out):
+            if b[0] <= m[2] + 20 and b[2] >= m[0] - 20 and b[1] <= m[3] + 20 and b[3] >= m[1] - 20:
+                out[i] = (min(m[0], b[0]), min(m[1], b[1]), max(m[2], b[2]), max(m[3], b[3]))
+                break
+        else:
+            out.append(tuple(b))
+    if len(out) > limit:
+        out = [(min(b[0] for b in out), min(b[1] for b in out), max(b[2] for b in out), max(b[3] for b in out))]
+    return out
+
+
+def where_text(rep: Report, spot: Spot) -> str:
+    """„Seite 3 – oben links, 40 × 20 mm“ (Lage im Seitendrittel, Größe) – ohne Bereich nur „Seite 3“."""
+    head = tr("Seite {0}").format(spot.page)
+    if spot.box is None:
+        return head + (f" – {spot.label}" if spot.label else "")
+    x0, y0, x1, y1 = spot.box
+    mb = rep.boxes.get(spot.page) or (0.0, 0.0, max(x1, 1.0), max(y1, 1.0))
+    W, H = (mb[2] - mb[0]) or 1.0, (mb[3] - mb[1]) or 1.0
+    cx, cy = ((x0 + x1) / 2 - mb[0]) / W, ((y0 + y1) / 2 - mb[1]) / H
+    v = tr("oben") if cy > 2 / 3 else tr("unten") if cy < 1 / 3 else ""
+    h = tr("links") if cx < 1 / 3 else tr("rechts") if cx > 2 / 3 else ""
+    pos = " ".join(x for x in (v, h) if x) or tr("Mitte")
+    size = tr("{0:.0f} × {1:.0f} mm").format((x1 - x0) / MM_PT, (y1 - y0) / MM_PT)
+    return f"{head} – {pos}, {size}" + (f" · {spot.label}" if spot.label else "")
+
+
+MM_PT = 72 / 25.4
 
 
 def _garbled(data: bytes) -> dict:
@@ -799,6 +941,7 @@ def free_alternative(name: str) -> str:
 
 
 def _get_json(url):
+    import urllib.request                        # erst bei Bedarf: lädt SSL – kostete beim ersten Fenster spürbar Zeit
     req = urllib.request.Request(url, headers={"User-Agent": "Passermark"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -832,6 +975,8 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
     """Fetch a free font (OFL/Apache) from fontsource.org -> (file paths, family actually loaded).
         Commercial names (Arial, Calibri …) are redirected to their free twin.
     """
+    import urllib.error
+    import urllib.request
     used = free_alternative(family) or family.strip()
     fid = re.sub(r"[^a-z0-9]+", "-", used.lower()).strip("-")
     cdn = "https://cdn.jsdelivr.net/fontsource/fonts/{0}@latest/latin-{1}-{2}.ttf"
@@ -947,6 +1092,11 @@ def _mm(t) -> str:
     return f"{t[0]:.0f} × {t[1]:.0f} mm"
 
 
+def _img_spot(u) -> "Spot":
+    return Spot(u.page, getattr(u, "bbox", None),
+                tr("{0:.0f} dpi, {1} × {2} px, {3}").format(u.dpi, u.px[0], u.px[1], u.space or "?"))
+
+
 def _image_issues(rep: Report) -> list:
     from . import imagecheck as ic
     cr = rep.colors
@@ -982,7 +1132,8 @@ def _image_issues(rep: Report) -> list:
                    if kind == "low" else
                    tr("Bilder mit {0}–{1} dpi auf {2} Seiten – gut für Plakat/Großformat, für Nahbetrachtung knapp."))
             out.append(Issue(sev, "image", msg.format(worst.ok, len(pages), worst.dpi, worst.page) if kind == "low"
-                             else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)), pages))
+                             else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)), pages,
+                             [_img_spot(u) for p in pages for u in by_page[p] if u.rating == kind]))
             continue
         for p in pages:
             us = [u for u in by_page[p] if u.rating == kind]
@@ -993,16 +1144,21 @@ def _image_issues(rep: Report) -> list:
                        "Großformat, für Nahbetrachtung knapp."))
             msg = head.format(p, len(us), worst.ok if kind == "low" else worst.good - 1, worst.dpi,
                               worst.px[0], worst.px[1], _mm(worst.placed_mm))
-            out.append(Issue(sev, "image", msg + " " + advice(p, worst), [p]))
+            out.append(Issue(sev, "image", msg + " " + advice(p, worst), [p], [_img_spot(u) for u in us]))
     rgb = sorted(p for p, c in cr.page_colors.items() if "RGB" in c)
     if rgb:
         n_img = sum(1 for u in cr.images if u.space == "RGB")
+        spots = [_img_spot(u) for u in cr.images if u.space == "RGB" and u.page in rgb]
+        with_img = {sp.page for sp in spots}
+        spots += [Spot(p, None, tr("RGB-Farben (Text/Grafik)")) for p in rgb if p not in with_img]
         out.append(Issue("info", "image", tr("RGB-Inhalte auf {0} Seite(n) ({1} Bildplatzierung(en) in RGB) – für "
                                              "Offset/Digitaldruck nach CMYK umwandeln (Druckaufbereitung → CMYK); "
-                                             "Plotter/Großformat drucken RGB meist direkt.").format(len(rgb), n_img), rgb))
+                                             "Plotter/Großformat drucken RGB meist direkt.").format(len(rgb), n_img), rgb,
+                         sorted(spots, key=lambda sp: sp.page)))
     names = sorted({n for ns in cr.spots.values() for n in ns})
     if names:
-        out.append(Issue("info", "image", tr("Sonderfarben: {0}.").format(", ".join(names)), sorted(cr.spots)))
+        out.append(Issue("info", "image", tr("Sonderfarben: {0}.").format(", ".join(names)), sorted(cr.spots),
+                         [Spot(p, None, ", ".join(sorted(cr.spots[p]))) for p in sorted(cr.spots)]))
     return out
 
 
@@ -1126,10 +1282,29 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 # --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
+def _located_spots(rep: Report, key: tuple, pages, label: str = "") -> list:
+    """Fundstellen aus rep.located (Bereiche je Seite), Seiten ohne Bereich als ganze Seite."""
+    loc = rep.located.get(key) or {}
+    out = []
+    for p in sorted(pages):
+        boxes = _merge_boxes(loc.get(p) or [])
+        out += [Spot(p, b, label) for b in boxes] or [Spot(p, None, label)]
+    return out
+
+
 def _issues(rep: Report) -> list[Issue]:
+    out = _issues_raw(rep)
+    for i in out:
+        if not i.spots:
+            i.spots = [Spot(p) for p in i.pages]
+    return out
+
+
+def _issues_raw(rep: Report) -> list[Issue]:
     out = []
     for f in rep.fonts:
         pg = sorted(f.pages)
+        n0 = len(out)
         if f.status == "missing":
             if f.encoding == "private":
                 out.append(Issue("error", "font", tr("Schrift „{0}“ ist nicht eingebettet und verwendet eigene Zeichennamen – "
@@ -1152,6 +1327,8 @@ def _issues(rep: Report) -> list[Issue]:
                                                                             "StandardEncoding"):
             out.append(Issue("info", "font", tr("Schrift „{0}“ ohne Unicode-Zuordnung – Kopieren/Suchen kann falsche "
                                                 "Zeichen liefern.").format(f.name), pg))
+        for i in out[n0:]:
+            i.spots = _located_spots(rep, ("font", f.name), pg, f.name)
     for p, n in sorted(rep.garbled.items()):
         out.append(Issue("warning", "text", tr("Seite {0}: {1} Zeichen ohne gültige Zuordnung (seltsame Zeichen).")
                          .format(p, n), [p]))
@@ -1181,11 +1358,13 @@ def _issues(rep: Report) -> list[Issue]:
         out.append(Issue("warning", "transparency", tr("Transparente Verläufe (Soft-Maske im Muster) auf {0} Seite(n) – "
                                                        "manche RIPs/Plotter drucken sie als schwarze Fläche und decken "
                                                        "darunterliegende Bilder ab. Reparatur: „Transparente Verläufe in "
-                                                       "Bilder umwandeln“.").format(len(grad)), grad))
+                                                       "Bilder umwandeln“.").format(len(grad)), grad,
+                         _located_spots(rep, ("transparency",), grad)))
     risky = {p for p, k in rep.transparency.items() if k & {"smask", "blend", "group"} and "pattern_smask" not in k}
     if risky:
         out.append(Issue("info", "transparency", tr("Transparenzen auf {0} Seite(n) – auf älteren Druckern/RIPs ggf. "
-                                                    "„Transparenzen reduzieren“.").format(len(risky)), sorted(risky)))
+                                                    "„Transparenzen reduzieren“.").format(len(risky)), sorted(risky),
+                         _located_spots(rep, ("transparency",), risky)))
     op = {p for p, k in rep.transparency.items() if "overprint" in k}
     if op:
         out.append(Issue("info", "transparency", tr("Überdrucken auf {0} Seite(n).").format(len(op)), sorted(op)))
@@ -1203,6 +1382,11 @@ def report_text(rep: Report, title: str = "") -> str:
     sev = {"error": tr("FEHLER"), "warning": tr("WARNUNG"), "info": tr("HINWEIS")}
     for i in rep.issues:
         lines.append(f"[{sev[i.severity]}] {i.message}" + (tr("  (Seiten {0})").format(_pages_str(i.pages)) if i.pages else ""))
+        located = [sp for sp in i.spots if sp.box is not None or sp.label]
+        for sp in located[:12]:
+            lines.append("    · " + where_text(rep, sp))
+        if len(located) > 12:
+            lines.append("    · " + tr("… und {0} weitere").format(len(located) - 12))
     lines += ["", tr("Schriften:")]
     for f in rep.fonts:
         st = {"ok": tr("eingebettet"), "std14": tr("Standard, nicht eingebettet"), "missing": tr("NICHT eingebettet"),
