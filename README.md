@@ -1,4 +1,4 @@
-# Passermark 1.18.2
+# Passermark 1.18.3
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -51,7 +51,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   (Help → Get examples).
 - **Workspaces** (View & Print, Plan & Poster, Prepress, Edit, Automation) with their own tool row.
 - **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
-- **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings, plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
+- **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings and the pages sent per copy (`out_pages`), plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
 - **Automation:** step-by-step workflows with conditions ("if" on every step, "choose"/"else" branches, "fail"/"stop" with a message); `passermark-cli serve` watches folders and sends every file through the assigned workflow – `serve --init` sets up a template with an example.
 - **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
 - **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.

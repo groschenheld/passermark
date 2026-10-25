@@ -2,6 +2,14 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.3
+
+### Druckprotokoll: gesendete Seiten (out_pages)
+- Passermark schreibt jetzt `out_pages` ins Protokoll: die gesendeten Seiten je Exemplar.
+- Mit Duplex und Exemplaren ergibt das die Bogen – bei jeder Seitenbehandlung.
+- In älteren Protokolleinträgen steht der Wert nicht.
+- Die Anleitung ist ergänzt.
+
 ## 1.18.2
 
 ### Dokumentprüfung: Seitenrahmen, Beschnitt, Schutz, PDF/X, Formularfelder

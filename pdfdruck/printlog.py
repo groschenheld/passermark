@@ -118,8 +118,10 @@ def _sha256(path: str) -> str | None:
 
 
 def build(caps, printer: str, file: str | None, title: str, pages, settings, values: dict, copies: int,
-          collate: bool, reverse: bool, color: tuple, job_id, error: str | None = None, sheet_mm=None) -> dict:
-    """The log entry (dict). values = driver values as sent (incl. tray, step-2 paper)."""
+          collate: bool, reverse: bool, color: tuple, job_id, error: str | None = None, sheet_mm=None,
+          out_pages: int | None = None) -> dict:
+    """The log entry (dict). values = driver values as sent (incl. tray, step-2 paper).
+        out_pages: pages of the file actually sent, per copy (after imposition, n-up, booklet, step & repeat)."""
     opts = {k: str(v) for k, v in caps.job_options(values).items()} if caps is not None else {}
     lay = dataclasses.asdict(settings) if dataclasses.is_dataclass(settings) else dict(settings or {})
     pkey = caps.roles.get("pagesize") if caps is not None else None
@@ -146,6 +148,7 @@ def build(caps, printer: str, file: str | None, title: str, pages, settings, val
         "paper": values.get(pkey) if pkey else None,
         "tray": values.get(skey) if skey else None,
         "sheet_mm": sheet_mm,
+        "out_pages": out_pages,
         "copies": int(copies),
         "collate": bool(collate),
         "reverse": bool(reverse),

@@ -5,6 +5,14 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.3
+
+### Nyomtatási napló: kiküldött oldalak (out_pages)
+- A Passermark most `out_pages`-t ír a naplóba: a példányonként elküldött oldalakat.
+- Duplexnél és több példánynál ez adja az íveket – minden oldalkezelésnél.
+- A régebbi naplóbejegyzésekben az érték hiányzik.
+- A kézikönyv kiegészült.
+
 ## 1.18.2
 
 ### Preflight: oldalkeretek, levágás, védelem, PDF/X, űrlapmezők

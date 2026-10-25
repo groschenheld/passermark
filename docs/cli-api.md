@@ -248,7 +248,9 @@ Each log holds time, user, computer, source (`dialog`, `cli`, `watch`, `rightcli
 printer, paper, tray, every driver option, the exact options sent, page handling, colour profile, copies, job id and
 the result – plus a ready workflow that prints the job again exactly like this: `passermark-cli reprint log.json`
 (`--dry-run`, `--in other.pdf`). A print inside a workflow logs the original input and the steps before it; the
-reprint runs them again. A changed file is reported.
+reprint runs them again. A changed file is reported. Since 1.18.3 `out_pages` holds the pages of the file actually
+sent per copy (after n-up, booklet, step & repeat) – together with the duplex option and `copies` this gives the
+sheets used.
 
 With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
 and the paper is the target size.
@@ -438,7 +440,9 @@ verboten/nur niedrige Auflösung), PDF/X-Angabe ohne Output-Intent bzw. ohne Tri
 gedruckte, NeedAppearances), leere Seiten. Neue Prüfwerte für Bedingungen: `blank_pages`, `print_allowed`.
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
-`passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.
+`passermark-cli reprint protokoll.json` druckt ihn genauso nochmal. Ab 1.18.3 steht in `out_pages`, wie viele Seiten
+die gesendete Datei je Exemplar hat (nach Nutzen, Broschüre, Step & Repeat) – mit Duplex und `copies` ergibt das die
+verbrauchten Bogen.
 
 Drop-Ordner: `passermark-cli serve` mit `watch.json` (Aufbau oben) – Ergebnisse nach `output`, Originale nach
 `processed`, Fehler mit `.log` nach `failed`. Als Dienst: `linux/passermark-watch.service`,

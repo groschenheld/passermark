@@ -1,4 +1,4 @@
-# Passermark 1.18.2
+# Passermark 1.18.3
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -61,7 +61,7 @@ Logiciel libre (GPL-3.0-or-later).
   Automatisation) avec leur propre barre d'outils.
 - **Préréglages** pour CutContour, CMYK/rognage, mise en page d'impression et données variables – partagés
   avec la ligne de commande.
-- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts, plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé).
+- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts et les pages envoyées par exemplaire (`out_pages`), plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé).
 - **Automatisation :** enchaînements étape par étape avec conditions (« if » à chaque étape, embranchements « choose »/« else », « fail »/« stop » avec message) ; `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné – `serve --init` crée un modèle avec un exemple.
 - **Softproof :** simuler le résultat d'impression dans la vue (Ctrl+Y) – comme condition d'impression, une matière, un profil de l'administration ou un profil CMYK du système, avec le rendu (intent) et la BPC ; simuler la couleur du papier et l'encre noire d'impression, avertissements pour les couleurs hors gamme imprimable et pour la couverture d'encre au-delà d'une limite en %.
 - **Matières :** enregistrer des papiers (grammage, surface, rendu, profil par imprimante) ; blanc de papier mesuré avec ArgyllCMS (spotread), à partir d'un fichier de mesure CGATS ou à la main ; suggestions de profils classées selon le ΔE2000. Les matières définissent le profil et le rendu dans le dialogue d'impression et dans la conversion CMYK ; l'aperçu couleur prend le blanc de papier mesuré.

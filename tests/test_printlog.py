@@ -43,6 +43,7 @@ def test_off_by_default_then_on():
     assert j["options"]["StapleLocation"] == "TopLeft" and j["options"]["Duplex"] == "DuplexTumble"
     assert j["file"] == os.path.abspath(src) and len(j["file_sha256"]) == 64 and j["pages"] == "1-2"
     assert j["sent"]["copies"] == "2" and j["layout"]["handling"]
+    assert j["out_pages"] == 2                           # 1.18.3: gesendete Seiten je Exemplar
     rows = list(csv.reader(open(os.path.join(LOGDIR, "printlog.csv"), encoding="utf-8-sig"), delimiter=";"))
     assert rows[0][0] == "time" and rows[1][6] == "Canon" and rows[1][11] == "sent"
     # Nachdruck: genau dieselben Treiberoptionen
@@ -57,6 +58,17 @@ def test_off_by_default_then_on():
     with T.FakePrinter() as fp, contextlib.redirect_stdout(out):
         assert cli.main(["reprint", p, "--dry-run"]) == 0
     assert not fp.sent and "verändert" in out.getvalue(), out.getvalue()
+
+
+def test_out_pages_bei_nutzen():
+    """Mehrfachnutzen: Bogenzahl steht sonst nirgends im Protokoll (PassCount braucht sie)."""
+    l10n.save_settings(dict(l10n.load_settings(), print_log=True))
+    before = set(logs())
+    with T.FakePrinter():
+        printcli.print_pdf(T.doc(4), printcli.PrintSettings(paper="A4", layout={"handling": "multiple", "nup": 2}))
+    (p,) = set(logs()) - before
+    j = json.load(open(p, encoding="utf-8"))["job"]
+    assert j["layout"]["handling"] == "multiple" and isinstance(j["out_pages"], int) and j["out_pages"] >= 1
 
 
 def test_error_logged_and_workflow_reprint():

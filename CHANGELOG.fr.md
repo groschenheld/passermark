@@ -5,6 +5,14 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.3
+
+### Journal d'impression : pages envoyées (out_pages)
+- Passermark écrit maintenant `out_pages` dans le journal : les pages envoyées par exemplaire.
+- Avec le recto verso et les exemplaires, cela donne les feuilles – quel que soit le traitement des pages.
+- Dans les anciennes entrées du journal, la valeur manque.
+- Le manuel est complété.
+
 ## 1.18.2
 
 ### Prévol : cases de page, fond perdu, protection, PDF/X, champs de formulaire

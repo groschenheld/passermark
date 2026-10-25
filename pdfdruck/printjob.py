@@ -111,10 +111,11 @@ def submit_document(doc, title: str, session, printer: str, pages: list[int],
     except Exception as e:
         printlog.write(printlog.build(caps, printer, file, title, pages, settings, info.get("values") or vals,
                                       copies, collate, reverse, session.color_for(printer), None, error=str(e),
-                                      sheet_mm=info.get("sheet_mm")), session.cfg)
+                                      sheet_mm=info.get("sheet_mm"), out_pages=info.get("out_pages")), session.cfg)
         raise
     rec = printlog.build(caps, printer, file, title, pages, settings, info.get("values") or vals, copies, collate,
-                         reverse, session.color_for(printer), jid, sheet_mm=info.get("sheet_mm"))
+                         reverse, session.color_for(printer), jid, sheet_mm=info.get("sheet_mm"),
+                         out_pages=info.get("out_pages"))
     rec["job"]["sent"] = info.get("sent")
     printlog.write(rec, session.cfg)
     return jid
@@ -193,6 +194,7 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     try:
         job = os.path.join(tmp, "job.pdf")
         out = imposed()
+        info["out_pages"] = len(out)       # Seiten der gesendeten Datei je Exemplar (Druckprotokoll)
         out.save(job)
         out.close()
         job_values = dict(values)

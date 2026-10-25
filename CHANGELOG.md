@@ -2,6 +2,14 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.3
+
+### Print log: pages sent (out_pages)
+- Passermark now writes `out_pages` to the log: the pages sent per copy.
+- With duplex and copies this gives the sheets – whatever the page handling does.
+- In older log entries the value is missing.
+- The manual has been extended.
+
 ## 1.18.2
 
 ### Document check: page boxes, bleed, protection, PDF/X, form fields

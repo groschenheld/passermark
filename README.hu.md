@@ -1,4 +1,4 @@
-# Passermark 1.18.2
+# Passermark 1.18.3
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -57,7 +57,7 @@ szoftver (GPL-3.0-or-later).
   Automatizálás) saját eszközsorral.
 - **Presetek** a CutContourhoz, CMYK/vágáshoz, nyomdai szerkezethez és változó adatokhoz – a parancssorral
   közösen.
-- **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal, mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott).
+- **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal és a példányonkénti elküldött oldalakkal (`out_pages`), mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott).
 - **Automatizálás:** lépésenkénti munkafolyamatok feltételekkel („if” minden lépésen, „choose”/„else” elágazások, „fail”/„stop” üzenettel); a `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton – a `serve --init` sablont hoz létre példával.
 - **Softproof:** a nyomtatási eredmény szimulálása a nézetben (Ctrl+Y) – nyomtatási feltételként anyag, a felügyeletből származó profil vagy rendszerbeli CMYK-profil, intenttel és BPC-vel; papírszín és fekete nyomtatási szín szimulálása, figyelmeztetés a nyomtatható színtartományon kívüli színekre és a határérték feletti festékmennyiségre %-ban.
 - **Anyagok:** papírok nyilvántartása (grammage, felület, render intent, profil nyomtatónként); papírfehér mérése ArgyllCMS-szel (spotread), CGATS-mérőfájlból vagy kézzel; profiljavaslatok ΔE2000 szerint. Az anyagok profilt és intentet állítanak be a nyomtatási párbeszédablakban és a CMYK-átalakításban, a szín-előnézet a mért papírfehérjet veszi alapul.

@@ -5,6 +5,14 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.3
+
+### Registro de impresión: páginas enviadas (out_pages)
+- Passermark ahora escribe `out_pages` en el registro: las páginas enviadas por ejemplar.
+- Con dúplex y ejemplares esto da las hojas – con cualquier tratamiento de páginas.
+- En las entradas antiguas del registro falta el valor.
+- El manual está ampliado.
+
 ## 1.18.2
 
 ### Preflight: cajas de página, sangrado, protección, PDF/X, campos de formulario
