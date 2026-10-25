@@ -1,4 +1,4 @@
-# Passermark 1.18.1
+# Passermark 1.18.2
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -36,7 +36,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Diviser les pages :** moitiés ou grille en pages séparées – p. ex. une brochure exportée en doubles
   pages ; sélectionner des pages, clic droit → Diviser. Sans perte (rien n'est tramé), format final et fond
   perdu respectés.
-- **Prévol (preflight) :** vérifie polices, calques et transparences à l'ouverture ; corrections : intégrer
+- **Prévol (preflight) :** vérifie à l'ouverture polices, calques, transparences, cases de page (crop/trim/bleed), fond perdu au contenu, protection, PDF/X et output intent, champs de formulaire et pages vides ; corrections : intégrer
   ou remplacer des polices (polices libres métriquement compatibles ou téléchargement depuis fontsource.org),
   texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats.
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et

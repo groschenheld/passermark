@@ -42,10 +42,13 @@ FACTS = {
     "spot_names": ("list", "names of the spot colours"),
     "fonts_missing": ("bool", "fonts that are not embedded (standard fonts excluded)"),
     "transparency": ("bool", "transparency present"),
+    "blank_pages": ("int", "number of blank pages"),
+    "print_allowed": ("bool", "printing allowed (not blocked by document protection)"),
     "output_intent": ("str", "output intent (e.g. 'Coated FOGRA39'; '' = none)"),
     "layers": ("int", "number of layers"),
 }
-CHECK_FACTS = {"errors", "warnings", "infos", "rgb", "spot_colors", "spot_names", "fonts_missing", "transparency"}
+CHECK_FACTS = {"errors", "warnings", "infos", "rgb", "spot_colors", "spot_names", "fonts_missing", "transparency",
+               "blank_pages", "print_allowed"}
 OPS = ("==", "!=", ">", ">=", "<", "<=", "in", "matches")
 LOGIC = ("all", "any", "not")
 VAR_PREFIX = "var."
@@ -209,6 +212,8 @@ class Facts:
                 "spot_colors": bool(spots), "spot_names": spots,
                 "fonts_missing": any(f.status == "missing" for f in rep.fonts),
                 "transparency": bool(rep.transparency),
+                "blank_pages": len(rep.blank),
+                "print_allowed": bool((rep.security or {}).get("print", True)),
             }
         return self._check
 

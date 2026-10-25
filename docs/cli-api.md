@@ -31,7 +31,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
 | `serve --init [--system]` | create a template watch.json plus an example workflow and drop folder – never overwrites |
 | `reprint log.json [--in FILE] [--dry-run] [--json]` | print a logged job again, exactly as logged (see *Print log*) |
-| `plan FILE … [--kind plan\|poster] [--material NAME] [--plt cut.plt] [--printer P] [--rolls 594,841,914] [--copies N] [--collate] [--by-roll] [--color gray] [--frame auto] [--margin 5] [--rotate auto] [--pages …] [--set k=v …] [--dry-run] [--json]` | plan printing on roll printers: print area, roll choice, run length per roll, print (see *Plan printing*) |
+| `plan FILE … [--kind plan\|poster] [--material NAME] [--plt cut.plt] [--printer P] [--rolls 594,841,914] [--roll ROLL] [--align center\|left\|right] [--copies N] [--collate] [--no-split] [--by-roll] [--color gray] [--frame auto] [--margin 5] [--rotate auto] [--pages …] [--set k=v …] [--dry-run] [--json]` | plan printing on roll printers: print area, roll choice, run length per roll, print (see *Plan printing*) |
 | `rolls PRINTER [--host ADDRESS] [--json]` | the rolls loaded in a large-format printer (IPP, SNMP or entered by hand) |
 | `probe PRINTER\|ADDRESS [--host A] [--community C] [--out report.json] [--json]` | device check: open ports, all IPP attributes (incl. `media-col-database`), SNMP v2c/v1 (sysDescr, prtInputTable, prtMediaPathTable, vendor branch), resulting rolls and level `blind` · `status` · `catalog` – read only |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
@@ -120,7 +120,8 @@ Conditions are checked against the **current** PDF of the workflow (after the st
 - Facts: `pages`, `width_mm`, `height_mm`, `format` (standard size – the trim size if the page has one: A4, SRA3,
   Letter …; `""` = none), `page_format`, `orientation`, `mixed_sizes`, `trim`, `bleed_mm`, `size_mb`,
   `filename`, `output_intent`, `layers`, and from the document check `errors`, `warnings`, `infos`, `rgb`,
-  `spot_colors`, `spot_names`, `fonts_missing`, `transparency` (the check only runs when a condition needs it);
+  `spot_colors`, `spot_names`, `fonts_missing`, `transparency`, `blank_pages`, `print_allowed` (the check only runs
+  when a condition needs it);
   `var.NAME` for variables. `passermark-cli version --json` lists them (`conditions`).
 - A plain value means “equal”, otherwise `{"==" | "!=" | ">" | ">=" | "<" | "<=" | "in" | "matches": value}`
   (`matches`: pattern with `*` `?`). Several entries in one condition must all hold; `all`, `any`, `not` combine.
@@ -252,6 +253,23 @@ reprint runs them again. A changed file is reported.
 With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
 and the paper is the target size.
 
+## Document check
+
+The check (program: *Check*; `inspect --check`; conditions) reports with severity `error` | `warning` | `info` and a
+category: `font`, `text`, `layer`, `transparency`, `image`, `size`, and since 1.18.2:
+
+- `geometry` – page boxes: `UserUnit` ≠ 1 (error: many printers/RIPs ignore it); CropBox smaller than or beyond the
+  MediaBox (> 0.5 mm – plotters that print the MediaBox shift the content); TrimBox outside the visible area or
+  larger than the BleedBox; `/Rotate` (info); different page sizes (info); content up to the trim edge with less
+  than 2 mm bleed on that side (warning, checked on a low-resolution rendering, pages without /Rotate).
+- `security` – encrypted: printing not allowed (error), only low resolution (warning), otherwise info.
+- `pdfx` – file claims PDF/X (`GTS_PDFXVersion` in Info or XMP) without a PDF/X output intent, intent without an
+  embedded profile, pages without TrimBox/ArtBox. No full PDF/X validation.
+- `form` – form fields; how many are not printed (hidden, print flag off, no appearance); `NeedAppearances`.
+- `page` – blank pages (pages with little content and no images, rendered at low resolution).
+
+The text report (`report_text`) lists the page boxes and the bleed per side of the first page.
+
 ## Plan printing (`plan`)
 
 Job `plan` (workflow step `{"job": "plan", "settings": {…}}`, or `passermark-cli plan`) prints every page as a plan
@@ -261,19 +279,31 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   margin stays around the plan); otherwise the content plus `margin_mm` (5). `frame`, `margin`, `none` (page).
 - **Roll** (`rotate`): `auto` = the roll with the shortest length, rotation allowed (an A1 goes across the 841 roll),
   equal length → the narrower roll; `keep`, `short`, `long`. Only rolls whose grammage is in `weights` (75, 80)
-  or unknown are used for plans.
+  or unknown are used for plans; with a `material` the rolls with its grammage, else those whose media name matches
+  the material's name/media type (e.g. “Polyprop”).
+- **Fixed roll** (`roll_pick`, `--roll`): print only on this roll – its driver feed value (`slot`), its name at the
+  device or its width (`914`); it overrides `weights` and `material`. Not loaded → automatic with a note.
+  Without a media type (`media` or the material's), the roll's media type is sent when the driver offers a
+  matching one (devices without roll selection in the driver choose the roll by width and media type).
+- **Position on the roll** (`align`, `--align`): `left` | `right` – the page is as wide as the roll and the plan
+  lies at the roll edge (margin or outer line kept), so only one lengthwise cut remains; `center` – the same space
+  on both sides, nothing is masked by the device. Default: plan `left`, poster `center`.
 - **Rolls**: read from the device (IPP `media-col-ready`/`printer-input-tray`, otherwise SNMP Printer MIB), otherwise
   the ones entered by hand in the program; `rolls` (`[594, 841]` or `[{"width_mm": 594, "slot": "Roll1"}]`)
   overrides both.
-- **Order**: default uncollated (each plan with all copies, one job per plan); `collate` set by set; `"order":
-  "roll"` narrowest roll first.
-- Paper = custom size of the plan (`Custom.WxHmm`, width across the roll), feed = the roll's driver value.
+- **Order**: default uncollated (each plan with all copies); `collate` set by set; `"order": "roll"` narrowest
+  roll first.
+- **Copies** (`split_copies`, default `true`; `--no-split` turns it off): every copy is its own job with one page
+  (title `… (1/3)`, `(2/3)` …), so the printer cuts after each one. `false`: one job with a copy count.
+- Paper = custom size (`Custom.WxHmm`, width across the roll – with `align` the roll width), feed = the roll's
+  driver value.
 - Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
   `bleed_color`), `crop_marks`, `fix_hairlines` (+ `hairline_mm`), `fold_marks` (DIN 824, simplified), `options`,
   `profile`, `intent`, `dry_run`.
-- **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults): quality print, `nest` (side by side;
-  roll and orientation with the least paper = roll width × length; `gap_mm`, `max_page_m`), `overwidth` (`none` |
-  `crop` | `tile` with `overlap_mm`). In a workflow set `nest`/`overwidth` explicitly.
+- **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults: `align` `center`, `overwidth` `crop`,
+  no plan paper grammage, `frame` `none`): quality print; `nest` (side by side, off by default; roll and orientation
+  with the least paper = roll width × length; `gap_mm`, `max_page_m`), `overwidth` (`none` | `crop` | `tile` with
+  `overlap_mm`). In a workflow set `nest`/`overwidth`/`align` explicitly.
 - **Banners**: `hem_mm` + `hem_sides` (`lrtb`) – hem/pocket allowance outside the trim, replaces the bleed there;
   grommet marks `grommet_spacing_mm` (0 = off), `grommet_inset_mm`, `grommet_d_mm`, `grommet_sides`.
 - **Print & cut**: `cut_contour` – rectangle in the spot colour `CutContour` (100 % magenta, overprint) around trim
@@ -369,6 +399,8 @@ passermark-cli serve                                # Drop-Ordner überwachen (-
 passermark-cli serve --init                         # Vorlage watch.json (überschreibt nie)
 passermark-cli reprint protokoll.json               # Auftrag aus dem Druckprotokoll genauso nochmal
 passermark-cli plan mappe.pdf --copies 3 --dry-run  # Plandruck: Rollen, Laufmeter (ohne --dry-run: drucken)
+passermark-cli plan poster.pdf --kind poster --roll 914 --copies 3   # Poster auf die 914er, je Exemplar ein Abschnitt
+passermark-cli plan mappe.pdf --align right --rolls 914 --dry-run   # Pläne an den rechten Rollenrand
 passermark-cli rolls ColorWave                      # geladene Rollen eines Plotters
 passermark-cli probe ColorWave --out bericht.json    # Gerät prüfen: was meldet es über IPP/SNMP (nur lesend)
 passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abweichungen vom Standard kürzen
@@ -390,11 +422,20 @@ Vergleiche wie oben unter *Conditions*.
 
 Plandruck: Schritt `{"job": "plan", "settings": {…}}` bzw. `passermark-cli plan` – zwei Außenlinien: bis zur
 äußeren drucken, sonst Inhalt + 5 mm; Rolle mit der kürzesten Länge (Drehen erlaubt), nur Rollen mit Planpapier
-(`weights`, Standard 75/80 g); unsortiert als Standard (`collate`, `"order": "roll"`). Laufmeter nur aus den
-Plangrößen; im Druckprotokoll je Auftrag `roll_mm`, `run_m`. Einstellungen wie oben unter *Plan printing*.
-Poster (`--kind poster`): Qualitätsdruck, nebeneinander mit dem wenigsten Papier, Überbreite abschneiden oder in
-Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für eine
-Schneidedatei, `material` aus den Druckmaterialien, Ausgabe in einen Hotfolder mit `"printer": "folder:NAME"`.
+(`weights`, Standard 75/80 g) bzw. passend zum `material` (Grammatur, sonst Name); feste Rolle mit `roll_pick` /
+`--roll` (Zufuhr, Name am Gerät oder Breite). Lage auf der Rolle `align` / `--align`: `left`/`right` = am Rand
+(Seite = Rollenbreite, nur ein Längsschnitt; Standard beim Plan), `center` = mittig (Standard beim Poster).
+Exemplare: unsortiert als Standard (`collate`, `"order": "roll"`), jedes Exemplar ein eigener Auftrag
+(`split_copies`, Standard an; `--no-split` = Kopienzahl in einem Auftrag). Laufmeter nur aus den Plangrößen; im
+Druckprotokoll je Auftrag `roll_mm`, `run_m`. Einstellungen wie oben unter *Plan printing*.
+Poster (`--kind poster`): Qualitätsdruck, mittig, nebeneinander nur auf Wunsch (`nest`), Überbreite abschneiden
+oder in Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für
+eine Schneidedatei, `material` aus den Druckmaterialien, Ausgabe in einen Hotfolder mit `"printer": "folder:NAME"`.
+
+Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
+/Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken
+verboten/nur niedrige Auflösung), PDF/X-Angabe ohne Output-Intent bzw. ohne TrimBox, Formularfelder (nicht
+gedruckte, NeedAppearances), leere Seiten. Neue Prüfwerte für Bedingungen: `blank_pages`, `print_allowed`.
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
 `passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.

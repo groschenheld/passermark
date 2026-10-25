@@ -574,8 +574,20 @@ def find_roll(rolls: list, key: str):
     """Index der Rolle mit dieser Kennung (oder None)."""
     if not key:
         return None
-    for k, r in enumerate(rolls):
-        if roll_key(r) == key and not getattr(r, "empty", False):
+    live = [(k, r) for k, r in enumerate(rolls) if not getattr(r, "empty", False)]
+    for k, r in live:
+        if roll_key(r) == key:
+            return k
+    low = str(key).strip().lower()
+    for k, r in live:                                    # Zufuhr, Name am Gerät, Anzeigename
+        if low in {x.lower() for x in (r.slot, r.device, r.name) if x}:
+            return k
+    try:
+        w = float(str(key).replace(",", ".").lower().removesuffix("mm").strip())
+    except ValueError:
+        return None
+    for k, r in live:                                    # Breite
+        if abs(r.width_mm - w) <= TOL_MM:
             return k
     return None
 

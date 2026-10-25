@@ -1,4 +1,4 @@
-# Passermark 1.18.1
+# Passermark 1.18.2
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -30,7 +30,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   (detect the content, new page frame ± margin, content stays 1:1).
 - **Split pages:** halves or a grid as single pages – e.g. a booklet exported as spreads; select pages,
   right-click → Split. Lossless (content is not rasterised), trim box and bleed respected.
-- **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute
+- **Preflight:** checks fonts, layers, transparency, page boxes (crop/trim/bleed), bleed at the content, protection, PDF/X and output intent, form fields and empty pages when a document is opened; fixes: embed or substitute
   fonts (free metric-compatible fonts or download from fontsource.org), outline text, fix/remove layers,
   flatten transparency. Every finding names its position (e.g. "page 2 – bottom right, 40 × 20 mm"); one click jumps there and frames it in red, ◀ ▶ walks through the findings.
 - **Edit mode:** select text lines and layers with the mouse; change text, font and size; move, scale,

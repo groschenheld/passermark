@@ -5,6 +5,25 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.2
+
+### Preflight: oldalkeretek, levágás, védelem, PDF/X, űrlapmezők
+- **Oldalkeretek:** a `UserUnit ≠ 1` hiba; a MediaBoxnál kisebb vagy azon kívül eső CropBox ugyanúgy (a ColorWave-eset); a látható területen kívülre eső vagy a BleedBoxnál nagyobb TrimBox; forgatott oldalak és vegyes formátumok tippként.
+- **Levágás:** ha a tartalom a végformátum széléig ér, de az oldalon kevesebb mint 2 mm levágás van, jelzés jön. Az ellenőrzés durva előnézeti képen fut – levágás nélküli tervek tiszták maradnak, csak akkor jelez, ha a tartalom tényleg a szél ér.
+- **Védelem:** a „nyomtatás tiltott” hiba; csak az alacsony felbontás figyelmeztetés.
+- **PDF/X:** a fájl PDF/X-nek adja ki magát, de nincs hozzá output intentje; output intent beágyazott profil nélkül; TrimBox nélküli oldalak.
+- **Űrlapmezők:** az ellenőrzés megmondja, hány nem nyomtatódik. A Passermark a saját nyomtatásnál az űrlapértékeket amúgy is kinyomtatja – csak akkor figyelmeztet, ha egy mező tényleg nem nyomtatódik; a NeedAppearances-tipp továbbadásra és bedobómappára szól.
+- **Üres oldalak** jelzésre kerülnek.
+- A vegyes formátum csak tipp, nem figyelmeztetés – planszetteknél a vegyes formátum normális.
+- Az ellenőrzési jelentés most felsorolja az oldalkereteket és az első oldal levágását.
+- **Munkafolyamatokhoz** két új ellenőrzési érték: `blank_pages` és `print_allowed`.
+
+### Parancssor: plan
+- A `passermark-cli plan` most ismeri: `--roll` (adagoló, név az eszközön vagy szélesség, pl. `--roll 914`), `--align center|left|right` és `--no-split`.
+
+### Kézikönyv
+- A kézikönyv (docs/cli-api.md) kiegészült németül és angolul: terv- és poszternyomtatás (rögzített tekercs, anyag név szerint, elhelyezés a tekercsen, munka példányonként, poszter-alapértelmezések), új fejezet az ellenőrzésről és két példa.
+
 ## 1.18.1
 
 ### Üzenet a tekercsek olvasásakor

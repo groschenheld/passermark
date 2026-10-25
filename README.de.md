@@ -1,4 +1,4 @@
-# Passermark 1.18.1
+# Passermark 1.18.2
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -33,7 +33,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Seiten teilen:** Hälften oder Raster als Einzelseiten – z. B. eine als Doppelseiten exportierte Broschüre;
   Seiten markieren, Rechtsklick → Teilen. Verlustfrei (nichts wird gerastert), Endformat und Anschnitt werden
   berücksichtigt.
-- **Preflight:** prüft beim Öffnen Schriften, Ebenen und Transparenzen; Reparaturen: Schriften einbetten oder
+- **Preflight:** prüft beim Öffnen Schriften, Ebenen, Transparenzen, Seitenrahmen (Crop-/Trim-/Bleed-Box), Beschnitt am Inhalt, Schutz, PDF/X und Output Intent, Formularfelder und leere Seiten; Reparaturen: Schriften einbetten oder
   ersetzen (freie, metrisch kompatible Schriften oder Download von fontsource.org), Text in Pfade, Ebenen
   festschreiben/entfernen, Transparenzen reduzieren. Jeder Fund nennt seine Stelle (z. B. „Seite 2 – unten rechts, 40 × 20 mm“); ein Klick springt hin und rahmt sie rot ein, mit ◀ ▶ gehst du durch die Stellen.
 - **Bearbeiten:** Textzeilen und Ebenen mit der Maus wählen; Text, Schrift und Größe ändern; Ebenen

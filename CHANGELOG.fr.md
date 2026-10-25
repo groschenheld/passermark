@@ -5,6 +5,25 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.2
+
+### Prévol : cases de page, fond perdu, protection, PDF/X, champs de formulaire
+- **Cases de page :** `UserUnit ≠ 1` est une erreur ; une CropBox plus petite que la MediaBox ou en dehors l'est aussi (le cas ColorWave) ; une TrimBox hors de la zone visible ou plus grande que la BleedBox ; pages tournées et formats mixtes comme simple avis.
+- **Fond perdu :** quand le contenu va jusqu'au bord du format final, mais que la page a moins de 2 mm de fond perdu, un constat apparaît. Le contrôle se fait sur un aperçu grossier – les plans sans fond perdu restent propres ; il ne signale que si le contenu atteint vraiment le bord.
+- **Protection :** « impression interdite » est une erreur ; seule la basse résolution est un avertissement.
+- **PDF/X :** le fichier se dit PDF/X mais n'a pas d'output intent pour ça ; un output intent sans profil intégré ; des pages sans TrimBox.
+- **Champs de formulaire :** le contrôle indique combien ne sont pas imprimés. Passermark imprime de toute façon les valeurs de formulaire à sa propre impression – l'avertissement ne vient que si un champ n'est vraiment pas imprimé ; l'avis sur NeedAppearances concerne la transmission et les dossiers de dépôt.
+- **Pages vides** sont signalées.
+- Les formats mixtes ne sont qu'un avis, pas un avertissement – pour des jeux de plans, des formats différents sont normaux.
+- Le rapport de contrôle liste désormais les cases de page et le fond perdu de la première page.
+- **Pour les enchaînements**, deux nouvelles valeurs de contrôle : `blank_pages` et `print_allowed`.
+
+### Ligne de commande : plan
+- `passermark-cli plan` accepte maintenant `--roll` (alimentation, nom sur l'appareil ou largeur, p. ex. `--roll 914`), `--align center|left|right` et `--no-split`.
+
+### Manuel
+- Le manuel (docs/cli-api.md) est complété en allemand et en anglais : impression de plans et de posters (rouleau fixe, matière par nom, position sur le rouleau, un travail par exemplaire, valeurs par défaut des posters), une nouvelle section sur le contrôle et deux exemples.
+
 ## 1.18.1
 
 ### Message pendant la lecture des rouleaux

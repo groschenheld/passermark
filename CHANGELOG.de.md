@@ -2,6 +2,25 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.2
+
+### Dokumentprüfung: Seitenrahmen, Beschnitt, Schutz, PDF/X, Formularfelder
+- **Seitenrahmen:** `UserUnit ≠ 1` ist ein Fehler; eine CropBox, die kleiner als die MediaBox ist oder außerhalb davon liegt, ebenfalls (der ColorWave-Fall); eine TrimBox außerhalb des sichtbaren Bereichs oder größer als die BleedBox; gedrehte Seiten und gemischte Formate als Hinweis.
+- **Beschnitt:** Geht der Inhalt bis an den Endformat-Rand, hat die Seite aber weniger als 2 mm Beschnitt, gibt es eine Meldung. Geprüft wird an einer groben Vorschau – Pläne ohne Beschnitt bleiben sauber, es meldet nur, wenn Inhalt wirklich bis zum Rand geht.
+- **Schutz:** „Drucken verboten“ ist ein Fehler; nur niedrige Auflösung ist eine Warnung.
+- **PDF/X:** Die Datei gibt sich als PDF/X aus, hat aber keinen Output Intent dafür; Output Intent ohne eingebettetes Profil; Seiten ohne TrimBox.
+- **Formularfelder:** Gemeldet wird, wie viele davon beim Drucken nicht mitkommen. Passermark druckt die Formularwerte beim eigenen Druck ohnehin mit – gewarnt wird nur, wenn ein Feld wirklich nicht gedruckt wird; der Hinweis auf NeedAppearances gilt für Weitergabe und Hotfolder.
+- **Leere Seiten** werden gemeldet.
+- Gemischte Formate sind nur ein Hinweis, keine Warnung – bei Plansätzen sind verschiedene Formate normal.
+- Der Prüfbericht listet jetzt die Seitenrahmen und den Beschnitt der ersten Seite auf.
+- **Für Abläufe** gibt es zwei neue Prüfwerte: `blank_pages` und `print_allowed`.
+
+### Kommandozeile: plan
+- `passermark-cli plan` kann jetzt `--roll` (Zufuhr, Name am Gerät oder Breite, z. B. `--roll 914`), `--align center|left|right` und `--no-split`.
+
+### Anleitung
+- Die Anleitung (docs/cli-api.md) ist ergänzt, deutsch und englisch: Plan- und Posterdruck (feste Rolle, Material nach Name, Lage auf der Rolle, je Exemplar ein Auftrag, Poster-Standards), ein neuer Abschnitt zur Prüfung und zwei Beispiele.
+
 ## 1.18.1
 
 ### Meldung beim Rollen-Lesen

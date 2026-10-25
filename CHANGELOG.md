@@ -2,6 +2,25 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.2
+
+### Document check: page boxes, bleed, protection, PDF/X, form fields
+- **Page boxes:** `UserUnit ≠ 1` is an error; a CropBox smaller than the MediaBox or outside it as well (the ColorWave case); a TrimBox outside the visible area or larger than the BleedBox; rotated pages and mixed formats as a hint.
+- **Bleed:** when the content reaches the trim edge but the page has less than 2 mm of bleed, a finding is reported. The check runs on a rough preview – plans without bleed stay clean; it only reports when content really reaches the edge.
+- **Protection:** “printing not allowed” is an error; only low resolution is a warning.
+- **PDF/X:** the file calls itself PDF/X but has no output intent for it; an output intent without an embedded profile; pages without a TrimBox.
+- **Form fields:** the check reports how many of them are not printed. Passermark prints the form values itself anyway – a warning only appears when a field really is not printed; the hint about NeedAppearances is for handover and hotfolders.
+- **Empty pages** are reported.
+- Mixed formats are a hint only, not a warning – for plan sets, different formats are normal.
+- The check report now lists the page boxes and the bleed of the first page.
+- **For workflows** there are two new check values: `blank_pages` and `print_allowed`.
+
+### Command line: plan
+- `passermark-cli plan` now takes `--roll` (supply, device name or width, e.g. `--roll 914`), `--align center|left|right` and `--no-split`.
+
+### Manual
+- The manual (docs/cli-api.md) has been extended in German and English: plan and poster printing (fixed roll, material by name, position on the roll, one job per copy, poster defaults), a new section on the check, and two examples.
+
 ## 1.18.1
 
 ### Message while reading rolls

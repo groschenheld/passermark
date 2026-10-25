@@ -1,4 +1,4 @@
-# Passermark 1.18.1
+# Passermark 1.18.2
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -34,7 +34,7 @@ szoftver (GPL-3.0-or-later).
 - **Lapok felosztása:** felezés vagy rács külön lapokként – pl. terjedémesként exportált füzet; lapok
   kijelölése, jobb egérgomb → Felosztás. Veszteségmentes (semmi nem rasztereződik), a végformatum és a
   túlnyúlás figyelembe vételével.
-- **Preflight:** megnyitáskor ellenőrzi a betűket, a rétegeket és az átlátszóságot; javítások: betűk beágyazása
+- **Preflight:** megnyitáskor ellenőrzi a betűket, a rétegeket, az átlátszóságot, az oldalkereteket (Crop-/Trim-/Bleed-Box), a tartalom levágását, a védelmet, a PDF/X-et és az output intentet, az űrlapmezőket és az üres oldalakat; javítások: betűk beágyazása
   vagy helyettesítése (szabad, metrikailag kompatibilis betűk vagy letöltés a fontsource.org-ról), szöveg
   görbékké alakítása, rétegek rögzítése/eltávolítása, átlátszóság lapítása. Minden lelet megnevezi a helyét (pl. „2. oldal – jobb alul, 40 × 20 mm”); egy kattintás odébb ugrik, és piros kerettel jelöli, a ◀ ▶ gombokkal végigmehetsz a leleteken.
 - **Szerkesztés:** szövegsorok és rétegek kiválasztása egérrel; szöveg, betű és méret változtatása; rétegek

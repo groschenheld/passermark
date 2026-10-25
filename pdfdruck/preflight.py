@@ -122,7 +122,14 @@ class Report:
     issues: list = field(default_factory=list)
     boxes: dict = field(default_factory=dict)          # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
     located: dict = field(default_factory=dict)        # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
-    hairlines: dict = field(default_factory=dict)      # Seite -> Anzahl Linien dünner als HAIRLINE_MM
+    # 1.18.2
+    geometry: dict = field(default_factory=dict)       # Seite -> {media, crop, trim, bleed (pt, None = fehlt), rotate, uu}
+    security: dict = field(default_factory=dict)       # {encrypted, print, print_high}
+    pdfx: dict = field(default_factory=dict)           # {version, intent, missing_trim: [Seiten]}
+    forms: dict = field(default_factory=dict)          # {fields, widgets: [(Seite, Rect, druckt)], need_ap}
+    blank: list = field(default_factory=list)          # leere Seiten (1-basiert)
+    edge_ink: dict = field(default_factory=dict)       # Seite -> {Seite der Box: Beschnitt mm} – Inhalt bis zum Rand
+    _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
         c = {"error": 0, "warning": 0, "info": 0}
@@ -251,6 +258,13 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                 rep.boxes[i] = tuple(float(v) for v in page.MediaBox)
             except Exception:
                 pass
+            try:
+                rep.geometry[i] = _page_geometry(page.obj)
+                _page_forms(page.obj, i, rep)
+                if _content_len(page.obj) < 20000 and not (_resources(page).get("/XObject") or {}):
+                    rep._blank_candidates.append(i)
+            except Exception:
+                pass
             seen = set()
             _walk_resources(_resources(page), i, visit, seen)
             for a in page.obj.get("/Annots") or []:
@@ -280,6 +294,10 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
             except Exception:
                 pass
         rep.transparency = trans
+        try:
+            _doc_checks(pdf, rep)
+        except Exception:
+            pass
         rep.layers = _layers(pdf)
         try:
             rep.hdr = hdr_aux_pages(pdf)
@@ -312,9 +330,9 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
     except Exception:
         rep.located = {}
     try:
-        _hairlines(data, rep)
+        _render_checks(data, rep)
     except Exception:
-        rep.hairlines = {}
+        pass
     if deep_layers and rep.layers:
         try:
             _layers_outside(data, rep.layers)
@@ -322,6 +340,318 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
             pass
     rep.issues = _issues(rep)
     return rep
+
+
+# --------------------------------------------------------------------------- #
+# Seitengeometrie, Rechte, PDF/X, Formulare, leere Seiten (1.18.2)
+# --------------------------------------------------------------------------- #
+BOX_TOL_MM = 0.5
+BLEED_MIN_MM = 2.0            # darunter: prüfen, ob Inhalt bis an den Endformat-Rand geht
+INHERITABLE = ("/MediaBox", "/CropBox", "/Rotate")
+
+
+def _inh(obj, key):
+    """Seitenattribut, auch vom Seitenbaum geerbt (MediaBox, CropBox, Rotate)."""
+    o, depth = obj, 0
+    while o is not None and depth < 50:
+        v = o.get(key)
+        if v is not None:
+            return v
+        if key not in INHERITABLE:
+            return None
+        o = o.get("/Parent")
+        depth += 1
+    return None
+
+
+def _box(v):
+    try:
+        a = [float(x) for x in v]
+        if len(a) != 4:
+            return None
+        return (min(a[0], a[2]), min(a[1], a[3]), max(a[0], a[2]), max(a[1], a[3]))
+    except Exception:
+        return None
+
+
+def _page_geometry(obj) -> dict:
+    media = _box(_inh(obj, "/MediaBox")) or (0.0, 0.0, 612.0, 792.0)
+    try:
+        rot = int(_inh(obj, "/Rotate") or 0) % 360
+    except Exception:
+        rot = 0
+    try:
+        uu = float(obj.get("/UserUnit") or 1.0)
+    except Exception:
+        uu = 1.0
+    return {"media": media, "crop": _box(_inh(obj, "/CropBox")), "trim": _box(obj.get("/TrimBox")),
+            "bleed": _box(obj.get("/BleedBox")), "art": _box(obj.get("/ArtBox")), "rotate": rot, "uu": uu}
+
+
+def _isect(a, b):
+    r = (max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3]))
+    return r if r[2] > r[0] and r[3] > r[1] else None
+
+
+def _differs(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
+    return any(abs(x - y) > tol_mm * MM_PT for x, y in zip(a, b))
+
+
+def _inside(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
+    """a liegt in b."""
+    t = tol_mm * MM_PT
+    return a[0] >= b[0] - t and a[1] >= b[1] - t and a[2] <= b[2] + t and a[3] <= b[3] + t
+
+
+def effective(g: dict) -> tuple:
+    """(Crop, Bleed, Trim) so, wie ein Drucker sie auslegt: Crop ∩ Media, Bleed/Trim ersatzweise Crop."""
+    crop = _isect(g["crop"], g["media"]) if g["crop"] else g["media"]
+    crop = crop or g["media"]
+    bleed = _isect(g["bleed"], crop) if g["bleed"] else crop
+    trim = g["trim"] or g["art"] or crop
+    return crop, bleed or crop, trim
+
+
+def bleed_mm(g: dict) -> dict:
+    """Beschnitt je Seite der Box (l, b, r, t) in mm – nur mit TrimBox, sonst {}."""
+    if not g.get("trim"):
+        return {}
+    _c, bl, tr_ = effective(g)
+    return {"l": (tr_[0] - bl[0]) / MM_PT, "b": (tr_[1] - bl[1]) / MM_PT,
+            "r": (bl[2] - tr_[2]) / MM_PT, "t": (bl[3] - tr_[3]) / MM_PT}
+
+
+def _content_len(obj) -> int:
+    c = obj.get("/Contents")
+    if c is None:
+        return 0
+    items = c if not hasattr(c, "read_raw_bytes") else [c]
+    n = 0
+    for st in items:
+        try:
+            n += int(st.get("/Length") or 0)
+        except Exception:
+            n += 100000
+    if obj.get("/Annots"):
+        n += 100000            # Anmerkungen/Formulare: nicht als leer werten
+    return n
+
+
+def _page_forms(obj, pno: int, rep: Report):
+    f = rep.forms.setdefault("widgets", [])
+    for a in obj.get("/Annots") or []:
+        try:
+            if a.get("/Subtype") != "/Widget":
+                continue
+            fl = int(a.get("/F") or 0)
+            prints = bool(fl & 4) and not (fl & 2) and a.get("/AP") is not None
+            f.append((pno, _box(a.get("/Rect")), prints))
+        except Exception:
+            pass
+
+
+def _doc_checks(pdf, rep: Report):
+    import pikepdf
+    sec = {"encrypted": bool(pdf.is_encrypted), "print": True, "print_high": True}
+    try:
+        if pdf.is_encrypted:
+            sec["print"] = bool(pdf.allow.print_lowres)
+            sec["print_high"] = bool(pdf.allow.print_highres)
+    except Exception:
+        pass
+    rep.security = sec
+    ver = ""
+    try:
+        info = pdf.trailer.get("/Info")
+        if info is not None and info.get("/GTS_PDFXVersion") is not None:
+            ver = str(info.GTS_PDFXVersion)
+    except Exception:
+        pass
+    if not ver:
+        try:
+            with pdf.open_metadata() as md:
+                ver = str(md.get("pdfxid:GTS_PDFXVersion") or md.get("pdfx:GTS_PDFXVersion") or "")
+        except Exception:
+            ver = ""
+    intent, noprof = "", False
+    try:
+        for oi in pdf.Root.get("/OutputIntents") or []:
+            if oi.get("/S") == pikepdf.Name("/GTS_PDFX"):
+                intent = str(oi.get("/OutputConditionIdentifier") or oi.get("/Info") or "?")
+                noprof = oi.get("/DestOutputProfile") is None
+                break
+    except Exception:
+        pass
+    rep.pdfx = {"version": ver, "intent": intent, "no_profile": noprof,
+                "missing_trim": [p for p, g in sorted(rep.geometry.items()) if not g["trim"] and not g["art"]]}
+    try:
+        af = pdf.Root.get("/AcroForm")
+        rep.forms["fields"] = len(af.get("/Fields") or []) if af is not None else 0
+        rep.forms["need_ap"] = bool(af is not None and af.get("/NeedAppearances") is True)
+    except Exception:
+        rep.forms.setdefault("fields", 0)
+
+
+def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: int = 50):
+    """pdfium: leere Seiten (nur Kandidaten mit wenig Inhalt) und Inhalt bis an den Endformat-Rand bei zu wenig
+        Beschnitt."""
+    import pypdfium2 as pdfium
+    from .planprint import _render_gray
+    edge = [p for p, g in sorted(rep.geometry.items())
+            if g["rotate"] == 0 and any(v < BLEED_MIN_MM - 0.05 for v in bleed_mm(g).values())][:max_bleed]
+    todo = sorted(set(rep._blank_candidates[:max_pages]) | set(edge))
+    if not todo:
+        return
+    doc = pdfium.PdfDocument(data)
+    try:
+        for p in todo:
+            if p - 1 >= len(doc):
+                continue
+            pg = doc[p - 1]
+            try:
+                if p in rep._blank_candidates:
+                    a = _render_gray(pg, 0.6 / MM_PT)          # ~0,6 px/mm
+                    if a.size and int(a.min()) >= 250:
+                        rep.blank.append(p)
+                        continue
+                if p in edge:
+                    g = rep.geometry[p]
+                    crop, _bl, trim = effective(g)
+                    sc = 2.0 / MM_PT                          # 2 px/mm
+                    a = _render_gray(pg, sc)
+                    H, W = a.shape[:2]
+
+                    def px(X, Y):
+                        return int(round((X - crop[0]) * sc)), int(round((crop[3] - Y) * sc))
+                    band = 1.5 * MM_PT
+                    sides = {"l": (trim[0], trim[1], trim[0] + band, trim[3]),
+                             "r": (trim[2] - band, trim[1], trim[2], trim[3]),
+                             "b": (trim[0], trim[1], trim[2], trim[1] + band),
+                             "t": (trim[0], trim[3] - band, trim[2], trim[3])}
+                    hit = {}
+                    for k, v in bleed_mm(g).items():
+                        if v >= BLEED_MIN_MM - 0.05:
+                            continue
+                        x0, y1 = px(sides[k][0], sides[k][1])
+                        x1, y0 = px(sides[k][2], sides[k][3])
+                        x0, x1 = max(0, min(x0, x1)), min(W, max(x0, x1, min(x0, x1) + 1))
+                        y0, y1 = max(0, min(y0, y1)), min(H, max(y0, y1, min(y0, y1) + 1))
+                        reg = a[y0:y1, x0:x1]
+                        if reg.size and (reg < 235).mean() > 0.2:   # ein Fünftel des Randstreifens bedruckt
+                            hit[k] = round(max(0.0, v), 1)
+                    if hit:
+                        rep.edge_ink[p] = hit
+            finally:
+                pg.close()
+    finally:
+        doc.close()
+
+
+SIDE_TEXT = {"l": "links", "r": "rechts", "t": "oben", "b": "unten"}
+
+
+def _fmt_box(b) -> str:
+    return f"{(b[2] - b[0]) / MM_PT:.1f} × {(b[3] - b[1]) / MM_PT:.1f} mm".replace(".", ",")
+
+
+def _group(pages: dict) -> list:
+    """{Seite: Text} -> [(Text, [Seiten])] – gleiche Befunde zusammenfassen."""
+    by = {}
+    for p, t in sorted(pages.items()):
+        by.setdefault(t, []).append(p)
+    return list(by.items())
+
+
+def _geometry_issues(rep: Report) -> list:
+    out = []
+    uu, crop, trim_out, bleed_out, rot = {}, {}, {}, {}, {}
+    for p, g in rep.geometry.items():
+        if abs(g["uu"] - 1.0) > 1e-6:
+            uu[p] = f"{g['uu']:g}"
+        if g["crop"]:
+            if not _inside(g["crop"], g["media"]):
+                crop[p] = tr("Sichtbarer Bereich (CropBox) ragt über die Seite (MediaBox) hinaus")
+            elif _differs(g["crop"], g["media"]):
+                crop[p] = tr("Sichtbarer Bereich (CropBox) {0} kleiner als die Seite (MediaBox) {1}").format(
+                    _fmt_box(g["crop"]), _fmt_box(g["media"]))
+        c, bl, tr_ = effective(g)
+        if g["trim"] and not _inside(g["trim"], c):
+            trim_out[p] = tr("Endformat (TrimBox) liegt außerhalb des sichtbaren Bereichs")
+        if g["bleed"] and g["trim"] and not _inside(g["trim"], g["bleed"]):
+            bleed_out[p] = tr("Endformat (TrimBox) größer als der Beschnitt (BleedBox)")
+        if g["rotate"]:
+            rot[p] = g["rotate"]
+    for v, pg in _group(uu):
+        out.append(Issue("error", "geometry", tr("Seitenmaße mit Faktor (UserUnit {0}) – viele Drucker und RIPs "
+                                                 "ignorieren ihn und drucken im falschen Format.").format(v), pg))
+    for t, pg in _group(crop):
+        out.append(Issue("warning", "geometry", t + tr(" – manche Drucker/Plotter drucken die ganze MediaBox: "
+                                                       "Inhalt verschoben oder weißer Rand. Abhilfe: Seiten auf "
+                                                       "den sichtbaren Bereich zuschneiden."), pg))
+    for t, pg in _group(trim_out) + _group(bleed_out):
+        out.append(Issue("warning", "geometry", t + tr(" – widersprüchliche Seitenrahmen."), pg))
+    for v, pg in _group(rot):
+        out.append(Issue("info", "geometry", tr("Seite um {0}° gedreht (/Rotate) – bei Duplex und Plotter auf die "
+                                                "Ausrichtung achten.").format(v), pg))
+    sizes = {}
+    for p, g in rep.geometry.items():
+        t = effective(g)[2]
+        w, h = sorted((round((t[2] - t[0]) / MM_PT), round((t[3] - t[1]) / MM_PT)))
+        sizes.setdefault((w, h), []).append(p)
+    if len(sizes) > 1:
+        parts = [tr("{0} × {1} mm ({2} S.)").format(w, h, len(pg)) for (w, h), pg in
+                 sorted(sizes.items(), key=lambda kv: -len(kv[1]))]
+        main = max(sizes.values(), key=len)
+        other = sorted(p for pg in sizes.values() if pg is not main for p in pg)
+        out.append(Issue("info", "geometry",
+                         tr("Unterschiedliche Seitenformate: {0} – wichtig für Nutzen, Broschüre und Step & Repeat.")
+                         .format(", ".join(parts[:6]) + (" …" if len(parts) > 6 else "")), other))
+    for hit, pg in _group({p: tuple(sorted(h.items())) for p, h in rep.edge_ink.items()}):
+        txt = ", ".join(tr("{0} {1} mm").format(tr(SIDE_TEXT[k]), f"{v:.1f}".replace(".", ",")) for k, v in hit)
+        out.append(Issue("warning", "geometry", tr("Inhalt geht bis an den Endformat-Rand, aber zu wenig Beschnitt "
+                                                   "({0}; empfohlen 3 mm) – beim Schneiden blitzt weißer Rand. "
+                                                   "Abhilfe: Überfüller/Beschnitt ergänzen.").format(txt), pg))
+    return out
+
+
+def _doc_issues(rep: Report) -> list:
+    out = []
+    sec = rep.security or {}
+    if sec.get("encrypted"):
+        if not sec.get("print", True):
+            out.append(Issue("error", "security", tr("Dokument ist geschützt: Drucken ist nicht erlaubt.")))
+        elif not sec.get("print_high", True):
+            out.append(Issue("warning", "security", tr("Dokument ist geschützt: nur Drucken in niedriger Auflösung "
+                                                       "erlaubt – manche Programme drucken dann gerastert/unscharf.")))
+        else:
+            out.append(Issue("info", "security", tr("Dokument ist verschlüsselt (Rechte-Passwort) – Drucken erlaubt.")))
+    px = rep.pdfx or {}
+    if px.get("version"):
+        if not px.get("intent"):
+            out.append(Issue("warning", "pdfx", tr("Datei gibt sich als {0} aus, hat aber keinen PDF/X-Output-Intent "
+                                                   "– die Angabe stimmt nicht.").format(px["version"])))
+        elif px.get("no_profile"):
+            out.append(Issue("warning", "pdfx", tr("{0}: Output-Intent „{1}“ ohne eingebettetes Profil.")
+                             .format(px["version"], px["intent"])))
+        if px.get("missing_trim"):
+            out.append(Issue("warning", "pdfx", tr("{0} verlangt ein Endformat (TrimBox) – fehlt auf {1} Seite(n).")
+                             .format(px["version"], len(px["missing_trim"])), px["missing_trim"]))
+    fm = rep.forms or {}
+    w = fm.get("widgets") or []
+    if w or fm.get("fields"):
+        pages = sorted({p for p, _r, _pr in w})
+        no = [(p, r) for p, r, pr in w if not pr]
+        msg = tr("{0} Formularfeld(er)").format(len(w) or fm.get("fields", 0))
+        if no:
+            msg += tr(", davon {0} werden nicht gedruckt (ausgeblendet, Druck aus oder ohne Darstellung)").format(len(no))
+        if fm.get("need_ap"):
+            msg += tr(" – die Darstellung erzeugt erst das Programm: Passermark druckt die Werte mit, andere "
+                      "Programme/RIPs ggf. nicht oder anders")
+        out.append(Issue("warning" if no else "info", "form", msg + ".", pages,
+                         [Spot(p, r, tr("nicht gedruckt")) for p, r in no if r] or []))
+    if rep.blank:
+        out.append(Issue("info", "page", tr("{0} leere Seite(n).").format(len(rep.blank)), list(rep.blank)))
+    return out
 
 
 def _font_info(f, k) -> FontInfo:
@@ -1287,30 +1617,6 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 # --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
-HAIRLINE_MM = 0.1              # dünnere Linien sind auf Plottern/Laser kaum oder gar nicht zu sehen
-
-
-def _mm_num(v: float) -> str:
-    from .planprint import mm_text
-    return mm_text(v)
-
-
-def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
-    """Haarlinien je Seite (Anzahl + Bereiche in rep.located[("line",)])."""
-    import pypdfium2 as pdfium
-    from .planprint import hairline_boxes
-    doc = pdfium.PdfDocument(data)
-    try:
-        rep.hairlines = {}
-        for i in range(min(len(doc), max_pages)):
-            n, boxes = hairline_boxes(doc, i, HAIRLINE_MM)
-            if n:
-                rep.hairlines[i + 1] = n
-                rep.located.setdefault(("line",), {})[i + 1] = boxes
-    finally:
-        doc.close()
-
-
 def _located_spots(rep: Report, key: tuple, pages, label: str = "") -> list:
     """Fundstellen aus rep.located (Bereiche je Seite), Seiten ohne Bereich als ganze Seite."""
     loc = rep.located.get(key) or {}
@@ -1373,13 +1679,6 @@ def _issues_raw(rep: Report) -> list[Issue]:
         if L.outside_pct is not None and L.outside_pct > 25:
             out.append(Issue("warning", "layer", tr("Ebene „{0}“: {1:.0f} % des Inhalts liegen außerhalb der Seite "
                                                     "(verrutscht?).").format(L.name, L.outside_pct), sorted(L.pages)))
-    if rep.hairlines:
-        pg = sorted(rep.hairlines)
-        out.append(Issue("warning", "line", tr("{0} Linie(n) dünner als {1} mm auf {2} Seite(n) – auf Plottern und "
-                                               "Laserdruckern kaum oder gar nicht sichtbar. Beim Plandruck lassen sie "
-                                               "sich mit „Haarlinien anheben“ verstärken.").format(
-            sum(rep.hairlines.values()), _mm_num(HAIRLINE_MM), len(pg)), pg,
-            _located_spots(rep, ("line",), pg)))
     out += _image_issues(rep)
     if rep.size is not None:
         from . import shrink
@@ -1404,6 +1703,7 @@ def _issues_raw(rep: Report) -> list[Issue]:
     op = {p for p, k in rep.transparency.items() if "overprint" in k}
     if op:
         out.append(Issue("info", "transparency", tr("Überdrucken auf {0} Seite(n).").format(len(op)), sorted(op)))
+    out += _geometry_issues(rep) + _doc_issues(rep)
     out.sort(key=lambda i: (SEV_ORDER[i.severity], i.category))
     return out
 
@@ -1441,6 +1741,17 @@ def report_text(rep: Report, title: str = "") -> str:
     if rep.size is not None:
         from . import shrink
         lines += ["", tr("Dateigröße:")] + ["  " + x for x in shrink.summary_lines(rep.size, top=8)]
+    if rep.geometry:
+        lines += ["", tr("Seitenrahmen (erste Seite):")]
+        g = rep.geometry[min(rep.geometry)]
+        for k, lab in (("media", "MediaBox"), ("crop", "CropBox"), ("bleed", "BleedBox"), ("trim", "TrimBox"),
+                       ("art", "ArtBox")):
+            if g[k]:
+                lines.append(f"  {lab}: {_fmt_box(g[k])}")
+        b = bleed_mm(g)
+        if b:
+            lines.append("  " + tr("Beschnitt:") + " " + ", ".join(
+                f"{tr(SIDE_TEXT[k])} {v:.1f} mm".replace(".", ",") for k, v in b.items()))
     if rep.layers:
         lines += ["", tr("Ebenen:")]
         for L in rep.layers:

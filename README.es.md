@@ -1,4 +1,4 @@
-# Passermark 1.18.1
+# Passermark 1.18.2
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -37,7 +37,7 @@ Software libre (GPL-3.0-or-later).
 - **Dividir páginas:** mitades o rejilla como páginas separadas – p. ej. un folleto exportado como páginas
   dobles; seleccionar páginas, botón derecho → Dividir. Sin pérdida (no se rasteriza nada), se respetan el
   formato final y el sangrado.
-- **Preflight:** comprueba fuentes, capas y transparencias al abrir un documento; correcciones: incrustar o
+- **Preflight:** comprueba al abrir un documento fuentes, capas, transparencias, cajas de página (crop/trim/bleed), sangrado del contenido, protección, PDF/X y output intent, campos de formulario y páginas vacías; correcciones: incrustar o
   sustituir fuentes (fuentes libres métricamente compatibles o descarga desde fontsource.org), texto a
   curvas, fijar/eliminar capas, aplanar transparencias. Cada hallazgo nombra su sitio (p. ej. «página 2 – abajo a la derecha, 40 × 20 mm»); un clic salta hasta él y lo enmarca en rojo, con ◀ ▶ recorres los hallazgos.
 - **Edición:** seleccionar líneas de texto y capas con el ratón; cambiar texto, fuente y tamaño; mover,

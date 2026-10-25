@@ -404,6 +404,12 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--margin", type=float, default=5.0, help=tr("Rand in mm ohne zwei Außenlinien"))
         p.add_argument("--rotate", default="auto", choices=["auto", "keep", "short", "long"],
                        help=tr("auto = kürzeste Länge auf der Rolle"))
+        p.add_argument("--roll", default="", metavar=tr("ROLLE"),
+                       help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"))
+        p.add_argument("--align", default="", choices=["", "center", "left", "right"],
+                       help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"))
+        p.add_argument("--no-split", action="store_true",
+                       help=tr("Exemplare als Kopienzahl in einem Auftrag statt je Exemplar ein Auftrag"))
         p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
         p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
                        help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"))
@@ -965,7 +971,10 @@ def _plan_cmd(a, rep, fail) -> int:
         sett = dict(planprint.defaults_for(a.kind))
         sett.update({"printer": a.printer, "copies": max(1, a.copies), "collate": a.collate,
                      "order": "roll" if a.by_roll else "list", "color": a.color, "margin_mm": a.margin,
-                     "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material})
+                     "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material,
+                     "roll_pick": a.roll, "split_copies": not a.no_split})
+        if a.align:
+            sett["align"] = a.align
         if a.frame != "auto" or a.kind == "plan":
             sett["frame"] = a.frame
         if a.rolls:

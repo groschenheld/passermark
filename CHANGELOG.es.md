@@ -5,6 +5,25 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.2
+
+### Preflight: cajas de página, sangrado, protección, PDF/X, campos de formulario
+- **Cajas de página:** `UserUnit ≠ 1` es un error; una CropBox más pequeña que la MediaBox o fuera de ella también (el caso ColorWave); una TrimBox fuera de la zona visible o más grande que la BleedBox; páginas giradas y formatos mixtos como aviso.
+- **Sangrado:** si el contenido llega hasta el borde del formato final pero la página tiene menos de 2 mm de sangrado, se notifica. La comprobación se hace sobre una vista previa aproximada – los planos sin sangrado quedan limpios; solo avisa si el contenido llega de verdad al borde.
+- **Protección:** «impresión no permitida» es un error; solo la baja resolución es un aviso.
+- **PDF/X:** el archivo se presenta como PDF/X pero no tiene output intent para ello; un output intent sin perfil incrustado; páginas sin TrimBox.
+- **Campos de formulario:** la comprobación dice cuántos no se imprimen. Passermark imprime de todos modos los valores del formulario en su propia impresión – el aviso solo aparece si un campo de verdad no se imprime; la nota sobre NeedAppearances vale para la entrega y las carpetas vigiladas.
+- **Páginas vacías** se notifican.
+- Los formatos mixtos son solo un aviso, no una advertencia – en juegos de planos son normales los formatos distintos.
+- El informe de comprobación ahora lista las cajas de página y el sangrado de la primera página.
+- **Para los flujos** hay dos nuevos valores de comprobación: `blank_pages` y `print_allowed`.
+
+### Línea de comandos: plan
+- `passermark-cli plan` admite ahora `--roll` (alimentación, nombre en el aparato o ancho, p. ej. `--roll 914`), `--align center|left|right` y `--no-split`.
+
+### Manual
+- El manual (docs/cli-api.md) está ampliado en alemán e inglés: impresión de planos y pósters (rollo fijo, material por nombre, posición en el rollo, un trabajo por ejemplar, valores predeterminados de póster), una nueva sección sobre la comprobación y dos ejemplos.
+
 ## 1.18.1
 
 ### Mensaje al leer los rollos
