@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.0
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -25,6 +25,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.
+- **Plan & Poster:** Plandruck und Posterdruck auf Rollengeräten – Rollen vom Gerät lesen (IPP, sonst SNMP), „Gerät prüfen“ nur lesend mit JSON-Bericht; Rollenwahl automatisch (schmälste passende, nach Grammatur/Material) oder fest, Lage mittig oder am Rand; Laufmeter live mit Warnung vor leerer Rolle, „Einzeln abschneiden“ macht jedes Exemplar zum eigenen Auftrag; Plan-Werkzeuge (Skalierung, Drehung, Überfüller, Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824), Poster-Werkzeuge (Saum, Ösenmarken, CutContour, Passermarken für Print & Cut mit der Roland), Breiteres als die Rolle wird in Bahnen geteilt; Materialien je Benutzer. Auch auf der Kommandozeile (`passermark-cli plan`/`poster`, `--dry-run` rechnet nur Laufmeter), als Schritt im Ablauf und als Hotfolder-Ausgabe z. B. für VersaWorks.
 - **Dokument-Manipulation:** CMYK-Umwandlung mit Farbvorschau, auf Format beschneiden, Objekte trennen,
   **CutContour** für Schneideplotter (Kontur, Formen, Überfüller, Innenschnitte; Formen mit Griffen skalieren
   und verschieben). Beschneiden zusätzlich mit „Kanten abschneiden“ (mm je Seite, ohne Zielformat) und
@@ -51,7 +52,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   Prüfung und Einfügen aus Excel; gespeichert als CSV und direkt in Variable Daten verwendbar. Eigene CSV-Dateien
   mit anderen Spaltennamen (z. B. Kontakt-Exporte aus Outlook, Google, Thunderbird) werden automatisch
   zugeordnet. Sieben fertige Beispiele (Hilfe → Beispiele holen).
-- **Arbeitsbereiche** (Anzeigen & Drucken, Druckaufbereitung, Bearbeiten, Variable Daten, Automatisierung) mit
+- **Arbeitsbereiche** (Anzeigen & Drucken, Plan & Poster, Druckaufbereitung, Bearbeiten, Variable Daten, Automatisierung) mit
   eigener Werkzeugleiste.
 - **Presets** für CutContour, CMYK/Beschneiden, Druck-Layout und Variable Daten – gemeinsam mit der
   Kommandozeile.
@@ -101,7 +102,7 @@ passermark-cli presets                                # im Programm gespeicherte
 ```
 
 Aufträge: `cutcontour`, `separate`, `manip` (CMYK/Beschneiden), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`, `press` (Druckerei-Export); dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
+`split`, `press` (Druckerei-Export), `plan`/`poster` (Plan- und Posterdruck auf Rollen); dazu `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (Datentabellen). Verschachtelte
 Einstellungen mit Punkt (`--set detect.tolerance=40`). Strg+C bricht sauber ab (keine halbe Datei).
 Rückgabewerte: 0 fertig, 1 Fehler, 2 falsche Angabe, 130 abgebrochen. `--json-progress` gibt Fortschritt und
 Ergebnis als JSON-Zeilen aus. Große Aufträge nutzen mehrere Rechenkerne; begrenzen mit der Umgebungsvariable

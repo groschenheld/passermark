@@ -5,6 +5,45 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.0
+
+### Espace de travail « Plan & Poster »
+- Un nouvel espace de travail pour l'impression de plans et de posters – aussi comme étape d'enchaînement et via `passermark-cli plan` et `passermark-cli poster`. Avec `--dry-run`, seul le calcul des mètres linéaires est fait.
+
+### Rouleaux lus depuis l'appareil
+- Via IPP, sinon via SNMP ; SNMP essaie v2c et retombe sur v1. Les alimentations de type « other » avec une largeur comptent comme rouleau ; la communauté se règle par appareil.
+- Les Roland sont interrogés à part ; sinon on saisit les rouleaux à la main.
+- Sous Windows, l'adresse de l'appareil vient du port (port IP, TCP/IP ou WSD), ou se saisit à la main.
+- « Vérifier l'appareil » (probe) interroge les ports, l'IPP et le SNMP et enregistre tout dans un rapport JSON. Il ne fait que lire, rien n'est imprimé.
+
+### Zone d'impression
+- Avec deux lignes extérieures, on rogne sur la ligne extérieure ; sinon le contenu reçoit une marge de 5 mm – remplaçable par plan.
+
+### Choix du rouleau
+- Automatique : le rouleau le plus étroit qui convient, choisi selon le grammage du papier du plan ou la matière – les matières maintenant aussi par le nom.
+- Fixe : chaque rouleau lu est sélectionnable, même sans matière enregistrée.
+- Le type de média du rouleau est transmis au pilote.
+- Position sur le rouleau : centré ou au bord (à gauche ou à droite) ; la page imprimée est toujours aussi large que le rouleau. Pour un plan, « au bord » par défaut ; pour un poster, « centré ».
+
+### Exemplaires et mètres linéaires
+- Triés ou non triés, selon la liste ou selon la largeur du rouleau. « Couper individuellement » par défaut : chaque exemplaire devient un travail à part (1/3, 2/3 …).
+- Mètres linéaires en direct par rouleau, avertissement quand la longueur restante ne suffit pas – et ils sont consignés dans le journal d'impression.
+
+### Outils plans
+- Mise à l'échelle, rotation, bandes de remplissage (miroir, vides ou d'une seule couleur), marques de coupe, relevage des filets, repères de pli selon DIN 824.
+
+### Outils posters
+- Côte à côte sur le rouleau en option, désormais désactivé par défaut.
+- Ce qui est plus large que le rouleau est rogné ou découpé en bandes avec chevauchement.
+- Ourlet, marques d'œillets, CutContour et repères de repérage pour le print & cut avec la Roland.
+
+### Matières pour Plan & Poster
+- Impression de plans ou impression qualité ; par matière grammage, type de média, qualité, quantité d'encre et profil. Enregistrées par utilisateur, avec les valeurs par défaut de l'admin.
+
+### Divers
+- Sortie vers dossier de dépôt (hotfolder), p. ex. pour VersaWorks.
+- Messages d'erreur plus clairs quand l'appareil n'est pas trouvé.
+
 ## 1.17.1
 
 ### Fusion par clic droit (Windows)

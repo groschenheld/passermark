@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.0
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -27,6 +27,7 @@ Logiciel libre (GPL-3.0-or-later).
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
   Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2) – désormais aussi à l'impression directe depuis le dialogue d'impression.
+- **Plan & Poster :** impression de plans et de posters sur appareils à rouleaux – rouleaux lus depuis l'appareil (IPP, sinon SNMP), « vérifier l'appareil » en lecture seule avec un rapport JSON ; choix du rouleau automatique (le plus étroit qui convient, selon grammage/matière) ou fixe, position centrée ou au bord ; mètres linéaires en direct avec avertissement avant la fin du rouleau, « couper individuellement » fait de chaque exemplaire un travail à part ; outils plans (mise à l'échelle, rotation, bandes de remplissage, marques de coupe, relevage des filets, repères de pli selon DIN 824), outils posters (ourlet, marques d'œillets, CutContour, repères de repérage pour le print & cut avec la Roland), plus large que le rouleau est découpé en bandes ; matières par utilisateur. Aussi en ligne de commande (`passermark-cli plan`/`poster`, `--dry-run` ne calcule que les mètres linéaires), comme étape d'enchaînement et comme sortie hotfolder p. ex. pour VersaWorks.
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
@@ -56,7 +57,7 @@ Logiciel libre (GPL-3.0-or-later).
   directement dans les données variables. Vos propres fichiers CSV avec d'autres noms de colonnes (p. ex.
   exports de contacts d'Outlook, Google, Thunderbird) sont associés automatiquement. Sept exemples prêts
   (Aide → Obtenir des exemples).
-- **Espaces de travail** (Affichage et impression, Préparation prépresse, Édition, Données variables,
+- **Espaces de travail** (Affichage et impression, Plan & Poster, Préparation prépresse, Édition, Données variables,
   Automatisation) avec leur propre barre d'outils.
 - **Préréglages** pour CutContour, CMYK/rognage, mise en page d'impression et données variables – partagés
   avec la ligne de commande.
@@ -107,7 +108,7 @@ passermark-cli presets                                # préréglages enregistr�
 ```
 
 Tâches : `cutcontour`, `separate`, `manip` (CMYK/rognage), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`, `press` (export pour l'imprimeur) ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
+`split`, `press` (export pour l'imprimeur), `plan`/`poster` (impression de plans et posters sur rouleau) ; plus `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tableaux de données). Réglages
 imbriqués avec un point (`--set detect.tolerance=40`). Ctrl+C interrompt proprement (pas de fichier à moitié
 écrit). Codes de retour : 0 terminé, 1 erreur, 2 mauvaise indication, 130 interrompu. `--json-progress`
 affiche progression et résultat en lignes JSON. Les grandes tâches utilisent plusieurs cœurs ; limitation

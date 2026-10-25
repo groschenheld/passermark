@@ -333,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
 API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy",
-                "reprint")
+                "reprint", "plan", "rolls", "probe")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -376,6 +376,39 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
                                                             "(z. B. als Windows-Aufgabe ohne Konsole)"))
     elif cmd == "caps":
         p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
+    elif cmd == "rolls":
+        p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
+        p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+    elif cmd == "probe":
+        p.add_argument("target", help=tr("Druckername oder Geräteadresse (IP)"))
+        p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+        p.add_argument("--community", default="", help=tr("SNMP-Community (Standard: public)"))
+        p.add_argument("--out", metavar=tr("DATEI"), help=tr("vollständigen Bericht als JSON speichern"))
+    elif cmd == "plan":
+        p.add_argument("files", nargs="+", metavar=tr("DATEI"), help=tr("Pläne (PDF, jede Seite ein Plan; oder Bilder)"))
+        p.add_argument("--printer", default="", help=tr("Drucker (leer = Standarddrucker)"))
+        p.add_argument("--kind", default="plan", choices=["plan", "poster"],
+                       help=tr("plan = Produktionsdruck, poster = Qualitätsdruck (nebeneinander, Überbreite "
+                               "abschneiden)"))
+        p.add_argument("--material", default="", help=tr("Druckmaterial (Name oder ID aus dem Programm)"))
+        p.add_argument("--plt", metavar=tr("DATEI"),
+                       help=tr("zusätzlich Schneidedatei (HP-GL/CAMM-GL) mit den Schnittkanten eines Satzes"))
+        p.add_argument("--rolls", default="", metavar="594,841,914",
+                       help=tr("Rollenbreiten in mm (statt der vom Gerät gemeldeten)"))
+        p.add_argument("--copies", type=int, default=1, help=tr("Exemplare"))
+        p.add_argument("--collate", action="store_true", help=tr("sortiert (Satz für Satz) statt jeder Plan n-mal"))
+        p.add_argument("--by-roll", action="store_true", help=tr("nach Rollenbreite drucken statt in Listenreihenfolge"))
+        p.add_argument("--color", default="", help=tr("color | gray (leer = wie im Treiber)"))
+        p.add_argument("--frame", default="auto", choices=["auto", "frame", "margin", "none"],
+                       help=tr("Druckbereich: auto, frame (zwei Außenlinien), margin (Inhalt + Rand), none (Seite)"))
+        p.add_argument("--margin", type=float, default=5.0, help=tr("Rand in mm ohne zwei Außenlinien"))
+        p.add_argument("--rotate", default="auto", choices=["auto", "keep", "short", "long"],
+                       help=tr("auto = kürzeste Länge auf der Rolle"))
+        p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
+        p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
+                       help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"))
+        p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur Laufmeter und Rollen anzeigen"))
+        p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "inspect":
         p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
         p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
@@ -667,6 +700,63 @@ def api_main(cmd: str, argv: list[str]) -> int:
             print("  " + tr("{0} Treiberoptionen insgesamt (--json zeigt alle)").format(len(d["options"])))
         return EXIT_OK
 
+    if cmd == "rolls":
+        from . import rolls as rl
+        from .session import Session
+        from . import config
+        try:
+            sess = Session(config.load())
+            if a.host:
+                q = rl.query(a.host, force=True)
+                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host)
+                caps = sess.caps_for(a.printer)
+                for i, r in enumerate(st.rolls):
+                    r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
+            else:
+                st = rl.for_printer(sess, a.printer, live=True, force=True)
+        except Exception as e:                                  # noqa: BLE001
+            return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
+        d = {"printer": a.printer, "host": st.host, "origin": st.origin, "error": st.error,
+             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls]}
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False))
+        else:
+            print(f"{a.printer} ({st.host or '–'}, {st.origin})")
+            for r in st.rolls:
+                print("  " + r.label() + (f"  → {r.slot}" if r.slot else ""))
+            if not st.rolls:
+                print("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
+        return EXIT_OK
+
+    if cmd == "plan":
+        return _plan_cmd(a, rep, fail)
+
+    if cmd == "probe":
+        import re as _re
+        from . import probe, rolls as rl
+        from .session import Session
+        from . import config
+        host, printer = a.host or "", ""
+        if not host:
+            if _re.fullmatch(r"[\w.\-]+", a.target) and ("." in a.target or ":" in a.target) \
+                    and not _is_printer(a.target):
+                host = a.target
+            else:
+                printer = a.target
+                host = rl.host_for(Session(config.load()), printer)
+        else:
+            printer = a.target
+        d = probe.run(host, printer, a.community, progress=None if a.json else (lambda t: None))
+        if a.out:
+            probe.save(d, a.out)
+        if a.json:
+            print(json.dumps(d, ensure_ascii=False))
+        else:
+            print(probe.text(d), end="")
+            if a.out:
+                print(tr("Bericht: {0}").format(os.path.abspath(a.out)))
+        return EXIT_OK
+
     if cmd == "inspect":
         from . import docinfo
         try:
@@ -715,7 +805,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
             a.workflow, a.output, a.var = os.path.abspath(a.log), None, []
             if a.dry_run:
                 for st in data.get("steps") or []:
-                    if st.get("job") == workflow.PRINT:
+                    if st.get("job") in workflow.PRINTS:
                         st.setdefault("settings", {})["dry_run"] = True
             old = rec["job"].get("file")
             if not a.inputs and old and rec["job"].get("file_sha256") and not rec["job"].get("files"):
@@ -815,6 +905,9 @@ def api_main(cmd: str, argv: list[str]) -> int:
         rep.emit(event="done", **r)
     elif not a.quiet:
         for s in r["steps"]:                                    # Druckschritte: wohin und welcher Auftrag
+            if s["job"] == workflow.PLAN:
+                print(plan_text(s["info"] or {}))
+                continue
             if s["job"] != workflow.PRINT:
                 continue
             i = s["info"] or {}
@@ -827,6 +920,86 @@ def api_main(cmd: str, argv: list[str]) -> int:
         if r["output"]:
             print(r["output"] + ("  (" + tr("{0} Seite(n)").format(r["pages"]) + ")" if r["pages"] is not None else ""))
         for n in r["notes"]:
+            print("  " + tr("Hinweis: {0}").format(n))
+    return EXIT_OK
+
+
+def _is_printer(name: str) -> bool:
+    try:
+        from . import printers
+        return any(p.name == name for p in printers.list_printers())
+    except Exception:
+        return False
+
+
+def plan_text(i: dict) -> str:
+    """Laufmeter je Rolle als Text: „594 mm: 5,20 m · ×2 = 10,40 m“."""
+    from .l10n import tr
+    from .planprint import mm_text, num
+    lines = []
+    head = (tr("Probelauf – nichts gesendet") if i.get("dry_run") else
+            tr("Gedruckt auf {0}: {1} Auftrag/Aufträge").format(i.get("printer"), len(i.get("jobs") or [])))
+    lines.append(head)
+    cp = int(i.get("copies") or 1)
+    for d in i.get("lengths") or []:
+        t = "  " + tr("{0} mm: {1} m").format(mm_text(d["width_mm"]), num(d["single_m"]))
+        if cp > 1:
+            t += " · ×{0} = ".format(cp) + tr("{0} m").format(num(d["total_m"]))
+        t += "  (" + tr("{0} Plan/Pläne").format(d["plans"]) + ")"
+        if d.get("short"):
+            t += "  " + tr("– reicht laut Gerät nicht!")
+        lines.append(t)
+    if len(i.get("lengths") or []) > 1:
+        t = "  " + tr("Gesamt: {0} m").format(num(i.get("single_m", 0)))
+        if cp > 1:
+            t += " · ×{0} = ".format(cp) + tr("{0} m").format(num(i.get("total_m", 0)))
+        lines.append(t)
+    return "\n".join(lines)
+
+
+def _plan_cmd(a, rep, fail) -> int:
+    from . import core, planprint, rolls as rl, workflow
+    from .planprint import mm_text
+    from .l10n import tr
+    try:
+        sett = dict(planprint.defaults_for(a.kind))
+        sett.update({"printer": a.printer, "copies": max(1, a.copies), "collate": a.collate,
+                     "order": "roll" if a.by_roll else "list", "color": a.color, "margin_mm": a.margin,
+                     "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material})
+        if a.frame != "auto" or a.kind == "plan":
+            sett["frame"] = a.frame
+        if a.rolls:
+            sett["rolls"] = [r.width_mm for r in rl.parse_widths(a.rolls)]
+        apply_sets(sett, a.set)
+        s = core.settings_from_dict(planprint.PlanSettings, sett)
+        pages = parse_pages(a.pages) if a.pages else None
+        for f in a.files:
+            if not os.path.isfile(f):
+                raise FileNotFoundError(tr("Eingabe nicht gefunden: {0}").format(f))
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
+    except (OSError, ValueError, KeyError) as e:
+        return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
+    try:
+        info = planprint.plan_files([os.path.abspath(f) for f in a.files], s, pages, progress=rep.progress,
+                                    plt=os.path.abspath(a.plt) if a.plt else "")
+    except Exception as e:                                      # noqa: BLE001 – jede Ursache melden
+        return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
+    rep.finish_line()
+    if a.json:
+        rep.emit(event="done", **info)
+    elif not a.quiet:
+        print(plan_text(info))
+        for p in info.get("plans") or []:
+            if p.get("length_mm") is None:
+                continue
+            print("    " + tr("{0}: {1} × {2} mm → Rolle {3} mm{4}").format(
+                p["plan"], mm_text(p["size_mm"][0]), mm_text(p["size_mm"][1]), mm_text(p["roll_mm"]),
+                tr(", gedreht") if p.get("rotated") else ""))
+        if info.get("cut_file"):
+            print("  " + tr("Schneidedatei: {0} ({1} Schnitt(e))").format(info["cut_file"]["path"],
+                                                                         info["cut_file"]["cuts"]))
+        for n in info.get("notes") or []:
             print("  " + tr("Hinweis: {0}").format(n))
     return EXIT_OK
 

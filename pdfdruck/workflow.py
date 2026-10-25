@@ -58,6 +58,8 @@ _OPTION_KEYS = {"image_dpi": (int, float), "password": (str,)}
 
 
 PRINT = "print"             # Schritt, der druckt (kein Auftrag in core.JOBS – das PDF bleibt unverändert)
+PLAN = "plan"               # Plandruck auf Rollen (jede Seite ein Plan) – druckt ebenfalls, PDF bleibt unverändert
+PRINTS = (PRINT, PLAN)
 FAIL, STOP, CHOOSE = "fail", "stop", "choose"   # Ablaufsteuerung: abbrechen mit Meldung, beenden, verzweigen
 FLOW = (FAIL, STOP)
 E_REJECTED = "rejected"     # „fail“-Schritt: Datei abgelehnt (Meldung aus dem Ablauf)
@@ -69,13 +71,16 @@ class Rejected(RuntimeError):
 
 def step_jobs() -> list:
     from . import core
-    return list(core.JOBS) + [PRINT]
+    return list(core.JOBS) + [PRINT, PLAN]
 
 
 def step_settings_class(job: str):
     if job == PRINT:
         from .printcli import PrintSettings
         return PrintSettings
+    if job == PLAN:
+        from .planprint import PlanSettings
+        return PlanSettings
     from . import core
     return core.settings_class(job)
 
@@ -329,7 +334,7 @@ def _has_print(raw) -> bool:
     for x in raw:
         if not isinstance(x, dict):
             continue
-        if x.get("job") == PRINT:
+        if x.get("job") in PRINTS:
             return True
         for br in x.get(CHOOSE) or [] if isinstance(x.get(CHOOSE), list) else []:
             if isinstance(br, dict) and (_has_print(br.get("steps")) or _has_print(br.get("else"))):
@@ -484,7 +489,7 @@ def prepare(data: dict, base_dir: str = ".", inputs: list | None = None, output:
                 continue
             st = _subst({k: v for k, v in st.items() if k != "if"}, vars_, missing)
             settings = {}
-            if st.get("preset") and job == PRINT:
+            if st.get("preset") and job in PRINTS:
                 probs.append((f"{where}.preset", tr("Druck-Presets gibt es im Ablauf nicht – Einstellungen direkt "
                                                     "angeben")))
             elif st.get("preset"):
@@ -626,13 +631,29 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
             k = state["n"]
             emit(event="step", step=k, steps=total, job=st.job, name=st.name, where=st.where)
             prog = (lambda d, t, x="", _k=k: emit(event="progress", step=_k, done=d, total=t, text=x))
+            if st.job == PLAN:
+                from .planprint import PlanSettings, print_pdf as plan_pdf
+                from . import printlog
+                ps = core.settings_from_dict(PlanSettings, st.settings)
+                before = [dict({"job": b.job, "settings": b.settings},
+                               **({"pages": printlog._pages_text(b.pages)} if b.pages else {}))
+                          for b in state["done"] if b.job not in PRINTS]
+                with printlog.in_workflow(plan.inputs, before):
+                    info = plan_pdf(state["cur"], ps, st.pages, progress=prog)
+                pn = list(info.get("notes") or [])
+                results.append({"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info,
+                                "notes": pn})
+                notes.extend(pn)
+                emit(event="step_done", step=k, job=st.job, info=info, notes=pn)
+                state["done"].append(st)
+                continue                         # das PDF bleibt, wie es ist
             if st.job == PRINT:
                 from .printcli import PrintSettings, print_pdf
                 from . import printlog
                 ps = core.settings_from_dict(PrintSettings, st.settings)
                 before = [dict({"job": b.job, "settings": b.settings},
                                **({"pages": printlog._pages_text(b.pages)} if b.pages else {}))
-                          for b in state["done"] if b.job != PRINT]
+                          for b in state["done"] if b.job not in PRINTS]
                 with printlog.in_workflow(plan.inputs, before):
                     info = print_pdf(state["cur"], ps, st.pages, progress=prog)
                 pn = list(info.get("notes") or [])

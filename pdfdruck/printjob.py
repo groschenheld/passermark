@@ -189,10 +189,6 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
             if doc is not src_doc:
                 doc.close()
         return 0
-    opts = caps.job_options(values)
-    pid, intent = session.color_for(printer)
-    prof = config.profile_by_id(session.cfg, pid) if pid else None
-
     tmp = tempfile.mkdtemp(prefix="pdfdruck-", dir=os.environ.get("XDG_RUNTIME_DIR") or None)
     try:
         job = os.path.join(tmp, "job.pdf")
@@ -203,10 +199,27 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
         if any(p.duplex_short for p in plans):
             dc = short_edge_choice(caps)
             if dc:
-                opts[dc[0]] = dc[1]
                 job_values[dc[0]] = dc[1]
         info["values"] = job_values
-        info["sent"] = opts
+        sent = info["sent"] = {}
+        return send_prepared(session, printer, caps, job, title, job_values, copies, collate, sent)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if doc is not src_doc:
+            doc.close()
+
+
+def send_prepared(session, printer: str, caps, job: str, title: str, values: dict, copies: int = 1,
+                  collate: bool = True, sent: dict | None = None) -> int:
+    """Fertig ausgeschossene PDF senden: Farbprofil des Druckers (Admin), alle Treiberoptionen, Kopien.
+        Gemeinsam für den normalen Druck und den Plandruck. sent: bekommt die gesendeten Optionen."""
+    opts = caps.job_options(values)
+    if sent is not None:
+        sent.clear()
+    pid, intent = session.color_for(printer)
+    prof = config.profile_by_id(session.cfg, pid) if pid else None
+    tmp = tempfile.mkdtemp(prefix="pdfdruck-", dir=os.environ.get("XDG_RUNTIME_DIR") or None)
+    try:
         if prof:
             conv = os.path.join(tmp, "job-icc.pdf")
             colorconv.convert(job, conv, prof["file"], intent, bool(prof.get("bpc", True)))
@@ -214,7 +227,9 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
             opts.update({k: str(v) for k, v in (prof.get("driver_options") or {}).items()})
         if caps.backend == "win":              # Windows: via GDI to the vendor driver
             from .printers_win import print_pdf
-            return print_pdf(printer, job, title, job_values, copies, collate)
+            if sent is not None:
+                sent.update(opts)
+            return print_pdf(printer, job, title, values, copies, collate)
         opts.update({
             "copies": str(copies),
             "collate": "true" if collate else "false",
@@ -225,11 +240,11 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
             "fit-to-page": "false",
             "number-up": "1",
         })
+        if sent is not None:
+            sent.update(opts)
         return printers.submit(printer, job, title, opts)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-        if doc is not src_doc:
-            doc.close()
 
 
 def print_file(path: str, session, password: str | None = None) -> tuple[str, int]:

@@ -2,6 +2,45 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.0
+
+### Plan & Poster workspace
+- A new workspace for plan printing and poster printing – also as a step in a workflow and via `passermark-cli plan` and `passermark-cli poster`. With `--dry-run` only the running metres are calculated.
+
+### Rolls read from the device
+- Via IPP, otherwise via SNMP; SNMP tries v2c and falls back to v1. Supplies of type “other” with a width count as a roll; the community is set per device.
+- Roland devices are queried separately; otherwise you enter the rolls by hand.
+- On Windows the device address comes from the port (IP, TCP/IP or WSD port) or is entered by hand.
+- “Check device” (probe) queries ports, IPP and SNMP and saves everything as a JSON report. It only reads, nothing is printed.
+
+### Print area
+- With two outer lines the plan is trimmed to the outer one; otherwise the content gets a 5 mm margin – overridable per plan.
+
+### Roll choice
+- Automatic: the narrowest fitting roll, chosen by plan paper grammage or material – materials are now also matched by name.
+- Fixed: every roll that was read is selectable, even without a registered material.
+- The roll's media type is passed on to the driver.
+- Position on the roll: centred or at the edge (left or right); the printed page is always as wide as the roll. Plans default to “at the edge”, posters to “centred”.
+
+### Copies and running metres
+- Sorted or unsorted, by the list or by roll width. “Cut individually” is the default: each copy becomes its own job (1/3, 2/3 …).
+- Running metres live per roll, a warning when the remaining length does not suffice – and they are written to the print log.
+
+### Plan tools
+- Scaling, rotation, overspill strips (mirrored, blank or a single colour), cut marks, hairline lifting, fold marks to DIN 824.
+
+### Poster tools
+- Side by side onto the roll is optional and now off by default.
+- Anything wider than the roll is cut off or split into panels with overlap.
+- Hem, eyelet marks, CutContour and registration marks for print & cut with the Roland.
+
+### Materials for Plan & Poster
+- Plan printing or quality printing; per material grammage, media type, quality, ink amount and profile. Stored per user, with defaults from the admin.
+
+### Miscellaneous
+- Hotfolder output, e.g. for VersaWorks.
+- Clearer error messages when the device is not found.
+
 ## 1.17.1
 
 ### Merge via right-click (Windows)

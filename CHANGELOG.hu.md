@@ -5,6 +5,45 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.0
+
+### „Plan & Poster” munkaterület
+- Új munkaterület tervnyomtatáshoz és poszternyomtatáshoz – munkafolyamat-lépésként és a `passermark-cli plan` illetve `passermark-cli poster` paranccsal is. A `--dry-run` csak a folyóméter-számítást végzi el.
+
+### Tekercsek kiolvasása az eszközből
+- IPP-n, egyébként SNMP-n; az SNMP v2c-vel próbálkozik, és v1-re esik vissza. Az „other” típusú, szélességgel rendelkező adagolók tekercsnek számítanak, a community eszközenként állítható.
+- A Rolandot külön kérdezi le; egyébként kézzel viszed fel a tekercseket.
+- Windowson az eszközcím a kapcsolatból jön (IP-, TCP/IP- vagy WSD-port), vagy kézzel kerül beírásra.
+- „Eszköz ellenőrzése” (probe) lekérdezi a portokat, az IPP-t és az SNMP-t, és mindent JSON-jelentésként ment el. Csak olvas, nem nyomtat.
+
+### Nyomtatási terület
+- Két szélső vonalnál a külsőre vágnak; különben a tartalom 5 mm-es margót kap – tervenként felülírható.
+
+### Tekercsválasztás
+- Automatikus: a legkeskenyebb megfelelő tekercs, a tervpapír grammage-e illetve anyaga szerint – az anyagot most már név alapján is.
+- Rögzített: minden kiolvasott tekercs választható, bejegyzett anyag nélkül is.
+- A tekercs médiatípusa átadódik a meghajtónak.
+- Elhelyezés a tekercsen: középen vagy a szélén (balra illetve jobbra); a nyomtatott oldal mindig olyan széles, mint a tekercs. Tervnél a „szélén”, poszternél a „középen” az alapértelmezés.
+
+### Példányok és folyóméter
+- Rendezve vagy rendezetlenül, a lista vagy a tekercsszélesség szerint. Az „Egyenként levágás” az alapértelmezés: minden példány saját munka (1/3, 2/3 …).
+- Folyóméter élőben tekercsenként, figyelmeztetés, ha a maradék hossz nem elég – és bekerül a nyomtatási naplóba.
+
+### Tev-eszközök
+- Skálázás, forgatás, túltöltősáv (tükrözött, üres vagy egyszínű), vágójelek, hajszálvonalak kiemelése, hajtási jelek DIN 824 szerint.
+
+### Poszter-eszközök
+- Egymás mellé a tekercsre opcionális, most alapból kikapcsolva.
+- Ami szélesebb a tekercsnél, levágásra kerül, vagy átfedéssel sávokra bontható.
+- Szegély, szemkarika-jelek, CutContour és passerjelölések print & cut-hoz a Rolandon.
+
+### Anyagok a Plan & Posterhez
+- Tervnyomtatás vagy minőségi nyomtatás; anyagonként grammage, médiatípus, minőség, tinta mennyisége és profil. Felhasználónként tárolva, az admin alapértelmezéseivel.
+
+### Egyéb
+- Bedobómappa-kimenet, pl. VersaWorkshoz.
+- Közérthetőbb hibaüzenetek, ha az eszköz nem található.
+
 ## 1.17.1
 
 ### Egyesítés jobb kattintással (Windows)

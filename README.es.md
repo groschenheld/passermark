@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.0
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -28,6 +28,7 @@ Software libre (GPL-3.0-or-later).
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de
   hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2) – ahora también al imprimir directamente desde el diálogo de impresión.
+- **Plan & Poster:** impresión de planos y pósters en aparatos de rollo – rollos leídos del aparato (IPP, si no SNMP), «comprobar aparato» solo lectura con informe JSON; elección del rollo automática (el más estrecho que encaje, por gramaje/material) o fija, posición centrada o en el borde; metros lineales en vivo con aviso antes de que se acabe el rollo, «cortar individualmente» convierte cada ejemplar en un trabajo propio; herramientas de planos (escalado, rotación, bandas de relleno, marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824), herramientas de pósters (dobladillo, marcas de ojetes, CutContour, marcas de registro para print & cut con la Roland), más ancho que el rollo se divide en bandas; materiales por usuario. También en la línea de comandos (`passermark-cli plan`/`poster`, `--dry-run` solo calcula los metros lineales), como paso de flujo y como salida a carpeta vigilada, p. ej. para VersaWorks.
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
   y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
@@ -57,7 +58,7 @@ Software libre (GPL-3.0-or-later).
   directamente en los datos variables. Los archivos CSV propios con otros nombres de columna (p. ej.
   exportaciones de contactos de Outlook, Google, Thunderbird) se asignan automáticamente. Siete ejemplos
   listos (Ayuda → Obtener ejemplos).
-- **Áreas de trabajo** (Ver e imprimir, Preprensa, Editar, Datos variables, Automatización) con su propia
+- **Áreas de trabajo** (Ver e imprimir, Plan & Poster, Preprensa, Editar, Datos variables, Automatización) con su propia
   barra de herramientas.
 - **Preajustes** para CutContour, CMYK/recorte, diseño de impresión y datos variables – compartidos con la
   línea de comandos.
@@ -107,7 +108,7 @@ passermark-cli presets                                # preajustes guardados en 
 ```
 
 Tareas: `cutcontour`, `separate`, `manip` (CMYK/recorte), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`, `press` (exportación para la imprenta); además `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tablas de datos). Ajustes
+`split`, `press` (exportación para la imprenta), `plan`/`poster` (impresión de planos y pósters en rollo); además `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tablas de datos). Ajustes
 anidados con punto (`--set detect.tolerance=40`). Ctrl+C interrumpe limpiamente (ningún archivo a medias).
 Códigos de retorno: 0 terminado, 1 error, 2 indicación incorrecta, 130 cancelado. `--json-progress` imprime
 el progreso y el resultado como líneas JSON. Las tareas grandes usan varios núcleos; limitar con la variable

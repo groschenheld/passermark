@@ -21,7 +21,7 @@ from . import theme
 
 SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis"}
 CAT_TEXT = {"font": "Schrift", "layer": "Ebene", "transparency": "Transparenz", "text": "Zeichen", "image": "Bild",
-            "size": "Dateigröße"}
+            "size": "Dateigröße", "line": "Linie"}
 KIND_TEXT = {"smask": "weiche Maske", "blend": "Füllmethode", "alpha": "Deckkraft", "group": "Transparenzgruppe",
              "overprint": "Überdrucken", "image_alpha": "Bild mit Transparenz",
              "pattern_smask": "Verlauf mit Soft-Maske"}

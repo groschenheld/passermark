@@ -2,6 +2,45 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.0
+
+### Arbeitsbereich „Plan & Poster“
+- Neuer Arbeitsbereich für Plandruck und Posterdruck – auch als Schritt im Ablauf und über `passermark-cli plan` bzw. `passermark-cli poster`. Mit `--dry-run` wird nur die Laufmeter-Rechnung gemacht.
+
+### Rollen vom Gerät lesen
+- Über IPP, sonst über SNMP; SNMP versucht v2c und fällt auf v1 zurück. Zufuhren vom Typ „other“ mit Breite zählen als Rolle, die Community ist je Gerät einstellbar.
+- Roland wird extra abgefragt; sonst trägst du die Rollen von Hand ein.
+- Unter Windows kommt die Geräteadresse aus dem Anschluss (IP-, TCP/IP- oder WSD-Anschluss) oder wird von Hand eingetragen.
+- „Gerät prüfen“ (probe) fragt Ports, IPP und SNMP ab und speichert alles als JSON-Bericht. Es wird nur gelesen, nichts gedruckt.
+
+### Druckbereich
+- Bei zwei Außenlinien wird auf die äußere beschnitten; sonst bekommt der Inhalt einen Rand von 5 mm – je Plan überschreibbar.
+
+### Rollenwahl
+- Automatisch: die schmälste passende Rolle, gewählt nach Planpapier-Grammatur bzw. Material – das Material jetzt auch über den Namen.
+- Fest: jede gelesene Rolle ist wählbar, auch ohne angelegtes Material.
+- Der Medientyp der Rolle wird an den Treiber mitgeschickt.
+- Lage auf der Rolle: mittig oder am Rand (links bzw. rechts); die Druckseite ist dabei immer so breit wie die Rolle. Beim Plan ist „am Rand“ Standard, beim Poster „mittig“.
+
+### Exemplare und Laufmeter
+- Sortiert oder unsortiert, nach der Liste oder nach Rollenbreite. „Einzeln abschneiden“ ist Standard: jedes Exemplar wird ein eigener Auftrag (1/3, 2/3 …).
+- Laufmeter live je Rolle, Warnung wenn die Restlänge nicht reicht – und sie stehen im Druckprotokoll.
+
+### Plan-Werkzeuge
+- Skalierung, Drehung, Überfüller (gespiegelt, Leerraum oder Einzelfarbe), Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824.
+
+### Poster-Werkzeuge
+- Nebeneinander auf die Rolle ist optional und jetzt standardmäßig aus.
+- Was breiter als die Rolle ist, wird abgeschnitten oder in Bahnen mit Überlappung geteilt.
+- Saum, Ösenmarken, CutContour und Passermarken für Print & Cut mit der Roland.
+
+### Materialien für Plan & Poster
+- Plandruck oder Qualitätsdruck, je Material Grammatur, Medientyp, Qualität, Tintenmenge und Profil. Gespeichert je Benutzer, mit Standards vom Admin.
+
+### Sonstiges
+- Hotfolder-Ausgabe, z. B. für VersaWorks.
+- Verständlichere Fehlermeldungen, wenn das Gerät nicht gefunden wird.
+
 ## 1.17.1
 
 ### Zusammenführen per Rechtsklick (Windows)

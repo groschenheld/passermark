@@ -5,6 +5,45 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.0
+
+### Espacio de trabajo «Plan & Poster»
+- Un nuevo espacio de trabajo para la impresión de planos y pósters – también como paso de un flujo y vía `passermark-cli plan` y `passermark-cli poster`. Con `--dry-run` solo se calculan los metros lineales.
+
+### Rollos leídos del aparato
+- Por IPP, si no por SNMP; SNMP prueba v2c y cae a v1. Las alimentaciones de tipo «other» con ancho cuentan como rollo; la comunidad se ajusta por aparato.
+- Los Roland se consultan aparte; si no, se introducen los rollos a mano.
+- En Windows, la dirección del aparato sale de la conexión (puerto IP, TCP/IP o WSD) o se introduce a mano.
+- «Comprobar aparato» (probe) consulta puertos, IPP y SNMP y guarda todo como informe JSON. Solo lee, no imprime nada.
+
+### Zona de impresión
+- Con dos líneas exteriores se recorta a la exterior; si no, el contenido recibe un margen de 5 mm – modificable por plano.
+
+### Elección del rollo
+- Automática: el rollo más estrecho que encaje, elegido por el gramaje del papel del plano o el material – los materiales ahora también por el nombre.
+- Fija: cada rollo leído se puede elegir, incluso sin material registrado.
+- El tipo de soporte del rollo se pasa al controlador.
+- Posición en el rollo: centrado o en el borde (izquierda o derecha); la página impresa siempre es tan ancha como el rollo. En planos, «en el borde» es lo predeterminado; en pósters, «centrado».
+
+### Ejemplares y metros lineales
+- Ordenados o sin ordenar, según la lista o el ancho del rollo. «Cortar individualmente» es lo predeterminado: cada ejemplar es un trabajo propio (1/3, 2/3 …).
+- Metros lineales en vivo por rollo, aviso cuando el largo restante no alcanza – y quedan en el registro de impresión.
+
+### Herramientas de planos
+- Escalado, rotación, bandas de relleno (espejadas, vacías o de un solo color), marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824.
+
+### Herramientas de pósters
+- En paralelo sobre el rollo es opcional y ahora está desactivado por defecto.
+- Lo más ancho que el rollo se recorta o se divide en bandas con solape.
+- Dobladillo, marcas de ojetes, CutContour y marcas de registro para print & cut con la Roland.
+
+### Materiales para Plan & Poster
+- Impresión de planos o impresión de calidad; por material gramaje, tipo de soporte, calidad, cantidad de tinta y perfil. Guardados por usuario, con valores predeterminados del administrador.
+
+### Otros
+- Salida a carpeta vigilada, p. ej. para VersaWorks.
+- Mensajes de error más claros cuando no se encuentra el aparato.
+
 ## 1.17.1
 
 ### Fusionar con clic derecho (Windows)

@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.0
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -26,6 +26,7 @@ szoftver (GPL-3.0-or-later).
   füzetek tűzött kötésként, csoportos ívekként vagy egymásra helyezett ívekként (ragasztott kötés), bundzug
   ( creep) üres lapokkal, hajtási-, passer- és flapjelölésekkel és íváttekintéssel. Parancssorból is
   (`passermark-cli impose`). A haszonminták másodszor is szabadon választott célformátumra helyezhetők (2. lépés) – most közvetlen nyomtatásnál, a nyomtatási párbeszédablakból is.
+- **Plan & Poster:** tervnyomtatás és poszternyomtatás tekercses eszközökön – tekercsek kiolvasása az eszközből (IPP, egyébként SNMP), „Eszköz ellenőrzése” csak olvasva JSON-jelentéssel; tekercsválasztás automatikusan (a legkeskenyebb megfelelő, grammage/anyag szerint) vagy rögzítve, elhelyezés középen vagy a szélen; folyóméter élőben figyelmeztetéssel, ha a tekercs elfogy, az „Egyenként levágás” minden példányt saját munkává tesz; tev-eszközök (skálázás, forgatás, túltöltősáv, vágójelek, hajszálvonalak kiemelése, hajtási jelek DIN 824 szerint), posztereszközök (szegély, szemkarika-jelek, CutContour, passerjelölések print & cut-hoz a Rolandon), a tekercsnél szélesebb sávokra bontva; anyagok felhasználónként. Parancssorból is (`passermark-cli plan`/`poster`, a `--dry-run` csak folyómétert számol), munkafolyamat-lépésként és bedobómappa-kimenetként, pl. VersaWorkshoz.
 - **Dokumentummanipuláció:** CMYK-átalakítás színelőnézettel, formátumra vágás, objektumok szétválasztása,
   **CutContour** vágóplotterekhez (kontúr, formák, túlnyúlás, belső vágások; formák méretezése és mozgatása
   fogantyúkkal). A vágás most már „szélek levágásával” (mm oldalonként, célformátum nélkül) és „fehér tér
@@ -52,7 +53,7 @@ szoftver (GPL-3.0-or-later).
   azonnali ellenőrzéssel és Excelből történő beszúrással; CSV-ként mentve és közvetlenül használható a változó
   adatokban. A más oszlopneveket tartalmazó saját CSV-fájlok (pl. Outlook-, Google-, Thunderbird-exportok)
   automatikusan hozzárendelésre kerülnek. Hét kész példa (Súgó → Példák lekérése).
-- **Munkaterületek** (Megjelenítés és nyomtatás, Nyomdai előkészítés, Szerkesztés, Változó adatok,
+- **Munkaterületek** (Megjelenítés és nyomtatás, Plan & Poster, Nyomdai előkészítés, Szerkesztés, Változó adatok,
   Automatizálás) saját eszközsorral.
 - **Presetek** a CutContourhoz, CMYK/vágáshoz, nyomdai szerkezethez és változó adatokhoz – a parancssorral
   közösen.
@@ -102,7 +103,7 @@ passermark-cli presets                                # a programban mentett pre
 ```
 
 Feladatok: `cutcontour`, `separate`, `manip` (CMYK/vágás), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`, `press` (nyomdai export); továbbá `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (adattáblázatok). Beágyazott
+`split`, `press` (nyomdai export), `plan`/`poster` (terv- és poszternyomtatás tekercsen); továbbá `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (adattáblázatok). Beágyazott
 beállítások ponttal (`--set detect.tolerance=40`). A Ctrl+C tisztán megszakít (nincs félbesúrt fájl).
 Visszatérési értékek: 0 kész, 1 hiba, 2 hibás megadás, 130 megszakítva. A `--json-progress` a haladást és az
 eredményt JSON-sorokként írja ki. A nagy feladatok több magot használnak; korlátozás a `PASSERMARK_WORKERS`

@@ -31,6 +31,9 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
 | `serve --init [--system]` | create a template watch.json plus an example workflow and drop folder – never overwrites |
 | `reprint log.json [--in FILE] [--dry-run] [--json]` | print a logged job again, exactly as logged (see *Print log*) |
+| `plan FILE … [--kind plan\|poster] [--material NAME] [--plt cut.plt] [--printer P] [--rolls 594,841,914] [--copies N] [--collate] [--by-roll] [--color gray] [--frame auto] [--margin 5] [--rotate auto] [--pages …] [--set k=v …] [--dry-run] [--json]` | plan printing on roll printers: print area, roll choice, run length per roll, print (see *Plan printing*) |
+| `rolls PRINTER [--host ADDRESS] [--json]` | the rolls loaded in a large-format printer (IPP, SNMP or entered by hand) |
+| `probe PRINTER\|ADDRESS [--host A] [--community C] [--out report.json] [--json]` | device check: open ports, all IPP attributes (incl. `media-col-database`), SNMP v2c/v1 (sysDescr, prtInputTable, prtMediaPathTable, vendor branch), resulting rolls and level `blind` · `status` · `catalog` – read only |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
@@ -249,6 +252,46 @@ reprint runs them again. A changed file is reported.
 With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
 and the paper is the target size.
 
+## Plan printing (`plan`)
+
+Job `plan` (workflow step `{"job": "plan", "settings": {…}}`, or `passermark-cli plan`) prints every page as a plan
+on a roll printer – the same as *Plan & Poster → Plan printing* in the program:
+
+- **Print area** (`frame`): `auto` – two outer lines: printing is limited to the outer one (it disappears, an exact
+  margin stays around the plan); otherwise the content plus `margin_mm` (5). `frame`, `margin`, `none` (page).
+- **Roll** (`rotate`): `auto` = the roll with the shortest length, rotation allowed (an A1 goes across the 841 roll),
+  equal length → the narrower roll; `keep`, `short`, `long`. Only rolls whose grammage is in `weights` (75, 80)
+  or unknown are used for plans.
+- **Rolls**: read from the device (IPP `media-col-ready`/`printer-input-tray`, otherwise SNMP Printer MIB), otherwise
+  the ones entered by hand in the program; `rolls` (`[594, 841]` or `[{"width_mm": 594, "slot": "Roll1"}]`)
+  overrides both.
+- **Order**: default uncollated (each plan with all copies, one job per plan); `collate` set by set; `"order":
+  "roll"` narrowest roll first.
+- Paper = custom size of the plan (`Custom.WxHmm`, width across the roll), feed = the roll's driver value.
+- Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
+  `bleed_color`), `crop_marks`, `fix_hairlines` (+ `hairline_mm`), `fold_marks` (DIN 824, simplified), `options`,
+  `profile`, `intent`, `dry_run`.
+- **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults): quality print, `nest` (side by side;
+  roll and orientation with the least paper = roll width × length; `gap_mm`, `max_page_m`), `overwidth` (`none` |
+  `crop` | `tile` with `overlap_mm`). In a workflow set `nest`/`overwidth` explicitly.
+- **Banners**: `hem_mm` + `hem_sides` (`lrtb`) – hem/pocket allowance outside the trim, replaces the bleed there;
+  grommet marks `grommet_spacing_mm` (0 = off), `grommet_inset_mm`, `grommet_d_mm`, `grommet_sides`.
+- **Print & cut**: `cut_contour` – rectangle in the spot colour `CutContour` (100 % magenta, overprint) around trim
+  + hem, as VersaWorks, CutStudio and others expect; `printcut_marks` – corner marks if the cutting software adds
+  none. `--plt FILE` additionally writes an HP-GL/CAMM-GL cut file of one set.
+- **Material** (`material`: name or ID): print materials per user, category `plan` | `quality`, grammage (selects
+  the roll), the driver's media type, quality and ink amount, colour profile, max. ink coverage (guide value).
+- **Output folders**: printer `"folder:NAME"` writes every print page as PDF into a hot folder set up in the program
+  (e.g. VersaWorks for Roland); copies = the page repeated, file name `…_<n>x.pdf`.
+- **Roland cutters**: for devices whose name/model says Roland, the loaded width is read with `IN;OH;` on port 9100
+  (never sent to other printers).
+
+Output (`--json`, event `done`; also the step's `info`): `lengths` [{`roll`, `width_mm`, `plans`, `single_m`,
+`total_m`, `short`}], `single_m`, `total_m`, `plans` [{`plan`, `page`, `qty`, `area`, `size_mm`, `roll_mm`,
+`rotated`, `length_mm`, `hairlines`}], `jobs`, `unfit`, `rolls`, `roll_origin`, `notes`. Run length counts the plan
+sizes only (no gaps, no lead-in). The print log has `kind: "plan"`, `roll_mm`, `length_mm`, `run_m` per job and the
+CSV the columns `roll_mm`, `run_m` – the counter for cost calculation.
+
 ## Drop folders (`serve`)
 
 `passermark-cli serve` watches folders: every file dropped into a folder runs through the workflow assigned to it.
@@ -325,6 +368,9 @@ passermark-cli serve --check                        # Drop-Ordner prüfen (watch
 passermark-cli serve                                # Drop-Ordner überwachen (--once: einmal durch)
 passermark-cli serve --init                         # Vorlage watch.json (überschreibt nie)
 passermark-cli reprint protokoll.json               # Auftrag aus dem Druckprotokoll genauso nochmal
+passermark-cli plan mappe.pdf --copies 3 --dry-run  # Plandruck: Rollen, Laufmeter (ohne --dry-run: drucken)
+passermark-cli rolls ColorWave                      # geladene Rollen eines Plotters
+passermark-cli probe ColorWave --out bericht.json    # Gerät prüfen: was meldet es über IPP/SNMP (nur lesend)
 passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abweichungen vom Standard kürzen
 ```
 
@@ -341,6 +387,14 @@ Schreibrecht über die Ordnerrechte), dann für alle unter `/etc/passermark/work
 Bedingungen im Ablauf: `"if"` an einem Schritt, `{"choose": [{"if": …, "steps": […]}, {"else": […]}]}`,
 Schritte `fail` (abbrechen mit Meldung, Fehlercode `rejected`) und `stop` (vorzeitig fertig). Prüfwerte und
 Vergleiche wie oben unter *Conditions*.
+
+Plandruck: Schritt `{"job": "plan", "settings": {…}}` bzw. `passermark-cli plan` – zwei Außenlinien: bis zur
+äußeren drucken, sonst Inhalt + 5 mm; Rolle mit der kürzesten Länge (Drehen erlaubt), nur Rollen mit Planpapier
+(`weights`, Standard 75/80 g); unsortiert als Standard (`collate`, `"order": "roll"`). Laufmeter nur aus den
+Plangrößen; im Druckprotokoll je Auftrag `roll_mm`, `run_m`. Einstellungen wie oben unter *Plan printing*.
+Poster (`--kind poster`): Qualitätsdruck, nebeneinander mit dem wenigsten Papier, Überbreite abschneiden oder in
+Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für eine
+Schneidedatei, `material` aus den Druckmaterialien, Ausgabe in einen Hotfolder mit `"printer": "folder:NAME"`.
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
 `passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.

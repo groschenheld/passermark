@@ -2121,7 +2121,7 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     # ---------------- Arbeitsbereiche ---------------- #
-    WORKSPACES = ("view", "prep", "edit", "vdp", "auto")
+    WORKSPACES = ("view", "prep", "edit", "vdp", "plot", "auto")
 
     def _build_workspaces(self, pages_dock):
         """Second bar: choose the work area; the tools of that area to its right."""
@@ -2145,6 +2145,8 @@ class MainWindow(QMainWindow):
                  "vdp": [(self.a_vdp, tr("Variable Daten")), (self.a_data, tr("Daten erfassen")),
                          (self.a_examples, tr("Beispiele")),
                          (self.a_vdp_howto, tr("Anleitung"))],
+                 "plot": [(self.a_plan, tr("Plandruck")), (self.a_poster, tr("Posterdruck")),
+                          (self.a_rolls, tr("Rollen"))],
                  "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))]}
         self.addToolBarBreak()
         tb = self.ws_bar = self.addToolBar(tr("Arbeitsbereich"))
@@ -2155,7 +2157,7 @@ class MainWindow(QMainWindow):
         grp.setExclusive(True)
         self.ws_actions = {}
         names = {"view": tr("Anzeigen & Drucken"), "prep": tr("Druckaufbereitung"), "edit": tr("Bearbeiten"),
-                 "vdp": tr("Variable Daten"), "auto": tr("Automatisierung")}
+                 "vdp": tr("Variable Daten"), "plot": tr("Plan & Poster"), "auto": tr("Automatisierung")}
         for key in self.WORKSPACES:
             a = QAction(names[key], self)
             a.setCheckable(True)
@@ -2741,6 +2743,18 @@ class MainWindow(QMainWindow):
         m.addAction(A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None))
         m.addSeparator()
         m.addAction(A(tr("Farbmanagement kurz erklärt"), self._color_help, None, "info"))
+        m = mb.addMenu(tr("Pla&n && Poster"))
+        self.a_plan = A(tr("Plandruck (Rollen, Laufmeter) …"), lambda: self.plan_dialog("plan"), "Ctrl+Alt+P", "plan")
+        self.a_plan.setToolTip(tr("Pläne auf Rollendrucker: Außenlinien, Rollenwahl, Laufmeter, Reihenfolge"))
+        self.a_rolls = A(tr("Rollen der Drucker …"), self.rolls_dialog, None, "roll")
+        self.a_rolls.setToolTip(tr("Geladene Rollen vom Gerät lesen oder von Hand eintragen"))
+        self.a_poster = A(tr("Posterdruck (Qualität, nebeneinander, Banner) …"), lambda: self.plan_dialog("poster"),
+                          None, "print")
+        self.a_poster.setToolTip(tr("Poster und Banner auf Rollen: nebeneinander, Überbreite, Saum, Ösen, Print & Cut"))
+        m.addAction(self.a_plan)
+        m.addAction(self.a_poster)
+        m.addSeparator()
+        m.addAction(self.a_rolls)
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
         self.a_single.setCheckable(True)
@@ -3803,6 +3817,33 @@ class MainWindow(QMainWindow):
         from .printdialog import PrintDialog
         PrintDialog(self, self.doc, self.display_name, self.view.current, self.session,
                     src_path=getattr(self.view, "_src_path", None), pinfo=getattr(self.view, "_pinfo", None)).exec()
+
+    def plan_dialog(self, kind: str = "plan"):
+        """Plan & Poster → Plandruck/Posterdruck: das offene Dokument (jede Seite ein Stück) plus weitere Dateien."""
+        from .plandialog import PlanDialog
+        dlg = PlanDialog(self, self.session, self.ctl, self.doc, self.path or "", self.display_name or "", kind)
+        dlg.printed.connect(lambda msg: self.statusBar().showMessage(msg, 10000))
+        dlg.exec()
+
+    def rolls_dialog(self):
+        from .plandialog import RollsDialog
+        from .. import printjob, printers as _pr
+        try:
+            names = [p.name for p in _pr.list_printers() if p.name != _pr.PDF_TARGET]
+        except Exception:
+            names = []
+        if not names:
+            QMessageBox.information(self, tr("Rollen"), tr("Kein Drucker eingerichtet."))
+            return
+        cur = printjob.default_printer(self.session)
+        if len(names) > 1:
+            name, ok = QInputDialog.getItem(self, tr("Rollen"), tr("Drucker:"), names,
+                                            names.index(cur) if cur in names else 0, False)
+            if not ok:
+                return
+        else:
+            name = names[0]
+        RollsDialog(self, self.session, name).exec()
 
     def admin_dialog(self):
         from .admindialog import AdminDialog
