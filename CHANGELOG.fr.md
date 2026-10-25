@@ -5,6 +5,19 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.1
+
+### Message pendant la lecture des rouleaux
+- Le message se trouve maintenant sur sa propre ligne sous la barre d'imprimante – plus entre le choix de l'imprimante et les boutons.
+- Il fait au plus 3 lignes de haut, au-delà ça défile ; sélectionner le texte et le copier avec Ctrl+C fonctionne.
+- Le message de la fenêtre « Rouleaux … » (jusqu'à 5 lignes, résultat de « vérifier l'appareil » inclus) et les avertissements sous « mètres linéaires par rouleau » (jusqu'à 4 lignes) fonctionnent désormais de la même façon.
+
+### Responsive
+- Les noms longs de rouleaux, matières et imprimantes n'élargissent plus les listes de sélection : ils sont raccourcis, et dépliés on voit le texte entier.
+- Quand la place manque, un champ des réglages passe sous son étiquette au lieu de chevaucher son voisin.
+- La colonne de droite avec les mètres linéaires et les réglages défile ; la ligne de séparation entre la liste des plans et les réglages se déplace, aucun côté ne se referme complètement.
+- La fenêtre se réduit jusqu'à 640 × 420.
+
 ## 1.18.0
 
 ### Espace de travail « Plan & Poster »

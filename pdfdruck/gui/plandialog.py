@@ -17,8 +17,9 @@ import os
 from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDialog,
-                               QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QSpinBox, QSplitter,
+                               QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGroupBox, QHBoxLayout,
+                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
+                               QScrollArea, QSizePolicy, QSpinBox, QSplitter,
                                QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import planprint as pp
@@ -59,6 +60,60 @@ def fill_combo(combo: QComboBox, choices, current):
     i = combo.findData(current)
     combo.setCurrentIndex(i if i >= 0 else 0)
     combo.blockSignals(False)
+
+
+class MsgBox(QPlainTextEdit):
+    """Meldung zum Lesen, Markieren und Kopieren: wächst bis lines Zeilen, dann scrollbar – verschiebt nichts."""
+
+    def __init__(self, lines: int = 3, color: str = "", parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse
+                                     | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setStyleSheet("QPlainTextEdit { background: transparent; %s }" % (f"color: {color};" if color else ""))
+        self._lines = max(1, lines)
+        self.document().contentsChanged.connect(self._fit)
+        self._fit()
+
+    def setText(self, text: str):
+        self.setPlainText(text or "")
+        self.setVisible(bool(text))
+        QTimer.singleShot(0, self._fit)              # Zeilenzahl steht erst nach dem Umbruch fest
+
+    def text(self) -> str:
+        return self.toPlainText()
+
+    def _fit(self):
+        fm = self.fontMetrics()
+        rows = max(1, min(self._lines, int(self.document().size().height()) or 1))
+        m = self.contentsMargins()
+        self.setFixedHeight(rows * fm.lineSpacing() + 2 * int(self.document().documentMargin()) + m.top() + m.bottom())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit()
+
+
+def make_responsive(w: QWidget):
+    """Lange Einträge (Rollen, Materialien, Meldungen) dürfen das Fenster nicht breiter machen bzw. die
+        Einstellungen ineinanderschieben: Auswahllisten kürzen, Formulare umbrechen."""
+    for c in w.findChildren(QComboBox):
+        c.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        c.setMinimumContentsLength(8)
+        c.view().setTextElideMode(Qt.TextElideMode.ElideNone)
+        c.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    for f in w.findChildren(QFormLayout):
+        f.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        f.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    for lb in w.findChildren(QLabel):
+        if lb.wordWrap():
+            lb.setMinimumWidth(0)
+            lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
 
 
 def _start_query(host: str, receiver, tag: str = "", fn=None):
@@ -157,8 +212,7 @@ class RollsDialog(QDialog):
         self.btn_probe.clicked.connect(self._probe)
         row.addWidget(self.btn_probe)
         v.addLayout(row)
-        self.lbl_dev = QLabel()
-        self.lbl_dev.setWordWrap(True)
+        self.lbl_dev = MsgBox(5)
         v.addWidget(self.lbl_dev)
         self.tbl = QTableWidget(0, 5)
         self.tbl.setHorizontalHeaderLabels([tr("Breite (mm)"), tr("Zufuhr im Treiber"), tr("g/m²"), tr("Name"),
@@ -187,6 +241,7 @@ class RollsDialog(QDialog):
         self.live = []
         for r in rl.manual(printer):
             self._add(r)
+        make_responsive(self)
         self.resize(720, 420)
         if not self.ed_host.text():
             self.lbl_dev.setText(tr("Adresse nicht ermittelbar – bitte die IP-Adresse des Geräts eintragen."))
@@ -605,12 +660,10 @@ class PlanDialog(QDialog):
         top = QHBoxLayout()
         top.addWidget(QLabel(tr("Drucker:")))
         self.cmb_printer = QComboBox()
-        self.cmb_printer.setMinimumWidth(220)
+        self.cmb_printer.setMinimumWidth(160)
         top.addWidget(self.cmb_printer)
-        self.lbl_rolls = QLabel()
-        self.lbl_rolls.setWordWrap(True)
-        self.lbl_rolls.setStyleSheet(f"color: {theme.MUTED};")
-        top.addWidget(self.lbl_rolls, 1)
+        top.addStretch(1)
+        self.lbl_rolls = MsgBox(3, theme.MUTED)
         self.btn_reload = QPushButton(tr("Rollen neu lesen"))
         self.btn_reload.clicked.connect(lambda: self._load_rolls(force=True))
         top.addWidget(self.btn_reload)
@@ -623,6 +676,7 @@ class PlanDialog(QDialog):
         b.clicked.connect(self._edit_folders)
         top.addWidget(b)
         v.addLayout(top)
+        v.addWidget(self.lbl_rolls)
 
         split = QSplitter(Qt.Orientation.Horizontal)
         v.addWidget(split, 1)
@@ -678,9 +732,7 @@ class PlanDialog(QDialog):
         self.lbl_len.setTextFormat(Qt.TextFormat.RichText)
         self.lbl_len.setWordWrap(True)
         gv.addWidget(self.lbl_len)
-        self.lbl_warn = QLabel()
-        self.lbl_warn.setWordWrap(True)
-        self.lbl_warn.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_warn = MsgBox(4, theme.ACCENT)
         gv.addWidget(self.lbl_warn)
         rv.addWidget(g)
 
@@ -864,13 +916,22 @@ class PlanDialog(QDialog):
         fb.addRow("", self.chk_pcm)
         rv.addWidget(g)
         rv.addStretch(1)
-        split.addWidget(right)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setWidget(right)
+        right.setMinimumWidth(320)
+        split.addWidget(scroll)
+        split.setChildrenCollapsible(False)
+        left.setMinimumWidth(280)
         split.setStretchFactor(0, 3)
         split.setStretchFactor(1, 2)
 
         # ---- unten ----
         bot = QHBoxLayout()
         self.lbl_state = QLabel()
+        self.lbl_state.setWordWrap(True)
         self.lbl_state.setStyleSheet(f"color: {theme.MUTED};")
         bot.addWidget(self.lbl_state, 1)
         self.btn_pdf = QPushButton(icon("save"), tr("Als PDF speichern …"))
@@ -907,6 +968,8 @@ class PlanDialog(QDialog):
         self.spn_margin.valueChanged.connect(self._redetect)
         self.spn_scale.valueChanged.connect(self._redetect_hairlines)
 
+        make_responsive(self)
+        self.setMinimumSize(640, 420)
         self._fill_printers()
         self.cmb_printer.currentIndexChanged.connect(self._printer_changed)
         self._printer_changed()

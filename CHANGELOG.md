@@ -2,6 +2,19 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.1
+
+### Message while reading rolls
+- The message now sits in its own line under the printer bar – no longer between the printer selection and the buttons.
+- It grows to at most 3 lines, anything beyond scrolls; selecting text and copying it with Ctrl+C works.
+- The message in the “Rolls …” window (up to 5 lines, including the “check device” result) and the warnings under “running metres per roll” (up to 4 lines) now behave the same way.
+
+### Responsive
+- Long roll, material and printer names no longer widen the selection lists: they are shortened, and opened up you see the full text.
+- In tight spaces a field in the settings slips under its label instead of overlapping its neighbour.
+- The right column with running metres and settings scrolls; the divider between the plan list and the settings can be dragged, and neither side collapses completely.
+- The window can be shrunk down to 640 × 420.
+
 ## 1.18.0
 
 ### Plan & Poster workspace

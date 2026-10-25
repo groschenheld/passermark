@@ -2,6 +2,19 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.1
+
+### Meldung beim Rollen-Lesen
+- Die Meldung steht jetzt in einer eigenen Zeile unter der Druckerleiste – nicht mehr zwischen Druckerauswahl und Knöpfen.
+- Sie wird höchstens 3 Zeilen hoch, alles darüber ist scrollbar; Text markieren und mit Strg+C kopieren geht.
+- Genauso funktionieren jetzt die Meldung im Fenster „Rollen …“ (bis 5 Zeilen, auch das Ergebnis von „Gerät prüfen“) und die Warnungen unter „Laufmeter je Rolle“ (bis 4 Zeilen).
+
+### Responsive
+- Lange Rollen-, Material- und Druckernamen machen die Auswahllisten nicht mehr breiter: Sie werden gekürzt, aufgeklappt sieht man den ganzen Text.
+- Bei wenig Platz rutscht ein Feld in den Einstellungen unter seine Beschriftung, statt sich mit dem Nachbarn zu überlappen.
+- Die rechte Spalte mit Laufmetern und Einstellungen ist scrollbar; die Trennlinie zwischen Planliste und Einstellungen lässt sich verschieben, keine Seite klappt dabei ganz zu.
+- Das Fenster lässt sich bis 640 × 420 verkleinern.
+
 ## 1.18.0
 
 ### Arbeitsbereich „Plan & Poster“

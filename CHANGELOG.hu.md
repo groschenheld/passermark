@@ -5,6 +5,19 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.1
+
+### Üzenet a tekercsek olvasásakor
+- Az üzenet most saját sorban áll a nyomtatósáv alatt – nem a nyomtatóválasztás és a gombok között.
+- Legfeljebb 3 sor magas, ami fölötte van, görgethető; a szöveg kijelölhető, Ctrl+C-vel másolható.
+- Ugyanígy működik most a „Tekercsek …” ablak üzenete (5 sorig, az „Eszköz ellenőrzése” eredményével együtt) és a figyelmeztetések a „Folyóméter tekercsenként” alatt (4 sorig).
+
+### Reszponzív
+- A hosszú tekercs-, anyag- és nyomtatónevek nem szélesítik tovább a listákat: rövidítve jelennek meg, kinyitva a teljes szöveg látszik.
+- Szűk helyen a beállítások egyik mezője a címkéje alá csúszik, ahelyett hogy átfedné a szomszédját.
+- A folyómétereket és beállításokat tartalmazó jobb oszlop görgethető; a tervlista és a beállítások közötti elválasztó elmozdítható, egyik oldal sem csukódik össze teljesen.
+- Az ablak 640 × 420-ig kicsinyíthető.
+
 ## 1.18.0
 
 ### „Plan & Poster” munkaterület

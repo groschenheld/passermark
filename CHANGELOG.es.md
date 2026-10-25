@@ -5,6 +5,19 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.1
+
+### Mensaje al leer los rollos
+- El mensaje ahora está en su propia línea bajo la barra de impresora – ya no entre la selección de impresora y los botones.
+- Crece como máximo hasta 3 líneas, lo que sobra se desplaza; seleccionar texto y copiarlo con Ctrl+C funciona.
+- El mensaje de la ventana «Rollos …» (hasta 5 líneas, también el resultado de «comprobar aparato») y los avisos bajo «metros lineales por rollo» (hasta 4 líneas) funcionan ahora igual.
+
+### Responsive
+- Los nombres largos de rollos, materiales e impresoras ya no ensanchan las listas: se acortan, y desplegado se ve el texto completo.
+- Con poco espacio, un campo de los ajustes se coloca bajo su etiqueta en lugar de solaparse con su vecino.
+- La columna derecha con los metros lineales y los ajustes se desplaza; la línea de separación entre la lista de planos y los ajustes se puede mover, ningún lado se cierra del todo.
+- La ventana se puede reducir hasta 640 × 420.
+
 ## 1.18.0
 
 ### Espacio de trabajo «Plan & Poster»
