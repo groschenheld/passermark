@@ -11,6 +11,9 @@ from user paths), validates everything, writes atomically.
   passermark-admin import-icc    <icc-file> <id>
   passermark-admin remove-icc    <id>
   passermark-admin set-queue-option <printer> <key> <value>   (e.g. finisher/cassettes)
+  passermark-admin shared-folder [<user> …]   shared print folder /srv/passermark for all Passermark programs:
+     group passermark, hotfolder/ausgabe/archiv, root:passermark 2775 + default ACL, users into the group
+     (without users: the calling user via pkexec/sudo). Idempotent.
   passermark-admin apply <bundle.json>   (everything in one call = one password prompt)
      {"import_icc": [{"src": "...", "id": "..."}], "remove_icc": ["id"],
       "queue_options": [["printer", "key", "value"]], "config": {...}}
@@ -33,6 +36,11 @@ RX_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RX_QUEUE = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
 RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
+RX_USER = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}\$?$")
+
+SHARED = "/srv/passermark"            # gemeinsamer Druckordner (Regel für alle Passermark-Programme)
+SHARED_SUBS = ("hotfolder", "ausgabe", "archiv")
+SHARED_GROUP = "passermark"
 
 LIB = "/usr/local/lib/passermark"     # root-owned program directory (install.sh) – safe to import from
 
@@ -143,6 +151,84 @@ def cmd_apply(src):
         atomic_write(DEFAULTS, json.dumps(b["config"], indent=2, ensure_ascii=False).encode("utf-8"))
 
 
+def _tool(name):
+    for d in ("/usr/sbin", "/usr/bin", "/sbin", "/bin"):
+        p = os.path.join(d, name)
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    return None
+
+
+def _caller():
+    """Benutzer, der den Helfer aufgerufen hat (pkexec bzw. sudo) – nicht root."""
+    import pwd
+    for env in ("PKEXEC_UID", "SUDO_UID"):
+        v = os.environ.get(env, "")
+        if v.isdigit() and int(v) != 0:
+            try:
+                return pwd.getpwuid(int(v)).pw_name
+            except KeyError:
+                pass
+    v = os.environ.get("SUDO_USER", "")
+    return v if v and v != "root" else ""
+
+
+def cmd_shared_folder(users):
+    """Gemeinsamen Druckordner einrichten – legt nur an, was fehlt, und setzt Gruppe/Rechte der vier Ordner."""
+    import grp
+    import pwd
+    users = [u for u in (users or [_caller()]) if u]
+    for u in users:
+        if not RX_USER.match(u):
+            die(f"Ungültiger Benutzername: {u}")
+    done = []
+    try:
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    except KeyError:
+        ga = _tool("groupadd") or die("groupadd nicht gefunden")
+        r = subprocess.run([ga, "--system", SHARED_GROUP], capture_output=True, text=True)
+        if r.returncode != 0:
+            die(r.stderr or "groupadd fehlgeschlagen")
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+        done.append(f"Gruppe {SHARED_GROUP} angelegt")
+    for d in (SHARED,) + tuple(os.path.join(SHARED, x) for x in SHARED_SUBS):
+        if os.path.islink(d):
+            die(f"{d} ist ein symbolischer Link – aus Sicherheitsgründen nicht verändert")
+        if not os.path.isdir(d):
+            if os.path.exists(d):
+                die(f"{d} ist kein Ordner")
+            os.mkdir(d, 0o2775)
+            done.append(f"{d} angelegt")
+        st = os.lstat(d)
+        if st.st_uid != 0 or st.st_gid != gid:
+            os.chown(d, 0, gid)
+        if (st.st_mode & 0o7777) != 0o2775:
+            os.chmod(d, 0o2775)
+    sf = _tool("setfacl")
+    if sf:
+        r = subprocess.run([sf, "-R", "-m", f"g:{SHARED_GROUP}:rwX", "-d", "-m", f"g:{SHARED_GROUP}:rwX", SHARED],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            done.append("Hinweis: Standard-ACL nicht gesetzt (" + (r.stderr.strip() or "setfacl") + ")")
+    else:
+        done.append("Hinweis: setfacl fehlt (Paket acl) – nur Gruppe/setgid, keine Standard-ACL")
+    um = _tool("usermod") or die("usermod nicht gefunden")
+    for u in users:
+        try:
+            pw = pwd.getpwnam(u)
+        except KeyError:
+            done.append(f"Benutzer {u} gibt es nicht – übersprungen")
+            continue
+        members = set(grp.getgrgid(gid).gr_mem)
+        if pw.pw_gid == gid or u in members:
+            continue
+        r = subprocess.run([um, "-aG", SHARED_GROUP, u], capture_output=True, text=True)
+        if r.returncode != 0:
+            die(r.stderr or "usermod fehlgeschlagen")
+        done.append(f"{u} in die Gruppe {SHARED_GROUP} aufgenommen – neu anmelden bzw. Dienst neu starten")
+    print("\n".join(done) if done else f"{SHARED} ist schon eingerichtet")
+
+
 def main():
     if os.geteuid() != 0:
         die("Muss als root laufen (pkexec).")
@@ -158,6 +244,8 @@ def main():
         cmd_apply(a[1])
     elif len(a) == 4 and a[0] == "set-queue-option":
         cmd_set_queue_option(a[1], a[2], a[3])
+    elif len(a) >= 1 and a[0] == "shared-folder":
+        cmd_shared_folder(a[1:])
     else:
         die(__doc__)
 

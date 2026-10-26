@@ -588,6 +588,9 @@ class FoldersDialog(QDialog):
         self.tbl.setHorizontalHeaderLabels([tr("Name"), tr("Ordner")])
         self.tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         v.addWidget(self.tbl, 1)
+        self.lbl_home = MsgBox(3, theme.ACCENT)
+        v.addWidget(self.lbl_home)
+        self.tbl.itemChanged.connect(lambda *_: self._check_home())
         row = QHBoxLayout()
         b = QPushButton(icon("insert"), tr("Ordner hinzufügen …"))
         b.clicked.connect(self._add_dir)
@@ -604,7 +607,14 @@ class FoldersDialog(QDialog):
         v.addWidget(bb)
         for e in pp.hotfolders():
             self._row(e["name"], e["dir"])
+        self._check_home()
         self.resize(640, 320)
+
+    def _check_home(self):
+        from .. import shared
+        bad = [self.tbl.item(i, 1).text() for i in range(self.tbl.rowCount())
+               if self.tbl.item(i, 1) and shared.in_home(self.tbl.item(i, 1).text())]
+        self.lbl_home.setText(shared.home_hint() if bad else "")
 
     def _row(self, name, d):
         n = self.tbl.rowCount()
@@ -613,7 +623,8 @@ class FoldersDialog(QDialog):
         self.tbl.setItem(n, 1, QTableWidgetItem(d))
 
     def _add_dir(self):
-        d = QFileDialog.getExistingDirectory(self, tr("Ausgabe-Ordner wählen"), os.path.expanduser("~"))
+        from .. import shared
+        d = QFileDialog.getExistingDirectory(self, tr("Ausgabe-Ordner wählen"), shared.hotfolder_dir())
         if d:
             self._row(os.path.basename(d.rstrip("/\\")) or d, d)
 

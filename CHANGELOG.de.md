@@ -2,6 +2,18 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.4
+
+### Gemeinsamer Druckordner
+- Eine einzige Umsetzung im Root-Helfer (`passermark-admin shared-folder`): Sie legt Gruppe und Ordner an, setzt `root:passermark` mit 2775 und der Standard-ACL und nimmt die Benutzer in die Gruppe auf. Symbolische Links werden aus Sicherheitsgründen abgelehnt.
+- Die Einrichtung läuft über drei Wege: install.sh (zusätzlich das Paket `acl`, der installierende Benutzer und der Dienstbenutzer `passermark`), Verwaltung → Allgemein → „Gemeinsamen Druckordner einrichten …“ (Passwortabfrage, mit Statusanzeige, funktioniert auch im AppImage) und `passermark-cli shared-folder [--user NAME] [--status]`.
+- Ohne `acl` bekommt eine Datei, die ein anderes Programm mit strenger umask anlegt, zwar die Gruppe, ist für sie aber nicht beschreibbar – deshalb steht `acl` jetzt in install.sh.
+- Das Windows-Setup legt die drei Unterordner (`hotfolder`, `ausgabe`, `archiv`) mit Ändern-Recht für die Benutzer an; den Rest von ProgramData lässt es den Administratoren – dort liegen die Admin-Vorgaben, Farbprofile und Abläufe.
+- Der Watcher-Dienst läuft mit `UMask=0007`; `serve --init --system` legt den Beispiel-Ordner unter `/srv/passermark/hotfolder/beispiel` an.
+- `serve --check` und die Ausgabe-Ordner im Plandruck melden Ordner unter `/home`; die Ordnerwahl startet im gemeinsamen Hotfolder.
+- Die Anleitung (docs/cli-api.md) hat einen eigenen Abschnitt dazu.
+- Bewusst nicht drin: Beim ersten Start des AppImage fragt Passermark nicht von selbst nach dem Ordner – das wäre auf jedem Arbeitsplatz-PC lästig. Die Einrichtung geht über den Knopf in der Verwaltung.
+
 ## 1.18.3
 
 ### Druckprotokoll: gesendete Seiten (out_pages)

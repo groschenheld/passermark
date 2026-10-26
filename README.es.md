@@ -1,4 +1,4 @@
-# Passermark 1.18.3
+# Passermark 1.18.4
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -64,6 +64,7 @@ Software libre (GPL-3.0-or-later).
   línea de comandos.
 - **Registro de impresión:** por usuario en los ajustes, o impuesto por el administrador – un JSON por trabajo con los ajustes exactos y las páginas enviadas por ejemplar (`out_pages`), además de un `printlog.csv`; `passermark-cli reprint <log.json>` reimprime un trabajo en cualquier momento (con aviso si el original ha cambiado).
 - **Automatización:** flujos paso a paso con condiciones («if» en cada paso, bifurcaciones «choose»/«else», «fail»/«stop» con mensaje); `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado – `serve --init` crea una plantilla con un ejemplo.
+- **Carpeta de impresión compartida:** una carpeta vigilada para todos – se configura con un botón en la administración («Configurar carpeta de impresión compartida …»), con install.sh o con `passermark-cli shared-folder`; un único asistente root crea el grupo y la carpeta (root:passermark, 2775, ACL predeterminada, los usuarios entran en el grupo, los enlaces simbólicos se rechazan); en Windows, las tres subcarpetas `hotfolder`, `ausgabe` y `archiv` reciben derecho de Modificar para los usuarios – el resto de ProgramData queda reservado a los administradores.
 - **Softproof:** simular el resultado de impresión en la vista (Ctrl+Y) – como condición de impresión, un material, un perfil de la administración o un perfil CMYK del sistema, con intención de renderizado (intent) y BPC; simular el color del papel y la tinta negra de impresión, avisos para los colores fuera del intervalo imprimible y para la cobertura de tinta por encima de un límite en %.
 - **Materiales:** registrar papeles (gramaje, superficie, intención de renderizado, perfil por impresora); blanco de papel medido con ArgyllCMS (spotread), desde un archivo de medición CGATS o a mano; sugerencias de perfiles ordenadas por ΔE2000. Los materiales ajustan perfil e intención en el diálogo de impresión y en la conversión CMYK; la vista previa de color toma el blanco de papel medido.
 - **Comprobación de color:** en el nuevo menú Color (Ctrl+Mayús+F) – una barra lateral como el preflight: elegir la condición de impresión, Passermark muestra lo que contiene el documento (RGB, cobertura de tinta, colores directos, output intent) y hallazgos en texto claro, cada uno con su botón para corregirlos; los hallazgos son clicables.
@@ -114,7 +115,7 @@ Códigos de retorno: 0 terminado, 1 error, 2 indicación incorrecta, 130 cancela
 el progreso y el resultado como líneas JSON. Las tareas grandes usan varios núcleos; limitar con la variable
 de entorno `PASSERMARK_WORKERS` (1 = sin paralelismo).
 
-`passermark-cli serve` vigila carpetas de entrada (`--init` crea una plantilla con un ejemplo); `passermark-cli reprint <log.json>` reimprime un trabajo desde el registro de impresión.
+`passermark-cli serve` vigila carpetas de entrada (`--init` crea una plantilla con un ejemplo); `passermark-cli shared-folder` configura la carpeta de impresión compartida (`--user NAME`, `--status`); `passermark-cli reprint <log.json>` reimprime un trabajo desde el registro de impresión.
 
 Dónde: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` en la carpeta de instalación (opción de instalación: añadirlo al PATH).

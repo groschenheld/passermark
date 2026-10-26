@@ -2,6 +2,18 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.4
+
+### Shared print folder
+- One implementation in the root helper (`passermark-admin shared-folder`): it creates the group and the folder, sets `root:passermark` with 2775 and the default ACL, and adds the users to the group. Symbolic links are rejected for security reasons.
+- Set-up runs through three routes: install.sh (adds the `acl` package, the installing user and the service user `passermark`), Administration → General → “Set up shared print folder …” (password prompt, with a status display, works in the AppImage too), and `passermark-cli shared-folder [--user NAME] [--status]`.
+- Without `acl`, a file another program creates with a strict umask does get the group but is not writable for it — which is why `acl` is now in install.sh.
+- The Windows setup creates the three subfolders (`hotfolder`, `ausgabe`, `archiv`) with Modify permission for users; the rest of ProgramData it leaves to the administrators — the admin presets, colour profiles and workflows live there.
+- The watcher service runs with `UMask=0007`; `serve --init --system` creates the example folder under `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` and the output folders in plan printing report folders under `/home`; the folder picker starts in the shared hotfolder.
+- The manual (docs/cli-api.md) has a section of its own on this.
+- Deliberately not included: on first AppImage start Passermark does not ask for the folder itself — that would be a nuisance on every workstation. Set-up goes through the button in the administration.
+
 ## 1.18.3
 
 ### Print log: pages sent (out_pages)

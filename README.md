@@ -1,4 +1,4 @@
-# Passermark 1.18.3
+# Passermark 1.18.4
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -53,6 +53,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
 - **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings and the pages sent per copy (`out_pages`), plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
 - **Automation:** step-by-step workflows with conditions ("if" on every step, "choose"/"else" branches, "fail"/"stop" with a message); `passermark-cli serve` watches folders and sends every file through the assigned workflow – `serve --init` sets up a template with an example.
+- **Shared print folder:** one hotfolder for everyone – set up through a button in the administration (“Set up shared print folder …”), through install.sh or through `passermark-cli shared-folder`; a single root helper creates the group and the folder (root:passermark, 2775, default ACL, the users join the group, symbolic links are rejected); under Windows the three subfolders `hotfolder`, `ausgabe` and `archiv` get Modify permission for the users – the rest of ProgramData stays reserved for the administrators.
 - **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
 - **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.
 - **Colour check:** in the new Colour menu (Ctrl+Shift+F) – a side panel like the preflight: pick the print condition, Passermark shows what is in the document (RGB, ink coverage, spot colours, output intent) and plain-text findings, each with a button to fix it; findings are clickable.
@@ -101,7 +102,7 @@ plus `beispiele` (examples), `datenarten`, `datenvorlage`, `datencheck` (data ta
 2 wrong usage, 130 cancelled. `--json-progress` prints progress and result as JSON lines. Large jobs use several CPU cores;
 limit with the environment variable `PASSERMARK_WORKERS` (1 = no parallel processing).
 
-`passermark-cli serve` watches drop folders (`--init` creates a template with an example); `passermark-cli reprint <log.json>` reprints a job from the print log.
+`passermark-cli serve` watches drop folders (`--init` creates a template with an example); `passermark-cli shared-folder` sets up the shared print folder (`--user NAME`, `--status`); `passermark-cli reprint <log.json>` reprints a job from the print log.
 
 Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` in the installation folder (setup option: add it to PATH).

@@ -34,6 +34,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `plan FILE … [--kind plan\|poster] [--material NAME] [--plt cut.plt] [--printer P] [--rolls 594,841,914] [--roll ROLL] [--align center\|left\|right] [--copies N] [--collate] [--no-split] [--by-roll] [--color gray] [--frame auto] [--margin 5] [--rotate auto] [--pages …] [--set k=v …] [--dry-run] [--json]` | plan printing on roll printers: print area, roll choice, run length per roll, print (see *Plan printing*) |
 | `rolls PRINTER [--host ADDRESS] [--json]` | the rolls loaded in a large-format printer (IPP, SNMP or entered by hand) |
 | `probe PRINTER\|ADDRESS [--host A] [--community C] [--out report.json] [--json]` | device check: open ports, all IPP attributes (incl. `media-col-database`), SNMP v2c/v1 (sysDescr, prtInputTable, prtMediaPathTable, vendor branch), resulting rolls and level `blind` · `status` · `catalog` – read only |
+| `shared-folder [--user NAME …] [--status] [--json]` | shared print folder for Passermark and its add-on programs (see *Shared print folder*); sets up via the root helper (pkexec), `--status` only reads |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
@@ -248,9 +249,7 @@ Each log holds time, user, computer, source (`dialog`, `cli`, `watch`, `rightcli
 printer, paper, tray, every driver option, the exact options sent, page handling, colour profile, copies, job id and
 the result – plus a ready workflow that prints the job again exactly like this: `passermark-cli reprint log.json`
 (`--dry-run`, `--in other.pdf`). A print inside a workflow logs the original input and the steps before it; the
-reprint runs them again. A changed file is reported. Since 1.18.3 `out_pages` holds the pages of the file actually
-sent per copy (after n-up, booklet, step & repeat) – together with the duplex option and `copies` this gives the
-sheets used.
+reprint runs them again. A changed file is reported.
 
 With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
 and the paper is the target size.
@@ -323,6 +322,23 @@ Output (`--json`, event `done`; also the step's `info`): `lengths` [{`roll`, `wi
 `rotated`, `length_mm`, `hairlines`}], `jobs`, `unfit`, `rolls`, `roll_origin`, `notes`. Run length counts the plan
 sizes only (no gaps, no lead-in). The print log has `kind: "plan"`, `roll_mm`, `length_mm`, `run_m` per job and the
 CSV the columns `roll_mm`, `run_m` – the counter for cost calculation.
+
+## Shared print folder
+
+One folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …), outside the home
+directories – services run as their own users without special rights and may not write into `/home/…`.
+
+- **Linux**: `/srv/passermark/{hotfolder,ausgabe,archiv}`, group `passermark`, owner `root:passermark`, mode `2775`
+  (setgid) and the default ACL `g:passermark:rwX` (package `acl`). Services run with `UMask=0007`.
+- **Windows**: `%ProgramData%\Passermark\{hotfolder,ausgabe,archiv}` – only these three subfolders are writable for
+  users; `%ProgramData%\Passermark` itself stays read-only (admin defaults, profiles, workflows).
+- Set up by `install.sh` (also adds the installing user and the watcher service user `passermark`), the Windows setup,
+  *Management → General → Set up shared print folder* (AppImage too, one password prompt) or
+  `passermark-cli shared-folder [--user NAME]` (root helper `passermark-admin shared-folder`). Idempotent: creates
+  what is missing and sets group/mode of the four folders. After joining the group: log in again or restart the
+  service.
+- `serve --init --system` (and `--init` once the folder exists) puts the example drop folder under
+  `…/hotfolder/beispiel`; `serve --check` and the output folders of plan printing mark folders in a home directory.
 
 ## Drop folders (`serve`)
 
@@ -404,6 +420,7 @@ passermark-cli plan mappe.pdf --copies 3 --dry-run  # Plandruck: Rollen, Laufmet
 passermark-cli plan poster.pdf --kind poster --roll 914 --copies 3   # Poster auf die 914er, je Exemplar ein Abschnitt
 passermark-cli plan mappe.pdf --align right --rolls 914 --dry-run   # Pläne an den rechten Rollenrand
 passermark-cli rolls ColorWave                      # geladene Rollen eines Plotters
+passermark-cli shared-folder                        # gemeinsamer Druckordner /srv/passermark (Passwort über pkexec)
 passermark-cli probe ColorWave --out bericht.json    # Gerät prüfen: was meldet es über IPP/SNMP (nur lesend)
 passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abweichungen vom Standard kürzen
 ```
@@ -434,15 +451,18 @@ Poster (`--kind poster`): Qualitätsdruck, mittig, nebeneinander nur auf Wunsch 
 oder in Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für
 eine Schneidedatei, `material` aus den Druckmaterialien, Ausgabe in einen Hotfolder mit `"printer": "folder:NAME"`.
 
+Gemeinsamer Druckordner für Passermark und die Zusatzprogramme: Linux `/srv/passermark/{hotfolder,ausgabe,archiv}`,
+Gruppe `passermark`, `2775` + Standard-ACL; Windows `%ProgramData%\Passermark\{hotfolder,ausgabe,archiv}` (nur diese
+drei für Benutzer beschreibbar). Einrichten: `install.sh`, Windows-Setup, Verwaltung → Allgemein oder
+`passermark-cli shared-folder`. Hotfolder in Home-Ordnern bekommen einen Hinweis.
+
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
 /Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken
 verboten/nur niedrige Auflösung), PDF/X-Angabe ohne Output-Intent bzw. ohne TrimBox, Formularfelder (nicht
 gedruckte, NeedAppearances), leere Seiten. Neue Prüfwerte für Bedingungen: `blank_pages`, `print_allowed`.
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
-`passermark-cli reprint protokoll.json` druckt ihn genauso nochmal. Ab 1.18.3 steht in `out_pages`, wie viele Seiten
-die gesendete Datei je Exemplar hat (nach Nutzen, Broschüre, Step & Repeat) – mit Duplex und `copies` ergibt das die
-verbrauchten Bogen.
+`passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.
 
 Drop-Ordner: `passermark-cli serve` mit `watch.json` (Aufbau oben) – Ergebnisse nach `output`, Originale nach
 `processed`, Fehler mit `.log` nach `failed`. Als Dienst: `linux/passermark-watch.service`,

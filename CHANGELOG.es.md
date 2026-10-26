@@ -5,6 +5,18 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.4
+
+### Carpeta de impresión compartida
+- Una única implementación en el asistente root (`passermark-admin shared-folder`): crea el grupo y la carpeta, aplica `root:passermark` con 2775 y la ACL predeterminada, e incorpora a los usuarios al grupo. Los enlaces simbólicos se rechazan por razones de seguridad.
+- La puesta en marcha pasa por tres vías: install.sh (además el paquete `acl`, el usuario que instala y el usuario de servicio `passermark`), Administración → General → «Configurar carpeta de impresión compartida …» (petición de contraseña, con indicación de estado, funciona también en el AppImage) y `passermark-cli shared-folder [--user NAME] [--status]`.
+- Sin `acl`, un archivo creado por otro programa con una umask estricta recibe el grupo pero no es escribible para él — por eso `acl` está ahora en install.sh.
+- El setup de Windows crea las tres subcarpetas (`hotfolder`, `ausgabe`, `archiv`) con derecho de Modificar para los usuarios; el resto de ProgramData se lo deja a los administradores — allí están los preajustes de administración, los perfiles de color y los flujos.
+- El servicio vigilante corre con `UMask=0007`; `serve --init --system` crea la carpeta de ejemplo bajo `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` y las carpetas de salida de la impresión de planos avisan de carpetas bajo `/home`; la elección de carpeta empieza en la carpeta vigilada compartida.
+- El manual (docs/cli-api.md) tiene su propia sección al respecto.
+- Deliberadamente no incluido: en el primer arranque del AppImage, Passermark no pregunta por la carpeta por sí mismo — sería molesto en cada puesto de trabajo. La puesta en marcha va por el botón de la administración.
+
 ## 1.18.3
 
 ### Registro de impresión: páginas enviadas (out_pages)

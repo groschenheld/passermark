@@ -1,4 +1,4 @@
-# Passermark 1.18.3
+# Passermark 1.18.4
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -59,6 +59,7 @@ szoftver (GPL-3.0-or-later).
   közösen.
 - **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal és a példányonkénti elküldött oldalakkal (`out_pages`), mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott).
 - **Automatizálás:** lépésenkénti munkafolyamatok feltételekkel („if” minden lépésen, „choose”/„else” elágazások, „fail”/„stop” üzenettel); a `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton – a `serve --init` sablont hoz létre példával.
+- **Közös nyomtatási mappa:** egy bedobómappa mindenki számára – beállítása a Felügyelet → Általános → „Közös nyomtatási mappa beállítása …” gombbal, az install.sh-val vagy a `passermark-cli shared-folder` paranccsal; egyetlen root-segéd hozza létre a csoportot és a mappát (root:passermark, 2775, alapértelmezett ACL, a felhasználók a csoportba kerülnek, a szimbolikus linkeket elutasítja); Windowson a `hotfolder`, `ausgabe` és `archiv` almappák Módosítás jogot kapnak a felhasználóknak – a ProgramData többi része az adminoknak marad fenntartva.
 - **Softproof:** a nyomtatási eredmény szimulálása a nézetben (Ctrl+Y) – nyomtatási feltételként anyag, a felügyeletből származó profil vagy rendszerbeli CMYK-profil, intenttel és BPC-vel; papírszín és fekete nyomtatási szín szimulálása, figyelmeztetés a nyomtatható színtartományon kívüli színekre és a határérték feletti festékmennyiségre %-ban.
 - **Anyagok:** papírok nyilvántartása (grammage, felület, render intent, profil nyomtatónként); papírfehér mérése ArgyllCMS-szel (spotread), CGATS-mérőfájlból vagy kézzel; profiljavaslatok ΔE2000 szerint. Az anyagok profilt és intentet állítanak be a nyomtatási párbeszédablakban és a CMYK-átalakításban, a szín-előnézet a mért papírfehérjet veszi alapul.
 - **Színellenőrzés:** az új Szín menüben (Ctrl+Shift+F) – oldalsáv, mint a preflight: nyomtatási feltétel kiválasztása, a Passermark megmutatja, mi van a dokumentumban (RGB, festékmennyiség, direkt színek, output intent), és a leleteket közérthetően, mindegyikhez javítógomb; a leletek kattinthatók.
@@ -109,7 +110,7 @@ Visszatérési értékek: 0 kész, 1 hiba, 2 hibás megadás, 130 megszakítva. 
 eredményt JSON-sorokként írja ki. A nagy feladatok több magot használnak; korlátozás a `PASSERMARK_WORKERS`
 környezeti változóval (1 = nem párhuzamos).
 
-A `passermark-cli serve` figyeli a bedobómappákat (`--init` sablont hoz létre példával); a `passermark-cli reprint <log.json>` a nyomtatási naplóból nyomtat újra.
+A `passermark-cli serve` figyeli a bedobómappákat (`--init` sablont hoz létre példával); a `passermark-cli shared-folder` beállítja a közös nyomtatási mappát (`--user NAME`, `--status`); a `passermark-cli reprint <log.json>` a nyomtatási naplóból nyomtat újra.
 
 Hol: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` a telepítési mappában (telepítési beállítás: felvétel a keresési útvonalba).

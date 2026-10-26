@@ -5,6 +5,18 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.4
+
+### Dossier d'impression partagé
+- Une seule mise en œuvre dans l'assistant root (`passermark-admin shared-folder`) : elle crée le groupe et le dossier, applique `root:passermark` avec 2775 et l'ACL par défaut, et ajoute les utilisateurs au groupe. Les liens symboliques sont refusés pour des raisons de sécurité.
+- La mise en place passe par trois voies : install.sh (ajoute le paquet `acl`, l'utilisateur qui installe et le compte de service `passermark`), Administration → Général → « Mettre en place le dossier d'impression partagé … » (demande de mot de passe, avec affichage d'état, fonctionne aussi dans l'AppImage), et `passermark-cli shared-folder [--user NAME] [--status]`.
+- Sans `acl`, un fichier créé par un autre programme avec une umask stricte reçoit bien le groupe mais n'est pas inscriptible pour lui — voilà pourquoi `acl` figure maintenant dans install.sh.
+- Le setup Windows crée les trois sous-dossiers (`hotfolder`, `ausgabe`, `archiv`) avec le droit Modifier pour les utilisateurs ; le reste de ProgramData, il le laisse aux administrateurs — les préréglages admin, les profils de couleurs et les enchaînements s'y trouvent.
+- Le service de surveillance tourne avec `UMask=0007` ; `serve --init --system` crée le dossier d'exemple sous `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` et les dossiers de sortie de l'impression de plans signalent les dossiers sous `/home` ; le choix du dossier démarre dans le dossier de dépôt partagé.
+- Le manuel (docs/cli-api.md) y consacre sa propre section.
+- Volontairement absent : au premier démarrage de l'AppImage, Passermark ne demande pas le dossier de lui-même — ce serait pénible sur chaque poste de travail. La mise en place passe par le bouton dans l'administration.
+
 ## 1.18.3
 
 ### Journal d'impression : pages envoyées (out_pages)

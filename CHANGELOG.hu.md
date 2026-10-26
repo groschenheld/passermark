@@ -5,6 +5,18 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.4
+
+### Közös nyomtatási mappa
+- Egyetlen megvalósítás a root-segédben (`passermark-admin shared-folder`): létrehozza a csoportot és a mappát, `root:passermark` 2775-tel és alapértelmezett ACL-lel állítja be, és felveszi a felhasználókat a csoportba. A szimbolikus linkeket biztonsági okból elutasítja.
+- A beállítás három úton fut: install.sh (plusz az `acl` csomag, a telepítő felhasználó és a `passermark` szolgáltatásfiók), Felügyelet → Általános → „Közös nyomtatási mappa beállítása …” (jelszókérés, állapotjelzéssel, az AppImage-ben is működik), és `passermark-cli shared-folder [--user NAME] [--status]`.
+- `acl` nélkül egy másik program által szigorú umaskkal létrehozott fájl megkapja ugyan a csoportot, de a csoport nem tudja írni – ezért van most `acl` az install.sh-ban.
+- A Windows-setup a három almappát (`hotfolder`, `ausgabe`, `archiv`) hozza létre Módosítás joggal a felhasználóknak; a ProgramData többi részét az adminokra hagyja – ott vannak az admin-előírások, a színprofilok és a munkafolyamatok.
+- A figyelőszolgáltatás `UMask=0007`-tel fut; a `serve --init --system` a példamappát a `/srv/passermark/hotfolder/beispiel` alatt hozza létre.
+- A `serve --check` és a tervnyomtatás kimeneti mappái jelzik, ha egy mappa a `/home` alatt van; a mappaválasztó a közös bedobómappában indul.
+- A kézikönyvnek (docs/cli-api.md) saját fejezete van erről.
+- Tudatosan nincs benne: az AppImage első indulásakor a Passermark magától nem kérdezi meg a mappát – ez minden munkaállomáson bosszantó lenne. A beállítás a Felügyelet gombjával megy.
+
 ## 1.18.3
 
 ### Nyomtatási napló: kiküldött oldalak (out_pages)

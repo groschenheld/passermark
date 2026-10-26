@@ -1,11 +1,11 @@
 # Passermark Watcher (Drop-Ordner) als Systemdienst – mit eigenem Benutzer ohne besondere Rechte.
 #
-# Einrichten (einmal, als root):
-#   useradd --system --home-dir /var/lib/passermark --shell /usr/sbin/nologin passermark
+# install.sh richtet alles ein. Von Hand (einmal, als root):
+#   passermark-cli shared-folder            gemeinsamer Druckordner /srv/passermark, Gruppe passermark
+#   useradd --system -g passermark --home-dir /var/lib/passermark --shell /usr/sbin/nologin passermark
 #   cp passermark-watch.service /etc/systemd/system/
 #   Einstellung anlegen: /etc/passermark/watch.json  (prüfen: passermark-cli serve --check)
-#   Drop-Ordner dem Benutzer passermark beschreibbar machen, z. B.:
-#     chgrp -R druck /srv/druck && chmod -R g+rwXs /srv/druck && usermod -aG druck passermark
+#   Drop-Ordner unter /srv/passermark/hotfolder – Ordner in /home sind für den Dienst gesperrt (ProtectHome)
 #   systemctl daemon-reload && systemctl enable --now passermark-watch
 #   Protokoll: journalctl -u passermark-watch -f
 #
@@ -19,6 +19,7 @@ Wants=network-online.target
 Type=simple
 User=passermark
 Group=passermark
+UMask=0007
 ExecStart=/usr/local/bin/passermark-cli serve --config /etc/passermark/watch.json
 Restart=on-failure
 RestartSec=10

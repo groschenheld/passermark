@@ -29,6 +29,7 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli caps <drucker> [--json]                   (driver options, trays, paper sizes, finishers)
     passermark-cli serve [--config watch.json] [--once] [--check] [--json]   (drop folders -> workflows)
     passermark-cli serve --init [--system]                   (template watch.json, never overwrites)
+    passermark-cli shared-folder [--user NAME …] [--status]   (shared print folder /srv/passermark, needs root/pkexec)
     passermark-cli tidy datei.json [--full] [--out neu.json] [--print]   (preset/workflow: only what differs)
     passermark-cli reprint protokoll.json [--in datei.pdf] [--dry-run]   (print a logged job again, exactly)
 
@@ -333,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
 API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy",
-                "reprint", "plan", "rolls", "probe")
+                "reprint", "plan", "rolls", "probe", "shared-folder")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -379,6 +380,10 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
     elif cmd == "rolls":
         p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
         p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+    elif cmd == "shared-folder":
+        p.add_argument("--user", action="append", default=[], metavar=tr("NAME"),
+                       help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"))
+        p.add_argument("--status", action="store_true", help=tr("nur anzeigen, nichts einrichten"))
     elif cmd == "probe":
         p.add_argument("target", help=tr("Druckername oder Geräteadresse (IP)"))
         p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
@@ -532,13 +537,19 @@ def _serve(a, rep, fail) -> int:
         if probs:
             return fail(workflow.E_INVALID, tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(probs)),
                         EXIT_USAGE, problems=[{"where": w, "message": m} for w, m in probs])
+        from . import shared
+        homes = [f for f in cfg["folders"] if shared.in_home(f["in"])]
         if a.json:
-            rep.emit(event="ok", config=path, folders=[{"name": f["name"], "in": f["in"], "workflow": f["workflow"]}
-                                                      for f in cfg["folders"]])
+            rep.emit(event="ok", config=path, folders=[{"name": f["name"], "in": f["in"], "workflow": f["workflow"],
+                                                        "in_home": shared.in_home(f["in"])}
+                                                       for f in cfg["folders"]],
+                     notes=[shared.home_hint()] if homes else [])
         else:
             print(tr("Watcher-Einstellung in Ordnung: {0} Ordner").format(len(cfg["folders"])))
             for f in cfg["folders"]:
-                print(f"  {f['in']}  →  {f['workflow']}")
+                print(f"  {f['in']}  →  {f['workflow']}" + ("  ⚠" if shared.in_home(f["in"]) else ""))
+            if homes:
+                print("  " + tr("Hinweis: {0}").format(shared.home_hint()))
         return EXIT_OK
     stop = {"flag": False}
 
@@ -736,6 +747,21 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "plan":
         return _plan_cmd(a, rep, fail)
+
+    if cmd == "shared-folder":
+        from . import shared
+        if not a.status:
+            code, out = shared.setup(a.user)
+            if code != 0:
+                return fail(workflow.E_FAILED, out or f"Code {code}", EXIT_ERROR)
+        st = shared.status()
+        if a.json:
+            rep.emit(event="done", **st, **({} if a.status else {"output": out}))
+        else:
+            if not a.status and out:
+                print(out)
+            print(shared.status_text(st))
+        return EXIT_OK
 
     if cmd == "probe":
         import re as _re
