@@ -6,6 +6,7 @@
 #   cp passermark-watch.service /etc/systemd/system/
 #   Einstellung anlegen: /etc/passermark/watch.json  (prüfen: passermark-cli serve --check)
 #   Drop-Ordner unter /srv/passermark/hotfolder – Ordner in /home sind für den Dienst gesperrt (ProtectHome)
+#   shared-folder legt dazu passermark-watch.service.d/10-passermark-druckordner.conf an (ReadWritePaths, Gruppe)
 #   systemctl daemon-reload && systemctl enable --now passermark-watch
 #   Protokoll: journalctl -u passermark-watch -f
 #

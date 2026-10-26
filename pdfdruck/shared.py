@@ -5,8 +5,10 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Shared print folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …).
 
-    Linux:   /srv/passermark/{hotfolder,ausgabe,archiv}, group passermark, root:passermark 2775 (setgid) plus
-             default ACL g:passermark:rwX – services run with UMask=0007 and are members of the group.
+    Linux:   /srv/passermark/{hotfolder,ausgabe,archiv}, only for the programs – not for everybody: group passermark,
+             root:passermark 2770 (setgid), ACL + default ACL per program user (works without logging in again);
+             services passermark*/passerlink*/passcount* are found and get a systemd drop-in (SupplementaryGroups,
+             ReadWritePaths=/srv/passermark, UMask=0007) and a restart. Remote clients go through Passerlink.
     Windows: %ProgramData%\\Passermark\\{hotfolder,ausgabe,archiv}, users may modify ONLY these three subfolders –
              %ProgramData%\\Passermark itself stays read-only for users (admin defaults, profiles, workflows).
 

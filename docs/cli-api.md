@@ -328,8 +328,12 @@ CSV the columns `roll_mm`, `run_m` – the counter for cost calculation.
 One folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …), outside the home
 directories – services run as their own users without special rights and may not write into `/home/…`.
 
-- **Linux**: `/srv/passermark/{hotfolder,ausgabe,archiv}`, group `passermark`, owner `root:passermark`, mode `2775`
-  (setgid) and the default ACL `g:passermark:rwX` (package `acl`). Services run with `UMask=0007`.
+- **Linux**: `/srv/passermark/{hotfolder,ausgabe,archiv}` – only for the programs, not for everybody: group
+  `passermark`, owner `root:passermark`, mode `2770` (setgid), ACL and default ACL `rwX` per program user (works at
+  once, no new login; package `acl`, installed when missing). The services `passermark*`, `passerlink*`, `passcount*`
+  are found automatically: their users get access, a systemd drop-in `10-passermark-druckordner.conf`
+  (`SupplementaryGroups=passermark`, `ReadWritePaths=/srv/passermark`, `UMask=0007`) opens sandboxed services, and
+  they are restarted. Clients on other PCs reach the folder only through Passerlink (its service writes).
 - **Windows**: `%ProgramData%\Passermark\{hotfolder,ausgabe,archiv}` – only these three subfolders are writable for
   users; `%ProgramData%\Passermark` itself stays read-only (admin defaults, profiles, workflows).
 - Set up by `install.sh` (also adds the installing user and the watcher service user `passermark`), the Windows setup,
@@ -452,8 +456,9 @@ oder in Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_c
 eine Schneidedatei, `material` aus den Druckmaterialien, Ausgabe in einen Hotfolder mit `"printer": "folder:NAME"`.
 
 Gemeinsamer Druckordner für Passermark und die Zusatzprogramme: Linux `/srv/passermark/{hotfolder,ausgabe,archiv}`,
-Gruppe `passermark`, `2775` + Standard-ACL; Windows `%ProgramData%\Passermark\{hotfolder,ausgabe,archiv}` (nur diese
-drei für Benutzer beschreibbar). Einrichten: `install.sh`, Windows-Setup, Verwaltung → Allgemein oder
+nur für die Programme (Gruppe `passermark`, `2770`, ACL je Programmbenutzer, Dienste von Passermark/Passerlink/
+PassCount werden erkannt und freigegeben, auch bei systemd-Schutz); Windows `%ProgramData%\Passermark\{hotfolder,ausgabe,archiv}` (nur diese
+drei für Benutzer und Dienstkonten beschreibbar). Clients an anderen PCs nur über Passerlink. Einrichten: `install.sh`, Windows-Setup, Verwaltung → Allgemein oder
 `passermark-cli shared-folder`. Hotfolder in Home-Ordnern bekommen einen Hinweis.
 
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,

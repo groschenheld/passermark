@@ -210,7 +210,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
         os.makedirs(drop, exist_ok=True)
         made.append(drop)
         if not IS_WIN and os.path.abspath(drop).startswith(shared.root() + os.sep):
-            os.chmod(drop, 0o2775)                 # Gruppe passermark darf schreiben (auch ohne ACL)
+            os.chmod(drop, 0o2770)                 # nur die Programme (Gruppe passermark), auch ohne ACL
     except OSError:
         pass
     return path, True, made
