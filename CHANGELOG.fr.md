@@ -5,6 +5,16 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.5
+
+### Impression de plans et de posters : découpe automatique
+- L'impression de plans et de posters n'était pas découpée automatiquement malgré le bon réglage – l'erreur est corrigée.
+
+## 1.18.6
+
+### Reconnaissance des rouleaux améliorée
+- La reconnaissance des rouleaux est améliorée – les rouleaux lus depuis l'appareil sont reconnus de façon plus fiable.
+
 ## 1.18.4
 
 ### Dossier d'impression partagé

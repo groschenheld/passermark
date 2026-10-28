@@ -1,4 +1,4 @@
-# Passermark 1.18.4
+# Passermark 1.18.6
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -7,6 +7,11 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 > welcome – answers and new features come without any guarantee. Tested with CUPS and Windows drivers
 > (inkjet, office/production printers with finishers via a print server); less common drivers and finisher
 > options may need adjustments.
+>
+> **Test rig:** for testing, a virtual machine park runs – nine simulated printers (Canon, Xerox, Epson, Roland, GBC),
+> including finisher functions and with PDF and log output per print:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> It was built by Claude and has served my testing purposes so far – suggestions for improvement are welcome.
 
 ## Screenshots
 

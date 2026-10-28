@@ -294,6 +294,11 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   overrides both.
 - **Order**: default uncollated (each plan with all copies); `collate` set by set; `"order": "roll"` narrowest
   roll first.
+- **Cutting** (`cut_sheets`, default `true`): the printer's cut option is set to “after every page” – IPP
+  `finishings` trim (`61`, else `60`/`63`/`62`/`64`), CUPS/PPD `CutMedia`/`cupsFinishings`, vendor options named
+  cut/trim/Abschnitt (best value: per page, auto, on). Without it, an IPP printer gets its default `finishings`
+  (usually `3` = none) and does not cut. `--json`: `cut_options` shows what is sent; the dialog warns when the printer
+  offers no cut option. Options set by hand (`options`) take precedence.
 - **Copies** (`split_copies`, default `true`; `--no-split` turns it off): every copy is its own job with one page
   (title `… (1/3)`, `(2/3)` …), so the printer cuts after each one. `false`: one job with a copy count.
 - Paper = custom size (`Custom.WxHmm`, width across the roll – with `align` the roll width), feed = the roll's
@@ -303,7 +308,8 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   `profile`, `intent`, `dry_run`.
 - **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults: `align` `center`, `overwidth` `crop`,
   no plan paper grammage, `frame` `none`): quality print; `nest` (side by side, off by default; roll and orientation
-  with the least paper = roll width × length; `gap_mm`, `max_page_m`), `overwidth` (`none` | `crop` | `tile` with
+  with the least paper = roll width × length; `gap_mm`; every row is its own print page, so the printer cuts after each row – copies are
+  never stacked on one sheet), `overwidth` (`none` | `crop` | `tile` with
   `overlap_mm`). In a workflow set `nest`/`overwidth`/`align` explicitly.
 - **Banners**: `hem_mm` + `hem_sides` (`lrtb`) – hem/pocket allowance outside the trim, replaces the bleed there;
   grommet marks `grommet_spacing_mm` (0 = off), `grommet_inset_mm`, `grommet_d_mm`, `grommet_sides`.

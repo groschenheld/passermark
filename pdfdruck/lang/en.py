@@ -2824,4 +2824,12 @@ MESSAGES = {
     'Erneut prüfen/einrichten …': 'Check/set up again …',
     'Authentifizierung abgebrochen – nichts geändert.': 'Authentication cancelled – nothing changed.',
     'Gemeinsamer Druckordner': 'Shared print folder',
+    'Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, entscheidet die Einstellung am Gerät.': 'The printer offers no cut option – whether it cuts after every sheet depends on the device setting.',
+    'Abschnitt nach jeder Seite: {0}': 'Cut after every page: {0}',
+    'Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät': 'Cut: printer offers no cut option – device setting applies',
+    'Schneiden': 'Trim',
+    'Schneiden nach jeder Seite': 'Trim after every page',
+    'Schneiden nach jedem Dokument': 'Trim after every document',
+    'Schneiden nach jeder Kopie': 'Trim after every copy',
+    'Schneiden nach dem Auftrag': 'Trim after the job',
 }

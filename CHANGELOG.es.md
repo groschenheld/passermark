@@ -5,6 +5,16 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.5
+
+### Impresión de planos y pósters: corte automático
+- La impresión de planos y pósters no se cortaba automáticamente a pesar del ajuste correcto – el error está corregido.
+
+## 1.18.6
+
+### Reconocimiento de rollos mejorado
+- El reconocimiento de rollos está mejorado – los rollos leídos del aparato se reconocen con más fiabilidad.
+
 ## 1.18.4
 
 ### Carpeta de impresión compartida

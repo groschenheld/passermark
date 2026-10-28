@@ -1,4 +1,4 @@
-# Passermark 1.18.4
+# Passermark 1.18.6
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -10,6 +10,11 @@ Software libre (GPL-3.0-or-later).
 > CUPS y de Windows (inyección de tinta, impresoras de oficina y de producción con encuadernadora a través de
 > un servidor de impresión); los controladores menos comunes y las opciones de acabado pueden necesitar
 > ajustes.
+>
+> **Entorno de pruebas:** para las pruebas corre un parque de máquinas virtuales – nueve impresoras simuladas (Canon,
+> Xerox, Epson, Roland, GBC), funciones de acabado incluidas y salida en PDF y registro por impresión:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> Lo construyó Claude y hasta ahora ha bastado para mis fines de prueba – las propuestas de mejora son bienvenidas.
 
 ## Capturas de pantalla
 

@@ -2,6 +2,16 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.5
+
+### Plan and poster printing: automatic cutting
+- Plan and poster printing was not cut automatically despite the correct setting – the error is fixed.
+
+## 1.18.6
+
+### Roll detection improved
+- Roll detection is improved – rolls from the device are recognised more reliably.
+
 ## 1.18.4
 
 ### Shared print folder

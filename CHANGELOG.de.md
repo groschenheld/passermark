@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.5
+
+### Plan- und Posterdruck: automatisches Schneiden
+- Plan- und Posterdruck wurden trotz richtiger Einstellung nicht automatisch geschnitten – der Fehler ist behoben.
+
+## 1.18.6
+
+### Rollenerkennung verbessert
+- Die Rollenerkennung ist verbessert – Rollen vom Gerät werden zuverlässiger erkannt.
+
 ## 1.18.4
 
 ### Gemeinsamer Druckordner

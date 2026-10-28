@@ -1,4 +1,4 @@
-# Passermark 1.18.4
+# Passermark 1.18.6
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -9,6 +9,11 @@ Logiciel libre (GPL-3.0-or-later).
 > bienvenus – les réponses et les nouvelles fonctions sont fournies sans garantie. Testé avec les pilotes
 > CUPS et Windows (jet d'encre, imprimantes de bureau et de production avec finisseur via un serveur
 > d'impression) ; les pilotes plus rares et les options de finisseur peuvent nécessiter des ajustements.
+>
+> **Banc de test :** pour les tests, un parc de machines virtuelles tourne – neuf imprimantes simulées (Canon, Xerox,
+> Epson, Roland, GBC), fonctions de finition incluses et sortie PDF et journal par impression :
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> Il a été construit par Claude et a suffi jusqu'ici à mes besoins de test – les suggestions d'amélioration sont bienvenues.
 
 ## Captures d'écran
 

@@ -2824,4 +2824,12 @@ MESSAGES = {
     'Erneut prüfen/einrichten …': 'Comprobar/configurar de nuevo …',
     'Authentifizierung abgebrochen – nichts geändert.': 'Autenticación cancelada: no se ha cambiado nada.',
     'Gemeinsamer Druckordner': 'Carpeta de impresión común',
+    'Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, entscheidet die Einstellung am Gerät.': 'La impresora no ofrece opción de corte: si corta tras cada hoja lo decide el ajuste del equipo.',
+    'Abschnitt nach jeder Seite: {0}': 'Corte tras cada página: {0}',
+    'Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät': 'Corte: la impresora no ofrece opción de corte; vale el ajuste del equipo',
+    'Schneiden': 'Cortar',
+    'Schneiden nach jeder Seite': 'Cortar tras cada página',
+    'Schneiden nach jedem Dokument': 'Cortar tras cada documento',
+    'Schneiden nach jeder Kopie': 'Cortar tras cada copia',
+    'Schneiden nach dem Auftrag': 'Cortar tras el trabajo',
 }

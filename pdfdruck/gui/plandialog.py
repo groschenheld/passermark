@@ -1383,6 +1383,9 @@ class PlanDialog(QDialog):
         warn = []
         if wnote:
             warn.append(wnote)
+        if s.cut_sheets and self.caps is not None and not pp.is_folder(self.printer) and not pp.cut_values(self.caps):
+            warn.append(tr("Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, "
+                           "entscheidet die Einstellung am Gerät."))
         k = pp.find_roll(self.rolls, s.roll_pick)
         if k is not None and not pp.is_folder(self.printer):
             r = self.rolls[k]

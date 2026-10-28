@@ -5,6 +5,16 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.5
+
+### Terv- és poszternyomtatás: automatikus vágás
+- A terv- és poszternyomtatás a helyes beállítás ellenére nem történt automatikus vágással – a hiba javítva.
+
+## 1.18.6
+
+### A tekercsfelismerés javítva
+- A tekercsfelismerés javult – az eszközből kiolvasott tekercseket a Passermark megbízhatóbban ismeri fel.
+
 ## 1.18.4
 
 ### Közös nyomtatási mappa

@@ -66,7 +66,7 @@ class PlanSettings:
     material: str = ""                # Druckmaterial (printmat) – Name oder ID; "" = keins
     nest: bool = False                # mehrere Stücke nebeneinander auf die Rolle (Poster: Standard an)
     gap_mm: float = 5.0               # Abstand zwischen Stücken beim Nebeneinander
-    max_page_m: float = 10.0          # längste Druckseite beim Nebeneinander (dann neue Seite)
+    max_page_m: float = 10.0          # nicht mehr verwendet (seit 1.18.5 ist jede Reihe eine eigene Seite)
     overwidth: str = "none"           # breiter als jede Rolle: none (auslassen) | crop (abschneiden) | tile (Bahnen)
     overlap_mm: float = 20.0          # Überlappung der Bahnen
     fold_marks: bool = False          # Faltmarken nach DIN 824 (vereinfacht)
@@ -82,6 +82,7 @@ class PlanSettings:
     roll_pick: str = ""               # feste Rolle (roll_key) – "" = automatisch
     align: str = "left"               # center | left | right: Lage quer auf der Rolle (Seite = Rollenbreite)
     split_copies: bool = True         # jedes Exemplar ein eigener Auftrag (eine Seite = ein Abschnitt)
+    cut_sheets: bool = True           # Schneid-Option des Druckers auf „nach jeder Seite“ (IPP trim, CutMedia …)
 
 
 KINDS = ("plan", "poster")
@@ -733,7 +734,10 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
 
 
 def _shelf(pieces: list, width: float, gap: float, max_len: float, roll: int) -> list:
-    """Stücke nebeneinander (Regal-Verfahren, höchste zuerst) -> Druckseiten (Run) auf einer Rolle."""
+    """Stücke nebeneinander (Regal-Verfahren, höchste zuerst) -> Druckseiten (Run) auf einer Rolle.
+        Jede Reihe ist eine eigene Druckseite: Der Drucker schneidet nach jeder Reihe ab (nie mehrere Reihen bzw.
+        Exemplare untereinander auf einem Blatt). Gleiche Reihen werden zu einer Seite mit Kopienzahl zusammengefasst
+        – „Einzeln abschneiden“ macht daraus wieder je Exemplar einen Auftrag. max_len: nicht mehr verwendet."""
     pcs = sorted(pieces, key=lambda p: (-p.along, -p.across))
     rows = []                                        # [Höhe, belegte Breite, [(Stück, x)]]
     for p in pcs:
@@ -744,34 +748,22 @@ def _shelf(pieces: list, width: float, gap: float, max_len: float, roll: int) ->
                 break
         else:
             rows.append([p.along, p.across, [(p, 0.0)]])
-    runs, cur = [], []
-
-    def flush():
-        if not cur:
-            return
-        length = sum(r[0] for r in cur) + gap * (len(cur) - 1)
-        across = max(r[1] for r in cur)
-        placed, y = [], length
-        for h, _w, items in cur:                      # erste Reihe oben (läuft zuerst aus dem Drucker)
-            y -= h
-            for p, x in items:
-                placed.append((p, x, y + (h - p.along)))
-            y -= gap
-        runs.append(Run(roll, pieces[0].width_mm, across, length, placed))
-    for row in rows:
-        length = sum(r[0] for r in cur) + gap * len(cur) + row[0]
-        if cur and length > max_len * 1000.0:
-            flush()
-            cur = []
-        cur.append(row)
-    flush()
+    runs, keys = [], []
+    for h, w, items in rows:
+        key = tuple((id(p.item), p.item.page, p.tile, round(x, 1), round(p.along, 1)) for p, x in items)
+        if runs and keys[-1] == key:                 # gleiche Reihe wie davor: nur Kopienzahl erhöhen
+            runs[-1].copies += 1
+            continue
+        placed = [(p, x, h - p.along) for p, x in items]
+        runs.append(Run(roll, pieces[0].width_mm, w, h, placed))
+        keys.append(key)
     return runs
 
 
 def build_runs(items: list, rolls: list, s: PlanSettings, copies: int | None = None) -> list:
     """Druckseiten in Druckreihenfolge. Ohne Nebeneinander: ein Stück je Seite (unsortiert: alle Exemplare
         eines Stücks hintereinander, sortiert: Satz für Satz, optional nach Rollenbreite). Mit Nebeneinander:
-        alle Exemplare zusammen auf die Rollen verteilt."""
+        alle Exemplare zusammen auf die Rollen verteilt, je Reihe eine Seite (abgeschnitten)."""
     return [_aligned(r, s) for r in _build_runs(items, rolls, s, copies)]
 
 
@@ -1089,6 +1081,50 @@ def page_value(caps, across: float, along: float) -> str:
     return printers.custom_value(round(across, 1), round(along, 1))
 
 
+IPP_TRIM = ("61", "60", "63", "62", "64")      # trim-after-pages, trim, -after-copies, -after-documents, -after-job
+_CUT_KEY = re.compile(r"cut|trim|schneid|abschnitt|schnitt", re.I)
+_CUT_SKIP = re.compile(r"contour|kontur|cutcontour|plotter.?cut", re.I)
+_CUT_NO = re.compile(r"(^|\b)(none|never|off|no|not|false|aus|kein\w*|nicht|manual|manuell|disabled?)(\b|$)|^0$", re.I)
+_CUT_RANK = ((re.compile(r"page|seite|sheet|blatt|each|jede", re.I), 5), (re.compile(r"auto", re.I), 4),
+             (re.compile(r"(^|\b)(on|yes|true|ein|an|enabled?|1)(\b|$)", re.I), 3),
+             (re.compile(r"copy|kopie|set|satz|document|dokument", re.I), 2), (re.compile(r"job|auftrag", re.I), 1))
+
+
+def cut_values(caps) -> dict:
+    """Treiberwerte, damit der Rollendrucker nach jeder Seite schneidet: IPP finishings trim (61 …), CUPS/PPD
+        CutMedia/cupsFinishings, Herstelleroptionen mit Schneid-/Cut-Namen. {} = Drucker bietet keine Option an."""
+    if caps is None:
+        return {}
+    out = {}
+    for k, o in caps.options.items():
+        if o.installable or _CUT_SKIP.search(f"{k} {o.text}"):
+            continue
+        vals = {c.value: c.text for c in o.choices}
+        if k == "finishings" or k.lower().startswith("cupsfinishing"):
+            for v in IPP_TRIM:
+                if v in vals:
+                    out[k] = v
+                    break
+            else:
+                hit = [v for v, t in vals.items() if re.search(r"trim|cut|schneid", f"{v} {t}", re.I)]
+                if hit:
+                    out[k] = hit[0]
+            continue
+        if not _CUT_KEY.search(f"{k} {o.text}"):
+            continue
+        best, score = None, 0
+        for v, t in vals.items():
+            txt = f"{v} {t}"
+            if _CUT_NO.search(v) or _CUT_NO.search(t):
+                continue
+            sc = max((r for rx, r in _CUT_RANK if rx.search(txt)), default=0)
+            if sc > score:
+                best, score = v, sc
+        if best is not None:
+            out[k] = best
+    return out
+
+
 def media_for_roll(caps, roll) -> str:
     """Medientyp im Treiber passend zur Rolle (Medienname bzw. Grammatur laut Gerät). "" = nichts Passendes."""
     key = caps.roles.get("mediatype") if caps is not None else None
@@ -1259,6 +1295,10 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
             vals[pkey] = page_value(caps, run.across, run.along)
         if skey and roll is not None and roll.slot:
             vals[skey] = roll.slot
+        if s.cut_sheets:                          # Abschnitt nach jeder Seite – außer von Hand anders gesetzt
+            for k, v in cut_values(caps).items():
+                if k not in (s.options or {}):
+                    vals[k] = v
         mkey = caps.roles.get("mediatype")
         if mkey and roll is not None and not s.media and not (material_of(s) or {}).get("media"):
             mv = media_for_roll(caps, roll)       # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
@@ -1326,8 +1366,11 @@ def compact(s: PlanSettings) -> dict:
     return {k: v for k, v in d.items() if v != base.get(k) or k == "printer"}
 
 
-def _job_info(run: Run, rolls: list) -> dict:
+def _job_info(run: Run, rolls: list, s: PlanSettings | None = None) -> dict:
+    split = bool(s is None or s.split_copies)
+    n = max(1, run.copies)
     return {"plan": run.label, "pages": [p.item.page + 1 for p, _x, _y in run.pieces], "copies": run.copies,
+            "jobs_sent": n if split else 1, "cuts": n,
             "roll_mm": run.width_mm, "size_mm": [round(run.across, 1), round(run.along, 1)],
             "rotated": run.pieces[0][0].rotated if len(run.pieces) == 1 else None,
             "pieces": len(run.pieces), "slot": rolls[run.roll].slot if 0 <= run.roll < len(rolls) else ""}
@@ -1342,13 +1385,14 @@ def print_items(session, printer: str, items: list, rolls: list, s: PlanSettings
         base = values_for(session, printer, caps, s) if not s.dry_run else _try_values(session, printer, caps, s)
     runs = build_runs(items, rolls, s)
     info = summary(printer, items, rolls, s)
+    info["cut_options"] = cut_values(caps) if (s.cut_sheets and caps is not None) else {}
     info["jobs"] = []
     for k, run in enumerate(runs):
         if cancel is not None and cancel():
             break
         if progress:
             progress(k, len(runs), run.label)
-        rec = _job_info(run, rolls)
+        rec = _job_info(run, rolls, s)
         if not s.dry_run:
             rec["job_id"] = submit_run(session, printer, caps, base, run, rolls, s)
         info["jobs"].append(rec)
@@ -1483,7 +1527,7 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
         _use, wnote = eligible_for(rolls, s)
         if s.dry_run or not printer:
             info = summary(printer, items, rolls, s)
-            info["jobs"] = [_job_info(run, rolls) for run in build_runs(items, rolls, s)]
+            info["jobs"] = [_job_info(run, rolls, s) for run in build_runs(items, rolls, s)]
         else:
             from . import printlog
             with printlog.source(printlog.current() if printlog.current() != "dialog" else "cli"):

@@ -972,6 +972,10 @@ def plan_text(i: dict) -> str:
     head = (tr("Probelauf – nichts gesendet") if i.get("dry_run") else
             tr("Gedruckt auf {0}: {1} Auftrag/Aufträge").format(i.get("printer"), len(i.get("jobs") or [])))
     lines.append(head)
+    if "cut_options" in i:
+        co = i.get("cut_options") or {}
+        lines.append("  " + (tr("Abschnitt nach jeder Seite: {0}").format(", ".join(f"{k}={v}" for k, v in co.items()))
+                             if co else tr("Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät")))
     cp = int(i.get("copies") or 1)
     for d in i.get("lengths") or []:
         t = "  " + tr("{0} mm: {1} m").format(mm_text(d["width_mm"]), num(d["single_m"]))

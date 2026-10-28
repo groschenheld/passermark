@@ -2824,4 +2824,12 @@ MESSAGES = {
     'Erneut prüfen/einrichten …': 'Újraellenőrzés/beállítás …',
     'Authentifizierung abgebrochen – nichts geändert.': 'Hitelesítés megszakítva – semmi sem változott.',
     'Gemeinsamer Druckordner': 'Közös nyomtatási mappa',
+    'Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, entscheidet die Einstellung am Gerät.': 'A nyomtató nem kínál vágási opciót – hogy minden lap után vág-e, a készülék beállítása dönti el.',
+    'Abschnitt nach jeder Seite: {0}': 'Vágás minden oldal után: {0}',
+    'Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät': 'Vágás: a nyomtató nem kínál vágási opciót – a készülék beállítása érvényes',
+    'Schneiden': 'Vágás',
+    'Schneiden nach jeder Seite': 'Vágás minden oldal után',
+    'Schneiden nach jedem Dokument': 'Vágás minden dokumentum után',
+    'Schneiden nach jeder Kopie': 'Vágás minden példány után',
+    'Schneiden nach dem Auftrag': 'Vágás a feladat után',
 }

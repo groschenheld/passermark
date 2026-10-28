@@ -1,4 +1,4 @@
-# Passermark 1.18.4
+# Passermark 1.18.6
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -9,6 +9,11 @@ szoftver (GPL-3.0-or-later).
 > szívesen fogadok – a válaszok és az új funkciók garancia nélkül érkeznek. CUPS- és Windows-illesztőprogramokkal
 > tesztelve (intasugaras, irodai és termelési nyomtatók finisherrel, nyomtatószerveren keresztül); a
 > ritkább illesztőprogramok és finisher-beállítások módosítást igényelhetnek.
+>
+> **Tesztkörnyezet:** a teszteléshez egy virtuális géppark fut – kilenc szimulált nyomtató (Canon, Xerox, Epson,
+> Roland, GBC), befejezőfunkciókkal és nyomtatásonkénti PDF- és naplókimenettel:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> Claude építette, és a tesztjeimhez eddig elegendő volt – a fejlesztési javaslatokat szívesen fogadom.
 
 ## Képernyőképek
 

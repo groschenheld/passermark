@@ -1,4 +1,4 @@
-# Passermark 1.18.4
+# Passermark 1.18.6
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -9,6 +9,11 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 > sind willkommen – Antworten und neue Funktionen ohne Garantie. Getestet mit CUPS- und Windows-Treibern
 > (Tintenstrahl, Büro- und Produktionsdrucker mit Finisher über einen Druckserver); seltenere Treiber und
 > Finisher-Optionen brauchen eventuell Anpassungen.
+>
+> **Testumgebung:** zum Testen läuft ein virtueller Maschinenpark – neun simulierte Drucker (Canon, Xerox, Epson,
+> Roland, GBC), inklusive Finisher-Funktionen und mit PDF- und Log-Ausgabe je Druck:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> Er wurde von Claude gebaut und hat für meine Testzwecke bislang ausgereicht – Verbesserungsvorschläge sind willkommen.
 
 ## Bilder
 

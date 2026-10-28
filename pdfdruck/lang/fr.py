@@ -2824,4 +2824,12 @@ MESSAGES = {
     'Erneut prüfen/einrichten …': 'Vérifier/configurer à nouveau …',
     'Authentifizierung abgebrochen – nichts geändert.': 'Authentification annulée – rien n’a été modifié.',
     'Gemeinsamer Druckordner': 'Dossier d’impression commun',
+    'Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, entscheidet die Einstellung am Gerät.': 'L’imprimante ne propose pas d’option de coupe – la coupe après chaque feuille dépend du réglage de l’appareil.',
+    'Abschnitt nach jeder Seite: {0}': 'Coupe après chaque page : {0}',
+    'Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät': 'Coupe : l’imprimante ne propose pas d’option de coupe – réglage de l’appareil',
+    'Schneiden': 'Coupe',
+    'Schneiden nach jeder Seite': 'Coupe après chaque page',
+    'Schneiden nach jedem Dokument': 'Coupe après chaque document',
+    'Schneiden nach jeder Kopie': 'Coupe après chaque copie',
+    'Schneiden nach dem Auftrag': 'Coupe après le travail',
 }
