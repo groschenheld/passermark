@@ -5,6 +5,107 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.5
+
+### Terv- és poszternyomtatás: automatikus vágás
+- A terv- és poszternyomtatás a helyes beállítás ellenére nem történt automatikus vágással – a hiba javítva.
+
+## 1.18.6
+
+### A tekercsfelismerés javítva
+- A tekercsfelismerés javult – az eszközből kiolvasott tekercseket a Passermark megbízhatóbban ismeri fel.
+
+## 1.18.4
+
+### Közös nyomtatási mappa
+- Egyetlen megvalósítás a root-segédben (`passermark-admin shared-folder`): létrehozza a csoportot és a mappát, `root:passermark` 2775-tel és alapértelmezett ACL-lel állítja be, és felveszi a felhasználókat a csoportba. A szimbolikus linkeket biztonsági okból elutasítja.
+- A beállítás három úton fut: install.sh (plusz az `acl` csomag, a telepítő felhasználó és a `passermark` szolgáltatásfiók), Felügyelet → Általános → „Közös nyomtatási mappa beállítása …” (jelszókérés, állapotjelzéssel, az AppImage-ben is működik), és `passermark-cli shared-folder [--user NAME] [--status]`.
+- `acl` nélkül egy másik program által szigorú umaskkal létrehozott fájl megkapja ugyan a csoportot, de a csoport nem tudja írni – ezért van most `acl` az install.sh-ban.
+- A Windows-setup a három almappát (`hotfolder`, `ausgabe`, `archiv`) hozza létre Módosítás joggal a felhasználóknak; a ProgramData többi részét az adminokra hagyja – ott vannak az admin-előírások, a színprofilok és a munkafolyamatok.
+- A figyelőszolgáltatás `UMask=0007`-tel fut; a `serve --init --system` a példamappát a `/srv/passermark/hotfolder/beispiel` alatt hozza létre.
+- A `serve --check` és a tervnyomtatás kimeneti mappái jelzik, ha egy mappa a `/home` alatt van; a mappaválasztó a közös bedobómappában indul.
+- A kézikönyvnek (docs/cli-api.md) saját fejezete van erről.
+- Tudatosan nincs benne: az AppImage első indulásakor a Passermark magától nem kérdezi meg a mappát – ez minden munkaállomáson bosszantó lenne. A beállítás a Felügyelet gombjával megy.
+
+## 1.18.3
+
+### Nyomtatási napló: kiküldött oldalak (out_pages)
+- A Passermark most `out_pages`-t ír a naplóba: a példányonként elküldött oldalakat.
+- Duplexnél és több példánynál ez adja az íveket – minden oldalkezelésnél.
+- A régebbi naplóbejegyzésekben az érték hiányzik.
+- A kézikönyv kiegészült.
+
+## 1.18.2
+
+### Preflight: oldalkeretek, levágás, védelem, PDF/X, űrlapmezők
+- **Oldalkeretek:** a `UserUnit ≠ 1` hiba; a MediaBoxnál kisebb vagy azon kívül eső CropBox ugyanúgy (a ColorWave-eset); a látható területen kívülre eső vagy a BleedBoxnál nagyobb TrimBox; forgatott oldalak és vegyes formátumok tippként.
+- **Levágás:** ha a tartalom a végformátum széléig ér, de az oldalon kevesebb mint 2 mm levágás van, jelzés jön. Az ellenőrzés durva előnézeti képen fut – levágás nélküli tervek tiszták maradnak, csak akkor jelez, ha a tartalom tényleg a szél ér.
+- **Védelem:** a „nyomtatás tiltott” hiba; csak az alacsony felbontás figyelmeztetés.
+- **PDF/X:** a fájl PDF/X-nek adja ki magát, de nincs hozzá output intentje; output intent beágyazott profil nélkül; TrimBox nélküli oldalak.
+- **Űrlapmezők:** az ellenőrzés megmondja, hány nem nyomtatódik. A Passermark a saját nyomtatásnál az űrlapértékeket amúgy is kinyomtatja – csak akkor figyelmeztet, ha egy mező tényleg nem nyomtatódik; a NeedAppearances-tipp továbbadásra és bedobómappára szól.
+- **Üres oldalak** jelzésre kerülnek.
+- A vegyes formátum csak tipp, nem figyelmeztetés – planszetteknél a vegyes formátum normális.
+- Az ellenőrzési jelentés most felsorolja az oldalkereteket és az első oldal levágását.
+- **Munkafolyamatokhoz** két új ellenőrzési érték: `blank_pages` és `print_allowed`.
+
+### Parancssor: plan
+- A `passermark-cli plan` most ismeri: `--roll` (adagoló, név az eszközön vagy szélesség, pl. `--roll 914`), `--align center|left|right` és `--no-split`.
+
+### Kézikönyv
+- A kézikönyv (docs/cli-api.md) kiegészült németül és angolul: terv- és poszternyomtatás (rögzített tekercs, anyag név szerint, elhelyezés a tekercsen, munka példányonként, poszter-alapértelmezések), új fejezet az ellenőrzésről és két példa.
+
+## 1.18.1
+
+### Üzenet a tekercsek olvasásakor
+- Az üzenet most saját sorban áll a nyomtatósáv alatt – nem a nyomtatóválasztás és a gombok között.
+- Legfeljebb 3 sor magas, ami fölötte van, görgethető; a szöveg kijelölhető, Ctrl+C-vel másolható.
+- Ugyanígy működik most a „Tekercsek …” ablak üzenete (5 sorig, az „Eszköz ellenőrzése” eredményével együtt) és a figyelmeztetések a „Folyóméter tekercsenként” alatt (4 sorig).
+
+### Reszponzív
+- A hosszú tekercs-, anyag- és nyomtatónevek nem szélesítik tovább a listákat: rövidítve jelennek meg, kinyitva a teljes szöveg látszik.
+- Szűk helyen a beállítások egyik mezője a címkéje alá csúszik, ahelyett hogy átfedné a szomszédját.
+- A folyómétereket és beállításokat tartalmazó jobb oszlop görgethető; a tervlista és a beállítások közötti elválasztó elmozdítható, egyik oldal sem csukódik össze teljesen.
+- Az ablak 640 × 420-ig kicsinyíthető.
+
+## 1.18.0
+
+### „Plan & Poster” munkaterület
+- Új munkaterület tervnyomtatáshoz és poszternyomtatáshoz – munkafolyamat-lépésként és a `passermark-cli plan` illetve `passermark-cli poster` paranccsal is. A `--dry-run` csak a folyóméter-számítást végzi el.
+
+### Tekercsek kiolvasása az eszközből
+- IPP-n, egyébként SNMP-n; az SNMP v2c-vel próbálkozik, és v1-re esik vissza. Az „other” típusú, szélességgel rendelkező adagolók tekercsnek számítanak, a community eszközenként állítható.
+- A Rolandot külön kérdezi le; egyébként kézzel viszed fel a tekercseket.
+- Windowson az eszközcím a kapcsolatból jön (IP-, TCP/IP- vagy WSD-port), vagy kézzel kerül beírásra.
+- „Eszköz ellenőrzése” (probe) lekérdezi a portokat, az IPP-t és az SNMP-t, és mindent JSON-jelentésként ment el. Csak olvas, nem nyomtat.
+
+### Nyomtatási terület
+- Két szélső vonalnál a külsőre vágnak; különben a tartalom 5 mm-es margót kap – tervenként felülírható.
+
+### Tekercsválasztás
+- Automatikus: a legkeskenyebb megfelelő tekercs, a tervpapír grammage-e illetve anyaga szerint – az anyagot most már név alapján is.
+- Rögzített: minden kiolvasott tekercs választható, bejegyzett anyag nélkül is.
+- A tekercs médiatípusa átadódik a meghajtónak.
+- Elhelyezés a tekercsen: középen vagy a szélén (balra illetve jobbra); a nyomtatott oldal mindig olyan széles, mint a tekercs. Tervnél a „szélén”, poszternél a „középen” az alapértelmezés.
+
+### Példányok és folyóméter
+- Rendezve vagy rendezetlenül, a lista vagy a tekercsszélesség szerint. Az „Egyenként levágás” az alapértelmezés: minden példány saját munka (1/3, 2/3 …).
+- Folyóméter élőben tekercsenként, figyelmeztetés, ha a maradék hossz nem elég – és bekerül a nyomtatási naplóba.
+
+### Tev-eszközök
+- Skálázás, forgatás, túltöltősáv (tükrözött, üres vagy egyszínű), vágójelek, hajszálvonalak kiemelése, hajtási jelek DIN 824 szerint.
+
+### Poszter-eszközök
+- Egymás mellé a tekercsre opcionális, most alapból kikapcsolva.
+- Ami szélesebb a tekercsnél, levágásra kerül, vagy átfedéssel sávokra bontható.
+- Szegély, szemkarika-jelek, CutContour és passerjelölések print & cut-hoz a Rolandon.
+
+### Anyagok a Plan & Posterhez
+- Tervnyomtatás vagy minőségi nyomtatás; anyagonként grammage, médiatípus, minőség, tinta mennyisége és profil. Felhasználónként tárolva, az admin alapértelmezéseivel.
+
+### Egyéb
+- Bedobómappa-kimenet, pl. VersaWorkshoz.
+- Közérthetőbb hibaüzenetek, ha az eszköz nem található.
+
 ## 1.17.1
 
 ### Egyesítés jobb kattintással (Windows)

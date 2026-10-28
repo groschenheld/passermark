@@ -5,6 +5,107 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.5
+
+### Impresión de planos y pósters: corte automático
+- La impresión de planos y pósters no se cortaba automáticamente a pesar del ajuste correcto – el error está corregido.
+
+## 1.18.6
+
+### Reconocimiento de rollos mejorado
+- El reconocimiento de rollos está mejorado – los rollos leídos del aparato se reconocen con más fiabilidad.
+
+## 1.18.4
+
+### Carpeta de impresión compartida
+- Una única implementación en el asistente root (`passermark-admin shared-folder`): crea el grupo y la carpeta, aplica `root:passermark` con 2775 y la ACL predeterminada, e incorpora a los usuarios al grupo. Los enlaces simbólicos se rechazan por razones de seguridad.
+- La puesta en marcha pasa por tres vías: install.sh (además el paquete `acl`, el usuario que instala y el usuario de servicio `passermark`), Administración → General → «Configurar carpeta de impresión compartida …» (petición de contraseña, con indicación de estado, funciona también en el AppImage) y `passermark-cli shared-folder [--user NAME] [--status]`.
+- Sin `acl`, un archivo creado por otro programa con una umask estricta recibe el grupo pero no es escribible para él — por eso `acl` está ahora en install.sh.
+- El setup de Windows crea las tres subcarpetas (`hotfolder`, `ausgabe`, `archiv`) con derecho de Modificar para los usuarios; el resto de ProgramData se lo deja a los administradores — allí están los preajustes de administración, los perfiles de color y los flujos.
+- El servicio vigilante corre con `UMask=0007`; `serve --init --system` crea la carpeta de ejemplo bajo `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` y las carpetas de salida de la impresión de planos avisan de carpetas bajo `/home`; la elección de carpeta empieza en la carpeta vigilada compartida.
+- El manual (docs/cli-api.md) tiene su propia sección al respecto.
+- Deliberadamente no incluido: en el primer arranque del AppImage, Passermark no pregunta por la carpeta por sí mismo — sería molesto en cada puesto de trabajo. La puesta en marcha va por el botón de la administración.
+
+## 1.18.3
+
+### Registro de impresión: páginas enviadas (out_pages)
+- Passermark ahora escribe `out_pages` en el registro: las páginas enviadas por ejemplar.
+- Con dúplex y ejemplares esto da las hojas – con cualquier tratamiento de páginas.
+- En las entradas antiguas del registro falta el valor.
+- El manual está ampliado.
+
+## 1.18.2
+
+### Preflight: cajas de página, sangrado, protección, PDF/X, campos de formulario
+- **Cajas de página:** `UserUnit ≠ 1` es un error; una CropBox más pequeña que la MediaBox o fuera de ella también (el caso ColorWave); una TrimBox fuera de la zona visible o más grande que la BleedBox; páginas giradas y formatos mixtos como aviso.
+- **Sangrado:** si el contenido llega hasta el borde del formato final pero la página tiene menos de 2 mm de sangrado, se notifica. La comprobación se hace sobre una vista previa aproximada – los planos sin sangrado quedan limpios; solo avisa si el contenido llega de verdad al borde.
+- **Protección:** «impresión no permitida» es un error; solo la baja resolución es un aviso.
+- **PDF/X:** el archivo se presenta como PDF/X pero no tiene output intent para ello; un output intent sin perfil incrustado; páginas sin TrimBox.
+- **Campos de formulario:** la comprobación dice cuántos no se imprimen. Passermark imprime de todos modos los valores del formulario en su propia impresión – el aviso solo aparece si un campo de verdad no se imprime; la nota sobre NeedAppearances vale para la entrega y las carpetas vigiladas.
+- **Páginas vacías** se notifican.
+- Los formatos mixtos son solo un aviso, no una advertencia – en juegos de planos son normales los formatos distintos.
+- El informe de comprobación ahora lista las cajas de página y el sangrado de la primera página.
+- **Para los flujos** hay dos nuevos valores de comprobación: `blank_pages` y `print_allowed`.
+
+### Línea de comandos: plan
+- `passermark-cli plan` admite ahora `--roll` (alimentación, nombre en el aparato o ancho, p. ej. `--roll 914`), `--align center|left|right` y `--no-split`.
+
+### Manual
+- El manual (docs/cli-api.md) está ampliado en alemán e inglés: impresión de planos y pósters (rollo fijo, material por nombre, posición en el rollo, un trabajo por ejemplar, valores predeterminados de póster), una nueva sección sobre la comprobación y dos ejemplos.
+
+## 1.18.1
+
+### Mensaje al leer los rollos
+- El mensaje ahora está en su propia línea bajo la barra de impresora – ya no entre la selección de impresora y los botones.
+- Crece como máximo hasta 3 líneas, lo que sobra se desplaza; seleccionar texto y copiarlo con Ctrl+C funciona.
+- El mensaje de la ventana «Rollos …» (hasta 5 líneas, también el resultado de «comprobar aparato») y los avisos bajo «metros lineales por rollo» (hasta 4 líneas) funcionan ahora igual.
+
+### Responsive
+- Los nombres largos de rollos, materiales e impresoras ya no ensanchan las listas: se acortan, y desplegado se ve el texto completo.
+- Con poco espacio, un campo de los ajustes se coloca bajo su etiqueta en lugar de solaparse con su vecino.
+- La columna derecha con los metros lineales y los ajustes se desplaza; la línea de separación entre la lista de planos y los ajustes se puede mover, ningún lado se cierra del todo.
+- La ventana se puede reducir hasta 640 × 420.
+
+## 1.18.0
+
+### Espacio de trabajo «Plan & Poster»
+- Un nuevo espacio de trabajo para la impresión de planos y pósters – también como paso de un flujo y vía `passermark-cli plan` y `passermark-cli poster`. Con `--dry-run` solo se calculan los metros lineales.
+
+### Rollos leídos del aparato
+- Por IPP, si no por SNMP; SNMP prueba v2c y cae a v1. Las alimentaciones de tipo «other» con ancho cuentan como rollo; la comunidad se ajusta por aparato.
+- Los Roland se consultan aparte; si no, se introducen los rollos a mano.
+- En Windows, la dirección del aparato sale de la conexión (puerto IP, TCP/IP o WSD) o se introduce a mano.
+- «Comprobar aparato» (probe) consulta puertos, IPP y SNMP y guarda todo como informe JSON. Solo lee, no imprime nada.
+
+### Zona de impresión
+- Con dos líneas exteriores se recorta a la exterior; si no, el contenido recibe un margen de 5 mm – modificable por plano.
+
+### Elección del rollo
+- Automática: el rollo más estrecho que encaje, elegido por el gramaje del papel del plano o el material – los materiales ahora también por el nombre.
+- Fija: cada rollo leído se puede elegir, incluso sin material registrado.
+- El tipo de soporte del rollo se pasa al controlador.
+- Posición en el rollo: centrado o en el borde (izquierda o derecha); la página impresa siempre es tan ancha como el rollo. En planos, «en el borde» es lo predeterminado; en pósters, «centrado».
+
+### Ejemplares y metros lineales
+- Ordenados o sin ordenar, según la lista o el ancho del rollo. «Cortar individualmente» es lo predeterminado: cada ejemplar es un trabajo propio (1/3, 2/3 …).
+- Metros lineales en vivo por rollo, aviso cuando el largo restante no alcanza – y quedan en el registro de impresión.
+
+### Herramientas de planos
+- Escalado, rotación, bandas de relleno (espejadas, vacías o de un solo color), marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824.
+
+### Herramientas de pósters
+- En paralelo sobre el rollo es opcional y ahora está desactivado por defecto.
+- Lo más ancho que el rollo se recorta o se divide en bandas con solape.
+- Dobladillo, marcas de ojetes, CutContour y marcas de registro para print & cut con la Roland.
+
+### Materiales para Plan & Poster
+- Impresión de planos o impresión de calidad; por material gramaje, tipo de soporte, calidad, cantidad de tinta y perfil. Guardados por usuario, con valores predeterminados del administrador.
+
+### Otros
+- Salida a carpeta vigilada, p. ej. para VersaWorks.
+- Mensajes de error más claros cuando no se encuentra el aparato.
+
 ## 1.17.1
 
 ### Fusionar con clic derecho (Windows)

@@ -176,8 +176,9 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
     if os.path.exists(path):
         return path, False, []
     base = os.path.dirname(path)
-    if system:
-        drop = "C:/Hotfolder/beispiel" if IS_WIN else "/srv/passermark/hotfolder/beispiel"
+    from . import shared
+    if system or os.path.isdir(shared.path("hotfolder")):     # gemeinsamer Druckordner (alle Programme)
+        drop = os.path.join(shared.path("hotfolder"), "beispiel").replace("\\", "/")
     else:
         drop = os.path.abspath(os.path.join(os.path.expanduser("~"), "hotfolder", "beispiel")).replace("\\", "/")
     made = []
@@ -208,6 +209,8 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
     try:
         os.makedirs(drop, exist_ok=True)
         made.append(drop)
+        if not IS_WIN and os.path.abspath(drop).startswith(shared.root() + os.sep):
+            os.chmod(drop, 0o2770)                 # nur die Programme (Gruppe passermark), auch ohne ACL
     except OSError:
         pass
     return path, True, made

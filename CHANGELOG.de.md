@@ -2,6 +2,107 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.5
+
+### Plan- und Posterdruck: automatisches Schneiden
+- Plan- und Posterdruck wurden trotz richtiger Einstellung nicht automatisch geschnitten – der Fehler ist behoben.
+
+## 1.18.6
+
+### Rollenerkennung verbessert
+- Die Rollenerkennung ist verbessert – Rollen vom Gerät werden zuverlässiger erkannt.
+
+## 1.18.4
+
+### Gemeinsamer Druckordner
+- Eine einzige Umsetzung im Root-Helfer (`passermark-admin shared-folder`): Sie legt Gruppe und Ordner an, setzt `root:passermark` mit 2775 und der Standard-ACL und nimmt die Benutzer in die Gruppe auf. Symbolische Links werden aus Sicherheitsgründen abgelehnt.
+- Die Einrichtung läuft über drei Wege: install.sh (zusätzlich das Paket `acl`, der installierende Benutzer und der Dienstbenutzer `passermark`), Verwaltung → Allgemein → „Gemeinsamen Druckordner einrichten …“ (Passwortabfrage, mit Statusanzeige, funktioniert auch im AppImage) und `passermark-cli shared-folder [--user NAME] [--status]`.
+- Ohne `acl` bekommt eine Datei, die ein anderes Programm mit strenger umask anlegt, zwar die Gruppe, ist für sie aber nicht beschreibbar – deshalb steht `acl` jetzt in install.sh.
+- Das Windows-Setup legt die drei Unterordner (`hotfolder`, `ausgabe`, `archiv`) mit Ändern-Recht für die Benutzer an; den Rest von ProgramData lässt es den Administratoren – dort liegen die Admin-Vorgaben, Farbprofile und Abläufe.
+- Der Watcher-Dienst läuft mit `UMask=0007`; `serve --init --system` legt den Beispiel-Ordner unter `/srv/passermark/hotfolder/beispiel` an.
+- `serve --check` und die Ausgabe-Ordner im Plandruck melden Ordner unter `/home`; die Ordnerwahl startet im gemeinsamen Hotfolder.
+- Die Anleitung (docs/cli-api.md) hat einen eigenen Abschnitt dazu.
+- Bewusst nicht drin: Beim ersten Start des AppImage fragt Passermark nicht von selbst nach dem Ordner – das wäre auf jedem Arbeitsplatz-PC lästig. Die Einrichtung geht über den Knopf in der Verwaltung.
+
+## 1.18.3
+
+### Druckprotokoll: gesendete Seiten (out_pages)
+- Passermark schreibt jetzt `out_pages` ins Protokoll: die gesendeten Seiten je Exemplar.
+- Mit Duplex und Exemplaren ergibt das die Bogen – bei jeder Seitenbehandlung.
+- In älteren Protokolleinträgen steht der Wert nicht.
+- Die Anleitung ist ergänzt.
+
+## 1.18.2
+
+### Dokumentprüfung: Seitenrahmen, Beschnitt, Schutz, PDF/X, Formularfelder
+- **Seitenrahmen:** `UserUnit ≠ 1` ist ein Fehler; eine CropBox, die kleiner als die MediaBox ist oder außerhalb davon liegt, ebenfalls (der ColorWave-Fall); eine TrimBox außerhalb des sichtbaren Bereichs oder größer als die BleedBox; gedrehte Seiten und gemischte Formate als Hinweis.
+- **Beschnitt:** Geht der Inhalt bis an den Endformat-Rand, hat die Seite aber weniger als 2 mm Beschnitt, gibt es eine Meldung. Geprüft wird an einer groben Vorschau – Pläne ohne Beschnitt bleiben sauber, es meldet nur, wenn Inhalt wirklich bis zum Rand geht.
+- **Schutz:** „Drucken verboten“ ist ein Fehler; nur niedrige Auflösung ist eine Warnung.
+- **PDF/X:** Die Datei gibt sich als PDF/X aus, hat aber keinen Output Intent dafür; Output Intent ohne eingebettetes Profil; Seiten ohne TrimBox.
+- **Formularfelder:** Gemeldet wird, wie viele davon beim Drucken nicht mitkommen. Passermark druckt die Formularwerte beim eigenen Druck ohnehin mit – gewarnt wird nur, wenn ein Feld wirklich nicht gedruckt wird; der Hinweis auf NeedAppearances gilt für Weitergabe und Hotfolder.
+- **Leere Seiten** werden gemeldet.
+- Gemischte Formate sind nur ein Hinweis, keine Warnung – bei Plansätzen sind verschiedene Formate normal.
+- Der Prüfbericht listet jetzt die Seitenrahmen und den Beschnitt der ersten Seite auf.
+- **Für Abläufe** gibt es zwei neue Prüfwerte: `blank_pages` und `print_allowed`.
+
+### Kommandozeile: plan
+- `passermark-cli plan` kann jetzt `--roll` (Zufuhr, Name am Gerät oder Breite, z. B. `--roll 914`), `--align center|left|right` und `--no-split`.
+
+### Anleitung
+- Die Anleitung (docs/cli-api.md) ist ergänzt, deutsch und englisch: Plan- und Posterdruck (feste Rolle, Material nach Name, Lage auf der Rolle, je Exemplar ein Auftrag, Poster-Standards), ein neuer Abschnitt zur Prüfung und zwei Beispiele.
+
+## 1.18.1
+
+### Meldung beim Rollen-Lesen
+- Die Meldung steht jetzt in einer eigenen Zeile unter der Druckerleiste – nicht mehr zwischen Druckerauswahl und Knöpfen.
+- Sie wird höchstens 3 Zeilen hoch, alles darüber ist scrollbar; Text markieren und mit Strg+C kopieren geht.
+- Genauso funktionieren jetzt die Meldung im Fenster „Rollen …“ (bis 5 Zeilen, auch das Ergebnis von „Gerät prüfen“) und die Warnungen unter „Laufmeter je Rolle“ (bis 4 Zeilen).
+
+### Responsive
+- Lange Rollen-, Material- und Druckernamen machen die Auswahllisten nicht mehr breiter: Sie werden gekürzt, aufgeklappt sieht man den ganzen Text.
+- Bei wenig Platz rutscht ein Feld in den Einstellungen unter seine Beschriftung, statt sich mit dem Nachbarn zu überlappen.
+- Die rechte Spalte mit Laufmetern und Einstellungen ist scrollbar; die Trennlinie zwischen Planliste und Einstellungen lässt sich verschieben, keine Seite klappt dabei ganz zu.
+- Das Fenster lässt sich bis 640 × 420 verkleinern.
+
+## 1.18.0
+
+### Arbeitsbereich „Plan & Poster“
+- Neuer Arbeitsbereich für Plandruck und Posterdruck – auch als Schritt im Ablauf und über `passermark-cli plan` bzw. `passermark-cli poster`. Mit `--dry-run` wird nur die Laufmeter-Rechnung gemacht.
+
+### Rollen vom Gerät lesen
+- Über IPP, sonst über SNMP; SNMP versucht v2c und fällt auf v1 zurück. Zufuhren vom Typ „other“ mit Breite zählen als Rolle, die Community ist je Gerät einstellbar.
+- Roland wird extra abgefragt; sonst trägst du die Rollen von Hand ein.
+- Unter Windows kommt die Geräteadresse aus dem Anschluss (IP-, TCP/IP- oder WSD-Anschluss) oder wird von Hand eingetragen.
+- „Gerät prüfen“ (probe) fragt Ports, IPP und SNMP ab und speichert alles als JSON-Bericht. Es wird nur gelesen, nichts gedruckt.
+
+### Druckbereich
+- Bei zwei Außenlinien wird auf die äußere beschnitten; sonst bekommt der Inhalt einen Rand von 5 mm – je Plan überschreibbar.
+
+### Rollenwahl
+- Automatisch: die schmälste passende Rolle, gewählt nach Planpapier-Grammatur bzw. Material – das Material jetzt auch über den Namen.
+- Fest: jede gelesene Rolle ist wählbar, auch ohne angelegtes Material.
+- Der Medientyp der Rolle wird an den Treiber mitgeschickt.
+- Lage auf der Rolle: mittig oder am Rand (links bzw. rechts); die Druckseite ist dabei immer so breit wie die Rolle. Beim Plan ist „am Rand“ Standard, beim Poster „mittig“.
+
+### Exemplare und Laufmeter
+- Sortiert oder unsortiert, nach der Liste oder nach Rollenbreite. „Einzeln abschneiden“ ist Standard: jedes Exemplar wird ein eigener Auftrag (1/3, 2/3 …).
+- Laufmeter live je Rolle, Warnung wenn die Restlänge nicht reicht – und sie stehen im Druckprotokoll.
+
+### Plan-Werkzeuge
+- Skalierung, Drehung, Überfüller (gespiegelt, Leerraum oder Einzelfarbe), Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824.
+
+### Poster-Werkzeuge
+- Nebeneinander auf die Rolle ist optional und jetzt standardmäßig aus.
+- Was breiter als die Rolle ist, wird abgeschnitten oder in Bahnen mit Überlappung geteilt.
+- Saum, Ösenmarken, CutContour und Passermarken für Print & Cut mit der Roland.
+
+### Materialien für Plan & Poster
+- Plandruck oder Qualitätsdruck, je Material Grammatur, Medientyp, Qualität, Tintenmenge und Profil. Gespeichert je Benutzer, mit Standards vom Admin.
+
+### Sonstiges
+- Hotfolder-Ausgabe, z. B. für VersaWorks.
+- Verständlichere Fehlermeldungen, wenn das Gerät nicht gefunden wird.
+
 ## 1.17.1
 
 ### Zusammenführen per Rechtsklick (Windows)

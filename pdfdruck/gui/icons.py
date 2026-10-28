@@ -57,6 +57,10 @@ _SHAPES = {
     "move_up": '<rect x="6" y="9" width="12" height="12" rx="1"/><path d="M12 3v3.5M9.5 5L12 2.5 14.5 5"/>',
     "move_down": '<rect x="6" y="3" width="12" height="12" rx="1"/><path d="M12 21v-3.5M9.5 19l2.5 2.5 2.5-2.5"/>',
     "info": '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><path d="M12 7.6v.4"/>',
+    "roll": '<ellipse cx="7" cy="8.5" rx="3.5" ry="4.5"/><ellipse cx="7" cy="8.5" rx="1.2" ry="1.6"/>'
+            '<path d="M7 4h10.5c1.9 0 3.5 2 3.5 4.5S19.4 13 17.5 13H10"/><path d="M10 13v7.5h10V13"/>',
+    "plan": '<rect x="3" y="5" width="18" height="14" rx="0.5"/><rect x="5.2" y="7.2" width="13.6" height="9.6"/>'
+            '<path d="M12.5 13.3h6.3M12.5 13.3v3.5"/>',
 }
 
 

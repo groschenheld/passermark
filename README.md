@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.6
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -7,6 +7,11 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 > welcome – answers and new features come without any guarantee. Tested with CUPS and Windows drivers
 > (inkjet, office/production printers with finishers via a print server); less common drivers and finisher
 > options may need adjustments.
+>
+> **Test rig:** for testing, a virtual machine park runs – nine simulated printers (Canon, Xerox, Epson, Roland, GBC),
+> including finisher functions and with PDF and log output per print:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> It was built by Claude and has served my testing purposes so far – suggestions for improvement are welcome.
 
 ## Screenshots
 
@@ -23,13 +28,14 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
   or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
   and a sheet overview. Also on the command line (`passermark-cli impose`). Step & repeat can mount the finished sheet a second time onto a freely chosen target format (step 2) – now also when printing directly from the print dialog.
+- **Plan & Poster:** plan printing and poster printing on roll devices – rolls read from the device (IPP, otherwise SNMP), “check device” read-only with a JSON report; roll choice automatic (narrowest fitting one, by grammage/material) or fixed, position centred or at the edge; running metres live with a warning before the roll runs short, “cut individually” makes each copy its own job; plan tools (scaling, rotation, overspill strips, cut marks, hairline lifting, fold marks to DIN 824), poster tools (hem, eyelet marks, CutContour, registration marks for print & cut with the Roland), anything wider than the roll is split into panels; materials per user. Also on the command line (`passermark-cli plan`/`poster`, `--dry-run` only calculates running metres), as a workflow step and as hotfolder output e.g. for VersaWorks.
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
   Cropping now also with "trim edges" (mm per side, without a target format) and "remove white space"
   (detect the content, new page frame ± margin, content stays 1:1).
 - **Split pages:** halves or a grid as single pages – e.g. a booklet exported as spreads; select pages,
   right-click → Split. Lossless (content is not rasterised), trim box and bleed respected.
-- **Preflight:** checks fonts, layers and transparency when a document is opened; fixes: embed or substitute
+- **Preflight:** checks fonts, layers, transparency, page boxes (crop/trim/bleed), bleed at the content, protection, PDF/X and output intent, form fields and empty pages when a document is opened; fixes: embed or substitute
   fonts (free metric-compatible fonts or download from fontsource.org), outline text, fix/remove layers,
   flatten transparency. Every finding names its position (e.g. "page 2 – bottom right, 40 × 20 mm"); one click jumps there and frames it in red, ◀ ▶ walks through the findings.
 - **Edit mode:** select text lines and layers with the mouse; change text, font and size; move, scale,
@@ -48,10 +54,11 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   Excel; saved as CSV and used directly in variable data. Own CSV files with other column names (e.g. contact
   exports from Outlook, Google, Thunderbird) are mapped automatically. Seven ready-made examples
   (Help → Get examples).
-- **Workspaces** (View & Print, Prepress, Edit, Automation) with their own tool row.
+- **Workspaces** (View & Print, Plan & Poster, Prepress, Edit, Automation) with their own tool row.
 - **Presets** for CutContour, CMYK/crop and print layout – shared with the command line.
-- **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings, plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
+- **Print log:** per user in the settings, or forced by the admin – one JSON per job with the exact settings and the pages sent per copy (`out_pages`), plus a `printlog.csv`; `passermark-cli reprint <log.json>` reprints a job at any time (with a warning if the original has changed).
 - **Automation:** step-by-step workflows with conditions ("if" on every step, "choose"/"else" branches, "fail"/"stop" with a message); `passermark-cli serve` watches folders and sends every file through the assigned workflow – `serve --init` sets up a template with an example.
+- **Shared print folder:** one hotfolder for everyone – set up through a button in the administration (“Set up shared print folder …”), through install.sh or through `passermark-cli shared-folder`; a single root helper creates the group and the folder (root:passermark, 2775, default ACL, the users join the group, symbolic links are rejected); under Windows the three subfolders `hotfolder`, `ausgabe` and `archiv` get Modify permission for the users – the rest of ProgramData stays reserved for the administrators.
 - **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
 - **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.
 - **Colour check:** in the new Colour menu (Ctrl+Shift+F) – a side panel like the preflight: pick the print condition, Passermark shows what is in the document (RGB, ink coverage, spot colours, output intent) and plain-text findings, each with a button to fix it; findings are clickable.
@@ -94,13 +101,13 @@ passermark-cli cutcontour in.pdf out.pdf --preset "Sticker rund"   # preset save
 passermark-cli presets                                # list presets saved in the program
 ```
 
-Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`, `impose`, `vdp`, `split`, `press` (export for the press);
+Jobs: `cutcontour`, `separate`, `manip` (CMYK/crop), `repair`, `preflight_fix`, `impose`, `vdp`, `split`, `press` (export for the press), `plan`/`poster` (plan and poster printing on rolls);
 plus `beispiele` (examples), `datenarten`, `datenvorlage`, `datencheck` (data tables). Nested settings with a dot
 (`--set detect.tolerance=40`). Ctrl+C cancels cleanly (no half-written file). Exit codes: 0 ok, 1 error,
 2 wrong usage, 130 cancelled. `--json-progress` prints progress and result as JSON lines. Large jobs use several CPU cores;
 limit with the environment variable `PASSERMARK_WORKERS` (1 = no parallel processing).
 
-`passermark-cli serve` watches drop folders (`--init` creates a template with an example); `passermark-cli reprint <log.json>` reprints a job from the print log.
+`passermark-cli serve` watches drop folders (`--init` creates a template with an example); `passermark-cli shared-folder` sets up the shared print folder (`--user NAME`, `--status`); `passermark-cli reprint <log.json>` reprints a job from the print log.
 
 Where: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` in the installation folder (setup option: add it to PATH).

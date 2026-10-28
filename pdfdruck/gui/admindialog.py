@@ -145,6 +145,25 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
+        # gemeinsamer Druckordner für Passermark und die Zusatzprogramme (Watcher, Passerlink, PassCount …)
+        from .. import shared
+        sbox = QVBoxLayout()
+        self.lbl_shared = QLabel()
+        self.lbl_shared.setWordWrap(True)
+        self.lbl_shared.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        sbox.addWidget(self.lbl_shared)
+        srow = QHBoxLayout()
+        self.btn_shared = QPushButton(tr("Gemeinsamen Druckordner einrichten …"))
+        self.btn_shared.setToolTip(tr("Legt {0} mit hotfolder, ausgabe und archiv an, Gruppe {1}, und nimmt dich in "
+                                      "die Gruppe auf – Dienste (Watcher, Passerlink, PassCount) dürfen dort schreiben, "
+                                      "anders als in Home-Ordnern").format(shared.root(), shared.GROUP))
+        self.btn_shared.clicked.connect(self._setup_shared)
+        self.btn_shared.setVisible(not _platform.IS_WIN)
+        srow.addWidget(self.btn_shared)
+        srow.addStretch()
+        sbox.addLayout(srow)
+        f.addRow(tr("Gemeinsamer Druckordner:"), sbox)
+        self._shared_text()
         # Druckprotokoll für alle
         pl = self.cfg.get("print_log") or {}
         self.chk_plog = QCheckBox(tr("Jeden Druckauftrag protokollieren – für alle Benutzer"))
@@ -900,6 +919,31 @@ class AdminDialog(QDialog):
             QMessageBox.critical(self, tr("Fehler beim Speichern"), r.stderr.strip() or f"Code {r.returncode}")
             return
         self._saved_message(n_sys)
+
+    def _shared_text(self):
+        from .. import shared
+        st = shared.status()
+        self.lbl_shared.setText(shared.status_text(st))
+        self.lbl_shared.setStyleSheet(f"color: {theme.MUTED if st['ok'] else theme.ACCENT};")
+        if not _platform.IS_WIN:
+            self.btn_shared.setText(tr("Erneut prüfen/einrichten …") if st["ok"] else
+                                    tr("Gemeinsamen Druckordner einrichten …"))
+
+    def _setup_shared(self):
+        from .. import shared
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            code, out = shared.setup()
+        finally:
+            QApplication.restoreOverrideCursor()
+        self._shared_text()
+        if code == 126:
+            QMessageBox.information(self, tr("Abgebrochen"), tr("Authentifizierung abgebrochen – nichts geändert."))
+        elif code != 0:
+            QMessageBox.critical(self, tr("Gemeinsamer Druckordner"), out or f"Code {code}")
+        else:
+            QMessageBox.information(self, tr("Gemeinsamer Druckordner"), (out + "\n\n" if out else "")
+                                    + shared.status_text())
 
     def _saved_message(self, n_sys):
         lines = []

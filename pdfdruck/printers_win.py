@@ -115,6 +115,84 @@ def list_printers() -> list[PrinterInfo]:
     return sorted(out, key=lambda x: x.name.lower())
 
 
+_IPV4 = __import__("re").compile(r"(?<![\d.])((?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3})(?![\d.])")
+
+
+def _reg_values(root, path: str) -> dict:
+    import winreg
+    out = {}
+    try:
+        with winreg.OpenKey(root, path) as k:
+            i = 0
+            while True:
+                try:
+                    n, v, _t = winreg.EnumValue(k, i)
+                except OSError:
+                    break
+                out[n] = v
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def _reg_subkeys(root, path: str) -> list:
+    import winreg
+    out = []
+    try:
+        with winreg.OpenKey(root, path) as k:
+            i = 0
+            while True:
+                try:
+                    out.append(winreg.EnumKey(k, i))
+                except OSError:
+                    break
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def port_host(port: str, printer: str = "") -> str:
+    """Geräteadresse zu einem Windows-Anschluss: „10.30.4.73-HPGL2“, „IP_10.0.0.5“, Standard-TCP/IP-Anschluss mit
+        beliebigem Namen (HostName/IPAddress aus der Registry, auch am Druckserver), WSD-Anschluss (Adresse aus der
+        WSD-Geräteliste). "" = unbekannt."""
+    port = str(port or "").replace("socket://", "")
+    m = _IPV4.search(port)
+    if m:
+        return m.group(1)
+    try:
+        import winreg
+    except ImportError:
+        return ""
+    roots = [winreg.HKEY_LOCAL_MACHINE]
+    if printer.startswith("\\\\"):                   # Verbindung über einen Druckserver: dessen Registry
+        server = printer[2:].split("\\")[0]
+        try:
+            roots.append(winreg.ConnectRegistry("\\\\" + server, winreg.HKEY_LOCAL_MACHINE))
+        except OSError:
+            pass
+    base = r"SYSTEM\CurrentControlSet\Control\Print\Monitors\Standard TCP/IP Port\Ports" + "\\" + port
+    for root in roots:
+        v = _reg_values(root, base)
+        for key in ("HostName", "IPAddress"):
+            if str(v.get(key) or "").strip():
+                return str(v[key]).strip()
+    if port.upper().startswith("WSD-"):
+        guid = port[4:].lower()
+        wsd = r"SYSTEM\CurrentControlSet\Enum\SWD\DAFWSDProvider"
+        for root in roots:
+            for sub in _reg_subkeys(root, wsd):
+                v = _reg_values(root, wsd + "\\" + sub)
+                text = " ".join(str(x) for x in v.values()).lower()
+                if guid in sub.lower() or guid in text or (printer and str(v.get("FriendlyName") or "") == printer):
+                    loc = str(v.get("LocationInformation") or "")
+                    m = __import__("re").search(r"//\[?([^/\]:]+)", loc)
+                    if m:
+                        return m.group(1)
+    return ""
+
+
 def _caps(printer, port, cap):
     import win32print
     try:

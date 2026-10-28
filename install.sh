@@ -11,7 +11,7 @@ VENV="$LIB/venv"
 
 if command -v apt-get >/dev/null; then
     apt-get update
-    apt-get install -y python3-venv python3-cups ghostscript librsvg2-bin fontconfig fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-urw-base35 fonts-dejavu-core polkitd pkexec libxcb-cursor0 \
+    apt-get install -y python3-venv python3-cups ghostscript librsvg2-bin fontconfig fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea fonts-urw-base35 fonts-dejavu-core polkitd pkexec libxcb-cursor0 acl \
         python3-nautilus libnotify-bin fonts-ibm-plex p7zip-full argyll
 fi
 
@@ -50,6 +50,13 @@ cat > /usr/local/bin/passermark-cli <<SH
 PYTHONPATH="$LIB" exec "$VENV/bin/python" -m pdfdruck.cli "\$@"
 SH
 chmod 755 /usr/local/bin/passermark-cli
+# Gemeinsamer Druckordner für Passermark und die Zusatzprogramme (idempotent, ändert Bestehendes nicht)
+getent group passermark >/dev/null || groupadd --system passermark
+getent passwd passermark >/dev/null || useradd --system -g passermark --home-dir /var/lib/passermark \
+    --shell /usr/sbin/nologin passermark || echo "Hinweis: Dienstbenutzer passermark nicht angelegt."
+# Zugriff nur für die Programme: installierender Benutzer, Watcher und die Dienste von Passerlink/PassCount (erkannt)
+/usr/libexec/passermark-admin shared-folder ${SUDO_USER:+"$SUDO_USER"} passermark \
+    || echo "Hinweis: gemeinsamer Druckordner nicht eingerichtet."
 [ -e /etc/passermark/watch.json ] || /usr/local/bin/passermark-cli serve --init --system
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
 command -v update-desktop-database >/dev/null && update-desktop-database -q || true
@@ -58,4 +65,5 @@ if ! command -v soffice >/dev/null && ! ls /opt/*/desktopeditors/converter/x2t >
     echo "         z. B.: sudo apt install libreoffice-writer libreoffice-calc libreoffice-impress"
 fi
 echo "Fertig. Start: passermark datei.pdf  (oder über das App-Menü: Passermark)"
+echo "Gemeinsamer Druckordner /srv/passermark eingerichtet. Später installierte Zusatzprogramme: passermark-cli shared-folder"
 echo "Nautilus neu starten, damit das Kontextmenü erscheint:  nautilus -q"

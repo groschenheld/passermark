@@ -31,7 +31,7 @@ VERSION = 1
 FOLDER = "printlog"
 CSV_NAME = "printlog.csv"
 _CSV_HEAD = ["time", "user", "host", "source", "file", "pages", "printer", "paper", "tray", "copies", "job_id",
-             "result", "log"]
+             "result", "log", "roll_mm", "run_m"]       # Rolle/Laufmeter: Plandruck (seit 1.18)
 
 _ctx = {"source": "dialog",          # Quelle des laufenden Auftrags (dialog | cli | watch | rightclick)
         "inputs": None, "before": None}   # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
@@ -118,8 +118,10 @@ def _sha256(path: str) -> str | None:
 
 
 def build(caps, printer: str, file: str | None, title: str, pages, settings, values: dict, copies: int,
-          collate: bool, reverse: bool, color: tuple, job_id, error: str | None = None, sheet_mm=None) -> dict:
-    """The log entry (dict). values = driver values as sent (incl. tray, step-2 paper)."""
+          collate: bool, reverse: bool, color: tuple, job_id, error: str | None = None, sheet_mm=None,
+          out_pages: int | None = None) -> dict:
+    """The log entry (dict). values = driver values as sent (incl. tray, step-2 paper).
+        out_pages: pages of the file actually sent, per copy (after imposition, n-up, booklet, step & repeat)."""
     opts = {k: str(v) for k, v in caps.job_options(values).items()} if caps is not None else {}
     lay = dataclasses.asdict(settings) if dataclasses.is_dataclass(settings) else dict(settings or {})
     pkey = caps.roles.get("pagesize") if caps is not None else None
@@ -146,6 +148,7 @@ def build(caps, printer: str, file: str | None, title: str, pages, settings, val
         "paper": values.get(pkey) if pkey else None,
         "tray": values.get(skey) if skey else None,
         "sheet_mm": sheet_mm,
+        "out_pages": out_pages,
         "copies": int(copies),
         "collate": bool(collate),
         "reverse": bool(reverse),
@@ -196,17 +199,43 @@ def write(rec: dict, cfg: dict | None = None) -> str | None:
         os.replace(tmp, path)
         csv_path = os.path.join(base, CSV_NAME)
         new = not os.path.exists(csv_path)
+        if not new:
+            _upgrade_csv(csv_path)
         with open(csv_path, "a", encoding="utf-8-sig" if new else "utf-8", newline="") as f:
             w = csv.writer(f, delimiter=";")
             if new:
                 w.writerow(_CSV_HEAD)
             w.writerow([e["time"], e["user"], e["host"], e["source"], e.get("file") or e.get("title"), e["pages"],
                         e["printer"], e.get("paper") or "", e.get("tray") or "", e["copies"], e.get("job_id") or "",
-                        e["result"] + (f": {e['error']}" if e.get("error") else ""), os.path.relpath(path, base)])
+                        e["result"] + (f": {e['error']}" if e.get("error") else ""), os.path.relpath(path, base),
+                        _num(e.get("roll_mm")), _num(e.get("run_m"))])
         _prune(base, cfg)
         return path
     except Exception:
         return None
+
+
+def _num(v) -> str:
+    """Zahl für die CSV (leer, wenn nicht vorhanden)."""
+    if v is None or v == "":
+        return ""
+    return f"{float(v):g}"
+
+
+def _upgrade_csv(path: str) -> None:
+    """Ältere printlog.csv (ohne Rolle/Laufmeter): Kopfzeile ergänzen, damit neue Spalten benannt sind."""
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            first = f.readline()
+            if "run_m" in first or not first.startswith("time;"):
+                return
+            rest = f.read()
+        tmp = path + ".part"
+        with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(first.rstrip("\r\n") + ";roll_mm;run_m\r\n" + rest)
+        os.replace(tmp, path)
+    except OSError:
+        pass
 
 
 def _prune(base: str, cfg: dict | None = None) -> None:

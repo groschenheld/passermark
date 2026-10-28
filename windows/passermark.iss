@@ -82,6 +82,10 @@ Source: "..\dist\passermark\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreve
 Name: "{commonappdata}\Passermark"
 Name: "{commonappdata}\Passermark\icc"
 Name: "{commonappdata}\Passermark\workflows"
+; gemeinsamer Druckordner (Passermark, Passerlink, PassCount …): nur diese drei für Benutzer beschreibbar
+Name: "{commonappdata}\Passermark\hotfolder"; Flags: uninsneveruninstall
+Name: "{commonappdata}\Passermark\ausgabe"; Flags: uninsneveruninstall
+Name: "{commonappdata}\Passermark\archiv"; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\Passermark"; Filename: "{app}\passermark.exe"
@@ -94,6 +98,11 @@ Name: "addtopath"; Description: "{cm:AddPath}"; Flags: unchecked
 [Run]
 ; Admin defaults: only Administrators and SYSTEM may write, users read-only (SIDs = language-independent)
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark"" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX"; Flags: runhidden waituntilterminated
+; shared print folder: users on this PC and the service accounts (Local/Network Service) may modify – only these
+; three subfolders (after the line above, which keeps the rest read-only); remote clients go through Passerlink
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\hotfolder"" /grant *S-1-5-32-545:(OI)(CI)M *S-1-5-19:(OI)(CI)M *S-1-5-20:(OI)(CI)M"; Flags: runhidden waituntilterminated
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\ausgabe"" /grant *S-1-5-32-545:(OI)(CI)M *S-1-5-19:(OI)(CI)M *S-1-5-20:(OI)(CI)M"; Flags: runhidden waituntilterminated
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\archiv"" /grant *S-1-5-32-545:(OI)(CI)M *S-1-5-19:(OI)(CI)M *S-1-5-20:(OI)(CI)M"; Flags: runhidden waituntilterminated
 Filename: "{app}\passermark.exe"; Description: "{cm:Launch}"; Flags: postinstall nowait skipifsilent unchecked
 Filename: "{app}\passermark-cli.exe"; Parameters: "serve --init --system"; Flags: runhidden
 

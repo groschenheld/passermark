@@ -11,6 +11,10 @@ from user paths), validates everything, writes atomically.
   passermark-admin import-icc    <icc-file> <id>
   passermark-admin remove-icc    <id>
   passermark-admin set-queue-option <printer> <key> <value>   (e.g. finisher/cassettes)
+  passermark-admin shared-folder [<user> …]   shared print folder /srv/passermark for the Passermark programs only:
+     group passermark, hotfolder/ausgabe/archiv, root:passermark 2770 + ACL per program user (works at once),
+     services passermark*/passerlink*/passcount* found automatically: their users get access, systemd drop-in
+     ReadWritePaths=/srv/passermark, restart. Without users: the calling user (pkexec/sudo). Idempotent.
   passermark-admin apply <bundle.json>   (everything in one call = one password prompt)
      {"import_icc": [{"src": "...", "id": "..."}], "remove_icc": ["id"],
       "queue_options": [["printer", "key", "value"]], "config": {...}}
@@ -33,6 +37,11 @@ RX_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RX_QUEUE = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
 RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
+RX_USER = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}\$?$")
+
+SHARED = "/srv/passermark"            # gemeinsamer Druckordner (Regel für alle Passermark-Programme)
+SHARED_SUBS = ("hotfolder", "ausgabe", "archiv")
+SHARED_GROUP = "passermark"
 
 LIB = "/usr/local/lib/passermark"     # root-owned program directory (install.sh) – safe to import from
 
@@ -143,6 +152,198 @@ def cmd_apply(src):
         atomic_write(DEFAULTS, json.dumps(b["config"], indent=2, ensure_ascii=False).encode("utf-8"))
 
 
+def _tool(name):
+    for d in ("/usr/sbin", "/usr/bin", "/sbin", "/bin"):
+        p = os.path.join(d, name)
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return p
+    return None
+
+
+def _caller():
+    """Benutzer, der den Helfer aufgerufen hat (pkexec bzw. sudo) – nicht root."""
+    import pwd
+    for env in ("PKEXEC_UID", "SUDO_UID"):
+        v = os.environ.get(env, "")
+        if v.isdigit() and int(v) != 0:
+            try:
+                return pwd.getpwuid(int(v)).pw_name
+            except KeyError:
+                pass
+    v = os.environ.get("SUDO_USER", "")
+    return v if v and v != "root" else ""
+
+
+SERVICE_RX = re.compile(r"^(passerlink|passcount|passermark)[A-Za-z0-9_.@-]*\.service$")
+DROPIN = "10-passermark-druckordner.conf"
+
+
+def _run(args):
+    return subprocess.run(args, capture_output=True, text=True)
+
+
+def _ensure_acl(done):
+    """setfacl nachinstallieren, wenn es fehlt (Debian/Ubuntu, Fedora, openSUSE) – ohne ACL kein Zugriff je Programm."""
+    sf = _tool("setfacl")
+    if sf:
+        return sf
+    for pm, args in (("apt-get", ["install", "-y", "-q", "acl"]), ("dnf", ["install", "-y", "-q", "acl"]),
+                     ("zypper", ["--non-interactive", "install", "acl"])):
+        t = _tool(pm)
+        if t:
+            env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+            subprocess.run([t] + args, capture_output=True, text=True, env=env)
+            break
+    sf = _tool("setfacl")
+    done.append("Paket acl installiert" if sf else
+                "Hinweis: setfacl fehlt und ließ sich nicht installieren (Paket acl) – nur Gruppe/setgid")
+    return sf
+
+
+def _services():
+    """Dienste von Passermark und den Zusatzprogrammen: [(Unit, Benutzer, DynamicUser)]."""
+    sc = _tool("systemctl")
+    if not sc:
+        return []
+    r = _run([sc, "list-unit-files", "--type=service", "--no-legend", "--no-pager"])
+    out = []
+    for line in r.stdout.splitlines():
+        unit = line.split()[0] if line.split() else ""
+        if not SERVICE_RX.match(unit) or unit.endswith("@.service"):
+            continue
+        sh = _run([sc, "show", unit, "-p", "User", "-p", "DynamicUser", "--no-pager"]).stdout
+        props = dict(x.split("=", 1) for x in sh.splitlines() if "=" in x)
+        out.append((unit, props.get("User", "").strip(), props.get("DynamicUser", "no").strip() == "yes"))
+    return out
+
+
+def _dropin(unit):
+    """systemd-Schutz (ProtectSystem/ReadOnlyPaths …) für den Druckordner öffnen, Gruppe mitgeben. -> geändert?"""
+    d = os.path.join("/etc/systemd/system", unit + ".d")
+    path = os.path.join(d, DROPIN)
+    want = ("# angelegt von passermark-admin shared-folder – gemeinsamer Druckordner\n"
+            f"[Service]\nSupplementaryGroups={SHARED_GROUP}\nReadWritePaths={SHARED}\nUMask=0007\n")
+    try:
+        with open(path, encoding="utf-8") as f:
+            if f.read() == want:
+                return False
+    except OSError:
+        pass
+    os.makedirs(d, exist_ok=True)
+    atomic_write(path, want.encode("utf-8"))
+    return True
+
+
+def _can_write(user, d):
+    ru = _tool("runuser")
+    if not ru:
+        return None
+    t = os.path.join(d, f".passermark-test-{os.getpid()}")
+    r = _run([ru, "-u", user, "--", "/bin/sh", "-c", f'touch "{t}" && rm -f "{t}"'])
+    return r.returncode == 0
+
+
+def cmd_shared_folder(users):
+    """Gemeinsamen Druckordner einrichten: nur die Programme (ihre Benutzer bzw. Dienste) dürfen schreiben – nicht alle.
+        Gruppe passermark + ACL je Programmbenutzer (wirkt sofort, ohne neu anmelden), systemd-Dienste von Passermark,
+        Passerlink, PassCount bekommen den Ordner frei (ReadWritePaths) und werden neu gestartet. Idempotent."""
+    import grp
+    import pwd
+    users = [u for u in (users or [_caller()]) if u]
+    for u in users:
+        if not RX_USER.match(u):
+            die(f"Ungültiger Benutzername: {u}")
+    done = []
+    try:
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+    except KeyError:
+        ga = _tool("groupadd") or die("groupadd nicht gefunden")
+        r = _run([ga, "--system", SHARED_GROUP])
+        if r.returncode != 0:
+            die(r.stderr or "groupadd fehlgeschlagen")
+        gid = grp.getgrnam(SHARED_GROUP).gr_gid
+        done.append(f"Gruppe {SHARED_GROUP} angelegt")
+    dirs = (SHARED,) + tuple(os.path.join(SHARED, x) for x in SHARED_SUBS)
+    for d in dirs:
+        if os.path.islink(d):
+            die(f"{d} ist ein symbolischer Link – aus Sicherheitsgründen nicht verändert")
+        if not os.path.isdir(d):
+            if os.path.exists(d):
+                die(f"{d} ist kein Ordner")
+            os.mkdir(d, 0o2770)
+            done.append(f"{d} angelegt")
+        st = os.lstat(d)
+        if st.st_uid != 0 or st.st_gid != gid:
+            os.chown(d, 0, gid)
+        if (st.st_mode & 0o7777) != 0o2770:
+            os.chmod(d, 0o2770)                   # nur root und die Gruppe – andere kommen nicht hinein
+
+    # Dienste der Passermark-Programme und ihre Benutzer
+    services = _services()
+    svc_users = [u for _unit, u, dyn in services if u and u != "root" and not dyn and RX_USER.match(u)]
+    all_users = []
+    for u in users + svc_users:
+        if u not in all_users:
+            all_users.append(u)
+
+    sf = _ensure_acl(done)
+    um = _tool("usermod") or die("usermod nicht gefunden")
+    added = set()
+    for u in all_users:
+        try:
+            pw = pwd.getpwnam(u)
+        except KeyError:
+            done.append(f"Benutzer {u} gibt es nicht – übersprungen")
+            continue
+        if pw.pw_gid != gid and u not in grp.getgrgid(gid).gr_mem:
+            r = _run([um, "-aG", SHARED_GROUP, u])
+            if r.returncode != 0:
+                die(r.stderr or "usermod fehlgeschlagen")
+            added.add(u)
+            done.append(f"{u} in die Gruppe {SHARED_GROUP} aufgenommen")
+    if sf:
+        spec = [f"g:{SHARED_GROUP}:rwX"] + [f"u:{u}:rwX" for u in all_users if _exists(u)]
+        r = _run([sf, "-R", "-m", ",".join(spec), "-d", "-m", ",".join(spec), SHARED])
+        if r.returncode != 0:
+            done.append("Hinweis: ACL nicht gesetzt (" + (r.stderr.strip() or "setfacl") + ")")
+
+    # systemd: Schutz öffnen und Dienste neu starten, damit Gruppe/Freigabe greifen
+    sc = _tool("systemctl")
+    changed = []
+    for unit, u, dyn in services:
+        if _dropin(unit) or u in added or dyn:
+            changed.append(unit)
+    if changed and sc:
+        _run([sc, "daemon-reload"])
+        for unit in changed:
+            r = _run([sc, "try-restart", unit])
+            done.append(f"Dienst {unit}: Druckordner freigegeben" + ("" if r.returncode == 0 else
+                                                                      f" (Neustart fehlgeschlagen: {r.stderr.strip()})"))
+
+    # Probe: darf jeder Programmbenutzer wirklich schreiben?
+    for u in all_users:
+        if not _exists(u):
+            continue
+        ok = _can_write(u, os.path.join(SHARED, "hotfolder"))
+        if ok is False:
+            done.append(f"ACHTUNG: {u} kann in {SHARED}/hotfolder nicht schreiben")
+        elif ok:
+            done.append(f"{u}: schreiben ok")
+    if services:
+        done.append("Dienste: " + ", ".join(f"{unit} ({u or ('dynamisch' if dyn else 'root')})"
+                                            for unit, u, dyn in services))
+    print("\n".join(done) if done else f"{SHARED} ist schon eingerichtet")
+
+
+def _exists(u):
+    import pwd
+    try:
+        pwd.getpwnam(u)
+        return True
+    except KeyError:
+        return False
+
+
 def main():
     if os.geteuid() != 0:
         die("Muss als root laufen (pkexec).")
@@ -158,6 +359,8 @@ def main():
         cmd_apply(a[1])
     elif len(a) == 4 and a[0] == "set-queue-option":
         cmd_set_queue_option(a[1], a[2], a[3])
+    elif len(a) >= 1 and a[0] == "shared-folder":
+        cmd_shared_folder(a[1:])
     else:
         die(__doc__)
 

@@ -5,6 +5,107 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.5
+
+### Impression de plans et de posters : découpe automatique
+- L'impression de plans et de posters n'était pas découpée automatiquement malgré le bon réglage – l'erreur est corrigée.
+
+## 1.18.6
+
+### Reconnaissance des rouleaux améliorée
+- La reconnaissance des rouleaux est améliorée – les rouleaux lus depuis l'appareil sont reconnus de façon plus fiable.
+
+## 1.18.4
+
+### Dossier d'impression partagé
+- Une seule mise en œuvre dans l'assistant root (`passermark-admin shared-folder`) : elle crée le groupe et le dossier, applique `root:passermark` avec 2775 et l'ACL par défaut, et ajoute les utilisateurs au groupe. Les liens symboliques sont refusés pour des raisons de sécurité.
+- La mise en place passe par trois voies : install.sh (ajoute le paquet `acl`, l'utilisateur qui installe et le compte de service `passermark`), Administration → Général → « Mettre en place le dossier d'impression partagé … » (demande de mot de passe, avec affichage d'état, fonctionne aussi dans l'AppImage), et `passermark-cli shared-folder [--user NAME] [--status]`.
+- Sans `acl`, un fichier créé par un autre programme avec une umask stricte reçoit bien le groupe mais n'est pas inscriptible pour lui — voilà pourquoi `acl` figure maintenant dans install.sh.
+- Le setup Windows crée les trois sous-dossiers (`hotfolder`, `ausgabe`, `archiv`) avec le droit Modifier pour les utilisateurs ; le reste de ProgramData, il le laisse aux administrateurs — les préréglages admin, les profils de couleurs et les enchaînements s'y trouvent.
+- Le service de surveillance tourne avec `UMask=0007` ; `serve --init --system` crée le dossier d'exemple sous `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` et les dossiers de sortie de l'impression de plans signalent les dossiers sous `/home` ; le choix du dossier démarre dans le dossier de dépôt partagé.
+- Le manuel (docs/cli-api.md) y consacre sa propre section.
+- Volontairement absent : au premier démarrage de l'AppImage, Passermark ne demande pas le dossier de lui-même — ce serait pénible sur chaque poste de travail. La mise en place passe par le bouton dans l'administration.
+
+## 1.18.3
+
+### Journal d'impression : pages envoyées (out_pages)
+- Passermark écrit maintenant `out_pages` dans le journal : les pages envoyées par exemplaire.
+- Avec le recto verso et les exemplaires, cela donne les feuilles – quel que soit le traitement des pages.
+- Dans les anciennes entrées du journal, la valeur manque.
+- Le manuel est complété.
+
+## 1.18.2
+
+### Prévol : cases de page, fond perdu, protection, PDF/X, champs de formulaire
+- **Cases de page :** `UserUnit ≠ 1` est une erreur ; une CropBox plus petite que la MediaBox ou en dehors l'est aussi (le cas ColorWave) ; une TrimBox hors de la zone visible ou plus grande que la BleedBox ; pages tournées et formats mixtes comme simple avis.
+- **Fond perdu :** quand le contenu va jusqu'au bord du format final, mais que la page a moins de 2 mm de fond perdu, un constat apparaît. Le contrôle se fait sur un aperçu grossier – les plans sans fond perdu restent propres ; il ne signale que si le contenu atteint vraiment le bord.
+- **Protection :** « impression interdite » est une erreur ; seule la basse résolution est un avertissement.
+- **PDF/X :** le fichier se dit PDF/X mais n'a pas d'output intent pour ça ; un output intent sans profil intégré ; des pages sans TrimBox.
+- **Champs de formulaire :** le contrôle indique combien ne sont pas imprimés. Passermark imprime de toute façon les valeurs de formulaire à sa propre impression – l'avertissement ne vient que si un champ n'est vraiment pas imprimé ; l'avis sur NeedAppearances concerne la transmission et les dossiers de dépôt.
+- **Pages vides** sont signalées.
+- Les formats mixtes ne sont qu'un avis, pas un avertissement – pour des jeux de plans, des formats différents sont normaux.
+- Le rapport de contrôle liste désormais les cases de page et le fond perdu de la première page.
+- **Pour les enchaînements**, deux nouvelles valeurs de contrôle : `blank_pages` et `print_allowed`.
+
+### Ligne de commande : plan
+- `passermark-cli plan` accepte maintenant `--roll` (alimentation, nom sur l'appareil ou largeur, p. ex. `--roll 914`), `--align center|left|right` et `--no-split`.
+
+### Manuel
+- Le manuel (docs/cli-api.md) est complété en allemand et en anglais : impression de plans et de posters (rouleau fixe, matière par nom, position sur le rouleau, un travail par exemplaire, valeurs par défaut des posters), une nouvelle section sur le contrôle et deux exemples.
+
+## 1.18.1
+
+### Message pendant la lecture des rouleaux
+- Le message se trouve maintenant sur sa propre ligne sous la barre d'imprimante – plus entre le choix de l'imprimante et les boutons.
+- Il fait au plus 3 lignes de haut, au-delà ça défile ; sélectionner le texte et le copier avec Ctrl+C fonctionne.
+- Le message de la fenêtre « Rouleaux … » (jusqu'à 5 lignes, résultat de « vérifier l'appareil » inclus) et les avertissements sous « mètres linéaires par rouleau » (jusqu'à 4 lignes) fonctionnent désormais de la même façon.
+
+### Responsive
+- Les noms longs de rouleaux, matières et imprimantes n'élargissent plus les listes de sélection : ils sont raccourcis, et dépliés on voit le texte entier.
+- Quand la place manque, un champ des réglages passe sous son étiquette au lieu de chevaucher son voisin.
+- La colonne de droite avec les mètres linéaires et les réglages défile ; la ligne de séparation entre la liste des plans et les réglages se déplace, aucun côté ne se referme complètement.
+- La fenêtre se réduit jusqu'à 640 × 420.
+
+## 1.18.0
+
+### Espace de travail « Plan & Poster »
+- Un nouvel espace de travail pour l'impression de plans et de posters – aussi comme étape d'enchaînement et via `passermark-cli plan` et `passermark-cli poster`. Avec `--dry-run`, seul le calcul des mètres linéaires est fait.
+
+### Rouleaux lus depuis l'appareil
+- Via IPP, sinon via SNMP ; SNMP essaie v2c et retombe sur v1. Les alimentations de type « other » avec une largeur comptent comme rouleau ; la communauté se règle par appareil.
+- Les Roland sont interrogés à part ; sinon on saisit les rouleaux à la main.
+- Sous Windows, l'adresse de l'appareil vient du port (port IP, TCP/IP ou WSD), ou se saisit à la main.
+- « Vérifier l'appareil » (probe) interroge les ports, l'IPP et le SNMP et enregistre tout dans un rapport JSON. Il ne fait que lire, rien n'est imprimé.
+
+### Zone d'impression
+- Avec deux lignes extérieures, on rogne sur la ligne extérieure ; sinon le contenu reçoit une marge de 5 mm – remplaçable par plan.
+
+### Choix du rouleau
+- Automatique : le rouleau le plus étroit qui convient, choisi selon le grammage du papier du plan ou la matière – les matières maintenant aussi par le nom.
+- Fixe : chaque rouleau lu est sélectionnable, même sans matière enregistrée.
+- Le type de média du rouleau est transmis au pilote.
+- Position sur le rouleau : centré ou au bord (à gauche ou à droite) ; la page imprimée est toujours aussi large que le rouleau. Pour un plan, « au bord » par défaut ; pour un poster, « centré ».
+
+### Exemplaires et mètres linéaires
+- Triés ou non triés, selon la liste ou selon la largeur du rouleau. « Couper individuellement » par défaut : chaque exemplaire devient un travail à part (1/3, 2/3 …).
+- Mètres linéaires en direct par rouleau, avertissement quand la longueur restante ne suffit pas – et ils sont consignés dans le journal d'impression.
+
+### Outils plans
+- Mise à l'échelle, rotation, bandes de remplissage (miroir, vides ou d'une seule couleur), marques de coupe, relevage des filets, repères de pli selon DIN 824.
+
+### Outils posters
+- Côte à côte sur le rouleau en option, désormais désactivé par défaut.
+- Ce qui est plus large que le rouleau est rogné ou découpé en bandes avec chevauchement.
+- Ourlet, marques d'œillets, CutContour et repères de repérage pour le print & cut avec la Roland.
+
+### Matières pour Plan & Poster
+- Impression de plans ou impression qualité ; par matière grammage, type de média, qualité, quantité d'encre et profil. Enregistrées par utilisateur, avec les valeurs par défaut de l'admin.
+
+### Divers
+- Sortie vers dossier de dépôt (hotfolder), p. ex. pour VersaWorks.
+- Messages d'erreur plus clairs quand l'appareil n'est pas trouvé.
+
 ## 1.17.1
 
 ### Fusion par clic droit (Windows)

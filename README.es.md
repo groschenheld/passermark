@@ -1,4 +1,4 @@
-# Passermark 1.17.1
+# Passermark 1.18.6
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -10,6 +10,11 @@ Software libre (GPL-3.0-or-later).
 > CUPS y de Windows (inyección de tinta, impresoras de oficina y de producción con encuadernadora a través de
 > un servidor de impresión); los controladores menos comunes y las opciones de acabado pueden necesitar
 > ajustes.
+>
+> **Entorno de pruebas:** para las pruebas corre un parque de máquinas virtuales – nueve impresoras simuladas (Canon,
+> Xerox, Epson, Roland, GBC), funciones de acabado incluidas y salida en PDF y registro por impresión:
+> [Virtual-Printer-Machine-Fleet](https://github.com/groschenheld/Virtual-Printer-Machine-Fleet).
+> Lo construyó Claude y hasta ahora ha bastado para mis fines de prueba – las propuestas de mejora son bienvenidas.
 
 ## Capturas de pantalla
 
@@ -28,6 +33,7 @@ Software libre (GPL-3.0-or-later).
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de
   hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2) – ahora también al imprimir directamente desde el diálogo de impresión.
+- **Plan & Poster:** impresión de planos y pósters en aparatos de rollo – rollos leídos del aparato (IPP, si no SNMP), «comprobar aparato» solo lectura con informe JSON; elección del rollo automática (el más estrecho que encaje, por gramaje/material) o fija, posición centrada o en el borde; metros lineales en vivo con aviso antes de que se acabe el rollo, «cortar individualmente» convierte cada ejemplar en un trabajo propio; herramientas de planos (escalado, rotación, bandas de relleno, marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824), herramientas de pósters (dobladillo, marcas de ojetes, CutContour, marcas de registro para print & cut con la Roland), más ancho que el rollo se divide en bandas; materiales por usuario. También en la línea de comandos (`passermark-cli plan`/`poster`, `--dry-run` solo calcula los metros lineales), como paso de flujo y como salida a carpeta vigilada, p. ej. para VersaWorks.
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
   y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
@@ -36,7 +42,7 @@ Software libre (GPL-3.0-or-later).
 - **Dividir páginas:** mitades o rejilla como páginas separadas – p. ej. un folleto exportado como páginas
   dobles; seleccionar páginas, botón derecho → Dividir. Sin pérdida (no se rasteriza nada), se respetan el
   formato final y el sangrado.
-- **Preflight:** comprueba fuentes, capas y transparencias al abrir un documento; correcciones: incrustar o
+- **Preflight:** comprueba al abrir un documento fuentes, capas, transparencias, cajas de página (crop/trim/bleed), sangrado del contenido, protección, PDF/X y output intent, campos de formulario y páginas vacías; correcciones: incrustar o
   sustituir fuentes (fuentes libres métricamente compatibles o descarga desde fontsource.org), texto a
   curvas, fijar/eliminar capas, aplanar transparencias. Cada hallazgo nombra su sitio (p. ej. «página 2 – abajo a la derecha, 40 × 20 mm»); un clic salta hasta él y lo enmarca en rojo, con ◀ ▶ recorres los hallazgos.
 - **Edición:** seleccionar líneas de texto y capas con el ratón; cambiar texto, fuente y tamaño; mover,
@@ -57,12 +63,13 @@ Software libre (GPL-3.0-or-later).
   directamente en los datos variables. Los archivos CSV propios con otros nombres de columna (p. ej.
   exportaciones de contactos de Outlook, Google, Thunderbird) se asignan automáticamente. Siete ejemplos
   listos (Ayuda → Obtener ejemplos).
-- **Áreas de trabajo** (Ver e imprimir, Preprensa, Editar, Datos variables, Automatización) con su propia
+- **Áreas de trabajo** (Ver e imprimir, Plan & Poster, Preprensa, Editar, Datos variables, Automatización) con su propia
   barra de herramientas.
 - **Preajustes** para CutContour, CMYK/recorte, diseño de impresión y datos variables – compartidos con la
   línea de comandos.
-- **Registro de impresión:** por usuario en los ajustes, o impuesto por el administrador – un JSON por trabajo con los ajustes exactos, además de un `printlog.csv`; `passermark-cli reprint <log.json>` reimprime un trabajo en cualquier momento (con aviso si el original ha cambiado).
+- **Registro de impresión:** por usuario en los ajustes, o impuesto por el administrador – un JSON por trabajo con los ajustes exactos y las páginas enviadas por ejemplar (`out_pages`), además de un `printlog.csv`; `passermark-cli reprint <log.json>` reimprime un trabajo en cualquier momento (con aviso si el original ha cambiado).
 - **Automatización:** flujos paso a paso con condiciones («if» en cada paso, bifurcaciones «choose»/«else», «fail»/«stop» con mensaje); `passermark-cli serve` vigila carpetas y envía cada archivo por el flujo asignado – `serve --init` crea una plantilla con un ejemplo.
+- **Carpeta de impresión compartida:** una carpeta vigilada para todos – se configura con un botón en la administración («Configurar carpeta de impresión compartida …»), con install.sh o con `passermark-cli shared-folder`; un único asistente root crea el grupo y la carpeta (root:passermark, 2775, ACL predeterminada, los usuarios entran en el grupo, los enlaces simbólicos se rechazan); en Windows, las tres subcarpetas `hotfolder`, `ausgabe` y `archiv` reciben derecho de Modificar para los usuarios – el resto de ProgramData queda reservado a los administradores.
 - **Softproof:** simular el resultado de impresión en la vista (Ctrl+Y) – como condición de impresión, un material, un perfil de la administración o un perfil CMYK del sistema, con intención de renderizado (intent) y BPC; simular el color del papel y la tinta negra de impresión, avisos para los colores fuera del intervalo imprimible y para la cobertura de tinta por encima de un límite en %.
 - **Materiales:** registrar papeles (gramaje, superficie, intención de renderizado, perfil por impresora); blanco de papel medido con ArgyllCMS (spotread), desde un archivo de medición CGATS o a mano; sugerencias de perfiles ordenadas por ΔE2000. Los materiales ajustan perfil e intención en el diálogo de impresión y en la conversión CMYK; la vista previa de color toma el blanco de papel medido.
 - **Comprobación de color:** en el nuevo menú Color (Ctrl+Mayús+F) – una barra lateral como el preflight: elegir la condición de impresión, Passermark muestra lo que contiene el documento (RGB, cobertura de tinta, colores directos, output intent) y hallazgos en texto claro, cada uno con su botón para corregirlos; los hallazgos son clicables.
@@ -107,13 +114,13 @@ passermark-cli presets                                # preajustes guardados en 
 ```
 
 Tareas: `cutcontour`, `separate`, `manip` (CMYK/recorte), `repair`, `preflight_fix`, `impose`, `vdp`,
-`split`, `press` (exportación para la imprenta); además `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tablas de datos). Ajustes
+`split`, `press` (exportación para la imprenta), `plan`/`poster` (impresión de planos y pósters en rollo); además `beispiele`, `datenarten`, `datenvorlage`, `datencheck` (tablas de datos). Ajustes
 anidados con punto (`--set detect.tolerance=40`). Ctrl+C interrumpe limpiamente (ningún archivo a medias).
 Códigos de retorno: 0 terminado, 1 error, 2 indicación incorrecta, 130 cancelado. `--json-progress` imprime
 el progreso y el resultado como líneas JSON. Las tareas grandes usan varios núcleos; limitar con la variable
 de entorno `PASSERMARK_WORKERS` (1 = sin paralelismo).
 
-`passermark-cli serve` vigila carpetas de entrada (`--init` crea una plantilla con un ejemplo); `passermark-cli reprint <log.json>` reimprime un trabajo desde el registro de impresión.
+`passermark-cli serve` vigila carpetas de entrada (`--init` crea una plantilla con un ejemplo); `passermark-cli shared-folder` configura la carpeta de impresión compartida (`--user NAME`, `--status`); `passermark-cli reprint <log.json>` reimprime un trabajo desde el registro de impresión.
 
 Dónde: Linux `install.sh` → `passermark-cli`; AppImage → `Passermark-*.AppImage --cli …`;
 Windows → `passermark-cli.exe` en la carpeta de instalación (opción de instalación: añadirlo al PATH).

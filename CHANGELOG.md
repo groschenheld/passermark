@@ -2,6 +2,107 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.5
+
+### Plan and poster printing: automatic cutting
+- Plan and poster printing was not cut automatically despite the correct setting – the error is fixed.
+
+## 1.18.6
+
+### Roll detection improved
+- Roll detection is improved – rolls from the device are recognised more reliably.
+
+## 1.18.4
+
+### Shared print folder
+- One implementation in the root helper (`passermark-admin shared-folder`): it creates the group and the folder, sets `root:passermark` with 2775 and the default ACL, and adds the users to the group. Symbolic links are rejected for security reasons.
+- Set-up runs through three routes: install.sh (adds the `acl` package, the installing user and the service user `passermark`), Administration → General → “Set up shared print folder …” (password prompt, with a status display, works in the AppImage too), and `passermark-cli shared-folder [--user NAME] [--status]`.
+- Without `acl`, a file another program creates with a strict umask does get the group but is not writable for it — which is why `acl` is now in install.sh.
+- The Windows setup creates the three subfolders (`hotfolder`, `ausgabe`, `archiv`) with Modify permission for users; the rest of ProgramData it leaves to the administrators — the admin presets, colour profiles and workflows live there.
+- The watcher service runs with `UMask=0007`; `serve --init --system` creates the example folder under `/srv/passermark/hotfolder/beispiel`.
+- `serve --check` and the output folders in plan printing report folders under `/home`; the folder picker starts in the shared hotfolder.
+- The manual (docs/cli-api.md) has a section of its own on this.
+- Deliberately not included: on first AppImage start Passermark does not ask for the folder itself — that would be a nuisance on every workstation. Set-up goes through the button in the administration.
+
+## 1.18.3
+
+### Print log: pages sent (out_pages)
+- Passermark now writes `out_pages` to the log: the pages sent per copy.
+- With duplex and copies this gives the sheets – whatever the page handling does.
+- In older log entries the value is missing.
+- The manual has been extended.
+
+## 1.18.2
+
+### Document check: page boxes, bleed, protection, PDF/X, form fields
+- **Page boxes:** `UserUnit ≠ 1` is an error; a CropBox smaller than the MediaBox or outside it as well (the ColorWave case); a TrimBox outside the visible area or larger than the BleedBox; rotated pages and mixed formats as a hint.
+- **Bleed:** when the content reaches the trim edge but the page has less than 2 mm of bleed, a finding is reported. The check runs on a rough preview – plans without bleed stay clean; it only reports when content really reaches the edge.
+- **Protection:** “printing not allowed” is an error; only low resolution is a warning.
+- **PDF/X:** the file calls itself PDF/X but has no output intent for it; an output intent without an embedded profile; pages without a TrimBox.
+- **Form fields:** the check reports how many of them are not printed. Passermark prints the form values itself anyway – a warning only appears when a field really is not printed; the hint about NeedAppearances is for handover and hotfolders.
+- **Empty pages** are reported.
+- Mixed formats are a hint only, not a warning – for plan sets, different formats are normal.
+- The check report now lists the page boxes and the bleed of the first page.
+- **For workflows** there are two new check values: `blank_pages` and `print_allowed`.
+
+### Command line: plan
+- `passermark-cli plan` now takes `--roll` (supply, device name or width, e.g. `--roll 914`), `--align center|left|right` and `--no-split`.
+
+### Manual
+- The manual (docs/cli-api.md) has been extended in German and English: plan and poster printing (fixed roll, material by name, position on the roll, one job per copy, poster defaults), a new section on the check, and two examples.
+
+## 1.18.1
+
+### Message while reading rolls
+- The message now sits in its own line under the printer bar – no longer between the printer selection and the buttons.
+- It grows to at most 3 lines, anything beyond scrolls; selecting text and copying it with Ctrl+C works.
+- The message in the “Rolls …” window (up to 5 lines, including the “check device” result) and the warnings under “running metres per roll” (up to 4 lines) now behave the same way.
+
+### Responsive
+- Long roll, material and printer names no longer widen the selection lists: they are shortened, and opened up you see the full text.
+- In tight spaces a field in the settings slips under its label instead of overlapping its neighbour.
+- The right column with running metres and settings scrolls; the divider between the plan list and the settings can be dragged, and neither side collapses completely.
+- The window can be shrunk down to 640 × 420.
+
+## 1.18.0
+
+### Plan & Poster workspace
+- A new workspace for plan printing and poster printing – also as a step in a workflow and via `passermark-cli plan` and `passermark-cli poster`. With `--dry-run` only the running metres are calculated.
+
+### Rolls read from the device
+- Via IPP, otherwise via SNMP; SNMP tries v2c and falls back to v1. Supplies of type “other” with a width count as a roll; the community is set per device.
+- Roland devices are queried separately; otherwise you enter the rolls by hand.
+- On Windows the device address comes from the port (IP, TCP/IP or WSD port) or is entered by hand.
+- “Check device” (probe) queries ports, IPP and SNMP and saves everything as a JSON report. It only reads, nothing is printed.
+
+### Print area
+- With two outer lines the plan is trimmed to the outer one; otherwise the content gets a 5 mm margin – overridable per plan.
+
+### Roll choice
+- Automatic: the narrowest fitting roll, chosen by plan paper grammage or material – materials are now also matched by name.
+- Fixed: every roll that was read is selectable, even without a registered material.
+- The roll's media type is passed on to the driver.
+- Position on the roll: centred or at the edge (left or right); the printed page is always as wide as the roll. Plans default to “at the edge”, posters to “centred”.
+
+### Copies and running metres
+- Sorted or unsorted, by the list or by roll width. “Cut individually” is the default: each copy becomes its own job (1/3, 2/3 …).
+- Running metres live per roll, a warning when the remaining length does not suffice – and they are written to the print log.
+
+### Plan tools
+- Scaling, rotation, overspill strips (mirrored, blank or a single colour), cut marks, hairline lifting, fold marks to DIN 824.
+
+### Poster tools
+- Side by side onto the roll is optional and now off by default.
+- Anything wider than the roll is cut off or split into panels with overlap.
+- Hem, eyelet marks, CutContour and registration marks for print & cut with the Roland.
+
+### Materials for Plan & Poster
+- Plan printing or quality printing; per material grammage, media type, quality, ink amount and profile. Stored per user, with defaults from the admin.
+
+### Miscellaneous
+- Hotfolder output, e.g. for VersaWorks.
+- Clearer error messages when the device is not found.
+
 ## 1.17.1
 
 ### Merge via right-click (Windows)

@@ -21,7 +21,8 @@ from . import theme
 
 SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis"}
 CAT_TEXT = {"font": "Schrift", "layer": "Ebene", "transparency": "Transparenz", "text": "Zeichen", "image": "Bild",
-            "size": "Dateigröße"}
+            "size": "Dateigröße", "geometry": "Seitenrahmen", "security": "Schutz", "pdfx": "PDF/X",
+            "form": "Formular", "page": "Seite"}
 KIND_TEXT = {"smask": "weiche Maske", "blend": "Füllmethode", "alpha": "Deckkraft", "group": "Transparenzgruppe",
              "overprint": "Überdrucken", "image_alpha": "Bild mit Transparenz",
              "pattern_smask": "Verlauf mit Soft-Maske"}
@@ -235,7 +236,7 @@ class PreflightPanel(QWidget):
         self.tree.clear()
         for i in rep.issues:
             spots = list(getattr(i, "spots", None) or [preflight.Spot(p) for p in i.pages])
-            it = QTreeWidgetItem([tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT[i.category]), i.message,
+            it = QTreeWidgetItem([tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT.get(i.category, i.category)), i.message,
                                   preflight._pages_str(i.pages)])
             it.setForeground(0, QBrush(QColor(col[i.severity])))
             it.setData(0, Qt.ItemDataRole.UserRole, spots)

@@ -238,6 +238,8 @@ def build():
          "für eigene Presets"],
         [c("presets [auftrag]"), "die im Programm gespeicherten Presets auflisten"],
         [c("reprint protokoll.json"), "Druckauftrag aus dem Druckprotokoll genauso nochmal drucken (Abschnitt 6)"],
+        [c("plan plaene.pdf …"), "Plandruck auf Rollen: Rollenwahl, Laufmeter, drucken (Abschnitt 6)"],
+        [c("rolls DRUCKER"), "geladene Rollen des Druckers (vom Gerät oder von Hand eingetragen)"],
         [c("tidy datei.json"), "Preset oder Ablauf auf die Werte kürzen, die vom Standard abweichen ("
          + c("--full") + " = Preset mit allen Werten, " + c("--print") + " = nur anzeigen)"],
         [c("beispiele [ordner]"), "Beispiele für Variable Daten in den Benutzerordner kopieren (Standard: "
@@ -785,6 +787,35 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
                "<b>Für Druckerei ausgeben</b> entspricht dem Auftrag " + c("press") + ". Messen und Vorschläge gibt "
                "es nur im Programm; der Druck über die Kommandozeile nimmt das Profil des Druckers aus der "
                "Verwaltung."))
+
+    s.append(P("Plandruck auf Rollen", H3))
+    s.append(P("Im Programm: Arbeitsbereich <b>Plan &amp; Poster → Plandruck</b>. Jede Seite ist ein Plan. Hat der "
+               "Plan zwei Außenlinien, wird bis zur äußeren gedruckt – sie verschwindet, um den Plan bleibt ein "
+               "exakter Rand. Sonst kommt der Inhalt plus 5 mm. Jeder Plan geht auf die Rolle mit der kürzesten "
+               "Länge (Drehen erlaubt – ein A1 kommt quer auf die 841er statt hoch auf die 594er), bei gleicher "
+               "Länge auf die schmälere. Für Pläne zählen nur Rollen mit Planpapier (Standard 75/80 g/m², "
+               + c("weights") + "). Laufmeter: nur die Plangrößen, je Rolle für einen Satz und für alle "
+               "Exemplare. Standard ist unsortiert (Plan 1 ×3, Plan 2 ×3 …), " + c("collate") + " druckt Satz "
+               "für Satz, " + c('"order": "roll"') + " zuerst alle Pläne der schmalsten Rolle."))
+    s.append(P("Die Rollen liest Passermark vom Gerät (IPP, sonst SNMP; Adresse aus der Verwaltung oder der "
+               "Warteschlange). Meldet das Gerät nichts, gelten die im Programm unter <b>Rollen …</b> eingetragenen. "
+               + c("--rolls 594,841,914") + " gibt sie direkt vor – damit rechnet " + c("--dry-run")
+               + " die Laufmeter auch ohne Drucker. Jeder Auftrag landet mit Rolle und Laufmetern im "
+               "Druckprotokoll (" + c("roll_mm") + ", " + c("run_m") + ")."))
+    s.append(P("Poster und Banner: Arbeitsbereich <b>Plan &amp; Poster → Posterdruck</b> bzw. " + c("--kind poster")
+               + ". Qualitätsdruck, Stücke nebeneinander mit dem wenigsten Papier, was breiter ist als jede Rolle, wird "
+               "abgeschnitten oder in Bahnen geteilt (" + c("overwidth") + "). Banner: Saum/Tunnel (" + c("hem_mm")
+               + "), Ösenmarken (" + c("grommet_spacing_mm") + "), " + c("cut_contour") + " zeichnet die "
+               "Schneidlinie in der Sonderfarbe CutContour für Print &amp; Cut, " + c("--plt") + " schreibt eine "
+               "Schneidedatei. Druckmaterialien (Kategorie Plandruck/Qualitätsdruck, Grammatur, Medientyp, Qualität, "
+               "Tintenmenge, Profil) legt man im Programm an und wählt sie mit " + c("material") + ". Geräte ohne "
+               "Treiber (Roland über VersaWorks) bekommen die PDFs in einen Ausgabe-Ordner: " + c('"printer": "folder:Name"') + "."))
+    s.append(example("Laufmeter für eine Planmappe", "Drei Exemplare, nur rechnen – nichts wird gesendet.",
+                     "passermark-cli plan Mappe.pdf --rolls 594,841,914 --copies 3 --dry-run"))
+    s.append(example("Pläne im Ablauf drucken", "Schritt „plan“ mit denselben Einstellungen wie im Programm "
+                     "(alle: passermark-cli schema plan).",
+                     '{"job": "plan", "settings": {"printer": "ColorWave", "copies": 2, "color": "gray",\n'
+                     '                             "order": "roll", "fix_hairlines": true}}'))
 
     # ------------------------------------------------------------------ inspect
     s.append(P("7 · Dokumente untersuchen", H2))

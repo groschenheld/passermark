@@ -9,6 +9,7 @@ Independent of CUPS – works on Linux and Windows and even when the print queue
 uses a vendor driver (UFR II, PS). Evaluated:
   * media-col-ready     – loaded media per tray: source, size, grammage, paper type
   * printer-input-tray  – trays with fill level (PWG 5100.13): empty / not empty
+  * rolls (plotters)    – loaded width, grammage, media and the remaining length if the device reports it
 """
 from __future__ import annotations
 
@@ -42,6 +43,10 @@ class TrayState:
     media_type: str = ""        # stationery, cardstock …
     level: int | None = None    # fill level in %; 0 = empty; None = unknown
     name: str = ""              # display name of the device (e.g. "Cassette 1")
+    roll: bool = False          # Rolle (Plotter): Breite in width_mm, Länge offen
+    width_mm: float | None = None   # Rollenbreite (bei Rollen; bei Blättern die Breite aus size_mm)
+    remaining_m: float | None = None    # Restlänge der Rolle in m (nur wenn das Gerät sie meldet)
+    media_name: str = ""        # Medienname laut Gerät (media-info / media-key)
 
     @property
     def empty(self) -> bool:
@@ -180,13 +185,22 @@ def interpret(attrs: dict) -> DeviceStatus:
         size = _first(col, "media-size")
         if isinstance(size, dict):
             x, y = _first(size, "x-dimension"), _first(size, "y-dimension")
-            if isinstance(x, int) and isinstance(y, int):
+            if isinstance(x, int) and isinstance(y, int) and y > 0:
                 t.size_mm = (x / 100.0, y / 100.0)
+            elif isinstance(x, int) and x > 0:          # Rolle: y fehlt, ist 0 oder ein Bereich (min, max)
+                t.roll = True
+                t.width_mm = x / 100.0
+        if is_roll_name(src) or is_roll_name(str(_first(col, "media-size-name", "") or "")):
+            t.roll = True
+            if t.width_mm is None and t.size_mm:
+                t.width_mm = t.size_mm[0]
+                t.size_mm = None
         w = _first(col, "media-weight-metric")
         if isinstance(w, int) and w > 0:
             t.weight = w
         t.media_type = str(_first(col, "media-type", "") or "")
         t.size_name = str(_first(col, "media-size-name", "") or "")
+        t.media_name = str(_first(col, "media-info", "") or _first(col, "media-key", "") or "")
     # printer-input-tray: "type=sheetFeedAutoRemovableTray;mediafeed=…;level=40;status=0;name=Tray 1;"
     srcs = [str(s) for s in attrs.get("media-source-supported", [])]
     for i, raw in enumerate(attrs.get("printer-input-tray", [])):
@@ -201,11 +215,45 @@ def interpret(attrs: dict) -> DeviceStatus:
             mx = int(kv.get("maxcapacity", "-2"))
         except ValueError:
             lvl, mx = -3, -2
+        if kv.get("type", "").lower() == "continuousroll" or is_roll_name(src) or is_roll_name(name):
+            t.roll = True
+            if t.width_mm is None:
+                t.width_mm = to_mm(kv.get("mediaxfeed"), kv.get("dimunit", ""))
+            unit = kv.get("unit", "").lower()           # Kapazität in Längeneinheiten -> Restlänge
+            if lvl >= 0 and unit in LENGTH_M:
+                t.remaining_m = round(lvl * LENGTH_M[unit], 2)
         if lvl == 0:
             t.level = 0
         elif lvl > 0:
             t.level = round(lvl * 100 / mx) if mx > 0 else lvl
+    for t in st.trays.values():                     # Rolle mit Format statt Breite (manche Geräte)
+        if t.roll and t.width_mm is None and t.size_mm:
+            t.width_mm = t.size_mm[0]
+        if t.roll:
+            t.size_mm = None
     return st
+
+
+_ROLL = re.compile(r"roll|rolle|tekercs|rollo|rouleau", re.I)
+# Längeneinheiten (Printer-MIB / PWG 5100.13) -> Meter
+LENGTH_M = {"meters": 1.0, "feet": 0.3048, "micrometers": 1e-6, "tenthousandthsofinches": 2.54e-6, "inches": 0.0254}
+_DIM_MM = {"micrometers": 0.001, "tenthousandthsofinches": 0.00254}
+
+
+def is_roll_name(name: str) -> bool:
+    return bool(name) and bool(_ROLL.search(name))
+
+
+def to_mm(value, unit: str) -> float | None:
+    """Maß aus printer-input-tray (dimunit=micrometers | tenThousandthsOfInches) in mm – None bei unbekannt."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    f = _DIM_MM.get(str(unit or "micrometers").lower())
+    if v <= 0 or f is None:
+        return None
+    return round(v * f, 1)
 
 
 def _match_source(name: str, sources: list[str]) -> str | None:
@@ -232,6 +280,11 @@ def host_from_device_uri(uri: str) -> str:
     host = urllib.request.unquote(m.group(1))
     if "._ipp" in host or "._pdl-datastream" in host or "._printer" in host:
         return ""                       # DNS-SD-Dienstname – Host muss der Admin eintragen
+    ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)   # Windows-Anschluss „10.0.0.5-HPGL2“
+    if ip:
+        return ip.group(1)
+    if host.upper().startswith("WSD-"):
+        return ""                       # WSD-Anschluss: Adresse muss anders ermittelt werden
     return host
 
 

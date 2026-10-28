@@ -165,7 +165,9 @@ IPP_FINISHINGS = {"3": "Keine", "4": "Heften", "5": "Lochen", "6": "Abdeckung", 
                   "8": "Sattelheftung", "9": "Kantenheftung", "20": "Heften oben links",
                   "21": "Heften unten links", "22": "Heften oben rechts", "23": "Heften unten rechts",
                   "28": "Doppelheftung links", "29": "Doppelheftung oben", "74": "Lochung (2) links",
-                  "75": "Lochung (2) oben", "80": "Lochung (4) links"}
+                  "75": "Lochung (2) oben", "80": "Lochung (4) links",
+                  "60": "Schneiden", "61": "Schneiden nach jeder Seite", "62": "Schneiden nach jedem Dokument",
+                  "63": "Schneiden nach jeder Kopie", "64": "Schneiden nach dem Auftrag"}
 
 
 @dataclass
