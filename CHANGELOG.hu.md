@@ -5,6 +5,30 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.7
+
+### Beállítások tervenként
+- Ha egyes terveket vagy posztereket jelölt ki, a változtatások csak azokra érvényesek: anyag, tekercs, elhelyezés a tekercsen, forgatás, nyomtatási terület, margó, méretezés és túltöltősáv.
+- Ha semmi vagy minden ki van jelölve, mindenre érvényesek. A beállítások fölött jelzi, ha csak a kijelölés érintett; a listában az eltérő tervek ✎ jelzéssel mutatják, mi más (pl. „✎ 200 % · matt poszterpapír 180 g”).
+- A saját anyagú vagy saját tekercsű terv külön kerül elhelyezésre.
+- Méretezés: százalékban, „rövidebb él … mm-re” vagy „hosszabb él … mm-re” – a másik él arányosan követi.
+
+### Anyagok
+- A betöltött tekercsek médiái most automatikusan szerepelnek a listában, „(eszköz)” jelöléssel; a saját anyagok kiegészítik őket.
+- Az eszköztől származó anyag pontosan az adott médiumú tekercset választja ki.
+- A „Médiatípus” kikerült a párbeszédablakból.
+
+### Küldés
+- „Egy munka, példányonként egy ív” az új alapértelmezés. Választható: példányonként saját munka vagy példányszám.
+
+### Előnézet és próba
+- A lista alatt minden nyomtatott ív kicsiben renderelve jelenik meg, mérettel, tekercsel és „×3 ✂” jelzéssel – többoldalas terveknél és posztereknél is.
+- A próbafutásban a vágási sor most a szöveges kimenetben is szerepel.
+
+### Parancssor és nyomtatási napló
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` a méretezéshez; `overrides` oldalszám szerint az egyes tervek eltéréseihez.
+- A nyomtatási napló eltárolja az eltéréseket – az újranyomtatásnál helyénvalóak maradnak.
+
 ## 1.18.5
 
 ### Terv- és poszternyomtatás: automatikus vágás
@@ -552,4 +576,5 @@
   Code 128 saját olvasóval, ellenőrző összeggel
 - Javítva: a változó adatok az elosztás kiválasztása nélkül „rekordonként a teljes dokumentum másolatát”
   használták a „minden lapon a következő rekord” helyett
+
 

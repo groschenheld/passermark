@@ -2,6 +2,30 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.7
+
+### Einstellungen je Plan
+- Sind einzelne Pläne oder Poster ausgewählt, gelten Änderungen nur für diese: Material, Rolle, Lage auf der Rolle, Drehung, Druckbereich, Rand, Skalierung und Überfüller.
+- Ist nichts oder alles ausgewählt, gelten sie für alle. Über den Einstellungen steht, wenn nur die Auswahl betroffen ist; in der Liste steht bei abweichenden Plänen ✎ mit dem, was anders ist (z. B. „✎ 200 % · Posterpapier matt 180 g“).
+- Ein Plan mit eigenem Material oder eigener Rolle wird für sich platziert.
+- Skalierung: in Prozent, „Kurze Kante auf … mm“ oder „Lange Kante auf … mm“ – die andere Kante passt sich im Verhältnis an.
+
+### Materialien
+- Die Medien der geladenen Rollen stehen jetzt automatisch in der Materialliste, markiert mit „(Gerät)“; die eigenen Materialien kommen dazu.
+- Ein Material vom Gerät wählt genau die Rolle mit diesem Medium.
+- „Medientyp“ ist aus dem Dialog raus.
+
+### Versand
+- „Ein Auftrag, je Exemplar ein Blatt“ ist der neue Standard. Wahlweise geht je Exemplar ein eigener Auftrag oder eine Kopienzahl.
+
+### Vorschau und Probelauf
+- Unter der Liste wird jedes Druckblatt klein gerendert, mit Größe, Rolle und „×3 ✂“ – auch bei mehrseitigen Plänen und Postern.
+- Beim Probelauf steht die Zeile zum Abschneiden jetzt auch in der Textausgabe.
+
+### Kommandozeile und Druckprotokoll
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` für die Skalierung; `overrides` je Seitennummer für Abweichungen einzelner Pläne.
+- Das Druckprotokoll speichert die Abweichungen – beim Nachdrucken stimmen sie.
+
 ## 1.18.5
 
 ### Plan- und Posterdruck: automatisches Schneiden
@@ -984,4 +1008,5 @@ Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen ü
   - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
 - Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
 - Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch
+
 

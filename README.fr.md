@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.7
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -32,7 +32,7 @@ Logiciel libre (GPL-3.0-or-later).
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
   Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2) – désormais aussi à l'impression directe depuis le dialogue d'impression.
-- **Plan & Poster :** impression de plans et de posters sur appareils à rouleaux – rouleaux lus depuis l'appareil (IPP, sinon SNMP), « vérifier l'appareil » en lecture seule avec un rapport JSON ; choix du rouleau automatique (le plus étroit qui convient, selon grammage/matière) ou fixe, position centrée ou au bord ; mètres linéaires en direct avec avertissement avant la fin du rouleau, « couper individuellement » fait de chaque exemplaire un travail à part ; outils plans (mise à l'échelle, rotation, bandes de remplissage, marques de coupe, relevage des filets, repères de pli selon DIN 824), outils posters (ourlet, marques d'œillets, CutContour, repères de repérage pour le print & cut avec la Roland), plus large que le rouleau est découpé en bandes ; matières par utilisateur. Aussi en ligne de commande (`passermark-cli plan`/`poster`, `--dry-run` ne calcule que les mètres linéaires), comme étape d'enchaînement et comme sortie hotfolder p. ex. pour VersaWorks.
+- **Plan & Poster :** impression de plans et de posters sur appareils à rouleaux – rouleaux lus depuis l'appareil (IPP, sinon SNMP), « vérifier l'appareil » en lecture seule avec un rapport JSON ; choix du rouleau automatique (le plus étroit qui convient, selon grammage/matière) ou fixe, position centrée ou au bord ; mètres linéaires en direct avec avertissement avant la fin du rouleau ; outils plans (mise à l'échelle, rotation, bandes de remplissage, marques de coupe, relevage des filets, repères de pli selon DIN 824), outils posters (ourlet, marques d'œillets, CutContour, repères de repérage pour le print & cut avec la Roland), plus large que le rouleau est découpé en bandes ; matières par utilisateur – les médias des rouleaux chargés figurent dans la liste automatiquement (marqués « (appareil) ») et choisissent exactement ce rouleau. Réglages par plan : avec des plans ou posters individuels sélectionnés, matière, rouleau, position, rotation, zone d'impression, marge, mise à l'échelle (en pourcentage ou « chant court/long à … mm ») et bandes de remplissage ne valent que pour la sélection – les écarts s'affichent dans la liste avec ✎. Pour l'envoi, « un travail, une feuille par exemplaire » est le standard au choix un travail par exemplaire ou un nombre de copies ; sous la liste, chaque feuille imprimée est rendue en petit, avec taille, rouleau et nombre de coupes. Aussi en ligne de commande (`passermark-cli plan`/`poster`, `--dry-run` ne calcule que les mètres linéaires, `--copies-mode sheets|jobs|count`, `overrides` par numéro de page), comme étape d'enchaînement et comme sortie hotfolder p. ex. pour VersaWorks ; le journal d'impression enregistre les écarts, la réimpression sort identique.
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
@@ -152,4 +152,5 @@ paquets Python fournis, l'avis LGPL de Qt/PySide6 (remplacement des bibliothèqu
 Ghostscript avec les liens vers le code source de la version fournie. Sur demande, le code source
 correspondant des composants fournis est également mis à disposition – ouvrez une issue sur
 [GitHub](https://github.com/groschenheld/passermark/issues).
+
 

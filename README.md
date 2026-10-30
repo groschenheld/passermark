@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.7
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -28,7 +28,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
   or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
   and a sheet overview. Also on the command line (`passermark-cli impose`). Step & repeat can mount the finished sheet a second time onto a freely chosen target format (step 2) – now also when printing directly from the print dialog.
-- **Plan & Poster:** plan printing and poster printing on roll devices – rolls read from the device (IPP, otherwise SNMP), “check device” read-only with a JSON report; roll choice automatic (narrowest fitting one, by grammage/material) or fixed, position centred or at the edge; running metres live with a warning before the roll runs short, “cut individually” makes each copy its own job; plan tools (scaling, rotation, overspill strips, cut marks, hairline lifting, fold marks to DIN 824), poster tools (hem, eyelet marks, CutContour, registration marks for print & cut with the Roland), anything wider than the roll is split into panels; materials per user. Also on the command line (`passermark-cli plan`/`poster`, `--dry-run` only calculates running metres), as a workflow step and as hotfolder output e.g. for VersaWorks.
+- **Plan & Poster:** plan printing and poster printing on roll devices – rolls read from the device (IPP, otherwise SNMP), “check device” read-only with a JSON report; roll choice automatic (narrowest fitting one, by grammage/material) or fixed, position centred or at the edge; running metres live with a warning before the roll runs short; plan tools (scaling, rotation, overspill strips, cut marks, hairline lifting, fold marks to DIN 824), poster tools (hem, eyelet marks, CutContour, registration marks for print & cut with the Roland), anything wider than the roll is split into panels; materials per user – the media of the loaded rolls are in the list automatically (marked “(device)”) and pick exactly that roll. Settings per plan: with individual plans or posters selected, material, roll, position, rotation, print area, margin, scaling (in percent or “short/long edge to … mm”) and overspill apply only to the selection – deviations show up in the list with ✎. Shipping defaults to “one job, one sheet per copy” with one job per copy or a copy count as options; under the list a preview renders every printed sheet small, with size, roll and cut count. Also on the command line (`passermark-cli plan`/`poster`, `--dry-run` only calculates running metres, `--copies-mode sheets|jobs|count`, per-page `overrides`), as a workflow step and as hotfolder output e.g. for VersaWorks; the print log saves the overrides, so reprinting matches.
 - **Document manipulation:** CMYK conversion with colour preview, crop to format, separate objects,
   **CutContour** for cutting plotters (contour, shapes, bleed, inner cuts; resize and move shapes with handles).
   Cropping now also with "trim edges" (mm per side, without a target format) and "remove white space"
@@ -139,4 +139,5 @@ Python package, the Qt/PySide6 LGPL notice (how to replace the Qt libraries) and
 notice with the source links of the shipped version. On request the corresponding source code of
 the bundled components is also provided – please open an issue on
 [GitHub](https://github.com/groschenheld/passermark/issues).
+
 

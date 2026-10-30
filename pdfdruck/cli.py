@@ -413,8 +413,10 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
                        help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"))
         p.add_argument("--align", default="", choices=["", "center", "left", "right"],
                        help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"))
-        p.add_argument("--no-split", action="store_true",
-                       help=tr("Exemplare als Kopienzahl in einem Auftrag statt je Exemplar ein Auftrag"))
+        p.add_argument("--copies-mode", default="", choices=["", "sheets", "jobs", "count"],
+                       help=tr("Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
+                               "ein Auftrag; count = Kopienzahl"))
+        p.add_argument("--no-split", action="store_true", help=tr("wie --copies-mode count"))
         p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
         p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
                        help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"))
@@ -1002,7 +1004,9 @@ def _plan_cmd(a, rep, fail) -> int:
         sett.update({"printer": a.printer, "copies": max(1, a.copies), "collate": a.collate,
                      "order": "roll" if a.by_roll else "list", "color": a.color, "margin_mm": a.margin,
                      "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material,
-                     "roll_pick": a.roll, "split_copies": not a.no_split})
+                     "roll_pick": a.roll})
+        if a.no_split or a.copies_mode:
+            sett["copies_mode"] = "count" if a.no_split else a.copies_mode
         if a.align:
             sett["align"] = a.align
         if a.frame != "auto" or a.kind == "plan":

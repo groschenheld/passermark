@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.7
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -33,7 +33,7 @@ Software libre (GPL-3.0-or-later).
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de
   hojas. También en la línea de comandos (`passermark-cli impose`). El step & repeat permite montar la hoja terminada una segunda vez en un formato destino de libre elección (paso 2) – ahora también al imprimir directamente desde el diálogo de impresión.
-- **Plan & Poster:** impresión de planos y pósters en aparatos de rollo – rollos leídos del aparato (IPP, si no SNMP), «comprobar aparato» solo lectura con informe JSON; elección del rollo automática (el más estrecho que encaje, por gramaje/material) o fija, posición centrada o en el borde; metros lineales en vivo con aviso antes de que se acabe el rollo, «cortar individualmente» convierte cada ejemplar en un trabajo propio; herramientas de planos (escalado, rotación, bandas de relleno, marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824), herramientas de pósters (dobladillo, marcas de ojetes, CutContour, marcas de registro para print & cut con la Roland), más ancho que el rollo se divide en bandas; materiales por usuario. También en la línea de comandos (`passermark-cli plan`/`poster`, `--dry-run` solo calcula los metros lineales), como paso de flujo y como salida a carpeta vigilada, p. ej. para VersaWorks.
+- **Plan & Poster:** impresión de planos y pósters en aparatos de rollo – rollos leídos del aparato (IPP, si no SNMP), «comprobar aparato» solo lectura con informe JSON; elección del rollo automática (el más estrecho que encaje, por gramaje/material) o fija, posición centrada o en el borde; metros lineales en vivo con aviso antes de que se acabe el rollo; herramientas de planos (escalado, rotación, bandas de relleno, marcas de corte, elevar las líneas finas, marcas de plegado según DIN 824), herramientas de pósters (dobladillo, marcas de ojetes, CutContour, marcas de registro para print & cut con la Roland), más ancho que el rollo se divide en bandas; materiales por usuario – los medios de los rollos cargados están en la lista automáticamente (con «(aparato)») y eligen exactamente ese rollo. Ajustes por plano: con planos o pósters individuales seleccionados, material, rollo, posición, rotación, zona de impresión, margen, escalado (en porcentaje o «canto corto/largo a … mm») y bandas de relleno valen solo para la selección – las desviaciones se muestran en la lista con ✎. En el envío, «un trabajo, una hoja por ejemplar» es el estándar opcionalmente un trabajo por ejemplar o un número de copias; bajo la lista se renderiza cada hoja impresa en pequeño, con tamaño, rollo y número de cortes. También en la línea de comandos (`passermark-cli plan`/`poster`, `--dry-run` solo calcula los metros lineales, `--copies-mode sheets|jobs|count`, `overrides` por número de página), como paso de flujo y como salida a carpeta vigilada, p. ej. para VersaWorks; el registro de impresión guarda las desviaciones, al reimprimir salen iguales.
 - **Manipulación de documentos:** conversión CMYK con vista previa de color, recorte al formato, separar
   objetos, **CutContour** para plotter de corte (contorno, formas, sangrado, cortes interiores; redimensionar
   y mover formas con tiradores). El recorte ahora también con «recortar bordes» (mm por lado, sin formato
@@ -152,4 +152,5 @@ los paquetes de Python incluidos, el aviso LGPL de Qt/PySide6 (cómo sustituir l
 y el aviso de Ghostscript con los enlaces al código fuente de la versión incluida. Previa solicitud
 también se facilita el código fuente correspondiente de los componentes incluidos: abra un issue en
 [GitHub](https://github.com/groschenheld/passermark/issues).
+
 
