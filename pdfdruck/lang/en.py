@@ -2859,4 +2859,7 @@ MESSAGES = {
     'Prozent': 'Percent',
     'Kurze Kante auf': 'Short edge to',
     'Lange Kante auf': 'Long edge to',
+    'Am Gerät angelegt, nicht geladen:': 'Set up on the device, not loaded:',
+    'Gerät, nicht geladen': 'device, not loaded',
+    'Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle wählen.': 'Material “{0}” is set up on the device but not loaded – load the roll or choose a roll.',
 }

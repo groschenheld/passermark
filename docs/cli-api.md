@@ -311,7 +311,10 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   selected plans; nothing or everything selected = all. A plan with its own material or roll is placed on its own.
   The print log keeps the overrides for reprinting.
 - **Material from the device**: `material` may be `dev:<g/m²>:<media name>` – the medium of a loaded roll as the device
-  reports it (the program lists these automatically); it selects exactly the rolls with that medium.
+  reports it (the program lists these automatically); it selects exactly the rolls with that medium. Media set up on
+  the device but not loaded (IPP `media-col-database`) are listed too, marked “not loaded”; choosing one sends its
+  media type and warns that the roll has to be loaded. `passermark-cli rolls PRINTER` shows them, `--json` as
+  `catalog`. Devices that only answer SNMP report no catalog.
 - Paper = custom size (`Custom.WxHmm`, width across the roll – with `align` the roll width), feed = the roll's
   driver value.
 - Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
@@ -468,7 +471,8 @@ Plandruck: Schritt `{"job": "plan", "settings": {…}}` bzw. `passermark-cli pla
 Exemplare: unsortiert als Standard (`collate`, `"order": "roll"`); Versand `copies_mode`: `sheets` (Standard) = ein
 Auftrag, je Exemplar ein Blatt, `jobs` = je Exemplar ein Auftrag, `count` = Kopienzahl. Skalierung `scale_mode`:
 Prozent oder kurze/lange Kante auf `scale_mm`. Abweichungen je Plan mit `overrides` (Seitennummer → Einstellungen);
-im Programm gelten Änderungen für die ausgewählten Pläne. Material vom Gerät: `dev:<g/m²>:<Medium>`. Laufmeter nur aus den Plangrößen; im
+im Programm gelten Änderungen für die ausgewählten Pläne. Material vom Gerät: `dev:<g/m²>:<Medium>` – auch angelegte, aber nicht geladene Medien
+(IPP-Medienkatalog; `passermark-cli rolls` zeigt sie). Laufmeter nur aus den Plangrößen; im
 Druckprotokoll je Auftrag `roll_mm`, `run_m`. Einstellungen wie oben unter *Plan printing*.
 Poster (`--kind poster`): Qualitätsdruck, mittig, nebeneinander nur auf Wunsch (`nest`), Überbreite abschneiden
 oder in Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für

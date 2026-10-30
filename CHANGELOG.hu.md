@@ -5,6 +5,15 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.8
+
+### Anyaglista: az eszköz média­katalógusa
+- A tekercsek lekérdezésekor a Passermark most az eszköz teljes médiakatalógusát is kiolvassa (IPP media-col-database).
+- Az anyaglistában a betöltött médiák „(eszköz)”, a többi létrehozott pedig „(eszköz, nincs betöltve)” jelöléssel szerepel – utánuk jönnek a saját anyagok.
+- Nem betöltött média kiválasztásakor a Passermark annak médiatípusát küldi az illesztőnek. A párbeszédablak jelzi, hogy az eszközön létre van hozva, de nincs betöltve – töltse be a tekercset, vagy válasszon másikat.
+- A `passermark-cli rolls NYOMTATÓ` a listát „Az eszközön létrehozva, nincs betöltve:” alatt mutatja – `--json`-nal `catalog`-ként.
+- Korlátozás: a katalógus csak IPP-n érhető el. A csak SNMP-t beszélő eszközök kizárólag a betöltött tekercseket jelentik.
+
 ## 1.18.7
 
 ### Beállítások tervenként

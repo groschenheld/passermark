@@ -681,6 +681,10 @@ def eligible_for(rolls: list, s: PlanSettings) -> tuple:
         hit = match_material(rolls, mat)
         if hit:
             return hit, note
+        if mat.get("device"):
+            n2 = tr("Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle "
+                    "wählen.").format(mat["name"])
+            return list(rolls), " ".join(x for x in (note, n2) if x)
         if mat.get("weight"):
             use, n2 = eligible(rolls, [int(mat["weight"])])
             return use, " ".join(x for x in (note, n2) if x)
@@ -697,8 +701,9 @@ def device_material_id(roll) -> str:
     return f"{DEV_PREFIX}{int(roll.weight or 0)}:{roll.media or roll.name}"
 
 
-def device_materials(rolls: list) -> list:
-    """Materialien laut Gerät (die Medien der geladenen Rollen), ohne Doppelte: [{"id", "name", "weight", …}]."""
+def device_materials(rolls: list, catalog: list | None = None) -> list:
+    """Materialien laut Gerät: zuerst die Medien der geladenen Rollen, dann die im Medienkatalog des Geräts
+        angelegten, aber nicht geladenen. [{"id", "name", "weight", "loaded", …}], ohne Doppelte."""
     out, seen = [], set()
     for r in rolls:
         if getattr(r, "empty", False) or not (r.media or r.weight):
@@ -707,7 +712,17 @@ def device_materials(rolls: list) -> list:
         if mid in seen:
             continue
         seen.add(mid)
-        out.append(_dev_mat(mid))
+        out.append(dict(_dev_mat(mid), loaded=True))
+    names = {m["device_media"].lower() for m in out}
+    for c in catalog or []:
+        name = str(c.get("name") or "").strip()
+        if not name or name.lower() in names:
+            continue
+        mid = f"{DEV_PREFIX}{int(c.get('weight') or 0)}:{name}"
+        if mid in seen:
+            continue
+        seen.add(mid)
+        out.append(dict(_dev_mat(mid), loaded=False, type=c.get("type", "")))
     return out
 
 
@@ -1410,8 +1425,13 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
                 if k not in (s.options or {}):
                     vals[k] = v
         mkey = caps.roles.get("mediatype")
-        if mkey and roll is not None and not s.media and not (material_of(rs) or {}).get("media"):
-            mv = media_for_roll(caps, roll)       # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+        rmat = material_of(rs) or {}
+        if mkey and roll is not None and not s.media and not rmat.get("media"):
+            src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+            if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
+                from .rolls import Roll
+                src = Roll(roll.width_mm, weight=int(rmat.get("weight") or 0), media=rmat["device_media"])
+            mv = media_for_roll(caps, src)
             if mv:
                 vals[mkey] = mv
         job = os.path.join(tmp, "plan.pdf")

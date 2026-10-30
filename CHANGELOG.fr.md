@@ -5,6 +5,15 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.8
+
+### Liste des matières : catalogue des médias de l'appareil
+- Lors de l'interrogation des rouleaux, Passermark lit désormais aussi le catalogue complet des médias de l'appareil (IPP media-col-database).
+- Dans la liste des matières, les médias chargés figurent comme « (appareil) » et tous les autres créés comme « (appareil, non chargé) » – ensuite viennent vos propres matières.
+- Si vous choisissez un média non chargé, Passermark envoie son type de média au pilote. Le dialogue signale qu'il est créé sur l'appareil mais non chargé – charger le rouleau ou en choisir un autre.
+- `passermark-cli rolls IMPRIMANTE` affiche la liste sous « Créé sur l'appareil, non chargé : » – avec `--json` comme `catalog`.
+- Limitation : le catalogue n'est disponible que par IPP. Les appareils qui ne parlent que SNMP ne signalent que les rouleaux chargés.
+
 ## 1.18.7
 
 ### Réglages par plan

@@ -2859,4 +2859,7 @@ MESSAGES = {
     'Prozent': 'Pourcentage',
     'Kurze Kante auf': 'Petit côté à',
     'Lange Kante auf': 'Grand côté à',
+    'Am Gerät angelegt, nicht geladen:': 'Configuré sur l’appareil, non chargé :',
+    'Gerät, nicht geladen': 'appareil, non chargé',
+    'Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle wählen.': 'Le support « {0} » est configuré sur l’appareil mais pas chargé – chargez le rouleau ou choisissez-en un.',
 }

@@ -2,6 +2,15 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.8
+
+### Materialliste: Medienkatalog des Geräts
+- Beim Abfragen der Rollen liest Passermark den ganzen Medienkatalog des Geräts mit ein (IPP media-col-database).
+- In der Materialliste stehen die geladenen Medien als „(Gerät)“, alle weiteren angelegten als „(Gerät, nicht geladen)“ – danach kommen die eigenen Materialien.
+- Wählst du ein nicht geladenes Material, schickt Passermark dessen Medientyp an den Treiber. Der Dialog meldet, dass es am Gerät angelegt, aber nicht geladen ist – Rolle einlegen bzw. eine Rolle wählen.
+- `passermark-cli rolls DRUCKER` zeigt die Liste unter „Am Gerät angelegt, nicht geladen:“ – mit `--json` als `catalog`.
+- Einschränkung: Den Katalog gibt es nur über IPP. Geräte, die nur SNMP sprechen, melden nur die geladenen Rollen.
+
 ## 1.18.7
 
 ### Einstellungen je Plan

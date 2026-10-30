@@ -727,7 +727,8 @@ def api_main(cmd: str, argv: list[str]) -> int:
             sess = Session(config.load())
             if a.host:
                 q = rl.query(a.host, force=True)
-                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host)
+                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host,
+                                  list(q.catalog))
                 caps = sess.caps_for(a.printer)
                 for i, r in enumerate(st.rolls):
                     r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
@@ -736,13 +737,19 @@ def api_main(cmd: str, argv: list[str]) -> int:
         except Exception as e:                                  # noqa: BLE001
             return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
         d = {"printer": a.printer, "host": st.host, "origin": st.origin, "error": st.error,
-             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls]}
+             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls], "catalog": list(st.catalog)}
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
         else:
             print(f"{a.printer} ({st.host or '–'}, {st.origin})")
             for r in st.rolls:
                 print("  " + r.label() + (f"  → {r.slot}" if r.slot else ""))
+            loaded = {(r.media or r.name).lower() for r in st.rolls}
+            more = [c for c in st.catalog if c["name"].lower() not in loaded]
+            if more:
+                print("  " + tr("Am Gerät angelegt, nicht geladen:") + " "
+                      + ", ".join(c["name"] + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g"
+                                               not in c["name"] else "") for c in more))
             if not st.rolls:
                 print("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
         return EXIT_OK

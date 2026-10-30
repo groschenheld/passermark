@@ -2859,4 +2859,7 @@ MESSAGES = {
     'Prozent': 'Százalék',
     'Kurze Kante auf': 'Rövid él erre',
     'Lange Kante auf': 'Hosszú él erre',
+    'Am Gerät angelegt, nicht geladen:': 'A készüléken beállítva, nincs betöltve:',
+    'Gerät, nicht geladen': 'készülék, nincs betöltve',
+    'Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle wählen.': 'A(z) „{0}” anyag be van állítva a készüléken, de nincs betöltve – tegye be a tekercset, ill. válasszon tekercset.',
 }

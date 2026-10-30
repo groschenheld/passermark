@@ -5,6 +5,15 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.8
+
+### Lista de materiales: catálogo de medios del aparato
+- Al consultar los rollos, Passermark lee ahora también el catálogo de medios completo del aparato (IPP media-col-database).
+- En la lista de materiales los medios cargados aparecen como «(aparato)» y todos los demás creados como «(aparato, no cargado)» – después vienen los materiales propios.
+- Si elige un medio no cargado, Passermark envía su tipo de medio al controlador. El diálogo avisa de que está creado en el aparato pero no cargado – cargar el rollo o elegir otro.
+- `passermark-cli rolls IMPRESORA` muestra la lista bajo «Creado en el aparato, no cargado:» – con `--json` como `catalog`.
+- Limitación: el catálogo solo existe por IPP. Los aparatos que solo hablan SNMP informan únicamente de los rollos cargados.
+
 ## 1.18.7
 
 ### Ajustes por plano

@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from .l10n import tr
 
@@ -74,6 +74,7 @@ class RollState:
     origin: str = "manual"      # ipp | snmp | manual | none
     error: str = ""
     host: str = ""
+    catalog: list = field(default_factory=list)   # am Gerät angelegte Medien (auch nicht geladene), nur IPP
 
 
 # --------------------------------------------------------------------------- #
@@ -136,7 +137,7 @@ def query(host: str, force: bool = False, community: str = "") -> RollState:
     else:
         rl = from_ipp(st)
         if rl:
-            res = RollState(rl, "ipp", "", host)
+            res = RollState(rl, "ipp", "", host, list(st.catalog))
             _cache[host] = (time.time(), res)
             return res
         errors.append(tr("IPP: keine Rollen gemeldet"))
@@ -321,11 +322,12 @@ def for_printer(session, printer: str, live: bool = True, force: bool = False) -
             q = query_roland(host)                  # nie „OH“ an einen normalen Drucker schicken (druckt Text)
         else:
             q = query(host, force=force)
-        st = RollState([Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host)  # Cache bleibt
+        st = RollState([Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host,  # Cache bleibt
+                       list(getattr(q, "catalog", []) or []))
     if not st.rolls:
         mr = manual(printer)
         if mr:
-            st = RollState(mr, "manual", st.error, st.host)
+            st = RollState(mr, "manual", st.error, st.host, st.catalog)
     for i, r in enumerate(st.rolls):
         if not r.slot and caps is not None:
             r.slot = slot_for(caps, r.device or r.name, i)

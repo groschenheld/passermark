@@ -1123,7 +1123,7 @@ class PlanDialog(QDialog):
         if st.rolls:
             self.rolls = [rl.Roll.from_dict(r.to_dict()) for r in st.rolls]
             self._assign_slots(self.rolls)
-            self.roll_state = rl.RollState(self.rolls, st.origin, "", st.host)
+            self.roll_state = rl.RollState(self.rolls, st.origin, "", st.host, list(getattr(st, "catalog", []) or []))
         else:
             self.roll_state = rl.RollState(self.rolls, "manual" if self.rolls else "none", st.error, st.host)
         self._roll_text()
@@ -1673,9 +1673,11 @@ class PlanDialog(QDialog):
         self.cmb_mat.clear()
         self.cmb_mat.addItem(tr("– keins –"), "")
         # was der Drucker meldet (Medien der geladenen Rollen) – ohne es extra anlegen zu müssen
-        for m in pp.device_materials(getattr(self, "rolls", []) or []):
+        rs = getattr(self, "roll_state", None)
+        for m in pp.device_materials(getattr(self, "rolls", []) or [], getattr(rs, "catalog", None)):
             self.cmb_mat.addItem(m["name"] + (f" · {m['weight']} g" if m["weight"] and f"{m['weight']} g"
-                                              not in m["name"] else "") + "  (" + tr("Gerät") + ")", m["id"])
+                                              not in m["name"] else "")
+                                 + "  (" + (tr("Gerät") if m["loaded"] else tr("Gerät, nicht geladen")) + ")", m["id"])
         for m in printmat.for_printer(self.printer, cat) + [m for m in printmat.for_printer(self.printer)
                                                             if m["category"] != cat]:
             t = m["name"] + (f" · {m['weight']} g" if m["weight"] else "")

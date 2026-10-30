@@ -2859,4 +2859,7 @@ MESSAGES = {
     'Prozent': 'Porcentaje',
     'Kurze Kante auf': 'Borde corto a',
     'Lange Kante auf': 'Borde largo a',
+    'Am Gerät angelegt, nicht geladen:': 'Configurado en el equipo, no cargado:',
+    'Gerät, nicht geladen': 'equipo, no cargado',
+    'Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle wählen.': 'El material «{0}» está configurado en el equipo pero no cargado: cargue la bobina o elija una.',
 }

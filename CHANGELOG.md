@@ -2,6 +2,15 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.8
+
+### Material list: the device's media catalogue
+- When querying the rolls, Passermark now reads the device's complete media catalogue along (IPP media-col-database).
+- In the material list the loaded media appear as "(device)", all other set-up media as "(device, not loaded)" – your own materials follow.
+- If you pick a medium that is not loaded, Passermark sends its media type to the driver. The dialog reports that it is set up on the device but not loaded – load the roll or choose another one.
+- `passermark-cli rolls PRINTER` shows the list under "Set up on the device, not loaded:" – with `--json` as `catalog`.
+- Limitation: the catalogue is only available via IPP. Devices that speak SNMP only report the loaded rolls.
+
 ## 1.18.7
 
 ### Settings per plan
