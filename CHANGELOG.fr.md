@@ -5,6 +5,39 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.8
+
+### Liste des matières : catalogue des médias de l'appareil
+- Lors de l'interrogation des rouleaux, Passermark lit désormais aussi le catalogue complet des médias de l'appareil (IPP media-col-database).
+- Dans la liste des matières, les médias chargés figurent comme « (appareil) » et tous les autres créés comme « (appareil, non chargé) » – ensuite viennent vos propres matières.
+- Si vous choisissez un média non chargé, Passermark envoie son type de média au pilote. Le dialogue signale qu'il est créé sur l'appareil mais non chargé – charger le rouleau ou en choisir un autre.
+- `passermark-cli rolls IMPRIMANTE` affiche la liste sous « Créé sur l'appareil, non chargé : » – avec `--json` comme `catalog`.
+- Limitation : le catalogue n'est disponible que par IPP. Les appareils qui ne parlent que SNMP ne signalent que les rouleaux chargés.
+
+## 1.18.7
+
+### Réglages par plan
+- Avec des plans ou posters individuels sélectionnés, les changements ne s'appliquent qu'à eux : matière, rouleau, position sur le rouleau, rotation, zone d'impression, marge, mise à l'échelle et bandes de remplissage.
+- Sans rien ou avec tout sélectionné, ils valent pour tous. Au-dessus des réglages s'affiche quand seule la sélection est concernée ; dans la liste, les plans avec écarts affichent ✎ avec ce qui diffère (p. ex. « ✎ 200 % · papier poster mat 180 g »).
+- Un plan avec sa propre matière ou son propre rouleau est placé à part.
+- Mise à l'échelle : en pourcentage, « chant court à … mm » ou « chant long à … mm » – l'autre chant suit proportionnellement.
+
+### Matières
+- Les médias des rouleaux chargés figurent maintenant automatiquement dans la liste, marqués « (appareil) » ; vos propres matières s'y ajoutent.
+- Une matière de l'appareil choisit exactement le rouleau avec ce média.
+- « Type de média » disparaît du dialogue.
+
+### Envoi
+- « Un travail, une feuille par exemplaire » est le nouveau standard. Au choix : un travail propre par exemplaire ou un nombre de copies.
+
+### Aperçu et simulation
+- Sous la liste, chaque feuille imprimée est rendue en petit, avec taille, rouleau et « ×3 ✂ » – aussi pour les plans et posters de plusieurs pages.
+- Dans la simulation, la ligne de coupe figure maintenant aussi dans la sortie texte.
+
+### Ligne de commande et journal d'impression
+- `--copies-mode sheets|jobs|count` ; `scale_mode`/`scale_mm` pour la mise à l'échelle ; `overrides` par numéro de page pour les écarts de plans individuels.
+- Le journal d'impression enregistre les écarts – la réimpression sort identique.
+
 ## 1.18.5
 
 ### Impression de plans et de posters : découpe automatique
@@ -570,4 +603,5 @@
   avec son propre lecteur avec somme de contrôle
 - Corrigé : les données variables prenaient « une copie du document entier par enregistrement » sans choisir
   la distribution au lieu de « l'enregistrement suivant sur chaque page »
+
 

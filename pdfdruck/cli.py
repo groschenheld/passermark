@@ -413,8 +413,10 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
                        help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"))
         p.add_argument("--align", default="", choices=["", "center", "left", "right"],
                        help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"))
-        p.add_argument("--no-split", action="store_true",
-                       help=tr("Exemplare als Kopienzahl in einem Auftrag statt je Exemplar ein Auftrag"))
+        p.add_argument("--copies-mode", default="", choices=["", "sheets", "jobs", "count"],
+                       help=tr("Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
+                               "ein Auftrag; count = Kopienzahl"))
+        p.add_argument("--no-split", action="store_true", help=tr("wie --copies-mode count"))
         p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
         p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
                        help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"))
@@ -725,7 +727,8 @@ def api_main(cmd: str, argv: list[str]) -> int:
             sess = Session(config.load())
             if a.host:
                 q = rl.query(a.host, force=True)
-                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host)
+                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host,
+                                  list(q.catalog))
                 caps = sess.caps_for(a.printer)
                 for i, r in enumerate(st.rolls):
                     r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
@@ -734,13 +737,19 @@ def api_main(cmd: str, argv: list[str]) -> int:
         except Exception as e:                                  # noqa: BLE001
             return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
         d = {"printer": a.printer, "host": st.host, "origin": st.origin, "error": st.error,
-             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls]}
+             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls], "catalog": list(st.catalog)}
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
         else:
             print(f"{a.printer} ({st.host or '–'}, {st.origin})")
             for r in st.rolls:
                 print("  " + r.label() + (f"  → {r.slot}" if r.slot else ""))
+            loaded = {(r.media or r.name).lower() for r in st.rolls}
+            more = [c for c in st.catalog if c["name"].lower() not in loaded]
+            if more:
+                print("  " + tr("Am Gerät angelegt, nicht geladen:") + " "
+                      + ", ".join(c["name"] + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g"
+                                               not in c["name"] else "") for c in more))
             if not st.rolls:
                 print("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
         return EXIT_OK
@@ -1002,7 +1011,9 @@ def _plan_cmd(a, rep, fail) -> int:
         sett.update({"printer": a.printer, "copies": max(1, a.copies), "collate": a.collate,
                      "order": "roll" if a.by_roll else "list", "color": a.color, "margin_mm": a.margin,
                      "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material,
-                     "roll_pick": a.roll, "split_copies": not a.no_split})
+                     "roll_pick": a.roll})
+        if a.no_split or a.copies_mode:
+            sett["copies_mode"] = "count" if a.no_split else a.copies_mode
         if a.align:
             sett["align"] = a.align
         if a.frame != "auto" or a.kind == "plan":

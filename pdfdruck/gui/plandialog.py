@@ -14,11 +14,11 @@ from __future__ import annotations
 import dataclasses
 import os
 
-from PySide6.QtCore import Qt, QThread, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDialog,
                                QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGroupBox, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
+                               QHeaderView, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
                                QScrollArea, QSizePolicy, QSpinBox, QSplitter,
                                QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -43,11 +43,16 @@ ORIGIN_TEXT = {"ipp": "vom Gerät (IPP)", "snmp": "vom Gerät (SNMP)", "manual":
                "settings": "aus den Einstellungen", "roland": "vom Gerät (Roland)"}
 OVER_TEXT = {"none": "Auslassen (Warnung)", "crop": "Abschneiden (was nicht passt)",
              "tile": "In Bahnen teilen (mit Überlappung)"}
+COPIES_TEXT = {"sheets": "Ein Auftrag, je Exemplar ein Blatt", "jobs": "Je Exemplar ein eigener Auftrag",
+               "count": "Kopienzahl (Gerät entscheidet übers Schneiden)"}
+SCALE_TEXT = {"pct": "Prozent", "short": "Kurze Kante auf", "long": "Lange Kante auf"}
 ALIGN_TEXT = {"center": "Mittig", "left": "Am Rand (links)", "right": "Am Rand (rechts)"}
 CAT_TEXT = {"plan": "Plandruck", "quality": "Qualitätsdruck"}
 KIND_SHORT = {"frame": "Außenlinie", "margin": "Rand", "page": "Seite", "empty": "leer"}
 
 
+PREVIEW_PX = 150                      # Vorschaubild: längere Kante in Pixel
+PREVIEW_MAX = 24                      # höchstens so viele Druckseiten in der Vorschau
 _RUNNING: set = set()                 # laufende Geräteabfragen (überleben das Schließen des Fensters)
 
 
@@ -725,7 +730,35 @@ class PlanDialog(QDialog):
         self.tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)      # nur die Menge
         self.tree.itemDoubleClicked.connect(lambda row, col: self.tree.editItem(row, 4) if col == 4 else None)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        lv.addWidget(self.tree, 1)
+        vsplit = QSplitter(Qt.Orientation.Vertical)
+        vsplit.addWidget(self.tree)
+        pg = QGroupBox(tr("Druckseiten (Vorschau)"))
+        pgl = QVBoxLayout(pg)
+        pgl.setContentsMargins(4, 4, 4, 4)
+        self.lst_prev = QListWidget()
+        self.lst_prev.setViewMode(QListView.ViewMode.IconMode)
+        self.lst_prev.setFlow(QListView.Flow.LeftToRight)
+        self.lst_prev.setWrapping(True)
+        self.lst_prev.setResizeMode(QListView.ResizeMode.Adjust)
+        self.lst_prev.setMovement(QListView.Movement.Static)
+        self.lst_prev.setIconSize(QSize(PREVIEW_PX, PREVIEW_PX))
+        self.lst_prev.setSpacing(6)
+        self.lst_prev.setWordWrap(True)
+        self.lst_prev.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        pgl.addWidget(self.lst_prev)
+        self.lbl_prev = QLabel()
+        self.lbl_prev.setStyleSheet(f"color: {theme.MUTED};")
+        self.lbl_prev.setWordWrap(True)
+        pgl.addWidget(self.lbl_prev)
+        vsplit.addWidget(pg)
+        vsplit.setStretchFactor(0, 3)
+        vsplit.setStretchFactor(1, 2)
+        vsplit.setChildrenCollapsible(False)
+        lv.addWidget(vsplit, 1)
+        self._prev_timer = QTimer(self)
+        self._prev_timer.setSingleShot(True)
+        self._prev_timer.setInterval(350)
+        self._prev_timer.timeout.connect(self._preview)
         self.lbl_hint = QLabel(tr("Pläne mit + hinzufügen oder ins Fenster ziehen. Jede Seite ist ein Plan. "
                                   "Menge: Doppelklick. Rechtsklick: Druckbereich je Plan."))
         self.lbl_hint.setWordWrap(True)
@@ -760,13 +793,18 @@ class PlanDialog(QDialog):
                                        "An: Satz für Satz."))
         self.chk_collate.setChecked(s0.collate)
         row.addWidget(self.chk_collate)
-        self.chk_split = QCheckBox(tr("Einzeln abschneiden"))
-        self.chk_split.setToolTip(tr("Jedes Exemplar als eigener Auftrag (1/3, 2/3 …) – der Drucker schneidet "
-                                     "nach jedem ab, statt alles in einem Stück auszugeben"))
-        self.chk_split.setChecked(s0.split_copies)
-        row.addWidget(self.chk_split)
         row.addStretch(1)
         f.addRow(tr("Exemplare:"), row)
+        self.cmb_copies = QComboBox()
+        fill_combo(self.cmb_copies, [(k, tr(t)) for k, t in COPIES_TEXT.items()], pp.copies_mode(s0))
+        self.cmb_copies.setToolTip(tr("Ein Auftrag, je Exemplar ein Blatt: so erwartet es z. B. die ColorWave – sie "
+                                      "schneidet nach jedem Blatt.\nJe Exemplar ein Auftrag: (1/3), (2/3) …\n"
+                                      "Kopienzahl: ein Blatt, das Gerät druckt es mehrfach."))
+        f.addRow(tr("Versand:"), self.cmb_copies)
+        self.lbl_scope = QLabel()
+        self.lbl_scope.setWordWrap(True)
+        self.lbl_scope.setStyleSheet(f"color: {theme.ACCENT};")
+        f.addRow(self.lbl_scope)
         self.cmb_order = QComboBox()
         fill_combo(self.cmb_order, [(k, tr(t)) for k, t in ORDER_TEXT.items()], s0.order)
         f.addRow(tr("Reihenfolge:"), self.cmb_order)
@@ -793,10 +831,7 @@ class PlanDialog(QDialog):
                                      "Rollenkante – Rand bzw. äußere Linie bleiben, es bleibt ein Längsschnitt.\n"
                                      "Mittig: rundum gleich viel Abstand, das Gerät blendet nichts aus."))
         f.addRow(tr("Auf der Rolle:"), self.cmb_align)
-        self.cmb_media = QComboBox()
-        self.cmb_media.setToolTip(tr("Medientyp im Treiber – leer lassen, dann gilt das Material der Rolle bzw. "
-                                     "die Einstellung am Gerät"))
-        f.addRow(tr("Medientyp:"), self.cmb_media)
+        self.cmb_media = QComboBox()            # 1.18.7: nicht mehr angezeigt – der Medientyp folgt der Rolle
         self.ed_weights = QLineEdit(", ".join(str(w) for w in (s0.weights or [])))
         self.ed_weights.setToolTip(tr("Rollen mit dieser Grammatur werden für Pläne verwendet (leer = alle Rollen)"))
         if self.kind == "plan":
@@ -815,13 +850,25 @@ class PlanDialog(QDialog):
         self.cmb_rotate = QComboBox()
         fill_combo(self.cmb_rotate, [(k, tr(t)) for k, t in ROTATE_TEXT.items()], s0.rotate)
         f.addRow(tr("Lage:"), self.cmb_rotate)
+        row = QHBoxLayout()
+        self.cmb_scale = QComboBox()
+        fill_combo(self.cmb_scale, [(k, tr(t)) for k, t in SCALE_TEXT.items()], s0.scale_mode)
+        row.addWidget(self.cmb_scale)
         self.spn_scale = QDoubleSpinBox()
         self.spn_scale.setRange(1, 1000)
         self.spn_scale.setDecimals(1)
         self.spn_scale.setSuffix(" %")
         self.spn_scale.setValue(s0.scale_pct)
         self.spn_scale.setToolTip(tr("100 % = tatsächliche Größe (Maßstab bleibt)"))
-        f.addRow(tr("Skalierung:"), self.spn_scale)
+        row.addWidget(self.spn_scale)
+        self.spn_scale_mm = QDoubleSpinBox()
+        self.spn_scale_mm.setRange(0, 100000)
+        self.spn_scale_mm.setDecimals(1)
+        self.spn_scale_mm.setSuffix(" mm")
+        self.spn_scale_mm.setValue(s0.scale_mm or 0)
+        self.spn_scale_mm.setToolTip(tr("Endmaß der Kante ohne Überfüller – die andere Kante folgt im Verhältnis"))
+        row.addWidget(self.spn_scale_mm)
+        f.addRow(tr("Skalierung:"), row)
         row = QHBoxLayout()
         self.spn_bleed = QDoubleSpinBox()
         self.spn_bleed.setRange(0, 50)
@@ -965,19 +1012,31 @@ class PlanDialog(QDialog):
         self._color_button()
 
         # Änderungen: nur neu platzieren bzw. neu erkennen
-        for w in (self.spn_copies, self.spn_scale, self.spn_bleed, self.spn_gap, self.spn_overlap, self.spn_hem,
-                  self.spn_grom, self.spn_grom_in):
+        for w in (self.spn_copies, self.spn_gap, self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in):
             w.valueChanged.connect(self._changed)
-        for w in (self.chk_collate, self.chk_split, self.chk_marks, self.chk_hair, self.chk_fold, self.chk_nest, self.chk_cut,
+        for w in (self.chk_collate, self.chk_marks, self.chk_hair, self.chk_fold, self.chk_nest, self.chk_cut,
                   self.chk_pcm, *self.chk_hem.values()):
             w.toggled.connect(self._changed)
-        for w in (self.cmb_order, self.cmb_rotate, self.cmb_bleed, self.cmb_color, self.cmb_media, self.cmb_over,
-                  self.cmb_mat, self.cmb_roll, self.cmb_align):
+        for w in (self.cmb_order, self.cmb_color, self.cmb_over, self.cmb_copies):
             w.currentIndexChanged.connect(self._changed)
         self.ed_weights.editingFinished.connect(self._changed)
-        self.cmb_frame.currentIndexChanged.connect(self._redetect)
-        self.spn_margin.valueChanged.connect(self._redetect)
-        self.spn_scale.valueChanged.connect(self._redetect_hairlines)
+        # Einstellungen je Plan: wirken auf die Auswahl (nichts bzw. alles ausgewählt: auf alle)
+        self.g = {k: getattr(s0, k) for k in pp.OV_KEYS}
+        self.g["roll_pick"] = s0.roll_pick
+        for w, key, get in ((self.cmb_mat, "material", lambda: self.cmb_mat.currentData() or ""),
+                            (self.cmb_roll, "roll_pick", lambda: self.cmb_roll.currentData() or ""),
+                            (self.cmb_align, "align", lambda: self.cmb_align.currentData() or "center"),
+                            (self.cmb_rotate, "rotate", lambda: self.cmb_rotate.currentData() or "auto"),
+                            (self.cmb_bleed, "bleed_mode", lambda: self.cmb_bleed.currentData() or "mirror"),
+                            (self.cmb_frame, "frame", lambda: self.cmb_frame.currentData() or "auto")):
+            w.currentIndexChanged.connect(lambda _i, key=key, get=get: self._set_field({key: get()}))
+        self.spn_bleed.valueChanged.connect(lambda v: self._set_field({"bleed_mm": v}))
+        self.spn_margin.valueChanged.connect(lambda v: self._set_field({"margin_mm": v}))
+        self.cmb_scale.currentIndexChanged.connect(self._scale_changed)
+        self.spn_scale.valueChanged.connect(self._scale_changed)
+        self.spn_scale_mm.valueChanged.connect(self._scale_changed)
+        self.tree.itemSelectionChanged.connect(self._load_fields)
+        self._scale_widgets()
 
         make_responsive(self)
         self.setMinimumSize(640, 420)
@@ -1064,14 +1123,15 @@ class PlanDialog(QDialog):
         if st.rolls:
             self.rolls = [rl.Roll.from_dict(r.to_dict()) for r in st.rolls]
             self._assign_slots(self.rolls)
-            self.roll_state = rl.RollState(self.rolls, st.origin, "", st.host)
+            self.roll_state = rl.RollState(self.rolls, st.origin, "", st.host, list(getattr(st, "catalog", []) or []))
         else:
             self.roll_state = rl.RollState(self.rolls, "manual" if self.rolls else "none", st.error, st.host)
         self._roll_text()
         self._refresh()
 
     def _fill_rolls(self):
-        cur = self.cmb_roll.currentData() if self.cmb_roll.count() else self.s0.roll_pick
+        g = getattr(self, "g", None)
+        cur = g["roll_pick"] if g is not None else self.s0.roll_pick
         self.cmb_roll.blockSignals(True)
         self.cmb_roll.clear()
         self.cmb_roll.addItem(tr("Automatisch"), "")
@@ -1084,6 +1144,9 @@ class PlanDialog(QDialog):
 
     def _roll_text(self):
         self._fill_rolls()
+        self._fill_materials()
+        if hasattr(self, "g"):
+            self._load_fields()
         st = self.roll_state
         if st is None or not self.rolls:
             err = f" ({st.error})" if st is not None and st.error else ""
@@ -1182,7 +1245,7 @@ class PlanDialog(QDialog):
         for k in ("", ) + pp.FRAME_MODES:
             a = sub.addAction(tr("Wie eingestellt") if k == "" else tr(FRAME_TEXT[k]))
             a.setCheckable(True)
-            a.setChecked(all(self.items[r].frame == k for r in rows))
+            a.setChecked(all(self.items[r].ov.get("frame", self.items[r].frame) == k for r in rows))
             a.triggered.connect(lambda _c=False, k=k: self._set_frame(rows, k))
         a = m.addAction(tr("Menge …"))
         a.triggered.connect(lambda: self.tree.editItem(self.tree.topLevelItem(rows[0]), 4))
@@ -1191,7 +1254,11 @@ class PlanDialog(QDialog):
     def _set_frame(self, rows, k):
         for r in rows:
             it = self.items[r]
-            it.frame = k
+            it.frame = ""
+            if k:
+                it.ov["frame"] = k
+            else:
+                it.ov.pop("frame", None)
             it.area = None
             if it not in self._queue:
                 self._queue.append(it)
@@ -1238,7 +1305,8 @@ class PlanDialog(QDialog):
         for it in self.items:
             if it.area is not None:
                 try:
-                    it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, s.scale_pct)
+                    it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm,
+                                                pp.factor(it.area, pp.eff(s, it)) * 100.0)
                 except Exception:
                     pass
         self._refresh()
@@ -1253,8 +1321,9 @@ class PlanDialog(QDialog):
         s = self.settings()
         self.lbl_state.setText(tr("Erkenne {0} … ({1} offen)").format(it.label, len(self._queue)))
         try:
-            it.area = pp.detect(it.doc, it.page, it.frame or s.frame, s.margin_mm)
-            it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, s.scale_pct)
+            es = pp.eff(s, it)
+            it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
+            it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, pp.factor(it.area, es) * 100.0)
         except Exception as e:                                  # noqa: BLE001
             it.area = None
             self.lbl_state.setText(tr("{0}: {1}").format(it.label, e))
@@ -1272,24 +1341,130 @@ class PlanDialog(QDialog):
                 out.append(int(t))
         return out
 
+    # ------------------------------------------------------------------ #
+    # Einstellungen je Plan (Auswahl)
+    # ------------------------------------------------------------------ #
+    def _partial(self) -> list:
+        """Ausgewählte Pläne – leer, wenn nichts oder alles ausgewählt ist (dann gilt es für alle)."""
+        rows = self._selected()
+        return [self.items[r] for r in rows] if 0 < len(rows) < len(self.items) else []
+
+    def _set_field(self, vals: dict):
+        if getattr(self, "_loading_fields", False):
+            return
+        sel = self._partial()
+        redetect = bool({"frame", "margin_mm"} & set(vals))
+        targets = sel or self.items
+        if sel:
+            for it in sel:
+                for k, v in vals.items():
+                    if v == self.g.get(k):
+                        it.ov.pop(k, None)       # gleich wie für alle: keine Abweichung mehr
+                    else:
+                        it.ov[k] = v
+                    if k == "frame":
+                        it.frame = ""
+        else:
+            self.g.update(vals)
+            for it in self.items:
+                for k in vals:
+                    it.ov.pop(k, None)
+                    if k == "frame":
+                        it.frame = ""
+        self._color_button()
+        if redetect:
+            for it in targets:
+                it.area = None
+                if it not in self._queue:
+                    self._queue.append(it)
+            self._timer.start()
+        elif {"scale_pct", "scale_mode", "scale_mm"} & set(vals):
+            self._redetect_hairlines()
+            return
+        self._refresh()
+
+    def _scale_widgets(self):
+        pct = (self.cmb_scale.currentData() or "pct") == "pct"
+        self.spn_scale.setVisible(pct)
+        self.spn_scale_mm.setVisible(not pct)
+
+    def _scale_changed(self, *_a):
+        self._scale_widgets()
+        mode = self.cmb_scale.currentData() or "pct"
+        if mode != "pct" and self.spn_scale_mm.value() <= 0:
+            return                               # erst ein Maß eingeben
+        self._set_field({"scale_mode": mode, "scale_pct": self.spn_scale.value(), "scale_mm": self.spn_scale_mm.value()})
+
+    def _load_fields(self):
+        """Felder zeigen die Werte der Auswahl (erster ausgewählter Plan) bzw. die für alle."""
+        sel = self._partial()
+        base = self.settings()
+        es = pp.eff(base, sel[0]) if sel else base
+        self._loading_fields = True
+        try:
+            for w, v in ((self.cmb_mat, es.material), (self.cmb_roll, es.roll_pick), (self.cmb_align, es.align),
+                         (self.cmb_rotate, es.rotate), (self.cmb_bleed, es.bleed_mode), (self.cmb_frame, es.frame),
+                         (self.cmb_scale, es.scale_mode)):
+                w.blockSignals(True)
+                i = w.findData(v)
+                w.setCurrentIndex(max(0, i))
+                w.blockSignals(False)
+            for w, v in ((self.spn_bleed, es.bleed_mm), (self.spn_margin, es.margin_mm), (self.spn_scale, es.scale_pct),
+                         (self.spn_scale_mm, es.scale_mm or 0)):
+                w.blockSignals(True)
+                w.setValue(v)
+                w.blockSignals(False)
+            self._bleed_color = es.bleed_color
+            self._color_button()
+            self._scale_widgets()
+        finally:
+            self._loading_fields = False
+        if sel:
+            self.lbl_scope.setText(tr("Änderungen gelten nur für die Auswahl ({0} von {1}) – Material, Rolle, Lage, "
+                                      "Druckbereich, Skalierung und Überfüller").format(len(sel), len(self.items)))
+        else:
+            self.lbl_scope.setText("")
+
+    def _ov_text(self, it) -> str:
+        """Kurz, was bei diesem Plan abweicht."""
+        if not it.ov and not it.frame:
+            return ""
+        es = pp.eff(self.settings(), it)
+        parts = []
+        if {"scale_mode", "scale_pct", "scale_mm"} & set(it.ov):
+            parts.append(pp.scale_text(es))
+        if "rotate" in it.ov:
+            parts.append("↻ " + tr(ROTATE_TEXT.get(es.rotate, es.rotate)))
+        if "frame" in it.ov or it.frame:
+            parts.append(tr(KIND_SHORT.get(es.frame, FRAME_TEXT.get(es.frame, es.frame))))
+        if "margin_mm" in it.ov:
+            parts.append(tr("Rand {0} mm").format(pp.mm_text(es.margin_mm)))
+        if {"bleed_mm", "bleed_mode", "bleed_color"} & set(it.ov):
+            parts.append(tr("Überfüller {0} mm").format(pp.mm_text(es.bleed_mm)))
+        if "material" in it.ov:
+            m = pp.material_of(es)
+            parts.append(m["name"] if m else tr("Material"))
+        if "roll_pick" in it.ov:
+            parts.append(tr("Rolle {0}").format(es.roll_pick or tr("automatisch")))
+        if "align" in it.ov:
+            parts.append(tr(ALIGN_TEXT.get(es.align, es.align)))
+        return " · ".join(parts)
+
     def settings(self) -> pp.PlanSettings:
         hem = "".join(k for k, c in self.chk_hem.items() if c.isChecked())
         return dataclasses.replace(
             self.s0, kind=self.kind, printer=self.printer, color=self.cmb_color.currentData() or "",
-            media=self.cmb_media.currentData() or "", frame=self.cmb_frame.currentData() or "auto",
-            margin_mm=self.spn_margin.value(), rotate=self.cmb_rotate.currentData() or "auto",
-            scale_pct=self.spn_scale.value(), bleed_mm=self.spn_bleed.value(),
-            bleed_mode=self.cmb_bleed.currentData() or "mirror", bleed_color=self._bleed_color,
-            crop_marks=self.chk_marks.isChecked(), copies=self.spn_copies.value(),
+            media=self.s0.media, crop_marks=self.chk_marks.isChecked(),
+            copies=self.spn_copies.value(),
             collate=self.chk_collate.isChecked(), order=self.cmb_order.currentData() or "list",
             weights=self._weights() if self.kind == "plan" else [], fix_hairlines=self.chk_hair.isChecked(),
-            material=self.cmb_mat.currentData() or "", nest=self.chk_nest.isChecked(), gap_mm=self.spn_gap.value(),
+            nest=self.chk_nest.isChecked(), gap_mm=self.spn_gap.value(),
             overwidth=self.cmb_over.currentData() or "none", overlap_mm=self.spn_overlap.value(),
             fold_marks=self.chk_fold.isChecked() and self.kind == "plan", hem_mm=self.spn_hem.value(),
             hem_sides=hem, grommet_spacing_mm=self.spn_grom.value(), grommet_inset_mm=self.spn_grom_in.value(),
             cut_contour=self.chk_cut.isChecked(), printcut_marks=self.chk_pcm.isChecked(), rolls=[], dry_run=False,
-            roll_pick=self.cmb_roll.currentData() or "", align=self.cmb_align.currentData() or "center",
-            split_copies=self.chk_split.isChecked())
+            split_copies=True, copies_mode=self.cmb_copies.currentData() or "sheets", overrides={},
+            **{k: self.g[k] for k in pp.OV_KEYS})
 
     def _pieces(self, it, s, use):
         return pp.pieces_for(it, self.rolls, s, use, max(1, it.qty) * max(1, s.copies)) if self.rolls else []
@@ -1320,8 +1495,9 @@ class PlanDialog(QDialog):
             tip = [tr(pp.KIND_TEXT.get(it.area.kind, it.area.kind))]
             if it.area.note:
                 tip.append(it.area.note)
-            if it.frame:
-                tip.append(tr("Druckbereich für diesen Plan: {0}").format(tr(FRAME_TEXT[it.frame])))
+            ovt = self._ov_text(it)
+            row.setText(0, it.label + (f"  ✎ {ovt}" if ovt else ""))
+            row.setToolTip(0, tr("Abweichend von den Einstellungen für alle: {0}").format(ovt) if ovt else "")
             if it.hairlines:
                 tip.append(tr("{0} Linie(n) dünner als {1} mm").format(it.hairlines, pp.mm_text(s.hairline_mm)))
             row.setToolTip(1, "\n".join(tip))
@@ -1350,6 +1526,73 @@ class PlanDialog(QDialog):
                     row.setForeground(2, QBrush(QColor(theme.ERROR)))
         self._building = False
         self._lengths(s, done, wnote, use)
+        if hasattr(self, "_prev_timer"):
+            self._prev_timer.start()
+
+    def _preview(self):
+        """Druckseiten so, wie sie zum Drucker gehen: je Blatt ein Bild mit Rolle, Größe, Exemplaren und Schnitt."""
+        if getattr(self, "_closed", False):
+            return
+        self.lst_prev.clear()
+        done = [it for it in self.items if it.area is not None and it.qty > 0]
+        if not done or not self.rolls:
+            self.lbl_prev.setText(tr("Noch nichts zu zeigen.") if not done else tr("Keine Rollen bekannt."))
+            return
+        s = self.settings()
+        try:
+            runs = pp.build_runs(done, self.rolls, s)
+        except Exception as e:                                  # noqa: BLE001
+            self.lbl_prev.setText(str(e))
+            return
+        mode = pp.copies_mode(s)
+        for k, run in enumerate(runs[:PREVIEW_MAX]):
+            roll = self.rolls[run.roll] if 0 <= run.roll < len(self.rolls) else None
+            n = max(1, run.copies)
+            cap = tr("Blatt {0}: {1} × {2} mm").format(k + 1, pp.mm_text(round(run.across)), pp.mm_text(round(run.along)))
+            cap += "\n" + (roll.name or roll.slot or tr("{0} mm").format(pp.mm_text(roll.width_mm)) if roll else "")
+            if n > 1:
+                cap += "  ×" + str(n) + ("" if mode == "count" else " ✂")
+            it = QListWidgetItem(QIcon(self._sheet_pixmap(run, s)), cap)
+            it.setToolTip("\n".join(p.label for p, _x, _y in run.pieces))
+            self.lst_prev.addItem(it)
+        total = sum(max(1, r.copies) for r in runs)
+        txt = {"sheets": tr("{0} Druckseite(n) · {1} Blatt · ein Auftrag je Druckseite, Schnitt nach jedem Blatt"),
+               "jobs": tr("{0} Druckseite(n) · {1} Blatt · je Exemplar ein Auftrag"),
+               "count": tr("{0} Druckseite(n) · {1} Blatt · Kopienzahl, Schneiden wie am Gerät eingestellt")}[mode]
+        extra = tr(" – Vorschau zeigt die ersten {0}").format(PREVIEW_MAX) if len(runs) > PREVIEW_MAX else ""
+        self.lbl_prev.setText(txt.format(len(runs), total) + extra)
+
+    def _sheet_pixmap(self, run, s) -> QPixmap:
+        """Druckseite klein gerendert, Rollenbreite grau umrandet, Schnittkante rot."""
+        W, H = run.across, run.along
+        sc = PREVIEW_PX / max(W, H)
+        w, h = max(8, int(W * sc)), max(8, int(H * sc))
+        pm = QPixmap(w + 2, h + 2)
+        pm.fill(QColor("#ffffff"))
+        try:
+            doc, _cuts = pp.make_run(run, s)
+            try:
+                page = doc[0]
+                bm = page.render(scale=sc / pp.MM, may_draw_forms=True)
+                arr = bm.to_numpy()
+                page.close()
+            finally:
+                doc.close()
+            import numpy as np
+            if arr.ndim == 2:
+                arr = np.stack([arr] * 3, axis=2)
+            arr = np.ascontiguousarray(arr[..., :3][..., ::-1]) if arr.shape[2] >= 3 else arr
+            img = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
+            p = QPainter(pm)
+            p.drawImage(1, 1, img.scaled(w, h))
+        except Exception:                                       # noqa: BLE001 – Vorschau darf nie stören
+            p = QPainter(pm)
+        p.setPen(QPen(QColor("#999999"), 1))
+        p.drawRect(0, 0, w + 1, h + 1)
+        p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
+        p.drawLine(0, h + 1, w + 1, h + 1)                       # Schnitt am Blattende
+        p.end()
+        return pm
 
     def _lengths(self, s, done, wnote, use=None):
         lens = pp.lengths(done, self.rolls, s) if self.rolls else []
@@ -1420,18 +1663,30 @@ class PlanDialog(QDialog):
     def _fill_materials(self):
         from .. import printmat
         cat = "plan" if self.kind == "plan" else "quality"
-        cur = self.cmb_mat.currentData() if self.cmb_mat.count() else self.s0.material
+        g = getattr(self, "g", None)
+        cur = g["material"] if g is not None else self.s0.material
         if not cur and self.printer:
             cur = printmat.default_for(self.printer, cat)
+            if g is not None and cur:
+                g["material"] = cur
         self.cmb_mat.blockSignals(True)
         self.cmb_mat.clear()
         self.cmb_mat.addItem(tr("– keins –"), "")
+        # was der Drucker meldet (Medien der geladenen Rollen) – ohne es extra anlegen zu müssen
+        rs = getattr(self, "roll_state", None)
+        for m in pp.device_materials(getattr(self, "rolls", []) or [], getattr(rs, "catalog", None)):
+            self.cmb_mat.addItem(m["name"] + (f" · {m['weight']} g" if m["weight"] and f"{m['weight']} g"
+                                              not in m["name"] else "")
+                                 + "  (" + (tr("Gerät") if m["loaded"] else tr("Gerät, nicht geladen")) + ")", m["id"])
         for m in printmat.for_printer(self.printer, cat) + [m for m in printmat.for_printer(self.printer)
                                                             if m["category"] != cat]:
             t = m["name"] + (f" · {m['weight']} g" if m["weight"] else "")
             if m["category"] != cat:
                 t += "  (" + tr(CAT_TEXT[m["category"]]) + ")"
             self.cmb_mat.addItem(t, m["id"])
+        if cur and self.cmb_mat.findData(cur) < 0 and cur.startswith(pp.DEV_PREFIX):
+            self.cmb_mat.addItem(pp.material_of(dataclasses.replace(self.s0, material=cur))["name"]
+                                 + "  (" + tr("nicht geladen") + ")", cur)
         i = self.cmb_mat.findData(cur or "")
         self.cmb_mat.setCurrentIndex(max(0, i))
         self.cmb_mat.blockSignals(False)
@@ -1458,7 +1713,8 @@ class PlanDialog(QDialog):
         c = QColorDialog.getColor(QColor(self._bleed_color), self, tr("Farbe des Überfüllers"))
         if c.isValid():
             self._bleed_color = c.name()
-            self._changed()
+            self._color_button()
+            self._set_field({"bleed_color": c.name()})
 
     def _color_button(self):
         self.btn_bcolor.setStyleSheet(f"background: {self._bleed_color};")

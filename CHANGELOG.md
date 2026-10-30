@@ -2,6 +2,39 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.8
+
+### Material list: the device's media catalogue
+- When querying the rolls, Passermark now reads the device's complete media catalogue along (IPP media-col-database).
+- In the material list the loaded media appear as "(device)", all other set-up media as "(device, not loaded)" – your own materials follow.
+- If you pick a medium that is not loaded, Passermark sends its media type to the driver. The dialog reports that it is set up on the device but not loaded – load the roll or choose another one.
+- `passermark-cli rolls PRINTER` shows the list under "Set up on the device, not loaded:" – with `--json` as `catalog`.
+- Limitation: the catalogue is only available via IPP. Devices that speak SNMP only report the loaded rolls.
+
+## 1.18.7
+
+### Settings per plan
+- With individual plans or posters selected, changes apply only to those: material, roll, position on the roll, rotation, print area, margin, scaling and overspill.
+- With nothing or everything selected, they apply to all. Above the settings it says when only the selection is affected; in the list, plans with deviations show ✎ with what differs (e.g. "✎ 200 % · matte poster paper 180 g").
+- A plan with its own material or its own roll is placed on its own.
+- Scaling: in percent, "short edge to … mm" or "long edge to … mm" – the other edge follows in proportion.
+
+### Materials
+- The media of the loaded rolls now appear in the material list automatically, marked "(device)"; your own materials are added to them.
+- A material from the device picks exactly the roll with that medium.
+- "Media type" is gone from the dialog.
+
+### Shipping
+- "One job, one sheet per copy" is the new default. Optionally one job per copy or a copy count.
+
+### Preview and dry run
+- Under the list every printed sheet is rendered small, with size, roll and "×3 ✂" – for multi-page plans and posters too.
+- In the dry run the cutting line now also appears in the text output.
+
+### Command line and print log
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` for scaling; `overrides` per page number for deviations of individual plans.
+- The print log saves the overrides – reprinting comes out the same.
+
 ## 1.18.5
 
 ### Plan and poster printing: automatic cutting
@@ -991,4 +1024,5 @@ First version of Passermark, built on pdfToolkit 1.4.0 (all features adopted).
     page
 - Independently installable alongside pdfToolkit (own paths, admin helper, polkit rule, single instance)
 - Own icon; all texts in German, English, Hungarian, Spanish, French
+
 

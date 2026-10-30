@@ -81,11 +81,61 @@ class PlanSettings:
     # 1.18.2
     roll_pick: str = ""               # feste Rolle (roll_key) – "" = automatisch
     align: str = "left"               # center | left | right: Lage quer auf der Rolle (Seite = Rollenbreite)
-    split_copies: bool = True         # jedes Exemplar ein eigener Auftrag (eine Seite = ein Abschnitt)
+    split_copies: bool = True         # alt (bis 1.18.6): False = Kopienzahl – heute copies_mode
+    copies_mode: str = "sheets"       # sheets: ein Auftrag, je Exemplar ein Blatt | jobs: je Exemplar ein Auftrag |
+                                      # count: ein Blatt mit Kopienzahl (Gerät entscheidet übers Schneiden)
+    scale_mode: str = "pct"           # pct (scale_pct) | short (kurze Kante auf scale_mm) | long (lange Kante)
+    scale_mm: float = 0.0
+    overrides: dict = field(default_factory=dict)   # je Seite (1-basiert, "3") Abweichungen: {"scale_pct": 200, …}
     cut_sheets: bool = True           # Schneid-Option des Druckers auf „nach jeder Seite“ (IPP trim, CutMedia …)
 
 
 KINDS = ("plan", "poster")
+COPIES_MODES = ("sheets", "jobs", "count")
+SCALE_MODES = ("pct", "short", "long")
+# Einstellungen, die je Plan/Poster abweichen dürfen (Dialog: Auswahl; CLI/Ablauf: "overrides")
+OV_KEYS = ("scale_mode", "scale_pct", "scale_mm", "rotate", "frame", "margin_mm", "bleed_mm", "bleed_mode",
+           "bleed_color", "roll_pick", "align", "material")
+
+
+def copies_mode(s) -> str:
+    """Wie Exemplare verschickt werden – split_copies=False (bis 1.18.6) heißt Kopienzahl."""
+    if not getattr(s, "split_copies", True):
+        return "count"
+    m = getattr(s, "copies_mode", "sheets")
+    return m if m in COPIES_MODES else "sheets"
+
+
+def clean_ov(d) -> dict:
+    """Nur erlaubte Abweichungen (unbekannte Schlüssel fallen weg)."""
+    return {k: v for k, v in (d or {}).items() if k in OV_KEYS} if isinstance(d, dict) else {}
+
+
+def eff(s, it):
+    """Einstellungen für diesen Plan: die des Auftrags plus seine Abweichungen."""
+    ov = dict(getattr(it, "ov", None) or {})
+    if getattr(it, "frame", "") and "frame" not in ov:
+        ov["frame"] = it.frame
+    return dataclasses.replace(s, **ov) if ov else s
+
+
+def factor(area, s) -> float:
+    """Skalierungsfaktor: Prozent oder kurze/lange Kante auf ein Maß (mm, ohne Überfüller)."""
+    mode = getattr(s, "scale_mode", "pct")
+    if mode in ("short", "long") and s.scale_mm > 0 and area is not None:
+        edge = min(area.w_mm, area.h_mm) if mode == "short" else max(area.w_mm, area.h_mm)
+        if edge > 0.1:
+            return max(0.01, s.scale_mm / edge)
+    return max(1.0, s.scale_pct) / 100.0
+
+
+def scale_text(s) -> str:
+    mode = getattr(s, "scale_mode", "pct")
+    if mode == "short" and s.scale_mm > 0:
+        return tr("kurze Kante {0} mm").format(mm_text(s.scale_mm))
+    if mode == "long" and s.scale_mm > 0:
+        return tr("lange Kante {0} mm").format(mm_text(s.scale_mm))
+    return f"{mm_text(s.scale_pct)} %"
 OVERWIDTH = ("none", "crop", "tile")
 
 
@@ -321,7 +371,7 @@ def extra_mm(s: PlanSettings) -> float:
 
 
 def finished_size(area: Area, s: PlanSettings) -> tuple:
-    f = max(1.0, s.scale_pct) / 100.0
+    f = factor(area, s)
     l, b, r, t = margins_mm(s)
     return area.w_mm * f + l + r, area.h_mm * f + b + t
 
@@ -373,6 +423,7 @@ class Item:
     source: str = ""          # Datei
     doc: object = None        # pdfium-Dokument (nicht im Protokoll)
     frame: str = ""           # Rahmen je Plan ("" = wie eingestellt)
+    ov: dict = field(default_factory=dict)   # Abweichungen von den Auftrags-Einstellungen (OV_KEYS)
 
     @property
     def label(self) -> str:
@@ -385,8 +436,9 @@ def place(items: list, rolls: list, s: PlanSettings) -> None:
         if it.area is None:
             it.fit = None
             continue
-        it.size = finished_size(it.area, s)
-        it.fit = choose(it.size[0], it.size[1], rolls, s.rotate)
+        es = eff(s, it)
+        it.size = finished_size(it.area, es)
+        it.fit = choose(it.size[0], it.size[1], rolls, es.rotate)
 
 
 def run_lengths(items: list, rolls: list, copies: int) -> list:
@@ -599,6 +651,11 @@ def _words(t: str) -> set:
 
 def match_material(rolls: list, mat: dict) -> list:
     """Rollen, die zum Material passen: Grammatur gleich, sonst Medienname/Material-Name ähnlich. [] = keine."""
+    if mat.get("device"):                              # vom Gerät: genau die Rolle(n) mit diesem Medium
+        hit = [r for r in rolls if not getattr(r, "empty", False) and (r.media or r.name) == mat["device_media"]
+               and (not mat["weight"] or r.weight == mat["weight"])]
+        if hit:
+            return hit
     w = int(mat.get("weight") or 0)
     by_w = [r for r in rolls if w and r.weight == w and not getattr(r, "empty", False)]
     if by_w:
@@ -624,6 +681,10 @@ def eligible_for(rolls: list, s: PlanSettings) -> tuple:
         hit = match_material(rolls, mat)
         if hit:
             return hit, note
+        if mat.get("device"):
+            n2 = tr("Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle "
+                    "wählen.").format(mat["name"])
+            return list(rolls), " ".join(x for x in (note, n2) if x)
         if mat.get("weight"):
             use, n2 = eligible(rolls, [int(mat["weight"])])
             return use, " ".join(x for x in (note, n2) if x)
@@ -633,9 +694,49 @@ def eligible_for(rolls: list, s: PlanSettings) -> tuple:
     return list(rolls), note
 
 
+DEV_PREFIX = "dev:"                     # Material, wie es der Drucker meldet: "dev:<g/m²>:<Medienname>"
+
+
+def device_material_id(roll) -> str:
+    return f"{DEV_PREFIX}{int(roll.weight or 0)}:{roll.media or roll.name}"
+
+
+def device_materials(rolls: list, catalog: list | None = None) -> list:
+    """Materialien laut Gerät: zuerst die Medien der geladenen Rollen, dann die im Medienkatalog des Geräts
+        angelegten, aber nicht geladenen. [{"id", "name", "weight", "loaded", …}], ohne Doppelte."""
+    out, seen = [], set()
+    for r in rolls:
+        if getattr(r, "empty", False) or not (r.media or r.weight):
+            continue
+        mid = device_material_id(r)
+        if mid in seen:
+            continue
+        seen.add(mid)
+        out.append(dict(_dev_mat(mid), loaded=True))
+    names = {m["device_media"].lower() for m in out}
+    for c in catalog or []:
+        name = str(c.get("name") or "").strip()
+        if not name or name.lower() in names:
+            continue
+        mid = f"{DEV_PREFIX}{int(c.get('weight') or 0)}:{name}"
+        if mid in seen:
+            continue
+        seen.add(mid)
+        out.append(dict(_dev_mat(mid), loaded=False, type=c.get("type", "")))
+    return out
+
+
+def _dev_mat(mid: str) -> dict:
+    w, _sep, name = mid[len(DEV_PREFIX):].partition(":")
+    return {"id": mid, "name": name or tr("Gerät"), "weight": int(w) if w.isdigit() else 0, "media": "",
+            "category": "", "printer": "", "device": True, "device_media": name}
+
+
 def material_of(s: PlanSettings):
     if not s.material:
         return None
+    if s.material.startswith(DEV_PREFIX):
+        return _dev_mat(s.material)
     try:
         from . import printmat
         return printmat.find(s.material, s.printer)
@@ -676,6 +777,9 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
         Bahnen mit Überlappung teilen (nur auf den passenden Rollen)."""
     if it.area is None:
         return []
+    s = eff(s, it)
+    if it.ov.get("roll_pick") or it.ov.get("material"):     # eigene Rolle/eigenes Material: eigene Auswahl
+        use = eligible_for(rolls, s)[0]
     use = [r for r in (use if use is not None else rolls) if not getattr(r, "empty", False)]
     if it.fit is not None and s.nest and s.rotate == "auto" and count > 1:
         nf = nest_fit(it.size[0], it.size[1], rolls, use, count, max(0.0, s.gap_mm))
@@ -687,7 +791,7 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
         return []
     idx = [rolls.index(r) for r in use]
     widest = max(r.width_mm for r in use)
-    f = max(1.0, s.scale_pct) / 100.0
+    f = factor(it.area, s)
     l, b, r_, t = margins_mm(s)
     x0, y0, x1, y1 = it.area.rect
     cw, ch = it.area.w_mm * f, it.area.h_mm * f
@@ -770,6 +874,8 @@ def build_runs(items: list, rolls: list, s: PlanSettings, copies: int | None = N
 def _aligned(run: Run, s: PlanSettings) -> Run:
     """Seite auf die volle Rollenbreite, Inhalt an den Rand (links/rechts) oder in die Mitte. So setzt der
         Drucker nichts selbst: am Rand bleibt nur ein Längsschnitt, mittig blendet er nichts aus."""
+    if len(run.pieces) == 1:                          # ein Stück: Lage wie für diesen Plan eingestellt
+        s = eff(s, run.pieces[0][0].item)
     if s.align not in ALIGNS or run.width_mm <= 0 or run.across >= run.width_mm - 0.05:
         return run
     free = run.width_mm - run.across
@@ -917,7 +1023,8 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     """Ein Stück an (ox, oy) pt auf die Seite: Inhalt, Überfüller, Saum, Marken, Ösen, Faltmarken."""
     import pypdfium2 as pdfium
     M = pdfium.PdfMatrix
-    f = max(1.0, s.scale_pct) / 100.0
+    s = eff(s, p.item)
+    f = factor(p.item.area, s)
     x0, y0, x1, y1 = p.rect
     cw, ch = (x1 - x0) * f, (y1 - y0) * f
     marks = MARKS_MM * MM if (s.crop_marks or s.printcut_marks) else 0.0
@@ -1023,7 +1130,8 @@ def make_run(run: Run, s: PlanSettings, out=None) -> tuple:
             if s.fix_hairlines and p.item.hairlines:
                 key = (id(src), p.item.page)
                 if key not in fixed:
-                    fixed[key], _n = fix_hairlines(src, [p.item.page], s.hairline_mm, s.scale_pct)
+                    fixed[key], _n = fix_hairlines(src, [p.item.page], s.hairline_mm,
+                                                   factor(p.item.area, eff(s, p.item)) * 100.0)
                 src = fixed[key]
             _draw_piece(out, page, tiles, src, p, s, x * MM, y * MM, cuts)
         page.gen_content()
@@ -1220,8 +1328,10 @@ def rolls_for(session, printer: str, s: PlanSettings) -> tuple:
 def analyze(doc, pages: list, s: PlanSettings, rolls: list, source: str = "", qty: int = 1) -> list:
     items = []
     for p in pages:
-        it = Item(p, qty, detect(doc, p, s.frame, s.margin_mm), source=source, doc=doc)
-        it.hairlines = hairlines(doc, p, s.hairline_mm, s.scale_pct)
+        it = Item(p, qty, None, source=source, doc=doc, ov=clean_ov((s.overrides or {}).get(str(p + 1))))
+        es = eff(s, it)
+        it.area = detect(doc, p, es.frame, es.margin_mm)
+        it.hairlines = hairlines(doc, p, s.hairline_mm, factor(it.area, es) * 100.0)
         items.append(it)
     place_all(items, rolls, s)
     return items
@@ -1230,8 +1340,17 @@ def analyze(doc, pages: list, s: PlanSettings, rolls: list, source: str = "", qt
 def place_all(items: list, rolls: list, s: PlanSettings) -> str:
     """Rolle je Plan auf den passenden Rollen (Planpapier/Material). -> Hinweis zur Rollenauswahl."""
     use, note = eligible_for(rolls, s)
-    _place_on(items, rolls, use, s)
-    return note
+    plain = [it for it in items if not (it.ov.get("roll_pick") or it.ov.get("material"))]
+    _place_on(plain, rolls, use, s)
+    notes = [note] if note else []
+    for it in items:                                  # eigene Rolle/eigenes Material je Plan
+        if it in plain:
+            continue
+        u, n = eligible_for(rolls, eff(s, it))
+        _place_on([it], rolls, u, s)
+        if n and n not in notes:
+            notes.append(n)
+    return " ".join(notes)
 
 
 def _place_on(items: list, rolls: list, use: list, s: PlanSettings):
@@ -1268,6 +1387,12 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
     roll = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
     n = max(1, run.copies)
     vals = dict(base_vals)
+    rs = eff(s, run.pieces[0][0].item) if run.pieces else s     # Material/Medium dieses Plans
+    if rs.material != s.material and caps is not None and not is_folder(printer):
+        try:
+            vals = dict(values_for(session, printer, caps, rs))
+        except ValueError:
+            pass
     title = s.title or run.label
     jid, err = None, None
     tmp = tempfile.mkdtemp(prefix="passermark-plan-")
@@ -1300,21 +1425,32 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
                 if k not in (s.options or {}):
                     vals[k] = v
         mkey = caps.roles.get("mediatype")
-        if mkey and roll is not None and not s.media and not (material_of(s) or {}).get("media"):
-            mv = media_for_roll(caps, roll)       # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+        rmat = material_of(rs) or {}
+        if mkey and roll is not None and not s.media and not rmat.get("media"):
+            src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+            if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
+                from .rolls import Roll
+                src = Roll(roll.width_mm, weight=int(rmat.get("weight") or 0), media=rmat["device_media"])
+            mv = media_for_roll(caps, src)
             if mv:
                 vals[mkey] = mv
         job = os.path.join(tmp, "plan.pdf")
-        write_run(run, s, job)
+        mode = copies_mode(s)
         try:
-            if s.split_copies and n > 1:
-                # je Exemplar ein eigener Auftrag: der Drucker schneidet nach jedem ab
+            if mode == "sheets":
+                # ein Auftrag, je Exemplar eine Seite: der Drucker schneidet nach jeder Seite
+                write_run(run, s, job, n)
+                jid = printjob.send_prepared(session, printer, caps, job,
+                                             title + (f" ×{n}" if n > 1 else ""), vals, 1, True, {})
+            elif mode == "jobs" and n > 1:
+                write_run(run, s, job)
                 ids = []
                 for k in range(n):
                     ids.append(printjob.send_prepared(session, printer, caps, job, f"{title} ({k + 1}/{n})",
                                                       vals, 1, True, {}))
                 jid = ", ".join(str(x) for x in ids if x is not None) or None
             else:
+                write_run(run, s, job)
                 jid = printjob.send_prepared(session, printer, caps, job, title, vals, n, True, {})
         except Exception as e:
             err = str(e)
@@ -1350,11 +1486,17 @@ def log_record(caps, printer, run: Run, roll, s: PlanSettings, vals: dict, sessi
         st = compact(dataclasses.replace(s, printer=printer, copies=n, collate=False, order="list", nest=False,
                                          title=s.title, dry_run=False))
         st["rolls"] = [{"width_mm": round(run.width_mm, 1), "slot": roll.slot if roll is not None else ""}]
+        if first.ov or first.frame:                     # Abweichungen dieses Plans mit protokollieren
+            st["overrides"] = {str(first.page + 1): clean_ov(dict(first.ov, **({"frame": first.frame}
+                                                                                if first.frame else {})))}
         step = {"job": "plan", "settings": st, "pages": str(first.page + 1)}
         rec["workflow"]["steps"] = list(rec["workflow"]["steps"][:-1]) + [step]
     else:                                   # mehrere Stücke auf einer Seite: Nachdruck aller Seiten dieser Datei
         st = compact(dataclasses.replace(s, printer=printer, copies=1, title=s.title, dry_run=False))
         st["rolls"] = [{"width_mm": round(run.width_mm, 1), "slot": roll.slot if roll is not None else ""}]
+        ovs = {str(p.item.page + 1): clean_ov(p.item.ov) for p, _x, _y in run.pieces if p.item.ov}
+        if ovs:
+            st["overrides"] = ovs
         step = {"job": "plan", "settings": st, "pages": ",".join(str(p + 1) for p in pages)}
         rec["workflow"]["steps"] = list(rec["workflow"]["steps"][:-1]) + [step]
     return rec
@@ -1367,10 +1509,11 @@ def compact(s: PlanSettings) -> dict:
 
 
 def _job_info(run: Run, rolls: list, s: PlanSettings | None = None) -> dict:
-    split = bool(s is None or s.split_copies)
+    mode = copies_mode(s) if s is not None else "sheets"
     n = max(1, run.copies)
     return {"plan": run.label, "pages": [p.item.page + 1 for p, _x, _y in run.pieces], "copies": run.copies,
-            "jobs_sent": n if split else 1, "cuts": n,
+            "copies_mode": mode, "jobs_sent": n if mode == "jobs" else 1, "sheets_per_job": n if mode == "sheets" else 1,
+            "cuts": n,
             "roll_mm": run.width_mm, "size_mm": [round(run.across, 1), round(run.along, 1)],
             "rotated": run.pieces[0][0].rotated if len(run.pieces) == 1 else None,
             "pieces": len(run.pieces), "slot": rolls[run.roll].slot if 0 <= run.roll < len(rolls) else ""}
@@ -1528,6 +1671,12 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
         if s.dry_run or not printer:
             info = summary(printer, items, rolls, s)
             info["jobs"] = [_job_info(run, rolls, s) for run in build_runs(items, rolls, s)]
+            if s.cut_sheets and printer and not is_folder(printer) and session is not None:
+                info["cut_options"] = {}
+                try:
+                    info["cut_options"] = cut_values(session.caps_for(printer))
+                except Exception:                       # noqa: BLE001 – Probelauf auch ohne erreichbaren Drucker
+                    pass
         else:
             from . import printlog
             with printlog.source(printlog.current() if printlog.current() != "dialog" else "cli"):

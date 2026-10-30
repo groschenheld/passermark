@@ -5,6 +5,39 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.8
+
+### Lista de materiales: catálogo de medios del aparato
+- Al consultar los rollos, Passermark lee ahora también el catálogo de medios completo del aparato (IPP media-col-database).
+- En la lista de materiales los medios cargados aparecen como «(aparato)» y todos los demás creados como «(aparato, no cargado)» – después vienen los materiales propios.
+- Si elige un medio no cargado, Passermark envía su tipo de medio al controlador. El diálogo avisa de que está creado en el aparato pero no cargado – cargar el rollo o elegir otro.
+- `passermark-cli rolls IMPRESORA` muestra la lista bajo «Creado en el aparato, no cargado:» – con `--json` como `catalog`.
+- Limitación: el catálogo solo existe por IPP. Los aparatos que solo hablan SNMP informan únicamente de los rollos cargados.
+
+## 1.18.7
+
+### Ajustes por plano
+- Con planos o pósters individuales seleccionados, los cambios solo se aplican a ellos: material, rollo, posición en el rollo, rotación, zona de impresión, margen, escalado y bandas de relleno.
+- Sin nada o con todo seleccionado, valen para todos. Encima de los ajustes se indica cuando solo afecta a la selección; en la lista, los planos con desviaciones muestran ✎ con lo que difiere (p. ej. «✎ 200 % · papel de póster mate 180 g»).
+- Un plano con material o rollo propio se coloca por separado.
+- Escalado: en porcentaje, «canto corto a … mm» o «canto largo a … mm» – el otro canto se ajusta en proporción.
+
+### Materiales
+- Los medios de los rollos cargados aparecen ahora automáticamente en la lista, marcados «(aparato)»; los materiales propios se añaden.
+- Un material del aparato elige exactamente el rollo con ese medio.
+- «Tipo de medio» desaparece del diálogo.
+
+### Envío
+- «Un trabajo, una hoja por ejemplar» es el nuevo estándar. Opcionalmente un trabajo propio por ejemplar o un número de copias.
+
+### Vista previa y prueba
+- Bajo la lista se renderiza cada hoja impresa en pequeño, con tamaño, rollo y «×3 ✂» – también con planos y pósters de varias páginas.
+- En la prueba, la línea de corte aparece ahora también en la salida de texto.
+
+### Línea de comandos y registro de impresión
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` para el escalado; `overrides` por número de página para desviaciones de planos individuales.
+- El registro de impresión guarda las desviaciones – al reimprimir salen iguales.
+
 ## 1.18.5
 
 ### Impresión de planos y pósters: corte automático
@@ -565,4 +598,5 @@
   con su propio lector con suma de control
 - Corregido: los datos variables usaban «una copia del documento entero por registro» sin elegir la
   distribución en lugar de «el siguiente registro en cada página»
+
 

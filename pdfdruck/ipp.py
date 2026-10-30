@@ -31,7 +31,7 @@ T_TEXT, T_NAME, T_KEYWORD, T_URI, T_CHARSET, T_LANG, T_MIME, T_MEMBER = \
     0x41, 0x42, 0x44, 0x45, 0x47, 0x48, 0x49, 0x4A
 
 WANTED = ["media-col-ready", "media-ready", "printer-input-tray", "media-source-supported",
-          "printer-make-and-model", "printer-state"]
+          "printer-make-and-model", "printer-state", "media-col-database"]
 
 
 @dataclass
@@ -58,6 +58,7 @@ class DeviceStatus:
     trays: dict = field(default_factory=dict)   # source -> TrayState
     model: str = ""
     error: str = ""
+    catalog: list = field(default_factory=list)  # am Gerät angelegte Medien (media-col-database): [{name, weight, …}]
 
 
 # --------------------------------------------------------------------------- #
@@ -201,6 +202,7 @@ def interpret(attrs: dict) -> DeviceStatus:
         t.media_type = str(_first(col, "media-type", "") or "")
         t.size_name = str(_first(col, "media-size-name", "") or "")
         t.media_name = str(_first(col, "media-info", "") or _first(col, "media-key", "") or "")
+    st.catalog = catalog(attrs)
     # printer-input-tray: "type=sheetFeedAutoRemovableTray;mediafeed=…;level=40;status=0;name=Tray 1;"
     srcs = [str(s) for s in attrs.get("media-source-supported", [])]
     for i, raw in enumerate(attrs.get("printer-input-tray", [])):
@@ -232,6 +234,33 @@ def interpret(attrs: dict) -> DeviceStatus:
         if t.roll:
             t.size_mm = None
     return st
+
+
+def catalog(attrs: dict) -> list:
+    """Medienkatalog des Geräts (media-col-database): [{"name", "type", "weight", "width_mm"}], ohne Doppelte."""
+    out, seen = [], set()
+    for col in attrs.get("media-col-database", []) or []:
+        if not isinstance(col, dict):
+            continue
+        name = str(_first(col, "media-info", "") or _first(col, "media-key", "") or "").strip()
+        mtype = str(_first(col, "media-type", "") or "").strip()
+        w = _first(col, "media-weight-metric")
+        w = w if isinstance(w, int) and w > 0 else 0
+        width = None
+        size = _first(col, "media-size")
+        if isinstance(size, dict):
+            x = _first(size, "x-dimension")
+            if isinstance(x, int) and x > 0:
+                width = x / 100.0
+        label = name or mtype
+        if not label:
+            continue
+        key = (label.lower(), w)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"name": label, "type": mtype, "weight": w, "width_mm": width})
+    return out
 
 
 _ROLL = re.compile(r"roll|rolle|tekercs|rollo|rouleau", re.I)

@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.8
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -30,7 +30,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.
-- **Plan & Poster:** Plandruck und Posterdruck auf Rollengeräten – Rollen vom Gerät lesen (IPP, sonst SNMP), „Gerät prüfen“ nur lesend mit JSON-Bericht; Rollenwahl automatisch (schmälste passende, nach Grammatur/Material) oder fest, Lage mittig oder am Rand; Laufmeter live mit Warnung vor leerer Rolle, „Einzeln abschneiden“ macht jedes Exemplar zum eigenen Auftrag; Plan-Werkzeuge (Skalierung, Drehung, Überfüller, Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824), Poster-Werkzeuge (Saum, Ösenmarken, CutContour, Passermarken für Print & Cut mit der Roland), Breiteres als die Rolle wird in Bahnen geteilt; Materialien je Benutzer. Auch auf der Kommandozeile (`passermark-cli plan`/`poster`, `--dry-run` rechnet nur Laufmeter), als Schritt im Ablauf und als Hotfolder-Ausgabe z. B. für VersaWorks.
+- **Plan & Poster:** Plandruck und Posterdruck auf Rollengeräten – Rollen vom Gerät lesen (IPP, sonst SNMP), „Gerät prüfen“ nur lesend mit JSON-Bericht; Rollenwahl automatisch (schmälste passende, nach Grammatur/Material) oder fest, Lage mittig oder am Rand; Laufmeter live mit Warnung vor leerer Rolle; Plan-Werkzeuge (Skalierung, Drehung, Überfüller, Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824), Poster-Werkzeuge (Saum, Ösenmarken, CutContour, Passermarken für Print & Cut mit der Roland), Breiteres als die Rolle wird in Bahnen geteilt; Materialien je Benutzer – die Medien der geladenen Rollen stehen automatisch in der Liste (mit „(Gerät)“) und wählen genau die Rolle; über IPP wird auch der Medienkatalog gelesen, angelegte, aber nicht geladene Medien stehen als „(Gerät, nicht geladen)“ in der Liste und gehen mit ihrem Medientyp an den Treiber Einstellungen je Plan: Sind einzelne Pläne oder Poster ausgewählt, gelten Material, Rolle, Lage auf der Rolle, Drehung, Druckbereich, Rand, Skalierung (in Prozent oder „Kurze/Lange Kante auf … mm“) und Überfüller nur für die Auswahl – Abweichungen zeigt die Liste mit ✎ an. Beim Versand ist „Ein Auftrag, je Exemplar ein Blatt“ Standard wahlweise je Exemplar ein eigener Auftrag oder eine Kopienzahl; unter der Liste wird jedes Druckblatt klein vorgerendert, mit Größe, Rolle und Schnittanzahl. Auch auf der Kommandozeile (`passermark-cli plan`/`poster`, `--dry-run` rechnet nur Laufmeter, `--copies-mode sheets|jobs|count`, `overrides` je Seitennummer), als Schritt im Ablauf und als Hotfolder-Ausgabe z. B. für VersaWorks; das Druckprotokoll speichert die Abweichungen, beim Nachdrucken stimmen sie.
 - **Dokument-Manipulation:** CMYK-Umwandlung mit Farbvorschau, auf Format beschneiden, Objekte trennen,
   **CutContour** für Schneideplotter (Kontur, Formen, Überfüller, Innenschnitte; Formen mit Griffen skalieren
   und verschieben). Beschneiden zusätzlich mit „Kanten abschneiden“ (mm je Seite, ohne Zielformat) und
@@ -146,4 +146,5 @@ Python-Pakete, dem LGPL-Hinweis zu Qt/PySide6 (Austausch der Qt-Bibliotheken) un
 Ghostscript-Hinweis mit den Quellcode-Links der mitgelieferten Version. Auf Anfrage wird der
 zugehörige Quellcode der mitgelieferten Komponenten auch direkt bereitgestellt – bitte ein Issue auf
 [GitHub](https://github.com/groschenheld/passermark/issues) anlegen.
+
 

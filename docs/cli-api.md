@@ -299,8 +299,22 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   cut/trim/Abschnitt (best value: per page, auto, on). Without it, an IPP printer gets its default `finishings`
   (usually `3` = none) and does not cut. `--json`: `cut_options` shows what is sent; the dialog warns when the printer
   offers no cut option. Options set by hand (`options`) take precedence.
-- **Copies** (`split_copies`, default `true`; `--no-split` turns it off): every copy is its own job with one page
-  (title `… (1/3)`, `(2/3)` …), so the printer cuts after each one. `false`: one job with a copy count.
+- **Copies** (`copies_mode`, `--copies-mode`): `sheets` (default) – one job, one page per copy, the printer cuts
+  after every page (as the ColorWave expects it); `jobs` – every copy its own job (`… (1/3)`, `(2/3)` …); `count` –
+  one page with a copy count, the device decides on cutting. `--no-split` / `"split_copies": false` (until 1.18.6)
+  mean `count`. `--json`: per job `copies_mode`, `jobs_sent`, `sheets_per_job`, `cuts`.
+- **Scale** (`scale_mode`): `pct` with `scale_pct` (default 100), `short` / `long` – the short or long edge of the print
+  area (without bleed) to `scale_mm`, the other edge follows in proportion.
+- **Per plan** (`overrides`, key = page number from 1): `{"2": {"scale_pct": 200, "material": "…", "roll_pick": "roll-4"}}`.
+  Allowed: `scale_mode`, `scale_pct`, `scale_mm`, `rotate`, `frame`, `margin_mm`, `bleed_mm`, `bleed_mode`,
+  `bleed_color`, `roll_pick`, `align`, `material` (other keys are ignored). In the program: settings apply to the
+  selected plans; nothing or everything selected = all. A plan with its own material or roll is placed on its own.
+  The print log keeps the overrides for reprinting.
+- **Material from the device**: `material` may be `dev:<g/m²>:<media name>` – the medium of a loaded roll as the device
+  reports it (the program lists these automatically); it selects exactly the rolls with that medium. Media set up on
+  the device but not loaded (IPP `media-col-database`) are listed too, marked “not loaded”; choosing one sends its
+  media type and warns that the roll has to be loaded. `passermark-cli rolls PRINTER` shows them, `--json` as
+  `catalog`. Devices that only answer SNMP report no catalog.
 - Paper = custom size (`Custom.WxHmm`, width across the roll – with `align` the roll width), feed = the roll's
   driver value.
 - Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
@@ -454,8 +468,11 @@ Plandruck: Schritt `{"job": "plan", "settings": {…}}` bzw. `passermark-cli pla
 (`weights`, Standard 75/80 g) bzw. passend zum `material` (Grammatur, sonst Name); feste Rolle mit `roll_pick` /
 `--roll` (Zufuhr, Name am Gerät oder Breite). Lage auf der Rolle `align` / `--align`: `left`/`right` = am Rand
 (Seite = Rollenbreite, nur ein Längsschnitt; Standard beim Plan), `center` = mittig (Standard beim Poster).
-Exemplare: unsortiert als Standard (`collate`, `"order": "roll"`), jedes Exemplar ein eigener Auftrag
-(`split_copies`, Standard an; `--no-split` = Kopienzahl in einem Auftrag). Laufmeter nur aus den Plangrößen; im
+Exemplare: unsortiert als Standard (`collate`, `"order": "roll"`); Versand `copies_mode`: `sheets` (Standard) = ein
+Auftrag, je Exemplar ein Blatt, `jobs` = je Exemplar ein Auftrag, `count` = Kopienzahl. Skalierung `scale_mode`:
+Prozent oder kurze/lange Kante auf `scale_mm`. Abweichungen je Plan mit `overrides` (Seitennummer → Einstellungen);
+im Programm gelten Änderungen für die ausgewählten Pläne. Material vom Gerät: `dev:<g/m²>:<Medium>` – auch angelegte, aber nicht geladene Medien
+(IPP-Medienkatalog; `passermark-cli rolls` zeigt sie). Laufmeter nur aus den Plangrößen; im
 Druckprotokoll je Auftrag `roll_mm`, `run_m`. Einstellungen wie oben unter *Plan printing*.
 Poster (`--kind poster`): Qualitätsdruck, mittig, nebeneinander nur auf Wunsch (`nest`), Überbreite abschneiden
 oder in Bahnen (`overwidth`), Banner mit Saum (`hem_mm`) und Ösenmarken, `cut_contour` für Print & Cut, `--plt` für
