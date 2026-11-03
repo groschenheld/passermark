@@ -2,6 +2,15 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.9
+
+### Druckprotokoll: Bestellvariablen
+- Bei einem Druck im Ablauf – auch beim Plan- und Posterdruck – schreibt das Druckprotokoll neu „vars“ mit: order, item, qty, product und shop, so wie sie übergeben werden.
+- Mitgeschrieben werden nur diese fünf Werte, als reiner Text mit höchstens 120 Zeichen. Kundenname, E-Mail und meta_… kommen nie ins Protokoll.
+- `printlog.csv` hat zwei neue Spalten: order und item. Bei einer bestehenden CSV wird nur die Kopfzeile ergänzt, die alten Zeilen bleiben unverändert.
+- Drucke ohne Ablauf bleiben wie bisher – dort gibt es kein vars.
+- Kommandozeile: `passermark-cli run` nimmt die Werte als `--var order=…` `--var item=…` `--var qty=…` `--var product=…` entgegen, optional auch `--var shop=…`.
+
 ## 1.18.8
 
 ### Materialliste: Medienkatalog des Geräts

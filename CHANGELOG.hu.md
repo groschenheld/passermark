@@ -5,6 +5,15 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.9
+
+### Nyomtatási napló: rendelési változók
+- Munkafolyamatból indított nyomtatásnál – terv- és poszternyomtatásnál is – a nyomtatási napló mostantól a „vars”-ot is rögzíti: order, item, qty, product és shop, ahogyan átadásra kerülnek.
+- Csak ezt az öt értéket rögzíti, legfeljebb 120 karakteres, egyszerű szövegként. Az ügyfél neve, e-mail címe és a meta_… sosem kerül a naplóba.
+- A printlog.csv két új oszlopot kapott: order és item. Meglévő CSV-nél csak a fejlécsor egészül ki; a régi sorok változatlanok maradnak.
+- Munkafolyamat nélküli nyomtatás marad, mint eddig – ott nincs vars.
+- Parancssor: a passermark-cli run az értékeket --var order=… --var item=… --var qty=… --var product=… alakban fogadja, opcionálisan --var shop=… is.
+
 ## 1.18.8
 
 ### Anyaglista: az eszköz média­katalógusa

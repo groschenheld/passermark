@@ -251,6 +251,11 @@ the result – plus a ready workflow that prints the job again exactly like this
 (`--dry-run`, `--in other.pdf`). A print inside a workflow logs the original input and the steps before it; the
 reprint runs them again. A changed file is reported.
 
+Inside a workflow the log also keeps the order variables in `vars` – only `order`, `item`, `qty`, `product`, `shop`
+(plain text, at most 120 characters each, no customer data), e.g. as handed over by Passerlink with `--var`.
+`printlog.csv` has the columns `order` and `item` for them; older CSV files get the missing column names added to
+their header. Other programs (e.g. PassCount) can match every print exactly to its order line this way.
+
 With step & repeat **step 2** the job sent to the printer is the step-2 result on the target size (like saving),
 and the paper is the target size.
 
@@ -490,6 +495,8 @@ verboten/nur niedrige Auflösung), PDF/X-Angabe ohne Output-Intent bzw. ohne Tri
 gedruckte, NeedAppearances), leere Seiten. Neue Prüfwerte für Bedingungen: `blank_pages`, `print_allowed`.
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
+im Ablauf auch die Bestell-Variablen `order`, `item`, `qty`, `product`, `shop` (unter `vars`, in der CSV die Spalten
+`order`/`item`, keine Kundendaten);
 `passermark-cli reprint protokoll.json` druckt ihn genauso nochmal.
 
 Drop-Ordner: `passermark-cli serve` mit `watch.json` (Aufbau oben) – Ergebnisse nach `output`, Originale nach

@@ -638,7 +638,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
                 before = [dict({"job": b.job, "settings": b.settings},
                                **({"pages": printlog._pages_text(b.pages)} if b.pages else {}))
                           for b in state["done"] if b.job not in PRINTS]
-                with printlog.in_workflow(plan.inputs, before):
+                with printlog.in_workflow(plan.inputs, before, variables):
                     info = plan_pdf(state["cur"], ps, st.pages, progress=prog)
                 pn = list(info.get("notes") or [])
                 results.append({"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info,
@@ -654,7 +654,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
                 before = [dict({"job": b.job, "settings": b.settings},
                                **({"pages": printlog._pages_text(b.pages)} if b.pages else {}))
                           for b in state["done"] if b.job not in PRINTS]
-                with printlog.in_workflow(plan.inputs, before):
+                with printlog.in_workflow(plan.inputs, before, variables):
                     info = print_pdf(state["cur"], ps, st.pages, progress=prog)
                 pn = list(info.get("notes") or [])
                 results.append({"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info,

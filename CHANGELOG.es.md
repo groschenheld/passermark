@@ -5,6 +5,15 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.9
+
+### Registro de impresión: variables de pedido
+- En una impresión desde un flujo – incluidos planos y pósters – el registro de impresión anota ahora también «vars»: order, item, qty, product y shop, tal como se pasan.
+- Solo se anotan esos cinco valores, como texto sin formato con 120 caracteres como máximo. Nombre del cliente, correo electrónico y meta_… no entran nunca en el registro.
+- printlog.csv tiene dos columnas nuevas: order e item. En un CSV existente se amplía solo la línea de encabezado; las líneas antiguas quedan sin cambios.
+- Las impresiones sin flujo siguen como hasta ahora – allí no hay vars.
+- Línea de comandos: passermark-cli run recibe los valores como --var order=… --var item=… --var qty=… --var product=…, opcionalmente también --var shop=….
+
 ## 1.18.8
 
 ### Lista de materiales: catálogo de medios del aparato

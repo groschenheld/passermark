@@ -2,6 +2,15 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.9
+
+### Print log: order variables
+- For a print from a workflow – plan and poster printing included – the print log now records "vars" as well: order, item, qty, product and shop, the way they are passed in.
+- Only those five values are recorded, as plain text with at most 120 characters. Customer name, e-mail and meta_… never make it into the log.
+- printlog.csv has two new columns: order and item. For an existing CSV only the header line is extended; the old lines stay untouched.
+- Prints without a workflow remain as before – no vars there.
+- Command line: passermark-cli run takes the values as --var order=… --var item=… --var qty=… --var product=…, optionally --var shop=….
+
 ## 1.18.8
 
 ### Material list: the device's media catalogue

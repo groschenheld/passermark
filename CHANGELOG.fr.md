@@ -5,6 +5,15 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.9
+
+### Journal d'impression : variables de commande
+- Pour une impression depuis un enchaînement – plans et posters compris – le journal d'impression consigne désormais aussi « vars » : order, item, qty, product et shop, tels qu'ils sont transmis.
+- Seules ces cinq valeurs sont consignées, en texte brut de 120 caractères au maximum. Nom du client, adresse e-mail et meta_… n'entrent jamais dans le journal.
+- printlog.csv a deux nouvelles colonnes : order et item. Sur un CSV existant, seule la ligne d'en-tête est complétée ; les anciennes lignes restent inchangées.
+- Les impressions sans enchaînement restent comme avant – pas de vars là-bas.
+- Ligne de commande : passermark-cli run reçoit les valeurs comme --var order=… --var item=… --var qty=… --var product=…, éventuellement aussi --var shop=….
+
 ## 1.18.8
 
 ### Liste des matières : catalogue des médias de l'appareil
