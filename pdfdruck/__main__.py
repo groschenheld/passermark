@@ -76,7 +76,9 @@ def main():
     window_modal_dialogs()           # Dialoge sperren nur ihr eigenes Fenster, nicht alle Passermark-Fenster
     from . import crashlog
     from .gui import crashui
-    crashlog.install("gui", on_error=crashui.show_error)     # Fehlerprotokoll (Datei zum Mitschicken)
+    logs_on = crashlog.enabled()     # in den Einstellungen abschaltbar (Standard an)
+    if logs_on:
+        crashlog.install("gui", on_error=crashui.show_error)     # Fehlerprotokoll (Datei zum Mitschicken)
     files = [os.path.abspath(f) for f in args.files]
 
     from . import app as appmod
@@ -105,7 +107,8 @@ def main():
         QTimer.singleShot(0, lambda: ctl.queue_request(cmd, files))
     if not files and cmd == "open":
         ctl.new_window()
-    QTimer.singleShot(1200, crashui.notify_previous_crashes)  # Absturz beim letzten Mal? -> einmal melden
+    if logs_on:
+        QTimer.singleShot(1200, crashui.notify_previous_crashes)  # Absturz beim letzten Mal? -> einmal melden
     return app.exec()
 
 

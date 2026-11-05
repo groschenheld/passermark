@@ -25,7 +25,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `run workflow.json [output.pdf] [--in FILE …] [--var NAME=VALUE …] [--json]` | run all steps |
 | `run NAME …` | run a workflow from the workflow folders by its name (file name without `.json`) |
 | `workflows [--dirs] [--json]` | list the workflows in the workflow folders (`--dirs`: the folders) |
-| `inspect file.pdf [--check] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results |
+| `inspect file.pdf [--check [--printer P]] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results; `--printer`: also size against that printer's paper sizes |
 | `printers [--json]` | printers with status (`default`, `state`, `model`) |
 | `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes (`page_size_source`: `driver` · `code` = from the PPD's PostScript · `text` = from the name · `table`; `page_size_problems`: PPD errors such as a decimal comma) |
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
@@ -35,6 +35,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `rolls PRINTER [--host ADDRESS] [--json]` | the rolls loaded in a large-format printer (IPP, SNMP or entered by hand) |
 | `probe PRINTER\|ADDRESS [--host A] [--community C] [--out report.json] [--json]` | device check: open ports, all IPP attributes (incl. `media-col-database`), SNMP v2c/v1 (sysDescr, prtInputTable, prtMediaPathTable, vendor branch), resulting rolls and level `blind` · `status` · `catalog` – read only |
 | `shared-folder [--user NAME …] [--status] [--json]` | shared print folder for Passermark and its add-on programs (see *Shared print folder*); sets up via the root helper (pkexec), `--status` only reads |
+| `materials list\|import FILE [--printer P] [--dry-run] [--json]` | print materials of plan/poster printing: list them, or take them over from a CSV/JSON list (e.g. a RIP export) – unchecked, same names skipped |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
@@ -273,6 +274,14 @@ category: `font`, `text`, `layer`, `transparency`, `image`, `size`, and since 1.
   embedded profile, pages without TrimBox/ArtBox. No full PDF/X validation.
 - `form` – form fields; how many are not printed (hidden, print flag off, no appearance); `NeedAppearances`.
 - `page` – blank pages (pages with little content and no images, rendered at low resolution).
+- `device` (since 1.18.10) – size against the printer: a page (visible area incl. bleed) that fits none of the
+  printer's paper sizes 1:1 in either orientation (warning; info if the driver offers a custom size), or is wider than
+  every loaded roll. In the program against the default printer, on the command line with `inspect --check --printer P`.
+
+**Variable data** are checked before anything is created (program: *Check data* and automatically before *Create*;
+job `vdp`: a note in the result): text wider or taller than its field (measured with the field's font), empty
+columns used in a field, placeholders that are neither a column nor a variable, invalid EAN-13 and empty codes – each
+with the CSV line (header = line 1). At most 300 single messages, plus the count per kind.
 
 The text report (`report_text`) lists the page boxes and the bleed per side of the first page.
 
@@ -337,6 +346,13 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   none. `--plt FILE` additionally writes an HP-GL/CAMM-GL cut file of one set.
 - **Material** (`material`: name or ID): print materials per user, category `plan` | `quality`, grammage (selects
   the roll), the driver's media type, quality and ink amount, colour profile, max. ink coverage (guide value).
+  Since 1.18.11 per material also: **colour** `color_mode` – `convert` (Passermark converts to the profile, default),
+  `embed` (no conversion, the profile – the material's or the printer's – goes along as output intent, the device/RIP
+  applies it), `none` (sent unchanged); **source** `source` (`hand`, `device`, `import`), `updated` (date of the last
+  change) and `checked` (taken over from the device or imported = unchecked until ticked; the dialog shows ⚠).
+  Taking over: *Materials … → Take over from device* (loaded media and the device catalogue) or *Import …* /
+  `passermark-cli materials import FILE` – CSV (`;` `,` tab, with header) or JSON; columns are recognised by name
+  (name/material/medium, weight/gsm/grammage, media type, quality, profile/ICC, category, ink limit, notes).
 - **Output folders**: printer `"folder:NAME"` writes every print page as PDF into a hot folder set up in the program
   (e.g. VersaWorks for Roland); copies = the page repeated, file name `…_<n>x.pdf`.
 - **Roland cutters**: for devices whose name/model says Roland, the loaded width is read with `IN;OH;` on port 9100
@@ -489,10 +505,17 @@ PassCount werden erkannt und freigegeben, auch bei systemd-Schutz); Windows `%Pr
 drei für Benutzer und Dienstkonten beschreibbar). Clients an anderen PCs nur über Passerlink. Einrichten: `install.sh`, Windows-Setup, Verwaltung → Allgemein oder
 `passermark-cli shared-folder`. Hotfolder in Home-Ordnern bekommen einen Hinweis.
 
+Prüfung seit 1.18.10 auch: Format gegen den Drucker (Programm: Standarddrucker; `inspect --check --printer P`) und
+Variable Daten vor dem Erzeugen (Text zu lang/zu hoch, leere Spalten, unbekannte Platzhalter, ungültige Codes – mit
+CSV-Zeile). Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
+
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
 /Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken
 verboten/nur niedrige Auflösung), PDF/X-Angabe ohne Output-Intent bzw. ohne TrimBox, Formularfelder (nicht
 gedruckte, NeedAppearances), leere Seiten. Neue Prüfwerte für Bedingungen: `blank_pages`, `print_allowed`.
+
+Druckmaterialien (Plan/Poster) seit 1.18.11 mit Farbweg je Material (`color_mode`: umwandeln / nur einbetten / nichts),
+Quelle, Stand-Datum und „geprüft“; Übernahme vom Gerät oder per Import (`passermark-cli materials import DATEI`, CSV/JSON).
 
 Druckprotokoll (Datei → Einstellungen bzw. vom Admin erzwungen): je Auftrag eine JSON-Datei plus `printlog.csv`;
 im Ablauf auch die Bestell-Variablen `order`, `item`, `qty`, `product`, `shop` (unter `vars`, in der CSV die Spalten

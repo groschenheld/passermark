@@ -487,6 +487,10 @@ class VdpDialog(QDialog):
         bb = QDialogButtonBox()
         ok = bb.addButton(tr("Erzeugen (neuer Reiter)"), QDialogButtonBox.ButtonRole.AcceptRole)
         ok.setDefault(True)
+        chk = bb.addButton(tr("Daten prüfen"), QDialogButtonBox.ButtonRole.ActionRole)
+        chk.setToolTip(tr("Jeden Datensatz gegen die Felder prüfen: Text zu lang, leere Spalten, unbekannte "
+                          "Platzhalter, ungültige Codes – mit Zeilennummer der CSV"))
+        chk.clicked.connect(lambda: self._check_data(ask=False))
         bb.addButton(tr("Abbrechen"), QDialogButtonBox.ButtonRole.RejectRole)
         bb.accepted.connect(self._apply)
         bb.rejected.connect(self.reject)
@@ -1121,6 +1125,32 @@ class VdpDialog(QDialog):
             self.lbl_info.setText("⚠ " + str(e))
         self.canvas.update()
 
+    def _check_data(self, ask: bool = False, s=None) -> bool:
+        """Datenprüfung zeigen. ask: vor dem Erzeugen – True = weitermachen."""
+        s = s or self._settings()
+        try:
+            res = vdp.check(copy.deepcopy(s))
+        except Exception as e:                                  # noqa: BLE001
+            if not ask:
+                QMessageBox.warning(self, tr("Daten prüfen"), str(e))
+            return True
+        text = vdp.check_text(res, limit=25)
+        if not res["counts"]:
+            if not ask:
+                QMessageBox.information(self, tr("Daten prüfen"), text)
+            return True
+        box = QMessageBox(QMessageBox.Icon.Warning, tr("Daten prüfen"), text.split("\n")[0], parent=self)
+        box.setDetailedText(text)
+        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        if ask:
+            box.setInformativeText(tr("Trotzdem erzeugen?"))
+            box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            box.setDefaultButton(QMessageBox.StandardButton.No)
+            return box.exec() == QMessageBox.StandardButton.Yes
+        box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        box.exec()
+        return True
+
     def _apply(self):
         s = self._settings()
         if not s.fields and not s.placeholders:
@@ -1133,6 +1163,8 @@ class VdpDialog(QDialog):
             return
         if not recs:
             QMessageBox.warning(self, tr("Variable Daten"), tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
+            return
+        if not self._check_data(ask=True, s=s):
             return
         info = vdp.output_info(s, len(self.doc), len(recs), len(self.doc))
         if info["warn"]:

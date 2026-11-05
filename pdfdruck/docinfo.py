@@ -27,7 +27,8 @@ def _box(b):
     return None if b is None else [_r(x) for x in b]
 
 
-def inspect(path: str, password: str | None = None, check: bool = False, image_dpi: float = 96.0) -> dict:
+def inspect(path: str, password: str | None = None, check: bool = False, image_dpi: float = 96.0,
+            printer: str = "") -> dict:
     """path: PDF (or image/Office file – converted first, like when opening)."""
     import pikepdf
     from . import convert, renderproc
@@ -110,7 +111,7 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
         sizes[k] = sizes.get(k, 0) + 1
     out["formats_mm"] = [{"size": k, "pages": n} for k, n in sorted(sizes.items(), key=lambda kv: -kv[1])]
     if check:
-        out["check"] = _check(data)
+        out["check"] = _check(data, printer)
     return out
 
 
@@ -203,9 +204,15 @@ def _details(pdf) -> dict:
     return d
 
 
-def _check(data: bytes) -> dict:
+def _check(data: bytes, printer: str = "") -> dict:
     from . import preflight
     rep = preflight.analyze(data, True, pdfium_parts=True)
+    if printer:                                       # Format gegen Gerät
+        from . import config, printers
+        from .session import Session
+        if printer not in {p.name for p in printers.list_printers()}:
+            raise ValueError(tr("Drucker nicht gefunden: {0}").format(printer))
+        preflight.add_device_issues(rep, Session(config.load()).caps_for(printer), printer)
     return {
         "counts": rep.counts(),
         "issues": [{"severity": i.severity, "category": i.category, "message": i.message,

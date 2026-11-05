@@ -5,6 +5,33 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.11
+
+### Nyomtatási anyagok: színútvonal, eredet és importálás
+- Új „Szín” oszlop anyagonként három útvonallal: **Átalakítás** – a Passermark a profilba alakít, ez az alapértelmezés, mint eddig. **Csak beágyazás** – semmi sem alakul át; az anyag profilja, különben a nyomtatóé, kimeneti szándékként megy tovább, és az eszköz vagy a RIP alkalmazza. **Semmi** – a fájl változatlanul kerül ki.
+- Minden anyag mutatja a forrást, a dátumot és az „ellenőrzött” jelölést: kézzel létrehozott, az eszköztől átvett vagy importált, az utolsó módosítás dátumával. Az átvett anyag ellenőrizetlen, amíg be nem pipálod – a listában ekkor ⚠ „ellenőrizetlen” áll, a párbeszédablak figyelmeztet.
+- **„Átvétel az eszköztől”** a jelentett médiákat – betöltötteket és a katalógusból valódakat – anyagként hozza létre; utána nem szerepelnek kétszer a listában.
+- **„Importálás …”** anyagokat vesz át CSV-ből (elválasztó: pontosvessző, vessző vagy tabulátor) vagy JSON-ből. Az oszlopokat a névről ismeri fel, pl. Név/Anyag, grammage/gsm, médiatípus, minőség és profil; az azonos neveket kihagyja.
+- Parancssor: `passermark-cli materials list` és `materials import FÁJL [--printer NYOMTATÓ] [--dry-run]`.
+- Javítva: a jegyzetek és a vágási értékek eddig elvesztek az anyag párbeszédablakban történő mentéskor.
+
+## 1.18.10
+
+### Kikapcsolható hibanaplók
+- A Fájl → Beállításokban az új „Hibanaplók” csoport – alapértelmezetten bekapcsolva.
+- Kikapcsolva: nincs naplófájl, nincs ablak váratlan hibáknál vagy összeomlás után, nincs akadozási lista. A következő indítástól érvényes.
+
+### A változó adatok ellenőrzése
+- A változó adatok ablakban új „Adatok ellenőrzése” gomb van. A „Létrehozás” előtt az ellenőrzés automatikusan fut, és leleteknél „Létrehozás mégis?”-t kérdez.
+- Ellenőrzés: a szöveg túl hosszú vagy túl magas a mezőjéhez, a mező betűtípusával mérve; üres oszlopok; olyan helyőrzők, amelyek se oszlopként, se változóként nem léteznek; érvénytelen EAN-13 és tartalom nélküli kódok.
+- Minden lelet a CSV-beli sorával együtt jelenik meg, pl. „3. sor · 1. mező: a szöveg túl hosszú: 95,5 mm széles, mező 50 mm”.
+- Munkafolyamatban vagy parancssorban az eredmény figyelmeztetésként jelenik meg. Érvénytelen kódoknál most a teljes listával áll le, korábban csak az első hibával.
+
+### Formátum az eszköz ellenében
+- A dokumentum-ellenőrzés az oldalakat a alapnyomtató papírformátumaival hasonlítja össze. A lelet neve „Nyomtató”.
+- Ha az illesztő egyedi formátumokat támogat, az csak figyelmeztetés. A tekercses eszközök jelzik, ha egy oldal minden tekercsnél szélesebb.
+- Parancssorból: `passermark-cli inspect FÁJL.pdf --check --printer NYOMTATÓ`.
+
 ## 1.18.9
 
 ### Nyomtatási napló: rendelési változók
@@ -594,5 +621,6 @@
   Code 128 saját olvasóval, ellenőrző összeggel
 - Javítva: a változó adatok az elosztás kiválasztása nélkül „rekordonként a teljes dokumentum másolatát”
   használták a „minden lapon a következő rekord” helyett
+
 
 

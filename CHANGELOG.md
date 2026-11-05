@@ -2,6 +2,33 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.11
+
+### Print materials: colour path, origin and import
+- New "Colour" column per material with three paths: **Convert** – Passermark converts into the profile, the default and as before. **Embed only** – nothing is converted; the material's profile, otherwise the printer's, goes along as output intent, applied by the device or RIP. **None** – the file goes out unchanged.
+- Every material shows source, date and "checked": created by hand, adopted from the device or imported, with the date of the last change. Adopted entries are unchecked until you tick them – the list then shows ⚠ "unchecked", the dialog gives a notice.
+- **"Adopt from device"** creates the reported media – loaded ones and those from the catalogue – as materials; afterwards they no longer appear twice in the list.
+- **"Import …"** takes materials from CSV (separator semicolon, comma or tab) or JSON. Columns are recognised by name, e.g. Name/Material, grammage/gsm, media type, quality and profile; identical names are skipped.
+- Command line: `passermark-cli materials list` and `materials import FILE [--printer PRINTER] [--dry-run]`.
+- Fixed: notes and cutting values were lost when saving in the material dialog.
+
+## 1.18.10
+
+### Error logs can be turned off
+- File → Settings has the new group "Error logs" – on by default.
+- Off means: no log file, no window on unexpected errors or after a crash, no list of stutters. Applies from the next start.
+
+### Checking the variable data
+- The variable data window has the new "Check data" button. Before "Generate" the check runs automatically and asks "Generate anyway?" on findings.
+- Checked are: text too long or too tall for its field (measured with the field's font), empty columns, placeholders that exist neither as column nor as variable, invalid EAN-13 and codes without content.
+- Every finding shows its row in the CSV, e.g. "Row 3 · Field 1: text too long: 95.5 mm wide, field 50 mm".
+- In a workflow or on the command line the result appears as a notice. With invalid codes it now aborts with the complete list, previously only with the first error.
+
+### Format against the device
+- The document check compares the pages with the paper formats of the default printer. The finding is called "Printer".
+- If the driver supports custom sizes, it is only a note. Roll devices report when a page is wider than every roll.
+- On the command line via `passermark-cli inspect FILE.pdf --check --printer PRINTER`.
+
 ## 1.18.9
 
 ### Print log: order variables
@@ -1033,5 +1060,6 @@ First version of Passermark, built on pdfToolkit 1.4.0 (all features adopted).
     page
 - Independently installable alongside pdfToolkit (own paths, admin helper, polkit rule, single instance)
 - Own icon; all texts in German, English, Hungarian, Spanish, French
+
 
 

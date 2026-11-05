@@ -95,6 +95,9 @@ class Controller(QObject):
         """Ruckler-Protokoll (ruckler.txt im Ordner der Fehlerprotokolle): Hänger der Oberfläche mit Ursache."""
         try:
             from . import crashlog
+            if not crashlog.enabled():               # Fehlerprotokolle abgeschaltet: auch keine Ruckler-Meldungen
+                self._stallwatch = None
+                return
             from .gui.renderclient import RenderService
             from .gui.stallwatch import StallWatch
 

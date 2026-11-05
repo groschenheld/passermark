@@ -5,6 +5,33 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.11
+
+### Materiales de impresión: recorrido de color, origen e importación
+- Nueva columna «Color» por material con tres recorridos: **Convertir** – Passermark convierte al perfil, lo predeterminado y como hasta ahora. **Solo incrustar** – no se convierte nada; el perfil del material, si no el de la impresora, va como intento de salida y lo aplica el aparato o el RIP. **Nada** – el archivo sale sin cambios.
+- Cada material muestra origen, fecha y «verificado»: creado a mano, adoptado del aparato o importado, con la fecha del último cambio. Lo adoptado queda sin verificar hasta que lo marques – en la lista aparece entonces ⚠ «sin verificar», el diálogo da un aviso.
+- **«Adoptar del aparato»** crea como materiales los medios anunciados – cargados y del catálogo –; después ya no aparecen dos veces en la lista.
+- **«Importar …»** toma materiales de CSV (separador punto y coma, coma o tabulador) o JSON. Las columnas se reconocen por el nombre, p. ej. Nombre/Material, gramaje/gsm, tipo de medio, calidad y perfil; los nombres idénticos se saltan.
+- Línea de comandos: `passermark-cli materials list` y `materials import ARCHIVO [--printer IMPRESORA] [--dry-run]`.
+- Corregido: las notas y los valores de corte se perdían al guardar en el diálogo de materiales.
+
+## 1.18.10
+
+### Registros de errores desactivables
+- En Archivo → Ajustes está el nuevo grupo «Registros de errores» – activado por defecto.
+- Desactivado significa: sin archivo de registro, sin ventana ante errores inesperados o tras un bloqueo, sin lista de tirones. Vale a partir del siguiente inicio.
+
+### Comprobación de los datos variables
+- La ventana de datos variables tiene el nuevo botón «Comprobar datos». Antes de «Generar» la comprobación corre automáticamente y pregunta ante hallazgos «¿Generar de todos modos?».
+- Se comprueba: texto demasiado largo o alto para su campo, medido con la fuente del campo; columnas vacías; marcadores que no existen ni como columna ni como variable; EAN-13 no válidos y códigos sin contenido.
+- Cada hallazgo aparece con su línea en el CSV, p. ej. «Línea 3 · Campo 1: texto demasiado largo: 95,5 mm de ancho, campo 50 mm».
+- En un flujo o en la línea de comandos el resultado aparece como aviso. Con códigos no válidos ahora se interrumpe con la lista completa, antes solo con el primer error.
+
+### Formato contra el aparato
+- La comprobación del documento compara las páginas con los formatos de papel de la impresora predeterminada. El hallazgo se llama «Impresora».
+- Si el controlador admite formatos especiales, es solo un aviso. Los aparatos de rollo informan cuando una página es más ancha que cualquier rollo.
+- En la línea de comandos con `passermark-cli inspect ARCHIVO.pdf --check --printer IMPRESORA`.
+
 ## 1.18.9
 
 ### Registro de impresión: variables de pedido
@@ -607,5 +634,6 @@
   con su propio lector con suma de control
 - Corregido: los datos variables usaban «una copia del documento entero por registro» sin elegir la
   distribución en lugar de «el siguiente registro en cada página»
+
 
 

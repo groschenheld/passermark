@@ -30,6 +30,7 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli serve [--config watch.json] [--once] [--check] [--json]   (drop folders -> workflows)
     passermark-cli serve --init [--system]                   (template watch.json, never overwrites)
     passermark-cli shared-folder [--user NAME …] [--status]   (shared print folder /srv/passermark, needs root/pkexec)
+    passermark-cli materials list|import FILE [--printer P] [--dry-run]   (print materials of plan/poster printing)
     passermark-cli tidy datei.json [--full] [--out neu.json] [--print]   (preset/workflow: only what differs)
     passermark-cli reprint protokoll.json [--in datei.pdf] [--dry-run]   (print a logged job again, exactly)
 
@@ -334,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
 API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy",
-                "reprint", "plan", "rolls", "probe", "shared-folder")
+                "reprint", "plan", "rolls", "probe", "shared-folder", "materials")
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
@@ -380,6 +381,11 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
     elif cmd == "rolls":
         p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
         p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+    elif cmd == "materials":
+        p.add_argument("action", choices=["list", "import"], help=tr("list = anzeigen, import = aus CSV/JSON übernehmen"))
+        p.add_argument("file", nargs="?", default="", help=tr("bei import: CSV- oder JSON-Datei"))
+        p.add_argument("--printer", default="", help=tr("nur für diesen Drucker (leer = alle Drucker)"))
+        p.add_argument("--dry-run", action="store_true", help=tr("nur anzeigen, was übernommen würde"))
     elif cmd == "shared-folder":
         p.add_argument("--user", action="append", default=[], metavar=tr("NAME"),
                        help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"))
@@ -425,6 +431,7 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
     elif cmd == "inspect":
         p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
         p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
+        p.add_argument("--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen"))
         p.add_argument("--password", help=tr("Passwort"))
     p.add_argument("--json", action="store_true", help=tr("Ausgabe als JSON"))
     return p
@@ -757,6 +764,39 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if cmd == "plan":
         return _plan_cmd(a, rep, fail)
 
+    if cmd == "materials":
+        from . import printmat
+        if a.action == "import":
+            if not a.file:
+                return fail(workflow.E_USAGE, tr("Datei angeben: passermark-cli materials import DATEI"), EXIT_USAGE)
+            try:
+                new = printmat.parse_import(a.file, a.printer)
+                lst, n = printmat.merge(printmat.load(), new)
+                if not a.dry_run:
+                    printmat.save(lst)
+            except FileNotFoundError:
+                return fail(workflow.E_NOT_FOUND, tr("Datei nicht gefunden: {0}").format(a.file), EXIT_USAGE)
+            except (OSError, ValueError) as e:
+                return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
+            if a.json:
+                rep.emit(event="done", found=len(new), added=n, dry_run=a.dry_run, materials=new)
+            else:
+                print(tr("{0} gefunden, {1} neu{2}").format(len(new), n, tr(" (Probelauf – nichts gespeichert)")
+                                                           if a.dry_run else ""))
+                for m in new:
+                    print(f"  {m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}")
+            return EXIT_OK
+        mats = printmat.for_printer(a.printer) if a.printer else printmat.load()
+        if a.json:
+            print(json.dumps({"materials": mats}, ensure_ascii=False))
+        else:
+            for m in mats:
+                print(f"{m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}  ·  {m.get('color_mode', 'convert')}"
+                      f"  ·  {m.get('source', 'hand')} {m.get('updated', '')}"
+                      + ("" if m.get("checked", True) else "  ·  " + tr("ungeprüft"))
+                      + (f"  ·  {m['printer']}" if m["printer"] else ""))
+        return EXIT_OK
+
     if cmd == "shared-folder":
         from . import shared
         if not a.status:
@@ -801,7 +841,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if cmd == "inspect":
         from . import docinfo
         try:
-            d = docinfo.inspect(a.file, a.password, a.check)
+            d = docinfo.inspect(a.file, a.password, a.check, printer=a.printer)
         except FileNotFoundError as e:
             return fail(workflow.E_NOT_FOUND, str(e), EXIT_ERROR)
         except Exception as e:                                  # noqa: BLE001 – jede Ursache melden

@@ -1233,6 +1233,14 @@ def cut_values(caps) -> dict:
     return out
 
 
+def config_profile(session, pid: str):
+    """Farbprofil (Eintrag aus der Admin-Konfiguration) zur ID – oder None."""
+    if not pid:
+        return None
+    from . import config
+    return config.profile_by_id(getattr(session, "cfg", {}) or {}, pid)
+
+
 def media_for_roll(caps, roll) -> str:
     """Medientyp im Treiber passend zur Rolle (Medienname bzw. Grammatur laut Gerät). "" = nichts Passendes."""
     key = caps.roles.get("mediatype") if caps is not None else None
@@ -1436,14 +1444,30 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
                 vals[mkey] = mv
         job = os.path.join(tmp, "plan.pdf")
         mode = copies_mode(s)
+        cmode = (rmat.get("color_mode") or "convert") if rmat else "convert"
+        old_color = session.color.get(printer) if hasattr(session, "color") else None
+        icc = ""
+        if cmode in ("embed", "none"):
+            # Farbe je Material: nicht umwandeln – nur das Profil einbetten bzw. gar nichts (Gerät/RIP macht's)
+            pid, intent = session.color_for(printer)
+            prof = config_profile(session, rmat.get("profile") or pid)
+            icc = prof.get("file", "") if (prof and cmode == "embed") else ""
+            session.color[printer] = ("", intent)
+
+        def prep(path):
+            if icc and os.path.isfile(icc):
+                from .cmyk import embed_output_intent
+                embed_output_intent(path, icc)
         try:
             if mode == "sheets":
                 # ein Auftrag, je Exemplar eine Seite: der Drucker schneidet nach jeder Seite
                 write_run(run, s, job, n)
+                prep(job)
                 jid = printjob.send_prepared(session, printer, caps, job,
                                              title + (f" ×{n}" if n > 1 else ""), vals, 1, True, {})
             elif mode == "jobs" and n > 1:
                 write_run(run, s, job)
+                prep(job)
                 ids = []
                 for k in range(n):
                     ids.append(printjob.send_prepared(session, printer, caps, job, f"{title} ({k + 1}/{n})",
@@ -1451,10 +1475,17 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
                 jid = ", ".join(str(x) for x in ids if x is not None) or None
             else:
                 write_run(run, s, job)
+                prep(job)
                 jid = printjob.send_prepared(session, printer, caps, job, title, vals, n, True, {})
         except Exception as e:
             err = str(e)
             raise
+        finally:
+            if cmode in ("embed", "none"):
+                if old_color is None:
+                    session.color.pop(printer, None)
+                else:
+                    session.color[printer] = old_color
         return jid
     finally:
         import shutil

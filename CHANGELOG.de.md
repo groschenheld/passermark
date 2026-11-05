@@ -2,6 +2,33 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.11
+
+### Druckmaterialien: Farbweg, Herkunft und Import
+- Neue Spalte „Farbe“ je Material mit drei Wegen: **Umwandeln** – Passermark rechnet ins Profil um, Standard und so wie bisher. **Nur einbetten** – es wird nichts umgewandelt; das Profil des Materials, sonst das des Druckers, geht als Output Intent mit, und das Gerät bzw. der RIP wendet es an. **Nichts** – die Datei geht unverändert raus.
+- Jedes Material zeigt Quelle, Stand und „geprüft“: von Hand angelegt, vom Gerät übernommen oder importiert, mit Datum der letzten Änderung. Übernommenes ist ungeprüft, bis du es abhakst – in der Liste steht dann ⚠ „ungeprüft“, der Dialog gibt einen Hinweis.
+- **„Vom Gerät übernehmen“** legt die gemeldeten Medien – geladene und aus dem Katalog – als Materialien an; danach erscheinen sie in der Liste nicht mehr doppelt.
+- **„Importieren …“** übernimmt Materialien aus CSV (Trennzeichen Semikolon, Komma oder Tab) oder JSON. Die Spalten werden am Namen erkannt, z. B. Name/Material, Grammatur/gsm, Medientyp, Qualität und Profil; gleiche Namen werden übersprungen.
+- Kommandozeile: `passermark-cli materials list` und `materials import DATEI [--printer DRUCKER] [--dry-run]`.
+- Behoben: Notizen und Schneidwerte gingen beim Speichern im Material-Dialog bisher verloren.
+
+## 1.18.10
+
+### Fehlerprotokolle abschaltbar
+- Unter Datei → Einstellungen gibt es die neue Gruppe „Fehlerprotokolle“ – standardmäßig an.
+- Aus heißt: keine Protokolldatei, kein Fenster bei unerwarteten Fehlern oder nach einem Absturz, keine Ruckler-Liste. Das gilt ab dem nächsten Start.
+
+### Prüfung der Variablen Daten
+- Im Variable-Daten-Fenster gibt es den neuen Knopf „Daten prüfen“. Vor „Erzeugen“ läuft die Prüfung automatisch und fragt bei Funden „Trotzdem erzeugen?“.
+- Geprüft werden: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, Platzhalter, die es weder als Spalte noch als Variable gibt, ungültige EAN-13 und Codes ohne Inhalt.
+- Jeder Fund steht mit seiner Zeile in der CSV da, z. B. „Zeile 3 · Feld 1: Text zu lang: 95,5 mm breit, Feld 50 mm“.
+- Im Ablauf bzw. über die Kommandozeile erscheint das Ergebnis als Hinweis. Bei ungültigen Codes bricht es jetzt mit der vollständigen Liste ab, vorher nur mit dem ersten Fehler.
+
+### Format gegen Gerät
+- Die Dokumentprüfung vergleicht die Seiten mit den Papierformaten des Standarddruckers. Der Befund heißt „Drucker“.
+- Kann der Treiber Sonderformate, ist das nur ein Hinweis. Bei Rollengeräten wird gemeldet, wenn eine Seite breiter ist als jede Rolle.
+- Auf der Kommandozeile geht es mit `passermark-cli inspect DATEI.pdf --check --printer DRUCKER`.
+
 ## 1.18.9
 
 ### Druckprotokoll: Bestellvariablen
@@ -1026,5 +1053,6 @@ Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen ü
   - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
 - Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
 - Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch
+
 
 

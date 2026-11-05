@@ -47,6 +47,8 @@ COPIES_TEXT = {"sheets": "Ein Auftrag, je Exemplar ein Blatt", "jobs": "Je Exemp
                "count": "Kopienzahl (Gerät entscheidet übers Schneiden)"}
 SCALE_TEXT = {"pct": "Prozent", "short": "Kurze Kante auf", "long": "Lange Kante auf"}
 ALIGN_TEXT = {"center": "Mittig", "left": "Am Rand (links)", "right": "Am Rand (rechts)"}
+COLOR_MODE_TEXT = {"convert": "Umwandeln", "embed": "Nur einbetten", "none": "Nichts"}
+SOURCE_TEXT = {"hand": "von Hand", "device": "vom Gerät", "import": "importiert"}
 CAT_TEXT = {"plan": "Plandruck", "quality": "Qualitätsdruck"}
 KIND_SHORT = {"frame": "Außenlinie", "margin": "Rand", "page": "Seite", "empty": "leer"}
 
@@ -416,10 +418,11 @@ class ProbeDialog(QDialog):
 
 class MaterialsDialog(QDialog):
     """Druckmaterialien: Hauptkategorie (Plandruck/Qualitätsdruck), dann die Einstellungen je Material."""
-    COLS = ("Name", "Kategorie", "g/m²", "Medientyp", "Qualität", "Tintenmenge", "Profil", "max. Farbauftrag",
-            "nur für diesen Drucker")
+    COLS = ("Name", "Kategorie", "g/m²", "Medientyp", "Qualität", "Tintenmenge", "Profil", "Farbe",
+            "max. Farbauftrag", "nur für diesen Drucker", "Quelle", "geprüft")
+    C_COLOR, C_TAC, C_PRN, C_SRC, C_OK = 7, 8, 9, 10, 11
 
-    def __init__(self, parent, session, printer: str, caps):
+    def __init__(self, parent, session, printer: str, caps, device: list | None = None):
         super().__init__(parent)
         from .. import printmat
         self.setWindowTitle(tr("Materialien – {0}").format(printer or tr("alle Drucker")))
@@ -439,12 +442,25 @@ class MaterialsDialog(QDialog):
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         v.addWidget(self.tbl, 1)
         self.ids = []
+        self.orig = []                         # je Zeile das gespeicherte Material (Felder ohne eigene Spalte)
+        self.device = list(device or [])
         row = QHBoxLayout()
         b = QPushButton(icon("insert"), tr("Material hinzufügen"))
         b.clicked.connect(lambda: self._add({"name": tr("Neues Material"), "category": "quality"}))
         row.addWidget(b)
         b = QPushButton(icon("delete"), tr("Entfernen"))
         b.clicked.connect(self._remove)
+        row.addWidget(b)
+        b = QPushButton(tr("Vom Gerät übernehmen"))
+        b.setToolTip(tr("Die Medien, die das Gerät meldet (geladen und im Katalog), als Materialien anlegen – "
+                        "ungeprüft, bis du sie abhakst"))
+        b.setEnabled(bool(self.device))
+        b.clicked.connect(self._from_device)
+        row.addWidget(b)
+        b = QPushButton(icon("open"), tr("Importieren …"))
+        b.setToolTip(tr("Materialliste aus CSV oder JSON (z. B. Export aus dem RIP): Spalten wie Name/Material, "
+                        "Grammatur/gsm, Medientyp, Qualität, Profil werden erkannt"))
+        b.clicked.connect(self._import)
         row.addWidget(b)
         row.addStretch(1)
         v.addLayout(row)
@@ -485,6 +501,7 @@ class MaterialsDialog(QDialog):
         n = self.tbl.rowCount()
         self.tbl.insertRow(n)
         self.ids.append(m.get("id", ""))
+        self.orig.append(dict(m))
         self.tbl.setItem(n, 0, QTableWidgetItem(m.get("name", "")))
         c = QComboBox()
         for cat in printmat.CATEGORIES:
@@ -511,21 +528,41 @@ class MaterialsDialog(QDialog):
         for pr in self.session.cfg.get("color_profiles", []) or []:
             pc.addItem(pr.get("name") or pr.get("id"), pr.get("id"))
         pc.setCurrentIndex(max(0, pc.findData(m.get("profile", ""))))
+        if pc.findData(m.get("profile", "")) < 0 and m.get("profile"):
+            pc.addItem(tr("{0} (nicht vorhanden)").format(m["profile"]), m["profile"])
+            pc.setCurrentIndex(pc.count() - 1)
         self.tbl.setCellWidget(n, 6, pc)
+        cc = QComboBox()
+        for k, txt in COLOR_MODE_TEXT.items():
+            cc.addItem(tr(txt), k)
+        cc.setToolTip(tr("Umwandeln: Passermark rechnet ins Profil um, das Gerät soll nicht mehr umrechnen (am "
+                         "sichersten).\nNur einbetten: das Profil geht als Output Intent mit, das Gerät/der RIP wendet "
+                         "es an.\nNichts: unverändert senden, die Farbe macht ganz das Gerät."))
+        cc.setCurrentIndex(max(0, cc.findData(m.get("color_mode", "convert"))))
+        self.tbl.setCellWidget(n, self.C_COLOR, cc)
         t = QSpinBox()
         t.setRange(0, 400)
         t.setSuffix(" %")
         t.setSpecialValueText("–")
         t.setValue(int(m.get("tac") or 0))
-        self.tbl.setCellWidget(n, 7, t)
+        self.tbl.setCellWidget(n, self.C_TAC, t)
         ck = QCheckBox()
         ck.setChecked(bool(m.get("printer")) or not m.get("id"))
-        self.tbl.setCellWidget(n, 8, ck)
+        self.tbl.setCellWidget(n, self.C_PRN, ck)
+        src = m.get("source", "hand")
+        it = QTableWidgetItem(tr(SOURCE_TEXT.get(src, src)) + (f" · {m['updated']}" if m.get("updated") else ""))
+        it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self.tbl.setItem(n, self.C_SRC, it)
+        ok = QCheckBox()
+        ok.setChecked(bool(m.get("checked", src == "hand")))
+        ok.setToolTip(tr("Abhaken, wenn die Einstellungen geprüft sind (vom Gerät bzw. importiert: anfangs ungeprüft)"))
+        self.tbl.setCellWidget(n, self.C_OK, ok)
 
     def _remove(self):
         for i in sorted({ix.row() for ix in self.tbl.selectedIndexes()}, reverse=True):
             self.tbl.removeRow(i)
             self.ids.pop(i)
+            self.orig.pop(i)
         self._fill_defaults()
 
     def _rows(self) -> list:
@@ -537,14 +574,57 @@ class MaterialsDialog(QDialog):
                 continue
             dc = self.tbl.cellWidget(i, 5)
             mid = self.ids[i] or printmat.new_id(name, self.others + out)
-            out.append({"id": mid, "name": name, "category": self.tbl.cellWidget(i, 1).currentData(),
+            o = self.orig[i]
+            out.append({**{k: o[k] for k in ("options", "intent", "notes", "cut_force", "cut_speed", "updated")
+                           if k in o},
+                        "source": o.get("source", "hand"), "checked": self.tbl.cellWidget(i, self.C_OK).isChecked(),
+                        "color_mode": self.tbl.cellWidget(i, self.C_COLOR).currentData() or "convert",
+                        "id": mid, "name": name, "category": self.tbl.cellWidget(i, 1).currentData(),
                         "weight": self.tbl.cellWidget(i, 2).value(), "media": self.tbl.cellWidget(i, 3).currentData(),
                         "quality": self.tbl.cellWidget(i, 4).currentData(),
                         "density_key": (dc.property("density_key") or "") if dc.currentData() else "",
                         "density": dc.currentData() or "", "profile": self.tbl.cellWidget(i, 6).currentData(),
-                        "tac": self.tbl.cellWidget(i, 7).value(),
-                        "printer": self.printer if self.tbl.cellWidget(i, 8).isChecked() else ""})
+                        "tac": self.tbl.cellWidget(i, self.C_TAC).value(),
+                        "printer": self.printer if self.tbl.cellWidget(i, self.C_PRN).isChecked() else ""})
         return out
+
+    def _names(self) -> set:
+        return {(self.tbl.item(i, 0).text() if self.tbl.item(i, 0) else "").strip().lower()
+                for i in range(self.tbl.rowCount())}
+
+    def _add_new(self, mats: list) -> int:
+        have, n = self._names(), 0
+        for m in mats:
+            if m["name"].strip().lower() in have:
+                continue
+            have.add(m["name"].strip().lower())
+            self._add(m)
+            n += 1
+        self._fill_defaults()
+        return n
+
+    def _from_device(self):
+        from .. import printmat
+        n = self._add_new(printmat.from_device(self.device, self.printer))
+        QMessageBox.information(self, tr("Materialien"), tr("{0} Material(ien) vom Gerät übernommen – ungeprüft. "
+                                                            "Einstellungen ansehen, abhaken, speichern.").format(n)
+                                if n else tr("Alle gemeldeten Medien sind schon angelegt."))
+
+    def _import(self):
+        from .. import printmat
+        path, _ = QFileDialog.getOpenFileName(self, tr("Materialliste importieren"), os.path.expanduser("~"),
+                                              tr("Materiallisten (*.csv *.txt *.json);;Alle Dateien (*)"))
+        if not path:
+            return
+        try:
+            mats = printmat.parse_import(path, self.printer)
+        except Exception as e:                                  # noqa: BLE001 – jede Ursache melden
+            QMessageBox.warning(self, tr("Materialien"), tr("Import nicht möglich: {0}").format(e))
+            return
+        n = self._add_new(mats)
+        QMessageBox.information(self, tr("Materialien"), tr("{0} von {1} Material(ien) übernommen (gleiche Namen "
+                                                            "übersprungen) – ungeprüft. Ansehen, abhaken, speichern.")
+                                .format(n, len(mats)))
 
     def _fill_defaults(self):
         from .. import printmat
@@ -1674,13 +1754,18 @@ class PlanDialog(QDialog):
         self.cmb_mat.addItem(tr("– keins –"), "")
         # was der Drucker meldet (Medien der geladenen Rollen) – ohne es extra anlegen zu müssen
         rs = getattr(self, "roll_state", None)
+        own = {m["name"].strip().lower() for m in printmat.for_printer(self.printer)}
         for m in pp.device_materials(getattr(self, "rolls", []) or [], getattr(rs, "catalog", None)):
+            if m["name"].strip().lower() in own:
+                continue                          # schon als eigenes Material angelegt
             self.cmb_mat.addItem(m["name"] + (f" · {m['weight']} g" if m["weight"] and f"{m['weight']} g"
                                               not in m["name"] else "")
                                  + "  (" + (tr("Gerät") if m["loaded"] else tr("Gerät, nicht geladen")) + ")", m["id"])
         for m in printmat.for_printer(self.printer, cat) + [m for m in printmat.for_printer(self.printer)
                                                             if m["category"] != cat]:
             t = m["name"] + (f" · {m['weight']} g" if m["weight"] else "")
+            if not m.get("checked", True):
+                t += "  ⚠ " + tr("ungeprüft")
             if m["category"] != cat:
                 t += "  (" + tr(CAT_TEXT[m["category"]]) + ")"
             self.cmb_mat.addItem(t, m["id"])
@@ -1692,7 +1777,9 @@ class PlanDialog(QDialog):
         self.cmb_mat.blockSignals(False)
 
     def _edit_materials(self):
-        if MaterialsDialog(self, self.session, self.printer, self.caps).exec():
+        rs = getattr(self, "roll_state", None)
+        dev = pp.device_materials(self.rolls or [], getattr(rs, "catalog", None))
+        if MaterialsDialog(self, self.session, self.printer, self.caps, dev).exec():
             self._fill_materials()
             self._refresh()
 
