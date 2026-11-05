@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.11
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -28,7 +28,7 @@ szoftver (GPL-3.0-or-later).
 - **Megjelenítés és nyomtatás**: PDF-ek, képek (HEIC, SVG is) és Office-fájlok (LibreOffice-on keresztül). A
   meglévő nyomtatóillesztőket használja (Linuxon CUPS, Windowson Windows-illesztők) minden beállításukkal.
 - **Kiosztás (Ausschießen):** igazítás/skálázás, több lap egy ívre, plakátfelosztás, haszonminták (Nutzen);
-  füzetek tűzött kötésként, csoportos ívekként vagy egymásra helyezett ívekként (ragasztott kötés), bundzug
+- **Plan & Poster:** tervnyomtatás és poszternyomtatás tekercses eszközökön – tekercsek kiolvasása az eszközből (IPP, egyébként SNMP), „Eszköz ellenőrzése” csak olvasva JSON-jelentéssel; tekercsválasztás automatikusan (a legkeskenyebb megfelelő, grammage/anyag szerint) vagy rögzítve, elhelyezés középen vagy a szélen; folyóméter élőben figyelmeztetéssel, ha a tekercs elfogy; tev-eszközök (skálázás, forgatás, túltöltősáv, vágójelek, hajszálvonalak kiemelése, hajtási jelek DIN 824 szerint), posztereszközök (szegély, szemkarika-jelek, CutContour, passerjelölések print & cut-hoz a Rolandon), a tekercsnél szélesebb sávokra bontva; anyagok felhasználónként – a betöltött tekercsek médiái automatikusan szerepelnek a listában („(eszköz)” jelöléssel), és pontosan azt a tekercset választják; IPP-n a médiakatalógus is kiolvasásra kerül, így a létrehozott, de be nem töltött médiák „(eszköz, nincs betöltve)” jelöléssel szerepelnek a listában, és médiatípusukkal mennek az illesztőhöz. Minden anyaghoz jár színútvonal – átalakítás, csak kimeneti szándékként beágyazás vagy változatlan átadás –, továbbá forrás, dátum és ellenőrzött jelölés; az anyagok átvehetők az eszköztől vagy importálhatók CSV-ből, JSON-ből, parancssorból a `materials list` és `materials import` segítségével. Beállítások tervenként: egyes tervek vagy poszterek kijelölésével az anyag, tekercs, elhelyezés, forgatás, nyomtatási terület, margó, méretezés (százalékban vagy „rövidebb/hosszabb él … mm-re”) és túltöltősáv csak a kijelölésre érvényes – az eltéréseket a lista ✎ jelzéssel mutatja. Küldésnél az „egy munka, példányonként egy ív” az alapértelmezés választható példányonkénti saját munka vagy példányszám; a lista alatt minden nyomtatott ív kicsiben renderelve, mérettel, tekercsel és vágásszámmal. Parancssorból is (`passermark-cli plan`/`poster`, a `--dry-run` csak folyómétert számol, `--copies-mode sheets|jobs|count`, `overrides` oldalszám szerint), munkafolyamat-lépésként és bedobómappa-kimenetként, pl. VersaWorkshoz; a nyomtatási napló eltárolja az eltéréseket, az újranyomtatásnál helyénvalóak maradnak.
   ( creep) üres lapokkal, hajtási-, passer- és flapjelölésekkel és íváttekintéssel. Parancssorból is
   (`passermark-cli impose`). A haszonminták másodszor is szabadon választott célformátumra helyezhetők (2. lépés) – most közvetlen nyomtatásnál, a nyomtatási párbeszédablakból is.
 - **Plan & Poster:** tervnyomtatás és poszternyomtatás tekercses eszközökön – tekercsek kiolvasása az eszközből (IPP, egyébként SNMP), „Eszköz ellenőrzése” csak olvasva JSON-jelentéssel; tekercsválasztás automatikusan (a legkeskenyebb megfelelő, grammage/anyag szerint) vagy rögzítve, elhelyezés középen vagy a szélen; folyóméter élőben figyelmeztetéssel, ha a tekercs elfogy, az „Egyenként levágás” minden példányt saját munkává tesz; tev-eszközök (skálázás, forgatás, túltöltősáv, vágójelek, hajszálvonalak kiemelése, hajtási jelek DIN 824 szerint), posztereszközök (szegély, szemkarika-jelek, CutContour, passerjelölések print & cut-hoz a Rolandon), a tekercsnél szélesebb sávokra bontva; anyagok felhasználónként. Parancssorból is (`passermark-cli plan`/`poster`, a `--dry-run` csak folyómétert számol), munkafolyamat-lépésként és bedobómappa-kimenetként, pl. VersaWorkshoz.
@@ -41,7 +41,7 @@ szoftver (GPL-3.0-or-later).
   túlnyúlás figyelembe vételével.
 - **Preflight:** megnyitáskor ellenőrzi a betűket, a rétegeket, az átlátszóságot, az oldalkereteket (Crop-/Trim-/Bleed-Box), a tartalom levágását, a védelmet, a PDF/X-et és az output intentet, az űrlapmezőket és az üres oldalakat; javítások: betűk beágyazása
   vagy helyettesítése (szabad, metrikailag kompatibilis betűk vagy letöltés a fontsource.org-ról), szöveg
-  görbékké alakítása, rétegek rögzítése/eltávolítása, átlátszóság lapítása. Minden lelet megnevezi a helyét (pl. „2. oldal – jobb alul, 40 × 20 mm”); egy kattintás odébb ugrik, és piros kerettel jelöli, a ◀ ▶ gombokkal végigmehetsz a leleteken.
+  görbékké alakítása, rétegek rögzítése/eltávolítása, átlátszóság lapítása. Minden lelet megnevezi a helyét (pl. „2. oldal – jobb alul, 40 × 20 mm”); egy kattintás odébb ugrik, és piros kerettel jelöli, a ◀ ▶ gombokkal végigmehetsz a leleteken. Új a formátum-eszköz ellenőrzés: az oldalakat a alapnyomtató papírformátumaival hasonlítja össze – figyelmeztetéssel, ha az illesztő egyedi formátumokat támogat; a tekercses eszközök jelzik, ha egy oldal minden tekercsnél szélesebb.
 - **Szerkesztés:** szövegsorok és rétegek kiválasztása egérrel; szöveg, betű és méret változtatása; rétegek
   mozgatása, méretezése, elrejtése, eltávolítása vagy cseréje; visszavonás.
 - Vonalzók és mérés: mm-vonalzók a nézet szélén; kezdő- és végpont kattintása a méréshez (a Shift
@@ -52,7 +52,7 @@ szoftver (GPL-3.0-or-later).
   CSV-ből származó szöveg, QR-kódok, Code 128 és EAN-13 vektorként (csendes zónával); `{{…}}`
   helyőrzők a PDF-ben; dátum, lap, véletlenszám és további változók; több lap rekordonként (elől/hátul) és
   mezők páratlan/páros lapokon; kódnapló; haszonminták saját rekorddal mintánként (ívről ívre vagy vágás és
-  pakolás); **ablakok (oldalcsoportok)** több oldalas sablonokhoz – pl. elölap a névvel, hátlap QR-kóddal – ablakonkénti oldalkiválasztással (minden/páratlan/páros oldal vagy tartomány) és rekord-elosztással lapról lapra vagy oldalról oldalra. Parancssorból is (`passermark-cli vdp`).
+  pakolás); **ablakok (oldalcsoportok)** több oldalas sablonokhoz – pl. elölap a névvel, hátlap QR-kóddal – ablakonkénti oldalkiválasztással (minden/páratlan/páros oldal vagy tartomány) és rekord-elosztással lapról lapra vagy oldalról oldalra. Parancssorból is (`passermark-cli vdp`). Az „Adatok ellenőrzése” gombbal a létrehozás előtt: a szöveg túl hosszú vagy túl magas a mezőjéhez, a mező betűtípusával mérve, üres oszlopok, ismeretlen helyőrzők, érvénytelen EAN-13, tartalom nélküli kódok – minden lelet a CSV-beli sorával.
 - **Adatok rögzítése:** az adattáblázat közvetlenül a Passermarkban hozható létre – QR-névjegykárlya (vCard),
   WLAN-hozzáférés, e-mail, webcím, hívás, SMS, időpont, helyszín, Code 128, EAN-13 – megfelelő oszlopokkal,
   azonnali ellenőrzéssel és Excelből történő beszúrással; CSV-ként mentve és közvetlenül használható a változó
@@ -62,7 +62,7 @@ szoftver (GPL-3.0-or-later).
   Automatizálás) saját eszközsorral.
 - **Presetek** a CutContourhoz, CMYK/vágáshoz, nyomdai szerkezethez és változó adatokhoz – a parancssorral
   közösen.
-- **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal és a példányonkénti elküldött oldalakkal (`out_pages`), mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott).
+- **Nyomtatási napló:** felhasználónként a beállításokban, vagy adminként kikényszerítve – minden munkához egy JSON a pontos beállításokkal és a példányonkénti elküldött oldalakkal (`out_pages`), mellé egy `printlog.csv`; a `passermark-cli reprint <log.json>` bármikor újranyomtatja a munkát (figyelmeztet, ha az eredeti időközben megváltozott). Munkafolyamatból indított nyomtatásnál a napló rendelési változókat is rögzít – order, item, qty, product és shop, legfeljebb 120 karakteres, egyszerű szövegként.
 - **Automatizálás:** lépésenkénti munkafolyamatok feltételekkel („if” minden lépésen, „choose”/„else” elágazások, „fail”/„stop” üzenettel); a `passermark-cli serve` figyeli a mappákat, és minden fájlt átküld a hozzárendelt munkafolyamaton – a `serve --init` sablont hoz létre példával.
 - **Közös nyomtatási mappa:** egy bedobómappa mindenki számára – beállítása a Felügyelet → Általános → „Közös nyomtatási mappa beállítása …” gombbal, az install.sh-val vagy a `passermark-cli shared-folder` paranccsal; egyetlen root-segéd hozza létre a csoportot és a mappát (root:passermark, 2775, alapértelmezett ACL, a felhasználók a csoportba kerülnek, a szimbolikus linkeket elutasítja); Windowson a `hotfolder`, `ausgabe` és `archiv` almappák Módosítás jogot kapnak a felhasználóknak – a ProgramData többi része az adminoknak marad fenntartva.
 - **Softproof:** a nyomtatási eredmény szimulálása a nézetben (Ctrl+Y) – nyomtatási feltételként anyag, a felügyeletből származó profil vagy rendszerbeli CMYK-profil, intenttel és BPC-vel; papírszín és fekete nyomtatási szín szimulálása, figyelmeztetés a nyomtatható színtartományon kívüli színekre és a határérték feletti festékmennyiségre %-ban.
@@ -146,4 +146,6 @@ Python-csomag licencfájljaival, a Qt/PySide6 LGPL-tájékoztatóval (a Qt-köny
 Ghostscript-tájékoztatóval, benne a mellékelt verzió forráskódjának hivatkozásaival. Kérésre a
 mellékelt összetevők forráskódját is biztosítjuk – kérjük, nyisson egy issue-t a
 [GitHubon](https://github.com/groschenheld/passermark/issues).
+
+
 

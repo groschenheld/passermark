@@ -2589,6 +2589,13 @@ class MainWindow(QMainWindow):
         svc.call("preflight", {"path": path, "deep_layers": True}, got)
 
     def _pf_show(self, rep):
+        try:                                            # Format gegen den Standarddrucker (Papierformate)
+            from .. import preflight, printjob
+            prn = printjob.default_printer(self.session)
+            if prn:
+                preflight.add_device_issues(rep, self.session.caps_for(prn), prn)
+        except Exception:                               # noqa: BLE001 – die Prüfung darf daran nie scheitern
+            pass
         self.pf_panel.set_report(rep)
         c = rep.counts()
         if c["error"] or c["warning"]:

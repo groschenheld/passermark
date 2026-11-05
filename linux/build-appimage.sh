@@ -32,8 +32,32 @@ cp -a "dist/passermark" "AppDir/usr/lib/passermark"
 install -m 755 linux/AppRun AppDir/AppRun
 sed 's/^Exec=passermark/Exec=AppRun/; s/^TryExec=.*//' data/passermark.desktop > AppDir/passermark.desktop
 cp data/passermark.svg AppDir/passermark.svg
-mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps AppDir/usr/share/icons/hicolor/256x256/apps
 cp data/passermark.svg AppDir/usr/share/icons/hicolor/scalable/apps/
+# appimagetool (seit Ende Oktober 2026) verlangt ein PNG oben im AppDir für .DirIcon – SVG reicht nicht mehr
+PNG=AppDir/usr/share/icons/hicolor/256x256/apps/passermark.png
+if command -v rsvg-convert >/dev/null; then
+    rsvg-convert -w 256 -h 256 data/passermark.svg -o "$PNG"
+elif command -v inkscape >/dev/null; then
+    inkscape data/passermark.svg -w 256 -h 256 -o "$PNG" >/dev/null 2>&1
+else                                            # Qt aus der Build-venv – ohne Bildschirm
+    QT_QPA_PLATFORM=offscreen .venv/bin/python - data/passermark.svg "$PNG" <<'PY'
+import sys
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication, QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
+app = QGuiApplication(sys.argv[:1])
+img = QImage(256, 256, QImage.Format.Format_ARGB32)
+img.fill(Qt.GlobalColor.transparent)
+p = QPainter(img)
+QSvgRenderer(sys.argv[1]).render(p)
+p.end()
+sys.exit(0 if img.save(sys.argv[2], "PNG") else 1)
+PY
+fi
+[ -s "$PNG" ] || { echo "Symbol (PNG) konnte nicht erzeugt werden"; exit 1; }
+cp "$PNG" AppDir/passermark.png
+ln -sf passermark.png AppDir/.DirIcon
 
 # 4) Ghostscript: binary + its libraries (not glibc) + resources; started via a small wrapper
 GSBIN=$(readlink -f "$(command -v gs)")

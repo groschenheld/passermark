@@ -5,6 +5,75 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.11
+
+### Matières d'impression : parcours couleur, origine et import
+- Nouvelle colonne « Couleur » par matière avec trois parcours : **Convertir** – Passermark convertit vers le profil, par défaut et comme auparavant. **Incorporer seulement** – rien n'est converti ; le profil de la matière, sinon celui de l'imprimante, part comme intent de sortie, appliqué par l'appareil ou le RIP. **Aucun** – le fichier sort inchangé.
+- Chaque matière affiche la source, la date et « vérifié » : créée à la main, reprise de l'appareil ou importée, avec la date du dernier changement. Ce qui est repris reste non vérifié jusqu'à ce que tu le cochies – la liste affiche alors ⚠ « non vérifié », le dialogue donne un avis.
+- **« Reprendre de l'appareil »** crée comme matières les médias annoncés – chargés et du catalogue – ; ensuite ils n'apparaissent plus deux fois dans la liste.
+- **« Importer … »** reprend des matières depuis CSV (séparateur point-virgule, virgule ou tabulation) ou JSON. Les colonnes sont reconnues par leur nom, p. ex. Nom/Matière, grammage/gsm, type de média, qualité et profil ; les noms identiques sont ignorés.
+- Ligne de commande : `passermark-cli materials list` et `materials import FICHIER [--printer IMPRIMANTE] [--dry-run]`.
+- Corrigé : les notes et les valeurs de coupe se perdaient lors de l'enregistrement dans le dialogue des matières.
+
+## 1.18.10
+
+### Journaux d'erreurs désactivables
+- Dans Fichier → Réglages se trouve le nouveau groupe « Journaux d'erreurs » – activé par défaut.
+- Désactivé signifie : pas de fichier journal, pas de fenêtre en cas d'erreur inattendue ou après un plantage, pas de liste de saccades. Valable à partir du prochain démarrage.
+
+### Vérification des données variables
+- La fenêtre des données variables a le nouveau bouton « Vérifier les données ». Avant « Générer » la vérification s'exécute automatiquement et demande en cas de constats « Générer quand même ? ».
+- Sont vérifiés : texte trop long ou trop haut pour son champ, mesuré avec la police du champ ; colonnes vides ; marqueurs qui n'existent ni comme colonne ni comme variable ; EAN-13 non valides et codes sans contenu.
+- Chaque constat s'affiche avec sa ligne dans le CSV, p. ex. « Ligne 3 · Champ 1 : texte trop long : 95,5 mm de large, champ 50 mm ».
+- Dans un enchaînement ou en ligne de commande, le résultat apparaît comme avis. En cas de codes non valides, l'exécution s'interrompt maintenant avec la liste complète, auparavant seulement avec la première erreur.
+
+### Format contre l'appareil
+- La vérification du document compare les pages aux formats papier de l'imprimante par défaut. Le constat s'appelle « Imprimante ».
+- Si le pilote prend en charge les formats spéciaux, ce n'est qu'un avis. Les appareils à rouleaux signalent quand une page est plus large que chaque rouleau.
+- En ligne de commande via `passermark-cli inspect FICHIER.pdf --check --printer IMPRIMANTE`.
+
+## 1.18.9
+
+### Journal d'impression : variables de commande
+- Pour une impression depuis un enchaînement – plans et posters compris – le journal d'impression consigne désormais aussi « vars » : order, item, qty, product et shop, tels qu'ils sont transmis.
+- Seules ces cinq valeurs sont consignées, en texte brut de 120 caractères au maximum. Nom du client, adresse e-mail et meta_… n'entrent jamais dans le journal.
+- printlog.csv a deux nouvelles colonnes : order et item. Sur un CSV existant, seule la ligne d'en-tête est complétée ; les anciennes lignes restent inchangées.
+- Les impressions sans enchaînement restent comme avant – pas de vars là-bas.
+- Ligne de commande : passermark-cli run reçoit les valeurs comme --var order=… --var item=… --var qty=… --var product=…, éventuellement aussi --var shop=….
+
+## 1.18.8
+
+### Liste des matières : catalogue des médias de l'appareil
+- Lors de l'interrogation des rouleaux, Passermark lit désormais aussi le catalogue complet des médias de l'appareil (IPP media-col-database).
+- Dans la liste des matières, les médias chargés figurent comme « (appareil) » et tous les autres créés comme « (appareil, non chargé) » – ensuite viennent vos propres matières.
+- Si vous choisissez un média non chargé, Passermark envoie son type de média au pilote. Le dialogue signale qu'il est créé sur l'appareil mais non chargé – charger le rouleau ou en choisir un autre.
+- `passermark-cli rolls IMPRIMANTE` affiche la liste sous « Créé sur l'appareil, non chargé : » – avec `--json` comme `catalog`.
+- Limitation : le catalogue n'est disponible que par IPP. Les appareils qui ne parlent que SNMP ne signalent que les rouleaux chargés.
+
+## 1.18.7
+
+### Réglages par plan
+- Avec des plans ou posters individuels sélectionnés, les changements ne s'appliquent qu'à eux : matière, rouleau, position sur le rouleau, rotation, zone d'impression, marge, mise à l'échelle et bandes de remplissage.
+- Sans rien ou avec tout sélectionné, ils valent pour tous. Au-dessus des réglages s'affiche quand seule la sélection est concernée ; dans la liste, les plans avec écarts affichent ✎ avec ce qui diffère (p. ex. « ✎ 200 % · papier poster mat 180 g »).
+- Un plan avec sa propre matière ou son propre rouleau est placé à part.
+- Mise à l'échelle : en pourcentage, « chant court à … mm » ou « chant long à … mm » – l'autre chant suit proportionnellement.
+
+### Matières
+- Les médias des rouleaux chargés figurent maintenant automatiquement dans la liste, marqués « (appareil) » ; vos propres matières s'y ajoutent.
+- Une matière de l'appareil choisit exactement le rouleau avec ce média.
+- « Type de média » disparaît du dialogue.
+
+### Envoi
+- « Un travail, une feuille par exemplaire » est le nouveau standard. Au choix : un travail propre par exemplaire ou un nombre de copies.
+
+### Aperçu et simulation
+- Sous la liste, chaque feuille imprimée est rendue en petit, avec taille, rouleau et « ×3 ✂ » – aussi pour les plans et posters de plusieurs pages.
+- Dans la simulation, la ligne de coupe figure maintenant aussi dans la sortie texte.
+
+### Ligne de commande et journal d'impression
+- `--copies-mode sheets|jobs|count` ; `scale_mode`/`scale_mm` pour la mise à l'échelle ; `overrides` par numéro de page pour les écarts de plans individuels.
+- Le journal d'impression enregistre les écarts – la réimpression sort identique.
+
 ## 1.18.5
 
 ### Impression de plans et de posters : découpe automatique
@@ -570,4 +639,6 @@
   avec son propre lecteur avec somme de contrôle
 - Corrigé : les données variables prenaient « une copie du document entier par enregistrement » sans choisir
   la distribution au lieu de « l'enregistrement suivant sur chaque page »
+
+
 

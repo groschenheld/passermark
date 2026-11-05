@@ -371,10 +371,16 @@ def _job_impose(src, dst, s, opts, progress, cancel):
 def _job_vdp(src, dst, s, opts, progress, cancel):
     """Variable Daten: Felder je Datensatz auf eine Kopie der Vorlage legen."""
     from . import vdp
+    try:                                          # Datenprüfung: Überlauf, leere Spalten, ungültige Codes
+        chk = vdp.check(s)
+    except Exception:                             # noqa: BLE001 – die Prüfung darf das Erzeugen nie verhindern
+        chk = {"counts": {}}
+    if chk.get("counts", {}).get("invalid"):      # ungültige Codes brechen das Erzeugen ohnehin ab: alle auf einmal
+        raise ValueError(vdp.check_text(chk, limit=20))
     data, info = vdp.build(src, s, progress=progress, cancel=cancel, pages=opts.get("pages"))
     _check(cancel)
     _write_atomic(dst, data)
-    notes = []
+    notes = [vdp.check_text(chk, limit=10)] if chk.get("counts") else []
     if info.get("placeholders_removed"):
         notes.append(tr("{0} Platzhalter aus der Vorlage übernommen.").format(info["placeholders_removed"]))
     if s.log_path:

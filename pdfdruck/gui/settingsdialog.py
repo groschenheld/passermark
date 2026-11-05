@@ -62,6 +62,20 @@ class SettingsDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         f5.addRow(lbl)
         v.addWidget(g5)
+        from .. import crashlog
+        g6 = QGroupBox(tr("Fehlerprotokolle"))
+        f6 = QFormLayout(g6)
+        self.chk_errlog = QCheckBox(tr("Fehler und Ruckler protokollieren und melden"))
+        self.chk_errlog.setChecked(bool(self.settings.get(crashlog.SETTING, True)))
+        self.chk_errlog.setToolTip(tr("Aus: keine Fehlerprotokolle, kein Fenster bei unerwarteten Fehlern oder nach "
+                                      "einem Absturz, keine Ruckler-Liste. Gilt ab dem nächsten Start."))
+        f6.addRow(self.chk_errlog)
+        lbl = QLabel(tr("Ordner: {0}").format(crashlog.log_dir()))
+        lbl.setWordWrap(True)
+        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
+        lbl.setStyleSheet(f"color: {theme.MUTED};")
+        f6.addRow(lbl)
+        v.addWidget(g6)
         g4 = QGroupBox(tr("Fenster"))
         f4 = QFormLayout(g4)
         self.chk_tabs = QCheckBox(tr("Im Programm Geöffnetes als Reiter im selben Fenster"))
@@ -111,6 +125,8 @@ class SettingsDialog(QDialog):
         self.settings["open_in_tabs"] = self.chk_tabs.isChecked()
         if self.chk_plog.isEnabled():
             self.settings["print_log"] = self.chk_plog.isChecked()
+        from .. import crashlog
+        self.settings[crashlog.SETTING] = self.chk_errlog.isChecked()
         try:
             l10n.save_settings(self.settings)
         except OSError as e:

@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.11
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -32,7 +32,7 @@ Logiciel libre (GPL-3.0-or-later).
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
   Aussi en ligne de commande (`passermark-cli impose`). Le step & repeat permet de monter la feuille terminée une seconde fois sur un format cible librement choisi (étape 2) – désormais aussi à l'impression directe depuis le dialogue d'impression.
-- **Plan & Poster :** impression de plans et de posters sur appareils à rouleaux – rouleaux lus depuis l'appareil (IPP, sinon SNMP), « vérifier l'appareil » en lecture seule avec un rapport JSON ; choix du rouleau automatique (le plus étroit qui convient, selon grammage/matière) ou fixe, position centrée ou au bord ; mètres linéaires en direct avec avertissement avant la fin du rouleau, « couper individuellement » fait de chaque exemplaire un travail à part ; outils plans (mise à l'échelle, rotation, bandes de remplissage, marques de coupe, relevage des filets, repères de pli selon DIN 824), outils posters (ourlet, marques d'œillets, CutContour, repères de repérage pour le print & cut avec la Roland), plus large que le rouleau est découpé en bandes ; matières par utilisateur. Aussi en ligne de commande (`passermark-cli plan`/`poster`, `--dry-run` ne calcule que les mètres linéaires), comme étape d'enchaînement et comme sortie hotfolder p. ex. pour VersaWorks.
+- **Plan & Poster :** impression de plans et de posters sur appareils à rouleaux – rouleaux lus depuis l'appareil (IPP, sinon SNMP), « vérifier l'appareil » en lecture seule avec un rapport JSON ; choix du rouleau automatique (le plus étroit qui convient, selon grammage/matière) ou fixe, position centrée ou au bord ; mètres linéaires en direct avec avertissement avant la fin du rouleau ; outils plans (mise à l'échelle, rotation, bandes de remplissage, marques de coupe, relevage des filets, repères de pli selon DIN 824), outils posters (ourlet, marques d'œillets, CutContour, repères de repérage pour le print & cut avec la Roland), plus large que le rouleau est découpé en bandes ; matières par utilisateur – les médias des rouleaux chargés figurent dans la liste automatiquement (marqués « (appareil) ») et choisissent exactement ce rouleau ; par IPP le catalogue des médias est lu également, de sorte que les médias créés mais non chargés figurent dans la liste comme « (appareil, non chargé) » et sont envoyés au pilote avec leur type de média. Chaque matière a un parcours couleur – conversion, incorporation comme intent de sortie seulement, ou sans changement –, avec source, date et marque vérifié ; les matières se reprennent de l'appareil ou s'importent depuis CSV ou JSON, en ligne de commande via `materials list` et `materials import`. Réglages par plan : avec des plans ou posters individuels sélectionnés, matière, rouleau, position, rotation, zone d'impression, marge, mise à l'échelle (en pourcentage ou « chant court/long à … mm ») et bandes de remplissage ne valent que pour la sélection – les écarts s'affichent dans la liste avec ✎. Pour l'envoi, « un travail, une feuille par exemplaire » est le standard au choix un travail par exemplaire ou un nombre de copies ; sous la liste, chaque feuille imprimée est rendue en petit, avec taille, rouleau et nombre de coupes. Aussi en ligne de commande (`passermark-cli plan`/`poster`, `--dry-run` ne calcule que les mètres linéaires, `--copies-mode sheets|jobs|count`, `overrides` par numéro de page), comme étape d'enchaînement et comme sortie hotfolder p. ex. pour VersaWorks ; le journal d'impression enregistre les écarts, la réimpression sort identique.
 - **Manipulation de document :** conversion CMYK avec aperçu des couleurs, rognage au format, séparation
   d'objets, **CutContour** pour traceurs de découpe (contour, formes, fond perdu, découpes intérieures ;
   redimensionner et déplacer les formes avec des poignées). Le rognage désormais aussi avec « rogner les
@@ -43,7 +43,7 @@ Logiciel libre (GPL-3.0-or-later).
   perdu respectés.
 - **Prévol (preflight) :** vérifie à l'ouverture polices, calques, transparences, cases de page (crop/trim/bleed), fond perdu au contenu, protection, PDF/X et output intent, champs de formulaire et pages vides ; corrections : intégrer
   ou remplacer des polices (polices libres métriquement compatibles ou téléchargement depuis fontsource.org),
-  texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats.
+  texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats. Nouveau : le contrôle format contre appareil : les pages sont comparées aux formats papier de l'imprimante par défaut – avis si le pilote prend en charge les formats spéciaux ; les appareils à rouleaux signalent quand une page est plus large que chaque rouleau.
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et
   taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler.
 - Règles et mesure : règles en mm au bord de la vue ; cliquer début et fin pour mesurer (Maj s'aligne
@@ -55,7 +55,7 @@ Logiciel libre (GPL-3.0-or-later).
   placeholders `{{…}}` dans le PDF ; date, page, nombre aléatoire et autres variables ; plusieurs pages par
   enregistrement (recto/verso) et champs sur pages impaires/paires ; journal de codes ; step & repeat avec
   son propre enregistrement par copie (feuille par feuille ou couper et empiler) ; **fenêtres (groupes de pages)** pour les gabarits multi-pages – p. ex. recto avec le nom, verso avec un code QR – avec sélection des pages par fenêtre (toutes/impaires/paires ou plages) et répartition des enregistrements feuille par feuille ou page par page. Aussi en ligne de commande
-  (`passermark-cli vdp`).
+  (`passermark-cli vdp`). Avec « Vérifier les données » avant de générer : texte trop long ou trop haut pour son champ, mesuré avec la police du champ, colonnes vides, marqueurs inconnus, EAN-13 non valides, codes sans contenu – chaque constat avec sa ligne dans le CSV.
 - **Saisie des données :** créer le tableau de données directement dans Passermark – carte de visite QR
   (vCard), accès Wi-Fi, e-mail, adresse web, appel, SMS, rendez-vous, lieu, Code 128, EAN-13 – avec les
   colonnes adaptées, vérification immédiate et collage depuis Excel ; enregistré en CSV et utilisable
@@ -66,7 +66,7 @@ Logiciel libre (GPL-3.0-or-later).
   Automatisation) avec leur propre barre d'outils.
 - **Préréglages** pour CutContour, CMYK/rognage, mise en page d'impression et données variables – partagés
   avec la ligne de commande.
-- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts et les pages envoyées par exemplaire (`out_pages`), plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé).
+- **Journal d'impression :** par utilisateur dans les réglages, ou imposé par l'admin – un JSON par travail avec les réglages exacts et les pages envoyées par exemplaire (`out_pages`), plus un `printlog.csv` ; `passermark-cli reprint <log.json>` réimprime un travail à tout moment (avec un avertissement si l'original a changé). Pour une impression depuis un enchaînement, le journal consigne aussi les variables de commande – order, item, qty, product et shop, en texte brut de 120 caractères au maximum.
 - **Automatisation :** enchaînements étape par étape avec conditions (« if » à chaque étape, embranchements « choose »/« else », « fail »/« stop » avec message) ; `passermark-cli serve` surveille des dossiers et envoie chaque fichier dans l'enchaînement assigné – `serve --init` crée un modèle avec un exemple.
 - **Dossier d'impression partagé :** un dossier de dépôt pour tous – mis en place via un bouton dans l'administration (« Mettre en place le dossier d'impression partagé … »), via install.sh ou via `passermark-cli shared-folder` ; un seul assistant root crée le groupe et le dossier (root:passermark, 2775, ACL par défaut, les utilisateurs rejoignent le groupe, les liens symboliques sont refusés) ; sous Windows, les trois sous-dossiers `hotfolder`, `ausgabe` et `archiv` reçoivent le droit Modifier pour les utilisateurs – le reste de ProgramData reste réservé aux administrateurs.
 - **Softproof :** simuler le résultat d'impression dans la vue (Ctrl+Y) – comme condition d'impression, une matière, un profil de l'administration ou un profil CMYK du système, avec le rendu (intent) et la BPC ; simuler la couleur du papier et l'encre noire d'impression, avertissements pour les couleurs hors gamme imprimable et pour la couverture d'encre au-delà d'une limite en %.
@@ -152,4 +152,6 @@ paquets Python fournis, l'avis LGPL de Qt/PySide6 (remplacement des bibliothèqu
 Ghostscript avec les liens vers le code source de la version fournie. Sur demande, le code source
 correspondant des composants fournis est également mis à disposition – ouvrez une issue sur
 [GitHub](https://github.com/groschenheld/passermark/issues).
+
+
 

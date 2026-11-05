@@ -5,6 +5,75 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.11
+
+### Materiales de impresión: recorrido de color, origen e importación
+- Nueva columna «Color» por material con tres recorridos: **Convertir** – Passermark convierte al perfil, lo predeterminado y como hasta ahora. **Solo incrustar** – no se convierte nada; el perfil del material, si no el de la impresora, va como intento de salida y lo aplica el aparato o el RIP. **Nada** – el archivo sale sin cambios.
+- Cada material muestra origen, fecha y «verificado»: creado a mano, adoptado del aparato o importado, con la fecha del último cambio. Lo adoptado queda sin verificar hasta que lo marques – en la lista aparece entonces ⚠ «sin verificar», el diálogo da un aviso.
+- **«Adoptar del aparato»** crea como materiales los medios anunciados – cargados y del catálogo –; después ya no aparecen dos veces en la lista.
+- **«Importar …»** toma materiales de CSV (separador punto y coma, coma o tabulador) o JSON. Las columnas se reconocen por el nombre, p. ej. Nombre/Material, gramaje/gsm, tipo de medio, calidad y perfil; los nombres idénticos se saltan.
+- Línea de comandos: `passermark-cli materials list` y `materials import ARCHIVO [--printer IMPRESORA] [--dry-run]`.
+- Corregido: las notas y los valores de corte se perdían al guardar en el diálogo de materiales.
+
+## 1.18.10
+
+### Registros de errores desactivables
+- En Archivo → Ajustes está el nuevo grupo «Registros de errores» – activado por defecto.
+- Desactivado significa: sin archivo de registro, sin ventana ante errores inesperados o tras un bloqueo, sin lista de tirones. Vale a partir del siguiente inicio.
+
+### Comprobación de los datos variables
+- La ventana de datos variables tiene el nuevo botón «Comprobar datos». Antes de «Generar» la comprobación corre automáticamente y pregunta ante hallazgos «¿Generar de todos modos?».
+- Se comprueba: texto demasiado largo o alto para su campo, medido con la fuente del campo; columnas vacías; marcadores que no existen ni como columna ni como variable; EAN-13 no válidos y códigos sin contenido.
+- Cada hallazgo aparece con su línea en el CSV, p. ej. «Línea 3 · Campo 1: texto demasiado largo: 95,5 mm de ancho, campo 50 mm».
+- En un flujo o en la línea de comandos el resultado aparece como aviso. Con códigos no válidos ahora se interrumpe con la lista completa, antes solo con el primer error.
+
+### Formato contra el aparato
+- La comprobación del documento compara las páginas con los formatos de papel de la impresora predeterminada. El hallazgo se llama «Impresora».
+- Si el controlador admite formatos especiales, es solo un aviso. Los aparatos de rollo informan cuando una página es más ancha que cualquier rollo.
+- En la línea de comandos con `passermark-cli inspect ARCHIVO.pdf --check --printer IMPRESORA`.
+
+## 1.18.9
+
+### Registro de impresión: variables de pedido
+- En una impresión desde un flujo – incluidos planos y pósters – el registro de impresión anota ahora también «vars»: order, item, qty, product y shop, tal como se pasan.
+- Solo se anotan esos cinco valores, como texto sin formato con 120 caracteres como máximo. Nombre del cliente, correo electrónico y meta_… no entran nunca en el registro.
+- printlog.csv tiene dos columnas nuevas: order e item. En un CSV existente se amplía solo la línea de encabezado; las líneas antiguas quedan sin cambios.
+- Las impresiones sin flujo siguen como hasta ahora – allí no hay vars.
+- Línea de comandos: passermark-cli run recibe los valores como --var order=… --var item=… --var qty=… --var product=…, opcionalmente también --var shop=….
+
+## 1.18.8
+
+### Lista de materiales: catálogo de medios del aparato
+- Al consultar los rollos, Passermark lee ahora también el catálogo de medios completo del aparato (IPP media-col-database).
+- En la lista de materiales los medios cargados aparecen como «(aparato)» y todos los demás creados como «(aparato, no cargado)» – después vienen los materiales propios.
+- Si elige un medio no cargado, Passermark envía su tipo de medio al controlador. El diálogo avisa de que está creado en el aparato pero no cargado – cargar el rollo o elegir otro.
+- `passermark-cli rolls IMPRESORA` muestra la lista bajo «Creado en el aparato, no cargado:» – con `--json` como `catalog`.
+- Limitación: el catálogo solo existe por IPP. Los aparatos que solo hablan SNMP informan únicamente de los rollos cargados.
+
+## 1.18.7
+
+### Ajustes por plano
+- Con planos o pósters individuales seleccionados, los cambios solo se aplican a ellos: material, rollo, posición en el rollo, rotación, zona de impresión, margen, escalado y bandas de relleno.
+- Sin nada o con todo seleccionado, valen para todos. Encima de los ajustes se indica cuando solo afecta a la selección; en la lista, los planos con desviaciones muestran ✎ con lo que difiere (p. ej. «✎ 200 % · papel de póster mate 180 g»).
+- Un plano con material o rollo propio se coloca por separado.
+- Escalado: en porcentaje, «canto corto a … mm» o «canto largo a … mm» – el otro canto se ajusta en proporción.
+
+### Materiales
+- Los medios de los rollos cargados aparecen ahora automáticamente en la lista, marcados «(aparato)»; los materiales propios se añaden.
+- Un material del aparato elige exactamente el rollo con ese medio.
+- «Tipo de medio» desaparece del diálogo.
+
+### Envío
+- «Un trabajo, una hoja por ejemplar» es el nuevo estándar. Opcionalmente un trabajo propio por ejemplar o un número de copias.
+
+### Vista previa y prueba
+- Bajo la lista se renderiza cada hoja impresa en pequeño, con tamaño, rollo y «×3 ✂» – también con planos y pósters de varias páginas.
+- En la prueba, la línea de corte aparece ahora también en la salida de texto.
+
+### Línea de comandos y registro de impresión
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` para el escalado; `overrides` por número de página para desviaciones de planos individuales.
+- El registro de impresión guarda las desviaciones – al reimprimir salen iguales.
+
 ## 1.18.5
 
 ### Impresión de planos y pósters: corte automático
@@ -565,4 +634,6 @@
   con su propio lector con suma de control
 - Corregido: los datos variables usaban «una copia del documento entero por registro» sin elegir la
   distribución en lugar de «el siguiente registro en cada página»
+
+
 

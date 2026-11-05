@@ -5,6 +5,75 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.11
+
+### Nyomtatási anyagok: színútvonal, eredet és importálás
+- Új „Szín” oszlop anyagonként három útvonallal: **Átalakítás** – a Passermark a profilba alakít, ez az alapértelmezés, mint eddig. **Csak beágyazás** – semmi sem alakul át; az anyag profilja, különben a nyomtatóé, kimeneti szándékként megy tovább, és az eszköz vagy a RIP alkalmazza. **Semmi** – a fájl változatlanul kerül ki.
+- Minden anyag mutatja a forrást, a dátumot és az „ellenőrzött” jelölést: kézzel létrehozott, az eszköztől átvett vagy importált, az utolsó módosítás dátumával. Az átvett anyag ellenőrizetlen, amíg be nem pipálod – a listában ekkor ⚠ „ellenőrizetlen” áll, a párbeszédablak figyelmeztet.
+- **„Átvétel az eszköztől”** a jelentett médiákat – betöltötteket és a katalógusból valódakat – anyagként hozza létre; utána nem szerepelnek kétszer a listában.
+- **„Importálás …”** anyagokat vesz át CSV-ből (elválasztó: pontosvessző, vessző vagy tabulátor) vagy JSON-ből. Az oszlopokat a névről ismeri fel, pl. Név/Anyag, grammage/gsm, médiatípus, minőség és profil; az azonos neveket kihagyja.
+- Parancssor: `passermark-cli materials list` és `materials import FÁJL [--printer NYOMTATÓ] [--dry-run]`.
+- Javítva: a jegyzetek és a vágási értékek eddig elvesztek az anyag párbeszédablakban történő mentéskor.
+
+## 1.18.10
+
+### Kikapcsolható hibanaplók
+- A Fájl → Beállításokban az új „Hibanaplók” csoport – alapértelmezetten bekapcsolva.
+- Kikapcsolva: nincs naplófájl, nincs ablak váratlan hibáknál vagy összeomlás után, nincs akadozási lista. A következő indítástól érvényes.
+
+### A változó adatok ellenőrzése
+- A változó adatok ablakban új „Adatok ellenőrzése” gomb van. A „Létrehozás” előtt az ellenőrzés automatikusan fut, és leleteknél „Létrehozás mégis?”-t kérdez.
+- Ellenőrzés: a szöveg túl hosszú vagy túl magas a mezőjéhez, a mező betűtípusával mérve; üres oszlopok; olyan helyőrzők, amelyek se oszlopként, se változóként nem léteznek; érvénytelen EAN-13 és tartalom nélküli kódok.
+- Minden lelet a CSV-beli sorával együtt jelenik meg, pl. „3. sor · 1. mező: a szöveg túl hosszú: 95,5 mm széles, mező 50 mm”.
+- Munkafolyamatban vagy parancssorban az eredmény figyelmeztetésként jelenik meg. Érvénytelen kódoknál most a teljes listával áll le, korábban csak az első hibával.
+
+### Formátum az eszköz ellenében
+- A dokumentum-ellenőrzés az oldalakat a alapnyomtató papírformátumaival hasonlítja össze. A lelet neve „Nyomtató”.
+- Ha az illesztő egyedi formátumokat támogat, az csak figyelmeztetés. A tekercses eszközök jelzik, ha egy oldal minden tekercsnél szélesebb.
+- Parancssorból: `passermark-cli inspect FÁJL.pdf --check --printer NYOMTATÓ`.
+
+## 1.18.9
+
+### Nyomtatási napló: rendelési változók
+- Munkafolyamatból indított nyomtatásnál – terv- és poszternyomtatásnál is – a nyomtatási napló mostantól a „vars”-ot is rögzíti: order, item, qty, product és shop, ahogyan átadásra kerülnek.
+- Csak ezt az öt értéket rögzíti, legfeljebb 120 karakteres, egyszerű szövegként. Az ügyfél neve, e-mail címe és a meta_… sosem kerül a naplóba.
+- A printlog.csv két új oszlopot kapott: order és item. Meglévő CSV-nél csak a fejlécsor egészül ki; a régi sorok változatlanok maradnak.
+- Munkafolyamat nélküli nyomtatás marad, mint eddig – ott nincs vars.
+- Parancssor: a passermark-cli run az értékeket --var order=… --var item=… --var qty=… --var product=… alakban fogadja, opcionálisan --var shop=… is.
+
+## 1.18.8
+
+### Anyaglista: az eszköz média­katalógusa
+- A tekercsek lekérdezésekor a Passermark most az eszköz teljes médiakatalógusát is kiolvassa (IPP media-col-database).
+- Az anyaglistában a betöltött médiák „(eszköz)”, a többi létrehozott pedig „(eszköz, nincs betöltve)” jelöléssel szerepel – utánuk jönnek a saját anyagok.
+- Nem betöltött média kiválasztásakor a Passermark annak médiatípusát küldi az illesztőnek. A párbeszédablak jelzi, hogy az eszközön létre van hozva, de nincs betöltve – töltse be a tekercset, vagy válasszon másikat.
+- A `passermark-cli rolls NYOMTATÓ` a listát „Az eszközön létrehozva, nincs betöltve:” alatt mutatja – `--json`-nal `catalog`-ként.
+- Korlátozás: a katalógus csak IPP-n érhető el. A csak SNMP-t beszélő eszközök kizárólag a betöltött tekercseket jelentik.
+
+## 1.18.7
+
+### Beállítások tervenként
+- Ha egyes terveket vagy posztereket jelölt ki, a változtatások csak azokra érvényesek: anyag, tekercs, elhelyezés a tekercsen, forgatás, nyomtatási terület, margó, méretezés és túltöltősáv.
+- Ha semmi vagy minden ki van jelölve, mindenre érvényesek. A beállítások fölött jelzi, ha csak a kijelölés érintett; a listában az eltérő tervek ✎ jelzéssel mutatják, mi más (pl. „✎ 200 % · matt poszterpapír 180 g”).
+- A saját anyagú vagy saját tekercsű terv külön kerül elhelyezésre.
+- Méretezés: százalékban, „rövidebb él … mm-re” vagy „hosszabb él … mm-re” – a másik él arányosan követi.
+
+### Anyagok
+- A betöltött tekercsek médiái most automatikusan szerepelnek a listában, „(eszköz)” jelöléssel; a saját anyagok kiegészítik őket.
+- Az eszköztől származó anyag pontosan az adott médiumú tekercset választja ki.
+- A „Médiatípus” kikerült a párbeszédablakból.
+
+### Küldés
+- „Egy munka, példányonként egy ív” az új alapértelmezés. Választható: példányonként saját munka vagy példányszám.
+
+### Előnézet és próba
+- A lista alatt minden nyomtatott ív kicsiben renderelve jelenik meg, mérettel, tekercsel és „×3 ✂” jelzéssel – többoldalas terveknél és posztereknél is.
+- A próbafutásban a vágási sor most a szöveges kimenetben is szerepel.
+
+### Parancssor és nyomtatási napló
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` a méretezéshez; `overrides` oldalszám szerint az egyes tervek eltéréseihez.
+- A nyomtatási napló eltárolja az eltéréseket – az újranyomtatásnál helyénvalóak maradnak.
+
 ## 1.18.5
 
 ### Terv- és poszternyomtatás: automatikus vágás
@@ -552,4 +621,6 @@
   Code 128 saját olvasóval, ellenőrző összeggel
 - Javítva: a változó adatok az elosztás kiválasztása nélkül „rekordonként a teljes dokumentum másolatát”
   használták a „minden lapon a következő rekord” helyett
+
+
 

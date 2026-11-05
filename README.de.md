@@ -1,4 +1,4 @@
-# Passermark 1.18.6
+# Passermark 1.18.11
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -30,7 +30,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.
-- **Plan & Poster:** Plandruck und Posterdruck auf Rollengeräten – Rollen vom Gerät lesen (IPP, sonst SNMP), „Gerät prüfen“ nur lesend mit JSON-Bericht; Rollenwahl automatisch (schmälste passende, nach Grammatur/Material) oder fest, Lage mittig oder am Rand; Laufmeter live mit Warnung vor leerer Rolle, „Einzeln abschneiden“ macht jedes Exemplar zum eigenen Auftrag; Plan-Werkzeuge (Skalierung, Drehung, Überfüller, Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824), Poster-Werkzeuge (Saum, Ösenmarken, CutContour, Passermarken für Print & Cut mit der Roland), Breiteres als die Rolle wird in Bahnen geteilt; Materialien je Benutzer. Auch auf der Kommandozeile (`passermark-cli plan`/`poster`, `--dry-run` rechnet nur Laufmeter), als Schritt im Ablauf und als Hotfolder-Ausgabe z. B. für VersaWorks.
+- **Plan & Poster:** Plandruck und Posterdruck auf Rollengeräten – Rollen vom Gerät lesen (IPP, sonst SNMP), „Gerät prüfen“ nur lesend mit JSON-Bericht; Rollenwahl automatisch (schmälste passende, nach Grammatur/Material) oder fest, Lage mittig oder am Rand; Laufmeter live mit Warnung vor leerer Rolle; Plan-Werkzeuge (Skalierung, Drehung, Überfüller, Schnittmarken, Haarlinien anheben, Faltmarken nach DIN 824), Poster-Werkzeuge (Saum, Ösenmarken, CutContour, Passermarken für Print & Cut mit der Roland), Breiteres als die Rolle wird in Bahnen geteilt; Materialien je Benutzer – die Medien der geladenen Rollen stehen automatisch in der Liste (mit „(Gerät)“) und wählen genau die Rolle; über IPP wird auch der Medienkatalog gelesen, angelegte, aber nicht geladene Medien stehen als „(Gerät, nicht geladen)“ in der Liste und gehen mit ihrem Medientyp an den Treiber. Je Material gibt es einen Farbweg – umwandeln, nur als Output Intent einbetten oder unverändert –, dazu Quelle, Stand und eine geprüft-Kennzeichnung; Materialien nimmst du vom Gerät über oder importierst sie aus CSV oder JSON, auf der Kommandozeile mit `materials list` und `materials import`. Einstellungen je Plan: Sind einzelne Pläne oder Poster ausgewählt, gelten Material, Rolle, Lage auf der Rolle, Drehung, Druckbereich, Rand, Skalierung (in Prozent oder „Kurze/Lange Kante auf … mm“) und Überfüller nur für die Auswahl – Abweichungen zeigt die Liste mit ✎ an. Beim Versand ist „Ein Auftrag, je Exemplar ein Blatt“ Standard wahlweise je Exemplar ein eigener Auftrag oder eine Kopienzahl; unter der Liste wird jedes Druckblatt klein vorgerendert, mit Größe, Rolle und Schnittanzahl. Auch auf der Kommandozeile (`passermark-cli plan`/`poster`, `--dry-run` rechnet nur Laufmeter, `--copies-mode sheets|jobs|count`, `overrides` je Seitennummer), als Schritt im Ablauf und als Hotfolder-Ausgabe z. B. für VersaWorks; das Druckprotokoll speichert die Abweichungen, beim Nachdrucken stimmen sie.
 - **Dokument-Manipulation:** CMYK-Umwandlung mit Farbvorschau, auf Format beschneiden, Objekte trennen,
   **CutContour** für Schneideplotter (Kontur, Formen, Überfüller, Innenschnitte; Formen mit Griffen skalieren
   und verschieben). Beschneiden zusätzlich mit „Kanten abschneiden“ (mm je Seite, ohne Zielformat) und
@@ -40,7 +40,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   berücksichtigt.
 - **Preflight:** prüft beim Öffnen Schriften, Ebenen, Transparenzen, Seitenrahmen (Crop-/Trim-/Bleed-Box), Beschnitt am Inhalt, Schutz, PDF/X und Output Intent, Formularfelder und leere Seiten; Reparaturen: Schriften einbetten oder
   ersetzen (freie, metrisch kompatible Schriften oder Download von fontsource.org), Text in Pfade, Ebenen
-  festschreiben/entfernen, Transparenzen reduzieren. Jeder Fund nennt seine Stelle (z. B. „Seite 2 – unten rechts, 40 × 20 mm“); ein Klick springt hin und rahmt sie rot ein, mit ◀ ▶ gehst du durch die Stellen.
+  festschreiben/entfernen, Transparenzen reduzieren. Jeder Fund nennt seine Stelle (z. B. „Seite 2 – unten rechts, 40 × 20 mm“); ein Klick springt hin und rahmt sie rot ein, mit ◀ ▶ gehst du durch die Stellen. Neu ist „Format gegen Gerät“: die Seiten werden gegen die Papierformate des Standarddruckers geprüft – mit Hinweis, wenn der Treiber Sonderformate kann; Rollengeräte melden, wenn eine Seite breiter ist als jede Rolle.
 - **Bearbeiten:** Textzeilen und Ebenen mit der Maus wählen; Text, Schrift und Größe ändern; Ebenen
   verschieben, skalieren, ausblenden, entfernen oder ersetzen; Rückgängig.
 - Lineale und Messen: Lineale in mm am Rand der Ansicht; Start und Ende anklicken zum Messen (Umschalt rastet
@@ -51,7 +51,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   aus CSV, QR-Codes, Code 128 und EAN-13 als Vektor (mit Ruhezone); Platzhalter `{{…}}` im PDF; Datum, Seite,
   Zufallszahl und weitere Variablen; mehrere Seiten je Datensatz (Vorder-/Rückseite) und Felder auf
   ungeraden/geraden Seiten; Code-Protokoll; Nutzen mit eigenem Datensatz je Nutzen (Bogen für Bogen oder
-  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`).
+  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`). Mit „Daten prüfen“ vor dem Erzeugen: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, unbekannte Platzhalter, ungültige EAN-13, Codes ohne Inhalt – jeder Fund mit seiner Zeile in der CSV.
 - **Daten erfassen:** die Datentabelle direkt in Passermark anlegen – QR-Visitenkarte (vCard), WLAN-Zugang,
   E-Mail, Webadresse, Anruf, SMS, Termin, Standort, Code 128, EAN-13 – mit passenden Spalten, sofortiger
   Prüfung und Einfügen aus Excel; gespeichert als CSV und direkt in Variable Daten verwendbar. Eigene CSV-Dateien
@@ -61,7 +61,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   eigener Werkzeugleiste.
 - **Presets** für CutContour, CMYK/Beschneiden, Druck-Layout und Variable Daten – gemeinsam mit der
   Kommandozeile.
-- **Druckprotokoll:** pro Benutzer in den Einstellungen oder vom Admin erzwungen – eine JSON je Auftrag mit den exakten Einstellungen und den gesendeten Seiten je Exemplar (`out_pages`), dazu eine `printlog.csv`; mit `passermark-cli reprint <log.json>` druckst du einen Auftrag jederzeit neu (mit Warnung, wenn sich das Original geändert hat).
+- **Druckprotokoll:** pro Benutzer in den Einstellungen oder vom Admin erzwungen – eine JSON je Auftrag mit den exakten Einstellungen und den gesendeten Seiten je Exemplar (`out_pages`), dazu eine `printlog.csv`; mit `passermark-cli reprint <log.json>` druckst du einen Auftrag jederzeit neu (mit Warnung, wenn sich das Original geändert hat). Bei einem Druck im Ablauf schreibt das Protokoll auch Bestellvariablen mit – order, item, qty, product und shop, als reiner Text mit höchstens 120 Zeichen.
 - **Automatisierung:** Schritt-für-Schritt-Abläufe mit Bedingungen („if“ an jedem Schritt, „choose“/„else“-Verzweigungen, „fail“/„stop“ mit Meldung); `passermark-cli serve` überwacht Ordner und schickt jede Datei durch den zugeordneten Ablauf – `serve --init` legt eine Vorlage mit Beispiel an.
 - **Gemeinsamer Druckordner:** ein Hotfolder für alle – eingerichtet über einen Knopf in der Verwaltung („Gemeinsamen Druckordner einrichten …“), über install.sh oder `passermark-cli shared-folder`; ein einziger Root-Helfer legt Gruppe und Ordner an (root:passermark, 2775, Standard-ACL, die Benutzer kommen in die Gruppe, symbolische Links werden abgelehnt); unter Windows bekommen `hotfolder`, `ausgabe` und `archiv` Ändern-Recht für die Benutzer – der Rest von ProgramData bleibt den Administratoren vorbehalten.
 - **Softproof:** das Druckergebnis in der Seitenansicht simulieren (Strg+Y) – als Druckbedingung ein Material, ein Profil aus der Verwaltung oder ein System-CMYK-Profil, mit Intent und BPC; Papierfarbe und schwarze Druckfarbe simulieren, Warnungen für Farben außerhalb des Farbumfangs und für Farbauftrag über einer Grenze in %.
@@ -146,4 +146,6 @@ Python-Pakete, dem LGPL-Hinweis zu Qt/PySide6 (Austausch der Qt-Bibliotheken) un
 Ghostscript-Hinweis mit den Quellcode-Links der mitgelieferten Version. Auf Anfrage wird der
 zugehörige Quellcode der mitgelieferten Komponenten auch direkt bereitgestellt – bitte ein Issue auf
 [GitHub](https://github.com/groschenheld/passermark/issues) anlegen.
+
+
 

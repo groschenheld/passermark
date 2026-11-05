@@ -614,6 +614,69 @@ def _geometry_issues(rep: Report) -> list:
     return out
 
 
+def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) -> list:
+    """Format gegen Gerät: passt jede Seite (sichtbarer Bereich inkl. Anschnitt) 1:1 auf ein Papierformat des
+        Druckers bzw. auf eine seiner Rollen? Kategorie „device“. Ohne Drucker/Formate: []."""
+    if caps is None or not rep.geometry:
+        return []
+    key = caps.roles.get("pagesize")
+    texts = {c.value: c.text for c in (caps.options[key].choices if key and key in caps.options else [])}
+    custom = any(str(v).lower().startswith("custom") for v in texts) or any(
+        str(t).lower().startswith(("custom", "benutzer", "sonder")) for t in texts.values())
+    papers = [(w / MM_PT, h / MM_PT, texts.get(n, n)) for n, (w, h) in (caps.page_sizes or {}).items()
+              if w > 1 and h > 1 and not str(n).lower().startswith("custom")]
+    widths = [float(r.width_mm) for r in (rolls or []) if not getattr(r, "empty", False) and r.width_mm]
+    if not papers and not widths:
+        return []
+    tol = 0.6
+    bad = {}
+    for p, g in sorted(rep.geometry.items()):
+        c = effective(g)[0]
+        w, h = (c[2] - c[0]) / MM_PT, (c[3] - c[1]) / MM_PT
+        if widths:                                     # Rollendrucker: kurze Seite quer zur Rolle
+            ok = min(w, h) <= max(widths) + tol
+        else:
+            ok = any((w <= pw + tol and h <= ph + tol) or (w <= ph + tol and h <= pw + tol) for pw, ph, _n in papers)
+        if not ok:
+            bad.setdefault((round(w), round(h)), []).append(p)
+    out = []
+    for (w, h), pages in bad.items():
+        size = tr("{0} × {1} mm").format(w, h)
+        if widths:
+            out.append(Issue("warning", "device", tr("{0} ist breiter als jede Rolle von {1} (breiteste {2} mm) – "
+                                                     "wird abgeschnitten oder in Bahnen geteilt.").format(
+                size, printer, f"{max(widths):g}"), pages))
+            continue
+        big = max(papers, key=lambda x: x[0] * x[1])
+        bigtxt = f"{big[2]} ({round(min(big[0], big[1]))} × {round(max(big[0], big[1]))} mm)"
+        if custom:
+            out.append(Issue("info", "device", tr("{0} ist größer als jedes Standardformat von {1} (größtes: {2}) – "
+                                                  "geht nur als Sonderformat, falls das Gerät es kann.").format(
+                size, printer, bigtxt), pages))
+        else:
+            out.append(Issue("warning", "device", tr("{0} passt auf kein Papierformat von {1} (größtes: {2}) – "
+                                                     "wird verkleinert oder abgeschnitten.").format(
+                size, printer, bigtxt), pages))
+    return out
+
+
+def add_device_issues(rep: Report, caps, printer: str, rolls: list | None = None) -> Report:
+    """Befunde „Format gegen Gerät“ dazunehmen (einmal je Bericht und Drucker)."""
+    if getattr(rep, "_device_for", None) == printer:
+        return rep
+    rep.issues = [i for i in rep.issues if i.category != "device"]
+    extra = device_issues(rep, caps, printer, rolls)
+    for i in extra:
+        if not i.spots:
+            i.spots = [Spot(p) for p in i.pages]
+    rep.issues = sorted(rep.issues + extra, key=lambda i: (SEV_ORDER[i.severity], i.category))
+    try:
+        rep._device_for = printer
+    except Exception:                                   # noqa: BLE001
+        pass
+    return rep
+
+
 def _doc_issues(rep: Report) -> list:
     out = []
     sec = rep.security or {}

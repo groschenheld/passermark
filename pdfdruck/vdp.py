@@ -190,6 +190,7 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
         rec["i"] = str(k + 1)
         rec["nr"] = format_number(n, nb)
         rec["_n"] = n
+        rec["_row"] = i + 2 if s.csv_path else None      # Zeile in der CSV (1 = Kopfzeile) – für Meldungen
         out.append(rec)
     if s.reverse:
         out.reverse()
@@ -570,6 +571,127 @@ def _fields(s: VdpSettings) -> list[VdpField]:
         if (f.qr_type or "text") not in QR_TYPES:
             raise ValueError(tr("Unbekannte QR-Art: {0}").format(f.qr_type))
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Datenprüfung vor dem Erzeugen (1.18.10)
+# --------------------------------------------------------------------------- #
+CHECK_MAX = 300                       # höchstens so viele Einzelmeldungen (dazu die Zählung je Art)
+
+
+def all_fields(s: VdpSettings) -> list:
+    """Alle Felder des Auftrags – auch die in Fenstern."""
+    out = list(_fields(s)) if s.fields else []
+    for w in getattr(s, "windows", None) or []:
+        items = w.fields if isinstance(w, VdpWindow) else (w.get("fields") if isinstance(w, dict) else []) or []
+        for f in items:
+            if isinstance(f, VdpField):
+                out.append(f)
+            elif isinstance(f, dict):
+                out.append(VdpField(**{k: v for k, v in f.items() if k in VdpField.__dataclass_fields__}))
+    return out
+
+
+def _n1(v: float) -> str:
+    """Zahl mit einer Nachkommastelle in der Schreibweise der Oberflächensprache."""
+    try:
+        from . import l10n, measure
+        return measure.fmt(float(v), l10n.current(), 1)
+    except Exception:                                      # noqa: BLE001
+        return f"{v:.1f}"
+
+
+def _field_label(f: VdpField, k: int) -> str:
+    c = (f.content or "").strip().replace("\n", " ")
+    return tr("Feld {0} ({1}: {2})").format(k + 1, f.kind, c[:30] + ("…" if len(c) > 30 else ""))
+
+
+def check(s: VdpSettings) -> dict:
+    """Daten gegen die Felder prüfen, bevor etwas erzeugt wird: Text zu lang für sein Feld (Breite/Höhe), leere
+        Spalten, unbekannte Platzhalter, ungültige EAN-13, leere Codes.
+        -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {Art: Anzahl}, "records": n}.
+        row = Zeile in der CSV (Kopfzeile = 1), record = Datensatz in der Ausgabe."""
+    from reportlab.pdfbase import pdfmetrics
+    fields = all_fields(s)
+    cols, recs = records(s)
+    colmap = {c.lower(): c for c in cols}
+    probs, counts, unknown_done = [], {}, set()
+
+    def add(kind, sev, rec, k, f, msg):
+        counts[kind] = counts.get(kind, 0) + 1
+        if len(probs) < CHECK_MAX:
+            probs.append({"row": rec.get("_row") if rec else None, "record": int(rec["i"]) if rec else None,
+                          "field": _field_label(f, k), "severity": sev, "kind": kind, "message": msg})
+    for rec0 in recs:
+        rec = dict(rec0)                                  # Seitenvariablen gibt's erst beim Erzeugen: breit annehmen
+        rec["_sys"] = dict(rec0.get("_sys") or {}, seite="999", seiten="999", vorlagenseite="9")
+        for k, f in enumerate(fields):
+            if f.kind == "qr" and (getattr(f, "qr_type", "text") or "text") != "text":
+                try:
+                    value = field_value(f, rec)
+                except Exception as e:                    # noqa: BLE001 – jede Ursache melden
+                    add("invalid", "error", rec, k, f, str(e))
+                    continue
+            else:
+                for key in PH.findall(f.content or ""):
+                    col = colmap.get(key.lower())
+                    if col is not None and not str(rec.get(col, "") or "").strip():
+                        add("empty", "warning", rec, k, f, tr("Spalte „{0}“ ist leer").format(col))
+                value = fill(f.content, rec)
+                for key in PH.findall(value):
+                    if (k, key) not in unknown_done:          # je Feld nur einmal
+                        unknown_done.add((k, key))
+                        add("unknown", "warning", rec, k, f,
+                            tr("Platzhalter {{{{{0}}}}} gibt es weder als Spalte noch als Variable").format(key))
+            if f.kind == "text":
+                if not value:
+                    continue
+                rot = int(f.rotate) % 360
+                w = (f.h_mm if rot in (90, 270) else f.w_mm) * MM
+                h = (f.w_mm if rot in (90, 270) else f.h_mm) * MM
+                try:
+                    fn = _font_for(f.font, value)
+                    lines = value.split("\n")
+                    widest = max(pdfmetrics.stringWidth(ln, fn, f.size_pt) for ln in lines)
+                except Exception:                           # noqa: BLE001
+                    continue
+                if widest > w + 0.5:
+                    add("overflow", "error", rec, k, f, tr("Text zu lang: {0} mm breit, Feld {1} mm – „{2}“").format(
+                        _n1(widest / MM), _n1(w / MM),
+                        value[:40] + ("…" if len(value) > 40 else "")))
+                tall = (len(lines) - 1) * f.size_pt * 1.15 + f.size_pt * 0.9
+                if tall > h + 0.5:
+                    add("overflow", "error", rec, k, f, tr("Text zu hoch: {0} Zeile(n) passen nicht in {1} mm").format(
+                        len(lines), _n1(h / MM)))
+            elif not value.strip():
+                add("empty", "error", rec, k, f, tr("Code ohne Inhalt – wird nicht gedruckt"))
+            elif f.kind == "ean13":
+                digits = re.sub(r"\D", "", value)
+                if len(digits) not in (12, 13):
+                    add("invalid", "error", rec, k, f, tr("EAN-13 braucht 12 oder 13 Ziffern: „{0}“").format(value))
+                elif len(digits) == 13 and check_digit(digits[:12], "ean") != digits[12]:
+                    add("invalid", "error", rec, k, f, tr("EAN-13 „{0}“: Prüfziffer falsch – richtig wäre {1}").format(
+                        value, digits[:12] + check_digit(digits[:12], "ean")))
+    return {"problems": probs, "counts": counts, "records": len(recs)}
+
+
+def check_text(res: dict, limit: int = 20) -> str:
+    """Kurzbericht der Datenprüfung (mehrzeilig)."""
+    names = {"overflow": tr("zu lang/zu hoch"), "empty": tr("leer"), "unknown": tr("unbekannter Platzhalter"),
+             "invalid": tr("ungültig")}
+    c = res.get("counts") or {}
+    if not c:
+        return tr("{0} Datensätze geprüft – alles in Ordnung.").format(res.get("records", 0))
+    head = tr("{0} Datensätze geprüft: ").format(res.get("records", 0)) + ", ".join(
+        f"{n}× {names.get(k, k)}" for k, n in c.items())
+    lines = [head]
+    for p in (res.get("problems") or [])[:limit]:
+        where = (tr("Zeile {0}").format(p["row"]) if p.get("row") else tr("Datensatz {0}").format(p["record"]))
+        lines.append(f"{where} · {p['field']}: {p['message']}")
+    rest = sum(c.values()) - min(limit, len(res.get("problems") or []))
+    if rest > 0:
+        lines.append(tr("… und {0} weitere").format(rest))
+    return "\n".join(lines)
 
 
 def find_placeholders(doc) -> list[tuple[int, str, tuple]]:

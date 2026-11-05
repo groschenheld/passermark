@@ -2,6 +2,75 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.11
+
+### Print materials: colour path, origin and import
+- New "Colour" column per material with three paths: **Convert** – Passermark converts into the profile, the default and as before. **Embed only** – nothing is converted; the material's profile, otherwise the printer's, goes along as output intent, applied by the device or RIP. **None** – the file goes out unchanged.
+- Every material shows source, date and "checked": created by hand, adopted from the device or imported, with the date of the last change. Adopted entries are unchecked until you tick them – the list then shows ⚠ "unchecked", the dialog gives a notice.
+- **"Adopt from device"** creates the reported media – loaded ones and those from the catalogue – as materials; afterwards they no longer appear twice in the list.
+- **"Import …"** takes materials from CSV (separator semicolon, comma or tab) or JSON. Columns are recognised by name, e.g. Name/Material, grammage/gsm, media type, quality and profile; identical names are skipped.
+- Command line: `passermark-cli materials list` and `materials import FILE [--printer PRINTER] [--dry-run]`.
+- Fixed: notes and cutting values were lost when saving in the material dialog.
+
+## 1.18.10
+
+### Error logs can be turned off
+- File → Settings has the new group "Error logs" – on by default.
+- Off means: no log file, no window on unexpected errors or after a crash, no list of stutters. Applies from the next start.
+
+### Checking the variable data
+- The variable data window has the new "Check data" button. Before "Generate" the check runs automatically and asks "Generate anyway?" on findings.
+- Checked are: text too long or too tall for its field (measured with the field's font), empty columns, placeholders that exist neither as column nor as variable, invalid EAN-13 and codes without content.
+- Every finding shows its row in the CSV, e.g. "Row 3 · Field 1: text too long: 95.5 mm wide, field 50 mm".
+- In a workflow or on the command line the result appears as a notice. With invalid codes it now aborts with the complete list, previously only with the first error.
+
+### Format against the device
+- The document check compares the pages with the paper formats of the default printer. The finding is called "Printer".
+- If the driver supports custom sizes, it is only a note. Roll devices report when a page is wider than every roll.
+- On the command line via `passermark-cli inspect FILE.pdf --check --printer PRINTER`.
+
+## 1.18.9
+
+### Print log: order variables
+- For a print from a workflow – plan and poster printing included – the print log now records "vars" as well: order, item, qty, product and shop, the way they are passed in.
+- Only those five values are recorded, as plain text with at most 120 characters. Customer name, e-mail and meta_… never make it into the log.
+- printlog.csv has two new columns: order and item. For an existing CSV only the header line is extended; the old lines stay untouched.
+- Prints without a workflow remain as before – no vars there.
+- Command line: passermark-cli run takes the values as --var order=… --var item=… --var qty=… --var product=…, optionally --var shop=….
+
+## 1.18.8
+
+### Material list: the device's media catalogue
+- When querying the rolls, Passermark now reads the device's complete media catalogue along (IPP media-col-database).
+- In the material list the loaded media appear as "(device)", all other set-up media as "(device, not loaded)" – your own materials follow.
+- If you pick a medium that is not loaded, Passermark sends its media type to the driver. The dialog reports that it is set up on the device but not loaded – load the roll or choose another one.
+- `passermark-cli rolls PRINTER` shows the list under "Set up on the device, not loaded:" – with `--json` as `catalog`.
+- Limitation: the catalogue is only available via IPP. Devices that speak SNMP only report the loaded rolls.
+
+## 1.18.7
+
+### Settings per plan
+- With individual plans or posters selected, changes apply only to those: material, roll, position on the roll, rotation, print area, margin, scaling and overspill.
+- With nothing or everything selected, they apply to all. Above the settings it says when only the selection is affected; in the list, plans with deviations show ✎ with what differs (e.g. "✎ 200 % · matte poster paper 180 g").
+- A plan with its own material or its own roll is placed on its own.
+- Scaling: in percent, "short edge to … mm" or "long edge to … mm" – the other edge follows in proportion.
+
+### Materials
+- The media of the loaded rolls now appear in the material list automatically, marked "(device)"; your own materials are added to them.
+- A material from the device picks exactly the roll with that medium.
+- "Media type" is gone from the dialog.
+
+### Shipping
+- "One job, one sheet per copy" is the new default. Optionally one job per copy or a copy count.
+
+### Preview and dry run
+- Under the list every printed sheet is rendered small, with size, roll and "×3 ✂" – for multi-page plans and posters too.
+- In the dry run the cutting line now also appears in the text output.
+
+### Command line and print log
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` for scaling; `overrides` per page number for deviations of individual plans.
+- The print log saves the overrides – reprinting comes out the same.
+
 ## 1.18.5
 
 ### Plan and poster printing: automatic cutting
@@ -991,4 +1060,6 @@ First version of Passermark, built on pdfToolkit 1.4.0 (all features adopted).
     page
 - Independently installable alongside pdfToolkit (own paths, admin helper, polkit rule, single instance)
 - Own icon; all texts in German, English, Hungarian, Spanish, French
+
+
 

@@ -2,6 +2,75 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.11
+
+### Druckmaterialien: Farbweg, Herkunft und Import
+- Neue Spalte „Farbe“ je Material mit drei Wegen: **Umwandeln** – Passermark rechnet ins Profil um, Standard und so wie bisher. **Nur einbetten** – es wird nichts umgewandelt; das Profil des Materials, sonst das des Druckers, geht als Output Intent mit, und das Gerät bzw. der RIP wendet es an. **Nichts** – die Datei geht unverändert raus.
+- Jedes Material zeigt Quelle, Stand und „geprüft“: von Hand angelegt, vom Gerät übernommen oder importiert, mit Datum der letzten Änderung. Übernommenes ist ungeprüft, bis du es abhakst – in der Liste steht dann ⚠ „ungeprüft“, der Dialog gibt einen Hinweis.
+- **„Vom Gerät übernehmen“** legt die gemeldeten Medien – geladene und aus dem Katalog – als Materialien an; danach erscheinen sie in der Liste nicht mehr doppelt.
+- **„Importieren …“** übernimmt Materialien aus CSV (Trennzeichen Semikolon, Komma oder Tab) oder JSON. Die Spalten werden am Namen erkannt, z. B. Name/Material, Grammatur/gsm, Medientyp, Qualität und Profil; gleiche Namen werden übersprungen.
+- Kommandozeile: `passermark-cli materials list` und `materials import DATEI [--printer DRUCKER] [--dry-run]`.
+- Behoben: Notizen und Schneidwerte gingen beim Speichern im Material-Dialog bisher verloren.
+
+## 1.18.10
+
+### Fehlerprotokolle abschaltbar
+- Unter Datei → Einstellungen gibt es die neue Gruppe „Fehlerprotokolle“ – standardmäßig an.
+- Aus heißt: keine Protokolldatei, kein Fenster bei unerwarteten Fehlern oder nach einem Absturz, keine Ruckler-Liste. Das gilt ab dem nächsten Start.
+
+### Prüfung der Variablen Daten
+- Im Variable-Daten-Fenster gibt es den neuen Knopf „Daten prüfen“. Vor „Erzeugen“ läuft die Prüfung automatisch und fragt bei Funden „Trotzdem erzeugen?“.
+- Geprüft werden: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, Platzhalter, die es weder als Spalte noch als Variable gibt, ungültige EAN-13 und Codes ohne Inhalt.
+- Jeder Fund steht mit seiner Zeile in der CSV da, z. B. „Zeile 3 · Feld 1: Text zu lang: 95,5 mm breit, Feld 50 mm“.
+- Im Ablauf bzw. über die Kommandozeile erscheint das Ergebnis als Hinweis. Bei ungültigen Codes bricht es jetzt mit der vollständigen Liste ab, vorher nur mit dem ersten Fehler.
+
+### Format gegen Gerät
+- Die Dokumentprüfung vergleicht die Seiten mit den Papierformaten des Standarddruckers. Der Befund heißt „Drucker“.
+- Kann der Treiber Sonderformate, ist das nur ein Hinweis. Bei Rollengeräten wird gemeldet, wenn eine Seite breiter ist als jede Rolle.
+- Auf der Kommandozeile geht es mit `passermark-cli inspect DATEI.pdf --check --printer DRUCKER`.
+
+## 1.18.9
+
+### Druckprotokoll: Bestellvariablen
+- Bei einem Druck im Ablauf – auch beim Plan- und Posterdruck – schreibt das Druckprotokoll neu „vars“ mit: order, item, qty, product und shop, so wie sie übergeben werden.
+- Mitgeschrieben werden nur diese fünf Werte, als reiner Text mit höchstens 120 Zeichen. Kundenname, E-Mail und meta_… kommen nie ins Protokoll.
+- `printlog.csv` hat zwei neue Spalten: order und item. Bei einer bestehenden CSV wird nur die Kopfzeile ergänzt, die alten Zeilen bleiben unverändert.
+- Drucke ohne Ablauf bleiben wie bisher – dort gibt es kein vars.
+- Kommandozeile: `passermark-cli run` nimmt die Werte als `--var order=…` `--var item=…` `--var qty=…` `--var product=…` entgegen, optional auch `--var shop=…`.
+
+## 1.18.8
+
+### Materialliste: Medienkatalog des Geräts
+- Beim Abfragen der Rollen liest Passermark den ganzen Medienkatalog des Geräts mit ein (IPP media-col-database).
+- In der Materialliste stehen die geladenen Medien als „(Gerät)“, alle weiteren angelegten als „(Gerät, nicht geladen)“ – danach kommen die eigenen Materialien.
+- Wählst du ein nicht geladenes Material, schickt Passermark dessen Medientyp an den Treiber. Der Dialog meldet, dass es am Gerät angelegt, aber nicht geladen ist – Rolle einlegen bzw. eine Rolle wählen.
+- `passermark-cli rolls DRUCKER` zeigt die Liste unter „Am Gerät angelegt, nicht geladen:“ – mit `--json` als `catalog`.
+- Einschränkung: Den Katalog gibt es nur über IPP. Geräte, die nur SNMP sprechen, melden nur die geladenen Rollen.
+
+## 1.18.7
+
+### Einstellungen je Plan
+- Sind einzelne Pläne oder Poster ausgewählt, gelten Änderungen nur für diese: Material, Rolle, Lage auf der Rolle, Drehung, Druckbereich, Rand, Skalierung und Überfüller.
+- Ist nichts oder alles ausgewählt, gelten sie für alle. Über den Einstellungen steht, wenn nur die Auswahl betroffen ist; in der Liste steht bei abweichenden Plänen ✎ mit dem, was anders ist (z. B. „✎ 200 % · Posterpapier matt 180 g“).
+- Ein Plan mit eigenem Material oder eigener Rolle wird für sich platziert.
+- Skalierung: in Prozent, „Kurze Kante auf … mm“ oder „Lange Kante auf … mm“ – die andere Kante passt sich im Verhältnis an.
+
+### Materialien
+- Die Medien der geladenen Rollen stehen jetzt automatisch in der Materialliste, markiert mit „(Gerät)“; die eigenen Materialien kommen dazu.
+- Ein Material vom Gerät wählt genau die Rolle mit diesem Medium.
+- „Medientyp“ ist aus dem Dialog raus.
+
+### Versand
+- „Ein Auftrag, je Exemplar ein Blatt“ ist der neue Standard. Wahlweise geht je Exemplar ein eigener Auftrag oder eine Kopienzahl.
+
+### Vorschau und Probelauf
+- Unter der Liste wird jedes Druckblatt klein gerendert, mit Größe, Rolle und „×3 ✂“ – auch bei mehrseitigen Plänen und Postern.
+- Beim Probelauf steht die Zeile zum Abschneiden jetzt auch in der Textausgabe.
+
+### Kommandozeile und Druckprotokoll
+- `--copies-mode sheets|jobs|count`; `scale_mode`/`scale_mm` für die Skalierung; `overrides` je Seitennummer für Abweichungen einzelner Pläne.
+- Das Druckprotokoll speichert die Abweichungen – beim Nachdrucken stimmen sie.
+
 ## 1.18.5
 
 ### Plan- und Posterdruck: automatisches Schneiden
@@ -984,4 +1053,6 @@ Erste Version von Passermark, aufgebaut auf pdfToolkit 1.4.0 (alle Funktionen ü
   - Beschneiden auf Zielformat mit beidseitig gleichem Überstand, Hoch-/Querformat folgt der Seite
 - Eigenständig installierbar neben pdfToolkit (eigene Pfade, Admin-Helfer, Polkit-Regel, Einzelinstanz)
 - Eigenes Icon; alle Texte in Deutsch, Englisch, Ungarisch, Spanisch, Französisch
+
+
 

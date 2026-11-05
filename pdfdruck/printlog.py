@@ -31,10 +31,15 @@ VERSION = 1
 FOLDER = "printlog"
 CSV_NAME = "printlog.csv"
 _CSV_HEAD = ["time", "user", "host", "source", "file", "pages", "printer", "paper", "tray", "copies", "job_id",
-             "result", "log", "roll_mm", "run_m"]       # Rolle/Laufmeter: Plandruck (seit 1.18)
+             "result", "log", "roll_mm", "run_m",       # Rolle/Laufmeter: Plandruck (seit 1.18)
+             "order", "item"]                           # Bestellung/Position aus dem Ablauf (Passerlink, seit 1.18.9)
+# Ablauf-Variablen, die mitprotokolliert werden (z. B. von Passerlink übergeben) – keine Kundendaten
+LOG_VARS = ("order", "item", "qty", "product", "shop")
+VAR_MAX = 120
 
 _ctx = {"source": "dialog",          # Quelle des laufenden Auftrags (dialog | cli | watch | rightclick)
-        "inputs": None, "before": None}   # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
+        "inputs": None, "before": None,   # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
+        "vars": None}                     # im Ablauf: die Variablen aus LOG_VARS
 _pruned = {"dir": None}
 
 
@@ -50,15 +55,29 @@ def source(name: str):
 
 
 @contextlib.contextmanager
-def in_workflow(inputs: list, before: list):
+def in_workflow(inputs: list, before: list, variables: dict | None = None):
     """Druck mitten in einem Ablauf: geprotokolliert werden die Original-Eingaben und die Schritte davor – der
-        Nachdruck rechnet sie wieder durch (die Zwischendatei gibt es danach nicht mehr)."""
-    old = (_ctx["inputs"], _ctx["before"])
-    _ctx["inputs"], _ctx["before"] = list(inputs), list(before)
+        Nachdruck rechnet sie wieder durch (die Zwischendatei gibt es danach nicht mehr). variables: die
+        Ablauf-Variablen; davon kommen nur LOG_VARS ins Protokoll (Bestellung, Position, Menge, Produkt, Shop)."""
+    old = (_ctx["inputs"], _ctx["before"], _ctx["vars"])
+    _ctx["inputs"], _ctx["before"], _ctx["vars"] = list(inputs), list(before), log_vars(variables)
     try:
         yield
     finally:
-        _ctx["inputs"], _ctx["before"] = old
+        _ctx["inputs"], _ctx["before"], _ctx["vars"] = old
+
+
+def log_vars(variables) -> dict:
+    """Nur die erlaubten Variablen, als reiner Text (ohne Steuerzeichen), höchstens VAR_MAX Zeichen."""
+    out = {}
+    for k in LOG_VARS:
+        v = (variables or {}).get(k) if isinstance(variables, dict) else None
+        if v is None or v == "":
+            continue
+        t = "".join(ch for ch in str(v) if ch.isprintable()).strip()[:VAR_MAX]
+        if t:
+            out[k] = t
+    return out
 
 
 def current() -> str:
@@ -161,6 +180,8 @@ def build(caps, printer: str, file: str | None, title: str, pages, settings, val
         "result": "error" if error else "sent",
         "error": error,
     }
+    if _ctx["vars"]:                         # Bestellung/Position (z. B. Passerlink) – für die Zuordnung
+        entry["vars"] = dict(_ctx["vars"])
     st = {"printer": printer, "options": opts, "copies": int(copies), "collate": bool(collate),
           "reverse": bool(reverse), "layout": lay, "profile": pid or "none", "intent": intent or "",
           "auto_tray": False, "title": title}
@@ -208,7 +229,8 @@ def write(rec: dict, cfg: dict | None = None) -> str | None:
             w.writerow([e["time"], e["user"], e["host"], e["source"], e.get("file") or e.get("title"), e["pages"],
                         e["printer"], e.get("paper") or "", e.get("tray") or "", e["copies"], e.get("job_id") or "",
                         e["result"] + (f": {e['error']}" if e.get("error") else ""), os.path.relpath(path, base),
-                        _num(e.get("roll_mm")), _num(e.get("run_m"))])
+                        _num(e.get("roll_mm")), _num(e.get("run_m")),
+                        (e.get("vars") or {}).get("order", ""), (e.get("vars") or {}).get("item", "")])
         _prune(base, cfg)
         return path
     except Exception:
@@ -223,16 +245,21 @@ def _num(v) -> str:
 
 
 def _upgrade_csv(path: str) -> None:
-    """Ältere printlog.csv (ohne Rolle/Laufmeter): Kopfzeile ergänzen, damit neue Spalten benannt sind."""
+    """Ältere printlog.csv: fehlende Spalten (roll_mm/run_m seit 1.18, order/item seit 1.18.9) in der Kopfzeile
+        ergänzen, damit neue Spalten benannt sind. Alte Zeilen bleiben kürzer (= leer)."""
     try:
         with open(path, encoding="utf-8-sig") as f:
             first = f.readline()
-            if "run_m" in first or not first.startswith("time;"):
+            if not first.startswith("time;"):
+                return
+            have = first.rstrip("\r\n").split(";")
+            missing = [c for c in _CSV_HEAD if c not in have]
+            if not missing:
                 return
             rest = f.read()
         tmp = path + ".part"
         with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
-            f.write(first.rstrip("\r\n") + ";roll_mm;run_m\r\n" + rest)
+            f.write(";".join(have + missing) + "\r\n" + rest)
         os.replace(tmp, path)
     except OSError:
         pass

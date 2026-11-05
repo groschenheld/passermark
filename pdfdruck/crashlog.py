@@ -67,6 +67,18 @@ def _prune():
             pass
 
 
+SETTING = "error_logs"           # Benutzereinstellung: Fehlerprotokolle und Ruckler-Meldungen (Standard an)
+
+
+def enabled() -> bool:
+    """Fehlerprotokolle eingeschaltet? (Datei → Einstellungen; Standard an)"""
+    try:
+        from . import l10n
+        return bool(l10n.load_settings().get(SETTING, True))
+    except Exception:                                      # noqa: BLE001 – im Zweifel an
+        return True
+
+
 def install(kind: str = "gui", on_error=None) -> str | None:
     """Set up the log for this program start. on_error(text, path): display (main thread only)."""
     if _state["file"] is not None:
