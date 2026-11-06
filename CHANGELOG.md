@@ -2,6 +2,20 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.12
+
+### Variable data: image fields
+- New "+ Image" button – the content is the path to the image file, usually from a column like `{{photo}}`. The matching column (image, photo, logo, file …) is guessed when creating the field.
+- Paths: absolute or relative to the CSV's folder; `\` works like `/`, case does not matter. If the extension is missing, it searches by itself – `.png`, `.jpg`, `.tif`, `.pdf` and more.
+- Formats: PNG, JPG, TIFF (CMYK too), BMP, GIF, WebP and PDF (first page). PDF images stay vector, JPEGs go into the PDF unchanged, portrait-stored phone photos are put upright, and an image used several times is stored only once in the PDF.
+- Fitting: fit, fill (overhang cut off) or distort; alignment and rotation as with text fields.
+- Fallback image: steps in when the column is empty or the file is missing or broken. Without a fallback an empty field stays empty.
+- "Check data" reports with the row in the CSV: missing and unreadable images (without a fallback generating aborts, with one it is just a notice), where a fallback was used, empty image fields and too low a resolution – below 150 ppi at print size.
+- In workflows and on the command line: `kind: image`, with `fit` and `fallback` – see docs/cli-api.md.
+
+### Translations
+- Added: two texts missing since 1.18.10/11 (the "printer not found" message and the note on "Embed only").
+
 ## 1.18.11
 
 ### Print materials: colour path, origin and import

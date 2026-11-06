@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.12
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -51,7 +51,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   aus CSV, QR-Codes, Code 128 und EAN-13 als Vektor (mit Ruhezone); Platzhalter `{{…}}` im PDF; Datum, Seite,
   Zufallszahl und weitere Variablen; mehrere Seiten je Datensatz (Vorder-/Rückseite) und Felder auf
   ungeraden/geraden Seiten; Code-Protokoll; Nutzen mit eigenem Datensatz je Nutzen (Bogen für Bogen oder
-  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`). Mit „Daten prüfen“ vor dem Erzeugen: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, unbekannte Platzhalter, ungültige EAN-13, Codes ohne Inhalt – jeder Fund mit seiner Zeile in der CSV.
+  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`). Mit „Daten prüfen“ vor dem Erzeugen: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, unbekannte Platzhalter, ungültige EAN-13, Codes ohne Inhalt – jeder Fund mit seiner Zeile in der CSV. Bildfelder dazu: Pfad aus der CSV, Formate PNG, JPG, TIFF, BMP, GIF, WebP und PDF (erste Seite, bleibt Vektor), Einpassen, Füllen oder Verzerren, Ersatzbild bei leerer Spalte oder fehlender Datei, Mehrfachbilder nur einmal im PDF.
 - **Daten erfassen:** die Datentabelle direkt in Passermark anlegen – QR-Visitenkarte (vCard), WLAN-Zugang,
   E-Mail, Webadresse, Anruf, SMS, Termin, Standort, Code 128, EAN-13 – mit passenden Spalten, sofortiger
   Prüfung und Einfügen aus Excel; gespeichert als CSV und direkt in Variable Daten verwendbar. Eigene CSV-Dateien

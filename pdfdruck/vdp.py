@@ -3,7 +3,7 @@
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Variable Daten: Felder (Text, Nummer, QR-Code, Code 128, EAN-13) auf die Seiten legen – je Datensatz eine Kopie.
+"""Variable Daten: Felder (Text, Nummer, QR-Code, Code 128, EAN-13, Bild) auf die Seiten legen – je Datensatz eine Kopie.
 
 Datensätze kommen aus einer CSV-Datei (Zeile = Kopie) oder aus einer reinen Nummerierung (Anzahl). Inhalte sind
 Vorlagen mit Platzhaltern: {{Spaltenname}}, {{nr}} (Nummer samt Format/Prüfziffer), {{i}} (laufende Nummer ab 1).
@@ -21,7 +21,10 @@ from dataclasses import asdict, dataclass, field
 from .l10n import tr
 
 MM = 72.0 / 25.4
-KINDS = ("text", "qr", "code128", "ean13")
+KINDS = ("text", "qr", "code128", "ean13", "image")
+FITS = ("contain", "cover", "stretch")    # Bild: einpassen | füllen (anschneiden) | verzerren
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".pdf")
+IMAGE_MIN_PPI = 150           # darunter warnt die Datenprüfung (wirksame Auflösung im Feld)
 STD_FONTS = ("Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold")
 CHECKS = ("none", "luhn", "mod11", "ean")
 PH = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
@@ -30,7 +33,7 @@ MAX_RECORDS = 100000
 
 @dataclass
 class VdpField:
-    kind: str = "text"            # text | qr | code128 | ean13
+    kind: str = "text"            # text | qr | code128 | ean13 | image
     content: str = "{{nr}}"       # Vorlage mit Platzhaltern
     x_mm: float = 10.0            # linke obere Ecke des Feldes, ab links oben auf der Seite
     y_mm: float = 10.0
@@ -48,6 +51,8 @@ class VdpField:
     quiet: bool = True            # QR/Code 128: weiße Ruhezone im Feld freihalten (für sicheres Scannen)
     qr_map: dict = field(default_factory=dict)   # QR mit Art: Feld der Art -> CSV-Spalte ("-" = leer lassen);
                                                  # nicht genannte Felder werden automatisch zugeordnet
+    fit: str = "contain"          # Bild: contain = einpassen | cover = füllen (Überstand abgeschnitten) | stretch = verzerren
+    fallback: str = ""            # Bild: Ersatzbild, wenn die Spalte leer ist oder die Datei fehlt (leer = Feld leer lassen)
 
 
 @dataclass
@@ -353,8 +358,243 @@ def _color(c: str):
         return black
 
 
-def draw_field(cv, f: VdpField, value: str, page_h: float):
-    """Ein Feld auf die reportlab-Leinwand (pt, Ursprung unten links)."""
+# --- Bildfelder ---------------------------------------------------------------------------------------------------
+
+def image_base(s) -> str:
+    """Bezugsordner für relative Bildpfade: der Ordner der CSV-Datei (ohne CSV: aktueller Ordner)."""
+    p = getattr(s, "csv_path", "") or ""
+    return os.path.dirname(os.path.abspath(p)) if p else ""
+
+
+def find_image(value: str, base: str = "") -> str | None:
+    """Bildpfad aus der CSV auflösen: absolut oder relativ zum Bezugsordner; \\ wie /, Groß-/Kleinschreibung egal
+    (unter Windows erstellte Listen), ohne Endung werden die üblichen Bildendungen probiert. -> Pfad oder None."""
+    v = (value or "").strip().strip('"').strip()
+    if not v:
+        return None
+    if v.lower().startswith("file://"):
+        from urllib.parse import unquote, urlparse
+        v = unquote(urlparse(v).path)
+    cands = [v] + ([v.replace("\\", "/")] if "\\" in v else [])
+    if not os.path.splitext(v)[1]:
+        cands += [c + e for c in list(cands) for e in IMAGE_EXT]
+    for c in cands:
+        c = os.path.expanduser(c)
+        p = c if os.path.isabs(c) else os.path.join(base or os.getcwd(), c)
+        if os.path.isfile(p):
+            return os.path.abspath(p)
+        d, n = os.path.split(p)
+        try:
+            hit = [x for x in os.listdir(d) if x.lower() == n.lower()]
+        except OSError:
+            hit = []
+        if len(hit) == 1 and os.path.isfile(os.path.join(d, hit[0])):
+            return os.path.abspath(os.path.join(d, hit[0]))
+    return None
+
+
+class Images:
+    """Bilder für Bildfelder: einmal lesen, oft zeichnen.
+    Rasterbilder (PNG, JPG, TIFF …) gehen über reportlab ins PDF; JPEG ohne Drehung unverändert.
+    PDF-Bilder (erste Seite): vector=True stellt sie als Vektor-Form auf die Seite – im Inhaltsstrom steht nur der
+    Name, das Objekt hängt build() beim Zusammenbau an (attach). vector=False rechnet sie in ein Rasterbild um."""
+
+    def __init__(self, vector: bool = False):
+        from collections import OrderedDict
+        self.vector = vector
+        self._info = {}                     # Pfad -> {"size": (b, h) natürlich, "px": (b, h) | None, "pdf": bool}
+        self._readers = OrderedDict()       # Pfad -> reportlab ImageReader (nur die letzten paar)
+        self._forms = {}                    # Pfad -> (Name, pikepdf.Pdf, Form-XObject, Kasten x0, y0, x1, y1)
+        self.page = 0
+        self.used = {}                      # Ausgabeseite -> {Name: Pfad}
+
+    # Lesen
+    def info(self, path: str) -> dict:
+        """Größe/Art eines Bildes; wirft ValueError, wenn es sich nicht lesen lässt."""
+        got = self._info.get(path)
+        if isinstance(got, Exception):
+            raise got
+        if got is not None:
+            return got
+        try:
+            if path.lower().endswith(".pdf") or _is_pdf(path):
+                x0, y0, x1, y1 = self._pdf_box(path)
+                got = {"size": (x1 - x0, y1 - y0), "px": None, "pdf": True}
+            else:
+                from PIL import Image
+                with Image.open(path) as im:
+                    w, h = im.size
+                    if (im.getexif() or {}).get(0x0112, 1) in (5, 6, 7, 8):     # Handyfoto hochkant
+                        w, h = h, w
+                got = {"size": (float(w), float(h)), "px": (w, h), "pdf": False}
+            if got["size"][0] <= 0 or got["size"][1] <= 0:
+                raise ValueError(tr("leeres Bild"))
+        except Exception as e:                                # noqa: BLE001 – jede Ursache als „nicht lesbar“
+            why = (tr("kein bekanntes Bildformat") if type(e).__name__ == "UnidentifiedImageError"
+                   else str(e).replace(path, os.path.basename(path)) or type(e).__name__)
+            err = ValueError(tr("Bild nicht lesbar: {0} ({1})").format(os.path.basename(path), why))
+            self._info[path] = err
+            raise err from None
+        self._info[path] = got
+        return got
+
+    def _pdf_box(self, path: str) -> tuple:
+        if path not in self._forms:
+            import pikepdf
+            pdf = pikepdf.open(path)
+            if not len(pdf.pages):
+                pdf.close()
+                raise ValueError(tr("PDF ohne Seiten"))
+            form = pdf.make_indirect(pdf.pages[0].as_form_xobject())
+            bx = [float(v) for v in form.BBox]
+            m = [float(v) for v in form.get("/Matrix", [1, 0, 0, 1, 0, 0])]
+            pts = [(x * m[0] + y * m[2] + m[4], x * m[1] + y * m[3] + m[5]) for x in (bx[0], bx[2]) for y in (bx[1], bx[3])]
+            box = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+            self._forms[path] = (f"PMImg{len(self._forms)}", pdf, form, box)
+        return self._forms[path][3]
+
+    def _reader(self, path: str):
+        r = self._readers.get(path)
+        if r is not None:
+            self._readers.move_to_end(path)
+            return r
+        from reportlab.lib.utils import ImageReader
+        if self.info(path)["pdf"]:
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(path)
+            try:
+                pg = doc[0]
+                w, h = pg.get_size()
+                scale = min(300 / 72, 4000 / max(w, h, 1))      # 300 dpi, höchstens 4000 Pixel lang
+                im = pg.render(scale=scale, may_draw_forms=True).to_pil()
+            finally:
+                doc.close()
+            r = ImageReader(im)
+        else:
+            from PIL import Image, ImageOps
+            im = Image.open(path)
+            turned = (im.getexif() or {}).get(0x0112, 1) not in (None, 1)
+            if im.format == "JPEG" and not turned and im.mode in ("RGB", "L", "CMYK"):
+                im.close()
+                r = ImageReader(path)                         # JPEG unverändert durchreichen
+            else:
+                im = ImageOps.exif_transpose(im)
+                if im.mode in ("P", "LA", "PA"):
+                    im = im.convert("RGBA")
+                elif im.mode == "1":
+                    im = im.convert("L")
+                elif im.mode not in ("RGB", "RGBA", "L", "CMYK"):
+                    im = im.convert("RGB")
+                im.load()
+                r = ImageReader(im)
+        self._readers[path] = r
+        while len(self._readers) > 12:
+            self._readers.popitem(last=False)
+        return r
+
+    # Zeichnen
+    @staticmethod
+    def placement(size: tuple, w: float, h: float, fit: str, align: str) -> tuple:
+        """Bild der natürlichen Größe size in einen Kasten w×h setzen -> (x, y, Breite, Höhe) im Kasten."""
+        iw, ih = size
+        if fit == "stretch":
+            return 0.0, 0.0, w, h
+        sc = (max if fit == "cover" else min)(w / iw, h / ih)
+        dw, dh = iw * sc, ih * sc
+        dx = 0.0 if align == "left" else (w - dw if align == "right" else (w - dw) / 2)
+        return dx, (h - dh) / 2, dw, dh
+
+    def draw(self, cv, path: str, w: float, h: float, fit: str = "contain", align: str = "center"):
+        inf = self.info(path)
+        dx, dy, dw, dh = self.placement(inf["size"], w, h, fit, align)
+        cv.saveState()
+        if fit == "cover":                                   # Überstand abschneiden
+            p = cv.beginPath()
+            p.rect(0, 0, w, h)
+            cv.clipPath(p, stroke=0, fill=0)
+        if inf["pdf"] and self.vector:
+            name, _pdf, _form, (x0, y0, x1, y1) = self._forms[path]
+            sx, sy = dw / (x1 - x0), dh / (y1 - y0)
+            cv.transform(sx, 0, 0, sy, dx - x0 * sx, dy - y0 * sy)
+            cv.addLiteral(f"/{name} Do")
+            self.used.setdefault(self.page, {})[name] = path
+        else:
+            cv.drawImage(self._reader(path), dx, dy, dw, dh, mask="auto")
+        cv.restoreState()
+
+    def attach(self, over):
+        """Vektor-PDF-Bilder in die Seiten-Ressourcen des Überlagerungs-PDFs (pikepdf) eintragen."""
+        import pikepdf
+        done = {}
+        for k, names in self.used.items():
+            pg = over.pages[k]
+            res = pg.obj.get("/Resources")
+            if res is None:
+                res = pg.obj.Resources = pikepdf.Dictionary()
+            if "/XObject" not in res:
+                res.XObject = pikepdf.Dictionary()
+            for name, path in names.items():
+                if name not in done:
+                    done[name] = over.copy_foreign(self._forms[path][2])
+                res.XObject[pikepdf.Name("/" + name)] = done[name]
+
+    def ppi(self, path: str, w: float, h: float, fit: str) -> float | None:
+        """Wirksame Auflösung im Feld (Pixel je Zoll); None bei PDF-Bildern."""
+        inf = self.info(path)
+        if not inf["px"]:
+            return None
+        _dx, _dy, dw, dh = self.placement(inf["size"], w, h, fit, "center")
+        return min(inf["px"][0] / (dw / 72.0), inf["px"][1] / (dh / 72.0))
+
+    def close(self):
+        for _n, pdf, _f, _b in self._forms.values():
+            try:
+                pdf.close()
+            except Exception:                                 # noqa: BLE001
+                pass
+        self._forms.clear()
+        self._readers.clear()
+
+
+def _is_pdf(path: str) -> bool:
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(5) == b"%PDF-"
+    except OSError:
+        return False
+
+
+def pick_image(f: VdpField, value: str, base: str, images: Images) -> tuple:
+    """Welches Bild kommt ins Feld? -> (Pfad | None, Art | None, Schwere, Meldung).
+    Art: None = alles gut, empty = nichts angegeben (Feld bleibt leer), fallback = Ersatzbild verwendet,
+    missing/unreadable = Fehler (ohne Ersatzbild)."""
+    def fb(why_kind, why):
+        if not (f.fallback or "").strip():
+            return None, why_kind, "error", why
+        p = find_image(f.fallback, base)
+        if not p:
+            return None, "missing", "error", tr("Ersatzbild nicht gefunden: {0}").format(f.fallback)
+        try:
+            images.info(p)
+        except ValueError as e:
+            return None, "unreadable", "error", tr("Ersatzbild: {0}").format(e)
+        return p, "fallback", "warning", why + " – " + tr("Ersatzbild wird verwendet")
+    if not (value or "").strip():
+        if not (f.fallback or "").strip():
+            return None, "empty", "warning", tr("Kein Bild angegeben – Feld bleibt leer")
+        return fb("empty", tr("Kein Bild angegeben"))
+    p = find_image(value, base)
+    if not p:
+        return fb("missing", tr("Bild nicht gefunden: {0}").format(value.strip()))
+    try:
+        images.info(p)
+    except ValueError as e:
+        return fb("unreadable", str(e))
+    return p, None, "", ""
+
+def draw_field(cv, f: VdpField, value: str, page_h: float, images: "Images | None" = None):
+    """Ein Feld auf die reportlab-Leinwand (pt, Ursprung unten links). Bildfeld: value = Pfad der Bilddatei
+    (schon aufgelöst, siehe pick_image; leer = nichts zeichnen)."""
     from reportlab.graphics import renderPDF
     from reportlab.graphics.barcode import createBarcodeDrawing
     x, w, h = f.x_mm * MM, f.w_mm * MM, f.h_mm * MM
@@ -374,6 +614,11 @@ def draw_field(cv, f: VdpField, value: str, page_h: float):
         cv.translate(0, h)
         cv.rotate(270)
         w, h = h, w
+    if f.kind == "image":
+        if value:
+            (images or Images()).draw(cv, value, w, h, getattr(f, "fit", "contain") or "contain", f.align)
+        cv.restoreState()
+        return
     col = _color(f.color)
     if f.kind == "text":
         fn = _font_for(f.font, value)
@@ -608,14 +853,16 @@ def _field_label(f: VdpField, k: int) -> str:
 
 def check(s: VdpSettings) -> dict:
     """Daten gegen die Felder prüfen, bevor etwas erzeugt wird: Text zu lang für sein Feld (Breite/Höhe), leere
-        Spalten, unbekannte Platzhalter, ungültige EAN-13, leere Codes.
+        Spalten, unbekannte Platzhalter, ungültige EAN-13, leere Codes, fehlende/unlesbare Bilder, Bilder mit zu
+        geringer Auflösung.
         -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {Art: Anzahl}, "records": n}.
         row = Zeile in der CSV (Kopfzeile = 1), record = Datensatz in der Ausgabe."""
     from reportlab.pdfbase import pdfmetrics
     fields = all_fields(s)
     cols, recs = records(s)
     colmap = {c.lower(): c for c in cols}
-    probs, counts, unknown_done = [], {}, set()
+    probs, counts, unknown_done, lowres_done = [], {}, set(), set()
+    base, images = image_base(s), Images()
 
     def add(kind, sev, rec, k, f, msg):
         counts[kind] = counts.get(kind, 0) + 1
@@ -635,7 +882,7 @@ def check(s: VdpSettings) -> dict:
             else:
                 for key in PH.findall(f.content or ""):
                     col = colmap.get(key.lower())
-                    if col is not None and not str(rec.get(col, "") or "").strip():
+                    if f.kind != "image" and col is not None and not str(rec.get(col, "") or "").strip():
                         add("empty", "warning", rec, k, f, tr("Spalte „{0}“ ist leer").format(col))
                 value = fill(f.content, rec)
                 for key in PH.findall(value):
@@ -643,6 +890,20 @@ def check(s: VdpSettings) -> dict:
                         unknown_done.add((k, key))
                         add("unknown", "warning", rec, k, f,
                             tr("Platzhalter {{{{{0}}}}} gibt es weder als Spalte noch als Variable").format(key))
+            if f.kind == "image":
+                path, kind, sev, msg = pick_image(f, value, base, images)
+                if kind:
+                    add(kind, sev, rec, k, f, msg)
+                if path and (k, path) not in lowres_done:
+                    lowres_done.add((k, path))
+                    rot = int(f.rotate) % 360
+                    w = (f.h_mm if rot in (90, 270) else f.w_mm) * MM
+                    h = (f.w_mm if rot in (90, 270) else f.h_mm) * MM
+                    ppi = images.ppi(path, w, h, getattr(f, "fit", "contain") or "contain")
+                    if ppi is not None and ppi < IMAGE_MIN_PPI:
+                        add("lowres", "warning", rec, k, f, tr("{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})").format(
+                            os.path.basename(path), int(ppi), IMAGE_MIN_PPI))
+                continue
             if f.kind == "text":
                 if not value:
                     continue
@@ -672,13 +933,23 @@ def check(s: VdpSettings) -> dict:
                 elif len(digits) == 13 and check_digit(digits[:12], "ean") != digits[12]:
                     add("invalid", "error", rec, k, f, tr("EAN-13 „{0}“: Prüfziffer falsch – richtig wäre {1}").format(
                         value, digits[:12] + check_digit(digits[:12], "ean")))
+    images.close()
     return {"problems": probs, "counts": counts, "records": len(recs)}
+
+
+BLOCKING = ("invalid", "missing", "unreadable")   # diese Fehler brechen das Erzeugen ab
+
+
+def check_blocking(res: dict) -> bool:
+    c = res.get("counts") or {}
+    return any(c.get(k) for k in BLOCKING)
 
 
 def check_text(res: dict, limit: int = 20) -> str:
     """Kurzbericht der Datenprüfung (mehrzeilig)."""
     names = {"overflow": tr("zu lang/zu hoch"), "empty": tr("leer"), "unknown": tr("unbekannter Platzhalter"),
-             "invalid": tr("ungültig")}
+             "invalid": tr("ungültig"), "missing": tr("Bild fehlt"), "unreadable": tr("Bild nicht lesbar"),
+             "fallback": tr("Ersatzbild"), "lowres": tr("geringe Auflösung")}
     c = res.get("counts") or {}
     if not c:
         return tr("{0} Datensätze geprüft – alles in Ordnung.").format(res.get("records", 0))
@@ -870,6 +1141,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
     log = []
+    img_base, images = image_base(s), Images(vector=True)
     total = len(seq)
     for k, (r, p) in enumerate(seq):
         if cancel is not None and cancel():
@@ -886,8 +1158,16 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
             if p not in pages_of[fi]:
                 continue
             v = field_value(f, rec)
+            if f.kind == "image":
+                v, _kind, sev, msg = pick_image(f, v, img_base, images)
+                if sev == "error":
+                    images.close()
+                    where = tr("Zeile {0}").format(rec["_row"]) if rec.get("_row") else tr("Datensatz {0}").format(r + 1)
+                    raise ValueError(f"{where} · {_field_label(f, fi)}: {msg}")
+                v = v or ""
             vals[fi] = v
-            draw_field(cv, f, v, H)
+            images.page = k
+            draw_field(cv, f, v, H, images)
         cv.showPage()
         if vals:
             log.append((k + 1, r, p, vals))
@@ -898,6 +1178,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     base = pikepdf.open(io.BytesIO(buf.getvalue()))
     removed = _remove_placeholder_text(base) if (s.placeholders or strip) else 0
     over = pikepdf.open(io.BytesIO(ov.getvalue()))
+    images.attach(over)                             # Vektor-PDF-Bilder an ihre Seiten hängen
     out = pikepdf.new()
     # Vorlage je Seite einmal als Form-XObject; jede Ausgabeseite = Vorlage + eigene Überlagerung (klein, getrennt)
     base_x = [out.copy_foreign(base.pages[p].as_form_xobject()) for p in range(npages)]
@@ -917,6 +1198,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     out.save(data, object_stream_mode=pikepdf.ObjectStreamMode.generate)
     for d in (out, over, base):
         d.close()
+    images.close()
     # Protokoll und Zähler
     if s.log_path:
         with open(s.log_path, "w", newline="", encoding="utf-8-sig") as fh:
@@ -931,6 +1213,14 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         _save_counter(nb.continue_key, last + nb.step)
     info = {"records": len(recs), "pages": len(seq), "placeholders_removed": removed, "columns": cols}
     return data.getvalue(), info
+
+
+def _preview_value(f: VdpField, rec: dict, base: str, images: Images) -> str:
+    """Inhalt für die Vorschau; Bildfelder bekommen den aufgelösten Pfad (fehlt das Bild: leer)."""
+    v = field_value(f, rec)
+    if f.kind == "image":
+        v = pick_image(f, v, base, images)[0] or ""
+    return v
 
 
 def page_for_record(s: VdpSettings, record: int, npages: int) -> int:
@@ -954,6 +1244,7 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     if not recs:
         raise ValueError(tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
     record = max(0, min(record, len(recs) - 1))
+    img_base, images = image_base(s), Images()
     tmp = tempfile.mkdtemp(prefix="passermark-vdp-")
     one = os.path.join(tmp, "in.pdf")
     single = pdfium.PdfDocument.new()
@@ -981,7 +1272,8 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
                 continue
             for f in wf:
                 g = VdpField(**asdict(f))
-                g.content = field_value(f, rec)
+                g.content = _preview_value(f, rec, img_base, images)
+                g.fallback = ""
                 g.qr_type = "text"
                 g.pages = ""
                 fl.append(g)
@@ -990,7 +1282,8 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
             if f.pages.strip() and page not in _page_set(f.pages, len(src_doc)):
                 continue
             g = VdpField(**asdict(f))
-            g.content = field_value(f, rec)
+            g.content = _preview_value(f, rec, img_base, images)
+            g.fallback = ""
             g.qr_type = "text"
             g.pages = ""
             fl.append(g)

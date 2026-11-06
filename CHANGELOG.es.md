@@ -5,6 +5,20 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.12
+
+### Datos variables: campos de imagen
+- Nuevo botón «+ Imagen» – el contenido es la ruta al archivo de imagen, normalmente de una columna como `{{foto}}`. La columna adecuada (imagen, foto, logo, archivo …) se deduce al crear el campo.
+- Rutas: absolutas o relativas a la carpeta del CSV; `\` funciona como `/`, las mayúsculas no importan. Si falta la extensión, se busca solo – `.png`, `.jpg`, `.tif`, `.pdf` y más.
+- Formatos: PNG, JPG, TIFF (también CMYK), BMP, GIF, WebP y PDF (primera página). Las imágenes PDF se mantienen como vector, los JPG entran sin cambios en el PDF, las fotos de móvil guardadas en vertical se enderezan, y una imagen usada varias veces se guarda solo una vez en el PDF.
+- Encaje: ajustar, rellenar (el exceso se recorta) o deformar; alineación y rotación como en los campos de texto.
+- Imagen de reserva: entra cuando la columna está vacía o falta el archivo o está roto. Sin reserva, un campo vacío queda vacío.
+- «Comprobar datos» informa con la línea en el CSV: imágenes que faltan o no se pueden leer (sin reserva la generación se interrumpe, con reserva es solo un aviso), dónde se usó una reserva, campos de imagen vacíos y resolución demasiado baja – por debajo de 150 ppi al tamaño de impresión.
+- En flujos y en la línea de comandos: `kind: image`, con `fit` y `fallback` – véase docs/cli-api.md.
+
+### Traducciones
+- Añadidos: dos textos que faltaban desde 1.18.10/11 (el mensaje «impresora no encontrada» y el aviso sobre «Solo incrustar»).
+
 ## 1.18.11
 
 ### Materiales de impresión: recorrido de color, origen e importación

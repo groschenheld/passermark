@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.12
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -52,7 +52,7 @@ szoftver (GPL-3.0-or-later).
   CSV-ből származó szöveg, QR-kódok, Code 128 és EAN-13 vektorként (csendes zónával); `{{…}}`
   helyőrzők a PDF-ben; dátum, lap, véletlenszám és további változók; több lap rekordonként (elől/hátul) és
   mezők páratlan/páros lapokon; kódnapló; haszonminták saját rekorddal mintánként (ívről ívre vagy vágás és
-  pakolás); **ablakok (oldalcsoportok)** több oldalas sablonokhoz – pl. elölap a névvel, hátlap QR-kóddal – ablakonkénti oldalkiválasztással (minden/páratlan/páros oldal vagy tartomány) és rekord-elosztással lapról lapra vagy oldalról oldalra. Parancssorból is (`passermark-cli vdp`). Az „Adatok ellenőrzése” gombbal a létrehozás előtt: a szöveg túl hosszú vagy túl magas a mezőjéhez, a mező betűtípusával mérve, üres oszlopok, ismeretlen helyőrzők, érvénytelen EAN-13, tartalom nélküli kódok – minden lelet a CSV-beli sorával.
+  pakolás); **ablakok (oldalcsoportok)** több oldalas sablonokhoz – pl. elölap a névvel, hátlap QR-kóddal – ablakonkénti oldalkiválasztással (minden/páratlan/páros oldal vagy tartomány) és rekord-elosztással lapról lapra vagy oldalról oldalra. Parancssorból is (`passermark-cli vdp`). Az „Adatok ellenőrzése” gombbal a létrehozás előtt: a szöveg túl hosszú vagy túl magas a mezőjéhez, a mező betűtípusával mérve, üres oszlopok, ismeretlen helyőrzők, érvénytelen EAN-13, tartalom nélküli kódok – minden lelet a CSV-beli sorával. Képmezők is: útvonal a CSV-ből, formátumok PNG, JPG, TIFF, BMP, GIF, WebP és PDF (első lap, vektoros marad), illesztés, kitöltés vagy torzítás, tartalékkép üres oszlopra vagy hiányzó fájlra, az ismételt képek csak egyszer a PDF-ben.
 - **Adatok rögzítése:** az adattáblázat közvetlenül a Passermarkban hozható létre – QR-névjegykárlya (vCard),
   WLAN-hozzáférés, e-mail, webcím, hívás, SMS, időpont, helyszín, Code 128, EAN-13 – megfelelő oszlopokkal,
   azonnali ellenőrzéssel és Excelből történő beszúrással; CSV-ként mentve és közvetlenül használható a változó

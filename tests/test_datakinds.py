@@ -288,6 +288,12 @@ assert len(vd.fields) == 1
 vd._qr_widgets(vd.fields[0]); vd._refresh()
 s = vd._settings()
 assert s.fields[0]["qr_type"] == "wifi" and s.csv_path == p and s.order == "record" and s.windows, s
+vd.cols = ["Name", "Foto"]                               # Bildfeld: Spalte erraten, Einpassen, Ersatzbild
+vd._add("image")
+fi = vd.fields[-1]
+assert fi.kind == "image" and fi.content == "{{Foto}}" and fi.align == "center", fi
+vd._select(len(vd.fields) - 1); vd._field_changed(); vd._select(0)  # Bildfeld-Bedienelemente (Qt-Attrappe)
+assert any(f.get("kind") == "image" for f in vd._settings().fields)
 # main window: data capture (without and with a document), variable data with a passed table
 from pdfdruck.gui import viewer
 from pdfdruck import config

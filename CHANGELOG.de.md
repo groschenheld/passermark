@@ -2,6 +2,20 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.12
+
+### Variable Daten: Bildfelder
+- Neuer Knopf „+ Bild“ – der Inhalt ist der Pfad zur Bilddatei, meist aus einer Spalte wie `{{Foto}}`. Die passende Spalte (Bild, Foto, Logo, Datei …) wird beim Anlegen erraten.
+- Pfade: absolut oder relativ zum Ordner der CSV; `\` geht wie `/`, Groß- und Kleinschreibung ist egal. Fehlt die Endung, wird selbst gesucht – `.png`, `.jpg`, `.tif`, `.pdf` und weitere.
+- Formate: PNG, JPG, TIFF (auch CMYK), BMP, GIF, WebP und PDF (erste Seite). PDF-Bilder bleiben Vektor, JPEGs gehen unverändert ins PDF, hochkant gespeicherte Handyfotos werden richtig aufgestellt, und ein Bild, das öfter vorkommt, liegt nur einmal im PDF.
+- Einpassen: Einpassen, Füllen (Überstand wird abgeschnitten) oder Verzerren; Ausrichtung und Drehung wie bei Textfeldern.
+- Ersatzbild: springt ein, wenn die Spalte leer ist oder die Datei fehlt oder kaputt ist. Ohne Ersatzbild bleibt ein leeres Feld leer.
+- „Daten prüfen“ meldet mit der Zeile in der CSV: fehlende und unlesbare Bilder (ohne Ersatzbild bricht das Erzeugen ab, mit Ersatzbild ist es nur ein Hinweis), wo ein Ersatzbild verwendet wurde, leere Bildfelder und zu geringe Auflösung – unter 150 ppi in Druckgröße.
+- In Abläufen und auf der Kommandozeile: `kind: image`, dazu `fit` und `fallback` – siehe docs/cli-api.md.
+
+### Übersetzungen
+- Ergänzt: zwei in 1.18.10/11 fehlende Texte (Meldung „Drucker nicht gefunden“ und der Hinweis zu „Nur einbetten“).
+
 ## 1.18.11
 
 ### Druckmaterialien: Farbweg, Herkunft und Import
