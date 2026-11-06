@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.12
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -48,7 +48,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   QR codes, Code 128 and EAN-13 as vectors (with quiet zone); placeholders `{{…}}` in the PDF; date, page,
   random and other variables; several pages per record (front/back) and fields on odd/even pages; code log;
   step & repeat with a different record per copy (row by row or cut & stack); **windows (page groups)** for multi-page templates – e.g. front sides with the name, back sides with a QR code – with page selection per window (all/odd/even pages or ranges) and record distribution sheet by sheet or page by page. Also on the command line
-  (`passermark-cli vdp`). With Check data before generating: text too long or too tall for its field, measured with the field's font, empty columns, unknown placeholders, invalid EAN-13, codes without content – every finding with its row in the CSV.
+  (`passermark-cli vdp`). With Check data before generating: text too long or too tall for its field, measured with the field's font, empty columns, unknown placeholders, invalid EAN-13, codes without content – every finding with its row in the CSV. Image fields as well: path from the CSV, formats PNG, JPG, TIFF, BMP, GIF, WebP and PDF (first page, stays vector), fit, fill or distort, fallback image for empty columns or missing files, repeated images stored once in the PDF.
 - **Enter data:** build the data table inside Passermark – QR business card (vCard), Wi-Fi access, e-mail, web
   address, phone, SMS, event, location, Code 128, EAN-13 – with matching columns, instant checks and paste from
   Excel; saved as CSV and used directly in variable data. Own CSV files with other column names (e.g. contact

@@ -5,6 +5,20 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.12
+
+### Données variables : champs image
+- Nouveau bouton « + Image » – le contenu est le chemin vers le fichier image, le plus souvent d'une colonne comme `{{photo}}`. La colonne adaptée (image, photo, logo, fichier …) est devinée à la création du champ.
+- Chemins : absolus ou relatifs au dossier du CSV ; `\` fonctionne comme `/`, la casse n'a pas d'importance. Si l'extension manque, la recherche se fait seule – `.png`, `.jpg`, `.tif`, `.pdf` et d'autres.
+- Formats : PNG, JPG, TIFF (CMYK aussi), BMP, GIF, WebP et PDF (première page). Les images PDF restent vectorielles, les JPG entrent inchangés dans le PDF, les photos de portable stockées en portrait sont remises droites, et une image utilisée plusieurs fois n'est stockée qu'une fois dans le PDF.
+- Ajustement : ajuster, remplir (le dépassement est rogné) ou déformer ; alignement et rotation comme pour les champs texte.
+- Image de repli : entre en jeu quand la colonne est vide ou que le fichier manque ou est corrompu. Sans repli, un champ vide reste vide.
+- « Vérifier les données » signale avec la ligne dans le CSV : images manquantes ou illisibles (sans repli la génération s'interrompt, avec repli ce n'est qu'un avis), où un repli a été utilisé, champs image vides et résolution trop faible – en dessous de 150 ppi à la taille d'impression.
+- Dans les enchaînements et en ligne de commande : `kind: image`, avec `fit` et `fallback` – voir docs/cli-api.md.
+
+### Traductions
+- Ajoutés : deux textes manquants depuis 1.18.10/11 (le message « imprimante introuvable » et l'avis sur « Incorporer seulement »).
+
 ## 1.18.11
 
 ### Matières d'impression : parcours couleur, origine et import

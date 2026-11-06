@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.12
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -56,7 +56,7 @@ Software libre (GPL-3.0-or-later).
   marcadores `{{…}}` en el PDF; fecha, página, número aleatorio y otras variables; varias páginas por
   registro (anverso/reverso) y campos en páginas impares/pares; registro de códigos; step & repeat con su
   propio registro por copia (hoja por hoja o cortar y apilar). También en la línea de comandos
-  **ventanas (grupos de páginas)** para plantillas de varias páginas – p. ej. anverso con el nombre, reverso con un código QR – con selección de páginas por ventana (todas/impares/pares o intervalos) y distribución de registros hoja por hoja o página por página (`passermark-cli vdp`). Con «Comprobar datos» antes de generar: texto demasiado largo o alto para su campo, medido con la fuente del campo, columnas vacías, marcadores desconocidos, EAN-13 no válidos, códigos sin contenido – cada hallazgo con su línea en el CSV.
+  **ventanas (grupos de páginas)** para plantillas de varias páginas – p. ej. anverso con el nombre, reverso con un código QR – con selección de páginas por ventana (todas/impares/pares o intervalos) y distribución de registros hoja por hoja o página por página (`passermark-cli vdp`). Con «Comprobar datos» antes de generar: texto demasiado largo o alto para su campo, medido con la fuente del campo, columnas vacías, marcadores desconocidos, EAN-13 no válidos, códigos sin contenido – cada hallazgo con su línea en el CSV. También campos de imagen: ruta desde el CSV, formatos PNG, JPG, TIFF, BMP, GIF, WebP y PDF (primera página, se mantiene vectorial), ajustar, rellenar o deformar, imagen de reserva para columnas vacías o archivos ausentes, imágenes repetidas solo una vez en el PDF.
 - **Introducir datos:** crear la tabla de datos directamente en Passermark – tarjeta de visita QR (vCard),
   acceso WLAN, correo electrónico, dirección web, llamada, SMS, cita, ubicación, Code 128, EAN-13 – con las
   columnas adecuadas, comprobación inmediata y pegado desde Excel; guardado como CSV y utilizable

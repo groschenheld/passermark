@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.12
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -55,7 +55,7 @@ Logiciel libre (GPL-3.0-or-later).
   placeholders `{{…}}` dans le PDF ; date, page, nombre aléatoire et autres variables ; plusieurs pages par
   enregistrement (recto/verso) et champs sur pages impaires/paires ; journal de codes ; step & repeat avec
   son propre enregistrement par copie (feuille par feuille ou couper et empiler) ; **fenêtres (groupes de pages)** pour les gabarits multi-pages – p. ex. recto avec le nom, verso avec un code QR – avec sélection des pages par fenêtre (toutes/impaires/paires ou plages) et répartition des enregistrements feuille par feuille ou page par page. Aussi en ligne de commande
-  (`passermark-cli vdp`). Avec « Vérifier les données » avant de générer : texte trop long ou trop haut pour son champ, mesuré avec la police du champ, colonnes vides, marqueurs inconnus, EAN-13 non valides, codes sans contenu – chaque constat avec sa ligne dans le CSV.
+  (`passermark-cli vdp`). Avec « Vérifier les données » avant de générer : texte trop long ou trop haut pour son champ, mesuré avec la police du champ, colonnes vides, marqueurs inconnus, EAN-13 non valides, codes sans contenu – chaque constat avec sa ligne dans le CSV. Des champs image aussi : chemin depuis le CSV, formats PNG, JPG, TIFF, BMP, GIF, WebP et PDF (première page, reste vectoriel), ajuster, remplir ou déformer, image de repli pour colonnes vides ou fichiers manquants, images répétées stockées une seule fois dans le PDF.
 - **Saisie des données :** créer le tableau de données directement dans Passermark – carte de visite QR
   (vCard), accès Wi-Fi, e-mail, adresse web, appel, SMS, rendez-vous, lieu, Code 128, EAN-13 – avec les
   colonnes adaptées, vérification immédiate et collage depuis Excel ; enregistré en CSV et utilisable

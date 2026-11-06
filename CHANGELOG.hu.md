@@ -5,6 +5,20 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.12
+
+### Változó adatok: képmezők
+- Új „+ Kép” gomb – a tartalom a képfájl elérési útja, leggyakrabban egy oszlopból, mint a `{{foto}}`. A megfelelő oszlopot (kép, foto, logó, fájl …) a mező létrehozásakor találja ki.
+- Elérési utak: abszolút vagy a CSV mappájához relatív; a `\` úgy működik, mint a `/`, a kis- és nagybetű nem számít. Ha a kiterjesztés hiányzik, maga keres – `.png`, `.jpg`, `.tif`, `.pdf` és továbbiak.
+- Formátumok: PNG, JPG, TIFF (CMYK is), BMP, GIF, WebP és PDF (első lap). A PDF-képek vektorosak maradnak, a JPG-k változatlanul kerülnek a PDF-be, az állóan tárolt mobilfotók helyre állnak, és a többször használt kép csak egyszer szerepel a PDF-ben.
+- Illesztés: illesztés, kitöltés (a túllógó rész levágva) vagy torzítás; igazítás és forgatás mint a szövegmezőknél.
+- Tartalékkép: akkor lép be, ha az oszlop üres, vagy a fájl hiányzik vagy hibás. Tartalék nélkül az üres mező üres marad.
+- Az „Adatok ellenőrzése” a CSV-beli sorral jelzi: hiányzó és olvashatatlan képek (tartalék nélkül a létrehozás megszakad, tartalékkal csak figyelmeztetés), hol használt tartalékot, üres képmezők és túl alacsony felbontás – 150 ppi alatt nyomtatási méretben.
+- Munkafolyamatokban és parancssorban: `kind: image`, a `fit` és `fallback` kiegészítéssel – lásd docs/cli-api.md.
+
+### Fordítások
+- Kiegészítve: két, az 1.18.10/11 óta hiányzó szöveg (a „nyomtató nem található” üzenet és a „Csak beágyazás” tanácsa).
+
 ## 1.18.11
 
 ### Nyomtatási anyagok: színútvonal, eredet és importálás

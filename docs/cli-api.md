@@ -283,6 +283,15 @@ job `vdp`: a note in the result): text wider or taller than its field (measured 
 columns used in a field, placeholders that are neither a column nor a variable, invalid EAN-13 and empty codes – each
 with the CSV line (header = line 1). At most 300 single messages, plus the count per kind.
 
+**Image fields** (since 1.18.12): a field with `"kind": "image"` takes the image file named by its content – usually a
+column (`{{Photo}}`), absolute or relative to the CSV's folder (`\` works like `/`, case does not matter, without an
+extension `.png`, `.jpg`, `.tif`, `.pdf` … are tried). PNG, JPG, TIFF, BMP, GIF, WebP and PDF (first page, stays
+vector); phone photos are turned upright (EXIF). `fit`: `contain` (default, whole image), `cover` (box filled, overhang
+cropped), `stretch`; `align` left/center/right and `rotate` as for text. `fallback`: an image used when the column is
+empty or the file is missing/unreadable. The check reports missing (`missing`) and unreadable (`unreadable`) images
+with the CSV line – without a fallback they stop the job – plus `fallback` (fallback used), `empty` (nothing given,
+field stays empty) and `lowres` (below 150 ppi at the size printed).
+
 The text report (`report_text`) lists the page boxes and the bleed per side of the first page.
 
 ## Plan printing (`plan`)
@@ -507,7 +516,9 @@ drei für Benutzer und Dienstkonten beschreibbar). Clients an anderen PCs nur ü
 
 Prüfung seit 1.18.10 auch: Format gegen den Drucker (Programm: Standarddrucker; `inspect --check --printer P`) und
 Variable Daten vor dem Erzeugen (Text zu lang/zu hoch, leere Spalten, unbekannte Platzhalter, ungültige Codes – mit
-CSV-Zeile). Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
+CSV-Zeile). Seit 1.18.12 Bildfelder (`"kind": "image"`): Pfad aus einer Spalte, relativ zur CSV oder absolut,
+`fit` `contain`/`cover`/`stretch`, `fallback` = Ersatzbild; fehlende/unlesbare Bilder werden mit CSV-Zeile gemeldet
+und brechen ohne Ersatzbild ab, PDF-Bilder bleiben Vektor. Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
 
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
 /Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken

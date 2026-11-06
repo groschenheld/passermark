@@ -23,7 +23,12 @@ from . import theme
 from .common import CollapsibleSection, fill_combo, fit_width, no_enter_default, split_panels
 
 def kind_text(k: str) -> str:
-    return {"text": tr("Text"), "qr": tr("QR-Code"), "code128": "Code 128", "ean13": "EAN-13"}.get(k, k)
+    return {"text": tr("Text"), "qr": tr("QR-Code"), "code128": "Code 128", "ean13": "EAN-13",
+            "image": tr("Bild")}.get(k, k)
+
+
+IMAGE_FILTER = "*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.gif *.webp *.pdf"
+IMAGE_COLS = ("bild", "foto", "photo", "image", "img", "logo", "datei", "pfad", "file", "path", "kép", "imagen")
 
 
 class VdpCanvas(QWidget):
@@ -235,7 +240,9 @@ class VdpDialog(QDialog):
             b = QPushButton("+ " + kind_text(kind))
             b.setToolTip({"text": tr("Text oder Nummer"), "qr": tr("QR-Code (z. B. Webadresse, Ticketnummer)"),
                           "code128": tr("Strichcode für Buchstaben und Ziffern"),
-                          "ean13": tr("Artikelnummer-Strichcode, genau 12 oder 13 Ziffern")}[kind])
+                          "ean13": tr("Artikelnummer-Strichcode, genau 12 oder 13 Ziffern"),
+                          "image": tr("Bild aus einer Datei (PNG, JPG, TIFF, PDF …) – der Pfad kommt meist aus einer "
+                                      "CSV-Spalte, z. B. {{Foto}}")}[kind])
             b.clicked.connect(lambda _c=False, k=kind: self._add(k))
             row.addWidget(b)
         b = QPushButton(tr("Feld löschen"))
@@ -286,6 +293,28 @@ class VdpDialog(QDialog):
         self.chk_quiet = QCheckBox(tr("Weißen Rand (Ruhezone) im Feld freihalten – empfohlen"))
         self._field(v, "", tr("Scanner brauchen rund um QR-Code und Code 128 einen hellen Rand. Nur abschalten, wenn "
                               "der Rand schon in der Gestaltung vorhanden ist."), self.chk_quiet)
+        box = QVBoxLayout()
+        self.cmb_fit = QComboBox()
+        fill_combo(self.cmb_fit, [("contain", tr("Einpassen – ganzes Bild, Rand bleibt frei")),
+                                  ("cover", tr("Füllen – Kasten voll, Überstand wird abgeschnitten")),
+                                  ("stretch", tr("Verzerren – genau auf den Kasten ziehen"))], "contain")
+        self.cmb_fit.currentIndexChanged.connect(self._field_changed)
+        box.addWidget(self.cmb_fit)
+        row_fb = QHBoxLayout()
+        self.ed_fallback = QLineEdit()
+        self.ed_fallback.setPlaceholderText(tr("kein Ersatzbild – Feld bleibt leer"))
+        self.ed_fallback.textChanged.connect(self._field_changed)
+        self.btn_fallback = QPushButton(tr("Ersatzbild …"))
+        self.btn_fallback.clicked.connect(self._pick_fallback)
+        row_fb.addWidget(self.ed_fallback, 1)
+        row_fb.addWidget(self.btn_fallback)
+        box.addLayout(row_fb)
+        self._field(v, tr("Bild: einpassen und Ersatzbild"),
+                    tr("Der Inhalt ist der Pfad der Bilddatei, meist aus einer Spalte ({{Foto}}) – absolut oder "
+                       "relativ zum Ordner der CSV, ohne Endung wird .png/.jpg/.pdf … gesucht. PDF-Bilder (erste "
+                       "Seite) bleiben Vektor. Das Ersatzbild kommt, wenn die Spalte leer ist oder die Datei fehlt; "
+                       "ohne Ersatzbild meldet „Daten prüfen“ jede fehlende Datei samt CSV-Zeile und das Erzeugen "
+                       "bricht ab. Ausrichtung links/mittig/rechts gilt auch für Bilder."), box)
         row = QHBoxLayout()
         self.spn_x, self.spn_y, self.spn_w, self.spn_h = (QDoubleSpinBox() for _ in range(4))
         for sp, lab in ((self.spn_x, tr("links")), (self.spn_y, tr("oben")), (self.spn_w, tr("Breite")),
@@ -617,11 +646,16 @@ class VdpDialog(QDialog):
     def _add(self, kind):
         W, H = self._page_mm()
         defaults = {"text": ("{{nr}}", 60, 10), "qr": ("{{nr}}", 25, 25), "code128": ("{{nr}}", 50, 15),
-                    "ean13": ("4006381333931", 38, 22)}
+                    "ean13": ("4006381333931", 38, 22), "image": ("{{Bild}}", 40, 30)}
         content, w, h = defaults[kind]
+        if kind == "image":                       # Spalte mit Bildpfaden erraten (Foto, Bild, Logo …)
+            col = next((c for c in self.cols if c.strip().lower() in IMAGE_COLS), None) or next(
+                (c for c in self.cols if any(k in c.lower() for k in IMAGE_COLS)), None)
+            if col:
+                content = "{{" + col + "}}"
         n = len(self.fields)
         self.fields.append(vdp.VdpField(kind=kind, content=content, x_mm=min(10 + 5 * n, W - w), y_mm=min(10 + 5 * n, H - h),
-                                        w_mm=w, h_mm=h))
+                                        w_mm=w, h_mm=h, align="center" if kind == "image" else "left"))
         self._assign_to_window(len(self.fields) - 1)
         self._fill_list()
         self.lst.setCurrentRow(len(self.fields) - 1)
@@ -780,8 +814,15 @@ class VdpDialog(QDialog):
             self.cmb_align.setCurrentIndex(max(0, self.cmb_align.findData(f.align)))
             self.cmb_rot.setCurrentIndex(max(0, self.cmb_rot.findData(int(f.rotate))))
             text = f.kind == "text"
-            for w_ in (self.cmb_font, self.cmb_align):
-                w_.setEnabled(text)
+            img = f.kind == "image"
+            self.cmb_font.setEnabled(text)
+            self.cmb_align.setEnabled(text or img)
+            for w_ in (self.spn_size, self.btn_color):
+                w_.setEnabled(not img)
+            for w_ in (self.cmb_fit, self.ed_fallback, self.btn_fallback):
+                w_.setEnabled(img)
+            self.cmb_fit.setCurrentIndex(max(0, self.cmb_fit.findData(getattr(f, "fit", "contain") or "contain")))
+            self.ed_fallback.setText(getattr(f, "fallback", "") or "")
             self.cmb_qrtype.setCurrentIndex(max(0, self.cmb_qrtype.findData(f.qr_type or "text")))
             self.chk_quiet.setChecked(bool(getattr(f, "quiet", True)))
             self._fill_fieldwin(self._field_of(i))
@@ -817,6 +858,8 @@ class VdpDialog(QDialog):
             f.align = self.cmb_align.currentData() or "left"
             f.rotate = int(self.cmb_rot.currentData() or 0)
             f.quiet = self.chk_quiet.isChecked()
+            f.fit = self.cmb_fit.currentData() or "contain"
+            f.fallback = self.ed_fallback.text().strip()
             item = self.lst.item(i)
             if item is not None:
                 item.setText(_item_text(i, f, self._field_of(i) if len(self.windows) > 1 else -1))
@@ -937,6 +980,13 @@ class VdpDialog(QDialog):
             self._color = c.name()
             self._paint_color()
             self._field_changed()
+
+    def _pick_fallback(self):
+        start = os.path.dirname(self.ed_fallback.text()) or os.path.dirname(self.ed_csv.text().strip())
+        p, _ = QFileDialog.getOpenFileName(self, tr("Ersatzbild wählen"), start,
+                                           tr("Bilder") + f" ({IMAGE_FILTER});;" + tr("Alle (*)"))
+        if p:
+            self.ed_fallback.setText(p)
 
     def _pick_csv(self):
         p, _ = QFileDialog.getOpenFileName(self, tr("CSV-Datei wählen"), "", tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)"))
