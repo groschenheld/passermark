@@ -5,6 +5,23 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.14
+
+### Színpipetta
+- Új a „Szín” menüben, nyomógombként a nyomás-előkészítésben és a szerkesztésben, valamint Ctrl+Shift+C: egy kattintás az oldalon kis ablakot nyit.
+- „Objektum”: szöveg, felület, kontúr, kép (pixelmérettel és ppi-vel) vagy papír.
+- „A PDF-ben”: a szín pontosan úgy, ahogyan ott áll – CMYK összfedéssel, RGB hexakóddal, szürke, direkt szín névvel és színértékkel, képeknél a pixelérték.
+- „Nyomtatásban”: C, M, Y és K százalékban plusz összfedés, az ablak tetején választható nyomtatási feltétellel számolva (mint a színellenőrzésnél). RGB-nél látszik, mennyi CMYK lesz belőle. A határérték feletti szám piros lesz.
+- „Átvétel CMYK-ként” / „Átvétel RGB-ként”: a szín utána már be van írva a Szerkesztés -> „Szín …” alá. „Másolás” minden értéket szövegként a vágólapra tesz.
+- Az Esc befejezi a pipettát; utána az ember visszakerül az előző módba.
+
+### Mozgatás a szerkesztésben
+- A szerkesztőablakban új „Mozgatás” szakasz van.
+- „Illesztés”: a kijelölés élei és közepe húzás közben az oldal széléhez, a végső formátumhoz, az alávágáshoz, az oldal közepéhez, más objektumokhoz és a rácshoz illeszkednek; szaggatott segédvonal mutatja, hová. lenyomott Shifttel szabadon húzható.
+- „Rács”: szélesség mm-ben, az oldal bal felső sarkától mérve; a 0 kikapcsolja a rácsot.
+- A „vonalzók” a szerkesztő módban automatikusan bekapcsolódnak, és ott kikapcsolhatók.
+- Az állapotsor húzás közben mutatja az eltolást, valamint a bal és a felső pozíciót mm-ben.
+- „Lépésenként”: értéket beírni mm-ben, pt-ben vagy px-ben, majd a <- -> ^ v gombokkal vagy a nyilakkal mozgatni; a Shift a tízszeresét mozgat. Ez működik szövegre, objektumokra és rétegekre, fordított nézetnél is. A „px” itt 1/72 hüvelyk, tehát ugyanannyi, mint a pt.
 ## 1.18.13
 
 ### Objektumszerkesztés: nincs több szövegvesztés
@@ -19,7 +36,6 @@
 
 ### Dokumentum-ellenőrzés
 - A hajszálvonal-figyelmeztetés (0,1 mm-nél vékonyabb) visszakerült – 1.18.2 óta tévedésből hiányzott.
-
 ## 1.18.12
 
 ### Változó adatok: képmezők

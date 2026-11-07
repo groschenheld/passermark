@@ -955,6 +955,8 @@ class VdpDialog(QDialog):
 
     def _show_vars(self):
         dlg = VariablesDialog(self, self.cols)
+        from .common import responsive
+        responsive(dlg)
         dlg.chosen.connect(self._insert)
         dlg.show()
 

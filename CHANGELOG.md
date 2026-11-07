@@ -2,6 +2,23 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.14
+
+### Colour eyedropper
+- New in the "Colour" menu, as a button in print preparation and edit mode, and with Ctrl+Shift+C: one click on the page opens a small window.
+- "Object": text, area, contour, image (with pixel size and ppi) or paper.
+- "In the PDF": the colour as it stands there – CMYK with total coverage, RGB with hex code, grey, spot colour with name and tint, for images the pixel value.
+- "In print": C, M, Y and K in percent plus total coverage, computed with the print condition chosen at the top of the window (as in the colour check). For RGB it shows how much CMYK comes out of it. A value above the limit turns red.
+- "Take as CMYK" / "Take as RGB": the colour is then already entered under Edit -> "Colour ...". "Copy" puts all values on the clipboard as text.
+- Esc ends the eyedropper; after that you are back in the mode you were in before.
+
+### Moving in edit mode
+- The edit window has a new "Move" section.
+- "Snap": edges and centre of the selection snap to the page edge, final format, bleed, page centre, other objects and the grid while dragging; a dashed guide line shows where. With Shift held you drag freely.
+- "Grid": width in mm, measured from the top left corner of the page; 0 switches the grid off.
+- "Rulers" turn on automatically in edit mode and can be switched off there.
+- The status bar shows the offset and the position left and top in mm while dragging.
+- "Step by step": enter a value in mm, pt or px, then move with the buttons <- -> ^ v or the arrow keys; Shift moves ten times as far. This works for text, objects and layers, also with a rotated view. "px" here is 1/72 inch, so the same as pt.
 ## 1.18.13
 
 ### Object editing: no more text loss
@@ -16,7 +33,6 @@
 
 ### Document check
 - The hairline warning (thinner than 0.1 mm) is back – it had accidentally been missing since 1.18.2.
-
 ## 1.18.12
 
 ### Variable data: image fields

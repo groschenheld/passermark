@@ -139,6 +139,15 @@ def window_modal_dialogs():
                 self.setWindowModality(_Qt.WindowModality.WindowModal)
         except Exception:
             pass
+        try:                                     # eigene Fenster: Knopfreihen umbrechen, Formulare umbrechen
+            if type(self).__module__.startswith("pdfdruck") and not getattr(self, "_pm_responsive", False):
+                self._pm_responsive = True
+                responsive(self)
+                scr = (self.parentWidget() or self).screen().availableGeometry()
+                if self.minimumSizeHint().height() > scr.height() - 60:
+                    scroll_body(self)            # höher als der Bildschirm: Inhalt scrollt, Knöpfe bleiben
+        except Exception:
+            pass
         try:                                     # never larger than the screen (small notebooks)
             scr = (self.parentWidget() or self).screen().availableGeometry()
             w, h = min(self.width(), scr.width() - 40), min(self.height(), scr.height() - 60)
@@ -187,3 +196,168 @@ def no_enter_default(dialog):
     for b in dialog.findChildren(QPushButton):
         b.setAutoDefault(False)
         b.setDefault(False)
+
+
+# --------------------------------------------------------------------------- #
+# Responsive (1.18.14): Knopfreihen brechen um, statt das Fenster/Panel breiter zu machen
+# --------------------------------------------------------------------------- #
+from PySide6.QtCore import QPoint, QRect, QSize        # noqa: E402
+from PySide6.QtWidgets import QLayout                  # noqa: E402
+
+
+class FlowLayout(QLayout):
+    """Reihe, die bei wenig Platz in die nächste Zeile umbricht (wie Text). Kennt heightForWidth, damit
+        Scrollbereiche und Docks die richtige Höhe bekommen."""
+
+    def __init__(self, parent=None, hspacing: int = 6, vspacing: int = 6):
+        super().__init__(parent)
+        self._items = []
+        self._h, self._v = hspacing, vspacing
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, item):
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):
+        return self._items[i] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):
+        return self._items.pop(i) if 0 <= i < len(self._items) else None
+
+    def hasHeightForWidth(self):
+        return True
+
+    def heightForWidth(self, width):
+        return self._do(QRect(0, 0, width, 0), True)
+
+    def setGeometry(self, rect):
+        super().setGeometry(rect)
+        self._do(rect, False)
+
+    def sizeHint(self):
+        w = h = 0
+        for it in self._items:
+            if it.isEmpty():
+                continue
+            sh = it.sizeHint()
+            w += sh.width() + (self._h if w else 0)
+            h = max(h, sh.height())
+        m = self.contentsMargins()
+        return QSize(w + m.left() + m.right(), h + m.top() + m.bottom())
+
+    def minimumSize(self):
+        size = QSize()
+        for it in self._items:
+            if not it.isEmpty():
+                size = size.expandedTo(it.minimumSize())
+        m = self.contentsMargins()
+        return size + QSize(m.left() + m.right(), m.top() + m.bottom())
+
+    def _do(self, rect, test: bool) -> int:
+        m = self.contentsMargins()
+        r = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
+        x, y, line_h = r.x(), r.y(), 0
+        row = []
+
+        def place(items, y0, h):
+            for it, xx in items:
+                sh = it.sizeHint()
+                it.setGeometry(QRect(QPoint(xx, y0 + (h - sh.height()) // 2), sh))
+        for it in self._items:
+            if it.isEmpty():
+                continue
+            sh = it.sizeHint()
+            nx = x + sh.width() + self._h
+            if nx - self._h > r.right() + 1 and line_h > 0:
+                if not test:
+                    place(row, y, line_h)
+                row, x, y = [], r.x(), y + line_h + self._v
+                nx, line_h = x + sh.width() + self._h, 0
+            row.append((it, x))
+            x, line_h = nx, max(line_h, sh.height())
+        if not test:
+            place(row, y, line_h)
+        return y + line_h - rect.y() + m.bottom()
+
+
+def flow_buttons(root, minimum: int = 3):
+    """Waagrechte Reihen, die nur aus Knöpfen bestehen (ab `minimum`), in FlowLayouts umbauen."""
+    from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QHBoxLayout
+    for lay in list(root.findChildren(QHBoxLayout)):
+        parent = lay.parent()
+        if not isinstance(parent, QBoxLayout):
+            continue
+        widgets, ok = [], True
+        for i in range(lay.count()):
+            it = lay.itemAt(i)
+            if it.widget() is not None:
+                if not isinstance(it.widget(), QAbstractButton):
+                    ok = False
+                    break
+                widgets.append(it.widget())
+            elif it.layout() is not None:
+                ok = False
+                break
+        if not ok or len(widgets) < minimum:
+            continue
+        idx = next((i for i in range(parent.count()) if parent.itemAt(i).layout() is lay), -1)
+        if idx < 0:
+            continue
+        stretch = parent.stretch(idx)
+        parent.takeAt(idx)
+        flow = FlowLayout()
+        for w_ in widgets:
+            lay.removeWidget(w_)
+            flow.addWidget(w_)
+        parent.insertLayout(idx, flow, stretch)
+        lay.setParent(None)
+        lay.deleteLater()
+
+
+def responsive(root):
+    """Alles, was ein Fenster oder Panel schmal werden lässt: Formulare umbrechen, Auswahllisten und lange Texte
+        dürfen schmaler werden, Knopfreihen brechen um."""
+    from PySide6.QtWidgets import QLabel, QSizePolicy
+    fit_width(root)
+    for lb in root.findChildren(QLabel):
+        if lb.wordWrap():
+            lb.setMinimumWidth(0)
+            lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
+    flow_buttons(root)
+
+
+def scroll_body(dlg) -> bool:
+    """Inhalt eines Fensters in einen Scrollbereich legen, die Knopfleiste unten (OK/Abbrechen) bleibt stehen.
+        Für Fenster, die auf kleinen Bildschirmen höher als der Platz sind. -> umgebaut?"""
+    from PySide6.QtWidgets import QBoxLayout, QDialogButtonBox, QFrame, QScrollArea, QVBoxLayout, QWidget
+    top = dlg.layout()
+    if not isinstance(top, QBoxLayout) or top.count() == 0:
+        return False
+    if any(isinstance(top.itemAt(i).widget(), QScrollArea) for i in range(top.count())):
+        return False                                       # hat schon einen
+    last = top.itemAt(top.count() - 1).widget()
+    n = top.count() - (1 if isinstance(last, QDialogButtonBox) else 0)
+    inner = QWidget()
+    il = QVBoxLayout(inner)
+    il.setContentsMargins(0, 0, 0, 0)
+    for _ in range(n):
+        st = top.stretch(0)
+        it = top.takeAt(0)
+        if it.widget() is not None:
+            il.addWidget(it.widget(), st)
+        elif it.layout() is not None:
+            lay = it.layout()
+            lay.setParent(None)
+            il.addLayout(lay, st)
+        else:
+            il.addItem(it)
+    sa = QScrollArea()
+    sa.setWidgetResizable(True)
+    sa.setFrameShape(QFrame.Shape.NoFrame)
+    sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    sa.setWidget(inner)
+    top.insertWidget(0, sa, 1)
+    return True

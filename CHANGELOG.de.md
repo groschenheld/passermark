@@ -2,6 +2,23 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.14
+
+### Farbpipette
+- Neu im Menü „Farbe“, als Knopf in Druckaufbereitung und Bearbeiten und mit Strg+Umschalt+C: Ein Klick auf die Seite öffnet ein kleines Fenster.
+- „Objekt“: Text, Fläche, Kontur, Bild (mit Pixelmaß und ppi) oder Papier.
+- „Im PDF“: die Farbe, wie sie dort steht – CMYK mit Gesamtwert, RGB mit Hex-Code, Grau, Sonderfarbe mit Name und Tonwert, bei Bildern der Pixelwert.
+- „Im Druck“: C, M, Y und K in Prozent plus Gesamtauftrag, gerechnet mit der Druckbedingung, die oben im Fenster wählbar ist (wie bei der Farbprüfung). Bei RGB zeigt es, wie viel CMYK daraus wird. Liegt ein Wert über dem Richtwert, wird er rot.
+- „Als CMYK übernehmen“ / „Als RGB übernehmen“: Die Farbe steht danach bei Bearbeiten → „Farbe …“ schon eingetragen. „Kopieren“ legt alle Werte als Text in die Zwischenablage.
+- Esc beendet die Pipette; danach ist man wieder im vorherigen Modus.
+
+### Verschieben im Bearbeiten
+- Im Bearbeiten-Fenster gibt es neu den Bereich „Verschieben“.
+- „Einrasten“: Kanten und Mitte der Auswahl rasten beim Ziehen an Seitenrand, Endformat, Anschnitt, Seitenmitte, anderen Objekten und am Raster ein; eine gestrichelte Hilfslinie zeigt, wo. Mit gedrückter Umschalttaste zieht man frei.
+- „Raster“: Weite in mm, gemessen ab der linken oberen Ecke der Seite; 0 schaltet das Raster aus.
+- „Lineale“ gehen im Bearbeiten-Modus automatisch an und lassen sich dort abschalten.
+- In der Statuszeile steht beim Ziehen die Verschiebung und die Lage links und oben in mm.
+- „Schrittweise“: Wert in mm, pt oder px eingeben, dann mit den Knöpfen ← → ↑ ↓ oder den Pfeiltasten verschieben; Umschalt verschiebt um das Zehnfache. Das geht für Text, Objekte und Ebenen, auch bei gedrehter Ansicht. „px“ ist hier 1/72 Zoll, also gleich viel wie pt.
 ## 1.18.13
 
 ### Objektbearbeitung: kein Textverlust mehr
@@ -16,7 +33,6 @@
 
 ### Dokumentprüfung
 - Die Warnung vor Haarlinien (dünner als 0,1 mm) ist wieder drin – sie war seit 1.18.2 versehentlich nicht mehr enthalten.
-
 ## 1.18.12
 
 ### Variable Daten: Bildfelder

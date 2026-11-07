@@ -186,12 +186,191 @@ class EditPanel(QWidget):
 
         self._tab_names = [tr("Text"), tr("Objekte"), tr("Ebenen")]
         self._last_color = ("cmyk", (0.0, 0.0, 0.0, 1.0))
+        v.addWidget(self._build_move_box())
         self.btn_undo = QPushButton(tr("Rückgängig"))
         self.btn_undo.clicked.connect(self._undo)
         self.btn_undo.setEnabled(False)
         v.addWidget(self.btn_undo)
+        from .common import responsive
+        responsive(self)                      # Knopfreihen umbrechen, nichts abschneiden bei schmalem Panel
+        self.setMinimumWidth(0)
 
     # ------------------------------------------------------------------ #
+    # Verschieben (1.18.14): Einrasten, Raster, Lineale, schrittweise um mm/pt/px
+    MOVE_UNITS = {"mm": 72 / 25.4, "pt": 1.0, "px": 1.0}
+
+    def _move_settings(self) -> dict:
+        from .. import l10n
+        d = l10n.load_settings().get("edit_move")
+        base = {"snap": True, "grid_mm": 0.0, "rulers": True, "step": 1.0, "unit": "mm"}
+        if isinstance(d, dict):
+            base.update({k: v for k, v in d.items() if k in base})
+        return base
+
+    def _save_move_settings(self, *_):
+        from .. import l10n
+        if getattr(self, "_move_loading", True):
+            return
+        st = l10n.load_settings()
+        st["edit_move"] = {"snap": self.chk_snap.isChecked(), "grid_mm": self.spn_grid.value(),
+                           "rulers": self.chk_rulers.isChecked(), "step": self.spn_step.value(),
+                           "unit": self.cmb_unit.currentData() or "mm"}
+        try:
+            l10n.save_settings(st)
+        except OSError:
+            pass
+
+    def _build_move_box(self):
+        from PySide6.QtWidgets import QCheckBox, QGroupBox
+        from .common import FlowLayout
+        self._move_loading = True
+        ms = self._move_settings()
+        box = QGroupBox(tr("Verschieben"))
+        g = QVBoxLayout(box)
+        self.chk_snap = QCheckBox(tr("Einrasten"))
+        self.chk_snap.setToolTip(tr("Beim Ziehen rasten Kanten und Mitte der Auswahl an Seitenrand, Endformat, "
+                                    "Anschnitt, Seitenmitte, anderen Objekten und am Raster ein. Umschalt gedrückt "
+                                    "halten = frei ziehen."))
+        self.chk_snap.setChecked(bool(ms["snap"]))
+        self.spn_grid = QDoubleSpinBox()
+        self.spn_grid.setRange(0, 500)
+        self.spn_grid.setDecimals(1)
+        self.spn_grid.setSuffix(" mm")
+        self.spn_grid.setSpecialValueText(tr("kein Raster"))
+        self.spn_grid.setToolTip(tr("Rasterweite ab der linken oberen Ecke der Seite (0 = kein Raster)"))
+        self.spn_grid.setValue(float(ms["grid_mm"] or 0))
+        self.chk_rulers = QCheckBox(tr("Lineale"))
+        self.chk_rulers.setToolTip(tr("Lineale im Bearbeiten-Modus einblenden"))
+        self.chk_rulers.setChecked(bool(ms["rulers"]))
+        self.chk_rulers.toggled.connect(self._rulers_toggled)
+        r1 = FlowLayout()                                  # bricht bei schmalem Panel um
+        for w_ in (self.chk_snap, QLabel(tr("Raster:")), self.spn_grid, self.chk_rulers):
+            r1.addWidget(w_)
+        g.addLayout(r1)
+        self.spn_step = QDoubleSpinBox()
+        self.spn_step.setRange(0.01, 1000)
+        self.spn_step.setDecimals(2)
+        self.spn_step.setValue(float(ms["step"] or 1.0))
+        self.spn_step.setToolTip(tr("Schrittweite für die Pfeilknöpfe und die Pfeiltasten (Umschalt = ×10)"))
+        self.cmb_unit = QComboBox()
+        for u, t in (("mm", "mm"), ("pt", "pt"), ("px", tr("px (72 dpi)"))):
+            self.cmb_unit.addItem(t, u)
+        self.cmb_unit.setCurrentIndex(max(0, self.cmb_unit.findData(ms["unit"])))
+        row = FlowLayout()
+        row.addWidget(QLabel(tr("Um:")))
+        row.addWidget(self.spn_step)
+        row.addWidget(self.cmb_unit)
+        for arrow, tip, d in (("←", tr("nach links"), (-1, 0)), ("→", tr("nach rechts"), (1, 0)),
+                              ("↑", tr("nach oben"), (0, -1)), ("↓", tr("nach unten"), (0, 1))):
+            b = QPushButton(arrow)
+            b.setToolTip(tip + " – " + tr("auch mit den Pfeiltasten, Umschalt = ×10"))
+            b.setFixedWidth(34)
+            b.clicked.connect(lambda _=False, d=d: self.nudge(d[0], d[1]))
+            row.addWidget(b)
+        g.addLayout(row)
+        for w_ in (self.chk_snap, self.chk_rulers):
+            w_.toggled.connect(self._save_move_settings)
+        for w_ in (self.spn_grid, self.spn_step):
+            w_.valueChanged.connect(self._save_move_settings)
+        self.cmb_unit.currentIndexChanged.connect(self._save_move_settings)
+        self._move_loading = False
+        return box
+
+    def _rulers_toggled(self, on: bool):
+        a = getattr(self.win, "a_rulers", None)
+        if a is not None and self.win.view.imode == "edit" and a.isChecked() != bool(on):
+            a.setChecked(bool(on))
+
+    def rulers_wanted(self) -> bool:
+        return bool(getattr(self, "chk_rulers", None) is not None and self.chk_rulers.isChecked())
+
+    def _page_widget(self):
+        pages = self.win.view.pages
+        return pages[self.page] if 0 <= self.page < len(pages) else None
+
+    def _screen_dir(self, sx: float, sy: float) -> tuple:
+        """Bildschirmrichtung (rechts = +x, unten = +y) -> Einheitsvektor in Seitenkoordinaten (Drehung beachtet)."""
+        import math
+        w = self._page_widget()
+        if w is None:
+            return sx, -sy
+        from PySide6.QtCore import QPointF
+        cx, cy = w.width() / 2, w.height() / 2
+        a = self.win.view.to_page(w, QPointF(cx, cy))
+        b = self.win.view.to_page(w, QPointF(cx + sx * 50, cy + sy * 50))
+        vx, vy = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(vx, vy) or 1.0
+        return vx / n, vy / n
+
+    def nudge(self, sx: int, sy: int, factor: float = 1.0):
+        """Auswahl um die eingestellte Schrittweite in Bildschirmrichtung verschieben (Knöpfe, Pfeiltasten)."""
+        if getattr(self, "_busy", False):
+            return
+        box = self.sel_box
+        if box is None:
+            self.win.statusBar().showMessage(tr("Bitte zuerst etwas auswählen (Liste oder Klick auf die Seite)."), 4000)
+            return
+        step = self.spn_step.value() * self.MOVE_UNITS.get(self.cmb_unit.currentData() or "mm", 1.0) * factor
+        ux, uy = self._screen_dir(sx, sy)
+        dx, dy = ux * step, uy * step
+        nb = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
+        self._apply_transform(box, 1.0, dx, dy, (0.0, 0.0), nb)
+
+    def _snap_move(self, box, dx, dy):
+        """Verschiebung einrasten -> (dx, dy, Hilfslinien [(x0, y0, x1, y1)]). Umschalt = frei."""
+        if not self.chk_snap.isChecked() and not self.spn_grid.value():
+            return dx, dy, []
+        if QApplication.keyboardModifiers() & Qt.KeyboardModifier.ShiftModifier:
+            return dx, dy, []
+        view, w = self.win.view, self._page_widget()
+        if w is None:
+            return dx, dy, []
+        tol = view._tol_pt(w) * 8 / 7                      # ~8 Bildschirmpixel
+        try:
+            crop = tuple(view._textpage(self.page)[0].get_cropbox())
+        except Exception:                                  # noqa: BLE001
+            crop = (0.0, 0.0) + tuple(self.win.doc.get_page_size(self.page))
+        xs, ys = [], []
+        if self.chk_snap.isChecked():
+            bx, by, ox, oy = view._snap_candidates(w)
+            own_x, own_y = (box[0], box[2], (box[0] + box[2]) / 2), (box[1], box[3], (box[1] + box[3]) / 2)
+            xs = list(bx) + [(crop[0] + crop[2]) / 2] + [v for v in ox if min(abs(v - o) for o in own_x) > 0.05]
+            ys = list(by) + [(crop[1] + crop[3]) / 2] + [v for v in oy if min(abs(v - o) for o in own_y) > 0.05]
+        step = self.spn_grid.value() * 72 / 25.4
+        guides = []
+
+        def best(edges, cands, grid_fn):
+            pick = None
+            for e in edges:
+                for c in cands + ([grid_fn(e)] if step > 0 else []):
+                    d = c - e
+                    if abs(d) <= tol and (pick is None or abs(d) < abs(pick[0])):
+                        pick = (d, c)
+            return pick
+        mx = best((box[0] + dx, box[2] + dx, (box[0] + box[2]) / 2 + dx), xs,
+                  lambda e: crop[0] + round((e - crop[0]) / step) * step)
+        my = best((box[1] + dy, box[3] + dy, (box[1] + box[3]) / 2 + dy), ys,
+                  lambda e: crop[3] - round((crop[3] - e) / step) * step)
+        if mx:
+            dx += mx[0]
+            guides.append((mx[1], crop[1], mx[1], crop[3]))
+        if my:
+            dy += my[0]
+            guides.append((crop[0], my[1], crop[2], my[1]))
+        return dx, dy, guides
+
+    def _move_status(self, box, dx, dy):
+        from .. import l10n, measure as ms
+        try:
+            crop = tuple(self.win.view._textpage(self.page)[0].get_cropbox())
+        except Exception:                                  # noqa: BLE001
+            crop = (0.0, 0.0) + tuple(self.win.doc.get_page_size(self.page))
+        mm = 25.4 / 72
+        lang = l10n.current()
+        self.win.statusBar().showMessage(tr("Verschoben: {0} / {1} mm · Lage links {2} mm, oben {3} mm").format(
+            ms.fmt(dx * mm, lang), ms.fmt(dy * mm, lang), ms.fmt((box[0] + dx - crop[0]) * mm, lang),
+            ms.fmt((crop[3] - box[3] - dy) * mm, lang)), 3000)
+
     @property
     def page(self) -> int:
         return self.win.view.current
@@ -226,6 +405,8 @@ class EditPanel(QWidget):
             Zwischendatei vor (von der Prüfung) – die Vorschau übernimmt sie statt neu zu schreiben."""
         import pypdfium2 as pdfium
         page = self.page
+        if pages is None:
+            pages = [page]               # Ansicht bleibt an der Stelle (Rückgängig, Ebenen, Reihenfolge …)
         self.win._set_doc(pdfium.PdfDocument(data), self.win.path, self.win.display_name, True, keep_page=page,
                           src=src_path if src_path and os.path.isfile(src_path) else data, changed_pages=pages)
 
@@ -285,8 +466,8 @@ class EditPanel(QWidget):
             self._replace_doc(self.undo.pop())
             self.btn_undo.setEnabled(bool(self.undo))
 
-    def _overlay(self, rects=None, preview=None):
-        """Auswahlrahmen mit Eckgriffen; optional gestrichelte Vorschau (beim Ziehen)."""
+    def _overlay(self, rects=None, preview=None, guides=()):
+        """Auswahlrahmen mit Eckgriffen; optional gestrichelte Vorschau (beim Ziehen) und Hilfslinien (Einrasten)."""
         view = self.win.view
         items = list(rects or [])
         if items:
@@ -299,6 +480,8 @@ class EditPanel(QWidget):
             self.sel_box = None
         if preview is not None:
             items.append((*preview, items[0][4] if items else SEL_LAYER, "dash"))
+        for gl in guides:
+            items.append((*gl, theme.ACCENT, "guide"))
         view.overlay = {self.page: items} if items else {}
         if 0 <= self.page < len(view.pages):
             view.pages[self.page].update()
@@ -369,6 +552,7 @@ class EditPanel(QWidget):
             return s, 0.0, 0.0, (cx - w, cy - h, cx + w, cy + h)
         if d["kind"] == "move":
             dx, dy = x - d["start"][0], y - d["start"][1]
+            dx, dy, d["guides"] = self._snap_move(d["box"], dx, dy)
             return 1.0, dx, dy, (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
         ax, ay = d["anchor"]
         cx, cy = d["corner"]
@@ -383,7 +567,9 @@ class EditPanel(QWidget):
             return
         s, _dx, _dy, nb = self._preview(x, y)
         col = SEL_TEXT if self.tabs.currentIndex() == 0 else SEL_LAYER
-        self._overlay([(*self._dstate["box"], col)], preview=nb)
+        self._overlay([(*self._dstate["box"], col)], preview=nb, guides=self._dstate.get("guides") or ())
+        if self._dstate["kind"] == "move":
+            self._move_status(self._dstate["box"], _dx, _dy)
         if self._dstate["kind"] in ("scale", "scale_radial"):
             if self.tabs.currentIndex() == 0 and self.lines:
                 L = self.lines[self.lst_text.currentRow()] if 0 <= self.lst_text.currentRow() < len(self.lines) else None
@@ -406,7 +592,10 @@ class EditPanel(QWidget):
         if abs(s - 1) < 0.005 and abs(dx) < 0.5 and abs(dy) < 0.5:
             self._overlay([(*d["box"], SEL_TEXT if self.tabs.currentIndex() == 0 else SEL_LAYER)])
             return                                   # nur geklickt, nicht gezogen
-        origin = d.get("anchor", (0.0, 0.0))
+        self._apply_transform(d["box"], s, dx, dy, d.get("anchor", (0.0, 0.0)), nb)
+
+    def _apply_transform(self, box, s, dx, dy, origin, nb):
+        """Skalieren/Verschieben der Auswahl anwenden (Textzeilen, Objekte oder Ebene) – mit Rückgängig."""
         try:
             if self.tabs.currentIndex() == 0:
                 lines = self._selected_lines()
@@ -435,8 +624,8 @@ class EditPanel(QWidget):
                     return
 
                 def run_obj(data):
-                    return self._pdfium_edit(data, self.page,
-                                             lambda d: editing.transform_objects_bulk(d, self.page, objs, s, dx, dy, origin))[0]
+                    from .. import editops
+                    return editops.move_objects(data, self.page, objs, s, dx, dy, origin)[0]
                 if self._text_edit(run_obj, [O.bbox for O in objs] + [nb], op="move_objects",
                                    kwargs={"objs": objs, "s": s, "dx": dx, "dy": dy, "origin": origin}):
                     self._reselect_object(nb)
@@ -1034,8 +1223,8 @@ class EditPanel(QWidget):
         scale, dx, dy, origin, _all = dlg.values(box, pb)
         moved = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
         try:
-            if self._text_edit(lambda data: self._pdfium_edit(
-                    data, self.page, lambda d: editing.transform_objects_bulk(d, self.page, sel, scale, dx, dy, origin))[0],
+            from .. import editops
+            if self._text_edit(lambda data: editops.move_objects(data, self.page, sel, scale, dx, dy, origin)[0],
                     [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
                     op="move_objects", kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin}):
                 self._reselect_object(self._grow_box(moved, scale) if len(sel) == 1 else moved)
@@ -1048,8 +1237,8 @@ class EditPanel(QWidget):
             QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
             return
         try:
-            if self._text_edit(lambda data: self._pdfium_edit(
-                    data, self.page, lambda d: editing.delete_objects(d, self.page, sel))[0], [O.bbox for O in sel],
+            from .. import editops
+            if self._text_edit(lambda data: editops.delete_objects(data, self.page, sel)[0], [O.bbox for O in sel],
                     op="delete_objects", kwargs={"objs": sel}):
                 self._overlay(None)
         except Exception as e:

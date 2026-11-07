@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDial
 
 from .. import images
 from . import theme
-from .common import MAX_RENDER_EDGE, render_pixmap
+from .common import MAX_RENDER_EDGE, render_pixmap, responsive
 from .icons import icon as svg_icon
 
 from .. import convert as _convert
@@ -396,6 +396,8 @@ class PageView(QScrollArea):
         self.meas = None          # Messung: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
         self.on_measure = None    # callback (text for the status bar)
         self.on_cursor = None     # callback (page widget, mouse position) for the rulers
+        self.on_pipette = None    # callback (Seite, x, y) – Farbpipette (imode "pipette")
+        self.on_pipette_exit = None
         self.editor = None        # Bearbeiten-Seitenleiste: press/drag/release/cursor (Seitenkoordinaten)
         self._edrag = False
         self.overlay = {}         # Seite -> [(x0, y0, x1, y1, Farbe)] in Seitenkoordinaten
@@ -428,6 +430,8 @@ class PageView(QScrollArea):
             bis die neuen da sind; die bearbeiteten Seiten kommen zuerst dran."""
         old = self.pages
         keep = changed_pages is not None and len(old) == len(doc)
+        # Bearbeiten: an der Stelle bleiben, an der gerade gearbeitet wird (nicht an den Seitenanfang springen)
+        stay = (self.verticalScrollBar().value(), self.horizontalScrollBar().value()) if keep else None
         for w in self.pages:          # Seiten des vorherigen Dokuments entsorgen
             w.deleteLater()
         self._close_textpages()
@@ -453,7 +457,17 @@ class PageView(QScrollArea):
         self._open_render(src)
         self.current = min(keep_page or 0, max(0, len(self.pages) - 1))
         self.relayout()
-        self.goto(self.current, force=True)
+        if stay is not None:
+            self._restore_scroll(stay)
+            QTimer.singleShot(0, lambda s=stay, g=self._gen: g == self._gen and self._restore_scroll(s))
+            self.pageChanged.emit(self.current)
+        else:
+            self.goto(self.current, force=True)
+
+    def _restore_scroll(self, pos):
+        """Bildlauf wiederherstellen (gleiche Seitengrößen und gleicher Zoom wie vorher)."""
+        self.verticalScrollBar().setValue(pos[0])
+        self.horizontalScrollBar().setValue(pos[1])
 
     # ---------------- Rendern (eigener Prozess, siehe renderclient.py) ---------------- #
     def _open_render(self, src):
@@ -938,6 +952,16 @@ class PageView(QScrollArea):
         if self.imode == "measure" and e.key() == Qt.Key.Key_Escape:
             self.measure_clear()
             return
+        if self.imode == "pipette" and e.key() == Qt.Key.Key_Escape:
+            if self.on_pipette_exit is not None:
+                self.on_pipette_exit()
+            return
+        arrows = {Qt.Key.Key_Left: (-1, 0), Qt.Key.Key_Right: (1, 0), Qt.Key.Key_Up: (0, -1), Qt.Key.Key_Down: (0, 1)}
+        if (self.imode == "edit" and e.key() in arrows and self.editor is not None
+                and getattr(self.editor, "sel_box", None) is not None and hasattr(self.editor, "nudge")):
+            dx, dy = arrows[e.key()]                   # Auswahl schrittweise verschieben (Umschalt = ×10)
+            self.editor.nudge(dx, dy, 10.0 if e.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1.0)
+            return
         if self.single and self.doc is not None:
             k = e.key()
             vb, hb = self.verticalScrollBar(), self.horizontalScrollBar()
@@ -1312,6 +1336,11 @@ class PageView(QScrollArea):
         if self.imode == "measure":
             self._measure_press(w, e)
             return
+        if self.imode == "pipette":
+            if self.on_pipette is not None and e.button() == Qt.MouseButton.LeftButton:
+                x, y = self.to_page(w, e.position())
+                self.on_pipette(w.index, x, y)
+            return
         if self.imode == "edit":
             x, y = self.to_page(w, e.position())
             if self.editor is not None:
@@ -1333,6 +1362,11 @@ class PageView(QScrollArea):
         if self.imode == "measure":
             w.setCursor(Qt.CursorShape.CrossCursor)
             self._measure_move(w, e)
+            return
+        if self.imode == "pipette":
+            w.setCursor(Qt.CursorShape.CrossCursor)
+            if self.on_cursor is not None:
+                self.on_cursor(w, e.position())
             return
         if self.on_cursor is not None:
             self.on_cursor(w, e.position())
@@ -1370,7 +1404,7 @@ class PageView(QScrollArea):
         return 7.0 * pw / max(1, w.width())
 
     def mouse_double(self, w, e):
-        if self.imode in ("edit", "measure"):
+        if self.imode in ("edit", "measure", "pipette"):
             return
         i = self._char_at(w, e.position(), 12.0)
         if i < 0:
@@ -1476,6 +1510,13 @@ class PageView(QScrollArea):
             for item in items:
                 x0, y0, x1, y1, c = item[:5]
                 style = item[5] if len(item) > 5 else ""
+                if style == "guide":                   # Hilfslinie beim Einrasten
+                    pen = QPen(QColor(c), 1)
+                    pen.setStyle(Qt.PenStyle.DashLine)
+                    p.setPen(pen)
+                    a, b = self.to_widget(w, x0, y0), self.to_widget(w, x1, y1)
+                    p.drawLine(a[0], a[1], b[0], b[1])
+                    continue
                 if style == "dash" and items and w.master is not None and w.width() > 0:
                     # Ziehen: das Objekt als Bild mitschieben (aus dem Seitenbild, ohne neu zu rendern)
                     sx0, sy0, sx1, sy1 = items[0][:4]
@@ -2133,10 +2174,12 @@ class MainWindow(QMainWindow):
         self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
         tools = {"view": [(self.a_copy, tr("Text kopieren"))],
                  "prep": [(self.a_preflight, tr("Prüfen")), (self.a_colorcheck, tr("Farbe")),
+                          (self.a_pipette, tr("Pipette")),
                           (self.a_press, tr("Für Druckerei")), (self.a_manip_cmyk, tr("CMYK")),
                           (self.a_manip_crop, tr("Beschneiden")), (self.a_cut, tr("CutContour")),
                           (self.a_separate, tr("Objekte trennen")), (self.a_repair, tr("Reparieren"))],
-                 "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_ins_after, tr("Einfügen")),
+                 "edit": [(self.a_edit, tr("Text/Ebenen")), (self.a_pipette, tr("Pipette")),
+                          (self.a_ins_after, tr("Einfügen")),
                           (self.a_delete, tr("Löschen")), (self.a_rot_l, tr("Links drehen")),
                           (self.a_rot_r, tr("Rechts drehen")), (self.a_up, tr("Nach vorne")),
                           (self.a_down, tr("Nach hinten")), (self.a_split, tr("Teilen")),
@@ -2171,7 +2214,12 @@ class MainWindow(QMainWindow):
         tb.setStyleSheet(f"QToolButton#workspace {{ padding: 3px 10px; border-bottom: 2px solid transparent; }}"
                          f"QToolButton#workspace:checked {{ color: {theme.ACCENT}; border-bottom: 2px solid {theme.ACCENT};"
                          f" background: transparent; }}")
-        tb.addSeparator()
+        # Werkzeuge des Bereichs in einer eigenen Leiste: wird das Fenster schmal, rutscht sie in die nächste
+        # Zeile (statt hinter dem »-Pfeil zu verschwinden) – siehe _fit_toolbars
+        tb = self.ws_tools_bar = self.addToolBar(tr("Werkzeuge des Arbeitsbereichs"))
+        tb.setObjectName("workspace_tools")
+        tb.setMovable(False)
+        tb.setIconSize(QSize(18, 18))
         self.ws_tools = {}
         for key, acts in tools.items():
             holders = []
@@ -2187,12 +2235,29 @@ class MainWindow(QMainWindow):
         key = l10n.load_settings().get("workspace", "view")
         self.set_workspace(key if key in self.ws_actions else "view", remember=False)
 
+    def _fit_toolbars(self):
+        """Werkzeugleiste des Arbeitsbereichs neben den Bereichen, wenn Platz ist – sonst in eigener Zeile."""
+        tb, tt = getattr(self, "ws_bar", None), getattr(self, "ws_tools_bar", None)
+        if tb is None or tt is None:
+            return
+        want = tb.sizeHint().width() + tt.sizeHint().width() + 24 > self.width()
+        if want != bool(self.toolBarBreak(tt)):
+            if want:
+                self.insertToolBarBreak(tt)
+            else:
+                self.removeToolBarBreak(tt)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit_toolbars()
+
     def set_workspace(self, key: str, remember: bool = True):
         self.workspace = key
         self.ws_actions[key].setChecked(True)
         for k, holders in self.ws_tools.items():
             for h in holders:
                 h.setVisible(k == key)
+        self._fit_toolbars()
         if key != "edit" and self.a_edit.isChecked():
             self.a_edit.setChecked(False)                  # edit mode belongs to the Edit area
         if key == "prep":
@@ -2310,6 +2375,7 @@ class MainWindow(QMainWindow):
         dlg = getattr(self, "_proof_dlg", None)
         if dlg is None:
             dlg = SoftproofDialog(self, self.session.cfg)
+            responsive(dlg)                        # nicht modal (show statt exec): selbst anpassen
             dlg.changed.connect(self._apply_proof)
             self._proof_dlg = dlg
         dlg.show()
@@ -2334,6 +2400,7 @@ class MainWindow(QMainWindow):
     def _build_color(self, pages_dock):
         from .colorpanel import ColorPanel
         self.color_panel = ColorPanel(self)
+        responsive(self.color_panel)
         self.color_panel.data_fn = lambda: self._doc_bytes() if self.doc is not None else None
         self.color_panel.cfg_fn = lambda: self.session.cfg
         self.color_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
@@ -2467,7 +2534,39 @@ class MainWindow(QMainWindow):
             except OSError:
                 pass
 
+    # ---------------- Farbpipette (1.18.14) ---------------- #
+    def _pipette_mode(self, on: bool):
+        if on:
+            if self.a_measure.isChecked():
+                self.a_measure.setChecked(False)
+            if getattr(self, "pipette_dlg", None) is None:
+                from .pipettedialog import PipetteDialog
+                self.pipette_dlg = PipetteDialog(self)
+                self.pipette_dlg.picked.connect(self._pipette_picked)
+                self.pipette_dlg.closed.connect(lambda: self.a_pipette.setChecked(False))
+            self.view.on_pipette = self.pipette_dlg.measure
+            self.view.on_pipette_exit = lambda: self.a_pipette.setChecked(False)
+            self.view.imode = "pipette"
+            self.view.sel = None
+            self.pipette_dlg.show()
+            self.pipette_dlg.raise_()
+            self.statusBar().showMessage(tr("Farbpipette: auf die Seite klicken · Esc = beenden"), 6000)
+        else:
+            if self.view.imode == "pipette":
+                self.view.imode = "edit" if self.a_edit.isChecked() else "text"
+            dlg = getattr(self, "pipette_dlg", None)
+            if dlg is not None and dlg.isVisible():
+                dlg.blockSignals(True)
+                dlg.hide()
+                dlg.blockSignals(False)
+
+    def _pipette_picked(self, kind: str, vals):
+        self.edit_panel._last_color = (kind, tuple(vals))
+        self.statusBar().showMessage(tr("Farbe übernommen – Bearbeiten → „Farbe …“ verwendet sie."), 5000)
+
     def _measure_mode(self, on: bool):
+        if on and self.a_pipette.isChecked():
+            self.a_pipette.setChecked(False)
         if on:
             if self.a_edit.isChecked():
                 self.a_edit.setChecked(False)              # Edit and Measure are mutually exclusive
@@ -2485,6 +2584,10 @@ class MainWindow(QMainWindow):
     def _edit_mode(self, on: bool):
         if on and self.a_measure.isChecked():
             self.a_measure.setChecked(False)
+        if self.a_pipette.isChecked():
+            self.a_pipette.setChecked(False)
+        if on and self.edit_panel.rulers_wanted() and not self.a_rulers.isChecked():
+            self.a_rulers.setChecked(True)             # Lineale beim Bearbeiten (abschaltbar im Bereich Verschieben)
         if on and getattr(self, "workspace", "edit") != "edit":
             self.set_workspace("edit")
         self.view.imode = "edit" if on else "text"
@@ -2504,6 +2607,7 @@ class MainWindow(QMainWindow):
     def _build_preflight(self, pages_dock):
         from .preflightpanel import PreflightPanel
         self.pf_panel = PreflightPanel(self)
+        responsive(self.pf_panel)
         self.pf_panel.data_fn = self._doc_bytes
         self.pf_panel.file_fn = self._file_bytes
         self.pf_panel.result_ready.connect(self._pf_result)
@@ -2739,7 +2843,12 @@ class MainWindow(QMainWindow):
         self.a_colorcheck.setToolTip(tr("Dokument gegen eine Druckbedingung prüfen – mit Empfehlungen"))
         self.a_press = A(tr("Für Druckerei ausgeben …"), lambda: self.press_dialog(), None, "export")
         self.a_press.setToolTip(tr("Umwandeln, Output Intent einbetten, prüfen, speichern – optional als Paket"))
-        for a in (self.a_colorcheck, self.a_proof):
+        self.a_pipette = A(tr("Farbpipette"), lambda: None, "Ctrl+Shift+C", "pipette")
+        self.a_pipette.setCheckable(True)
+        self.a_pipette.setToolTip(tr("Farbe an einer Stelle messen: Werte im PDF, Farbauftrag im Druck je Kanal, "
+                                     "Farbe übernehmen (Esc = beenden)"))
+        self.a_pipette.toggled.connect(self._pipette_mode)
+        for a in (self.a_colorcheck, self.a_pipette, self.a_proof):
             m.addAction(a)
         m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
         m.addSeparator()
@@ -3267,6 +3376,8 @@ class MainWindow(QMainWindow):
         sc.setWidgetResizable(True)
         sc.setFrameShape(QFrame.Shape.NoFrame)
         sc.setWidget(w)
+        # Panels brechen um (common.responsive) – waagrecht scrollen nur, wenn es gar nicht anders geht
+        sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         return sc
 
     def _dock_vis(self, d, vis):

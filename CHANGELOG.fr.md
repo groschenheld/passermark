@@ -5,6 +5,23 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.14
+
+### Pipette à couleur
+- Nouveau dans le menu « Couleur », comme bouton en préparation d'impression et en édition, et avec Ctrl+Maj+C : un clic sur la page ouvre une petite fenêtre.
+- « Objet » : texte, surface, contour, image (avec taille en pixels et ppp) ou papier.
+- « Dans le PDF » : la couleur telle qu'elle s'y trouve – CMJN avec couverture totale, RVB avec code hexadécimal, gris, couleur directe avec nom et valeur de teinte, pour les images la valeur du pixel.
+- « À l'impression » : C, M, J et N en pourcentage plus la couverture totale, calculés avec la condition d'impression choisie en haut de la fenêtre (comme dans le contrôle couleur). Pour le RVB, cela montre le CMJN qui en sort. Une valeur au-dessus de la limite passe en rouge.
+- « Reprendre en CMJN » / « Reprendre en RVB » : la couleur est ensuite déjà saisie sous Édition -> « Couleur ... ». « Copier » met toutes les valeurs dans le presse-papiers en texte.
+- Échap ferme la pipette ; on se retrouve ensuite dans le mode précédent.
+
+### Déplacement dans le mode édition
+- La fenêtre d'édition a une nouvelle section « Déplacer ».
+- « Magnétisme » : les bords et le centre de la sélection s'aimantent au bord de la page, au format final, au fond perdu, au centre de la page, aux autres objets et à la grille pendant le déplacement ; un guide en pointillés montre où. Avec Maj enfoncée, on déplace librement.
+- « Grille » : largeur en mm, mesurée depuis le coin supérieur gauche de la page ; 0 désactive la grille.
+- Les « règles » s'allument automatiquement en mode édition et peuvent y être désactivées.
+- La barre d'état affiche le décalage et la position gauche et haut en mm pendant le déplacement.
+- « Pas à pas » : saisir une valeur en mm, pt ou px, puis déplacer avec les boutons <- -> ^ v ou les flèches ; Maj déplace dix fois plus. Cela vaut pour le texte, les objets et les calques, aussi avec la vue pivotée. « px » vaut ici 1/72 de pouce, donc autant que pt.
 ## 1.18.13
 
 ### Édition d'objets : plus de perte de texte
@@ -19,7 +36,6 @@
 
 ### Vérification du document
 - L'avertissement sur les filets (plus fins que 0,1 mm) est de retour – il manquait par erreur depuis 1.18.2.
-
 ## 1.18.12
 
 ### Données variables : champs image

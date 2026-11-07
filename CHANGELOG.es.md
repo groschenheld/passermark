@@ -5,6 +5,23 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.14
+
+### Cuentagotas de color
+- Nuevo en el menú «Color», como botón en preparación de impresión y edición, y con Ctrl+Mayús+C: un clic en la página abre una ventana pequeña.
+- «Objeto»: texto, superficie, contorno, imagen (con tamaño en píxeles y ppp) o papel.
+- «En el PDF»: el color tal como está allí – CMYK con cobertura total, RGB con código hexadecimal, gris, color especial con nombre y tinta, en imágenes el valor de píxel.
+- «En impresión»: C, M, Y y K en porcentaje más la cobertura total, calculados con la condición de impresión elegida en la parte superior de la ventana (como en la comprobación de color). Para RGB muestra cuánto CMYK sale de él. Un valor por encima del límite se muestra en rojo.
+- «Tomar como CMYK» / «Tomar como RGB»: el color queda ya introducido en Editar -> «Color ...». «Copiar» pone todos los valores en el portapapeles como texto.
+- Esc cierra el cuentagotas; después se vuelve al modo anterior.
+
+### Mover en el modo de edición
+- La ventana de edición tiene una nueva sección «Mover».
+- «Ajustar»: los bordes y el centro de la selección se ajustan al borde de la página, al formato final, a la sangrado, al centro de la página, a otros objetos y a la cuadrícula al arrastrar; una línea guía discontinua muestra dónde. Con Mayús pulsada se arrastra libremente.
+- «Cuadrícula»: anchura en mm, medida desde la esquina superior izquierda de la página; 0 desactiva la cuadrícula.
+- Las «reglas» se activan automáticamente en el modo de edición y se pueden desactivar allí.
+- La barra de estado muestra el desplazamiento y la posición izquierda y superior en mm al arrastrar.
+- «Paso a paso»: introducir un valor en mm, pt o px y mover con los botones <- -> ^ v o las teclas de flecha; Mayús mueve diez veces más. Vale para texto, objetos y capas, también con la vista girada. «px» aquí es 1/72 de pulgada, es decir, lo mismo que pt.
 ## 1.18.13
 
 ### Edición de objetos: sin pérdida de texto
@@ -19,7 +36,6 @@
 
 ### Comprobación del documento
 - El aviso de líneas finas (más delgadas que 0,1 mm) está de vuelta – faltaba por error desde 1.18.2.
-
 ## 1.18.12
 
 ### Datos variables: campos de imagen
