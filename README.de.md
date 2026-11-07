@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.14
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -26,7 +26,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 ## Funktionen
 
 - **Anzeigen und Drucken** von PDFs, Bildern (auch HEIC, SVG) und Office-Dateien (über LibreOffice). Verwendet
-  die vorhandenen Druckertreiber (CUPS unter Linux, Windows-Treiber) mit allen ihren Optionen.
+  die vorhandenen Druckertreiber (CUPS unter Linux, Windows-Treiber) mit allen ihren Optionen. Randlos drucken, wo der Treiber es anbietet – egal ob Papiervariante, Treiberoption oder IPP-Warteschlange; PDFs mit Anschnitt laufen über den Rand.
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.
@@ -42,7 +42,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   ersetzen (freie, metrisch kompatible Schriften oder Download von fontsource.org), Text in Pfade, Ebenen
   festschreiben/entfernen, Transparenzen reduzieren. Jeder Fund nennt seine Stelle (z. B. „Seite 2 – unten rechts, 40 × 20 mm“); ein Klick springt hin und rahmt sie rot ein, mit ◀ ▶ gehst du durch die Stellen. Neu ist „Format gegen Gerät“: die Seiten werden gegen die Papierformate des Standarddruckers geprüft – mit Hinweis, wenn der Treiber Sonderformate kann; Rollengeräte melden, wenn eine Seite breiter ist als jede Rolle.
 - **Bearbeiten:** Textzeilen und Ebenen mit der Maus wählen; Text, Schrift und Größe ändern; Ebenen
-  verschieben, skalieren, ausblenden, entfernen oder ersetzen; Rückgängig.
+  verschieben, skalieren, ausblenden, entfernen oder ersetzen; Rückgängig. Ein Bereich „Verschieben“: Einrasten an Seitenrand, Endformat, Anschnitt, Seitenmitte, anderen Objekten und am einstellbaren Raster mit gestrichelter Hilfslinie, automatische Lineale, Verschiebung und Lage in mm in der Statuszeile beim Ziehen sowie schrittweises Verschieben in mm, pt oder px mit den Pfeiltasten – Umschalt um das Zehnfache, auch bei gedrehter Ansicht.
 - Lineale und Messen: Lineale in mm am Rand der Ansicht; Start und Ende anklicken zum Messen (Umschalt rastet
   waagrecht/senkrecht/45° ein), Ergebnis in der Statusleiste. Mit gedrückter Strg rastet das Fadenkreuz magnetisch an Schnitt- und Innenlinien (Seitenrand,
   Endformat, Anschnitt), Bildkanten und Vektorlinien ein – nie an Text; es bleibt an der Kante kleben,
@@ -51,7 +51,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
   aus CSV, QR-Codes, Code 128 und EAN-13 als Vektor (mit Ruhezone); Platzhalter `{{…}}` im PDF; Datum, Seite,
   Zufallszahl und weitere Variablen; mehrere Seiten je Datensatz (Vorder-/Rückseite) und Felder auf
   ungeraden/geraden Seiten; Code-Protokoll; Nutzen mit eigenem Datensatz je Nutzen (Bogen für Bogen oder
-  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`). Mit „Daten prüfen“ vor dem Erzeugen: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, unbekannte Platzhalter, ungültige EAN-13, Codes ohne Inhalt – jeder Fund mit seiner Zeile in der CSV.
+  Schneiden und Stapeln); **Fenster (Seitengruppen)** für Vorlagen mit mehreren Seiten – z. B. Vorderseiten mit dem Namen, Rückseiten mit QR-Code – mit Seitenauswahl je Fenster (alle/ungerade/gerade Seiten oder Bereiche) und Datensatz-Verteilung Bogen für Bogen oder Seite für Seite. Auch auf der Kommandozeile (`passermark-cli vdp`). Mit „Daten prüfen“ vor dem Erzeugen: Text zu lang oder zu hoch für sein Feld (gemessen mit der Schrift des Felds), leere Spalten, unbekannte Platzhalter, ungültige EAN-13, Codes ohne Inhalt – jeder Fund mit seiner Zeile in der CSV. Bildfelder dazu: Pfad aus der CSV, Formate PNG, JPG, TIFF, BMP, GIF, WebP und PDF (erste Seite, bleibt Vektor), Einpassen, Füllen oder Verzerren, Ersatzbild bei leerer Spalte oder fehlender Datei, Mehrfachbilder nur einmal im PDF.
 - **Daten erfassen:** die Datentabelle direkt in Passermark anlegen – QR-Visitenkarte (vCard), WLAN-Zugang,
   E-Mail, Webadresse, Anruf, SMS, Termin, Standort, Code 128, EAN-13 – mit passenden Spalten, sofortiger
   Prüfung und Einfügen aus Excel; gespeichert als CSV und direkt in Variable Daten verwendbar. Eigene CSV-Dateien
@@ -66,7 +66,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 - **Gemeinsamer Druckordner:** ein Hotfolder für alle – eingerichtet über einen Knopf in der Verwaltung („Gemeinsamen Druckordner einrichten …“), über install.sh oder `passermark-cli shared-folder`; ein einziger Root-Helfer legt Gruppe und Ordner an (root:passermark, 2775, Standard-ACL, die Benutzer kommen in die Gruppe, symbolische Links werden abgelehnt); unter Windows bekommen `hotfolder`, `ausgabe` und `archiv` Ändern-Recht für die Benutzer – der Rest von ProgramData bleibt den Administratoren vorbehalten.
 - **Softproof:** das Druckergebnis in der Seitenansicht simulieren (Strg+Y) – als Druckbedingung ein Material, ein Profil aus der Verwaltung oder ein System-CMYK-Profil, mit Intent und BPC; Papierfarbe und schwarze Druckfarbe simulieren, Warnungen für Farben außerhalb des Farbumfangs und für Farbauftrag über einer Grenze in %.
 - **Materialien:** Papiere registrieren (Grammatur, Oberfläche, Render-Intent, Profil je Drucker); Papierweiß mit ArgyllCMS (spotread) messen, aus einer CGATS-Messdatei oder per Hand; Profilvorschläge nach ΔE2000. Materialien setzen Profil und Intent im Druckdialog und in der CMYK-Umwandlung, die Farbvorschau nimmt das gemessene Papierweiß.
-- **Farbprüfung:** im neuen Menü Farbe (Strg+Umschalt+F) – eine Seitenleiste wie der Preflight: Druckbedingung wählen, Passermark zeigt, was im Dokument steckt (RGB, Farbauftrag, Sonderfarben, Output Intent), und Befunde in Klartext, jeder mit Knopf zum Beheben; Fundstellen anklickbar.
+- **Farbprüfung:** im neuen Menü Farbe (Strg+Umschalt+F) – eine Seitenleiste wie der Preflight: Druckbedingung wählen, Passermark zeigt, was im Dokument steckt (RGB, Farbauftrag, Sonderfarben, Output Intent), und Befunde in Klartext, jeder mit Knopf zum Beheben; Fundstellen anklickbar. Die Farbpipette (Strg+Umschalt+C, auch im Menü Farbe) nimmt eine Farbe direkt von der Seite: Objekttyp, die Farbe, wie sie im PDF steht, und C, M, Y und K in Prozent, gerechnet mit der gewählten Druckbedingung – über dem Richtwert wird rot; direkt als CMYK oder RGB zum Bearbeiten übernehmen oder alle Werte als Text kopieren.
 - **Für Druckerei ausgeben:** Assistent in vier Schritten – Druckbedingung wählen, nach Empfehlung umwandeln, prüfen, speichern; ICC immer als Output Intent, bei RGB immer Rückfrage; optional Paket aus PDF, Profilen und Bericht. Auch auf der Kommandozeile (`passermark-cli press`).
 - **Papiere und Messungen:** eigene Materialien ohne Adminrechte (`~/.config/passermark/materials.json`, sofort gespeichert); „Papier messen …“ legt das Papier an und startet die Messung, „Gerät suchen“ findet das X-Rite-Gerät über ArgyllCMS; die leere Materialliste im Admin-Dialog erklärt jetzt die ersten Schritte.
 - **Standardprofile:** PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL und SWOP mit „Standardprofile holen“ von registry.color.org in den eigenen ICC-Ordner laden (mitgeliefert werden sie aus Lizenzgründen nicht); Vorschläge zeigen auch noch nicht installierte.

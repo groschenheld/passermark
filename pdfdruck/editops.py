@@ -57,10 +57,18 @@ def move_lines(data, page, lines, s, dx, dy, origin):
 
 
 def move_objects(data, page, objs, s, dx, dy, origin):
+    """Bevorzugt nur die Objekte im Seiteninhalt umschließen (Rest der Seite bleibt unverändert), sonst pdfium."""
+    new = editing.edit_objects_content(data, page, objs, "transform", s, dx, dy, origin)
+    if new is not None:
+        return new, []
     return pdfium_edit(data, page, lambda d: editing.transform_objects_bulk(d, page, objs, s, dx, dy, origin))[0], []
 
 
 def delete_objects(data, page, objs):
+    """Bevorzugt nur die Objekte aus dem Seiteninhalt nehmen, sonst pdfium (schreibt die ganze Seite neu)."""
+    new = editing.edit_objects_content(data, page, objs, "delete")
+    if new is not None:
+        return new, []
     return pdfium_edit(data, page, lambda d: editing.delete_objects(d, page, objs))[0], []
 
 

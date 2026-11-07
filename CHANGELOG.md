@@ -2,6 +2,51 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.14
+
+### Colour eyedropper
+- New in the "Colour" menu, as a button in print preparation and edit mode, and with Ctrl+Shift+C: one click on the page opens a small window.
+- "Object": text, area, contour, image (with pixel size and ppi) or paper.
+- "In the PDF": the colour as it stands there – CMYK with total coverage, RGB with hex code, grey, spot colour with name and tint, for images the pixel value.
+- "In print": C, M, Y and K in percent plus total coverage, computed with the print condition chosen at the top of the window (as in the colour check). For RGB it shows how much CMYK comes out of it. A value above the limit turns red.
+- "Take as CMYK" / "Take as RGB": the colour is then already entered under Edit -> "Colour ...". "Copy" puts all values on the clipboard as text.
+- Esc ends the eyedropper; after that you are back in the mode you were in before.
+
+### Moving in edit mode
+- The edit window has a new "Move" section.
+- "Snap": edges and centre of the selection snap to the page edge, final format, bleed, page centre, other objects and the grid while dragging; a dashed guide line shows where. With Shift held you drag freely.
+- "Grid": width in mm, measured from the top left corner of the page; 0 switches the grid off.
+- "Rulers" turn on automatically in edit mode and can be switched off there.
+- The status bar shows the offset and the position left and top in mm while dragging.
+- "Step by step": enter a value in mm, pt or px, then move with the buttons <- -> ^ v or the arrow keys; Shift moves ten times as far. This works for text, objects and layers, also with a rotated view. "px" here is 1/72 inch, so the same as pt.
+## 1.18.13
+
+### Object editing: no more text loss
+- "Delete object" and "Scale/Move" used to rewrite the whole page – with some PDFs text got lost in the process. Now only the chosen object is changed in the page content; the rest of the page stays untouched. The result is pixel-identical to the old way, just without the text loss.
+
+### Borderless printing
+- In the print dialog there is a new line under the paper format: "Margin: ☐ Print borderless". It only appears for devices whose driver offers borderless – no matter how the driver solves it: as its own paper variant (on Windows too), as its own driver option, or for IPP queues without PPD via margin 0.
+- If the driver offers a setting for how far the image is pulled over the edge, it sits right next to it.
+- PDFs with bleed: the final format sits exactly on the sheet, the real bleed runs over the edge; the expansion can then go to the smallest step. Without bleed the page simply fills the whole sheet.
+- Formats without a borderless variant: the checkbox is locked, with a notice. Switching to a format that has borderless keeps borderless on.
+- In workflows: `borderless: true` in the print step. `passermark-cli caps PRINTER` shows under borderless what your device offers.
+
+### Document check
+- The hairline warning (thinner than 0.1 mm) is back – it had accidentally been missing since 1.18.2.
+## 1.18.12
+
+### Variable data: image fields
+- New "+ Image" button – the content is the path to the image file, usually from a column like `{{photo}}`. The matching column (image, photo, logo, file …) is guessed when creating the field.
+- Paths: absolute or relative to the CSV's folder; `\` works like `/`, case does not matter. If the extension is missing, it searches by itself – `.png`, `.jpg`, `.tif`, `.pdf` and more.
+- Formats: PNG, JPG, TIFF (CMYK too), BMP, GIF, WebP and PDF (first page). PDF images stay vector, JPEGs go into the PDF unchanged, portrait-stored phone photos are put upright, and an image used several times is stored only once in the PDF.
+- Fitting: fit, fill (overhang cut off) or distort; alignment and rotation as with text fields.
+- Fallback image: steps in when the column is empty or the file is missing or broken. Without a fallback an empty field stays empty.
+- "Check data" reports with the row in the CSV: missing and unreadable images (without a fallback generating aborts, with one it is just a notice), where a fallback was used, empty image fields and too low a resolution – below 150 ppi at print size.
+- In workflows and on the command line: `kind: image`, with `fit` and `fallback` – see docs/cli-api.md.
+
+### Translations
+- Added: two texts missing since 1.18.10/11 (the "printer not found" message and the note on "Embed only").
+
 ## 1.18.11
 
 ### Print materials: colour path, origin and import

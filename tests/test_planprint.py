@@ -222,14 +222,14 @@ def test_print_jobs_and_log():
     src = plan_pdf("job.pdf", 620, 870, pages=2)
     with FakePlotter() as fp:
         sess = Session(dict(config.BUILTIN, print_log={"force": True, "dir": logdir}))
-        s = pp.PlanSettings(printer="Plotter", copies=3, color="gray", live_rolls=False)
+        s = pp.PlanSettings(printer="Plotter", copies=3, color="gray", live_rolls=False, copies_mode="count")
         info = pp.plan_files([src], s, session=sess)
-    assert len(fp.sent) == 2, fp.sent                       # unsortiert: ein Auftrag je Plan, 3 Kopien
+    assert len(fp.sent) == 2, fp.sent                       # Anzahl ans Gerät: ein Auftrag je Plan, 3 Kopien
     o = fp.sent[0]["opts"]
     assert o["copies"] == "3" and o["InputSlot"] == "Roll3" and o["ColorModel"] == "Gray"
     assert o["PageSize"].startswith("Custom.") and o["print-scaling"] == "none"
     w, h = fp.sent[0]["size"]
-    assert near(w, 849.7, 0.5) and near(h, 599.7, 0.5)                 # gedreht: quer zur Rolle 850 mm
+    assert near(w, 914, 0.5) and near(h, 599.7, 0.5)    # gedreht, Druckseite rollenbreit (Schnitt je Seite, 1.18.5)
     assert near(info["lengths"][0]["single_m"], 1.199, 0.003) and near(info["total_m"], 3.598, 0.01)
     # Protokoll: Laufmeter je Auftrag, CSV-Spalten, Nachdruck-Ablauf mit Schritt „plan“
     with open(os.path.join(logdir, printlog.CSV_NAME), encoding="utf-8-sig") as f:
@@ -245,18 +245,22 @@ def test_print_jobs_and_log():
         pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, collate=True, live_rolls=False),
                       session=sess)
     assert len(fp.sent) == 6 and all(x["opts"]["copies"] == "1" for x in fp.sent)
+    # Standard seit 1.18.7: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1)
+    with FakePlotter() as fp:
+        pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, live_rolls=False), session=Session(config.BUILTIN))
+    assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent)
 
 
 def test_csv_upgrade():
     from pdfdruck import printlog
     d = os.path.join(TMP, "oldlog")
-    os.makedirs(d)
+    os.makedirs(d, exist_ok=True)
     p = os.path.join(d, printlog.CSV_NAME)
     with open(p, "w", encoding="utf-8-sig", newline="") as f:
         f.write("time;user;host;source;file;pages;printer;paper;tray;copies;job_id;result;log\r\nx;y\r\n")
     printlog._upgrade_csv(p)
     head = open(p, encoding="utf-8-sig").readline()
-    assert head.strip().endswith(";roll_mm;run_m")
+    assert head.strip().endswith(";roll_mm;run_m;order;item"), head   # 1.18.9: Bestellbezug
 
 
 def _cli(*args):

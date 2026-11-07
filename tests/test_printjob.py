@@ -125,6 +125,82 @@ def test_booklet_spreads_print_pdf():
     assert (round(w / MMx), round(h / MMx)) == (302, 216) and ss.step_repeat   # 296 × 210 + 2 × 3 mm
 
 
+def test_borderless():
+    """Randlos: Papiervariante (PPD/Windows), eigene Option (Gutenprint, Canon), IPP media-col; Erweiterung erkannt;
+    Laser ohne Randlos; mit Anschnitt im Dokument liegt das Endformat genau auf dem Blatt."""
+    import io
+    import pikepdf
+    import pypdfium2 as pdfium
+    from reportlab.pdfgen import canvas
+    from pdfdruck.printers import PrinterCaps, Option, Choice
+    mm = 72 / 25.4
+    c = PrinterCaps("Epson", "ppd")
+    sizes = {"A4": (595.3, 841.9), "A4.Borderless": (595.3, 841.9), "A3": (841.9, 1190.6),
+             "4x6": (288, 432), "4x6.FB": (288, 432)}
+    c.options["PageSize"] = Option("PageSize", "Papier", "Allg", [Choice(k, k) for k in sizes], "A4")
+    c.options["Expansion"] = Option("Expansion", "Borderless Expansion", "Allg",
+                                    [Choice("Min", "Min"), Choice("Max", "Max")], "Min")
+    for k, (w, h) in sizes.items():
+        c.page_sizes[k] = (w, h)
+        c.imageable[k] = (0, 0, w, h) if "." in k else (8, 8, w - 8, h - 8)
+    printers._assign_roles(c)
+    assert c.borderless_sizes() == {"A4": "A4.Borderless", "4x6": "4x6.FB"} and c.borderless_expand_key() == "Expansion"
+    v, ok = c.set_borderless({"PageSize": "A4"}, True)
+    assert ok and v["PageSize"] == "A4.Borderless" and c.is_borderless(v) and c.sheet_for(v)[2] is None
+    assert c.set_borderless(v, False)[0]["PageSize"] == "A4"
+    assert c.set_borderless({"PageSize": "A3"}, True) == ({"PageSize": "A3"}, False)      # A3 gibt's nicht randlos
+    g = PrinterCaps("Gutenprint", "ppd")
+    g.options["PageSize"] = Option("PageSize", "Papier", "Allg", [Choice("A4", "A4")], "A4")
+    g.page_sizes["A4"], g.imageable["A4"] = (595.3, 841.9), (9, 9, 586, 832)
+    g.options["StpFullBleed"] = Option("StpFullBleed", "Borderless", "Allg", [Choice("False", "Off"), Choice("True", "On")],
+                                       "False")
+    printers._assign_roles(g)
+    v, ok = g.set_borderless({"PageSize": "A4"}, True)
+    assert ok and v["StpFullBleed"] == "True" and g.sheet_for(v)[2] is None
+    k = PrinterCaps("Canon", "ppd")
+    k.options["CNIJMarginType"] = Option("CNIJMarginType", "Randtyp", "Allg", [Choice("0", "Mit Rand"), Choice("1", "Randlos")],
+                                         "0")
+    k.options["CNIJExtension"] = Option("CNIJExtension", "Umfang der Erweiterung", "Allg",
+                                        [Choice("0", "0"), Choice("3", "3")], "0")
+    assert k.borderless_option() == ("CNIJMarginType", "1", "0") and k.borderless_expand_key() == "CNIJExtension"
+    i = PrinterCaps("IPP", "ipp")
+    i.options["media"] = Option("media", "Papier", "Allg", [Choice("iso_a4_210x297mm", "A4")], "iso_a4_210x297mm")
+    i.page_sizes["iso_a4_210x297mm"], i.ipp_zero_margin = (595.28, 841.89), True
+    printers._assign_roles(i)
+    v, ok = i.set_borderless({"media": "iso_a4_210x297mm"}, True)
+    col = i.job_options(v)["media-col"]
+    assert ok and "x-dimension=21000 y-dimension=29700" in col and "media-left-margin=0" in col
+    laser = PrinterCaps("Laser", "ppd")
+    laser.options["PageSize"] = Option("PageSize", "Papier", "Allg", [Choice("A4", "A4")], "A4")
+    printers._assign_roles(laser)
+    assert not laser.can_borderless()
+    try:
+        printjob.apply_borderless(laser, {"PageSize": "A4"}, layout.LayoutSettings(borderless=True))
+        raise AssertionError("Laser kann nicht randlos")
+    except RuntimeError:
+        pass
+    _v, lay = printjob.apply_borderless(c, {"PageSize": "A4.Borderless"}, layout.LayoutSettings())
+    assert lay.borderless                                     # randloses Papier gewählt -> Layout randlos
+    # Dokument mit 3 mm Anschnitt: Endformat genau aufs Blatt, Anschnitt über den Rand
+    buf = io.BytesIO()
+    cv = canvas.Canvas(buf, pagesize=(216 * mm, 303 * mm))
+    cv.setFillColorRGB(.8, .3, .1)
+    cv.rect(0, 0, 216 * mm, 303 * mm, fill=1)
+    cv.save()
+    pdf = pikepdf.open(io.BytesIO(buf.getvalue()))
+    pdf.pages[0].TrimBox = [3 * mm, 3 * mm, 213 * mm, 300 * mm]
+    out = io.BytesIO()
+    pdf.save(out)
+    doc = pdfium.PdfDocument(out.getvalue())
+    sheet = layout.Sheet(595.28, 841.89, (8, 8, 587, 833))
+    s = layout.LayoutSettings(borderless=True)
+    pl = layout.plan([doc.get_page_size(0)], [0], sheet, s, layout.page_trims(doc))[0].placements[0]
+    assert abs(pl.scale - 1) < 0.001 and abs(pl.x) < 0.1 and abs(pl.w - 595.28) < 0.5 and all(pl.trim_show_edge)
+    im = layout.impose_with(doc, sheet, layout.plan([doc.get_page_size(0)], [0], sheet, s, layout.page_trims(doc)),
+                            s)[0].render(scale=0.5).to_pil().convert("RGB")
+    assert im.getpixel((0, 0)) != (255, 255, 255)           # Farbe bis in die Ecke
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"): f(); print("ok", k)

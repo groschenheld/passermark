@@ -375,7 +375,7 @@ def _job_vdp(src, dst, s, opts, progress, cancel):
         chk = vdp.check(s)
     except Exception:                             # noqa: BLE001 – die Prüfung darf das Erzeugen nie verhindern
         chk = {"counts": {}}
-    if chk.get("counts", {}).get("invalid"):      # ungültige Codes brechen das Erzeugen ohnehin ab: alle auf einmal
+    if vdp.check_blocking(chk):                    # ungültige Codes, fehlende Bilder brechen ohnehin ab: alle auf einmal
         raise ValueError(vdp.check_text(chk, limit=20))
     data, info = vdp.build(src, s, progress=progress, cancel=cancel, pages=opts.get("pages"))
     _check(cancel)

@@ -92,6 +92,40 @@ if "edit_panel" in w.__dict__:
     ep._undo(); ep._undo()
     b3 = editing.layer_map(w._doc_bytes(), 0, [K["Bemaßung"]]).boxes[K["Bemaßung"]]
     assert abs(b3[1] - 598) < 5, b3
+    # 1.18.14: schrittweise verschieben (10 mm nach rechts), Einrasten am Seitenrand, Farbpipette
+    from pdfdruck.gui import editpanel as EPm
+    class _NoMods:                              # keine Taste gedrückt (die Attrappe kennt keine Flags)
+        def __and__(self, other): return 0
+    EPm.QApplication.keyboardModifiers = staticmethod(lambda: _NoMods())
+    tab[0] = 0
+    hrow = next(i for i, l in enumerate(ep.lines) if l.text.startswith("Hallo"))
+    ep.lst_text.setCurrentRow(hrow)
+    x_before = next(l for l in editing.text_lines(w.doc, 0) if l.text.startswith("Hallo")).bbox[0]
+    ep.spn_step.value = lambda: 10.0
+    ep.cmb_unit.currentData = lambda: "mm"
+    ep._screen_dir = lambda sx, sy: (float(sx), float(-sy))
+    ep.nudge(1, 0)
+    x_after = next(l for l in editing.text_lines(w.doc, 0) if l.text.startswith("Hallo")).bbox[0]
+    assert abs(x_after - x_before - 10 * 72 / 25.4) < 1.0, (x_before, x_after)
+    ep.chk_snap.isChecked = lambda: True
+    ep.spn_grid.value = lambda: 0.0
+    dx, dy, guides = ep._snap_move((50.0, 500.0, 150.0, 520.0), -46.0, 0.0)     # linke Kante fast am Seitenrand
+    assert abs(dx + 50.0) < 0.01 and guides, (dx, guides)
+    ep.spn_grid.value = lambda: 10.0
+    ep.chk_snap.isChecked = lambda: False
+    dx, dy, guides = ep._snap_move((50.0, 500.0, 150.0, 520.0), 5.0, 0.0)       # Raster 10 mm: x = 56,7 pt
+    assert abs(50.0 + dx - 10 * 72 / 25.4 * 2) < 0.01 or abs(50.0 + dx - 10 * 72 / 25.4) < 0.01, dx
+    w.a_pipette.isChecked = lambda: True
+    w._pipette_mode(True)
+    assert w.view.imode == "pipette"
+    from pdfdruck import pipette
+    w.pipette_dlg._done(pipette.sample(w._doc_bytes(), 0, 160, 460), "")
+    w.pipette_dlg._take("rgb")
+    w._pipette_picked("rgb", w.pipette_dlg.sample.as_rgb())     # Signale liefert die Attrappe nicht
+    assert ep._last_color[0] == "rgb" and len(ep._last_color[1]) == 3, ep._last_color
+    w.a_pipette.isChecked = lambda: False
+    w._pipette_mode(False)
+    assert w.view.imode == "edit"
     w._edit_mode(False)
 print("SMOKE-OK")
 '''

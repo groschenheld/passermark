@@ -297,6 +297,72 @@ def test_legacy_settings_unchanged():
     assert seq == [(0, 0), (0, 1), (1, 0), (1, 1)]
 
 
+def test_image_fields():
+    """Bildfelder: Pfad aus der CSV (relativ, \\, ohne Endung, Groß/klein), Einpassen/Füllen, Handyfoto-Drehung,
+    PDF-Bild bleibt Vektor, fehlende/kaputte Bilder mit CSV-Zeile, Ersatzbild, geringe Auflösung."""
+    import pikepdf
+    from PIL import Image
+    from reportlab.pdfgen import canvas
+    d = os.path.join(TMP, "img")
+    os.makedirs(os.path.join(d, "bilder"), exist_ok=True)
+    Image.new("RGBA", (800, 400), (255, 0, 0, 128)).save(os.path.join(d, "bilder", "rot.png"))
+    im = Image.new("RGB", (600, 300), (0, 0, 255))
+    ex = im.getexif()
+    ex[0x0112] = 6                                          # Handyfoto: hochkant gespeichert
+    im.save(os.path.join(d, "bilder", "Hoch.JPG"), exif=ex)
+    Image.new("CMYK", (600, 600), (0, 100, 200, 0)).save(os.path.join(d, "bilder", "cmyk.tif"))
+    Image.new("RGB", (20, 20)).save(os.path.join(d, "bilder", "klein.png"))
+    with open(os.path.join(d, "bilder", "kaputt.png"), "wb") as fh:
+        fh.write(b"kein Bild")
+    c = canvas.Canvas(os.path.join(d, "logo.pdf"), pagesize=(200, 100))
+    c.drawString(20, 50, "VEKTORLOGO")
+    c.save()
+    csvp = os.path.join(d, "daten.csv")
+    with open(csvp, "w", encoding="utf-8") as fh:
+        fh.write("Name;Foto\nA;bilder/rot.png\nB;bilder\\hoch.jpg\nC;bilder/cmyk\nD;logo.pdf\nE;\n")
+    assert vdp.find_image("bilder\\HOCH.jpg", d).endswith("Hoch.JPG")
+    assert vdp.find_image("bilder/cmyk", d).endswith("cmyk.tif") and vdp.find_image("fehlt.png", d) is None
+    img = vdp.VdpField(kind="image", content="{{Foto}}", x_mm=10, y_mm=10, w_mm=60, h_mm=40, align="center")
+    cov = vdp.VdpField(kind="image", content="{{Foto}}", x_mm=10, y_mm=60, w_mm=60, h_mm=40, fit="cover", rotate=90)
+    s = vdp.VdpSettings(fields=[img, cov, vdp.VdpField(content="{{Name}}", x_mm=10, y_mm=110, w_mm=40)], csv_path=csvp)
+    res = vdp.check(s)
+    assert res["counts"] == {"empty": 2}, res                # Zeile 6 ohne Bild: Feld bleibt leer
+    data, info = vdp.build(SAMPLE, s)
+    out = pikepdf.open(__import__("io").BytesIO(data))
+    assert len(out.pages) == 5
+    ov = out.pages[3].Resources.XObject.O                   # Datensatz D: PDF-Bild als Vektor-Form, Text lesbar
+    assert any(str(k).startswith("/PMImg") for k in ov.Resources.XObject.keys())
+    p = os.path.join(TMP, "img.pdf")
+    with open(p, "wb") as fh:
+        fh.write(data)
+    assert "VEKTORLOGO" in _text(p, 3)
+    ex = vdp.Images()                                       # Handyfoto: gedreht -> hochkant eingepasst
+    assert ex.info(vdp.find_image("bilder/Hoch.JPG", d))["size"] == (300.0, 600.0)
+    assert vdp.Images.placement((300, 600), 100, 100, "contain", "center") == (25.0, 0.0, 50.0, 100.0)
+    assert vdp.Images.placement((300, 600), 100, 100, "cover", "center")[2:] == (100.0, 200.0)
+    # Fehler: fehlende und kaputte Bilder mit CSV-Zeile; Erzeugen bricht ab
+    with open(csvp, "a", encoding="utf-8") as fh:
+        fh.write("F;bilder/fehlt.png\nG;bilder/kaputt.png\nH;bilder/klein.png\n")
+    res = vdp.check(s)
+    assert res["counts"].get("missing") == 2 and res["counts"].get("unreadable") == 2 and vdp.check_blocking(res)
+    assert res["counts"].get("lowres") == 2
+    txt = vdp.check_text(res, 30)
+    assert "Zeile 7" in txt and "fehlt.png" in txt and "Zeile 8" in txt and TMP not in txt, txt
+    try:
+        vdp.build(SAMPLE, s)
+        raise AssertionError("fehlendes Bild hätte abbrechen müssen")
+    except ValueError as e:
+        assert "Zeile 7" in str(e)
+    img.fallback = cov.fallback = os.path.join(d, "logo.pdf")    # mit Ersatzbild: nur Hinweise
+    res = vdp.check(s)
+    assert not vdp.check_blocking(res) and res["counts"].get("fallback") == 6, res
+    data, _i = vdp.build(SAMPLE, s)
+    assert data.startswith(b"%PDF")
+    doc = pdfium.PdfDocument(SAMPLE)
+    pv, n = vdp.preview(doc, 0, s, record=5)                 # Vorschau löst den Pfad relativ zur CSV auf
+    assert n == 8 and "VEKTORLOGO" in pv[0].get_textpage().get_text_range()
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

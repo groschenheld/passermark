@@ -175,13 +175,21 @@ later steps continue with it, so a workflow can print and save, or print several
   (`finisher_presets`).
 - `layout`: page handling as in the print dialog (same keys as the `impose` job without `sheet`: `handling`
   size/multiple/booklet/poster, `nup`, `step_repeat`, `crop_marks`, `bleed_mm` …). The sheet is the selected paper.
+- `borderless` (since 1.18.13): print up to the sheet edge. Passermark picks the borderless variant of the paper
+  size (`A4.Borderless`, `TA4`, „A4 (Randlos)“ …), switches on the driver's own borderless option (Gutenprint
+  `StpFullBleed`, Canon margin type …) or – IPP queues without PPD – sends margins 0 in `media-col`. Pages with a
+  trim size (TrimBox) are set with the trim size exactly on the sheet, the bleed runs over the edge; without one the
+  page fills the sheet. Choosing a borderless paper directly has the same effect. Not possible for the chosen
+  printer/paper = error. `caps` → `borderless` shows what the driver offers (`sizes`, `option`, `expand_option`,
+  `ipp_zero_margin`).
 - `profile`: `admin` (colour profile set up for this printer), `none`, or a profile id; `intent` overrides the
   rendering intent.
 - `dry_run`: send nothing – the step only resolves everything and reports it (see below). Good for testing a
   workflow against a real printer.
 
 Result (`step_done` → `info`): `{"printer": "…", "job_id": 4711, "pages": 8, "sheet_mm": [297.0, 420.0],
-"paper": "A3", "options": {all driver options as sent}, "color_profile": "…", "notes": [], "dry_run": false}`.
+"paper": "A3", "options": {all driver options as sent}, "color_profile": "…", "notes": [], "borderless": false,
+"dry_run": false}`.
 
 On Windows the vendor-specific finishers live in the vendor's driver dialog, not in the option list: set them up
 once as a finisher template (administration → printer → new finisher template → vendor dialog) and select it with
@@ -282,6 +290,15 @@ category: `font`, `text`, `layer`, `transparency`, `image`, `size`, and since 1.
 job `vdp`: a note in the result): text wider or taller than its field (measured with the field's font), empty
 columns used in a field, placeholders that are neither a column nor a variable, invalid EAN-13 and empty codes – each
 with the CSV line (header = line 1). At most 300 single messages, plus the count per kind.
+
+**Image fields** (since 1.18.12): a field with `"kind": "image"` takes the image file named by its content – usually a
+column (`{{Photo}}`), absolute or relative to the CSV's folder (`\` works like `/`, case does not matter, without an
+extension `.png`, `.jpg`, `.tif`, `.pdf` … are tried). PNG, JPG, TIFF, BMP, GIF, WebP and PDF (first page, stays
+vector); phone photos are turned upright (EXIF). `fit`: `contain` (default, whole image), `cover` (box filled, overhang
+cropped), `stretch`; `align` left/center/right and `rotate` as for text. `fallback`: an image used when the column is
+empty or the file is missing/unreadable. The check reports missing (`missing`) and unreadable (`unreadable`) images
+with the CSV line – without a fallback they stop the job – plus `fallback` (fallback used), `empty` (nothing given,
+field stays empty) and `lowres` (below 150 ppi at the size printed).
 
 The text report (`report_text`) lists the page boxes and the bleed per side of the first page.
 
@@ -473,7 +490,9 @@ passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abwei
 Drucken im Ablauf: Schritt `{"job": "print", "settings": {"printer": "…", "paper": "A3", "tray": "Fach 2",
 "duplex": "short", "finishing": {"staple": "…"}, "layout": {"handling": "booklet"}, "dry_run": true}}` – gleicher
 Weg wie der Druckdialog; `dry_run` schickt nichts, sondern meldet nur, was gedruckt würde. `"paper": "auto"`
-wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander).
+wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander). `"borderless": true`
+(seit 1.18.13) druckt randlos: randlose Papiervariante bzw. Randlos-Option des Treibers, Endformat (TrimBox) genau
+aufs Blatt, Anschnitt über den Rand.
 
 Ablauf-Ordner (der erste mit dem Namen gewinnt): eigene unter `~/.config/passermark/workflows/` bzw.
 `%APPDATA%\Passermark\workflows\`, dann die vom Admin eingetragenen weiteren Ordner (z. B. Netzwerkfreigabe,
@@ -507,7 +526,9 @@ drei für Benutzer und Dienstkonten beschreibbar). Clients an anderen PCs nur ü
 
 Prüfung seit 1.18.10 auch: Format gegen den Drucker (Programm: Standarddrucker; `inspect --check --printer P`) und
 Variable Daten vor dem Erzeugen (Text zu lang/zu hoch, leere Spalten, unbekannte Platzhalter, ungültige Codes – mit
-CSV-Zeile). Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
+CSV-Zeile). Seit 1.18.12 Bildfelder (`"kind": "image"`): Pfad aus einer Spalte, relativ zur CSV oder absolut,
+`fit` `contain`/`cover`/`stretch`, `fallback` = Ersatzbild; fehlende/unlesbare Bilder werden mit CSV-Zeile gemeldet
+und brechen ohne Ersatzbild ab, PDF-Bilder bleiben Vektor. Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
 
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
 /Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken

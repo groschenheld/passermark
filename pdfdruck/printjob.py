@@ -24,6 +24,22 @@ def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bo
     return plans
 
 
+def apply_borderless(caps, values: dict, settings: layout.LayoutSettings):
+    """Randlos abgleichen: Häkchen im Layout schaltet das Gerät um (Papiervariante/Option/IPP); ist schon randloses
+        Papier gewählt, gilt das Layout als randlos. -> (Werte, Layout). Fehler, wenn es nicht geht."""
+    import dataclasses
+    if caps is None or caps.backend == "pdf":
+        return values, settings
+    if settings.borderless and not caps.is_borderless(values):
+        values, ok = caps.set_borderless(values, True)
+        if not ok:
+            raise RuntimeError(tr("Randlos geht mit diesem Drucker bzw. Papierformat nicht – "
+                                  "anderes Format wählen oder „Randlos“ ausschalten."))
+    elif not settings.borderless and caps.is_borderless(values):
+        settings = dataclasses.replace(settings, borderless=True)
+    return values, settings
+
+
 def short_edge_choice(caps: printers.PrinterCaps):
     """(option name, value) for duplex on the short edge â or None."""
     key = caps.roles.get("duplex") if caps else None
@@ -125,6 +141,7 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     caps = session.caps_for(printer)
     if values is None:
         values = session.values_for(printer)
+    values, settings = apply_borderless(caps, values, settings)
     flat = layout.flattened(doc)          # Formularwerte/Kommentare mit auf das Blatt
     if manip is not None and manip.active:     # only on explicit request any more (e.g. scripts)  # document manipulation: crop, CMYK
         from . import pdfmanip

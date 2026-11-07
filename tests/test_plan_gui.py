@@ -97,7 +97,9 @@ with T.FakePlotter() as fp:
     # Graustufen, nach Rolle, drucken
     dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
     dlg._print()
-    assert len(fp.sent) == 2 and fp.sent[0]["opts"]["copies"] == "2" and fp.sent[1]["opts"]["copies"] == "6", fp.sent
+    # seit 1.18.7 Standard: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1, Anzahl im Titel)
+    assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent), fp.sent
+    assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
     st = P.load_settings()
     assert st.color == "gray" and st.copies == 2
@@ -112,13 +114,13 @@ with T.FakePlotter() as fp:
     # Rollen-Fenster
     rd = P.RollsDialog(None, sess, "Plotter")
     rd._remove()
-    # Posterdruck: Standard nebeneinander, Überbreite abschneiden; Banner-Einstellungen
+    # Posterdruck: Standard einzeln (Nebeneinander zuschaltbar), Überbreite abschneiden; Banner-Einstellungen
     doc2 = pdfium.PdfDocument(T.plan_pdf("gui_poster.pdf", 420, 594, frames=0))
     pd = P.PlanDialog(None, sess, None, doc2, "gui_poster.pdf", kind="poster")
     while pd._queue:
         pd._analyze_next()
     ps = pd.settings()
-    assert ps.kind == "poster" and ps.nest and ps.overwidth == "crop" and ps.weights == []
+    assert ps.kind == "poster" and not ps.nest and ps.overwidth == "crop" and ps.weights == []
     pd.spn_hem.setValue(30)
     pd.chk_cut.setChecked(True)
     pd._refresh()

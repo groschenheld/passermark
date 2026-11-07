@@ -5,6 +5,51 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.14
+
+### Pipette à couleur
+- Nouveau dans le menu « Couleur », comme bouton en préparation d'impression et en édition, et avec Ctrl+Maj+C : un clic sur la page ouvre une petite fenêtre.
+- « Objet » : texte, surface, contour, image (avec taille en pixels et ppp) ou papier.
+- « Dans le PDF » : la couleur telle qu'elle s'y trouve – CMJN avec couverture totale, RVB avec code hexadécimal, gris, couleur directe avec nom et valeur de teinte, pour les images la valeur du pixel.
+- « À l'impression » : C, M, J et N en pourcentage plus la couverture totale, calculés avec la condition d'impression choisie en haut de la fenêtre (comme dans le contrôle couleur). Pour le RVB, cela montre le CMJN qui en sort. Une valeur au-dessus de la limite passe en rouge.
+- « Reprendre en CMJN » / « Reprendre en RVB » : la couleur est ensuite déjà saisie sous Édition -> « Couleur ... ». « Copier » met toutes les valeurs dans le presse-papiers en texte.
+- Échap ferme la pipette ; on se retrouve ensuite dans le mode précédent.
+
+### Déplacement dans le mode édition
+- La fenêtre d'édition a une nouvelle section « Déplacer ».
+- « Magnétisme » : les bords et le centre de la sélection s'aimantent au bord de la page, au format final, au fond perdu, au centre de la page, aux autres objets et à la grille pendant le déplacement ; un guide en pointillés montre où. Avec Maj enfoncée, on déplace librement.
+- « Grille » : largeur en mm, mesurée depuis le coin supérieur gauche de la page ; 0 désactive la grille.
+- Les « règles » s'allument automatiquement en mode édition et peuvent y être désactivées.
+- La barre d'état affiche le décalage et la position gauche et haut en mm pendant le déplacement.
+- « Pas à pas » : saisir une valeur en mm, pt ou px, puis déplacer avec les boutons <- -> ^ v ou les flèches ; Maj déplace dix fois plus. Cela vaut pour le texte, les objets et les calques, aussi avec la vue pivotée. « px » vaut ici 1/72 de pouce, donc autant que pt.
+## 1.18.13
+
+### Édition d'objets : plus de perte de texte
+- « Supprimer l'objet » et « Mettre à l'échelle/Déplacer » réécrivaient jusqu'ici la page entière – avec certains PDF, du texte se perdait en cours de route. Désormais seul l'objet choisi est modifié dans le contenu de la page ; le reste reste intact. Le résultat est identique au pixel près à l'ancien chemin, juste sans perte de texte.
+
+### Impression sans marge
+- Dans le dialogue d'impression, une ligne nouvelle figure sous le format papier : « Marge : ☐ Imprimer sans marge ». Elle n'apparaît que pour les appareils dont le pilote le propose – peu importe comment le pilote le résout : en variante de papier propre (sous Windows aussi), en option propre du pilote ou, pour les files IPP sans PPD, via marge 0.
+- Si le pilote propose un réglage de la distance de dépassement de l'image sur le bord, il se trouve juste à côté.
+- PDF avec fond perdu : le format final tombe exactement sur la feuille, le vrai fond perdu passe par le bord ; l'extension peut alors aller au plus petit cran. Sans fond perdu, la page remplit simplement toute la feuille.
+- Formats sans variante sans marge : la case est verrouillée, avec un avis. En passant à un format qui la propose, sans marge reste activé.
+- Dans les enchaînements : `borderless: true` à l'étape d'impression. `passermark-cli caps IMPRIMANTE` montre sous borderless ce que propose ton appareil.
+
+### Vérification du document
+- L'avertissement sur les filets (plus fins que 0,1 mm) est de retour – il manquait par erreur depuis 1.18.2.
+## 1.18.12
+
+### Données variables : champs image
+- Nouveau bouton « + Image » – le contenu est le chemin vers le fichier image, le plus souvent d'une colonne comme `{{photo}}`. La colonne adaptée (image, photo, logo, fichier …) est devinée à la création du champ.
+- Chemins : absolus ou relatifs au dossier du CSV ; `\` fonctionne comme `/`, la casse n'a pas d'importance. Si l'extension manque, la recherche se fait seule – `.png`, `.jpg`, `.tif`, `.pdf` et d'autres.
+- Formats : PNG, JPG, TIFF (CMYK aussi), BMP, GIF, WebP et PDF (première page). Les images PDF restent vectorielles, les JPG entrent inchangés dans le PDF, les photos de portable stockées en portrait sont remises droites, et une image utilisée plusieurs fois n'est stockée qu'une fois dans le PDF.
+- Ajustement : ajuster, remplir (le dépassement est rogné) ou déformer ; alignement et rotation comme pour les champs texte.
+- Image de repli : entre en jeu quand la colonne est vide ou que le fichier manque ou est corrompu. Sans repli, un champ vide reste vide.
+- « Vérifier les données » signale avec la ligne dans le CSV : images manquantes ou illisibles (sans repli la génération s'interrompt, avec repli ce n'est qu'un avis), où un repli a été utilisé, champs image vides et résolution trop faible – en dessous de 150 ppi à la taille d'impression.
+- Dans les enchaînements et en ligne de commande : `kind: image`, avec `fit` et `fallback` – voir docs/cli-api.md.
+
+### Traductions
+- Ajoutés : deux textes manquants depuis 1.18.10/11 (le message « imprimante introuvable » et l'avis sur « Incorporer seulement »).
+
 ## 1.18.11
 
 ### Matières d'impression : parcours couleur, origine et import

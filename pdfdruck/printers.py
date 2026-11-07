@@ -215,6 +215,7 @@ class PrinterCaps:
     # "text" (im Namen/Anzeigetext), "table" (eingebaute Tabelle) – fehlt ein Format hier, sind die Maße unbekannt
     size_source: dict[str, str] = field(default_factory=dict)
     size_problems: dict[str, list] = field(default_factory=dict)  # PPD-Fehler je Format (Komma statt Punkt …)
+    ipp_zero_margin: bool = False                  # IPP ohne PPD: Gerät erlaubt Rand 0 (randlos über media-col)
     _ppd: object = None
 
     # ------------------------------------------------------------------ #
@@ -227,7 +228,150 @@ class PrinterCaps:
         return w, h, ia
 
     def sheet_info(self, values: dict[str, str]):
-        """Like sheet_for, plus whether the size is really known (False = fallback A4)."""
+        """Like sheet_for, plus whether the size is really known (False = fallback A4). Randlos: ganzes Blatt."""
+        w, h, ia, exact = self._sheet_info(values)
+        if ia is not None and self.is_borderless(values):
+            ia = None
+        return w, h, ia, exact
+
+    # ------------------------------------------------------------------ #
+    # Randlos (1.18.13): je nach Treiber eigene Papiervariante („A4 (randlos)“, „A4.Borderless“, „TA4“), eigene
+    # Option (Gutenprint StpFullBleed, Canon „Randtyp“ …) oder – IPP ohne PPD – Rand 0 in media-col.
+    def _bl_cache(self) -> dict:
+        return self.__dict__.setdefault("_bl", {})
+
+    def _choice_size(self, ch) -> tuple | None:
+        if ch.value in self.page_sizes:
+            return self.page_sizes[ch.value]
+        std = std_size(ch.value) or std_size(ch.text)
+        return (std[0], std[1]) if std else None
+
+    def borderless_sizes(self) -> dict:
+        """{normales Papier: randlose Variante} – gleiche Größe, Name/Text sagt randlos oder bedruckbarer Bereich
+            ist das ganze Blatt, während das normale Format einen Rand hat."""
+        c = self._bl_cache()
+        if "sizes" in c:
+            return c["sizes"]
+        out = {}
+        key = self.roles.get("pagesize")
+        opt = self.options.get(key) if key else None
+        groups = {}
+        for ch in (opt.choices if opt else []):
+            sz = self._choice_size(ch)
+            if sz:
+                groups.setdefault((round(min(sz)), round(max(sz))), []).append(ch)
+        for chs in groups.values():
+            if len(chs) < 2:
+                continue
+
+            def full(ch):
+                ia, sz = self.imageable.get(ch.value), self._choice_size(ch)
+                return bool(ia and sz and ia[0] <= 0.5 and ia[1] <= 0.5 and ia[2] >= sz[0] - 0.5 and ia[3] >= sz[1] - 0.5)
+            named = [ch for ch in chs if _BL_RX.search(ch.value) or _BL_RX.search(ch.text)
+                     or (std_size(ch.value) or (0, 0, False))[2]]
+            if not named:
+                fulls = [ch for ch in chs if full(ch)]
+                named = fulls if len(fulls) == 1 and len(chs) > 1 else []
+            bases = [ch for ch in chs if ch not in named]
+            for b in bases:
+                if not named:
+                    break
+                # passende Variante: gleicher Namensanfang („A4“ -> „A4.Borderless“), sonst die erste
+                pick = next((v for v in named if v.value.upper().lstrip("T").startswith(b.value.upper().split(".")[0])),
+                            named[0])
+                out[b.value] = pick.value
+        c["sizes"] = out
+        return out
+
+    def borderless_option(self) -> tuple | None:
+        """Eigene Treiberoption für randlos -> (Schlüssel, Wert an, Wert aus) oder None."""
+        c = self._bl_cache()
+        if "opt" in c:
+            return c["opt"]
+        res = None
+        pkey = self.roles.get("pagesize")
+        for k, o in self.options.items():
+            if o.installable or k == pkey or len(o.choices) < 2:
+                continue
+            if _BL_EXP_RX.search(k) or _BL_EXP_RX.search(o.text):
+                continue
+            if not (_BL_OPT_RX.search(k) or _BL_OPT_RX.search(o.text)):
+                continue
+            on = next((ch.value for ch in o.choices if _BL_ON_RX.search(ch.value) or _BL_ON_RX.search(ch.text)), None)
+            off = next((ch.value for ch in o.choices if ch.value != on and
+                        (_BL_OFF_RX.search(ch.value) or _BL_OFF_RX.search(ch.text))), None)
+            if on and not off and len(o.choices) == 2:
+                off = next(ch.value for ch in o.choices if ch.value != on)
+            if on and off:
+                res = (k, on, off)
+                break
+        c["opt"] = res
+        return res
+
+    def borderless_expand_key(self) -> str | None:
+        """Treiberoption für die Erweiterung (wie weit das Bild über den Blattrand gezogen wird) – oder None."""
+        c = self._bl_cache()
+        if "exp" not in c:
+            c["exp"] = next((k for k, o in self.options.items() if not o.installable and len(o.choices) >= 2 and
+                             (_BL_EXP_RX.search(k) or _BL_EXP_RX.search(o.text))), None)
+        return c["exp"]
+
+    def borderless_how(self, values: dict | None = None) -> str:
+        """Wie randlos geht: "size" (Papiervariante), "option", "ipp" oder "" (gar nicht / nicht für dieses Papier)."""
+        values = values or {}
+        sizes = self.borderless_sizes()
+        pkey = self.roles.get("pagesize")
+        cur = values.get(pkey, self.options[pkey].default if pkey in self.options else None) if pkey else None
+        if sizes and (cur in sizes or cur in sizes.values()):
+            return "size"
+        if self.borderless_option():
+            return "option"
+        if self.backend == "ipp" and self.ipp_zero_margin:
+            return "ipp"
+        return ""
+
+    def can_borderless(self) -> bool:
+        """Kann das Gerät grundsätzlich randlos (mit irgendeinem Papier)?"""
+        return bool(self.borderless_sizes() or self.borderless_option() or
+                    (self.backend == "ipp" and self.ipp_zero_margin))
+
+    def is_borderless(self, values: dict) -> bool:
+        pkey = self.roles.get("pagesize")
+        if pkey and values.get(pkey) in set(self.borderless_sizes().values()):
+            return True
+        opt = self.borderless_option()
+        if opt and values.get(opt[0], self.options[opt[0]].default) == opt[1]:
+            return True
+        return self.backend == "ipp" and values.get(BORDERLESS_KEY) == "1"
+
+    def set_borderless(self, values: dict, on: bool) -> tuple[dict, bool]:
+        """Randlos ein-/ausschalten -> (neue Werte, geklappt). Geht es für das gewählte Papier nicht, bleibt
+            alles wie es ist und geklappt = False."""
+        out = dict(values)
+        how = self.borderless_how(out)
+        pkey = self.roles.get("pagesize")
+        if how == "size":
+            sizes = self.borderless_sizes()
+            back = {v: k for k, v in sizes.items()}
+            cur = out.get(pkey, self.options[pkey].default)
+            if on and cur in sizes:
+                out[pkey] = sizes[cur]
+            elif not on and cur in back:
+                out[pkey] = back[cur]
+            return out, True
+        if how == "option":
+            k, von, voff = self.borderless_option()
+            out[k] = von if on else voff
+            return out, True
+        if how == "ipp":
+            if on:
+                out[BORDERLESS_KEY] = "1"
+            else:
+                out.pop(BORDERLESS_KEY, None)
+            return out, True
+        return out, not on
+
+    def _sheet_info(self, values: dict[str, str]):
         key = self.roles.get("pagesize")
         val = values.get(key) if key else None
         if self.backend == "win" and val is not None and not str(val).startswith(CUSTOM_PREFIX):
@@ -285,10 +429,28 @@ class PrinterCaps:
             v = values.get(k, opt.default)
             if v is not None and v != "":
                 out[k] = str(v)
+        if self.backend == "ipp" and values.get(BORDERLESS_KEY) == "1":
+            sz = self.page_sizes.get(out.get("media", ""))
+            if sz:                                   # randlos: Format + Rand 0 als media-col (ersetzt media …)
+                parts = ["media-size={x-dimension=%d y-dimension=%d}" % (round(sz[0] / 72 * 2540),
+                                                                          round(sz[1] / 72 * 2540))]
+                parts += [f"media-{e}-margin=0" for e in ("top", "bottom", "left", "right")]
+                for k in ("media-source", "media-type"):
+                    if out.get(k):
+                        parts.append(f"{k}={out.pop(k)}")
+                out.pop("media", None)
+                out["media-col"] = "{" + " ".join(parts) + "}"
         return out
 
 
 # --------------------------------------------------------------------------- #
+BORDERLESS_KEY = "__borderless__"   # IPP ohne PPD: randlos (wird in job_options zu media-col)
+_BL_RX = re.compile(r"borderless|randlos|full\s*-?bleed|sans\s*marges?|sin\s*bordes|senza\s*bordi|keret\s*n[ée]lk|"
+                    r"ohne\s*rand|no\s*margins?|margin\s*-?less|\(bl\)|\.bl\b|_bl\b", re.I)
+_BL_OPT_RX = re.compile(r"borderless|randlos|full\s*-?bleed|margin\s*-?type|randtyp|ohne\s*rand", re.I)
+_BL_EXP_RX = re.compile(r"expan|extension|erweiterung|[üu]berstand|overspray|amount\s*of\s*ext|bleed\s*amount", re.I)
+_BL_ON_RX = re.compile(r"^(true|on|yes|1)$|borderless|randlos|full\s*-?bleed|ohne\s*rand|no\s*margin", re.I)
+_BL_OFF_RX = re.compile(r"^(false|off|no|0|none|normal|standard)$|bordered|with\s*margin|mit\s*rand|^border$", re.I)
 PDF_TARGET = "__pdf__"
 PDF_DOC_SIZE = "DOC"                # „Als PDF speichern“: Blatt = Größe der ersten gewählten Seite
 PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA4", "SRA3", "SRA2", "LETTER", "LEGAL", "TABLOID"]
@@ -653,6 +815,8 @@ def _caps_from_ipp(name: str, c) -> PrinterCaps:
         vals = [int(v) for v in _as_list(a.get(f"media-{k}-margin-supported"))]
         return min(vals) * 72.0 / 2540.0 if vals else 0.0
     mb, ml, mr, mt = margin("bottom"), margin("left"), margin("right"), margin("top")
+    caps.ipp_zero_margin = all(0 in [int(v) for v in _as_list(a.get(f"media-{k}-margin-supported"))]
+                               for k in ("bottom", "left", "right", "top"))
     for ch in caps.options.get("media", Option("", "", "", [], "")).choices:
         sz, src = _media_size(ch.value), "driver"          # PWG-Name: iso_a4_210x297mm
         if not sz:                                          # sonst: Name/Text („Custom.225x320mm“, „A4“ …)

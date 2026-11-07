@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.14
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -24,7 +24,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 ## Features
 
 - **View and print** PDFs, images (incl. HEIC, SVG) and Office files (via LibreOffice). Uses the printer
-  drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options.
+  drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options. Borderless printing where the driver supports it – paper variants, driver options and IPP queues alike, with PDFs with bleed running over the edge.
 - **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
   or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
   and a sheet overview. Also on the command line (`passermark-cli impose`). Step & repeat can mount the finished sheet a second time onto a freely chosen target format (step 2) – now also when printing directly from the print dialog.
@@ -39,7 +39,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   fonts (free metric-compatible fonts or download from fontsource.org), outline text, fix/remove layers,
   flatten transparency. Every finding names its position (e.g. "page 2 – bottom right, 40 × 20 mm"); one click jumps there and frames it in red, ◀ ▶ walks through the findings. New is the format-against-device check: pages are compared with the paper formats of the default printer – a note if the driver supports custom sizes; roll devices report when a page is wider than every roll.
 - **Edit mode:** select text lines and layers with the mouse; change text, font and size; move, scale,
-  hide, remove or replace layers; undo.
+  hide, remove or replace layers; undo. A Move section: snapping to page edge, final format, bleed, page centre, other objects and an adjustable grid with a dashed guide line, automatic rulers, offset and position in mm in the status bar while dragging, and step-by-step moving in mm, pt or px with the arrow keys – Shift ten times as far, also for rotated views.
 - Rulers and measuring: rulers in mm at the edge of the view; click start and end to measure (Shift snaps to
   horizontal/vertical/45°), result in the status bar. Holding Ctrl, the crosshair snaps magnetically to trim and inner lines (page edge,
   trim size, bleed), image edges and vector lines – never to text; it sticks to the edge until the
@@ -48,7 +48,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
   QR codes, Code 128 and EAN-13 as vectors (with quiet zone); placeholders `{{…}}` in the PDF; date, page,
   random and other variables; several pages per record (front/back) and fields on odd/even pages; code log;
   step & repeat with a different record per copy (row by row or cut & stack); **windows (page groups)** for multi-page templates – e.g. front sides with the name, back sides with a QR code – with page selection per window (all/odd/even pages or ranges) and record distribution sheet by sheet or page by page. Also on the command line
-  (`passermark-cli vdp`). With Check data before generating: text too long or too tall for its field, measured with the field's font, empty columns, unknown placeholders, invalid EAN-13, codes without content – every finding with its row in the CSV.
+  (`passermark-cli vdp`). With Check data before generating: text too long or too tall for its field, measured with the field's font, empty columns, unknown placeholders, invalid EAN-13, codes without content – every finding with its row in the CSV. Image fields as well: path from the CSV, formats PNG, JPG, TIFF, BMP, GIF, WebP and PDF (first page, stays vector), fit, fill or distort, fallback image for empty columns or missing files, repeated images stored once in the PDF.
 - **Enter data:** build the data table inside Passermark – QR business card (vCard), Wi-Fi access, e-mail, web
   address, phone, SMS, event, location, Code 128, EAN-13 – with matching columns, instant checks and paste from
   Excel; saved as CSV and used directly in variable data. Own CSV files with other column names (e.g. contact
@@ -61,7 +61,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 - **Shared print folder:** one hotfolder for everyone – set up through a button in the administration (“Set up shared print folder …”), through install.sh or through `passermark-cli shared-folder`; a single root helper creates the group and the folder (root:passermark, 2775, default ACL, the users join the group, symbolic links are rejected); under Windows the three subfolders `hotfolder`, `ausgabe` and `archiv` get Modify permission for the users – the rest of ProgramData stays reserved for the administrators.
 - **Soft proofing:** simulate the print result in the view (Ctrl+Y) – the print condition is a material, a profile from the administration or a system CMYK profile, with intent and BPC; simulate paper colour and black printing ink, warnings for colours outside the printable gamut and for the ink coverage above a limit in %.
 - **Materials:** register papers (grammage, surface, rendering intent, profile per printer); paper white measured with ArgyllCMS (spotread), from a CGATS measurement file or by hand; profile suggestions ranked by ΔE2000. Materials set profile and intent in the print dialog and in the CMYK conversion, and the colour preview takes the measured paper white.
-- **Colour check:** in the new Colour menu (Ctrl+Shift+F) – a side panel like the preflight: pick the print condition, Passermark shows what is in the document (RGB, ink coverage, spot colours, output intent) and plain-text findings, each with a button to fix it; findings are clickable.
+- **Colour check:** in the new Colour menu (Ctrl+Shift+F) – a side panel like the preflight: pick the print condition, Passermark shows what is in the document (RGB, ink coverage, spot colours, output intent) and plain-text findings, each with a button to fix it; findings are clickable. The colour eyedropper (Ctrl+Shift+C, also in the Colour menu) picks a colour off the page: object type, the colour as it stands in the PDF, and C, M, Y and K in percent computed with the chosen print condition – over the limit turns red; take it over directly as CMYK or RGB for editing, or copy all values as text.
 - **Export for the press:** a wizard in four steps – pick the print condition, convert as recommended, check, save; the ICC profile always embedded as output intent, RGB always asks; optional package with PDF, profiles and a report. Also on the command line (`passermark-cli press`).
 - **Papers and measurements:** own materials without admin rights (`~/.config/passermark/materials.json`, saved immediately); “Measure paper …” creates the paper and starts the measurement, “Find device” finds the X-Rite device via ArgyllCMS; the empty material list in the admin dialog now explains the first steps.
 - **Standard profiles:** load PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL and SWOP from registry.color.org into your own ICC folder with “Get standard profiles” (not bundled for licence reasons); suggestions also show profiles that are not installed yet.

@@ -2,6 +2,51 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.14
+
+### Farbpipette
+- Neu im Menü „Farbe“, als Knopf in Druckaufbereitung und Bearbeiten und mit Strg+Umschalt+C: Ein Klick auf die Seite öffnet ein kleines Fenster.
+- „Objekt“: Text, Fläche, Kontur, Bild (mit Pixelmaß und ppi) oder Papier.
+- „Im PDF“: die Farbe, wie sie dort steht – CMYK mit Gesamtwert, RGB mit Hex-Code, Grau, Sonderfarbe mit Name und Tonwert, bei Bildern der Pixelwert.
+- „Im Druck“: C, M, Y und K in Prozent plus Gesamtauftrag, gerechnet mit der Druckbedingung, die oben im Fenster wählbar ist (wie bei der Farbprüfung). Bei RGB zeigt es, wie viel CMYK daraus wird. Liegt ein Wert über dem Richtwert, wird er rot.
+- „Als CMYK übernehmen“ / „Als RGB übernehmen“: Die Farbe steht danach bei Bearbeiten → „Farbe …“ schon eingetragen. „Kopieren“ legt alle Werte als Text in die Zwischenablage.
+- Esc beendet die Pipette; danach ist man wieder im vorherigen Modus.
+
+### Verschieben im Bearbeiten
+- Im Bearbeiten-Fenster gibt es neu den Bereich „Verschieben“.
+- „Einrasten“: Kanten und Mitte der Auswahl rasten beim Ziehen an Seitenrand, Endformat, Anschnitt, Seitenmitte, anderen Objekten und am Raster ein; eine gestrichelte Hilfslinie zeigt, wo. Mit gedrückter Umschalttaste zieht man frei.
+- „Raster“: Weite in mm, gemessen ab der linken oberen Ecke der Seite; 0 schaltet das Raster aus.
+- „Lineale“ gehen im Bearbeiten-Modus automatisch an und lassen sich dort abschalten.
+- In der Statuszeile steht beim Ziehen die Verschiebung und die Lage links und oben in mm.
+- „Schrittweise“: Wert in mm, pt oder px eingeben, dann mit den Knöpfen ← → ↑ ↓ oder den Pfeiltasten verschieben; Umschalt verschiebt um das Zehnfache. Das geht für Text, Objekte und Ebenen, auch bei gedrehter Ansicht. „px“ ist hier 1/72 Zoll, also gleich viel wie pt.
+## 1.18.13
+
+### Objektbearbeitung: kein Textverlust mehr
+- „Objekt löschen“ und „Skalieren/Verschieben“ haben bisher die ganze Seite neu geschrieben – bei manchen PDFs ging dabei Text verloren. Jetzt wird nur noch das gewählte Objekt im Seiteninhalt geändert, der Rest der Seite bleibt unverändert. Das Ergebnis ist pixelgleich mit dem alten Weg, nur ohne Textverlust.
+
+### Randlos drucken
+- Im Druckdialog steht unter dem Papierformat neu die Zeile „Rand: ☐ Randlos drucken“. Sie erscheint nur bei Geräten, deren Treiber randlos anbietet – egal, wie der Treiber das löst: als eigene Papiervariante (auch unter Windows), als eigene Treiberoption oder bei IPP-Warteschlangen ohne PPD über Rand 0.
+- Bietet der Treiber eine Einstellung, wie weit das Bild über den Rand gezogen wird, steht die direkt daneben.
+- PDFs mit Anschnitt: Das Endformat liegt genau auf dem Blatt, der echte Anschnitt läuft über den Rand; die Erweiterung kann dann auf die kleinste Stufe. Ohne Anschnitt füllt die Seite das ganze Blatt.
+- Formate ohne Randlos-Variante: Das Häkchen ist gesperrt, mit einem Hinweis. Wechselst du auf ein Format, das es randlos gibt, bleibt randlos an.
+- In Abläufen: `borderless: true` im Druck-Schritt. `passermark-cli caps DRUCKER` zeigt unter borderless, was dein Gerät anbietet.
+
+### Dokumentprüfung
+- Die Warnung vor Haarlinien (dünner als 0,1 mm) ist wieder drin – sie war seit 1.18.2 versehentlich nicht mehr enthalten.
+## 1.18.12
+
+### Variable Daten: Bildfelder
+- Neuer Knopf „+ Bild“ – der Inhalt ist der Pfad zur Bilddatei, meist aus einer Spalte wie `{{Foto}}`. Die passende Spalte (Bild, Foto, Logo, Datei …) wird beim Anlegen erraten.
+- Pfade: absolut oder relativ zum Ordner der CSV; `\` geht wie `/`, Groß- und Kleinschreibung ist egal. Fehlt die Endung, wird selbst gesucht – `.png`, `.jpg`, `.tif`, `.pdf` und weitere.
+- Formate: PNG, JPG, TIFF (auch CMYK), BMP, GIF, WebP und PDF (erste Seite). PDF-Bilder bleiben Vektor, JPEGs gehen unverändert ins PDF, hochkant gespeicherte Handyfotos werden richtig aufgestellt, und ein Bild, das öfter vorkommt, liegt nur einmal im PDF.
+- Einpassen: Einpassen, Füllen (Überstand wird abgeschnitten) oder Verzerren; Ausrichtung und Drehung wie bei Textfeldern.
+- Ersatzbild: springt ein, wenn die Spalte leer ist oder die Datei fehlt oder kaputt ist. Ohne Ersatzbild bleibt ein leeres Feld leer.
+- „Daten prüfen“ meldet mit der Zeile in der CSV: fehlende und unlesbare Bilder (ohne Ersatzbild bricht das Erzeugen ab, mit Ersatzbild ist es nur ein Hinweis), wo ein Ersatzbild verwendet wurde, leere Bildfelder und zu geringe Auflösung – unter 150 ppi in Druckgröße.
+- In Abläufen und auf der Kommandozeile: `kind: image`, dazu `fit` und `fallback` – siehe docs/cli-api.md.
+
+### Übersetzungen
+- Ergänzt: zwei in 1.18.10/11 fehlende Texte (Meldung „Drucker nicht gefunden“ und der Hinweis zu „Nur einbetten“).
+
 ## 1.18.11
 
 ### Druckmaterialien: Farbweg, Herkunft und Import

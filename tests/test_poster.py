@@ -24,25 +24,26 @@ def poster(**kw):
 def test_nest_least_paper():
     R = [rolls.Roll(610), rolls.Roll(914)]
     d = pdfium.PdfDocument(T.plan_pdf("a3n.pdf", 297, 420, frames=1))
-    s = poster()
+    s = poster(nest=True)                     # Nebeneinander ist beim Poster nicht mehr Standard
     items = pp.analyze(d, [0], s, R, "a3n.pdf", qty=7)
     runs = pp.build_runs(items, R, s, 1)
-    # 610: zwei hoch nebeneinander (297 + 5 + 297) braucht am wenigsten Papier
-    assert len(runs) == 1 and len(runs[0].pieces) == 7 and runs[0].width_mm == 610
-    # keine Überlappung, alles innerhalb der Seite
-    boxes = [(x, y, x + p.across, y + p.along) for p, x, y in runs[0].pieces]
-    for i, a in enumerate(boxes):
-        assert a[0] >= -0.01 and a[1] >= -0.01 and a[2] <= runs[0].across + 0.01 and a[3] <= runs[0].along + 0.01
-        for b in boxes[i + 1:]:
-            assert a[2] <= b[0] + 0.01 or b[2] <= a[0] + 0.01 or a[3] <= b[1] + 0.01 or b[3] <= a[1] + 0.01
-    assert T.near(runs[0].along, 4 * 420 + 3 * 5, 0.5)
-    # A2 ×5: 610 gedreht (5 × 420) braucht weniger Papier als 914 mit zwei nebeneinander
+    # 610: zwei hoch nebeneinander (297 + 5 + 297) braucht am wenigsten Papier; seit 1.18.5 ist jede Reihe eine
+    # eigene Druckseite (Schnitt je Reihe): 3 × die volle Reihe, 1 × die Reihe mit dem Rest
+    assert [(r.width_mm, len(r.pieces), r.copies) for r in runs] == [(610, 2, 3), (610, 1, 1)], runs
+    for run in runs:                          # keine Überlappung, alles innerhalb der Seite
+        boxes = [(x, y, x + p.across, y + p.along) for p, x, y in run.pieces]
+        for i, a in enumerate(boxes):
+            assert a[0] >= -0.01 and a[1] >= -0.01 and a[2] <= run.across + 0.01 and a[3] <= run.along + 0.01
+            for b in boxes[i + 1:]:
+                assert a[2] <= b[0] + 0.01 or b[2] <= a[0] + 0.01 or a[3] <= b[1] + 0.01 or b[3] <= a[1] + 0.01
+        assert T.near(run.along, 420, 0.5)
+    # A2 ×5: 610 gedreht (420 je Stück) braucht weniger Papier als 914 mit zwei nebeneinander
     d2 = pdfium.PdfDocument(T.plan_pdf("a2n.pdf", 420, 594, frames=0))
     items = pp.analyze(d2, [0], s, R, "a2n.pdf", qty=5)
     runs = pp.build_runs(items, R, s, 1)
-    assert runs[0].width_mm == 610 and len(runs[0].pieces) == 5
-    lens = pp.lengths(items, R, poster(copies=2))
-    assert lens[0]["width_mm"] == 610 and T.near(lens[0]["total_m"], (10 * 420 + 9 * 5) / 1000, 0.01)
+    assert runs[0].width_mm == 610 and len(runs[0].pieces) * runs[0].copies == 5
+    lens = pp.lengths(items, R, poster(copies=2, nest=True))
+    assert lens[0]["width_mm"] == 610 and T.near(lens[0]["total_m"], 10 * 420 / 1000, 0.01)
     # ohne Nebeneinander (Plandruck): ein Stück je Seite
     runs = pp.build_runs(items, R, pp.PlanSettings(weights=[]), 1)
     assert len(runs) == 1 and runs[0].copies == 5
@@ -65,8 +66,8 @@ def test_overwidth_crop_and_tile():
     info = pp.summary("", [it], R, st)
     assert info["tiled"] == [it.label] and not info["unfit"]
     out = os.path.join(T.TMP, "tiles.pdf")
-    assert pp.save_pdf([it], R, st, out) == 1                  # nebeneinander: beide Bahnen auf einer Seite
     import dataclasses
+    assert pp.save_pdf([it], R, dataclasses.replace(st, nest=True), out) == 2   # seit 1.18.5: je Reihe eine Seite
     assert pp.save_pdf([it], R, dataclasses.replace(st, nest=False), out) == 2
 
 
@@ -200,10 +201,12 @@ def test_cli_poster_and_plt():
     src = T.plan_pdf("clip.pdf", 297, 420, frames=1)
     plt = os.path.join(T.TMP, "cut.plt")
     r = T._cli("plan", src, "--kind", "poster", "--rolls", "914", "--copies", "6", "--set", "cut_contour=true",
-               "--plt", plt, "--dry-run", "--json")
+               "--plt", plt, "--set", "nest=true", "--dry-run", "--json")
     assert r.returncode == 0, r.stderr
     done = json.loads(r.stdout.strip().splitlines()[-1])
-    assert done["nest"] and done["kind"] == "poster" and done["jobs"][0]["pieces"] == 6
+    # nebeneinander: 3 A3 je Reihe auf 914, seit 1.18.5 je Reihe eine Druckseite -> 2 × dieselbe Reihe
+    job = done["jobs"][0]
+    assert done["nest"] and done["kind"] == "poster" and job["pieces"] * job["copies"] == 6, done["jobs"]
     assert done["cut_file"]["cuts"] == 1 and open(plt).read().startswith("IN;")
 
 

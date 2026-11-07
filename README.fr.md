@@ -1,4 +1,4 @@
-# Passermark 1.18.11
+# Passermark 1.18.14
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -27,7 +27,7 @@ Logiciel libre (GPL-3.0-or-later).
 
 - **Afficher et imprimer** des PDF, des images (y compris HEIC, SVG) et des fichiers Office (via
   LibreOffice). Utilise les pilotes d'imprimante déjà installés (CUPS sous Linux, pilotes Windows) avec
-  toutes leurs options.
+  toutes leurs options. Impression sans marge quand le pilote le propose – variante de papier, option du pilote ou file IPP ; les PDF avec fond perdu passent par le bord.
 - **Imposition :** ajuster/mettre à l'échelle, N pages par feuille, poster, pas de répétition (step & repeat) ;
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.
@@ -45,7 +45,7 @@ Logiciel libre (GPL-3.0-or-later).
   ou remplacer des polices (polices libres métriquement compatibles ou téléchargement depuis fontsource.org),
   texte en courbes, figer/supprimer des calques, aplatir la transparence. Chaque constat nomme sa position (p. ex. « page 2 – en bas à droite, 40 × 20 mm ») ; un clic y saute et l'encadre en rouge, ◀ ▶ fait défiler les constats. Nouveau : le contrôle format contre appareil : les pages sont comparées aux formats papier de l'imprimante par défaut – avis si le pilote prend en charge les formats spéciaux ; les appareils à rouleaux signalent quand une page est plus large que chaque rouleau.
 - **Édition :** sélectionner des lignes de texte et des calques à la souris ; modifier texte, police et
-  taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler.
+  taille ; déplacer, redimensionner, masquer, supprimer ou remplacer des calques ; annuler. Une section « Déplacer » : magnétisme au bord de la page, au format final, au fond perdu, au centre de la page, aux autres objets et à une grille réglable avec guide en pointillés, règles automatiques, décalage et position en mm dans la barre d'état pendant le déplacement, et déplacement pas à pas en mm, pt ou px avec les flèches – Maj dix fois plus, aussi avec la vue pivotée.
 - Règles et mesure : règles en mm au bord de la vue ; cliquer début et fin pour mesurer (Maj s'aligne
   horizontalement/verticalement/45°), résultat dans la barre d'état. Avec Ctrl maintenue, le réticule s'aimante aux lignes de coupe et intérieures (bord de page,
   format final, fond perdu), aux bords d'images et aux lignes vectorielles – jamais au texte ; il colle
@@ -55,7 +55,7 @@ Logiciel libre (GPL-3.0-or-later).
   placeholders `{{…}}` dans le PDF ; date, page, nombre aléatoire et autres variables ; plusieurs pages par
   enregistrement (recto/verso) et champs sur pages impaires/paires ; journal de codes ; step & repeat avec
   son propre enregistrement par copie (feuille par feuille ou couper et empiler) ; **fenêtres (groupes de pages)** pour les gabarits multi-pages – p. ex. recto avec le nom, verso avec un code QR – avec sélection des pages par fenêtre (toutes/impaires/paires ou plages) et répartition des enregistrements feuille par feuille ou page par page. Aussi en ligne de commande
-  (`passermark-cli vdp`). Avec « Vérifier les données » avant de générer : texte trop long ou trop haut pour son champ, mesuré avec la police du champ, colonnes vides, marqueurs inconnus, EAN-13 non valides, codes sans contenu – chaque constat avec sa ligne dans le CSV.
+  (`passermark-cli vdp`). Avec « Vérifier les données » avant de générer : texte trop long ou trop haut pour son champ, mesuré avec la police du champ, colonnes vides, marqueurs inconnus, EAN-13 non valides, codes sans contenu – chaque constat avec sa ligne dans le CSV. Des champs image aussi : chemin depuis le CSV, formats PNG, JPG, TIFF, BMP, GIF, WebP et PDF (première page, reste vectoriel), ajuster, remplir ou déformer, image de repli pour colonnes vides ou fichiers manquants, images répétées stockées une seule fois dans le PDF.
 - **Saisie des données :** créer le tableau de données directement dans Passermark – carte de visite QR
   (vCard), accès Wi-Fi, e-mail, adresse web, appel, SMS, rendez-vous, lieu, Code 128, EAN-13 – avec les
   colonnes adaptées, vérification immédiate et collage depuis Excel ; enregistré en CSV et utilisable
@@ -71,7 +71,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Dossier d'impression partagé :** un dossier de dépôt pour tous – mis en place via un bouton dans l'administration (« Mettre en place le dossier d'impression partagé … »), via install.sh ou via `passermark-cli shared-folder` ; un seul assistant root crée le groupe et le dossier (root:passermark, 2775, ACL par défaut, les utilisateurs rejoignent le groupe, les liens symboliques sont refusés) ; sous Windows, les trois sous-dossiers `hotfolder`, `ausgabe` et `archiv` reçoivent le droit Modifier pour les utilisateurs – le reste de ProgramData reste réservé aux administrateurs.
 - **Softproof :** simuler le résultat d'impression dans la vue (Ctrl+Y) – comme condition d'impression, une matière, un profil de l'administration ou un profil CMYK du système, avec le rendu (intent) et la BPC ; simuler la couleur du papier et l'encre noire d'impression, avertissements pour les couleurs hors gamme imprimable et pour la couverture d'encre au-delà d'une limite en %.
 - **Matières :** enregistrer des papiers (grammage, surface, rendu, profil par imprimante) ; blanc de papier mesuré avec ArgyllCMS (spotread), à partir d'un fichier de mesure CGATS ou à la main ; suggestions de profils classées selon le ΔE2000. Les matières définissent le profil et le rendu dans le dialogue d'impression et dans la conversion CMYK ; l'aperçu couleur prend le blanc de papier mesuré.
-- **Contrôle couleur :** dans le nouveau menu Couleur (Ctrl+Maj+F) – un panneau latéral comme le prévol : choisir la condition d'impression, Passermark montre ce que contient le document (RVB, couverture d'encre, tons directs, output intent) et des constats en clair, chacun avec un bouton pour corriger ; les constats sont cliquables.
+- **Contrôle couleur :** dans le nouveau menu Couleur (Ctrl+Maj+F) – un panneau latéral comme le prévol : choisir la condition d'impression, Passermark montre ce que contient le document (RVB, couverture d'encre, tons directs, output intent) et des constats en clair, chacun avec un bouton pour corriger ; les constats sont cliquables. La pipette à couleur (Ctrl+Maj+C, aussi dans le menu Couleur) prend une couleur directement sur la page : type d'objet, la couleur telle qu'elle est dans le PDF et C, M, J et N en pourcentage, calculés avec la condition d'impression choisie – au-dessus de la limite, en rouge ; à reprendre directement en CMJN ou RVB pour l'édition, ou à copier en texte.
 - **Export pour l'imprimeur :** un assistant en quatre étapes – choisir la condition d'impression, convertir selon la recommandation, contrôler, enregistrer ; l'ICC toujours intégré comme output intent, le RVB demande toujours ; paquet facultatif avec PDF, profils et rapport. Aussi en ligne de commande (`passermark-cli press`).
 - **Papiers et mesures :** des matières personnelles sans droits d'administration (`~/.config/passermark/materials.json`, enregistrées immédiatement) ; le bouton « Mesurer le papier … » crée le papier et lance la mesure, « Rechercher l'appareil » trouve l'appareil X-Rite via ArgyllCMS ; la liste des matières vide dans le dialogue d'admin explique maintenant les premières étapes.
 - **Profils standard :** charger PSO Coated/Uncoated v3, FOGRA39/47, SC-B, GRACoL et SWOP depuis registry.color.org dans son propre dossier ICC avec « Obtenir les profils standard » (pas fournis pour des raisons de licence) ; les suggestions montrent aussi les profils pas encore installés.

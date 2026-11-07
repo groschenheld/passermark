@@ -1600,3 +1600,154 @@ def replace_layer(data: bytes, key: str, page_index: int, src: bytes, src_page: 
         return buf.getvalue()
     finally:
         pdf.close()
+
+
+# --------------------------------------------------------------------------- #
+# Objekte löschen/verschieben direkt im Seiteninhalt (1.18.13).
+# pdfiums GenerateContent schreibt die ganze Seite neu und kann dabei Text zerstören
+# (gemeldet: 1533 → 18 Zeichen). Hier wird nur das gewählte Objekt angefasst, der Rest bleibt Byte für Byte.
+# --------------------------------------------------------------------------- #
+def _mat_mul(a: tuple, b: tuple) -> tuple:
+    """PDF-Matrizen (a b c d e f, Zeilenvektor-Konvention): a × b."""
+    return (a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3],
+            a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
+            a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5])
+
+
+def _mat_inv(m: tuple) -> tuple | None:
+    a, b, c, d, e, f = m
+    det = a * d - b * c
+    if abs(det) < 1e-12:
+        return None
+    ia, ib, ic, id_ = d / det, -b / det, -c / det, a / det
+    return (ia, ib, ic, id_, -(e * ia + f * ic), -(e * ib + f * id_))
+
+
+def object_ordinals(data: bytes, page_index: int, objs: list) -> tuple | None:
+    """Gewählte Objekte -> ({Pfad-Ordinalen}, {Bild-Ordinalen}, Anzahl Pfade, Anzahl Bilder) in pdfiums Reihenfolge.
+        None, wenn etwas anderes als Pfad/Bild gewählt ist."""
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as r
+    wanted = {i for O in objs for i in O.objs}
+    paths, images, pord, iord = set(), set(), -1, -1
+    d = pdfium.PdfDocument(data)
+    try:
+        page = d[page_index]
+        try:
+            for i in range(r.FPDFPage_CountObjects(page.raw)):
+                t = r.FPDFPageObj_GetType(r.FPDFPage_GetObject(page.raw, i))
+                if t == r.FPDF_PAGEOBJ_PATH:
+                    pord += 1
+                    if i in wanted:
+                        paths.add(pord)
+                elif t == r.FPDF_PAGEOBJ_IMAGE:
+                    iord += 1
+                    if i in wanted:
+                        images.add(iord)
+                elif i in wanted:
+                    return None
+        finally:
+            page.close()
+    finally:
+        d.close()
+    return paths, images, pord + 1, iord + 1
+
+
+def edit_objects_content(data: bytes, page_index: int, objs: list, action: str, scale: float = 1.0,
+                         dx: float = 0.0, dy: float = 0.0, origin: tuple = (0.0, 0.0)) -> bytes | None:
+    """Vektor-/Bildobjekte im Seiteninhalt löschen (action="delete") oder skalieren/verschieben ("transform").
+        Nur die betroffenen Operatoren ändern sich; Farben und Zustände davor bleiben, damit nachfolgende Objekte
+        gleich aussehen. Ein Pfad, der zugleich beschneidet (W), wird beim Löschen nur unsichtbar gemacht (n) –
+        der Beschnitt bleibt. None = Zuordnung nicht sicher (dann anderer Weg)."""
+    import pikepdf
+    got = object_ordinals(data, page_index, objs)
+    if got is None:
+        return None
+    paths, images, n_paths, n_images = got
+    if not paths and not images:
+        return data
+    s, ox, oy = float(scale), float(origin[0]), float(origin[1])
+    T = (s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
+    I, Op = pikepdf.ContentStreamInstruction, pikepdf.Operator
+
+    def wrap_ops(ctm):
+        """q + cm, damit das Objekt im Seitenraum um T bewegt wird: M = C·T·C⁻¹ (C = aktuelle CTM)."""
+        inv = _mat_inv(ctm)
+        if inv is None:
+            raise ValueError("ctm")
+        M = _mat_mul(_mat_mul(ctm, T), inv)
+        return [I([], Op("q")), I([round(v, 6) for v in M], Op("cm"))]
+
+    pdf = pikepdf.open(io.BytesIO(data))
+    try:
+        pg = pdf.pages[page_index]
+        res = pg.obj.get("/Resources")
+        xobj = res.get("/XObject") if res is not None else None
+        out, stack = [], []
+        ctm = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+        in_bt, path_start, path_clip, pord, iord = False, None, False, -1, -1
+        try:
+            for ins in pikepdf.parse_content_stream(pg):
+                op = str(getattr(ins, "operator", ""))
+                if op == "INLINE IMAGE":
+                    iord += 1
+                    if iord in images:
+                        if action == "delete":
+                            continue
+                        out += wrap_ops(ctm) + [ins, I([], Op("Q"))]
+                        continue
+                    out.append(ins)
+                    continue
+                if op == "q":
+                    stack.append(ctm)
+                elif op == "Q":
+                    if stack:
+                        ctm = stack.pop()
+                elif op == "cm" and not in_bt:
+                    ctm = _mat_mul(tuple(float(v) for v in ins.operands), ctm)
+                elif op == "BT":
+                    in_bt = True
+                elif op == "ET":
+                    in_bt = False
+                elif op == "Do":
+                    xo = xobj.get(ins.operands[0]) if xobj is not None else None
+                    if xo is not None and str(xo.get("/Subtype", "")) == "/Image":
+                        iord += 1
+                        if iord in images:
+                            if action == "delete":
+                                continue
+                            out += wrap_ops(ctm) + [ins, I([], Op("Q"))]
+                            continue
+                if not in_bt and op in PATH_CONSTR_OPS and path_start is None:
+                    path_start, path_clip = len(out), False
+                elif op in CLIP_MARK_OPS:
+                    path_clip = True
+                if not in_bt and op in PATH_PAINT_OPS and path_start is not None:
+                    pord += 1
+                    if pord in paths:
+                        if action == "delete":
+                            if path_clip:
+                                out.append(I([], Op("n")))       # Beschnitt behalten, nur nicht malen
+                            else:
+                                del out[path_start:]
+                        else:
+                            if path_clip:
+                                return None                       # Beschnitt würde mitwandern – anderer Weg
+                            out[path_start:path_start] = wrap_ops(ctm)
+                            out += [ins, I([], Op("Q"))]
+                        path_start = None
+                        continue
+                    path_start = None
+                elif op == "n":
+                    path_start = None
+                out.append(ins)
+        except ValueError:
+            return None
+        if pord + 1 != n_paths or iord + 1 != n_images:
+            return None                  # Inhalt passt nicht zu pdfiums Objekten -> nicht sicher
+        pg.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
+        buf = io.BytesIO()
+        pdf.save(buf)
+        return buf.getvalue()
+    finally:
+        pdf.close()
