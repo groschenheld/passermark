@@ -5,6 +5,21 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.13
+
+### Objektumszerkesztés: nincs több szövegvesztés
+- Az „Objektum törlése” és a „Skálázás/Mozgatás” eddig az egész oldalt újraírta – néhány PDF-nél közben szöveg veszett el. Mostantól csak a kiválasztott objektum változik az oldal tartalmában, a lap többi része érintetlen marad. Az eredmény képpontosan azonos a régi módszerrel, csak szövegvesztés nélkül.
+
+### Perem nélküli nyomtatás
+- A nyomtatási párbeszédablakban új sor áll a papírformátum alatt: „Margó: ☐ Nyomtatás perem nélkül”. Csak olyan eszközöknél jelenik meg, amelyek illesztőprogramja kínálja – mindegy, hogyan oldja meg az illesztő: saját papírvariánsként (Windowson is), saját illesztőbeállításként vagy PPD nélküli IPP-soroknál 0 margóval.
+- Ha az illesztő kínál beállítást arra, meddig húzódjon át a kép a peremen, az közvetlenül mellette áll.
+- Alávágással rendelkező PDF: a végformátum pontosan a lapon fekszik, a valódi alávágás átmeny a peremen; a bővítés ekkor a legkisebb fokozatra vehető. Alávágás nélkül az oldal egyszerűen kitölti az egész lapot.
+- Perem nélküli variáns nélküli formátumok: a jelölőmező zárolt, tanáccsal. Egy perem nélküli formátumra váltva a perem nélküli bekapcsolva marad.
+- Munkafolyamatokban: `borderless: true` a nyomtatási lépésben. A `passermark-cli caps NYOMTATÓ` a borderless alatt mutatja, mit kínál az eszközöd.
+
+### Dokumentum-ellenőrzés
+- A hajszálvonal-figyelmeztetés (0,1 mm-nél vékonyabb) visszakerült – 1.18.2 óta tévedésből hiányzott.
+
 ## 1.18.12
 
 ### Változó adatok: képmezők

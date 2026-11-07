@@ -175,13 +175,21 @@ later steps continue with it, so a workflow can print and save, or print several
   (`finisher_presets`).
 - `layout`: page handling as in the print dialog (same keys as the `impose` job without `sheet`: `handling`
   size/multiple/booklet/poster, `nup`, `step_repeat`, `crop_marks`, `bleed_mm` …). The sheet is the selected paper.
+- `borderless` (since 1.18.13): print up to the sheet edge. Passermark picks the borderless variant of the paper
+  size (`A4.Borderless`, `TA4`, „A4 (Randlos)“ …), switches on the driver's own borderless option (Gutenprint
+  `StpFullBleed`, Canon margin type …) or – IPP queues without PPD – sends margins 0 in `media-col`. Pages with a
+  trim size (TrimBox) are set with the trim size exactly on the sheet, the bleed runs over the edge; without one the
+  page fills the sheet. Choosing a borderless paper directly has the same effect. Not possible for the chosen
+  printer/paper = error. `caps` → `borderless` shows what the driver offers (`sizes`, `option`, `expand_option`,
+  `ipp_zero_margin`).
 - `profile`: `admin` (colour profile set up for this printer), `none`, or a profile id; `intent` overrides the
   rendering intent.
 - `dry_run`: send nothing – the step only resolves everything and reports it (see below). Good for testing a
   workflow against a real printer.
 
 Result (`step_done` → `info`): `{"printer": "…", "job_id": 4711, "pages": 8, "sheet_mm": [297.0, 420.0],
-"paper": "A3", "options": {all driver options as sent}, "color_profile": "…", "notes": [], "dry_run": false}`.
+"paper": "A3", "options": {all driver options as sent}, "color_profile": "…", "notes": [], "borderless": false,
+"dry_run": false}`.
 
 On Windows the vendor-specific finishers live in the vendor's driver dialog, not in the option list: set them up
 once as a finisher template (administration → printer → new finisher template → vendor dialog) and select it with
@@ -482,7 +490,9 @@ passermark-cli tidy preset.json                    # Preset/Ablauf auf die Abwei
 Drucken im Ablauf: Schritt `{"job": "print", "settings": {"printer": "…", "paper": "A3", "tray": "Fach 2",
 "duplex": "short", "finishing": {"staple": "…"}, "layout": {"handling": "booklet"}, "dry_run": true}}` – gleicher
 Weg wie der Druckdialog; `dry_run` schickt nichts, sondern meldet nur, was gedruckt würde. `"paper": "auto"`
-wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander).
+wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander). `"borderless": true`
+(seit 1.18.13) druckt randlos: randlose Papiervariante bzw. Randlos-Option des Treibers, Endformat (TrimBox) genau
+aufs Blatt, Anschnitt über den Rand.
 
 Ablauf-Ordner (der erste mit dem Namen gewinnt): eigene unter `~/.config/passermark/workflows/` bzw.
 `%APPDATA%\Passermark\workflows\`, dann die vom Admin eingetragenen weiteren Ordner (z. B. Netzwerkfreigabe,

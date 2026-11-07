@@ -2,6 +2,21 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.13
+
+### Objektbearbeitung: kein Textverlust mehr
+- „Objekt löschen“ und „Skalieren/Verschieben“ haben bisher die ganze Seite neu geschrieben – bei manchen PDFs ging dabei Text verloren. Jetzt wird nur noch das gewählte Objekt im Seiteninhalt geändert, der Rest der Seite bleibt unverändert. Das Ergebnis ist pixelgleich mit dem alten Weg, nur ohne Textverlust.
+
+### Randlos drucken
+- Im Druckdialog steht unter dem Papierformat neu die Zeile „Rand: ☐ Randlos drucken“. Sie erscheint nur bei Geräten, deren Treiber randlos anbietet – egal, wie der Treiber das löst: als eigene Papiervariante (auch unter Windows), als eigene Treiberoption oder bei IPP-Warteschlangen ohne PPD über Rand 0.
+- Bietet der Treiber eine Einstellung, wie weit das Bild über den Rand gezogen wird, steht die direkt daneben.
+- PDFs mit Anschnitt: Das Endformat liegt genau auf dem Blatt, der echte Anschnitt läuft über den Rand; die Erweiterung kann dann auf die kleinste Stufe. Ohne Anschnitt füllt die Seite das ganze Blatt.
+- Formate ohne Randlos-Variante: Das Häkchen ist gesperrt, mit einem Hinweis. Wechselst du auf ein Format, das es randlos gibt, bleibt randlos an.
+- In Abläufen: `borderless: true` im Druck-Schritt. `passermark-cli caps DRUCKER` zeigt unter borderless, was dein Gerät anbietet.
+
+### Dokumentprüfung
+- Die Warnung vor Haarlinien (dünner als 0,1 mm) ist wieder drin – sie war seit 1.18.2 versehentlich nicht mehr enthalten.
+
 ## 1.18.12
 
 ### Variable Daten: Bildfelder

@@ -2943,4 +2943,12 @@ MESSAGES = {
     'kein bekanntes Bildformat': 'not a known image format',
     'leeres Bild': 'empty image',
     '{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})': '{0}: only {1} ppi in this field (recommended from {2})',
+    'Bis an den Blattrand drucken. Passermark wählt dafür die randlose Variante des Papierformats bzw. schaltet die Randlos-Option des Treibers ein. Hat das Dokument ein Endformat mit Anschnitt, liegt das Endformat genau auf dem Blatt und der Anschnitt läuft über den Rand.': 'Print up to the edge of the sheet. Passermark picks the borderless variant of the paper size or switches on the driver’s borderless option. If the document has a trim size with bleed, the trim size lies exactly on the sheet and the bleed runs over the edge.',
+    'Erweiterung: wie weit der Treiber das Bild über den Blattrand zieht. Mit Anschnitt im Dokument reicht die kleinste Stufe.': 'Expansion: how far the driver pulls the image over the edge of the sheet. With bleed in the document the smallest level is enough.',
+    'Für dieses Papierformat bietet der Treiber kein randloses Drucken an – anderes Format wählen.': 'The driver offers no borderless printing for this paper size – choose another size.',
+    'Rand:': 'Margin:',
+    'Randlos drucken': 'Print borderless',
+    'Randlos geht mit diesem Drucker bzw. Papierformat nicht – anderes Format wählen oder „Randlos“ ausschalten.': 'Borderless is not possible with this printer or paper size – choose another size or switch off “Borderless”.',
+    'Randlos: das Endformat des Dokuments liegt genau auf dem Blatt, der Anschnitt läuft über den Rand – Erweiterung im Treiber so klein wie möglich.': 'Borderless: the document’s trim size lies exactly on the sheet, the bleed runs over the edge – keep the driver’s expansion as small as possible.',
+    'Randlos: die Seite füllt das ganze Blatt. Der Drucker zieht das Bild etwas über den Rand (Erweiterung) – wichtige Inhalte nicht direkt an die Kante legen.': 'Borderless: the page fills the whole sheet. The printer pulls the image slightly over the edge (expansion) – do not place important content right at the edge.',
 }

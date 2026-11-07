@@ -5,6 +5,21 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.13
+
+### Edición de objetos: sin pérdida de texto
+- «Eliminar objeto» y «Escalar/Desplazar» reescribían hasta ahora la página entera – con algunos PDF se perdía texto en el proceso. Ahora solo se cambia el objeto elegido en el contenido de la página; el resto queda sin tocar. El resultado es idéntico al píxel al camino antiguo, solo que sin pérdida de texto.
+
+### Impresión sin bordes
+- En el diálogo de impresión hay una línea nueva bajo el formato de papel: «Margen: ☐ Imprimir sin bordes». Aparece solo en aparatos cuyo controlador lo ofrece – no importa cómo lo resuelva el controlador: como variante propia de papel (también en Windows), como opción propia del controlador o, en colas IPP sin PPD, con margen 0.
+- Si el controlador ofrece un ajuste de hasta dónde se extiende la imagen sobre el borde, está justo al lado.
+- PDF con sangrado: el formato final cae exactamente en la hoja, la sangrado real pasa por el borde; la extensión puede entonces ir al escalón más pequeño. Sin sangrado, la página simplemente llena toda la hoja.
+- Formatos sin variante sin bordes: la casilla está bloqueada, con un aviso. Al cambiar a un formato que sí tiene sin bordes, este se mantiene activado.
+- En flujos: `borderless: true` en el paso de impresión. `passermark-cli caps IMPRESORA` muestra bajo borderless lo que ofrece tu aparato.
+
+### Comprobación del documento
+- El aviso de líneas finas (más delgadas que 0,1 mm) está de vuelta – faltaba por error desde 1.18.2.
+
 ## 1.18.12
 
 ### Datos variables: campos de imagen

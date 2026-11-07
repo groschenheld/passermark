@@ -1,4 +1,4 @@
-# Passermark 1.18.12
+# Passermark 1.18.13
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -28,7 +28,7 @@ Software libre (GPL-3.0-or-later).
 
 - **Ver e imprimir** PDF, imágenes (también HEIC, SVG) y archivos de Office (a través de LibreOffice).
   Utiliza los controladores de impresora ya instalados (CUPS en Linux, controladores de Windows) con todas
-  sus opciones.
+  sus opciones. Impresión sin bordes donde el controlador lo ofrece – sea variante de papel, opción del controlador o cola IPP; los PDF con sangrado pasan por el borde.
 - **Imposición (Ausschießen):** ajustar/escalar, varias páginas por hoja, póster, step & repeat; folletos
   como grapado a cabalga secciones agrupadas u hojas sueltas apiladas (encuadernación encolada), con
   desplazamiento (creep), páginas en blanco, marcas de plegado, de registro y de cotejo y vista general de

@@ -5,6 +5,21 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.13
+
+### Édition d'objets : plus de perte de texte
+- « Supprimer l'objet » et « Mettre à l'échelle/Déplacer » réécrivaient jusqu'ici la page entière – avec certains PDF, du texte se perdait en cours de route. Désormais seul l'objet choisi est modifié dans le contenu de la page ; le reste reste intact. Le résultat est identique au pixel près à l'ancien chemin, juste sans perte de texte.
+
+### Impression sans marge
+- Dans le dialogue d'impression, une ligne nouvelle figure sous le format papier : « Marge : ☐ Imprimer sans marge ». Elle n'apparaît que pour les appareils dont le pilote le propose – peu importe comment le pilote le résout : en variante de papier propre (sous Windows aussi), en option propre du pilote ou, pour les files IPP sans PPD, via marge 0.
+- Si le pilote propose un réglage de la distance de dépassement de l'image sur le bord, il se trouve juste à côté.
+- PDF avec fond perdu : le format final tombe exactement sur la feuille, le vrai fond perdu passe par le bord ; l'extension peut alors aller au plus petit cran. Sans fond perdu, la page remplit simplement toute la feuille.
+- Formats sans variante sans marge : la case est verrouillée, avec un avis. En passant à un format qui la propose, sans marge reste activé.
+- Dans les enchaînements : `borderless: true` à l'étape d'impression. `passermark-cli caps IMPRIMANTE` montre sous borderless ce que propose ton appareil.
+
+### Vérification du document
+- L'avertissement sur les filets (plus fins que 0,1 mm) est de retour – il manquait par erreur depuis 1.18.2.
+
 ## 1.18.12
 
 ### Données variables : champs image

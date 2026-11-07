@@ -390,6 +390,54 @@ def test_remove_several_lines():
     d.close()
 
 
+def test_objects_in_content_keep_text():
+    """Objekte löschen/verschieben direkt im Seiteninhalt: Text bleibt Byte für Byte, Ergebnis wie pdfium,
+    Pfad mit Beschnitt bleibt beim Löschen als Beschnitt, verschachtelte cm werden berücksichtigt."""
+    import numpy as np
+    from reportlab.pdfgen import canvas
+    from pdfdruck import editops
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(595, 842))
+    c.setFont("Helvetica", 9)
+    for y in range(800, 400, -12):
+        c.drawString(40, y, "Kenntnisse Druckvorstufe Preflight " * 3)
+    c.setFillColorRGB(.85, .86, .6)
+    c.rect(100, 200, 95, 15, fill=1, stroke=0)
+    c.rect(300, 200, 40, 40, fill=1, stroke=0)                 # gleiche Farbe: darf nach dem Löschen nicht wechseln
+    c.saveState(); c.translate(400, 100); c.scale(2, 2); c.rect(0, 0, 20, 10, fill=1); c.restoreState()
+    p = c.beginPath(); p.rect(50, 50, 100, 100)
+    c.saveState(); c.clipPath(p, stroke=0, fill=1); c.rect(0, 0, 300, 300, fill=1); c.restoreState()
+    c.save()
+    data = buf.getvalue()
+    d = pdfium.PdfDocument(data)
+    objs = editing.page_objects(d, 0)
+    n_chars = d[0].get_textpage().count_chars()
+    d.close()
+
+    def look(b):
+        d = pdfium.PdfDocument(b)
+        try:
+            return np.asarray(d[0].render(scale=1).to_pil().convert("RGB")).astype(int), d[0].get_textpage().count_chars()
+        finally:
+            d.close()
+    for k, O in enumerate(objs):
+        for act in ("delete", "transform"):
+            kw = {} if act == "delete" else dict(scale=1.5, dx=10, dy=-5, origin=(O.bbox[0], O.bbox[1]))
+            a = editing.edit_objects_content(data, 0, [O], act, **kw)
+            if a is None:
+                assert act == "transform" and k == 3, (k, act)   # Pfad mit Beschnitt verschieben: pdfium-Weg
+                continue
+            if act == "delete":
+                b = editops.pdfium_edit(data, 0, lambda d: editing.delete_objects(d, 0, [O]))[0]
+            else:
+                b = editops.pdfium_edit(data, 0, lambda d: editing.transform_objects_bulk(d, 0, [O], **kw))[0]
+            ra, na = look(a)
+            rb, _nb = look(b)
+            assert na == n_chars and (np.abs(ra - rb).max(axis=2) > 40).sum() == 0, (k, act)
+    new, _n = editops.delete_objects(data, 0, [objs[0]])
+    assert editing.verify_edit(data, new, 0, [objs[0].bbox]) == ""
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if not k.startswith("test_"):

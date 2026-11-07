@@ -1386,6 +1386,7 @@ class PrintDialog(QDialog):
                 self.paper_form.addRow(text + ":", cb)
         if not self.role_combos:
             self.paper_form.addRow(QLabel(tr("Keine Basisoptionen erkannt – siehe unten „Treiber (alle Optionen)“.")))
+        self._build_borderless()
         self._build_tray_auto()
         self._build_finishing()
 
@@ -1482,13 +1483,83 @@ class PrintDialog(QDialog):
         self._preview_timer.start()
 
     def _set_combo(self, key, value):
-        cb = self.role_combos.get(key) or getattr(self, "driver_combos", {}).get(key)
-        if cb is not None:
-            cb.blockSignals(True)
-            i = cb.findData(value)
-            if i >= 0:
-                cb.setCurrentIndex(i)
-            cb.blockSignals(False)
+        for cb in (self.role_combos.get(key), getattr(self, "driver_combos", {}).get(key)):
+            if cb is not None:
+                cb.blockSignals(True)
+                i = cb.findData(value)
+                if i >= 0:
+                    cb.setCurrentIndex(i)
+                cb.blockSignals(False)
+
+    # ------------------------------------------------------------------ #
+    # Randlos (1.18.13)
+    def _build_borderless(self):
+        self.chk_borderless = None
+        self._bl_want = False
+        if not self.caps or self.caps.backend == "pdf" or not self.caps.can_borderless():
+            return
+        row = QHBoxLayout()
+        self.chk_borderless = QCheckBox(tr("Randlos drucken"))
+        self.chk_borderless.setToolTip(tr("Bis an den Blattrand drucken. Passermark wählt dafür die randlose Variante "
+                                          "des Papierformats bzw. schaltet die Randlos-Option des Treibers ein. "
+                                          "Hat das Dokument ein Endformat mit Anschnitt, liegt das Endformat genau "
+                                          "auf dem Blatt und der Anschnitt läuft über den Rand."))
+        self._bl_want = self.caps.is_borderless(self.values)
+        self.chk_borderless.toggled.connect(self._borderless_toggled)
+        row.addWidget(self.chk_borderless)
+        k = self.caps.borderless_expand_key()
+        if k and k not in self.role_combos:
+            cb = self._option_combo(k)
+            self.role_combos[k] = cb
+            cb.setToolTip(tr("Erweiterung: wie weit der Treiber das Bild über den Blattrand zieht. Mit Anschnitt im "
+                             "Dokument reicht die kleinste Stufe."))
+            row.addWidget(QLabel(self.caps.options[k].text + ":"))
+            row.addWidget(cb, 1)
+        row.addStretch()
+        self.paper_form.addRow(tr("Rand:"), row)
+        self.lbl_borderless = QLabel()
+        self.lbl_borderless.setWordWrap(True)
+        self.lbl_borderless.setStyleSheet(f"color: {theme.ACCENT};")
+        self.paper_form.addRow("", self.lbl_borderless)
+        self._borderless_sync()
+
+    def _borderless_toggled(self, on: bool):
+        self._bl_want = bool(on)
+        vals, ok = self.caps.set_borderless(self.values, bool(on))
+        if ok:
+            self.values = vals
+            for k in {self.caps.roles.get("pagesize"), (self.caps.borderless_option() or (None,))[0]} - {None}:
+                if k in self.values:
+                    self._set_combo(k, self.values[k])
+        self._borderless_sync()
+        self._changed()
+
+    def _borderless_sync(self):
+        """Häkchen und Hinweis nach dem, was gerade eingestellt ist (auch wenn randloses Papier direkt gewählt wurde)."""
+        cb = getattr(self, "chk_borderless", None)
+        if cb is None:
+            return
+        on = self.caps.is_borderless(self.values)
+        possible = on or bool(self.caps.borderless_how(self.values))
+        cb.blockSignals(True)
+        cb.setChecked(on)
+        cb.setEnabled(possible)
+        cb.blockSignals(False)
+        k = self.caps.borderless_expand_key()
+        if k in self.role_combos:
+            self.role_combos[k].setEnabled(on)
+        if not possible:
+            txt = tr("Für dieses Papierformat bietet der Treiber kein randloses Drucken an – anderes Format wählen.")
+        elif not on:
+            txt = ""
+        elif any(getattr(self, "trims", None) or []):
+            txt = tr("Randlos: das Endformat des Dokuments liegt genau auf dem Blatt, der Anschnitt läuft über den "
+                     "Rand – Erweiterung im Treiber so klein wie möglich.")
+        else:
+            txt = tr("Randlos: die Seite füllt das ganze Blatt. Der Drucker zieht das Bild etwas über den Rand "
+                     "(Erweiterung) – wichtige Inhalte nicht direkt an die Kante legen.")
+        self.lbl_borderless.setText(txt)
+        self.lbl_borderless.setVisible(bool(txt))
 
     def _presets(self):
         return self.cfg.get("printers", {}).get(self.caps.name, {}).get("presets", []) if self.caps else []
@@ -1627,7 +1698,14 @@ class PrintDialog(QDialog):
         key = cb.property("key")
         self.values[key] = cb.currentData()
         if self.caps and key == self.caps.roles.get("pagesize"):
+            if getattr(self, "_bl_want", False) and not self.caps.is_borderless(self.values):
+                vals, ok = self.caps.set_borderless(self.values, True)   # anderes Format: randlos bleibt an
+                if ok and vals.get(key) != self.values.get(key):
+                    self.values = vals
+                    self._set_combo(key, vals[key])
             self._auto_tray()            # format changed -> select a matching tray
+        if getattr(self, "chk_borderless", None) is not None:
+            self._borderless_sync()
         self._changed()
 
     def _build_profiles(self):
@@ -1799,6 +1877,8 @@ class PrintDialog(QDialog):
         L.autorotate = self.chk_autorot.isChecked()
         L.center = self.chk_center.isChecked()
         L.use_margins = self.chk_margins.isChecked()
+        L.borderless = bool(self.caps and getattr(self, "chk_borderless", None) is not None
+                            and self.caps.is_borderless(self.values))
         return L
 
     def _load_layout(self, L: layout.LayoutSettings):
@@ -1857,6 +1937,9 @@ class PrintDialog(QDialog):
         self.chk_autorot.setChecked(L.autorotate)
         self.chk_center.setChecked(L.center)
         self.chk_margins.setChecked(L.use_margins)
+        if getattr(self, "chk_borderless", None) is not None and L.borderless != self.chk_borderless.isChecked() \
+                and self.chk_borderless.isEnabled():
+            self.chk_borderless.setChecked(L.borderless)          # Preset: randlos an/aus übernehmen
         self.chk_mirror_h.setChecked(L.mirror_h)
         self.chk_mirror_v.setChecked(L.mirror_v)
         self.chk_sr.setChecked(L.step_repeat)

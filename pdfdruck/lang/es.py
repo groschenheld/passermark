@@ -2943,4 +2943,12 @@ MESSAGES = {
     'kein bekanntes Bildformat': 'formato de imagen desconocido',
     'leeres Bild': 'imagen vacía',
     '{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})': '{0}: solo {1} ppi en este campo (recomendado desde {2})',
+    'Bis an den Blattrand drucken. Passermark wählt dafür die randlose Variante des Papierformats bzw. schaltet die Randlos-Option des Treibers ein. Hat das Dokument ein Endformat mit Anschnitt, liegt das Endformat genau auf dem Blatt und der Anschnitt läuft über den Rand.': 'Imprimir hasta el borde de la hoja. Passermark elige la variante sin bordes del tamaño de papel o activa la opción sin bordes del controlador. Si el documento tiene formato final con sangrado, el formato final queda exactamente sobre la hoja y el sangrado sobrepasa el borde.',
+    'Erweiterung: wie weit der Treiber das Bild über den Blattrand zieht. Mit Anschnitt im Dokument reicht die kleinste Stufe.': 'Extensión: cuánto lleva el controlador la imagen más allá del borde de la hoja. Con sangrado en el documento basta el nivel más bajo.',
+    'Für dieses Papierformat bietet der Treiber kein randloses Drucken an – anderes Format wählen.': 'El controlador no ofrece impresión sin bordes para este tamaño de papel: elija otro tamaño.',
+    'Rand:': 'Borde:',
+    'Randlos drucken': 'Imprimir sin bordes',
+    'Randlos geht mit diesem Drucker bzw. Papierformat nicht – anderes Format wählen oder „Randlos“ ausschalten.': 'Sin bordes no es posible con esta impresora o tamaño de papel: elija otro tamaño o desactive «Sin bordes».',
+    'Randlos: das Endformat des Dokuments liegt genau auf dem Blatt, der Anschnitt läuft über den Rand – Erweiterung im Treiber so klein wie möglich.': 'Sin bordes: el formato final del documento queda exactamente sobre la hoja y el sangrado sobrepasa el borde; extensión del controlador lo más baja posible.',
+    'Randlos: die Seite füllt das ganze Blatt. Der Drucker zieht das Bild etwas über den Rand (Erweiterung) – wichtige Inhalte nicht direkt an die Kante legen.': 'Sin bordes: la página llena toda la hoja. La impresora lleva la imagen un poco más allá del borde (extensión): no coloque contenido importante justo en el borde.',
 }

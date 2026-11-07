@@ -75,6 +75,8 @@ class LayoutSettings:
     autorotate: bool = True
     center: bool = True
     use_margins: bool = True      # take the unprintable margin of the printer into account
+    borderless: bool = False      # randlos: ganzes Blatt; mit Endformat im Dokument liegt das Endformat auf dem
+                                  # Blatt, der Anschnitt läuft über den Rand hinaus (statt Erweiterung im Treiber)
     handling: str = "size"        # size | multiple | booklet | poster
     # booklet
     booklet_sides: str = "both"   # both | front | back
@@ -933,7 +935,7 @@ def _apply_extras(plans, s: LayoutSettings):
 
 def uses_trim(s: LayoutSettings) -> bool:
     """Use the trim size (TrimBox) instead of the whole page: for imposition in post-processing."""
-    return bool(s.step_repeat or s.handling == "booklet" or s.crop_marks or s.bleed_mm > 0)
+    return bool(s.step_repeat or s.handling == "booklet" or s.crop_marks or s.bleed_mm > 0 or s.borderless)
 
 
 # --------------------------------------------------------------------------- #
@@ -1178,6 +1180,10 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
         BleedBox – with step & repeat "bleed to bleed" and no configured bleed area, it is adopted
         (e.g. CutContour objects: the bleeds touch each other).
     """
+    if s.borderless:                 # randlos: kein Rand des Druckers, ganzes Blatt
+        import dataclasses
+        s = dataclasses.replace(s, use_margins=False)
+        sheet = Sheet(sheet.width, sheet.height, None)
     if not trims or not any(trims) or not uses_trim(s):
         return _plan(sizes, pages, sheet, s)
     sz = list(sizes)
@@ -1202,6 +1208,8 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
             t = trims[pl.src] if pl.src < len(trims) else None
             if t:
                 pl.trim = t
+                if s.borderless and not s.step_repeat and s.handling != "booklet":
+                    pl.trim_show_edge = (True, True, True, True)   # echter Anschnitt über den Blattrand
     return plans
 
 

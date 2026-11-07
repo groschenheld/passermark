@@ -2943,4 +2943,12 @@ MESSAGES = {
     'kein bekanntes Bildformat': 'nem ismert képformátum',
     'leeres Bild': 'üres kép',
     '{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})': '{0}: csak {1} ppi ebben a mezőben (ajánlott: legalább {2})',
+    'Bis an den Blattrand drucken. Passermark wählt dafür die randlose Variante des Papierformats bzw. schaltet die Randlos-Option des Treibers ein. Hat das Dokument ein Endformat mit Anschnitt, liegt das Endformat genau auf dem Blatt und der Anschnitt läuft über den Rand.': 'Nyomtatás a lap széléig. A Passermark ehhez a papírméret keret nélküli változatát választja, vagy bekapcsolja az illesztőprogram keret nélküli opcióját. Ha a dokumentumnak van vágott mérete kifutóval, a vágott méret pontosan a lapra kerül, a kifutó pedig túlnyúlik a szélen.',
+    'Erweiterung: wie weit der Treiber das Bild über den Blattrand zieht. Mit Anschnitt im Dokument reicht die kleinste Stufe.': 'Kiterjesztés: mennyire húzza túl az illesztőprogram a képet a lap szélén. Ha a dokumentumban van kifutó, a legkisebb fokozat is elég.',
+    'Für dieses Papierformat bietet der Treiber kein randloses Drucken an – anderes Format wählen.': 'Ehhez a papírmérethez az illesztőprogram nem kínál keret nélküli nyomtatást – válasszon másik méretet.',
+    'Rand:': 'Szél:',
+    'Randlos drucken': 'Keret nélküli nyomtatás',
+    'Randlos geht mit diesem Drucker bzw. Papierformat nicht – anderes Format wählen oder „Randlos“ ausschalten.': 'Ezzel a nyomtatóval vagy papírmérettel nem lehet keret nélkül nyomtatni – válasszon másik méretet, vagy kapcsolja ki a „Keret nélküli” opciót.',
+    'Randlos: das Endformat des Dokuments liegt genau auf dem Blatt, der Anschnitt läuft über den Rand – Erweiterung im Treiber so klein wie möglich.': 'Keret nélkül: a dokumentum vágott mérete pontosan a lapra kerül, a kifutó túlnyúlik a szélen – az illesztőprogram kiterjesztése legyen a lehető legkisebb.',
+    'Randlos: die Seite füllt das ganze Blatt. Der Drucker zieht das Bild etwas über den Rand (Erweiterung) – wichtige Inhalte nicht direkt an die Kante legen.': 'Keret nélkül: az oldal kitölti az egész lapot. A nyomtató a képet kissé túlhúzza a szélen (kiterjesztés) – fontos tartalom ne kerüljön közvetlenül a szélre.',
 }

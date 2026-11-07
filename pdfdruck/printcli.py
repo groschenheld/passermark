@@ -61,6 +61,7 @@ class PrintSettings:
     reverse: bool = False             # umgekehrte Reihenfolge
     subset: str = "all"               # all | odd | even
     layout: dict = field(default_factory=dict)      # Seitenhandhabung wie im Druckdialog (LayoutSettings)
+    borderless: bool = False          # randlos (Papiervariante/Option des Treibers; Endformat aufs ganze Blatt)
     profile: str = "admin"            # admin = Farbprofil laut Admin-Einstellung · none = ohne · sonst Profil-ID
     intent: str = ""                  # leer = wie in der Admin-Einstellung
     auto_tray: bool = True            # automatische Fachwahl (falls für den Drucker eingerichtet)
@@ -233,6 +234,9 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
         vals, probs = resolve(caps, session.values_for(printer), s, presets)
         if probs:
             raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
+        if s.borderless:
+            lay.borderless = True
+        vals, lay = printjob.apply_borderless(caps, vals, lay)
         eff = layout.spread_settings(lay) if layout.is_booklet_spreads(lay) else lay
         pkey = caps.roles.get("pagesize") or ""
         paper1 = vals.get(pkey)                          # Montageblatt (Schritt 1)
@@ -257,6 +261,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
                 "paper": vals.get(caps.roles.get("pagesize") or "") or None,
                 "notes": [note] if note else [],
                 "finisher_preset": s.finisher_preset or None,
+                "borderless": lay.borderless,
                 "driver_settings": bool(vals.get("__devmode__"))}
         if s.dry_run:
             info["job_id"] = None
@@ -325,4 +330,8 @@ def caps_info(name: str) -> dict:
         # woher die Maße stammen: driver | code (PPD-PostScript) | text (Name) | table; Fehler in der PPD je Format
         "page_size_source": dict(caps.size_source),
         "page_size_problems": {k: list(v) for k, v in caps.size_problems.items()},
+        "borderless": {"possible": caps.can_borderless(), "sizes": caps.borderless_sizes(),
+                       "option": list(caps.borderless_option() or []) or None,
+                       "expand_option": caps.borderless_expand_key(),
+                       "ipp_zero_margin": caps.ipp_zero_margin},
     }

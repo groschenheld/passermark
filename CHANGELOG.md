@@ -2,6 +2,21 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.13
+
+### Object editing: no more text loss
+- "Delete object" and "Scale/Move" used to rewrite the whole page – with some PDFs text got lost in the process. Now only the chosen object is changed in the page content; the rest of the page stays untouched. The result is pixel-identical to the old way, just without the text loss.
+
+### Borderless printing
+- In the print dialog there is a new line under the paper format: "Margin: ☐ Print borderless". It only appears for devices whose driver offers borderless – no matter how the driver solves it: as its own paper variant (on Windows too), as its own driver option, or for IPP queues without PPD via margin 0.
+- If the driver offers a setting for how far the image is pulled over the edge, it sits right next to it.
+- PDFs with bleed: the final format sits exactly on the sheet, the real bleed runs over the edge; the expansion can then go to the smallest step. Without bleed the page simply fills the whole sheet.
+- Formats without a borderless variant: the checkbox is locked, with a notice. Switching to a format that has borderless keeps borderless on.
+- In workflows: `borderless: true` in the print step. `passermark-cli caps PRINTER` shows under borderless what your device offers.
+
+### Document check
+- The hairline warning (thinner than 0.1 mm) is back – it had accidentally been missing since 1.18.2.
+
 ## 1.18.12
 
 ### Variable data: image fields

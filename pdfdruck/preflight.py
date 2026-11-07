@@ -122,6 +122,7 @@ class Report:
     issues: list = field(default_factory=list)
     boxes: dict = field(default_factory=dict)          # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
     located: dict = field(default_factory=dict)        # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
+    hairlines: dict = field(default_factory=dict)      # Seite -> Anzahl Linien dünner als HAIRLINE_MM
     # 1.18.2
     geometry: dict = field(default_factory=dict)       # Seite -> {media, crop, trim, bleed (pt, None = fehlt), rotate, uu}
     security: dict = field(default_factory=dict)       # {encrypted, print, print_high}
@@ -329,6 +330,10 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
         rep.located = _locate(data, rep)
     except Exception:
         rep.located = {}
+    try:
+        _hairlines(data, rep)
+    except Exception:
+        rep.hairlines = {}
     try:
         _render_checks(data, rep)
     except Exception:
@@ -1680,6 +1685,30 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 # --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
+HAIRLINE_MM = 0.1              # dünnere Linien sind auf Plottern/Laser kaum oder gar nicht zu sehen
+
+
+def _mm_num(v: float) -> str:
+    from .planprint import mm_text
+    return mm_text(v)
+
+
+def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
+    """Haarlinien je Seite (Anzahl + Bereiche in rep.located[("line",)])."""
+    import pypdfium2 as pdfium
+    from .planprint import hairline_boxes
+    doc = pdfium.PdfDocument(data)
+    try:
+        rep.hairlines = {}
+        for i in range(min(len(doc), max_pages)):
+            n, boxes = hairline_boxes(doc, i, HAIRLINE_MM)
+            if n:
+                rep.hairlines[i + 1] = n
+                rep.located.setdefault(("line",), {})[i + 1] = boxes
+    finally:
+        doc.close()
+
+
 def _located_spots(rep: Report, key: tuple, pages, label: str = "") -> list:
     """Fundstellen aus rep.located (Bereiche je Seite), Seiten ohne Bereich als ganze Seite."""
     loc = rep.located.get(key) or {}
@@ -1742,6 +1771,13 @@ def _issues_raw(rep: Report) -> list[Issue]:
         if L.outside_pct is not None and L.outside_pct > 25:
             out.append(Issue("warning", "layer", tr("Ebene „{0}“: {1:.0f} % des Inhalts liegen außerhalb der Seite "
                                                     "(verrutscht?).").format(L.name, L.outside_pct), sorted(L.pages)))
+    if rep.hairlines:
+        pg = sorted(rep.hairlines)
+        out.append(Issue("warning", "line", tr("{0} Linie(n) dünner als {1} mm auf {2} Seite(n) – auf Plottern und "
+                                               "Laserdruckern kaum oder gar nicht sichtbar. Beim Plandruck lassen sie "
+                                               "sich mit „Haarlinien anheben“ verstärken.").format(
+            sum(rep.hairlines.values()), _mm_num(HAIRLINE_MM), len(pg)), pg,
+            _located_spots(rep, ("line",), pg)))
     out += _image_issues(rep)
     if rep.size is not None:
         from . import shrink

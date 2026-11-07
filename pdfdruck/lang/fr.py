@@ -2943,4 +2943,12 @@ MESSAGES = {
     'kein bekanntes Bildformat': 'format d’image inconnu',
     'leeres Bild': 'image vide',
     '{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})': '{0} : seulement {1} ppi dans ce champ (recommandé à partir de {2})',
+    'Bis an den Blattrand drucken. Passermark wählt dafür die randlose Variante des Papierformats bzw. schaltet die Randlos-Option des Treibers ein. Hat das Dokument ein Endformat mit Anschnitt, liegt das Endformat genau auf dem Blatt und der Anschnitt läuft über den Rand.': 'Imprimer jusqu’au bord de la feuille. Passermark choisit la variante sans marges du format ou active l’option sans marges du pilote. Si le document a un format fini avec fond perdu, le format fini tombe exactement sur la feuille et le fond perdu dépasse le bord.',
+    'Erweiterung: wie weit der Treiber das Bild über den Blattrand zieht. Mit Anschnitt im Dokument reicht die kleinste Stufe.': 'Extension : jusqu’où le pilote étire l’image au-delà du bord de la feuille. Avec un fond perdu dans le document, le niveau le plus faible suffit.',
+    'Für dieses Papierformat bietet der Treiber kein randloses Drucken an – anderes Format wählen.': 'Le pilote ne propose pas l’impression sans marges pour ce format – choisissez un autre format.',
+    'Rand:': 'Marge :',
+    'Randlos drucken': 'Imprimer sans marges',
+    'Randlos geht mit diesem Drucker bzw. Papierformat nicht – anderes Format wählen oder „Randlos“ ausschalten.': 'Sans marges impossible avec cette imprimante ou ce format – choisissez un autre format ou désactivez « Sans marges ».',
+    'Randlos: das Endformat des Dokuments liegt genau auf dem Blatt, der Anschnitt läuft über den Rand – Erweiterung im Treiber so klein wie möglich.': 'Sans marges : le format fini du document tombe exactement sur la feuille, le fond perdu dépasse le bord – extension du pilote aussi faible que possible.',
+    'Randlos: die Seite füllt das ganze Blatt. Der Drucker zieht das Bild etwas über den Rand (Erweiterung) – wichtige Inhalte nicht direkt an die Kante legen.': 'Sans marges : la page remplit toute la feuille. L’imprimante étire légèrement l’image au-delà du bord (extension) – ne placez pas de contenu important tout au bord.',
 }
