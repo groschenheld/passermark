@@ -5,6 +5,16 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.15
+
+### Impression de posters : le média doit correspondre à l'appareil
+- Si l'appareil signale le média du rouleau chargé, le travail exige désormais exactement celui-là. Avant, le type de média du matériau accompagnait le travail (import, à la main) – s'il ne correspondait pas au nom sur l'appareil, l'appareil attendait un média qui n'est pas chargé. Les plans n'étaient pas concernés (sans matériau).
+
+### Impression de plans et posters : retour au standard après l'impression
+- Après l'impression, la prochaine ouverture montre de nouveau les réglages standard ; seule l'imprimante reste telle quelle. Fermer sans imprimer mémorise les réglages comme avant.
+- « Enregistrer comme standard » fixe son propre standard – par impression de plan et de poster, sans les écarts de plans individuels ; les exemplaires sont toujours 1.
+- « Standard » réinitialise immédiatement tous les champs.
+
 ## 1.18.14
 
 ### Pipette à couleur

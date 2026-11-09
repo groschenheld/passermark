@@ -2,6 +2,16 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.15
+
+### Poster printing: the media must match the device
+- If the device reports the medium of the loaded roll, the job now demands exactly that one. Before, the media type from the material went along with the job (import, by hand) – if it did not match the name at the device, the device waited for a medium that is not loaded at all. Plans were not affected (without material).
+
+### Plan and poster printing: back to the default after printing
+- After printing, the next opening shows the default settings again; only the printer stays as it was. Closing without printing remembers the settings as before.
+- "Save as default" sets your own default – per plan and poster printing, without the deviations of individual plans; copies are always 1.
+- "Default" resets all fields to it immediately.
+
 ## 1.18.14
 
 ### Colour eyedropper

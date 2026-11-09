@@ -5,6 +5,16 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.15
+
+### Impresión de pósters: el medio debe coincidir con el aparato
+- Si el aparato informa del medio del rollo cargado, el trabajo exige ahora exactamente ese. Antes el tipo de medio del material acompañaba al trabajo (importación, a mano) – si no coincidía con el nombre en el aparato, el aparato esperaba un medio que no está cargado. Los planos no estaban afectados (sin material).
+
+### Impresión de planos y pósters: de nuevo el estándar después de imprimir
+- Después de imprimir, la próxima apertura muestra otra vez los ajustes estándar; solo queda la impresora como estaba. Cerrar sin imprimir recuerda los ajustes como hasta ahora.
+- «Guardar como estándar» fija el estándar propio – por impresión de planos y de pósters, sin las desviaciones de planos individuales; los ejemplares son siempre 1.
+- «Estándar» restablece inmediatamente todos los campos.
+
 ## 1.18.14
 
 ### Cuentagotas de color

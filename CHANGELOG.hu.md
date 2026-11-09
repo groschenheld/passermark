@@ -5,6 +5,16 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.15
+
+### Poszternyomtatás: a médiumnak egyeznie kell az eszközzel
+- Ha az eszköz jelzi a betöltött tekercs médiumát, a munka most már pontosan azt követeli. Korábban a materiából származó médiatípus ment a munkával (import, kézzel) – ha nem egyezett az eszközön lévő névvel, az eszköz egy be nem töltött médiumra várt. A terveket ez nem érintette (anyag nélkül).
+
+### Terv- és poszternyomtatás: nyomtatás után újra az alapértelmezés
+- Nyomtatás után a következő megnyitáskor megint az alapértelmezett beállítások állnak ott; csak a nyomtató marad, ahogy volt. Bezárás nyomtatás nélkül a beállításokat megszokott módon megjegyzi.
+- „Mentés alapértelmezettként” rögzíti a saját alapértelmezést – terv- és poszternyomtatásonként, az egyes tervek eltérése nélkül; a példányszám mindig 1.
+- „Alapértelmezés” azonnal minden mezőt visszaállít rá.
+
 ## 1.18.14
 
 ### Színpipetta

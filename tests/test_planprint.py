@@ -291,6 +291,27 @@ def test_cli_plan_dry_run_and_workflow():
     assert r.returncode == 0 and "bleed_mode" in r.stdout
 
 
+def test_media_of_loaded_roll():
+    """Gerät meldet das Medium der Rolle: genau dieses wird verlangt – auch wenn das Material (Import, von Hand)
+    einen anderen Medientyp nennt. Sonst wartet z. B. die ColorWave auf ein Medium, das nicht geladen ist."""
+    from pdfdruck import config, printmat
+    from pdfdruck.session import Session
+    printmat.save([{"id": "poster180", "name": "Poster 180", "category": "quality", "weight": 180, "media": "Photo",
+                    "printer": "Plotter"}])
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180, media="Normalpapier")])
+    src = plan_pdf("media.pdf", 420, 594)
+    with FakePlotter() as fp:
+        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+                      session=Session(config.BUILTIN))
+    assert fp.sent and all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])        # Medium unbekannt: Material zählt
+    with FakePlotter() as fp:
+        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+                      session=Session(config.BUILTIN))
+    assert all(x["opts"]["MediaType"] == "Photo" for x in fp.sent), [x["opts"] for x in fp.sent]
+    printmat.save([])
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

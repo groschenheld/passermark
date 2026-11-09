@@ -139,10 +139,25 @@ def _keys(kind: str) -> tuple:
     return (SETTINGS_KEY, PRINTER_KEY) if kind != "poster" else ("poster", "poster_printer")
 
 
+def _std_key(kind: str) -> str:
+    return "plan_standard" if kind != "poster" else "poster_standard"
+
+
+def _clean(s: pp.PlanSettings) -> dict:
+    """Zum Merken: ohne Drucker, Rollen von Hand, Einzel-Abweichungen je Plan und Treiber-Rohwerte."""
+    d = pp.compact(dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", options={}, overrides={}))
+    d.pop("printer", None)
+    d.pop("overrides", None)
+    return d
+
+
 def load_settings(kind: str = "plan") -> pp.PlanSettings:
+    """Standard (eigener, sonst eingebauter) + was zuletzt eingestellt, aber nicht gedruckt wurde."""
     from .. import core, l10n
-    d = l10n.load_settings().get(_keys(kind)[0]) or {}
-    base = pp.defaults_for(kind)
+    st = l10n.load_settings()
+    d = st.get(_keys(kind)[0]) or {}
+    std = st.get(_std_key(kind)) or {}
+    base = dict(pp.defaults_for(kind), **(std if isinstance(std, dict) else {}))
     try:
         merged = dict(base, **(d if isinstance(d, dict) else {}))
         merged["kind"] = kind
@@ -151,13 +166,16 @@ def load_settings(kind: str = "plan") -> pp.PlanSettings:
         return pp.PlanSettings(**base)
 
 
-def save_settings(s: pp.PlanSettings, printer: str) -> None:
+def save_settings(s: pp.PlanSettings, printer: str, reset: bool = False) -> None:
+    """Merken, was eingestellt ist. reset=True (nach dem Drucken): beim nächsten Mal wieder der Standard –
+        nur der Drucker bleibt."""
     from .. import l10n
     st = l10n.load_settings()
-    d = pp.compact(dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", options={}))
-    d.pop("printer", None)
     skey, pkey = _keys(s.kind)
-    st[skey] = d
+    if reset:
+        st.pop(skey, None)
+    else:
+        st[skey] = _clean(s)
     if printer:
         st[pkey] = printer
     try:
@@ -1072,6 +1090,15 @@ class PlanDialog(QDialog):
         self.lbl_state.setWordWrap(True)
         self.lbl_state.setStyleSheet(f"color: {theme.MUTED};")
         bot.addWidget(self.lbl_state, 1)
+        b = QPushButton(tr("Als Standard speichern"))
+        b.setToolTip(tr("Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach "
+                        "dem Drucken geht das Fenster immer auf den Standard zurück."))
+        b.clicked.connect(self._save_standard)
+        bot.addWidget(b)
+        b = QPushButton(tr("Standard"))
+        b.setToolTip(tr("Alle Einstellungen auf den Standard zurücksetzen"))
+        b.clicked.connect(self._load_standard)
+        bot.addWidget(b)
         self.btn_pdf = QPushButton(icon("save"), tr("Als PDF speichern …"))
         self.btn_pdf.setToolTip(tr("Alle Druckseiten (je Plan eine) zum Prüfen oder Weitergeben"))
         self.btn_pdf.clicked.connect(self._save_pdf)
@@ -1854,11 +1881,77 @@ class PlanDialog(QDialog):
             QMessageBox.critical(self, tr("Druckfehler"), str(e))
             return
         QApplication.restoreOverrideCursor()
-        save_settings(s, self.printer)
+        save_settings(s, self.printer, reset=True)          # nächstes Mal wieder der Standard
         msg = tr("{0} Plan-Auftrag/-Aufträge an {1} gesendet – {2} m").format(
             len(info["jobs"]), self.printer, pp.num(info["total_m"]))
         self.printed.emit(msg)
         self.accept()
+
+    def _save_standard(self):
+        from .. import l10n
+        st = l10n.load_settings()
+        st[_std_key(self.kind)] = _clean(dataclasses.replace(self.settings(), copies=1))   # Exemplare: immer 1
+        try:
+            l10n.save_settings(st)
+        except OSError as e:
+            QMessageBox.warning(self, tr("Standard"), str(e))
+            return
+        self.lbl_state.setText(tr("Als Standard gespeichert – nach jedem Druck geht das Fenster hierher zurück."))
+
+    def _load_standard(self):
+        """Felder auf den Standard setzen (Pläne in der Liste und ihre Abweichungen bleiben)."""
+        from .. import l10n
+        st = l10n.load_settings()
+        st.pop(_keys(self.kind)[0], None)
+        try:
+            l10n.save_settings(st)
+        except OSError:
+            pass
+        self.s0 = load_settings(self.kind)
+        self._fill_from(self.s0)
+        self.lbl_state.setText(tr("Einstellungen auf den Standard zurückgesetzt."))
+
+    def _fill_from(self, s: pp.PlanSettings):
+        """Gegenstück zu settings(): alle Felder aus s setzen (Einzel-Abweichungen der Pläne bleiben)."""
+        def combo(cb, val):
+            i = cb.findData(val)
+            if i >= 0:
+                cb.setCurrentIndex(i)
+        ws = [self.spn_copies, self.chk_collate, self.cmb_copies, self.cmb_order, self.cmb_color, self.ed_weights,
+              self.chk_hair, self.chk_marks, self.chk_fold, self.chk_nest, self.spn_gap, self.cmb_over,
+              self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in, self.chk_cut, self.chk_pcm,
+              *self.chk_hem.values()]
+        for w in ws:
+            w.blockSignals(True)
+        try:
+            self.spn_copies.setValue(max(1, s.copies))
+            self.chk_collate.setChecked(s.collate)
+            combo(self.cmb_copies, pp.copies_mode(s))
+            combo(self.cmb_order, s.order)
+            combo(self.cmb_color, s.color)
+            self.ed_weights.setText(", ".join(str(w) for w in (s.weights or [])))
+            self.chk_hair.setChecked(s.fix_hairlines)
+            self.chk_marks.setChecked(s.crop_marks)
+            self.chk_fold.setChecked(s.fold_marks)
+            self.chk_nest.setChecked(s.nest)
+            self.spn_gap.setValue(s.gap_mm)
+            combo(self.cmb_over, s.overwidth)
+            self.spn_overlap.setValue(s.overlap_mm)
+            self.spn_hem.setValue(s.hem_mm)
+            for k, c in self.chk_hem.items():
+                c.setChecked(k in (s.hem_sides or ""))
+            self.spn_grom.setValue(s.grommet_spacing_mm)
+            self.spn_grom_in.setValue(s.grommet_inset_mm)
+            self.chk_cut.setChecked(s.cut_contour)
+            self.chk_pcm.setChecked(s.printcut_marks)
+        finally:
+            for w in ws:
+                w.blockSignals(False)
+        self._bleed_color = s.bleed_color
+        self.g = {k: getattr(s, k) for k in pp.OV_KEYS}
+        self.g["roll_pick"] = s.roll_pick
+        self._load_fields()
+        self._changed()
 
     def _cleanup(self, r):
         """Nach dem Schließen: Einstellungen merken, selbst geöffnete Dokumente freigeben."""

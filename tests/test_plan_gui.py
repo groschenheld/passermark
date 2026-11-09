@@ -66,6 +66,7 @@ P.QComboBox, P.QSpinBox, P.QDoubleSpinBox, P.QCheckBox, P.QLineEdit = Combo, Spi
 import pypdfium2 as pdfium
 import test_planprint as T
 from pdfdruck import config, rolls
+from pdfdruck import planprint as pp
 from pdfdruck.session import Session
 
 rolls.save_manual("Plotter", [rolls.Roll(594, "Roll1", "Rolle 1", 80), rolls.Roll(841, "Roll2", "Rolle 2", 80),
@@ -101,8 +102,13 @@ with T.FakePlotter() as fp:
     assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent), fp.sent
     assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
-    st = P.load_settings()
-    assert st.color == "gray" and st.copies == 2
+    st = P.load_settings()                       # nach dem Drucken: wieder der Standard
+    assert st.color == pp.PlanSettings(**pp.defaults_for("plan")).color and st.copies == 1, st
+    dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
+    dlg._save_standard()                          # eigener Standard: Graustufen
+    assert P.load_settings().color == "gray" and P.load_settings().copies == 1
+    dlg.spn_copies.setValue(4)
+    dlg._load_standard()
     # PDF speichern
     out = os.path.join(T.TMP, "gui_out.pdf")
     P.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))

@@ -1434,7 +1434,14 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
                     vals[k] = v
         mkey = caps.roles.get("mediatype")
         rmat = material_of(rs) or {}
-        if mkey and roll is not None and not s.media and not rmat.get("media"):
+        if (mkey and roll is not None and roll.media and not s.media and mkey not in (s.options or {})
+                and not rmat.get("device")):
+            # Gerät meldet das Medium der Rolle: genau dieses verlangen. Ein anderer Medientyp aus dem Material
+            # (Import, von Hand) ließe den Drucker auf ein Medium warten, das nicht geladen ist.
+            mv = media_for_roll(caps, roll)
+            if mv and vals.get(mkey) != mv:
+                vals[mkey] = mv
+        elif mkey and roll is not None and not s.media and not rmat.get("media"):
             src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
             if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
                 from .rolls import Roll

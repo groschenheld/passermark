@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.15
+
+### Posterdruck: Medium muss zum Gerät passen
+- Meldet das Gerät das Medium der geladenen Rolle, verlangt der Auftrag jetzt genau dieses. Vorher ging der Medientyp aus dem Material mit (Import, von Hand) – passte der nicht zum Namen am Gerät, wartete das Gerät auf ein Medium, das gar nicht geladen ist. Pläne waren nicht betroffen (ohne Material).
+
+### Plan- und Posterdruck: nach dem Drucken wieder der Standard
+- Nach dem Drucken stehen beim nächsten Öffnen wieder die Standard-Einstellungen da; nur der Drucker bleibt, wie er war. Schließen ohne Drucken merkt sich die Einstellungen wie bisher.
+- „Als Standard speichern“ legt den eigenen Standard fest – je Plan- und Posterdruck, ohne Abweichungen einzelner Pläne; Exemplare sind immer 1.
+- „Standard“ setzt alle Felder sofort darauf zurück.
+
 ## 1.18.14
 
 ### Farbpipette

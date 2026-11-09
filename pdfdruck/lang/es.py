@@ -3016,4 +3016,9 @@ MESSAGES = {
     'über dem Richtwert {0} %': 'por encima del valor orientativo {0} %',
     '– ohne (nur Werte im PDF) –': '– ninguna (solo valores del PDF) –',
     'Werkzeuge des Arbeitsbereichs': 'Herramientas del área de trabajo',
+    'Alle Einstellungen auf den Standard zurücksetzen': 'Restablecer todos los ajustes al estándar',
+    'Als Standard gespeichert – nach jedem Druck geht das Fenster hierher zurück.': 'Guardado como estándar: tras cada impresión la ventana vuelve aquí.',
+    'Als Standard speichern': 'Guardar como estándar',
+    'Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach dem Drucken geht das Fenster immer auf den Standard zurück.': 'Recordar los ajustes actuales (sin las desviaciones de planos sueltos) como estándar. Tras imprimir, la ventana siempre vuelve al estándar.',
+    'Einstellungen auf den Standard zurückgesetzt.': 'Ajustes restablecidos al estándar.',
 }

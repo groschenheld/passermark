@@ -3016,4 +3016,9 @@ MESSAGES = {
     'über dem Richtwert {0} %': 'au-dessus de la valeur indicative {0} %',
     '– ohne (nur Werte im PDF) –': '– aucune (valeurs du PDF seulement) –',
     'Werkzeuge des Arbeitsbereichs': 'Outils de l’espace de travail',
+    'Alle Einstellungen auf den Standard zurücksetzen': 'Rétablir tous les réglages par défaut',
+    'Als Standard gespeichert – nach jedem Druck geht das Fenster hierher zurück.': 'Enregistré par défaut – après chaque impression, la fenêtre y revient.',
+    'Als Standard speichern': 'Enregistrer par défaut',
+    'Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach dem Drucken geht das Fenster immer auf den Standard zurück.': 'Mémoriser les réglages actuels (sans les écarts de plans isolés) comme réglages par défaut. Après l’impression, la fenêtre revient toujours aux réglages par défaut.',
+    'Einstellungen auf den Standard zurückgesetzt.': 'Réglages rétablis par défaut.',
 }

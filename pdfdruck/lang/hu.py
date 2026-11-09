@@ -3016,4 +3016,9 @@ MESSAGES = {
     'über dem Richtwert {0} %': 'az irányérték ({0} %) felett',
     '– ohne (nur Werte im PDF) –': '– nincs (csak a PDF értékei) –',
     'Werkzeuge des Arbeitsbereichs': 'A munkaterület eszközei',
+    'Alle Einstellungen auf den Standard zurücksetzen': 'Minden beállítás visszaállítása az alapértelmezettre',
+    'Als Standard gespeichert – nach jedem Druck geht das Fenster hierher zurück.': 'Alapértelmezettként mentve – minden nyomtatás után ide tér vissza az ablak.',
+    'Als Standard speichern': 'Mentés alapértelmezettként',
+    'Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach dem Drucken geht das Fenster immer auf den Standard zurück.': 'A jelenlegi beállítások (az egyes tervek eltérései nélkül) megjegyzése alapértelmezettként. Nyomtatás után az ablak mindig az alapértelmezettre tér vissza.',
+    'Einstellungen auf den Standard zurückgesetzt.': 'A beállítások visszaállítva az alapértelmezettre.',
 }

@@ -3016,4 +3016,9 @@ MESSAGES = {
     'über dem Richtwert {0} %': 'above the guideline {0} %',
     '– ohne (nur Werte im PDF) –': '– none (values in the PDF only) –',
     'Werkzeuge des Arbeitsbereichs': 'Workspace tools',
+    'Alle Einstellungen auf den Standard zurücksetzen': 'Reset all settings to the default',
+    'Als Standard gespeichert – nach jedem Druck geht das Fenster hierher zurück.': 'Saved as default – after every print the window returns to it.',
+    'Als Standard speichern': 'Save as default',
+    'Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach dem Drucken geht das Fenster immer auf den Standard zurück.': 'Remember the current settings (without deviations of single plans) as the default. After printing the window always returns to the default.',
+    'Einstellungen auf den Standard zurückgesetzt.': 'Settings reset to the default.',
 }
