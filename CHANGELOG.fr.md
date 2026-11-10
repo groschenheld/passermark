@@ -5,6 +5,31 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.17
+
+### Historique des dernières impressions dans Plan & Poster
+- Chaque impression est enregistrée : fichiers, quantités, orientation par fichier, imprimante et tous les réglages. Les PDF sont sauvegardés avec, donc une impression antérieure s'ouvre même si l'original a disparu ou été déplacé. Au plus les 50 dernières impressions sont conservées, les plus anciennes disparaissent d'elles-mêmes.
+- Rouvrir : dans le dialogue via le nouveau bouton « Historique » ou dans le menu principal sous « Plan & Poster -> Dernières impressions ». La liste actuelle du dialogue est remplacée par l'impression antérieure.
+- « Nettoyer l'historique ... » se trouve dans le dialogue et dans le menu ; il demande avant de supprimer et montre le nombre et la place nécessaire.
+- Après une impression, le dialogue revient à votre standard comme d'habitude. Mais si vous ouvrez une impression antérieure et fermez sans imprimer, il retient ses réglages comme derniers utilisés.
+
+## 1.18.16
+
+### Type de média pour les posters
+- Si l'appareil signale un média pour le rouleau et qu'il n'y a pas de type de média correspondant dans le pilote, Passermark n'exige plus de média précis. C'est « Auto » ou la valeur par défaut du pilote qui part, plus jamais le type de média du matériau – l'appareil prend alors simplement le rouleau choisi. (Ferme le trou du correctif de 1.18.15 pour les appareils qui signalent leurs propres noms de médias absents du pilote ; certains pilotes IPP signalent le rouleau avec un tel nom et avant, l'appareil attendait encore un média non chargé.)
+
+### La simulation montre ce qui va à l'appareil
+- `passermark-cli plan`/`poster ... --dry-run --json` montre désormais par travail `options` (toutes les valeurs du pilote, exactement comme elles seraient envoyées) et `roll_media` (ce que l'appareil signale pour le rouleau). Avant, cela ne se voyait pas dans la simulation.
+## 1.18.15
+
+### Impression de posters : le média doit correspondre à l'appareil
+- Si l'appareil signale le média du rouleau chargé, le travail exige désormais exactement celui-là. Avant, le type de média du matériau accompagnait le travail (import, à la main) – s'il ne correspondait pas au nom sur l'appareil, l'appareil attendait un média qui n'est pas chargé. Les plans n'étaient pas concernés (sans matériau).
+
+### Impression de plans et posters : retour au standard après l'impression
+- Après l'impression, la prochaine ouverture montre de nouveau les réglages standard ; seule l'imprimante reste telle quelle. Fermer sans imprimer mémorise les réglages comme avant.
+- « Enregistrer comme standard » fixe son propre standard – par impression de plan et de poster, sans les écarts de plans individuels ; les exemplaires sont toujours 1.
+- « Standard » réinitialise immédiatement tous les champs.
+
 ## 1.18.14
 
 ### Pipette à couleur

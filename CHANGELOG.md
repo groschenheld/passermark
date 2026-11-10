@@ -2,6 +2,31 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.17
+
+### History of the last prints in plan & poster
+- Every print is saved: files, quantities, orientation per file, printer and all settings. The PDFs are saved with it, so an earlier print still opens even when the original is gone or moved. At most the last 50 prints are kept, older ones drop out on their own.
+- Reopen: in the dialog via the new "History" button or in the main menu under "Plan & Poster -> Last prints". The current list in the dialog is replaced by the earlier print.
+- "Clean up history ..." is in the dialog and in the menu; it asks before deleting and shows the count and the space needed.
+- After a print the dialog returns to your default as usual. But if you open an earlier print and close without printing, it remembers that print's settings as last used.
+
+## 1.18.16
+
+### Media type for posters
+- If the device reports a medium for the roll and there is no matching media type in the driver, Passermark no longer demands a specific one. "Auto" or the driver default goes out, never again the media type from the material – the device then simply takes the chosen roll. (Closes the gap in the 1.18.15 fix for devices that report their own media names which do not occur in the driver; some IPP drivers report the roll with such a name, and before, the device kept waiting for a medium that is not loaded.)
+
+### Dry run shows what goes to the device
+- `passermark-cli plan`/`poster ... --dry-run --json` now shows per job `options` (all driver values, exactly as they would be sent) and `roll_media` (what the device reports for the roll). Before, this was not visible in the dry run.
+## 1.18.15
+
+### Poster printing: the media must match the device
+- If the device reports the medium of the loaded roll, the job now demands exactly that one. Before, the media type from the material went along with the job (import, by hand) – if it did not match the name at the device, the device waited for a medium that is not loaded at all. Plans were not affected (without material).
+
+### Plan and poster printing: back to the default after printing
+- After printing, the next opening shows the default settings again; only the printer stays as it was. Closing without printing remembers the settings as before.
+- "Save as default" sets your own default – per plan and poster printing, without the deviations of individual plans; copies are always 1.
+- "Default" resets all fields to it immediately.
+
 ## 1.18.14
 
 ### Colour eyedropper

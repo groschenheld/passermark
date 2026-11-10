@@ -127,6 +127,11 @@ if "edit_panel" in w.__dict__:
     w._pipette_mode(False)
     assert w.view.imode == "edit"
     w._edit_mode(False)
+from pdfdruck import planhistory               # Plan & Poster → Letzte Drucke
+w._fill_plan_history()
+planhistory.add("poster", "Plotter", {"copies": 1}, [{"source": sys.argv[1], "page": 0, "qty": 1, "ov": {}, "own": True}], 1.0, 1)
+w._fill_plan_history(); w._clear_plan_history()
+planhistory.clear()
 print("SMOKE-OK")
 '''
 

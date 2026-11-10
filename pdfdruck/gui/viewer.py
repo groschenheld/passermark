@@ -2869,6 +2869,8 @@ class MainWindow(QMainWindow):
         self.a_poster.setToolTip(tr("Poster und Banner auf Rollen: nebeneinander, Überbreite, Saum, Ösen, Print & Cut"))
         m.addAction(self.a_plan)
         m.addAction(self.a_poster)
+        self.m_plan_hist = m.addMenu(svg_icon("history"), tr("Letzte Drucke"))
+        self.m_plan_hist.aboutToShow.connect(self._fill_plan_history)
         m.addSeparator()
         m.addAction(self.a_rolls)
         m = mb.addMenu(tr("&Ansicht"))
@@ -3936,12 +3938,45 @@ class MainWindow(QMainWindow):
         PrintDialog(self, self.doc, self.display_name, self.view.current, self.session,
                     src_path=getattr(self.view, "_src_path", None), pinfo=getattr(self.view, "_pinfo", None)).exec()
 
-    def plan_dialog(self, kind: str = "plan"):
-        """Plan & Poster → Plandruck/Posterdruck: das offene Dokument (jede Seite ein Stück) plus weitere Dateien."""
+    def plan_dialog(self, kind: str = "plan", entry: dict | None = None):
+        """Plan & Poster → Plandruck/Posterdruck: das offene Dokument (jede Seite ein Stück) plus weitere Dateien.
+            entry: früheren Druck aus dem Verlauf öffnen (statt des offenen Dokuments)."""
         from .plandialog import PlanDialog
-        dlg = PlanDialog(self, self.session, self.ctl, self.doc, self.path or "", self.display_name or "", kind)
+        if entry is not None:
+            dlg = PlanDialog(self, self.session, self.ctl, None, "", "", entry.get("kind", kind))
+            dlg.load_history(entry)
+        else:
+            dlg = PlanDialog(self, self.session, self.ctl, self.doc, self.path or "", self.display_name or "", kind)
         dlg.printed.connect(lambda msg: self.statusBar().showMessage(msg, 10000))
         dlg.exec()
+
+    def _fill_plan_history(self):
+        """Plan & Poster → Letzte Drucke: Plan- und Posterdrucke, neueste zuerst; unten aufräumen."""
+        from .. import planhistory
+        m = self.m_plan_hist
+        m.clear()
+        ents = planhistory.entries()
+        if not ents:
+            a = m.addAction(tr("Noch keine Drucke im Verlauf"))
+            a.setEnabled(False)
+            return
+        for e in ents[:20]:
+            pre = tr("Plan") if e.get("kind") != "poster" else tr("Poster")
+            m.addAction(svg_icon("plan" if e.get("kind") != "poster" else "print"), f"{pre}: {planhistory.label(e)}",
+                        lambda e=e: self.plan_dialog(e.get("kind", "plan"), e))
+        m.addSeparator()
+        m.addAction(tr("Verlauf aufräumen …"), self._clear_plan_history)
+
+    def _clear_plan_history(self):
+        from .. import planhistory
+        from ..planprint import num as planhistory_num
+        n = len(planhistory.entries())
+        mb = round(planhistory.size_bytes() / 1e6, 1)
+        if QMessageBox.question(self, tr("Verlauf aufräumen"),
+                                tr("Alle {0} Plan- und Posterdrucke im Verlauf verwerfen ({1} MB)?").format(
+                                    n, planhistory_num(mb))) == QMessageBox.StandardButton.Yes:
+            planhistory.clear()
+            self.statusBar().showMessage(tr("Verlauf aufgeräumt."), 5000)
 
     def rolls_dialog(self):
         from .plandialog import RollsDialog

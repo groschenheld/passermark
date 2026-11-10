@@ -5,6 +5,31 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.17
+
+### Historial de las últimas impresiones en Plan & Poster
+- Cada impresión se guarda: archivos, cantidades, orientación por archivo, impresora y todos los ajustes. Los PDF se guardan con ella, así que una impresión anterior se abre aunque el original haya desaparecido o se haya movido. Se conservan como máximo las últimas 50 impresiones, las más antiguas se eliminan solas.
+- Reabrir: en el diálogo con el nuevo botón «Historial» o en el menú principal en «Plan & Poster -> Últimas impresiones». La lista actual del diálogo se sustituye por la impresión anterior.
+- «Limpiar historial …» está en el diálogo y en el menú; pregunta antes de borrar y muestra la cantidad y el espacio necesario.
+- Después de una impresión el diálogo vuelve a tu estándar como siempre. Pero si abres una impresión anterior y cierras sin imprimir, recuerda sus ajustes como últimos utilizados.
+
+## 1.18.16
+
+### Tipo de medio en los pósters
+- Si el aparato informa de un medio para el rollo y no hay un tipo de medio correspondiente en el controlador, Passermark ya no exige uno concreto. Sale «Auto» o el valor por defecto del controlador, nunca más el tipo de medio del material – el aparato entonces simplemente toma el rollo elegido. (Cierra el hueco del arreglo de 1.18.15 en aparatos que informan nombres de medio propios que no aparecen en el controlador; algunos controladores IPP informan el rollo con tal nombre y antes el aparato seguía esperando un medio no cargado.)
+
+### La prueba muestra lo que va al aparato
+- `passermark-cli plan`/`poster ... --dry-run --json` muestra ahora por trabajo `options` (todos los valores del controlador, exactamente como se enviarían) y `roll_media` (lo que el aparato informa para el rollo). Antes esto no se veía en la prueba.
+## 1.18.15
+
+### Impresión de pósters: el medio debe coincidir con el aparato
+- Si el aparato informa del medio del rollo cargado, el trabajo exige ahora exactamente ese. Antes el tipo de medio del material acompañaba al trabajo (importación, a mano) – si no coincidía con el nombre en el aparato, el aparato esperaba un medio que no está cargado. Los planos no estaban afectados (sin material).
+
+### Impresión de planos y pósters: de nuevo el estándar después de imprimir
+- Después de imprimir, la próxima apertura muestra otra vez los ajustes estándar; solo queda la impresora como estaba. Cerrar sin imprimir recuerda los ajustes como hasta ahora.
+- «Guardar como estándar» fija el estándar propio – por impresión de planos y de pósters, sin las desviaciones de planos individuales; los ejemplares son siempre 1.
+- «Estándar» restablece inmediatamente todos los campos.
+
 ## 1.18.14
 
 ### Cuentagotas de color

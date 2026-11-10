@@ -66,6 +66,7 @@ P.QComboBox, P.QSpinBox, P.QDoubleSpinBox, P.QCheckBox, P.QLineEdit = Combo, Spi
 import pypdfium2 as pdfium
 import test_planprint as T
 from pdfdruck import config, rolls
+from pdfdruck import planprint as pp
 from pdfdruck.session import Session
 
 rolls.save_manual("Plotter", [rolls.Roll(594, "Roll1", "Rolle 1", 80), rolls.Roll(841, "Roll2", "Rolle 2", 80),
@@ -101,8 +102,22 @@ with T.FakePlotter() as fp:
     assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent), fp.sent
     assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
-    st = P.load_settings()
-    assert st.color == "gray" and st.copies == 2
+    from pdfdruck import planhistory              # Verlauf: Druck gemerkt, mit Dateien und Mengen wieder öffnen
+    ents = planhistory.entries("plan")
+    assert ents and ents[0]["printer"] == "Plotter" and [i["qty"] for i in ents[0]["items"]] == [1, 3], ents[:1]
+    assert ents[0]["settings"].get("color") == "gray" and planhistory.file_of(ents[0], ents[0]["items"][0])
+    d2 = P.PlanDialog(None, sess, None, None, "", "", "plan")
+    d2.load_history(ents[0])
+    assert [it.qty for it in d2.items] == [1, 3] and d2.settings().copies == 2 and d2.settings().color == "gray", [it.qty for it in d2.items]
+    assert d2.printer == "Plotter"
+    d2._cleanup(1)                                # wie gedruckt/übernommen: merkt nichts
+    st = P.load_settings()                       # nach dem Drucken: wieder der Standard
+    assert st.color == pp.PlanSettings(**pp.defaults_for("plan")).color and st.copies == 1, st
+    dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
+    dlg._save_standard()                          # eigener Standard: Graustufen
+    assert P.load_settings().color == "gray" and P.load_settings().copies == 1
+    dlg.spn_copies.setValue(4)
+    dlg._load_standard()
     # PDF speichern
     out = os.path.join(T.TMP, "gui_out.pdf")
     P.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))
@@ -136,6 +151,7 @@ with T.FakePlotter() as fp:
     fd = P.FoldersDialog(None)
     from pdfdruck import probe
     P.ProbeDialog(None, probe.run("", "CW"))._save
+assert planhistory.clear() >= 1 and planhistory.entries() == []
 print("PLAN-GUI-OK")
 '''
 

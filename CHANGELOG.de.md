@@ -2,6 +2,31 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.17
+
+### Verlauf der letzten Drucke in Plan & Poster
+- Jeder Druck wird gespeichert: Dateien, Mengen, Ausrichtung je Datei, Drucker und alle Einstellungen. Die PDFs werden mitgesichert – ein früherer Druck geht also auch dann noch auf, wenn das Original weg oder verschoben ist. Es bleiben höchstens die letzten 50 Drucke, ältere fallen von selbst raus.
+- Wieder öffnen: im Dialog über den neuen Knopf „Verlauf“ oder im Hauptmenü unter „Plan & Poster → Letzte Drucke“. Die aktuelle Liste im Dialog wird durch den früheren Druck ersetzt.
+- „Verlauf aufräumen …“ gibt es im Dialog und im Menü; vor dem Löschen fragt es nach und zeigt Anzahl und Platzbedarf.
+- Nach einem Druck stellt sich der Dialog wie gewohnt auf den Standard zurück. Öffnest du aber einen früheren Druck und schließt ohne zu drucken, merkt er sich dessen Einstellungen als zuletzt benutzt.
+
+## 1.18.16
+
+### Medientyp beim Poster
+- Meldet das Gerät ein Medium für die Rolle und gibt es dazu keinen passenden Medientyp im Treiber, verlangt Passermark keinen bestimmten mehr. Es geht „Auto“ bzw. die Treibervorgabe raus, nie mehr der Medientyp aus dem Material – das Gerät nimmt dann einfach die gewählte Rolle. (Schließt die Lücke des 1.18.15-Fixes bei Geräten, die eigene Medien-Namen melden, die im Treiber nicht vorkommen; manche IPP-Treiber melden die Rolle mit so einem Namen, und vorher wartete das Gerät weiter auf ein nicht geladenes Medium.)
+
+### Probelauf zeigt, was ans Gerät geht
+- `passermark-cli plan`/`poster … --dry-run --json` zeigt jetzt je Auftrag `options` (alle Treiberwerte, genau wie sie gesendet würden) und `roll_media` (was das Gerät für die Rolle meldet). Bisher war das im Probelauf nicht zu sehen.
+## 1.18.15
+
+### Posterdruck: Medium muss zum Gerät passen
+- Meldet das Gerät das Medium der geladenen Rolle, verlangt der Auftrag jetzt genau dieses. Vorher ging der Medientyp aus dem Material mit (Import, von Hand) – passte der nicht zum Namen am Gerät, wartete das Gerät auf ein Medium, das gar nicht geladen ist. Pläne waren nicht betroffen (ohne Material).
+
+### Plan- und Posterdruck: nach dem Drucken wieder der Standard
+- Nach dem Drucken stehen beim nächsten Öffnen wieder die Standard-Einstellungen da; nur der Drucker bleibt, wie er war. Schließen ohne Drucken merkt sich die Einstellungen wie bisher.
+- „Als Standard speichern“ legt den eigenen Standard fest – je Plan- und Posterdruck, ohne Abweichungen einzelner Pläne; Exemplare sind immer 1.
+- „Standard“ setzt alle Felder sofort darauf zurück.
+
 ## 1.18.14
 
 ### Farbpipette
