@@ -5,6 +5,21 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.17
+
+### Az utolsó nyomtatások előzményeje a Plan & Posterben
+- Minden nyomtatás elmentődik: fájlok, mennyiségek, tájolás fájlonként, nyomtató és minden beállítás. A PDF-ek is mentődnek vele, tehát egy korábbi nyomtatás akkor is megnyílik, ha az eredeti eltűnt vagy elmozdult. Legfeljebb az utolsó 50 nyomtatás marad, a régebbiek maguktól kiesnek.
+- Újranyitás: a párbeszédablakban az új „Előzmények” gombbal vagy a főmenüben a „Plan & Poster -> Legutóbbi nyomtatások” alatt. Az ablak aktuális listáját a korábbi nyomtatás váltja fel.
+- „Előzmények tisztítása …” az ablakban és a menüben van; törlés előtt rákérdez, és megmutatja a darabszámot és a szükséges helyet.
+- Nyomtatás után az ablak a megszokott módon visszaáll a te alapértelmezésedre. Ha azonban egy korábbi nyomtatást nyitsz meg, és nyomtatás nélkül zárod be, annak beállításait jegyzi meg utoljára használtként.
+
+## 1.18.16
+
+### Médiatípus a posztereknél
+- Ha az eszköz jelzi a tekercshez tartozó médiumot, és nincs hozzá illeskedő médiatípus az illesztőben, a Passermark többé nem követel konkrétat. Az „Auto” vagy az illesztő alapértéke megy ki, soha többé nem a materiából származó médiatípus – az eszköz ilyenkor egyszerűen a kiválasztott tekercset veszi. (Betömi az 1.18.15-javítás rését azoknál az eszközöknél, amelyek olyan saját médiumneveket jelzenek, amilyenek az illesztőben nem fordulnak elő; egyes IPP-illesztők ilyen névvel jelzik a tekercset, és korábban az eszköz tovább várt egy be nem töltött médiumra.)
+
+### A próbamenet megmutatja, mi megy az eszközhöz
+- A `passermark-cli plan`/`poster ... --dry-run --json` most már munkánként mutatja az `options`-t (az illesztő összes értékét, pontosan úgy, ahogyan elküldenék) és a `roll_media`-t (amit az eszköz a tekercsről jelz). Eddig ez a próbamenetben nem látszott.
 ## 1.18.15
 
 ### Poszternyomtatás: a médiumnak egyeznie kell az eszközzel

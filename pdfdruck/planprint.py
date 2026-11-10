@@ -1388,12 +1388,21 @@ def values_for(session, printer: str, caps, s: PlanSettings) -> dict:
     return vals
 
 
-def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: list, s: PlanSettings,
-               log: bool = True) -> int | None:
-    """Eine Druckseite run.copies-mal drucken (ein Auftrag). Mit Druckprotokoll inkl. Laufmeter."""
-    from . import printjob, printlog
+def _neutral_media(caps, key: str) -> str:
+    """Medientyp-Wert, der nichts Bestimmtes verlangt (Auto/Beliebig/Gerät wählt) – sonst die Treibervorgabe."""
+    opt = caps.options.get(key)
+    if opt is None:
+        return ""
+    for ch in opt.choices:
+        if re.search(r"^(auto|any|automatic|none|default|printer\s*default)$|automatisch|beliebig|druckereinst",
+                     f"{ch.value}".strip(), re.I) or re.search(r"^(auto|automatisch|beliebig)", ch.text.strip(), re.I):
+            return ch.value
+    return opt.default or ""
+
+
+def run_values(session, printer: str, caps, base_vals: dict, run: "Run", rolls: list, s: PlanSettings) -> tuple:
+    """Treiberwerte für eine Druckseite (auch für --dry-run): Format, Rolle, Schnitt, Medientyp. -> (Werte, Material)."""
     roll = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
-    n = max(1, run.copies)
     vals = dict(base_vals)
     rs = eff(s, run.pieces[0][0].item) if run.pieces else s     # Material/Medium dieses Plans
     if rs.material != s.material and caps is not None and not is_folder(printer):
@@ -1401,6 +1410,45 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
             vals = dict(values_for(session, printer, caps, rs))
         except ValueError:
             pass
+    if caps is None:
+        return vals, material_of(rs) or {}
+    pkey, skey = caps.roles.get("pagesize"), caps.roles.get("source")
+    if pkey:
+        vals[pkey] = page_value(caps, run.across, run.along)
+    if skey and roll is not None and roll.slot:
+        vals[skey] = roll.slot
+    if s.cut_sheets:                          # Abschnitt nach jeder Seite – außer von Hand anders gesetzt
+        for k, v in cut_values(caps).items():
+            if k not in (s.options or {}):
+                vals[k] = v
+    mkey = caps.roles.get("mediatype")
+    rmat = material_of(rs) or {}
+    if (mkey and roll is not None and roll.media and not s.media and mkey not in (s.options or {})
+            and not rmat.get("device")):
+        # Gerät meldet das Medium der Rolle: genau dieses verlangen. Ein anderer Medientyp aus dem Material
+        # (Import, von Hand) ließe den Drucker auf ein Medium warten, das nicht geladen ist. Passt kein
+        # Medientyp des Treibers zur Rolle: nichts Bestimmtes verlangen – das Gerät nimmt die Rolle (Zufuhr).
+        mv = media_for_roll(caps, roll) or _neutral_media(caps, mkey)
+        if mv:
+            vals[mkey] = mv
+    elif mkey and roll is not None and not s.media and not rmat.get("media"):
+        src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+        if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
+            from .rolls import Roll
+            src = Roll(roll.width_mm, weight=int(rmat.get("weight") or 0), media=rmat["device_media"])
+        mv = media_for_roll(caps, src)
+        if mv:
+            vals[mkey] = mv
+    return vals, rmat
+
+
+def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: list, s: PlanSettings,
+               log: bool = True) -> int | None:
+    """Eine Druckseite run.copies-mal drucken (ein Auftrag). Mit Druckprotokoll inkl. Laufmeter."""
+    from . import printjob, printlog
+    roll = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
+    n = max(1, run.copies)
+    vals, rmat = dict(base_vals), {}
     title = s.title or run.label
     jid, err = None, None
     tmp = tempfile.mkdtemp(prefix="passermark-plan-")
@@ -1423,32 +1471,7 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
             os.replace(part, path)
             jid = os.path.basename(path)
             return jid
-        pkey, skey = caps.roles.get("pagesize"), caps.roles.get("source")
-        if pkey:
-            vals[pkey] = page_value(caps, run.across, run.along)
-        if skey and roll is not None and roll.slot:
-            vals[skey] = roll.slot
-        if s.cut_sheets:                          # Abschnitt nach jeder Seite – außer von Hand anders gesetzt
-            for k, v in cut_values(caps).items():
-                if k not in (s.options or {}):
-                    vals[k] = v
-        mkey = caps.roles.get("mediatype")
-        rmat = material_of(rs) or {}
-        if (mkey and roll is not None and roll.media and not s.media and mkey not in (s.options or {})
-                and not rmat.get("device")):
-            # Gerät meldet das Medium der Rolle: genau dieses verlangen. Ein anderer Medientyp aus dem Material
-            # (Import, von Hand) ließe den Drucker auf ein Medium warten, das nicht geladen ist.
-            mv = media_for_roll(caps, roll)
-            if mv and vals.get(mkey) != mv:
-                vals[mkey] = mv
-        elif mkey and roll is not None and not s.media and not rmat.get("media"):
-            src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
-            if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
-                from .rolls import Roll
-                src = Roll(roll.width_mm, weight=int(rmat.get("weight") or 0), media=rmat["device_media"])
-            mv = media_for_roll(caps, src)
-            if mv:
-                vals[mkey] = mv
+        vals, rmat = run_values(session, printer, caps, base_vals, run, rolls, s)
         job = os.path.join(tmp, "plan.pdf")
         mode = copies_mode(s)
         cmode = (rmat.get("color_mode") or "convert") if rmat else "convert"
@@ -1574,6 +1597,14 @@ def print_items(session, printer: str, items: list, rolls: list, s: PlanSettings
         if progress:
             progress(k, len(runs), run.label)
         rec = _job_info(run, rolls, s)
+        if caps is not None:              # was ans Gerät geht (auch im Probelauf) – zum Nachsehen bei Problemen
+            try:
+                rv, _m = run_values(session, printer, caps, base, run, rolls, s)
+                rec["options"] = caps.job_options(rv)
+                r0 = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
+                rec["roll_media"] = getattr(r0, "media", "") if r0 is not None else ""
+            except Exception as e:                                  # noqa: BLE001
+                rec["options_error"] = str(e)
         if not s.dry_run:
             rec["job_id"] = submit_run(session, printer, caps, base, run, rolls, s)
         info["jobs"].append(rec)
@@ -1706,7 +1737,15 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
                 sel = [p for p in pages if 0 <= p < len(doc)]
             items += analyze(doc, sel, s, rolls, path)
         _use, wnote = eligible_for(rolls, s)
-        if s.dry_run or not printer:
+        info = None
+        if s.dry_run and printer and not is_folder(printer) and session is not None:
+            try:                                # Probelauf mit Drucker: zeigt auch, was ans Gerät ginge
+                info = print_items(session, printer, items, rolls, s)
+            except Exception:                   # noqa: BLE001 – Drucker nicht erreichbar: nur rechnen
+                info = None
+        if info is not None:
+            pass
+        elif s.dry_run or not printer:
             info = summary(printer, items, rolls, s)
             info["jobs"] = [_job_info(run, rolls, s) for run in build_runs(items, rolls, s)]
             if s.cut_sheets and printer and not is_folder(printer) and session is not None:

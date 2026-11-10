@@ -334,6 +334,10 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   after every page (as the ColorWave expects it); `jobs` – every copy its own job (`… (1/3)`, `(2/3)` …); `count` –
   one page with a copy count, the device decides on cutting. `--no-split` / `"split_copies": false` (until 1.18.6)
   mean `count`. `--json`: per job `copies_mode`, `jobs_sent`, `sheets_per_job`, `cuts`.
+- **Media type** (since 1.18.15/1.18.16): if the device reports the media of the roll, the job asks for exactly that
+  media type; if no driver media type matches it, a neutral one (auto/default) – never the material's media type,
+  otherwise the device waits for media that is not loaded. `--dry-run --json` with a printer shows per job
+  `options` (all driver options as they would be sent) and `roll_media` (what the device reports for the roll).
 - **Scale** (`scale_mode`): `pct` with `scale_pct` (default 100), `short` / `long` – the short or long edge of the print
   area (without bleed) to `scale_mm`, the other edge follows in proportion.
 - **Per plan** (`overrides`, key = page number from 1): `{"2": {"scale_pct": 200, "material": "…", "roll_pick": "roll-4"}}`.

@@ -1090,6 +1090,11 @@ class PlanDialog(QDialog):
         self.lbl_state.setWordWrap(True)
         self.lbl_state.setStyleSheet(f"color: {theme.MUTED};")
         bot.addWidget(self.lbl_state, 1)
+        self.btn_hist = QPushButton(icon("history"), tr("Verlauf"))
+        self.btn_hist.setToolTip(tr("Frühere Drucke mit denselben Dateien, Mengen und Einstellungen wieder öffnen; "
+                                    "„Verlauf aufräumen“ verwirft sie"))
+        self.btn_hist.clicked.connect(self._history_menu)
+        bot.addWidget(self.btn_hist)
         b = QPushButton(tr("Als Standard speichern"))
         b.setToolTip(tr("Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach "
                         "dem Drucken geht das Fenster immer auf den Standard zurück."))
@@ -1881,11 +1886,99 @@ class PlanDialog(QDialog):
             QMessageBox.critical(self, tr("Druckfehler"), str(e))
             return
         QApplication.restoreOverrideCursor()
+        self._remember(s, info)                              # Verlauf: genau so wieder öffnen
         save_settings(s, self.printer, reset=True)          # nächstes Mal wieder der Standard
         msg = tr("{0} Plan-Auftrag/-Aufträge an {1} gesendet – {2} m").format(
             len(info["jobs"]), self.printer, pp.num(info["total_m"]))
         self.printed.emit(msg)
         self.accept()
+
+    # ------------------------------------------------------------------ #
+    # Verlauf (1.18.17)
+    def _remember(self, s, info):
+        from .. import planhistory
+        try:
+            items = [{"doc": it.doc, "source": it.source, "page": it.page, "qty": it.qty, "ov": dict(it.ov),
+                      "frame": it.frame, "own": any(it.doc is d for d in self.owned)}
+                     for it in self.items if it.area is not None]
+            st = pp.compact(dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", overrides={}))
+            st.pop("printer", None)
+            planhistory.add(self.kind, self.printer, st, items, info.get("total_m", 0), len(info.get("jobs", [])))
+        except Exception:                                       # noqa: BLE001 – Verlauf darf den Druck nie stören
+            pass
+
+    def _history_menu(self):
+        from .. import planhistory
+        m = QMenu(self)
+        ents = planhistory.entries(self.kind)
+        if not ents:
+            a = m.addAction(tr("Noch keine Drucke im Verlauf"))
+            a.setEnabled(False)
+        for e in ents[:25]:
+            m.addAction(planhistory.label(e), lambda e=e: self.load_history(e))
+        m.addSeparator()
+        a = m.addAction(tr("Verlauf aufräumen …"), self._clear_history)
+        a.setEnabled(bool(ents))
+        m.exec(self.btn_hist.mapToGlobal(self.btn_hist.rect().bottomLeft()))
+
+    def _clear_history(self):
+        from .. import planhistory
+        n = len(planhistory.entries(self.kind))
+        mb = planhistory.size_bytes(self.kind) / 1e6
+        what = tr("Plandrucke") if self.kind == "plan" else tr("Posterdrucke")
+        if QMessageBox.question(self, tr("Verlauf aufräumen"), tr("{0} {1} im Verlauf verwerfen ({2} MB)?").format(
+                n, what, pp.num(round(mb, 1)))) != QMessageBox.StandardButton.Yes:
+            return
+        planhistory.clear(self.kind)
+        self.lbl_state.setText(tr("Verlauf aufgeräumt."))
+
+    def load_history(self, entry: dict):
+        """Früheren Druck öffnen: Dateien, Seiten, Mengen, Abweichungen je Plan, Einstellungen, Drucker."""
+        from .. import core, planhistory
+        if self.items and QMessageBox.question(
+                self, tr("Verlauf"), tr("Die Liste durch den früheren Druck ersetzen?")) != QMessageBox.StandardButton.Yes:
+            return
+        for d in self.owned:
+            try:
+                d.close()
+            except Exception:                                   # noqa: BLE001
+                pass
+        self.owned, self.items, self._queue = [], [], []
+        try:
+            base = dict(pp.defaults_for(self.kind), **(entry.get("settings") or {}))
+            base["kind"] = self.kind
+            s = core.settings_from_dict(pp.PlanSettings, base)
+        except (TypeError, ValueError):
+            s = load_settings(self.kind)
+        i = self.cmb_printer.findData(entry.get("printer", ""))
+        if i >= 0 and i != self.cmb_printer.currentIndex():
+            self.cmb_printer.setCurrentIndex(i)
+        self.s0 = s
+        self._fill_from(s)
+        docs, missing = {}, []
+        for rec in entry.get("items", []):
+            path = planhistory.file_of(entry, rec)
+            if not path:
+                missing.append(os.path.basename(rec.get("source") or "?"))
+                continue
+            if path not in docs:
+                docs[path] = self._load(path)
+                if docs[path] is not None:
+                    self.owned.append(docs[path])
+            doc = docs[path]
+            if doc is None or rec.get("page", 0) >= len(doc):
+                continue
+            it = pp.Item(int(rec.get("page", 0)), int(rec.get("qty", 1)), None,
+                         source=rec.get("source") or path, doc=doc, frame=rec.get("frame", ""),
+                         ov=dict(rec.get("ov") or {}))
+            self.items.append(it)
+            self._queue.append(it)
+        self._rebuild()
+        self._timer.start()
+        msg = tr("Früherer Druck geöffnet: {0}").format(planhistory.label(entry))
+        if missing:
+            msg += " – " + tr("nicht mehr vorhanden: {0}").format(", ".join(sorted(set(missing))))
+        self.lbl_state.setText(msg)
 
     def _save_standard(self):
         from .. import l10n

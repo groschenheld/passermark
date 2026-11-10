@@ -304,12 +304,48 @@ def test_media_of_loaded_roll():
         pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
                       session=Session(config.BUILTIN))
     assert fp.sent and all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]
+    # Gerät meldet ein Medium, das keinem Medientyp des Treibers entspricht: nichts Bestimmtes verlangen
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180, media="IJM 123 Matt Coated")])
+    with FakePlotter() as fp:
+        info = pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False,
+                                                    material="poster180", dry_run=True), session=Session(config.BUILTIN))
+        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+                      session=Session(config.BUILTIN))
+    assert all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]   # Vorgabe statt Photo
+    j = info["jobs"][0]                                     # Probelauf zeigt, was ans Gerät ginge
+    assert j["options"]["MediaType"] == "Plain" and j["roll_media"] == "IJM 123 Matt Coated", j
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])        # Medium unbekannt: Material zählt
     with FakePlotter() as fp:
         pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
                       session=Session(config.BUILTIN))
     assert all(x["opts"]["MediaType"] == "Photo" for x in fp.sent), [x["opts"] for x in fp.sent]
     printmat.save([])
+
+
+def test_history():
+    """Verlauf: Datei wird mitgesichert (Original darf weg sein), neueste zuerst, höchstens MAX_ENTRIES, aufräumen."""
+    import shutil
+    from pdfdruck import planhistory
+    planhistory.clear()
+    src = plan_pdf("hist.pdf", 420, 594)
+    tmp = os.path.join(TMP, "hist_copy.pdf")
+    shutil.copy(src, tmp)
+    e = planhistory.add("poster", "Plotter", {"copies": 3}, [{"source": tmp, "page": 0, "qty": 2, "ov": {"align": "left"},
+                                                              "own": True}], 1.26, 1)
+    os.remove(tmp)                                          # Original weg: die Sicherung zählt
+    p = planhistory.file_of(e, e["items"][0])
+    assert p and os.path.isfile(p) and p.startswith(planhistory.history_dir())
+    assert "hist_copy.pdf" in planhistory.label(e) and "Plotter" in planhistory.label(e)
+    assert planhistory.entries("poster")[0]["id"] == e["id"] and planhistory.entries("plan") == []
+    old = planhistory.MAX_ENTRIES
+    planhistory.MAX_ENTRIES = 3
+    try:
+        for _ in range(4):
+            planhistory.add("plan", "Plotter", {}, [], 0, 0)
+        assert len(planhistory.entries()) == 3
+    finally:
+        planhistory.MAX_ENTRIES = old
+    assert planhistory.clear() == 3 and planhistory.entries() == []
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ _SHAPES = {
     "fit_page": '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M12 7v10M10 9l2-2 2 2M10 15l2 2 2-2"/>',
     "ruler": '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2"/>',
     "actual": '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M8 9.5l2-1.5v8M14 9.5l2-1.5v8"/>',
+    "history": '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4v4h4"/><path d="M12 7.5V12l3 2"/>',
     "pipette": '<path d="M15 4.5a2.1 2.1 0 0 1 3 0l1.5 1.5a2.1 2.1 0 0 1 0 3L17 11.5 12.5 7z"/>'
                '<path d="M11 8.5l4.5 4.5M13.5 10l-8 8H3.5v-2l8-8"/>',
     "measure": '<path d="M4 20L20 4"/><path d="M4 16v4h4M20 8V4h-4"/><path d="M9 13l2 2M12 10l2 2"/>',
