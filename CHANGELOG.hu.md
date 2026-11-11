@@ -5,6 +5,20 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.18
+
+### Saját ablak a terv- és poszternyomtatáshoz
+- A terv- és a poszternyomtatás egyaránt saját ablakot nyit, minimalizálással/maximalizálással és saját bejegyzéssel a tálcán. Ha már nyitva van, egy második hívás csak előtérbe hozza. A program csak az utolsó ablak bezárásával ér véget.
+- Nincs több átadás: a főablakban megnyitott dokumentum már nem kerül a terv- vagy poszternyomtatásba. Fájlok csak a „hozzáadás …” gombbal, bedobással vagy indításkor kerülnek be.
+- A `passermark --plan [fájlok]` és a `--poster [fájlok]` csak azt az ablakot nyitja meg; ha a Passermark már fut, a fájlok a nyitott ablakba mennek. Windowson a telepítő két Start-menü-bejegyzést hoz létre, Linuxon két gyorsművelet van a programbejegyzésben; az AppImage automatikusan átveszi őket.
+- Nyomtatás után az ablak nyitva marad ahelyett, hogy bezáródna: a lista ürül, a beállítások visszaállnak az alapértelmezésre, a nyomtatás az előzményekbe kerül. Az Esc már nem zárja be az ablakot, hogy egy teli lista véletlenül ne vesszen el.
+
+### Termelési és minőségi nyomtatás
+- Az ablakban új „Minőség” kapcsoló van. A terv termelési nyomtatással indul (az illesztő legalacsonyabb minőségi szintje), a poszter minőségi nyomtatással (a legmagasabb szint).
+- Azonos kategóriájú, saját minőségű anyag élvez elsőbbséget, ahogy a kézzel beállított illesztőbeállítás is.
+- A szintek a neveik szerint rendeződnek (vázlat/gyorstól a magas/legjobbig), dpi-értékek szerint vagy IPP-nél 3/4/5 alapján. Ha nem oszthatók be, az illesztő értéke marad.
+- A minőségi beállítás most már a megjelenített nevéről is felismerhető, pl. „Nyomtatási minőség”; a `--dry-run` próbamenet megmutatja, kínál-e ilyet az illesztő.
+- A CLI-nél és a munkafolyamatoknál a beállítás neve `quality_mode` (`production` vagy `quality`).
 ## 1.18.17
 
 ### Az utolsó nyomtatások előzményeje a Plan & Posterben

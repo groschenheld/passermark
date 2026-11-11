@@ -5,6 +5,20 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.18
+
+### Ventana propia para impresión de planos y pósters
+- Planos y pósters abren cada uno su propia ventana, con minimizar/maximizar y su propia entrada en la barra de tareas. Si ya está abierta, una segunda llamada solo la trae al frente. El programa no termina hasta que se cierra la última ventana.
+- Ya no hay traspaso: el documento abierto en la ventana principal ya no pasa a la impresión de planos o pósters. Los archivos solo entran con «añadir …», arrastrándolos o al iniciar.
+- `passermark --plan [archivos]` y `--poster [archivos]` abren solo esa ventana; si Passermark ya está en marcha, los archivos van a la ventana abierta. En Windows el instalador crea dos entradas en el menú de inicio, en Linux hay dos acciones rápidas en la entrada del programa; el AppImage las toma automáticamente.
+- Después de imprimir la ventana permanece abierta en vez de cerrarse: la lista se vacía, los ajustes vuelven al estándar, la impresión queda en el historial. Esc ya no cierra la ventana, para no perder una lista llena por descuido.
+
+### Impresión de producción y de calidad
+- La ventana tiene un nuevo conmutador «Calidad». Planos empiezan con impresión de producción (el nivel de calidad más bajo del controlador), pósters con impresión de calidad (el nivel más alto).
+- Un material de la misma categoría con calidad propia tiene prioridad, igual que una opción del controlador ajustada a mano.
+- Los niveles se ordenan por sus nombres (borrador/rápido hasta alta/mejor), por valores de dpi o mediante 3/4/5 con IPP. Si no se pueden clasificar, queda el valor del controlador.
+- La opción de calidad ahora también se reconoce por su nombre visible, p. ej. «Calidad de impresión»; con la prueba `--dry-run` se ve si el controlador ofrece una.
+- Para la CLI y los flujos el ajuste se llama `quality_mode` (`production` o `quality`).
 ## 1.18.17
 
 ### Historial de las últimas impresiones en Plan & Poster

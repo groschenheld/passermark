@@ -38,6 +38,7 @@ ROTATE_TEXT = {"auto": "Kürzeste Länge auf der Rolle (drehen erlaubt)", "keep"
                "short": "Kurze Seite quer zur Rolle", "long": "Lange Seite quer zur Rolle"}
 ORDER_TEXT = {"list": "Reihenfolge der Liste", "roll": "Nach Rollenbreite (schmal zuerst)"}
 COLOR_TEXT = {"": "Wie im Treiber", "color": "Farbe", "gray": "Graustufen"}
+QMODE_TEXT = {"production": "Produktionsdruck (schnell)", "quality": "Qualitätsdruck (höchste Qualität)"}
 BLEED_TEXT = {"mirror": "Gespiegelt", "blank": "Leerraum", "color": "Einzelfarbe"}
 ORIGIN_TEXT = {"ipp": "vom Gerät (IPP)", "snmp": "vom Gerät (SNMP)", "manual": "von Hand eingetragen",
                "settings": "aus den Einstellungen", "roland": "vom Gerät (Roland)"}
@@ -746,6 +747,45 @@ class FoldersDialog(QDialog):
         self.accept()
 
 
+_WINDOWS: dict = {}          # je Art ("plan", "poster") höchstens ein offenes Fenster
+
+
+def open_windows() -> list:
+    return list(_WINDOWS.values())
+
+
+def open_window(session, ctl=None, kind: str = "plan", entry: dict | None = None, files=None):
+    """Plan- bzw. Posterdruck als eigenes Fenster (ohne Elternfenster): bleibt offen, wenn die Dokumentfenster
+        zugehen. Schon offen: nach vorne holen; entry = früheren Druck öffnen, files = Dateien dazunehmen."""
+    kind = kind if kind in pp.KINDS else "plan"
+    dlg = _WINDOWS.get(kind)
+    if dlg is None:
+        dlg = PlanDialog(None, session, ctl, None, "", "", kind)
+        dlg.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowMinimizeButtonHint
+                           | Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
+        dlg.setModal(False)
+        dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        _WINDOWS[kind] = dlg
+        dlg.finished.connect(lambda _r, k=kind, d=dlg: _WINDOWS.pop(k, None) if _WINDOWS.get(k) is d else None)
+        try:                                     # nie größer als der Bildschirm (kleine Notebooks)
+            scr = dlg.screen().availableGeometry()
+            w, h = min(dlg.width(), scr.width() - 40), min(dlg.height(), scr.height() - 60)
+            if (w, h) != (dlg.width(), dlg.height()):
+                dlg.resize(max(640, w), max(420, h))
+        except Exception:                                       # noqa: BLE001
+            pass
+    if entry is not None:
+        dlg.load_history(entry)
+    if files:
+        dlg.add_paths(files)
+    dlg.show()
+    if dlg.isMinimized():
+        dlg.showNormal()
+    dlg.raise_()
+    dlg.activateWindow()
+    return dlg
+
+
 class PlanDialog(QDialog):
     printed = Signal(str)
 
@@ -765,6 +805,7 @@ class PlanDialog(QDialog):
         self.printer = ""
         self._queue: list = []
         self._q = None
+        self._retired = []          # nach einem Druck abgelegte Dokumente – erst beim Schließen freigeben
         self._building = False
         self.s0 = load_settings(self.kind)
         self._bleed_color = self.s0.bleed_color
@@ -909,6 +950,12 @@ class PlanDialog(QDialog):
         self.cmb_color = QComboBox()
         fill_combo(self.cmb_color, [(k, tr(t)) for k, t in COLOR_TEXT.items()], s0.color)
         f.addRow(tr("Farbe:"), self.cmb_color)
+        self.cmb_qmode = QComboBox()
+        fill_combo(self.cmb_qmode, [(k, tr(t)) for k, t in QMODE_TEXT.items()], pp.quality_mode_of(s0))
+        self.cmb_qmode.setToolTip(tr("Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. "
+                                     "höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material "
+                                     "derselben Kategorie eingetragen ist."))
+        f.addRow(tr("Qualität:"), self.cmb_qmode)
         row = QHBoxLayout()
         self.cmb_mat = QComboBox()
         self.cmb_mat.setToolTip(tr("Passermark-Material: Grammatur (wählt die Rolle), Medientyp, Qualität, "
@@ -1129,7 +1176,7 @@ class PlanDialog(QDialog):
         for w in (self.chk_collate, self.chk_marks, self.chk_hair, self.chk_fold, self.chk_nest, self.chk_cut,
                   self.chk_pcm, *self.chk_hem.values()):
             w.toggled.connect(self._changed)
-        for w in (self.cmb_order, self.cmb_color, self.cmb_over, self.cmb_copies):
+        for w in (self.cmb_order, self.cmb_color, self.cmb_over, self.cmb_copies, self.cmb_qmode):
             w.currentIndexChanged.connect(self._changed)
         self.ed_weights.editingFinished.connect(self._changed)
         # Einstellungen je Plan: wirken auf die Auswahl (nichts bzw. alles ausgewählt: auf alle)
@@ -1566,6 +1613,7 @@ class PlanDialog(QDialog):
         hem = "".join(k for k, c in self.chk_hem.items() if c.isChecked())
         return dataclasses.replace(
             self.s0, kind=self.kind, printer=self.printer, color=self.cmb_color.currentData() or "",
+            quality_mode=self.cmb_qmode.currentData() or "",
             media=self.s0.media, crop_marks=self.chk_marks.isChecked(),
             copies=self.spn_copies.value(),
             collate=self.chk_collate.isChecked(), order=self.cmb_order.currentData() or "list",
@@ -1891,7 +1939,35 @@ class PlanDialog(QDialog):
         msg = tr("{0} Plan-Auftrag/-Aufträge an {1} gesendet – {2} m").format(
             len(info["jobs"]), self.printer, pp.num(info["total_m"]))
         self.printed.emit(msg)
-        self.accept()
+        self._reset_after_print(msg)
+
+    def _reset_after_print(self, msg: str):
+        """Fenster bleibt offen: Liste leeren, Felder zurück auf den Standard (der Druck steht im Verlauf).
+            Selbst geöffnete Dokumente erst beim Schließen freigeben – nichts darf mehr auf ein zugemachtes zeigen."""
+        try:
+            self._timer.stop()
+            self._prev_timer.stop()
+            self._retired += self.owned
+            self.owned, self.items, self._queue = [], [], []
+            self.tree.blockSignals(True)
+            try:
+                self.tree.clearSelection()
+                self._rebuild()
+            finally:
+                self.tree.blockSignals(False)
+            self.s0 = load_settings(self.kind)
+            self._fill_from(self.s0)
+        except Exception:                                       # noqa: BLE001 – das Fenster bleibt jedenfalls
+            import traceback
+            from .. import crashlog
+            crashlog.record("Plandruck: Zurücksetzen nach dem Druck", traceback.format_exc())
+        self.lbl_state.setText(msg)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key.Key_Escape:                        # eigenes Fenster: Esc schließt nicht (Liste weg)
+            e.ignore()
+            return
+        super().keyPressEvent(e)
 
     # ------------------------------------------------------------------ #
     # Verlauf (1.18.17)
@@ -2010,7 +2086,8 @@ class PlanDialog(QDialog):
             i = cb.findData(val)
             if i >= 0:
                 cb.setCurrentIndex(i)
-        ws = [self.spn_copies, self.chk_collate, self.cmb_copies, self.cmb_order, self.cmb_color, self.ed_weights,
+        ws = [self.spn_copies, self.chk_collate, self.cmb_copies, self.cmb_order, self.cmb_color, self.cmb_qmode,
+              self.ed_weights,
               self.chk_hair, self.chk_marks, self.chk_fold, self.chk_nest, self.spn_gap, self.cmb_over,
               self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in, self.chk_cut, self.chk_pcm,
               *self.chk_hem.values()]
@@ -2022,6 +2099,7 @@ class PlanDialog(QDialog):
             combo(self.cmb_copies, pp.copies_mode(s))
             combo(self.cmb_order, s.order)
             combo(self.cmb_color, s.color)
+            combo(self.cmb_qmode, pp.quality_mode_of(s))
             self.ed_weights.setText(", ".join(str(w) for w in (s.weights or [])))
             self.chk_hair.setChecked(s.fix_hairlines)
             self.chk_marks.setChecked(s.crop_marks)
@@ -2052,9 +2130,9 @@ class PlanDialog(QDialog):
             save_settings(self.settings(), self.printer)
         self._timer.stop()
         self._closed = True
-        for d in self.owned:
+        for d in self.owned + self._retired:
             try:
                 d.close()
             except Exception:
                 pass
-        self.owned = []
+        self.owned, self._retired = [], []

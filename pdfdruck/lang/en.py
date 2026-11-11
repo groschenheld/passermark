@@ -3035,4 +3035,8 @@ MESSAGES = {
     'nicht mehr vorhanden: {0}': 'no longer available: {0}',
     '{0} Poster': '{0} poster(s)',
     '{0} {1} im Verlauf verwerfen ({2} MB)?': 'Discard {0} {1} in the history ({2} MB)?',
+    'Qualität:': 'Quality:',
+    'Produktionsdruck (schnell)': 'Production print (fast)',
+    'Qualitätsdruck (höchste Qualität)': 'Quality print (highest quality)',
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': "Sets the driver's print quality to the lowest (production print) or highest level (quality print). A quality set for a material of the same category takes precedence.",
 }

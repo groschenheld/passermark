@@ -97,11 +97,17 @@ with T.FakePlotter() as fp:
     assert dlg.items[0].area.kind == "margin" and dlg.items[1].area.kind == "frame"
     # Graustufen, nach Rolle, drucken
     dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
+    assert dlg.settings().quality_mode == "production"          # Plan: Produktionsdruck, umschaltbar
+    dlg.cmb_qmode.setCurrentIndex(dlg.cmb_qmode.findData("quality"))
+    assert dlg.settings().quality_mode == "quality"
     dlg._print()
     # seit 1.18.7 Standard: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1, Anzahl im Titel)
     assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent), fp.sent
     assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
+    assert dlg.items == [] and dlg.settings().copies == 1 and dlg.settings().color != "gray"   # Fenster bleibt: leer, Standard
+    assert dlg.settings().quality_mode == "production"
+    assert P.PlanDialog(None, sess, None, None, "", "", "poster").settings().quality_mode == "quality"
     from pdfdruck import planhistory              # Verlauf: Druck gemerkt, mit Dateien und Mengen wieder öffnen
     ents = planhistory.entries("plan")
     assert ents and ents[0]["printer"] == "Plotter" and [i["qty"] for i in ents[0]["items"]] == [1, 3], ents[:1]
@@ -119,6 +125,9 @@ with T.FakePlotter() as fp:
     dlg.spn_copies.setValue(4)
     dlg._load_standard()
     # PDF speichern
+    dlg.add_doc(doc, src, own=False)
+    while dlg._queue:
+        dlg._analyze_next()
     out = os.path.join(T.TMP, "gui_out.pdf")
     P.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))
     dlg._save_pdf()
@@ -146,6 +155,12 @@ with T.FakePlotter() as fp:
     assert os.path.isfile(out2)
     pd._cleanup(0)
     assert P.load_settings("poster").hem_mm == 30 and P.load_settings("plan").hem_mm == 0
+    # eigenes Fenster je Art: kein Elternfenster, ein zweiter Aufruf holt dasselbe nach vorne, Dateien dazu
+    w1 = P.open_window(sess, None, "plan")
+    assert P.open_window(sess, None, "plan") is w1 and w1.items == [] and w1.kind == "plan"
+    w2 = P.open_window(sess, None, "poster", files=[src])
+    assert w2 is not w1 and len(w2.items) == 2 and len(P.open_windows()) == 2
+    P._WINDOWS.clear()
     md = P.MaterialsDialog(None, sess, "Plotter", T.plotter_caps())
     md._add({"name": "PVC 510", "category": "quality"})
     fd = P.FoldersDialog(None)

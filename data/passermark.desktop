@@ -18,7 +18,7 @@ Terminal=false
 MimeType=application/pdf;image/jpeg;image/png;image/tiff;image/bmp;image/gif;image/webp;image/heic;image/heif;image/svg+xml;image/svg+xml-compressed;application/msword;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.oasis.opendocument.text;application/vnd.ms-excel;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;application/vnd.ms-powerpoint;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;application/rtf;
 Categories=Office;Viewer;Graphics;Printing;
 Keywords=PDF;Drucken;Print;Broschüre;Poster;Nutzen;Zusammenführen;Merge;Reparieren;
-Actions=print;merge;
+Actions=print;merge;plan;poster;
 
 [Desktop Action print]
 Name=Print without dialog
@@ -35,3 +35,19 @@ Name[hu]=Egyesítés egy PDF-be
 Name[es]=Combinar en un PDF
 Name[fr]=Fusionner en un PDF
 Exec=passermark --merge %F
+
+[Desktop Action plan]
+Name=Plan printing
+Name[de]=Plandruck
+Name[hu]=Tervnyomtatás
+Name[es]=Impresión de planos
+Name[fr]=Impression de plans
+Exec=passermark --plan %F
+
+[Desktop Action poster]
+Name=Poster printing
+Name[de]=Posterdruck
+Name[hu]=Poszternyomtatás
+Name[es]=Impresión de pósteres
+Name[fr]=Impression d'affiches
+Exec=passermark --poster %F

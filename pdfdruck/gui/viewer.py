@@ -3939,16 +3939,10 @@ class MainWindow(QMainWindow):
                     src_path=getattr(self.view, "_src_path", None), pinfo=getattr(self.view, "_pinfo", None)).exec()
 
     def plan_dialog(self, kind: str = "plan", entry: dict | None = None):
-        """Plan & Poster → Plandruck/Posterdruck: das offene Dokument (jede Seite ein Stück) plus weitere Dateien.
-            entry: früheren Druck aus dem Verlauf öffnen (statt des offenen Dokuments)."""
-        from .plandialog import PlanDialog
-        if entry is not None:
-            dlg = PlanDialog(self, self.session, self.ctl, None, "", "", entry.get("kind", kind))
-            dlg.load_history(entry)
-        else:
-            dlg = PlanDialog(self, self.session, self.ctl, self.doc, self.path or "", self.display_name or "", kind)
-        dlg.printed.connect(lambda msg: self.statusBar().showMessage(msg, 10000))
-        dlg.exec()
+        """Plan & Poster → Plandruck/Posterdruck: eigenes Fenster, unabhängig von diesem Dokument (das offene
+            Dokument wird nicht übernommen). entry: früheren Druck aus dem Verlauf öffnen."""
+        from .plandialog import open_window
+        open_window(self.session, self.ctl, entry.get("kind", kind) if entry else kind, entry)
 
     def _fill_plan_history(self):
         """Plan & Poster → Letzte Drucke: Plan- und Posterdrucke, neueste zuerst; unten aufräumen."""

@@ -216,7 +216,10 @@ class Controller(QObject):
     BATCH_MS = 700
 
     def queue_request(self, cmd: str, files: list[str]):
-        cmd = cmd if cmd in ("print", "merge", "repair", "open") else "open"
+        cmd = cmd if cmd in ("print", "merge", "repair", "open", "plan", "poster") else "open"
+        if cmd in ("plan", "poster"):
+            self.plan_window(cmd, files=files)  # eigenes Fenster; schon offen: Dateien dort dazu
+            return
         dlg = getattr(self, "_merge_dlg", None)
         if cmd == "merge" and dlg is not None:
             dlg.add_paths(files)                 # Zusammenführen-Dialog ist schon offen: dort dazu (kein zweiter)
@@ -244,8 +247,19 @@ class Controller(QObject):
                 self.print_paths(files)
             else:
                 self.open_paths(files)
-        if not self.windows:
+        if not self.windows and not self.plan_windows():
             QApplication.instance().quit()     # nichts mehr offen (reiner Druck/Reparatur/abgebrochen): fertig
+
+    # ---------------------------------------------------------------- #
+    def plan_window(self, kind: str = "plan", entry: dict | None = None, files=None):
+        """Plan-/Posterdruck als eigenes Fenster – bleibt offen, wenn die Dokumentfenster geschlossen werden."""
+        from .gui.plandialog import open_window
+        return open_window(self.session, self, kind, entry, [os.path.abspath(f) for f in files or []])
+
+    @staticmethod
+    def plan_windows() -> list:
+        from .gui.plandialog import open_windows
+        return open_windows()
 
     # ---------------------------------------------------------------- #
     @staticmethod

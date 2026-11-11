@@ -2,6 +2,20 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.18
+
+### Eigenes Fenster für Plan- und Posterdruck
+- Plan und Poster öffnen je ein eigenes Fenster, mit Minimieren/Maximieren und eigenem Eintrag in der Taskleiste. Ist es schon offen, holt ein zweiter Aufruf es nur nach vorne. Das Programm endet erst, wenn das letzte Fenster zu ist.
+- Keine Übergabe mehr: Das Dokument, das im Hauptfenster offen ist, landet nicht mehr im Plan- oder Posterdruck. Dateien kommen nur noch über „hinzufügen …“, durch Hineinziehen oder beim Start dazu.
+- `passermark --plan [Dateien]` bzw. `--poster [Dateien]` öffnet nur dieses Fenster; läuft Passermark schon, kommen die Dateien ins offene Fenster. Unter Windows legt der Installer zwei Startmenü-Einträge an, unter Linux gibt es zwei Schnellaktionen im Programmeintrag; das AppImage übernimmt sie automatisch.
+- Nach dem Drucken bleibt das Fenster offen, statt sich zu schließen: Die Liste wird geleert, die Einstellungen gehen auf den Standard zurück, der Druck steht im Verlauf. Esc schließt das Fenster nicht mehr, damit nicht versehentlich eine volle Liste verloren geht.
+
+### Produktions- und Qualitätsdruck
+- Im Fenster gibt es neu den Umschalter „Qualität“. Plan startet mit Produktionsdruck (niedrigste Qualitätsstufe des Treibers), Poster mit Qualitätsdruck (höchste Stufe).
+- Ein Material derselben Kategorie mit eigener Qualität geht vor, ebenso eine Treiberoption, die von Hand gesetzt ist.
+- Die Stufen werden über die Namen geordnet (Entwurf/Schnell bis Hoch/Beste), über dpi-Werte oder bei IPP über 3/4/5. Lassen sie sich nicht einordnen, bleibt der Treiberwert.
+- Die Qualitätsoption wird jetzt auch über ihren Anzeigenamen erkannt, z. B. „Druckqualität“; im Probelauf mit `--dry-run` sieht man, ob der Treiber eine liefert.
+- Für CLI und Abläufe heißt die Einstellung `quality_mode` (`production` oder `quality`).
 ## 1.18.17
 
 ### Verlauf der letzten Drucke in Plan & Poster

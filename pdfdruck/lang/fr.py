@@ -3035,4 +3035,8 @@ MESSAGES = {
     'nicht mehr vorhanden: {0}': 'n’existe plus : {0}',
     '{0} Poster': '{0} affiche(s)',
     '{0} {1} im Verlauf verwerfen ({2} MB)?': 'Supprimer {0} {1} de l’historique ({2} Mo) ?',
+    'Qualität:': 'Qualité :',
+    'Produktionsdruck (schnell)': 'Impression production (rapide)',
+    'Qualitätsdruck (höchste Qualität)': 'Impression qualité (qualité maximale)',
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'Règle la qualité du pilote au niveau le plus bas (impression production) ou le plus haut (impression qualité). Une qualité définie pour un matériau de la même catégorie est prioritaire.',
 }

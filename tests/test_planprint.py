@@ -348,6 +348,53 @@ def test_history():
     assert planhistory.clear() == 3 and planhistory.entries() == []
 
 
+def test_quality_mode():
+    """Plan = Produktionsdruck (niedrigste Treiberqualität), Poster = Qualitätsdruck (höchste); umschaltbar;
+    Material derselben Kategorie mit eigener Qualität und Optionen von Hand haben Vorrang."""
+    from pdfdruck import config, printmat
+    from pdfdruck.session import Session
+    q = lambda k, ch, d="": Option(k, "Druckqualität", "", [Choice(v, t) for v, t in ch], d)      # noqa: E731
+    cq = q("cupsPrintQuality", [("Normal", "Normal"), ("Draft", "Entwurf"), ("High", "Hoch")], "Normal")
+    assert printers.quality_choice(cq, "production") == "Draft" and printers.quality_choice(cq, "quality") == "High"
+    ipp = q("print-quality", [("3", "Entwurf"), ("4", "Normal"), ("5", "Hoch")], "4")
+    assert printers.quality_choice(ipp, "production") == "3" and printers.quality_choice(ipp, "quality") == "5"
+    res = q("Resolution", [("600x600dpi", "600 dpi"), ("1200x1200dpi", "1200 dpi"), ("300x300dpi", "300 dpi")])
+    assert printers.quality_choice(res, "production") == "300x300dpi"
+    assert printers.quality_choice(res, "quality") == "1200x1200dpi"
+    ep = q("EPIJ_Qual", [("PLAIN_DRAFT", "Entwurf"), ("PLAIN_HIGH", "Fein"), ("PHOTO_HIGH", "Foto fein"),
+                         ("PHOTO_NORMAL", "Foto")], "PLAIN_DRAFT")
+    assert printers.quality_choice(ep, "quality", "PLAIN_DRAFT") == "PLAIN_HIGH"      # beim Medium bleiben
+    assert printers.quality_choice(q("X", [("A", "Modus A"), ("B", "Modus B")]), "quality") == ""   # unklar: nichts
+    caps = plotter_caps()
+    caps.options["CNQualityMode"] = Option("CNQualityMode", "Druckqualität", "",
+                                           [Choice("Std", "Standard"), Choice("Fast", "Schnell"),
+                                            Choice("Best", "Beste Qualität")], "Std")
+    printers._assign_roles(caps)                                  # erkannt über den Text „Druckqualität“
+    assert caps.roles.get("quality") == "CNQualityMode"
+    assert pp.quality_mode_of(pp.PlanSettings()) == "production"
+    assert pp.quality_mode_of(pp.PlanSettings(kind="poster")) == "quality"
+    assert pp.quality_mode_of(pp.PlanSettings(kind="poster", quality_mode="production")) == "production"
+    assert pp.defaults_for("poster")["quality_mode"] == "quality" and pp.defaults_for("plan")["quality_mode"] == "production"
+    v = pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster"))
+    assert v == {"CNQualityMode": "Best"}
+    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster", options={"CNQualityMode": "Std"})) == {}
+    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "plan", "quality": "Std"}) == {}
+    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "quality", "quality": "Best"}) == \
+        {"CNQualityMode": "Fast"}                                 # Qualitätsmaterial im Produktionsdruck
+    # Ende zu Ende: was wirklich an den Drucker geht
+    printmat.save([])
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 80)])
+    src = plan_pdf("qmode.pdf", 420, 594)
+    with FakePlotter() as fp:
+        printers.load_caps = lambda name: caps
+        for kind, mode, want in (("plan", "", "Fast"), ("poster", "", "Best"), ("poster", "production", "Fast"),
+                                 ("plan", "quality", "Best")):
+            fp.sent.clear()
+            pp.plan_files([src], pp.PlanSettings(kind=kind, quality_mode=mode, printer="Plotter", live_rolls=False),
+                          session=Session(config.BUILTIN))
+            assert fp.sent and all(x["opts"].get("CNQualityMode") == want for x in fp.sent), (kind, mode, fp.sent)
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

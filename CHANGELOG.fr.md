@@ -5,6 +5,20 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.18
+
+### Fenêtre propre pour l'impression de plans et posters
+- Plans et posters ouvrent chacun leur propre fenêtre, avec réduire/agrandir et leur propre entrée dans la barre des tâches. Si elle est déjà ouverte, un second appel la ramène seulement au premier plan. Le programme ne se termine que lorsque la dernière fenêtre est fermée.
+- Plus de transfert : le document ouvert dans la fenêtre principale ne passe plus dans l'impression de plans ou posters. Les fichiers n'entrent plus que par « ajouter ... », en les glissant, ou au démarrage.
+- `passermark --plan [fichiers]` et `--poster [fichiers]` n'ouvrent que cette fenêtre ; si Passermark tourne déjà, les fichiers vont dans la fenêtre ouverte. Sous Windows l'installateur crée deux entrées dans le menu Démarrer, sous Linux il y a deux actions rapides dans l'entrée du programme ; l'AppImage les reprend automatiquement.
+- Après l'impression, la fenêtre reste ouverte au lieu de se fermer : la liste est vidée, les réglages reviennent au standard, l'impression est dans l'historique. Échap ne ferme plus la fenêtre, pour ne pas perdre une liste pleine par inadvertance.
+
+### Impression de production et de qualité
+- La fenêtre a un nouveau commutateur « Qualité ». Les plans démarrent en impression de production (le niveau de qualité le plus bas du pilote), les posters en impression de qualité (le niveau le plus haut).
+- Une matière de la même catégorie avec sa propre qualité prime, de même qu'une option du pilote réglée à la main.
+- Les niveaux sont ordonnés par leurs noms (brouillon/rapide jusqu'à haute/meilleure), par des valeurs en dpi ou via 3/4/5 avec IPP. S'ils ne sont pas classables, la valeur du pilote reste.
+- L'option de qualité est désormais aussi reconnue par son nom affiché, p. ex. « Qualité d'impression » ; la simulation avec `--dry-run` montre si le pilote en propose une.
+- Pour la CLI et les enchaînements, le réglage s'appelle `quality_mode` (`production` ou `quality`).
 ## 1.18.17
 
 ### Historique des dernières impressions dans Plan & Poster

@@ -8,6 +8,7 @@
   passermark a.pdf b.jpg      open (images are opened as PDFs at actual size)
   passermark --merge a.pdf b.docx c.jpg   everything into one PDF (order changeable in the dialog)
   passermark --repair *.pdf   repair / optimize for sharing / password protection
+  passermark --plan [FILES]   plan printing in its own window (--poster: poster printing)
   passermark --print *.pdf    print without a dialog – with the settings of a running
                             instance, otherwise with the admin defaults
 """
@@ -42,11 +43,14 @@ def main():
     ap.add_argument("--open", action="store_true", help="öffnen (Standard)")
     ap.add_argument("--repair", action="store_true", help="reparieren / optimieren / Passwort (Dialog)")
     ap.add_argument("--merge", action="store_true", help="Dateien (PDF, Bilder, Office) zu einem PDF zusammenführen")
+    ap.add_argument("--plan", action="store_true", help="Plandruck als eigenes Fenster (Dateien dazu)")
+    ap.add_argument("--poster", action="store_true", help="Posterdruck als eigenes Fenster (Dateien dazu)")
     ap.add_argument("files", nargs="*")
     args, _qt = ap.parse_known_args()
     # läuft schon eine Instanz? Dann sofort weiterreichen – noch bevor Qt und die Oberfläche geladen werden
     # (Explorer-Mehrfachauswahl startet einen Prozess je Datei; so sind die nach Sekundenbruchteilen wieder weg)
-    early_cmd = "print" if args.do_print else "repair" if args.repair else "merge" if args.merge else "open"
+    early_cmd = ("print" if args.do_print else "repair" if args.repair else "merge" if args.merge
+                 else "plan" if args.plan else "poster" if args.poster else "open")
     # Mehrere gleichzeitig gestartete Prozesse (Explorer: je Datei einer) warten hier an einer Startsperre – genau
     # einer wird Hauptinstanz, die übrigen reichen danach ihre Datei an ihn weiter.
     from . import fastipc
@@ -83,7 +87,7 @@ def main():
 
     from . import app as appmod
 
-    cmd = "print" if args.do_print else "repair" if args.repair else "merge" if args.merge else "open"
+    cmd = early_cmd
 
     # single instance: hand over to the running instance – or become the server yourself. Several at once
     # gestartete Prozesse (Explorer-Mehrfachauswahl) einigen sich so auf genau einen Server.

@@ -3035,4 +3035,8 @@ MESSAGES = {
     'nicht mehr vorhanden: {0}': 'ya no disponible: {0}',
     '{0} Poster': '{0} póster(es)',
     '{0} {1} im Verlauf verwerfen ({2} MB)?': '¿Descartar {0} {1} del historial ({2} MB)?',
+    'Qualität:': 'Calidad:',
+    'Produktionsdruck (schnell)': 'Impresión de producción (rápida)',
+    'Qualitätsdruck (höchste Qualität)': 'Impresión de calidad (máxima calidad)',
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'Ajusta la calidad del controlador al nivel más bajo (impresión de producción) o al más alto (impresión de calidad). Tiene prioridad una calidad indicada en un material de la misma categoría.',
 }
