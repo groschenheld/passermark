@@ -51,7 +51,43 @@ ROLE_TEXT = {
     "mediatype": re.compile(r"(medien|papier)(typ|art)|media\s*type|paper\s*type", re.I),
     "duplex": re.compile(r"duplex|beidseitig|2-sided|two-sided", re.I),
     "color": re.compile(r"farb(modus|e)|colou?r\s*mode|grayscale|graustufen|\bink\b", re.I),
+    "quality": re.compile(r"(druck|print)\s*-?\s*qualit|^qualit|quality$|auflösung|resolution", re.I),
 }
+
+# Druckqualität einordnen (Produktionsdruck = niedrigste, Qualitätsdruck = höchste Stufe des Treibers)
+_Q_LOW = re.compile(r"draft|entwurf|fast|schnell|speed|eco|spar|produ[ck]|quick|express|economy|niedrig|\blow\b",
+                    re.I)
+_Q_HIGH = re.compile(r"best|beste|high|hoch|fine|fein|photo|foto|\bmax|super|ultra|premium|qualit|detail|enhanced|"
+                     r"pr[äa]zis|precis", re.I)
+_Q_DPI = re.compile(r"(\d{2,4})\s*(?:x\s*(\d{2,4}))?\s*dpi", re.I)
+_Q_EPSON = re.compile(r"([A-Z]+)_(HIGH|NORMAL|DRAFT)")
+
+
+def quality_choice(opt: "Option", mode: str, current: str = "") -> str:
+    """Wert der Qualitätsoption für mode "production" (niedrigste Stufe) bzw. "quality" (höchste).
+        "" = nicht einzuordnen (alles gleich) – dann bleibt der Treiberwert."""
+    chs = list(opt.choices)
+    m = _Q_EPSON.fullmatch(current or opt.default or "")
+    if m:                                   # Epson: Qualität hängt am Medium (PLAIN_HIGH …) – beim Medium bleiben
+        chs = [c for c in chs if c.value.startswith(m.group(1) + "_")] or chs
+
+    def rank(c):
+        if opt.keyword == "print-quality" and c.value in ("3", "4", "5"):
+            return int(c.value) - 4
+        t = f"{c.value} {c.text}"
+        if _Q_LOW.search(t):
+            return -1
+        return 1 if _Q_HIGH.search(t) else 0
+    dpi = [_Q_DPI.search(f"{c.value} {c.text}") for c in chs]
+    if chs and all(dpi):
+        ranks = [int(d.group(1)) * int(d.group(2) or d.group(1)) for d in dpi]
+    else:
+        ranks = [rank(c) for c in chs]
+    if not chs or min(ranks) == max(ranks):
+        return ""
+    want = min(ranks) if mode == "production" else max(ranks)
+    return chs[ranks.index(want)].value
+
 
 # fallback table (mm, portrait) for paper names if the driver provides no sizes – one table for the whole
 # program (papersizes.py). prefix "T" or ".Borderless"/"FULL" = borderless (same size, no margin).

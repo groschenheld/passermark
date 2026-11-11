@@ -355,6 +355,10 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
 - Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
   `bleed_color`), `crop_marks`, `fix_hairlines` (+ `hairline_mm`), `fold_marks` (DIN 824, simplified), `options`,
   `profile`, `intent`, `dry_run`.
+- **Print quality** `quality_mode`: `production` (lowest quality level of the driver – default for plans) |
+  `quality` (highest – default for posters). Takes precedence over the driver default; a quality in `options` or one
+  set for a material of the matching category (`plan` ↔ production, `quality` ↔ quality) wins. Drivers whose
+  quality levels cannot be ranked (no draft/high/dpi in the names) are left alone.
 - **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults: `align` `center`, `overwidth` `crop`,
   no plan paper grammage, `frame` `none`): quality print; `nest` (side by side, off by default; roll and orientation
   with the least paper = roll width × length; `gap_mm`; every row is its own print page, so the printer cuts after each row – copies are

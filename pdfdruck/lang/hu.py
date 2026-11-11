@@ -3035,4 +3035,8 @@ MESSAGES = {
     'nicht mehr vorhanden: {0}': 'már nem érhető el: {0}',
     '{0} Poster': '{0} poszter',
     '{0} {1} im Verlauf verwerfen ({2} MB)?': 'Elveti az előzmények {0} {1} elemét ({2} MB)?',
+    'Qualität:': 'Minőség:',
+    'Produktionsdruck (schnell)': 'Termelési nyomtatás (gyors)',
+    'Qualitätsdruck (höchste Qualität)': 'Minőségi nyomtatás (legjobb minőség)',
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'A nyomtató-illesztőprogram minőségét a legalacsonyabb (termelési nyomtatás) vagy a legmagasabb szintre (minőségi nyomtatás) állítja. Elsőbbséget élvez az azonos kategóriájú anyagnál megadott minőség.',
 }

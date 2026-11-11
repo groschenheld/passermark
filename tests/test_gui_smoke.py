@@ -132,6 +132,15 @@ w._fill_plan_history()
 planhistory.add("poster", "Plotter", {"copies": 1}, [{"source": sys.argv[1], "page": 0, "qty": 1, "ov": {}, "own": True}], 1.0, 1)
 w._fill_plan_history(); w._clear_plan_history()
 planhistory.clear()
+from pdfdruck.gui import plandialog            # Plan/Poster: eigenes Fenster, offenes Dokument wird nicht übernommen
+w.plan_dialog("poster")
+pw_ = plandialog.open_windows()
+assert len(pw_) == 1 and pw_[0].kind == "poster" and pw_[0].items == [] and pw_[0].ctl is w.ctl, pw_
+from pdfdruck import app as appmod              # passermark --plan a.pdf (bzw. vom zweiten Start weitergereicht)
+appmod.Controller().queue_request("plan", [sys.argv[1]])
+pw_ = {d.kind: d for d in plandialog.open_windows()}
+assert set(pw_) == {"plan", "poster"} and pw_["plan"].items, pw_
+plandialog._WINDOWS.clear()
 print("SMOKE-OK")
 '''
 

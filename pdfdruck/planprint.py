@@ -63,6 +63,7 @@ class PlanSettings:
     dry_run: bool = False
     # 1.18 Teil 2 – Poster/Qualitätsdruck, Banner, Print & Cut, Material
     kind: str = "plan"                # plan (Produktionsdruck) | poster (Qualitätsdruck)
+    quality_mode: str = ""            # production (niedrigste Treiberqualität) | quality (höchste); "" = je Art
     material: str = ""                # Druckmaterial (printmat) – Name oder ID; "" = keins
     nest: bool = False                # mehrere Stücke nebeneinander auf die Rolle (Poster: Standard an)
     gap_mm: float = 5.0               # Abstand zwischen Stücken beim Nebeneinander
@@ -143,8 +144,39 @@ def defaults_for(kind: str) -> dict:
     """Standardwerte je Art: Poster = Qualitätsdruck, nebeneinander, Überbreite abschneiden, keine Planpapier-Wahl."""
     if kind == "poster":
         return {"kind": "poster", "nest": False, "overwidth": "crop", "weights": [], "frame": "none",
-                "align": "center"}
-    return {"kind": "plan"}
+                "align": "center", "quality_mode": "quality"}
+    return {"kind": "plan", "quality_mode": "production"}
+
+
+QUALITY_MODES = ("production", "quality")
+
+
+def quality_mode_of(s) -> str:
+    """Produktionsdruck (Plan) oder Qualitätsdruck (Poster) – umschaltbar mit quality_mode."""
+    m = getattr(s, "quality_mode", "") or ""
+    return m if m in QUALITY_MODES else ("quality" if getattr(s, "kind", "plan") == "poster" else "production")
+
+
+def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
+    """Qualitätsoption des Treibers auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck).
+        Vorrang: von Hand in options gesetzt; ein Material derselben Kategorie (plan ↔ Produktion,
+        quality ↔ Qualität) mit eigener Qualität."""
+    from . import printers
+    if caps is None:
+        return vals
+    key = caps.roles.get("quality")
+    opt = caps.options.get(key) if key else None
+    if opt is None or key in (s.options or {}):
+        return vals
+    mode = quality_mode_of(s)
+    mat = mat or {}
+    if (mat.get("quality") or key in (mat.get("options") or {})) and \
+            (mat.get("category") == "plan") == (mode == "production"):
+        return vals
+    v = printers.quality_choice(opt, mode, vals.get(key, ""))
+    if v:
+        vals[key] = v
+    return vals
 
 
 # --------------------------------------------------------------------------- #
@@ -1382,6 +1414,7 @@ def values_for(session, printer: str, caps, s: PlanSettings) -> dict:
     vals, probs = resolve(caps, session.values_for(printer), ps)
     if probs:
         raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
+    apply_quality_mode(caps, vals, s, mat)
     if mat.get("profile"):
         pid, intent = session.color_for(printer)
         session.color[printer] = (mat["profile"], mat.get("intent") or intent)

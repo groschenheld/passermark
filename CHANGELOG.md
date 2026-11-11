@@ -2,6 +2,20 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.18
+
+### Own window for plan and poster printing
+- Plan and poster each open their own window, with minimize/maximize and their own taskbar entry. If it is already open, a second call only brings it to the front. The program does not end until the last window is closed.
+- No more handover: the document open in the main window no longer lands in plan or poster printing. Files get in only via "add ...", by dragging them in, or at start.
+- `passermark --plan [files]` and `--poster [files]` open only that window; if Passermark is already running, the files go to the open window. On Windows the installer creates two start menu entries, on Linux there are two quick actions in the program entry; the AppImage picks them up automatically.
+- After printing the window stays open instead of closing: the list is emptied, the settings return to the default, the print is in the history. Esc no longer closes the window, so a full list is not lost by accident.
+
+### Production and quality printing
+- The window has a new "Quality" toggle. Plan starts with production printing (the driver's lowest quality level), poster with quality printing (the highest level).
+- A material of the same category with its own quality takes precedence, as does a driver option set by hand.
+- The levels are ordered by their names (draft/fast up to high/best), by dpi values, or via 3/4/5 with IPP. If they cannot be classified, the driver value stays.
+- The quality option is now also recognized by its display name, e.g. "Print quality"; the dry run with `--dry-run` shows whether the driver offers one.
+- For the CLI and workflows the setting is called `quality_mode` (`production` or `quality`).
 ## 1.18.17
 
 ### History of the last prints in plan & poster

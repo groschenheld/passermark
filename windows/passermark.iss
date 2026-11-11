@@ -69,6 +69,16 @@ en.Desktop=Create desktop shortcut
 hu.Desktop=Asztali parancsikon létrehozása
 es.Desktop=Crear acceso directo en el escritorio
 fr.Desktop=Créer un raccourci sur le bureau
+de.PlanWin=Passermark – Plandruck
+en.PlanWin=Passermark – Plan printing
+hu.PlanWin=Passermark – Tervnyomtatás
+es.PlanWin=Passermark – Impresión de planos
+fr.PlanWin=Passermark – Impression de plans
+de.PosterWin=Passermark – Posterdruck
+en.PosterWin=Passermark – Poster printing
+hu.PosterWin=Passermark – Poszternyomtatás
+es.PosterWin=Passermark – Impresión de pósteres
+fr.PosterWin=Passermark – Impression d'affiches
 de.Launch=Passermark starten
 en.Launch=Start Passermark
 hu.Launch=A Passermark indítása
@@ -89,6 +99,8 @@ Name: "{commonappdata}\Passermark\archiv"; Flags: uninsneveruninstall
 
 [Icons]
 Name: "{group}\Passermark"; Filename: "{app}\passermark.exe"
+Name: "{group}\{cm:PlanWin}"; Filename: "{app}\passermark.exe"; Parameters: "--plan"
+Name: "{group}\{cm:PosterWin}"; Filename: "{app}\passermark.exe"; Parameters: "--poster"
 Name: "{autodesktop}\Passermark"; Filename: "{app}\passermark.exe"; Tasks: desktopicon
 
 [Tasks]
