@@ -53,6 +53,15 @@ def _mb(b: int) -> str:
 class ShrinkDialog(QDialog):
     """rep: finished analysis (from the check) or None – it is then created here in the background."""
 
+    def _add_option(self, layout, key, text, tip, on):
+        """Check box for one measure, registered in self.cb under its key."""
+        c = QCheckBox(text)
+        c.setToolTip(tip)
+        c.setChecked(on)
+        layout.addWidget(c)
+        self.cb[key] = c
+        return c
+
     def __init__(self, parent, rep: shrink.SizeReport | None = None, data: bytes | None = None):
         super().__init__(parent)
         self.setWindowTitle(tr("Datei verkleinern"))
@@ -63,19 +72,44 @@ class ShrinkDialog(QDialog):
         self.lbl.setWordWrap(True)
         v.addWidget(self.lbl)
 
+        self.cb = {}  # key of the measure -> its check box
+        self._build_lossless_group(v)
+        self._build_invisible_group(v)
+        self._build_lossy_group(v)
+        self.cb["downsample"].toggled.connect(self._update)
+        self.cb["photos_jpeg"].toggled.connect(self._update)
+        self.cmb_dpi.currentIndexChanged.connect(self._update)
+        self.spin_thr.valueChanged.connect(self._update)
+
+        note = QLabel(
+            tr(
+                "Ergebnis öffnet im neuen Fenster, das Original bleibt unverändert. Macht eine Maßnahme "
+                "Probleme, einfach abwählen und neu verkleinern."
+            )
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet(f"color: {theme.MUTED};")
+        v.addWidget(note)
+        bb = QDialogButtonBox()
+        self.b_ok = bb.addButton(tr("Jetzt verkleinern"), QDialogButtonBox.ButtonRole.AcceptRole)
+        bb.addButton(tr("Abbrechen"), QDialogButtonBox.ButtonRole.RejectRole)
+        self.b_ok.setDefault(True)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        v.addWidget(bb)
+        if rep is not None:
+            self._show(rep, "")
+        elif data is not None:
+            self._worker = _Analyze(data)
+            self._worker.done.connect(self._show)
+            self._worker.start()
+        self._update()
+
+    def _build_lossless_group(self, v):
+        """Measures that leave the printed image exactly as it is."""
         g = QGroupBox(tr("Verlustfrei – das Druckbild bleibt gleich"))
         gl = QVBoxLayout(g)
-        self.cb = {}
-
-        def add(layout, key, text, tip, on):
-            c = QCheckBox(text)
-            c.setToolTip(tip)
-            c.setChecked(on)
-            layout.addWidget(c)
-            self.cb[key] = c
-            return c
-
-        add(
+        self._add_option(
             gl,
             "rewrite",
             tr("Neu schreiben (alte Speicherstände weg, Struktur kompakt, ZIP stärker)"),
@@ -85,21 +119,21 @@ class ShrinkDialog(QDialog):
             ),
             True,
         )
-        add(
+        self._add_option(
             gl,
             "unreferenced",
             tr("Nicht mehr verwendete Ressourcen entfernen"),
             tr("Schriften, Bilder usw., die keine Seite mehr verwendet."),
             True,
         )
-        add(
+        self._add_option(
             gl,
             "dedupe",
             tr("Doppelt gespeicherte Bilder, Schriften, Profile zusammenlegen"),
             tr("Gleiche Daten werden nur einmal gespeichert und mehrfach verwendet."),
             True,
         )
-        add(
+        self._add_option(
             gl,
             "private",
             tr("Illustrator-/Photoshop-Bearbeitungsdaten entfernen"),
@@ -109,14 +143,14 @@ class ShrinkDialog(QDialog):
             ),
             True,
         )
-        add(
+        self._add_option(
             gl,
             "thumbs",
             tr("Eingebettete Seitenvorschaubilder entfernen"),
             tr("Alte Vorschaubilder; Programme erzeugen sie ohnehin selbst."),
             True,
         )
-        add(
+        self._add_option(
             gl,
             "pack",
             tr("Bilder verlustfrei packen (ZIP mit Prädiktor)"),
@@ -128,23 +162,25 @@ class ShrinkDialog(QDialog):
         )
         v.addWidget(g)
 
+    def _build_invisible_group(self, v):
+        """Measures that change the file but are not visible in print."""
         g = QGroupBox(tr("Ändert die Datei, im Druck nicht sichtbar"))
         gl = QVBoxLayout(g)
-        add(
+        self._add_option(
             gl,
             "bits16",
             tr("16-Bit-Bilder auf 8 Bit"),
             tr("Druckmaschinen und RIPs arbeiten mit 8 Bit je Kanal – halbiert die Bilddaten."),
             False,
         )
-        add(
+        self._add_option(
             gl,
             "attachments",
             tr("Eingebettete Dateien (Anhänge) entfernen"),
             tr("Anhänge im PDF, z. B. Originaldateien – werden nicht gedruckt."),
             False,
         )
-        add(
+        self._add_option(
             gl,
             "hidden",
             tr("Inhalte ausgeblendeter Ebenen entfernen"),
@@ -153,9 +189,11 @@ class ShrinkDialog(QDialog):
         )
         v.addWidget(g)
 
+    def _build_lossy_group(self, v):
+        """Lossy measures: photos as JPEG and downsampling, with resolution, threshold and quality."""
         g = QGroupBox(tr("Verlustbehaftet (optional)"))
         gl = QVBoxLayout(g)
-        add(
+        self._add_option(
             gl,
             "photos_jpeg",
             tr("Fotos, die als ZIP gespeichert sind, als JPEG speichern"),
@@ -169,7 +207,7 @@ class ShrinkDialog(QDialog):
         self.lbl_ph.setWordWrap(True)
         self.lbl_ph.setStyleSheet(f"color: {theme.MUTED};")
         gl.addWidget(self.lbl_ph)
-        add(
+        self._add_option(
             gl,
             "downsample",
             tr("Bilder mit zu hoher Auflösung herunterrechnen"),
@@ -209,34 +247,6 @@ class ShrinkDialog(QDialog):
         self.lbl_ds.setStyleSheet(f"color: {theme.MUTED};")
         gl.addWidget(self.lbl_ds)
         v.addWidget(g)
-        self.cb["downsample"].toggled.connect(self._update)
-        self.cb["photos_jpeg"].toggled.connect(self._update)
-        self.cmb_dpi.currentIndexChanged.connect(self._update)
-        self.spin_thr.valueChanged.connect(self._update)
-
-        note = QLabel(
-            tr(
-                "Ergebnis öffnet im neuen Fenster, das Original bleibt unverändert. Macht eine Maßnahme "
-                "Probleme, einfach abwählen und neu verkleinern."
-            )
-        )
-        note.setWordWrap(True)
-        note.setStyleSheet(f"color: {theme.MUTED};")
-        v.addWidget(note)
-        bb = QDialogButtonBox()
-        self.b_ok = bb.addButton(tr("Jetzt verkleinern"), QDialogButtonBox.ButtonRole.AcceptRole)
-        bb.addButton(tr("Abbrechen"), QDialogButtonBox.ButtonRole.RejectRole)
-        self.b_ok.setDefault(True)
-        bb.accepted.connect(self.accept)
-        bb.rejected.connect(self.reject)
-        v.addWidget(bb)
-        if rep is not None:
-            self._show(rep, "")
-        elif data is not None:
-            self._worker = _Analyze(data)
-            self._worker.done.connect(self._show)
-            self._worker.start()
-        self._update()
 
     # ------------------------------------------------------------------ #
     def _show(self, rep, err):

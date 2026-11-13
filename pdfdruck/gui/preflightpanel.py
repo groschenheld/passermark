@@ -113,6 +113,15 @@ class PreflightPanel(QWidget):
 
         self.tabs = QTabWidget()
         v.addWidget(self.tabs, 1)
+        self._build_findings_tab()
+        self._build_fonts_tab()
+        self._build_layers_tab()
+        self._build_transparency_tab()
+        self._build_images_tab()
+        self._build_size_tab()
+
+    def _build_findings_tab(self):
+        """Tab "Befunde": the list of findings, navigation between locations and the repair buttons."""
         # findings
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -156,6 +165,9 @@ class PreflightPanel(QWidget):
         self.btn_hdr.hide()
         lv.addWidget(self.btn_hdr)
         self.tabs.addTab(w, tr("Befunde"))
+
+    def _build_fonts_tab(self):
+        """Tab "Schriften": fonts of the document with the actions to embed, replace or convert them."""
         # fonts
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -187,6 +199,9 @@ class PreflightPanel(QWidget):
         row.addWidget(b2)
         lv.addLayout(row)
         self.tabs.addTab(w, tr("Schriften"))
+
+    def _build_layers_tab(self):
+        """Tab "Ebenen": layers with their visibility on screen and in print."""
         # layers
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -212,6 +227,9 @@ class PreflightPanel(QWidget):
         for b in (b1, b2, b3):
             lv.addWidget(b)
         self.tabs.addTab(w, tr("Ebenen"))
+
+    def _build_transparency_tab(self):
+        """Tab "Transparenz": where transparency occurs and how to flatten it."""
         # transparency
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -235,6 +253,9 @@ class PreflightPanel(QWidget):
         b.clicked.connect(self._flatten_softmask)
         lv.addWidget(b)
         self.tabs.addTab(w, tr("Transparenz"))
+
+    def _build_images_tab(self):
+        """Tab "Bilder & Farben": colour spaces and the images with their resolution."""
         # images & colours
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -271,6 +292,9 @@ class PreflightPanel(QWidget):
         )
         lv.addWidget(self.tbl_images, 1)
         self.tabs.addTab(w, tr("Bilder & Farben").replace("&", "&&"))  # & would otherwise be a keyboard shortcut
+
+    def _build_size_tab(self):
+        """Tab "Dateigröße": what takes up the space, and the way to the shrink dialog."""
         # file size
         w = QWidget()
         lv = QVBoxLayout(w)

@@ -273,6 +273,15 @@ class VdpDialog(QDialog):
             ),
             register=True,
         )
+        self._build_window_rows(v)
+        self._build_field_list(v)
+        self._build_content_rows(v)
+        self._build_code_and_image_rows(v)
+        self._build_geometry_rows(v)
+        self._build_text_rows(v)
+
+    def _build_window_rows(self, v):
+        """Windows: which one is active and for which pages of the template it applies."""
         self.windows: list[vdp.VdpWindow] = [vdp.VdpWindow()]
         self.win = 0  # active window
         self._win_pending = False  # "Seitenbereich …" chosen but nothing typed yet
@@ -319,6 +328,9 @@ class VdpDialog(QDialog):
         row_p.addWidget(self.cmb_winpages, 1)
         row_p.addWidget(self.ed_winpages, 1)
         self._field(v, tr("Seiten dieses Fensters"), "", row_p)
+
+    def _build_field_list(self, v):
+        """List of the fields, the buttons to add and delete, and the window the chosen field belongs to."""
         self.lst = QListWidget()
         self.lst.setMaximumHeight(110)
         self.lst.currentRowChanged.connect(self._select)
@@ -356,6 +368,8 @@ class VdpDialog(QDialog):
             self.cmb_fieldwin,
         )
 
+    def _build_content_rows(self, v):
+        """Content of the chosen field (text with {{placeholders}})."""
         self.ed_content = QLineEdit()
         self.ed_content.setPlaceholderText("{{nr}}")
         row_c = QHBoxLayout()
@@ -377,6 +391,9 @@ class VdpDialog(QDialog):
             ),
             row_c,
         )
+
+    def _build_code_and_image_rows(self, v):
+        """Settings for QR codes (kind, columns, quiet zone) and for images (fit, fallback image)."""
         self.cmb_qrtype = QComboBox()
         fill_combo(self.cmb_qrtype, [(t, datakinds.qr_type_text(t)) for t in datakinds.QR_TYPES], "text")
         self.cmb_qrtype.currentIndexChanged.connect(self._qrtype_changed)
@@ -451,6 +468,9 @@ class VdpDialog(QDialog):
             ),
             box,
         )
+
+    def _build_geometry_rows(self, v):
+        """Position and size of the chosen field and its inner margin."""
         row = QHBoxLayout()
         self.spn_x, self.spn_y, self.spn_w, self.spn_h = (QDoubleSpinBox() for _ in range(4))
         for sp, lab in (
@@ -498,6 +518,9 @@ class VdpDialog(QDialog):
             ),
             row_i,
         )
+
+    def _build_text_rows(self, v):
+        """Font, size, colour, alignment and rotation; placeholders taken over from the PDF."""
         row = QHBoxLayout()
         self.cmb_font = QComboBox()
         for fn in vdp.STD_FONTS:

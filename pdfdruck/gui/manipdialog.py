@@ -64,7 +64,33 @@ class ManipPanel(QWidget):
         self.s, self.cfg, self.doc, self.current = settings, cfg, doc, current
         self.extra_profiles: list[cmyk.CmykProfile] = []
         v = QVBoxLayout(self)
+        self._build_cmyk_group(v)
+        self._build_crop_group(v)
+        v.addStretch()
 
+        self._fill_profiles()
+        for w in (self.chk_cmyk, self.chk_bpc, self.chk_k, self.chk_oi, self.chk_crop, self.chk_follow, self.chk_scale):
+            w.toggled.connect(self._changed)
+        for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
+            w.currentIndexChanged.connect(self._changed)
+        self.cmb_material.currentIndexChanged.connect(self._material_changed)
+        for w in (
+            self.spn_w,
+            self.spn_h,
+            self.spn_inset,
+            self.spn_tl,
+            self.spn_tt,
+            self.spn_tr,
+            self.spn_tb,
+            self.spn_wm,
+        ):
+            w.valueChanged.connect(self._changed)
+        self._sync()
+        fit_width(self)
+
+    def _build_cmyk_group(self, v):
+        """Group "CMYK-Umwandlung": material, method, target and source profile, rendering intent."""
+        settings, cfg = self.s, self.cfg
         # ---------------- CMYK ----------------
         g = self.grp_cmyk = QGroupBox(tr("CMYK-Umwandlung"))
         f = QFormLayout(g)
@@ -123,6 +149,9 @@ class ManipPanel(QWidget):
         f.addRow(self.btn_preview)
         v.addWidget(g)
 
+    def _build_crop_group(self, v):
+        """Group "Auf Format beschneiden": target size, scaling, trimming of white margins."""
+        settings = self.s
         # ---------------- cropping ----------------
         g = self.grp_crop = QGroupBox(tr("Auf Format beschneiden"))
         f = QFormLayout(g)
@@ -225,27 +254,6 @@ class ManipPanel(QWidget):
         self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT};")
         f.addRow(self.lbl_crop)
         v.addWidget(g)
-        v.addStretch()
-
-        self._fill_profiles()
-        for w in (self.chk_cmyk, self.chk_bpc, self.chk_k, self.chk_oi, self.chk_crop, self.chk_follow, self.chk_scale):
-            w.toggled.connect(self._changed)
-        for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
-            w.currentIndexChanged.connect(self._changed)
-        self.cmb_material.currentIndexChanged.connect(self._material_changed)
-        for w in (
-            self.spn_w,
-            self.spn_h,
-            self.spn_inset,
-            self.spn_tl,
-            self.spn_tt,
-            self.spn_tr,
-            self.spn_tb,
-            self.spn_wm,
-        ):
-            w.valueChanged.connect(self._changed)
-        self._sync()
-        fit_width(self)
 
     # -------------------------------------------------------------- #
     def _fill_profiles(self):

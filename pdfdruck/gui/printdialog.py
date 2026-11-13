@@ -535,7 +535,6 @@ class PrintDialog(QDialog):
         """Group "Was soll gedruckt werden?": the mode buttons, the step-and-repeat tab and the stack of mode pages."""
         v = self._col
         # page size and handling
-        L = self.s.layout
         sec = CollapsibleSection(tr("Was soll gedruckt werden?"), expanded=True)
         self.handling_group = sec  # anchored at once, uniform heading
         v.addWidget(sec)
@@ -917,6 +916,23 @@ class PrintDialog(QDialog):
         g = QWidget()
         _sc.setWidget(g)
         f = QFormLayout(g)
+        self._build_sr_step1(f)
+        self._build_sr_step2(f)
+        note = QLabel(
+            tr(
+                "Wirkt auf den im Druckdialog gewählten Modus: Einzelblätter – jede Seite mehrfach, "
+                "Broschüre – jeder Druckbogen mehrfach. Anordnung, Abstand, Überfüller und Schnittmarken "
+                "stehen im Druckdialog unter „Schnittmarken und Anschnitt“. Bei „Automatisch“ wird zuerst "
+                "eine Lage gesucht, in der das Raster aufs Blatt passt, dann die mit den meisten Nutzen."
+            )
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet(f"color: {theme.MUTED};")
+        f.addRow(note)
+
+    def _build_sr_step1(self, f):
+        """Step 1: how many copies, their size, sheet orientation, rotation and order."""
+        L = self.s.layout
         self.cmb_srmode = QComboBox()
         fill_combo(
             self.cmb_srmode,
@@ -1007,6 +1023,10 @@ class PrintDialog(QDialog):
             )
         )
         f.addRow(tr("Reihenfolge:"), self.cmb_srstack)
+
+    def _build_sr_step2(self, f):
+        """Step 2 (optional): put the finished sheet onto a target format once more. A block of its own that can move into the booklet panel."""
+        L = self.s.layout
         self.chk_sr2 = QCheckBox(tr("Schritt 2 (optional): den montierten Bogen erneut auf ein Zielformat setzen"))
         self.chk_sr2.setChecked(L.sr_pass2)
         self.chk_sr2.setToolTip(
@@ -1068,17 +1088,6 @@ class PrintDialog(QDialog):
         self.btn_sr2 = QPushButton(tr("Als neues Dokument ausgeben (Schritt 1 + 2)"))
         self.btn_sr2.clicked.connect(self._sr2_output)
         f2.addRow("", self.btn_sr2)
-        note = QLabel(
-            tr(
-                "Wirkt auf den im Druckdialog gewählten Modus: Einzelblätter – jede Seite mehrfach, "
-                "Broschüre – jeder Druckbogen mehrfach. Anordnung, Abstand, Überfüller und Schnittmarken "
-                "stehen im Druckdialog unter „Schnittmarken und Anschnitt“. Bei „Automatisch“ wird zuerst "
-                "eine Lage gesucht, in der das Raster aufs Blatt passt, dann die mit den meisten Nutzen."
-            )
-        )
-        note.setWordWrap(True)
-        note.setStyleSheet(f"color: {theme.MUTED};")
-        f.addRow(note)
 
     def _build_scale_section(self):
         """Section "Wie aufs Blatt?": scaling, orientation, crop marks and bleed, step-and-repeat arrangement and gap."""

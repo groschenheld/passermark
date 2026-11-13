@@ -97,7 +97,29 @@ class PressDialog(QDialog):
         v.addWidget(self.lbl_step)
         self.stack = QStackedWidget()
         v.addWidget(self.stack, 1)
+        self._build_condition_page(intent, tac)
+        self._build_check_page()
+        self._build_save_page(default_out)
+        self._build_result_page()
+        nav = QHBoxLayout()
+        nav.addStretch()
+        self.btn_back = QPushButton(tr("< Zurück"))
+        self.btn_back.clicked.connect(lambda: self._go(self.stack.currentIndex() - 1))
+        self.btn_next = QPushButton(tr("Weiter >"))
+        self.btn_next.setDefault(True)
+        self.btn_next.clicked.connect(self._next)
+        self.btn_close = QPushButton(tr("Schließen"))
+        self.btn_close.clicked.connect(self.reject)
+        for b in (self.btn_back, self.btn_next, self.btn_close):
+            nav.addWidget(b)
+        v.addLayout(nav)
 
+        self._fill_choices(choice_key)
+        self.resize(720, 560)
+        self._go(0)
+
+    def _build_condition_page(self, intent: str, tac: int):
+        """Page 1: printing condition, rendering intent, black point compensation, ink limit."""
         # 1 printing condition
         w = QWidget()
         f = QFormLayout(w)
@@ -136,6 +158,8 @@ class PressDialog(QDialog):
         f.addRow(tr("Max. Farbauftrag:"), self.spn_tac)
         self.stack.addWidget(w)
 
+    def _build_check_page(self):
+        """Page 2: findings of the colour check, the question about RGB content and the planned conversion."""
         # 2 check and plan
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -186,6 +210,8 @@ class PressDialog(QDialog):
         self.cmb_mode.currentIndexChanged.connect(lambda *_: self._update_plan())
         self.stack.addWidget(w)
 
+    def _build_save_page(self, default_out: str):
+        """Page 3: where to save, and whether to create a package with profile and report."""
         # 3 save
         w = QWidget()
         f = QFormLayout(w)
@@ -210,6 +236,8 @@ class PressDialog(QDialog):
         f.addRow(self.lbl_run)
         self.stack.addWidget(w)
 
+    def _build_result_page(self):
+        """Page 4: the check after the conversion and the report."""
         # 4 result
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -235,23 +263,6 @@ class PressDialog(QDialog):
         h.addStretch()
         lv.addLayout(h)
         self.stack.addWidget(w)
-
-        nav = QHBoxLayout()
-        nav.addStretch()
-        self.btn_back = QPushButton(tr("< Zurück"))
-        self.btn_back.clicked.connect(lambda: self._go(self.stack.currentIndex() - 1))
-        self.btn_next = QPushButton(tr("Weiter >"))
-        self.btn_next.setDefault(True)
-        self.btn_next.clicked.connect(self._next)
-        self.btn_close = QPushButton(tr("Schließen"))
-        self.btn_close.clicked.connect(self.reject)
-        for b in (self.btn_back, self.btn_next, self.btn_close):
-            nav.addWidget(b)
-        v.addLayout(nav)
-
-        self._fill_choices(choice_key)
-        self.resize(720, 560)
-        self._go(0)
 
     # ---------------------------------------------------------------- #
     def _fill_choices(self, key=""):
