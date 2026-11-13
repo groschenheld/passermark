@@ -36,14 +36,12 @@ def table() -> str:
     """Build the markdown tables for all packages."""
     out = []
     for folder, title in PACKAGES:
-        out += [f"### {title}", "", "| Module | Lines | Purpose |", "|---|---:|---|"]
+        out += [f"### {title}", "", "| Module | Purpose |", "|---|---|"]
         for name in sorted(os.listdir(os.path.join(ROOT, folder))):
             path = os.path.join(ROOT, folder, name)
             if not name.endswith(".py") or name == "__init__.py":
                 continue
-            with open(path, encoding="utf-8") as f:
-                lines = sum(1 for _ in f)
-            out.append(f"| `{folder}/{name}` | {lines} | {summary(path)} |")
+            out.append(f"| `{folder}/{name}` | {summary(path)} |")
         out.append("")
     return "\n".join(out).rstrip("\n")
 

@@ -431,9 +431,22 @@ class PrintDialog(QDialog):
         return sec
 
     def _build_general(self):
-        v = QVBoxLayout(self.general)
-        self._col = v
+        """Build the settings column of the dialog, section by section from top to bottom."""
+        self._col = QVBoxLayout(self.general)
+        self._build_printer_section()
+        self._build_pages_section()
+        self._build_mode_group()
+        self._build_multiple_page()
+        self._build_booklet_page()
+        self._build_poster_page()
+        self._build_step_repeat_window()
+        self._build_scale_section()
+        self._build_device_sections()
+        self._build_extra_sections()
+        self._connect_general()
 
+    def _build_printer_section(self):
+        """Section "Drucker": printer, state, admin defaults, password protection (PDF target), copies."""
         # printer
         sec = self._section(tr("Drucker"))
         f = sec.form
@@ -485,6 +498,8 @@ class PrintDialog(QDialog):
         row.addStretch()
         f.addRow(tr("Kopien:"), row)
 
+    def _build_pages_section(self):
+        """Section "Zu druckende Seiten": all, current page or a range; odd/even; reverse order."""
         # pages
         sec = self._section(tr("Zu druckende Seiten"))
         gw = QWidget()
@@ -516,6 +531,9 @@ class PrintDialog(QDialog):
         gl.addWidget(self.cmb_subset, 3, 0, 1, 2)
         gl.addWidget(self.chk_reverse, 4, 0, 1, 2)
 
+    def _build_mode_group(self):
+        """Group "Was soll gedruckt werden?": the mode buttons, the step-and-repeat tab and the stack of mode pages."""
+        v = self._col
         # page size and handling
         L = self.s.layout
         sec = CollapsibleSection(tr("Was soll gedruckt werden?"), expanded=True)
@@ -567,7 +585,11 @@ class PrintDialog(QDialog):
 
         # -- the size options (fit/actual/…) now live in the group
         #    "Wie aufs Blatt?" further down – no longer a stack page of their own.
+        self._handling_buttons = bg
 
+    def _build_multiple_page(self):
+        """Mode page "Mehrere pro Blatt": pages per sheet, grid, order, gap, border."""
+        L = self.s.layout
         # -- several per sheet
         mg = QWidget()
         self.stack.addWidget(mg)  # anchor at once, then fill
@@ -628,6 +650,9 @@ class PrintDialog(QDialog):
         self.chk_borders.setChecked(L.borders)
         ml.addRow("", self.chk_borders)
 
+    def _build_booklet_page(self):
+        """Mode page "Broschüre": binding, signatures, blank pages, spreads for step and repeat."""
+        L = self.s.layout
         # -- Booklet
         bw = QWidget()
         self.stack.addWidget(bw)  # anchor at once, then fill
@@ -789,6 +814,9 @@ class PrintDialog(QDialog):
         self.lbl_bhint.setStyleSheet(f"color: {theme.MUTED};")
         bl.addRow(self.lbl_bhint)
 
+    def _build_poster_page(self):
+        """Mode page "Poster": tiling over several sheets with overlap, marks and labels."""
+        L = self.s.layout
         # -- Poster
         ow = QWidget()
         self.stack.addWidget(ow)  # anchor at once, then fill
@@ -853,6 +881,9 @@ class PrintDialog(QDialog):
         for c in (self.chk_pmarks, self.chk_plabels, self.chk_plarge):
             ol.addRow("", c)
 
+    def _build_step_repeat_window(self):
+        """The step-and-repeat window (a child window of the dialog) including the block for step 2."""
+        L = self.s.layout
         # -- step and repeat – formerly the tab "Weitere Optionen"
         # A freely movable window of its own (move, minimise, close) – child of the print dialog:
         # it lives and acts only with it; closing hides it, the settings stay.
@@ -1049,6 +1080,9 @@ class PrintDialog(QDialog):
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
 
+    def _build_scale_section(self):
+        """Section "Wie aufs Blatt?": scaling, orientation, crop marks and bleed, step-and-repeat arrangement and gap."""
+        L = self.s.layout
         # the mode group is already anchored in v (right after creation)
 
         # How does the page get onto the sheet? – fits every print mode
@@ -1184,6 +1218,8 @@ class PrintDialog(QDialog):
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
 
+    def _build_device_sections(self):
+        """Sections filled per printer (paper and output, finishing) and the colour management section."""
         # paper (filled per printer)
         self.paper_group = self._section(tr("Papier und Ausgabe"))
         self.paper_form = self.paper_group.form
@@ -1209,6 +1245,10 @@ class PrintDialog(QDialog):
         f.addRow("", self.lbl_profile_note)
         self.color_form = f
 
+    def _build_extra_sections(self):
+        """Collapsed sections for rarely used things: mirroring and the list of all driver options."""
+        L = self.s.layout
+        v = self._col
         # rarely used things clearly visible but collapsed:
         sec = CollapsibleSection(tr("Spiegeln (z. B. Transferpapier, Folienrückseite)"))
         self.chk_mirror_h = QCheckBox(tr("Horizontal spiegeln (z. B. Transferpapier, Bügelfolie, Folienrückseite)"))
@@ -1226,6 +1266,9 @@ class PrintDialog(QDialog):
         v.addWidget(sec)
         v.addStretch()
 
+    def _connect_general(self):
+        """Connect the signals of the settings column (after everything is built)."""
+        bg = self._handling_buttons
         # signals
         bg.buttonClicked.connect(self._handling_changed)
         for w in (

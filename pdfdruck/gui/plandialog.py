@@ -973,6 +973,38 @@ class PlanDialog(QDialog):
         self._bleed_color = self.s0.bleed_color
 
         v = QVBoxLayout(self)
+        self._build_top_row(v)
+        split = QSplitter(Qt.Orientation.Horizontal)
+        v.addWidget(split, 1)
+        left = self._build_plan_list()
+        split.addWidget(left)
+        pane = self._build_settings_pane()
+        split.addWidget(pane)
+        split.setChildrenCollapsible(False)
+        left.setMinimumWidth(280)
+        split.setStretchFactor(0, 3)
+        split.setStretchFactor(1, 2)
+        self._build_bottom_row(v)
+
+        self.finished.connect(self._cleanup)
+        self._timer = QTimer(self)
+        self._timer.setInterval(0)
+        self._timer.timeout.connect(self._analyze_next)
+        self._color_button()
+        self._connect_settings()
+
+        make_responsive(self)
+        self.setMinimumSize(640, 420)
+        self._fill_printers()
+        self.cmb_printer.currentIndexChanged.connect(self._printer_changed)
+        self._printer_changed()
+        if doc is not None:
+            self.add_doc(doc, path or name, own=False)
+        self.resize(1180, 720)
+        self._refresh()
+
+    def _build_top_row(self, v):
+        """Top row: printer, reading the rolls, rolls by hand, output folders; below it the roll message."""
         # printer + rolls
         top = QHBoxLayout()
         top.addWidget(QLabel(tr("Drucker:")))
@@ -995,9 +1027,8 @@ class PlanDialog(QDialog):
         v.addLayout(top)
         v.addWidget(self.lbl_rolls)
 
-        split = QSplitter(Qt.Orientation.Horizontal)
-        v.addWidget(split, 1)
-
+    def _build_plan_list(self):
+        """Left side: buttons, the list of plans or posters and the hint below it. Returns the widget."""
         # ---- left: plans ----
         left = QWidget()
         lv = QVBoxLayout(left)
@@ -1069,12 +1100,28 @@ class PlanDialog(QDialog):
         self.lbl_hint.setWordWrap(True)
         self.lbl_hint.setStyleSheet(f"color: {theme.MUTED};")
         lv.addWidget(self.lbl_hint)
-        split.addWidget(left)
+        return left
 
+    def _build_settings_pane(self):
+        """Right side: run length, settings, banner and cutting – in a scroll area. Returns the scroll area."""
         # ---- right: run length + settings ----
         right = QWidget()
         rv = QVBoxLayout(right)
         rv.setContentsMargins(0, 0, 0, 0)
+        self._build_length_group(rv)
+        self._build_settings_group(rv)
+        self._build_banner_group(rv)
+        rv.addStretch(1)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setWidget(right)
+        right.setMinimumWidth(320)
+        return scroll
+
+    def _build_length_group(self, rv):
+        """Group "Laufmeter je Rolle": run length per roll and warnings."""
         g = QGroupBox(tr("Laufmeter je Rolle"))
         gv = QVBoxLayout(g)
         self.lbl_len = QLabel()
@@ -1085,6 +1132,8 @@ class PlanDialog(QDialog):
         gv.addWidget(self.lbl_warn)
         rv.addWidget(g)
 
+    def _build_settings_group(self, rv):
+        """Group "Einstellungen": copies, order, colour, quality, material, roll, placement, scaling, bleed, marks."""
         g = QGroupBox(tr("Einstellungen"))
         f = QFormLayout(g)
         s0 = self.s0
@@ -1260,6 +1309,9 @@ class PlanDialog(QDialog):
         f.addRow(tr("Breiter als die Rolle:"), row)
         rv.addWidget(g)
 
+    def _build_banner_group(self, rv):
+        """Group "Banner und Schneiden": hem, eyelets, CutContour and register marks."""
+        s0 = self.s0
         g = QGroupBox(tr("Banner und Schneiden"))
         g.setCheckable(False)
         fb = QFormLayout(g)
@@ -1311,19 +1363,9 @@ class PlanDialog(QDialog):
         self.chk_pcm.setChecked(s0.printcut_marks)
         fb.addRow("", self.chk_pcm)
         rv.addWidget(g)
-        rv.addStretch(1)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll.setWidget(right)
-        right.setMinimumWidth(320)
-        split.addWidget(scroll)
-        split.setChildrenCollapsible(False)
-        left.setMinimumWidth(280)
-        split.setStretchFactor(0, 3)
-        split.setStretchFactor(1, 2)
 
+    def _build_bottom_row(self, v):
+        """Bottom row: status text, history, defaults, saving as PDF, print and close."""
         # ---- bottom ----
         bot = QHBoxLayout()
         self.lbl_state = QLabel()
@@ -1365,12 +1407,9 @@ class PlanDialog(QDialog):
         bot.addWidget(b)
         v.addLayout(bot)
 
-        self.finished.connect(self._cleanup)
-        self._timer = QTimer(self)
-        self._timer.setInterval(0)
-        self._timer.timeout.connect(self._analyze_next)
-        self._color_button()
-
+    def _connect_settings(self):
+        """Connect the settings: changes place or detect anew; per-plan settings apply to the selection."""
+        s0 = self.s0
         # changes: only place anew or detect anew
         for w in (self.spn_copies, self.spn_gap, self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in):
             w.valueChanged.connect(self._changed)
@@ -1407,16 +1446,6 @@ class PlanDialog(QDialog):
         self.spn_scale_mm.valueChanged.connect(self._scale_changed)
         self.tree.itemSelectionChanged.connect(self._load_fields)
         self._scale_widgets()
-
-        make_responsive(self)
-        self.setMinimumSize(640, 420)
-        self._fill_printers()
-        self.cmb_printer.currentIndexChanged.connect(self._printer_changed)
-        self._printer_changed()
-        if doc is not None:
-            self.add_doc(doc, path or name, own=False)
-        self.resize(1180, 720)
-        self._refresh()
 
     # ------------------------------------------------------------------ #
     # printer and rolls

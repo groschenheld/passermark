@@ -173,6 +173,33 @@ class VdpDialog(QDialog):
         self._loading = False
 
         root = QHBoxLayout(self)
+        # left: preview – goes into a movable splitter with the settings further down
+        left = self._build_preview_column()
+        right = QVBoxLayout()
+        self._build_head(right)
+        self._build_fields_section(right)
+        self._build_data_section(right)
+        self._build_numbering_section(right)
+        self._build_output_section(right)
+        right.addStretch()
+        self._build_buttons(right)
+        wrap = QWidget()
+        wrap.setLayout(right)
+        split_panels(root, left, wrap, 560)
+        fit_width(wrap)
+        no_enter_default(self)
+        self._connect_fields()
+
+        sess = getattr(getattr(parent, "ctl", None), "session", None)
+        last = getattr(sess, "vdp_last", None) if sess is not None else None
+        if last is not None and _fields_of(last):
+            self._load_settings(last)
+        else:
+            self._add("text")
+        self._paint_color()
+
+    def _build_preview_column(self):
+        """Left column: the page preview with page and record navigation and the info line. Returns the layout."""
         left = QVBoxLayout()
         self.canvas = VdpCanvas()
         self.canvas.picked.connect(self._select)
@@ -181,7 +208,7 @@ class VdpDialog(QDialog):
         nav = QHBoxLayout()
         nav.addWidget(QLabel(tr("Seite:")))
         self.spn_page = QSpinBox()
-        self.spn_page.setRange(1, len(doc))
+        self.spn_page.setRange(1, len(self.doc))
         self.spn_page.setValue(self.page + 1)
         self.spn_page.valueChanged.connect(self._page_changed)
         nav.addWidget(self.spn_page)
@@ -198,9 +225,10 @@ class VdpDialog(QDialog):
         self.lbl_info.setWordWrap(True)
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         left.addWidget(self.lbl_info)
-        # left: preview – goes into a movable splitter with the settings further down
+        return left
 
-        right = QVBoxLayout()
+    def _build_head(self, right):
+        """Head of the settings column: presets, reset, the help switch and the introduction."""
         from .presetbar import PresetBar
 
         self.presetbar = PresetBar(self, "vdp", self._settings, self._load_settings)
@@ -230,6 +258,8 @@ class VdpDialog(QDialog):
         intro.body_layout.addWidget(intro_lbl)
         right.addWidget(intro)
 
+    def _build_fields_section(self, right):
+        """Section "1. Felder auf der Seite": windows, the field list and the properties of the chosen field."""
         # ---------------- 1. fields ----------------
         g = CollapsibleSection(tr("1. Felder auf der Seite"), expanded=True)
         right.addWidget(g)
@@ -514,6 +544,9 @@ class VdpDialog(QDialog):
             ),
             self.chk_ph,
         )
+
+    def _build_data_section(self, right):
+        """Section "2. Woher kommen die Daten?": CSV file, data table, records and how they map to pages."""
         # ---------------- 2. data ----------------
         g = CollapsibleSection(tr("2. Woher kommen die Daten?"), expanded=True)
         right.addWidget(g)
@@ -584,7 +617,7 @@ class VdpDialog(QDialog):
         )
         self.spn_count = QSpinBox()
         self.spn_count.setRange(1, vdp.MAX_RECORDS)
-        self.spn_count.setValue(len(doc) if len(doc) > 1 else 10)
+        self.spn_count.setValue(len(self.doc) if len(self.doc) > 1 else 10)
         self._field(
             v,
             tr("Anzahl Datensätze (nur ohne CSV)"),
@@ -633,6 +666,9 @@ class VdpDialog(QDialog):
             ),
             row_o,
         )
+
+    def _build_numbering_section(self, right):
+        """Section "3. Nummerierung": start, step, padding, prefix/suffix, check digit, counting on."""
         # ---------------- 3. numbering ----------------
         g = CollapsibleSection(tr("3. Nummerierung – was {{nr}} ergibt"), expanded=True)
         right.addWidget(g)
@@ -702,6 +738,8 @@ class VdpDialog(QDialog):
         )
         v.addWidget(self.lbl_cont)
 
+    def _build_output_section(self, right):
+        """Section "4. Ausgabe": log file and what happens to placeholders in the template."""
         # ---------------- 4. output ----------------
         g = CollapsibleSection(tr("4. Ausgabe"), expanded=True)
         right.addWidget(g)
@@ -728,7 +766,9 @@ class VdpDialog(QDialog):
             ),
             register=True,
         )
-        right.addStretch()
+
+    def _build_buttons(self, right):
+        """Button row: generate, check the data, cancel."""
         bb = QDialogButtonBox()
         ok = bb.addButton(tr("Erzeugen (neuer Reiter)"), QDialogButtonBox.ButtonRole.AcceptRole)
         ok.setDefault(True)
@@ -744,12 +784,9 @@ class VdpDialog(QDialog):
         bb.accepted.connect(self._apply)
         bb.rejected.connect(self.reject)
         right.addWidget(bb)
-        wrap = QWidget()
-        wrap.setLayout(right)
-        split_panels(root, left, wrap, 560)
-        fit_width(wrap)
-        no_enter_default(self)
 
+    def _connect_fields(self):
+        """Changes of the field and numbering inputs refresh the preview (delayed)."""
         # changes -> preview (delayed)
         self._timer = QTimer(self, singleShot=True, interval=350, timeout=self._refresh)
         for w_ in (self.ed_content, self.ed_records, self.ed_prefix, self.ed_suffix, self.ed_winpages, self.ed_cont):
@@ -770,14 +807,6 @@ class VdpDialog(QDialog):
             w_.currentIndexChanged.connect(self._field_changed)
         for w_ in (self.chk_rev, self.chk_ph, self.chk_quiet):
             w_.toggled.connect(self._field_changed)
-
-        sess = getattr(getattr(parent, "ctl", None), "session", None)
-        last = getattr(sess, "vdp_last", None) if sess is not None else None
-        if last is not None and _fields_of(last):
-            self._load_settings(last)
-        else:
-            self._add("text")
-        self._paint_color()
 
     # -------------------------------------------------------------- #
     def _toggle_help(self, on: bool):

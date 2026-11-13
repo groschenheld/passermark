@@ -3080,7 +3080,25 @@ class MainWindow(QMainWindow):
         return a
 
     def _build_actions(self, dock):
-        SP = QStyle.StandardPixmap
+        """Create all actions, then the menu bar and the main toolbar."""
+        A = self._act
+        self._create_actions()
+        mb = self.menuBar()
+        self._menu_file(mb)
+        self._menu_pages(mb)
+        self._menu_document(mb)
+        self._menu_manipulation(mb)
+        self._menu_colour(mb)
+        self._menu_plan(mb)
+        self._menu_view(mb, dock)
+        self._menu_admin_and_help(mb)
+        self._build_main_toolbar(dock)
+        A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
+        A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
+        self._update_actions()
+
+    def _create_actions(self):
+        """Create the actions that are used in more than one place (menus, toolbars, context menus)."""
         A = self._act
         self.a_open = A(tr("Öffnen…"), self.open_dialog, QKeySequence.StandardKey.Open, "open")
         self.a_newwin = A(tr("Neues Fenster"), lambda: self.ctl.new_window(), "Ctrl+N")
@@ -3136,7 +3154,8 @@ class MainWindow(QMainWindow):
         self.a_down = A(tr("Seiten nach hinten verschieben"), lambda: self.move_pages(1), "Alt+Down", "move_down")
         self.a_selall = A(tr("Alle Seiten auswählen"), lambda: self.thumbs.selectAll(), "Ctrl+Shift+A")
 
-        mb = self.menuBar()
+    def _menu_file(self, mb):
+        """Menu "Datei"."""
         m = mb.addMenu(tr("&Datei"))
         for a in (
             self.a_open,
@@ -3156,6 +3175,9 @@ class MainWindow(QMainWindow):
             self.a_close,
         ):
             m.addSeparator() if a is None else m.addAction(a)
+
+    def _menu_pages(self, mb):
+        """Menu "Seiten" (also used as the context menu of the page list)."""
         m = mb.addMenu(tr("&Seiten"))
         for a in (
             self.a_ins_before,
@@ -3184,6 +3206,10 @@ class MainWindow(QMainWindow):
         ):
             m.addSeparator() if a is None else m.addAction(a)
         self.page_menu = m
+
+    def _menu_document(self, mb):
+        """Menu "Dokument": merge, repair, shrink, document check."""
+        A = self._act
         m = mb.addMenu(tr("D&okument"))
         m.addAction(self.a_merge)
         m.addAction(self.a_repair)
@@ -3196,6 +3222,9 @@ class MainWindow(QMainWindow):
             "check",
         )
         m.addAction(self.a_preflight)
+
+    def _menu_manipulation(self, mb):
+        """Menu "Dokument-Manipulation": editing, CMYK, cropping, objects, CutContour, variable data."""
         m = mb.addMenu(tr("Dokument-&Manipulation"))
         for a in (
             self.a_edit,
@@ -3212,6 +3241,10 @@ class MainWindow(QMainWindow):
             self.a_data,
         ):
             m.addSeparator() if a is None else m.addAction(a)
+
+    def _menu_colour(self, mb):
+        """Menu "Farbe": colour check, pipette, soft proof, output for the print shop, papers and profiles."""
+        A = self._act
         m = mb.addMenu(tr("&Farbe"))
         self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
         self.a_proof.setCheckable(True)
@@ -3240,6 +3273,10 @@ class MainWindow(QMainWindow):
         m.addAction(A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None))
         m.addSeparator()
         m.addAction(A(tr("Farbmanagement kurz erklärt"), self._color_help, None, "info"))
+
+    def _menu_plan(self, mb):
+        """Menu "Plan & Poster": plan and poster printing, recent prints, rolls."""
+        A = self._act
         m = mb.addMenu(tr("Pla&n && Poster"))
         self.a_plan = A(tr("Plandruck (Rollen, Laufmeter) …"), lambda: self.plan_dialog("plan"), "Ctrl+Alt+P", "plan")
         self.a_plan.setToolTip(tr("Pläne auf Rollendrucker: Außenlinien, Rollenwahl, Laufmeter, Reihenfolge"))
@@ -3255,6 +3292,10 @@ class MainWindow(QMainWindow):
         self.m_plan_hist.aboutToShow.connect(self._fill_plan_history)
         m.addSeparator()
         m.addAction(self.a_rolls)
+
+    def _menu_view(self, mb, dock):
+        """Menu "Ansicht": single page, rulers, measuring, trim size, soft proof, sidebar, zoom, rotation."""
+        A = self._act
         m = mb.addMenu(tr("&Ansicht"))
         self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
         self.a_single.setCheckable(True)
@@ -3291,6 +3332,10 @@ class MainWindow(QMainWindow):
         self.a_vrot_r = A(tr("Ansicht rechts drehen"), lambda: self.rotate_view(90), "Ctrl+Shift++", "rot_r")
         m.addAction(self.a_vrot_l)
         m.addAction(self.a_vrot_r)
+
+    def _menu_admin_and_help(self, mb):
+        """Menus "Verwaltung" and "Hilfe"."""
+        A = self._act
         m = mb.addMenu(tr("&Verwaltung"))
         m.addAction(A(tr("Standardeinstellungen (Admin)…"), self.admin_dialog, None, "settings"))
         m = mb.addMenu(tr("&Hilfe"))
@@ -3317,6 +3362,9 @@ class MainWindow(QMainWindow):
         a.triggered.connect(self._open_licenses)
         m.addAction(a)
 
+    def _build_main_toolbar(self, dock):
+        """Main toolbar: open/save/print, sidebar, page navigation, view tools, zoom."""
+        A = self._act
         dock_act = dock.toggleViewAction()
         dock_act.setIcon(svg_icon("sidebar"))
         dock_act.setText(tr("Seitenleiste"))
@@ -3372,9 +3420,6 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.a_vrot_l)
         tb.addAction(self.a_vrot_r)
-        A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
-        A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
-        self._update_actions()
 
     def _toggle_single(self, checked=None):
         single = self.a_single.isChecked()
