@@ -419,6 +419,232 @@ def load(path: str) -> dict:
     return data
 
 
+class _Preparer:
+    """State of one prepare() call: the problems found so far, the variables and the folder relative paths refer to."""
+
+    def __init__(self, data: dict, base_dir: str, variables: dict | None):
+        import datetime
+
+        self.data = data
+        self.probs: list = []
+        self.base_dir = os.path.abspath(base_dir or ".")
+        self.vars = {"workflow_dir": self.base_dir, "date": datetime.date.today().isoformat()}
+        self.vars.update(variables or {})
+        self.missing: set = set()
+
+    def problem(self, where: str, text: str):
+        """Note a problem; all of them are reported together at the end."""
+        self.probs.append((where, text))
+
+    def absp(self, p: str) -> str:
+        """Path relative to the workflow file made absolute."""
+        return p if os.path.isabs(p) else os.path.normpath(os.path.join(self.base_dir, p))
+
+    def subst(self, obj):
+        """Replace ${…} variables; unknown ones are collected in self.missing."""
+        return _subst(obj, self.vars, self.missing)
+
+    def unknown_keys(self, obj: dict, allowed, where: str):
+        """Report every entry of obj that is not allowed there."""
+        for k in obj:
+            if k not in allowed:
+                self.problem(f"{where}.{k}", tr("unbekannter Eintrag"))
+
+    def check_header(self):
+        """Kind, format version and unknown top-level entries."""
+        data = self.data
+        if data.get("passermark") != KIND:
+            self.problem("passermark", tr('muss "{0}" sein').format(KIND))
+        ver = data.get("version")
+        if not isinstance(ver, int) or isinstance(ver, bool):
+            self.problem("version", tr("Zahl erwartet"))
+        elif ver > VERSION:
+            self.problem(
+                "version",
+                tr("Ablauf ist für eine neuere Passermark-Version (Format {0}, unterstützt: {1})").format(ver, VERSION),
+            )
+        for k in data:
+            if k not in _TOP_KEYS:
+                self.problem(k, tr("unbekannter Eintrag"))
+
+    def inputs(self, inputs: list | None, check_files: bool) -> list:
+        """Input files as absolute paths. They come first: they define the built-in variables."""
+        raw_in = inputs if inputs else self.data.get("input")
+        if isinstance(raw_in, str):
+            raw_in = [raw_in]
+        if not raw_in or not isinstance(raw_in, list) or not all(isinstance(x, str) and x for x in raw_in):
+            self.problem("input", tr("Eingabedatei fehlt (im Ablauf oder mit --in)"))
+            raw_in = []
+        in_paths = [self.absp(self.subst(p)) for p in raw_in]
+        if in_paths:
+            self.vars.setdefault("input", in_paths[0])
+            self.vars.setdefault("dir", os.path.dirname(in_paths[0]))
+            self.vars.setdefault("stem", os.path.splitext(os.path.basename(in_paths[0]))[0])
+        if check_files:
+            for i, p in enumerate(in_paths):
+                if "${" not in p and not os.path.isfile(p):
+                    self.problem(
+                        f"input[{i}]" if len(in_paths) > 1 else "input", tr("Datei nicht gefunden: {0}").format(p)
+                    )
+        return in_paths
+
+    def output(self, output: str | None, in_paths: list) -> str:
+        """Output file as absolute path; "" for a workflow that only prints."""
+        raw_out = output if output else self.data.get("output")
+        prints = _has_print(self.data.get("steps"))
+        if not raw_out and prints:
+            return ""  # print only, no file
+        if not raw_out or not isinstance(raw_out, str):
+            self.problem("output", tr("Ausgabedatei fehlt (im Ablauf oder als zweites Argument)"))
+            return ""
+        out_path = self.absp(self.subst(raw_out))
+        if any(os.path.abspath(out_path) == os.path.abspath(p) for p in in_paths):
+            self.problem("output", tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein."))
+        return out_path
+
+    def options(self) -> dict:
+        """The "options" block, checked for unknown entries and types."""
+        opts = self.data.get("options") or {}
+        if not isinstance(opts, dict):
+            self.problem("options", tr("Objekt erwartet"))
+            opts = {}
+        for k, v in opts.items():
+            if k not in _OPTION_KEYS:
+                self.problem(f"options.{k}", tr("unbekannte Einstellung"))
+            elif not isinstance(v, _OPTION_KEYS[k]) or isinstance(v, bool):
+                self.problem(f"options.{k}", tr("falscher Typ"))
+        return opts
+
+    def condition(self, raw, where: str):
+        """An "if" condition with variables replaced, validated."""
+        from . import conditions
+
+        cond = self.subst(raw)
+        self.probs.extend(conditions.validate(cond, where))
+        return cond
+
+    def steps(self, raw_list, prefix: str) -> list:
+        """Turn a list of raw steps into Step objects (recursively for branches)."""
+        out = []
+        for i, st in enumerate(raw_list):
+            where = f"{prefix}[{i}]"
+            if not isinstance(st, dict):
+                self.problem(where, tr("Objekt erwartet"))
+                continue
+            if CHOOSE in st:
+                step = self._choose_step(st, where)
+            else:
+                cond = self.condition(st["if"], f"{where}.if") if "if" in st else None
+                if st.get("job") in FLOW:
+                    step = self._flow_step(st, where, cond)
+                else:
+                    step = self._job_step(st, where, cond)
+            if step is not None:
+                out.append(step)
+        return out
+
+    def _choose_step(self, st: dict, where: str):
+        """A branch: {"choose": [{"if": …, "steps": […]}, …, {"else": […]}]}."""
+        self.unknown_keys(st, _CHOOSE_KEYS, where)
+        br_raw = st[CHOOSE]
+        if not isinstance(br_raw, list) or not br_raw:
+            self.problem(f"{where}.choose", tr("Liste von Zweigen erwartet"))
+            return None
+        branches = []
+        for j, br in enumerate(br_raw):
+            bw = f"{where}.choose[{j}]"
+            if not isinstance(br, dict):
+                self.problem(bw, tr("Objekt erwartet"))
+                continue
+            if "else" in br:
+                if set(br) - {"else"}:
+                    self.problem(bw, tr('„else“ steht allein: {"else": [Schritte]}'))
+                if j != len(br_raw) - 1:
+                    self.problem(bw, tr("„else“ muss der letzte Zweig sein"))
+                sub = br["else"]
+                cond = None
+            else:
+                self.unknown_keys(br, ("if", "steps"), bw)
+                if "if" not in br:
+                    self.problem(bw, tr("Bedingung „if“ fehlt (oder „else“ für den letzten Zweig)"))
+                cond = self.condition(br.get("if"), f"{bw}.if")
+                sub = br.get("steps")
+            key = "else" if cond is None else "steps"
+            if not isinstance(sub, list):
+                self.problem(f"{bw}.{key}", tr("Liste von Schritten erwartet"))
+                sub = []
+            branches.append((cond, self.steps(sub, f"{bw}.{key}")))
+        return Step(CHOOSE, str(st.get("name") or CHOOSE), {}, None, branches=branches, where=where)
+
+    def _flow_step(self, st: dict, where: str, cond):
+        """ "fail" or "stop" with an optional message."""
+        job = st.get("job")
+        self.unknown_keys(st, _FLOW_KEYS, where)
+        msg = st.get("message", "")
+        if not isinstance(msg, str):
+            self.problem(f"{where}.message", tr("Text erwartet"))
+            msg = ""
+        return Step(job, str(st.get("name") or job), {}, None, cond=cond, message=msg, where=where)
+
+    def _job_step(self, st: dict, where: str, cond):
+        """An ordinary step: a job with settings (own ones on top of an optional preset) and pages."""
+        from . import cli
+
+        job = st.get("job")
+        self.unknown_keys(st, _STEP_KEYS, where)
+        if job not in step_jobs():
+            self.problem(
+                f"{where}.job",
+                tr("Unbekannter Auftrag: {0}").format(job)
+                + " ("
+                + ", ".join(step_jobs() + list(FLOW))
+                + tr(", oder „choose“")
+                + ")",
+            )
+            return None
+        st = self.subst({k: v for k, v in st.items() if k != "if"})
+        settings = self._preset_settings(st, job, where)
+        own = st.get("settings") or {}
+        if not isinstance(own, dict):
+            self.problem(f"{where}.settings", tr("Objekt erwartet"))
+            own = {}
+        cli._rebase_paths(own, self.base_dir)
+        settings = _deep_merge(settings, own)
+        self.probs.extend(check_settings(step_settings_class(job), settings, f"{where}.settings"))
+        if job == PRINT and isinstance(settings.get("layout"), dict):
+            from .layout import LayoutSettings
+
+            self.probs.extend(check_settings(LayoutSettings, settings["layout"], f"{where}.settings.layout"))
+        pages = None
+        if st.get("pages"):
+            try:
+                pages = cli.parse_pages(str(st["pages"]))
+            except ValueError:
+                self.problem(f"{where}.pages", tr("ungültiger Seitenbereich: {0}").format(st["pages"]))
+        return Step(job, st.get("name") or job, settings, pages, cond=cond, where=where)
+
+    def _preset_settings(self, st: dict, job: str, where: str) -> dict:
+        """Settings from the preset a step names; {} without a preset or if it cannot be loaded."""
+        from . import cli, core, presets
+
+        if not st.get("preset"):
+            return {}
+        if job in PRINTS:
+            self.problem(f"{where}.preset", tr("Druck-Presets gibt es im Ablauf nicht – Einstellungen direkt angeben"))
+            return {}
+        try:
+            own_file = self.absp(st["preset"])
+            ppath = presets.resolve(job, own_file if os.path.isfile(own_file) else st["preset"])
+            kind, settings = core.load_settings(ppath)
+            if kind != job:
+                self.problem(f"{where}.preset", tr("Preset ist für „{0}“, nicht für „{1}“").format(kind, job))
+            cli._rebase_paths(settings, os.path.dirname(os.path.abspath(ppath)))
+        except (OSError, ValueError, KeyError) as e:
+            self.problem(f"{where}.preset", str(e))
+            return {}
+        return settings
+
+
 def prepare(
     data: dict,
     base_dir: str = ".",
@@ -429,199 +655,20 @@ def prepare(
 ) -> Plan:
     """Check a workflow and make it runnable. inputs/output from the command line take precedence.
     Raises WorkflowError with all problems at once (not just the first)."""
-    from . import cli, core, presets
-    import datetime
-
-    probs = []
-    if data.get("passermark") != KIND:
-        probs.append(("passermark", tr('muss "{0}" sein').format(KIND)))
-    ver = data.get("version")
-    if not isinstance(ver, int) or isinstance(ver, bool):
-        probs.append(("version", tr("Zahl erwartet")))
-    elif ver > VERSION:
-        probs.append(
-            (
-                "version",
-                tr("Ablauf ist für eine neuere Passermark-Version (Format {0}, unterstützt: {1})").format(ver, VERSION),
-            )
-        )
-    for k in data:
-        if k not in _TOP_KEYS:
-            probs.append((k, tr("unbekannter Eintrag")))
-
-    base_dir = os.path.abspath(base_dir or ".")
-
-    def absp(p):
-        return p if os.path.isabs(p) else os.path.normpath(os.path.join(base_dir, p))
-
-    # inputs first: they define the built-in variables
-    raw_in = inputs if inputs else data.get("input")
-    if isinstance(raw_in, str):
-        raw_in = [raw_in]
-    if not raw_in or not isinstance(raw_in, list) or not all(isinstance(x, str) and x for x in raw_in):
-        probs.append(("input", tr("Eingabedatei fehlt (im Ablauf oder mit --in)")))
-        raw_in = []
-    vars_ = {"workflow_dir": base_dir, "date": datetime.date.today().isoformat()}
-    vars_.update(variables or {})
-    missing: set = set()
-    in_paths = [absp(_subst(p, vars_, missing)) for p in raw_in]
-    if in_paths:
-        vars_.setdefault("input", in_paths[0])
-        vars_.setdefault("dir", os.path.dirname(in_paths[0]))
-        vars_.setdefault("stem", os.path.splitext(os.path.basename(in_paths[0]))[0])
-    if check_files:
-        for i, p in enumerate(in_paths):
-            if "${" not in p and not os.path.isfile(p):
-                probs.append(
-                    (f"input[{i}]" if len(in_paths) > 1 else "input", tr("Datei nicht gefunden: {0}").format(p))
-                )
-
-    raw_out = output if output else data.get("output")
-    prints = _has_print(data.get("steps"))
-    if not raw_out and prints:
-        out_path = ""  # print only, no file
-    elif not raw_out or not isinstance(raw_out, str):
-        probs.append(("output", tr("Ausgabedatei fehlt (im Ablauf oder als zweites Argument)")))
-        out_path = ""
-    else:
-        out_path = absp(_subst(raw_out, vars_, missing))
-        if any(os.path.abspath(out_path) == os.path.abspath(p) for p in in_paths):
-            probs.append(("output", tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein.")))
-
-    opts = data.get("options") or {}
-    if not isinstance(opts, dict):
-        probs.append(("options", tr("Objekt erwartet")))
-        opts = {}
-    for k, v in opts.items():
-        if k not in _OPTION_KEYS:
-            probs.append((f"options.{k}", tr("unbekannte Einstellung")))
-        elif not isinstance(v, _OPTION_KEYS[k]) or isinstance(v, bool):
-            probs.append((f"options.{k}", tr("falscher Typ")))
-
-    from . import conditions
-
-    def parse_steps(raw_list, prefix: str) -> list:
-        out = []
-        for i, st in enumerate(raw_list):
-            where = f"{prefix}[{i}]"
-            if not isinstance(st, dict):
-                probs.append((where, tr("Objekt erwartet")))
-                continue
-            if CHOOSE in st:  # branch
-                for k in st:
-                    if k not in _CHOOSE_KEYS:
-                        probs.append((f"{where}.{k}", tr("unbekannter Eintrag")))
-                br_raw = st[CHOOSE]
-                if not isinstance(br_raw, list) or not br_raw:
-                    probs.append((f"{where}.choose", tr("Liste von Zweigen erwartet")))
-                    continue
-                branches = []
-                for j, br in enumerate(br_raw):
-                    bw = f"{where}.choose[{j}]"
-                    if not isinstance(br, dict):
-                        probs.append((bw, tr("Objekt erwartet")))
-                        continue
-                    if "else" in br:
-                        if set(br) - {"else"}:
-                            probs.append((bw, tr('„else“ steht allein: {"else": [Schritte]}')))
-                        if j != len(br_raw) - 1:
-                            probs.append((bw, tr("„else“ muss der letzte Zweig sein")))
-                        sub = br["else"]
-                        cond = None
-                    else:
-                        for k in br:
-                            if k not in ("if", "steps"):
-                                probs.append((f"{bw}.{k}", tr("unbekannter Eintrag")))
-                        if "if" not in br:
-                            probs.append((bw, tr("Bedingung „if“ fehlt (oder „else“ für den letzten Zweig)")))
-                        cond = _subst(br.get("if"), vars_, missing)
-                        probs.extend(conditions.validate(cond, f"{bw}.if"))
-                        sub = br.get("steps")
-                    if not isinstance(sub, list):
-                        probs.append(
-                            (f"{bw}.{'else' if cond is None else 'steps'}", tr("Liste von Schritten erwartet"))
-                        )
-                        sub = []
-                    branches.append((cond, parse_steps(sub, f"{bw}.{'else' if cond is None else 'steps'}")))
-                out.append(Step(CHOOSE, str(st.get("name") or CHOOSE), {}, None, branches=branches, where=where))
-                continue
-            job = st.get("job")
-            cond = None
-            if "if" in st:
-                cond = _subst(st["if"], vars_, missing)
-                probs.extend(conditions.validate(cond, f"{where}.if"))
-            if job in FLOW:  # fail / stop
-                for k in st:
-                    if k not in _FLOW_KEYS:
-                        probs.append((f"{where}.{k}", tr("unbekannter Eintrag")))
-                msg = st.get("message", "")
-                if not isinstance(msg, str):
-                    probs.append((f"{where}.message", tr("Text erwartet")))
-                    msg = ""
-                out.append(Step(job, str(st.get("name") or job), {}, None, cond=cond, message=msg, where=where))
-                continue
-            for k in st:
-                if k not in _STEP_KEYS:
-                    probs.append((f"{where}.{k}", tr("unbekannter Eintrag")))
-            if job not in step_jobs():
-                probs.append(
-                    (
-                        f"{where}.job",
-                        tr("Unbekannter Auftrag: {0}").format(job)
-                        + " ("
-                        + ", ".join(step_jobs() + list(FLOW))
-                        + tr(", oder „choose“")
-                        + ")",
-                    )
-                )
-                continue
-            st = _subst({k: v for k, v in st.items() if k != "if"}, vars_, missing)
-            settings = {}
-            if st.get("preset") and job in PRINTS:
-                probs.append(
-                    (f"{where}.preset", tr("Druck-Presets gibt es im Ablauf nicht – Einstellungen direkt angeben"))
-                )
-            elif st.get("preset"):
-                try:
-                    ppath = presets.resolve(
-                        job, absp(st["preset"]) if os.path.isfile(absp(st["preset"])) else st["preset"]
-                    )
-                    kind, settings = core.load_settings(ppath)
-                    if kind != job:
-                        probs.append((f"{where}.preset", tr("Preset ist für „{0}“, nicht für „{1}“").format(kind, job)))
-                    cli._rebase_paths(settings, os.path.dirname(os.path.abspath(ppath)))
-                except (OSError, ValueError, KeyError) as e:
-                    probs.append((f"{where}.preset", str(e)))
-                    settings = {}
-            own = st.get("settings") or {}
-            if not isinstance(own, dict):
-                probs.append((f"{where}.settings", tr("Objekt erwartet")))
-                own = {}
-            cli._rebase_paths(own, base_dir)
-            settings = _deep_merge(settings, own)
-            probs.extend(check_settings(step_settings_class(job), settings, f"{where}.settings"))
-            if job == PRINT and isinstance(settings.get("layout"), dict):
-                from .layout import LayoutSettings
-
-                probs.extend(check_settings(LayoutSettings, settings["layout"], f"{where}.settings.layout"))
-            pages = None
-            if st.get("pages"):
-                try:
-                    pages = cli.parse_pages(str(st["pages"]))
-                except ValueError:
-                    probs.append((f"{where}.pages", tr("ungültiger Seitenbereich: {0}").format(st["pages"])))
-            out.append(Step(job, st.get("name") or job, settings, pages, cond=cond, where=where))
-        return out
-
+    p = _Preparer(data, base_dir, variables)
+    p.check_header()
+    in_paths = p.inputs(inputs, check_files)
+    out_path = p.output(output, in_paths)
+    opts = p.options()
     steps_raw = data.get("steps")
     if not isinstance(steps_raw, list):
-        probs.append(("steps", tr("Liste erwartet")))
+        p.problem("steps", tr("Liste erwartet"))
         steps_raw = []
-    steps = parse_steps(steps_raw, "steps")
-    for name in sorted(missing):
-        probs.append(("", tr("Variable ${{{0}}} nicht gesetzt (--var {0}=…)").format(name)))
-    if probs:
-        raise WorkflowError(probs)
+    steps = p.steps(steps_raw, "steps")
+    for name in sorted(p.missing):
+        p.problem("", tr("Variable ${{{0}}} nicht gesetzt (--var {0}=…)").format(name))
+    if p.probs:
+        raise WorkflowError(p.probs)
     return Plan(
         data.get("name") or "", in_paths, out_path, steps, float(opts.get("image_dpi", 96)), opts.get("password") or ""
     )
@@ -655,155 +702,164 @@ def _gather_input(plan: Plan, work: str, notes: list) -> str:
     return path
 
 
-def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> dict:
-    """Run the steps one after another; only the finished result is written to plan.output.
-    events(dict): {"event": "step"|"progress"|"step_done"|"condition"|"branch", …} – see docs/cli-api.md.
-    Conditions are checked against the current PDF; "fail" raises Rejected, "stop" ends early (the result so
-    far is written)."""
-    from . import conditions, core
+class _Run:
+    """State of one run(): the current PDF, the step counter, and what has been done and decided so far."""
 
-    def emit(**ev):
-        if events is not None:
-            events(ev)
+    def __init__(self, plan: Plan, events, cancel, variables: dict | None, work: str):
+        self.plan = plan
+        self.events = events
+        self.cancel = cancel
+        self.variables = variables
+        self.work = work  # temporary folder for the intermediate PDFs
+        self.notes: list = []
+        self.results: list = []
+        self.decisions: list = []
+        self.total = sum(1 for st in walk_steps(plan.steps) if st.job != CHOOSE)
+        self.cur = None  # path of the PDF the next step works on
+        self.n = 0  # number of the step being executed
+        self.done: list = []  # steps executed so far
+        self.stopped = None  # message of the "stop" step that ended the run
+        self._facts = None
+        self._fname = os.path.basename(plan.inputs[0]) if plan.inputs else ""
 
-    work = tempfile.mkdtemp(prefix="passermark-run-")
-    notes, results, decisions = [], [], []
-    total = sum(1 for st in walk_steps(plan.steps) if st.job != CHOOSE)
-    state = {"cur": None, "n": 0, "facts": None, "done": [], "stopped": None}
-    fname = os.path.basename(plan.inputs[0]) if plan.inputs else ""
+    def emit(self, **ev):
+        """Send an event to the caller, if anyone listens."""
+        if self.events is not None:
+            self.events(ev)
 
-    def facts():
-        f = state["facts"]
-        if f is None or f.path != state["cur"]:
-            f = state["facts"] = conditions.Facts(state["cur"], fname, variables or {})
+    def facts(self):
+        """Check values of the current PDF – read anew whenever a step has produced a new file."""
+        from . import conditions
+
+        f = self._facts
+        if f is None or f.path != self.cur:
+            f = self._facts = conditions.Facts(self.cur, self._fname, self.variables or {})
         return f
 
-    def holds(cond, where, what) -> bool:
-        ok, why = conditions.evaluate(cond, facts())
-        decisions.append({"where": where, "result": ok, "why": why})
-        emit(event="condition", where=where, what=what, result=ok, why=why)
+    def holds(self, cond, where: str, what: str) -> bool:
+        """Evaluate a condition against the current PDF and record the decision."""
+        from . import conditions
+
+        ok, why = conditions.evaluate(cond, self.facts())
+        self.decisions.append({"where": where, "result": ok, "why": why})
+        self.emit(event="condition", where=where, what=what, result=ok, why=why)
         return ok
 
-    def message(text: str) -> str:
+    def message(self, text: str) -> str:
         """${…} in fail/stop messages: variables and check values (${format}, ${pages} …)."""
+        from . import conditions
 
         def sub(m):
             k = m.group(1)
-            if variables and k in variables:
-                return str(variables[k])
+            if self.variables and k in self.variables:
+                return str(self.variables[k])
             if k in conditions.FACTS:
                 try:
-                    return conditions._show(facts().get(k))
+                    return conditions._show(self.facts().get(k))
                 except Exception:
                     return m.group(0)
             return m.group(0)
 
         return _VAR.sub(sub, text or "")
 
-    def exec_steps(steps):
+    def exec_steps(self, steps) -> bool:
+        """Execute steps in order. Returns True if a "stop" step ended the run."""
+        from . import core
+
         for st in steps:
-            core._check(cancel)
+            core._check(self.cancel)
             if st.job == CHOOSE:
-                taken = None
-                for j, (cond, sub) in enumerate(st.branches or []):
-                    if cond is None or holds(cond, f"{st.where}.choose[{j}]", "branch"):
-                        taken = j
-                        break
-                emit(
-                    event="branch",
-                    where=st.where,
-                    taken=taken,
-                    branch="else" if (taken is not None and st.branches[taken][0] is None) else taken,
-                )
-                if taken is not None:
-                    if exec_steps(st.branches[taken][1]):
-                        return True
+                if self._exec_choose(st):
+                    return True
                 continue
-            if st.cond is not None and not holds(st.cond, f"{st.where}.if", st.job):
-                emit(event="step_skipped", where=st.where, job=st.job, name=st.name)
+            if st.cond is not None and not self.holds(st.cond, f"{st.where}.if", st.job):
+                self.emit(event="step_skipped", where=st.where, job=st.job, name=st.name)
                 continue
             if st.job == FAIL:
-                raise Rejected(message(st.message) or tr("Abgelehnt durch den Ablauf ({0}).").format(st.where))
+                raise Rejected(self.message(st.message) or tr("Abgelehnt durch den Ablauf ({0}).").format(st.where))
             if st.job == STOP:
-                state["stopped"] = message(st.message) or tr("Ablauf beendet ({0}).").format(st.where)
-                emit(event="stopped", where=st.where, message=state["stopped"])
+                self.stopped = self.message(st.message) or tr("Ablauf beendet ({0}).").format(st.where)
+                self.emit(event="stopped", where=st.where, message=self.stopped)
                 return True
-            state["n"] += 1
-            k = state["n"]
-            emit(event="step", step=k, steps=total, job=st.job, name=st.name, where=st.where)
-            prog = lambda d, t, x="", _k=k: emit(event="progress", step=_k, done=d, total=t, text=x)
-            if st.job == PLAN:
-                from .planprint import PlanSettings, print_pdf as plan_pdf
-                from . import printlog
-
-                ps = core.settings_from_dict(PlanSettings, st.settings)
-                before = [
-                    dict(
-                        {"job": b.job, "settings": b.settings},
-                        **({"pages": printlog._pages_text(b.pages)} if b.pages else {}),
-                    )
-                    for b in state["done"]
-                    if b.job not in PRINTS
-                ]
-                with printlog.in_workflow(plan.inputs, before, variables):
-                    info = plan_pdf(state["cur"], ps, st.pages, progress=prog)
-                pn = list(info.get("notes") or [])
-                results.append(
-                    {"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info, "notes": pn}
-                )
-                notes.extend(pn)
-                emit(event="step_done", step=k, job=st.job, info=info, notes=pn)
-                state["done"].append(st)
-                continue  # the PDF stays as it is
-            if st.job == PRINT:
-                from .printcli import PrintSettings, print_pdf
-                from . import printlog
-
-                ps = core.settings_from_dict(PrintSettings, st.settings)
-                before = [
-                    dict(
-                        {"job": b.job, "settings": b.settings},
-                        **({"pages": printlog._pages_text(b.pages)} if b.pages else {}),
-                    )
-                    for b in state["done"]
-                    if b.job not in PRINTS
-                ]
-                with printlog.in_workflow(plan.inputs, before, variables):
-                    info = print_pdf(state["cur"], ps, st.pages, progress=prog)
-                pn = list(info.get("notes") or [])
-                results.append(
-                    {"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info, "notes": pn}
-                )
-                notes.extend(pn)
-                emit(event="step_done", step=k, job=st.job, info=info, notes=pn)
-                state["done"].append(st)
-                continue  # the PDF stays as it is
-            dst = os.path.join(work, f"step{k}.pdf")
-            r = core.run_job(
-                st.job,
-                state["cur"],
-                dst,
-                st.settings,
-                {"pages": st.pages} if st.pages else None,
-                progress=prog,
-                cancel=cancel,
-            )
-            results.append(
-                {"step": k, "job": st.job, "name": st.name, "where": st.where, "info": r.info, "notes": r.notes}
-            )
-            notes.extend(r.notes)
-            emit(event="step_done", step=k, job=st.job, info=r.info, notes=r.notes)
-            state["done"].append(st)
-            state["cur"] = dst
+            self.n += 1
+            k = self.n
+            self.emit(event="step", step=k, steps=self.total, job=st.job, name=st.name, where=st.where)
+            prog = lambda d, t, x="", _k=k: self.emit(event="progress", step=_k, done=d, total=t, text=x)
+            if st.job in (PLAN, PRINT):
+                self._exec_print(st, k, prog)
+            else:
+                self._exec_job(st, k, prog)
         return False
 
-    try:
-        state["cur"] = _gather_input(plan, work, notes)
-        exec_steps(plan.steps)
-        core._check(cancel)
-        if state["stopped"]:
-            notes.append(state["stopped"])
-        base = {"steps": results, "notes": notes, "decisions": decisions, "stopped": state["stopped"]}
+    def _exec_choose(self, st) -> bool:
+        """Take the first branch whose condition holds (or "else") and execute its steps."""
+        taken = None
+        for j, (cond, _sub) in enumerate(st.branches or []):
+            if cond is None or self.holds(cond, f"{st.where}.choose[{j}]", "branch"):
+                taken = j
+                break
+        self.emit(
+            event="branch",
+            where=st.where,
+            taken=taken,
+            branch="else" if (taken is not None and st.branches[taken][0] is None) else taken,
+        )
+        return taken is not None and self.exec_steps(st.branches[taken][1])
+
+    def _exec_print(self, st, k: int, prog):
+        """Print the current PDF (sheet or plan/poster printing); the PDF itself stays as it is."""
+        from . import core, printlog
+
+        if st.job == PLAN:
+            from .planprint import PlanSettings as settings_class, print_pdf
+        else:
+            from .printcli import PrintSettings as settings_class, print_pdf
+
+        ps = core.settings_from_dict(settings_class, st.settings)
+        before = [
+            dict(
+                {"job": b.job, "settings": b.settings},
+                **({"pages": printlog._pages_text(b.pages)} if b.pages else {}),
+            )
+            for b in self.done
+            if b.job not in PRINTS
+        ]
+        with printlog.in_workflow(self.plan.inputs, before, self.variables):
+            info = print_pdf(self.cur, ps, st.pages, progress=prog)
+        self._step_done(st, k, info, list(info.get("notes") or []))
+
+    def _exec_job(self, st, k: int, prog):
+        """Run a job that produces a new PDF; the next step continues with that file."""
+        from . import core
+
+        dst = os.path.join(self.work, f"step{k}.pdf")
+        r = core.run_job(
+            st.job,
+            self.cur,
+            dst,
+            st.settings,
+            {"pages": st.pages} if st.pages else None,
+            progress=prog,
+            cancel=self.cancel,
+        )
+        self._step_done(st, k, r.info, r.notes)
+        self.cur = dst
+
+    def _step_done(self, st, k: int, info, step_notes):
+        """Record the result of a step and tell the caller."""
+        self.results.append(
+            {"step": k, "job": st.job, "name": st.name, "where": st.where, "info": info, "notes": step_notes}
+        )
+        self.notes.extend(step_notes)
+        self.emit(event="step_done", step=k, job=st.job, info=info, notes=step_notes)
+        self.done.append(st)
+
+    def write_output(self) -> dict:
+        """Write the finished PDF to plan.output (via a .part file) and build the result."""
+        plan = self.plan
+        if self.stopped:
+            self.notes.append(self.stopped)
+        base = {"steps": self.results, "notes": self.notes, "decisions": self.decisions, "stopped": self.stopped}
         if not plan.output:  # printed only
             return dict(base, output=None, pages=None)
         d = os.path.dirname(plan.output)
@@ -811,7 +867,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
             os.makedirs(d, exist_ok=True)
         tmp = plan.output + ".part"
         try:
-            shutil.copyfile(state["cur"], tmp)
+            shutil.copyfile(self.cur, tmp)
             os.replace(tmp, plan.output)
         finally:
             if os.path.exists(tmp):
@@ -826,6 +882,22 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
         except Exception:
             pass
         return dict(base, output=plan.output, pages=pages)
+
+
+def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> dict:
+    """Run the steps one after another; only the finished result is written to plan.output.
+    events(dict): {"event": "step"|"progress"|"step_done"|"condition"|"branch", …} – see docs/cli-api.md.
+    Conditions are checked against the current PDF; "fail" raises Rejected, "stop" ends early (the result so
+    far is written)."""
+    from . import core
+
+    work = tempfile.mkdtemp(prefix="passermark-run-")
+    r = _Run(plan, events, cancel, variables, work)
+    try:
+        r.cur = _gather_input(plan, work, r.notes)
+        r.exec_steps(plan.steps)
+        core._check(cancel)
+        return r.write_output()
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

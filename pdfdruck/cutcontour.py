@@ -443,86 +443,120 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
     return out
 
 
-def _compute_object(ctx, job):
-    """Compute one object (cut, bleed, cutout). Independent of other objects -> can also run in its own
-    worker process. Returns (CutObject | None, cutout in the window | None).
-    """
+class _Window:
+    """Pixel window of one object inside the page raster, with the conversion between pixels and PDF points."""
+
+    def __init__(self, ctx, window):
+        self.pad, self.px, self.H = ctx.pad, ctx.px, ctx.H
+        self.wy0, self.wy1, self.wx0, self.wx1 = window
+
+    def to_pt(self, col, row):
+        """Page pixel -> PDF point."""
+        return float((col - self.pad) / self.px), float(self.H - (row - self.pad) / self.px)
+
+    def to_px(self, x, y):
+        """PDF point -> page pixel."""
+        return x * self.px + self.pad, (self.H - y) * self.px + self.pad
+
+    def box_pt(self, x0, y0, x1, y1):
+        """Box in window pixels -> (left, bottom, right, top) in PDF points."""
+        p0 = self.to_pt(x0 + self.wx0, y0 + self.wy0)
+        p1 = self.to_pt(x1 + self.wx0, y1 + self.wy0)
+        return (p0[0], p1[1], p1[0], p0[1])
+
+    def line_pt(self, line):
+        """Contour line in window pixels -> list of [x, y] in PDF points."""
+        return [
+            [float((c + self.wx0 - self.pad) / self.px), float(self.H - (r_ + self.wy0 - self.pad) / self.px)]
+            for c, r_ in line
+        ]
+
+
+def _cut_along_contour(ctx, win, obj):
+    """Cut line that follows the artwork: offset, smoothing, optional inner contours.
+    Returns (paths, mask of the area inside the cut line)."""
     import numpy as np
     from contourpy import LineType, contour_generator
-    from PIL import Image, ImageDraw
     from scipy import ndimage as ndi
 
-    obj, rgbw, (wy0, wy1, wx0, wx1), (ox0, oy0, ox1, oy1) = job
-    s, pad, px, H = ctx.s, ctx.pad, ctx.px, ctx.H
-    off, sm, bl, use_bleed, bg_rgb = ctx.off, ctx.sm, ctx.bl, ctx.use_bleed, ctx.bg_rgb
-    knock_patch = None
-
-    def to_pt(col, row):
-        return float((col - pad) / px), float(H - (row - pad) / px)
-
-    def to_px(x, y):
-        return x * px + pad, (H - y) * px + pad
-
-    # 2. cut area
-    paths = []
-    if s.shape == "contour":
-        if off >= 0:
-            d_out = ndi.distance_transform_edt(~obj)
-            region = d_out <= off if off > 0 else obj.copy()
-            # smoothing (closing by sm): distance to region = distance to object − distance -> one field fewer
-            dil = (d_out <= off + sm) if sm > 0 else None
-        else:
-            region = ndi.distance_transform_edt(obj) > -off
-            dil = (ndi.distance_transform_edt(~region) <= sm) if sm > 0 else None
-        if sm > 0:
-            region = ndi.distance_transform_edt(dil) > sm
-        if not s.inner:
-            region = ndi.binary_fill_holes(region)
-        field_ = ndi.gaussian_filter(region.astype(np.float32), sigma=max(1.0, sm / 2.5))
-        cut = field_ >= 0.5
-        step = max(0.25, min(0.5, s.smooth_mm / 3 if s.smooth_mm > 0 else 0.25)) * MM
-        for line in contour_generator(z=field_, line_type=LineType.Separate).lines(0.5):
-            if len(line) < 8:
-                continue
-            pts = np.column_stack([(line[:, 0] + wx0 - pad) / px, H - (line[:, 1] + wy0 - pad) / px])
-            if np.allclose(pts[0], pts[-1]):
-                pts = pts[:-1]
-            if float(np.sum(np.hypot(*np.diff(pts, axis=0).T))) < s.min_size_mm * MM:
-                continue
-            paths.append((_resample(pts, step).tolist(), True))
+    s, off, sm = ctx.s, ctx.off, ctx.sm
+    if off >= 0:
+        d_out = ndi.distance_transform_edt(~obj)
+        region = d_out <= off if off > 0 else obj.copy()
+        # smoothing (closing by sm): distance to region = distance to object − distance -> one field fewer
+        dil = (d_out <= off + sm) if sm > 0 else None
     else:
-        mx0, my1 = to_pt(ox0, oy0)
-        mx1, my0 = to_pt(ox1, oy1)
-        w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
-        poly = shape_polygon(
-            s.shape,
-            (mx0 + mx1) / 2 + s.shift_x_mm * MM,
-            (my0 + my1) / 2 + s.shift_y_mm * MM,
-            w,
-            h,
-            s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0),
+        region = ndi.distance_transform_edt(obj) > -off
+        dil = (ndi.distance_transform_edt(~region) <= sm) if sm > 0 else None
+    if sm > 0:
+        region = ndi.distance_transform_edt(dil) > sm
+    if not s.inner:
+        region = ndi.binary_fill_holes(region)
+    field_ = ndi.gaussian_filter(region.astype(np.float32), sigma=max(1.0, sm / 2.5))
+    cut = field_ >= 0.5
+    step = max(0.25, min(0.5, s.smooth_mm / 3 if s.smooth_mm > 0 else 0.25)) * MM
+    paths = []
+    for line in contour_generator(z=field_, line_type=LineType.Separate).lines(0.5):
+        if len(line) < 8:
+            continue
+        pts = np.column_stack(
+            [(line[:, 0] + win.wx0 - win.pad) / win.px, win.H - (line[:, 1] + win.wy0 - win.pad) / win.px]
         )
-        paths.append((poly.tolist(), False))
-        im = Image.new("L", (wx1 - wx0, wy1 - wy0), 0)
-        ImageDraw.Draw(im).polygon([(to_px(x, y)[0] - wx0, to_px(x, y)[1] - wy0) for x, y in poly], fill=255)
-        cut = np.asarray(im) > 127
-    if not paths:
-        return None, None
+        if np.allclose(pts[0], pts[-1]):
+            pts = pts[:-1]
+        if float(np.sum(np.hypot(*np.diff(pts, axis=0).T))) < s.min_size_mm * MM:
+            continue
+        paths.append((_resample(pts, step).tolist(), True))
+    return paths, cut
 
-    # 3. bleed: the ENTIRE area inside the cut line (including bays, gaps between
-    #    object and line) plus "bleed" beyond the line – filled with the outward-extended
-    #    edge colours of the object. Lies BEHIND the object, so distortions are invisible or are
-    #    trimmed. The cut line thus always sits inside the bleed.
-    bleed = (cut | (ndi.distance_transform_edt(~cut) <= bl)) if use_bleed else np.zeros_like(cut)
-    # bleed color
-    bg_vec = bg_rgb if bg_rgb is not None else np.array([255, 255, 255])
+
+def _cut_basic_shape(ctx, win, motif):
+    """Cut line as a basic shape (rectangle, rounded, circle …) around the artwork box.
+    Returns (paths, mask of the area inside the cut line)."""
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    s = ctx.s
+    mx0, my0, mx1, my1 = motif
+    w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
+    poly = shape_polygon(
+        s.shape,
+        (mx0 + mx1) / 2 + s.shift_x_mm * MM,
+        (my0 + my1) / 2 + s.shift_y_mm * MM,
+        w,
+        h,
+        s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0),
+    )
+    im = Image.new("L", (win.wx1 - win.wx0, win.wy1 - win.wy0), 0)
+    ImageDraw.Draw(im).polygon(
+        [(win.to_px(x, y)[0] - win.wx0, win.to_px(x, y)[1] - win.wy0) for x, y in poly], fill=255
+    )
+    return [(poly.tolist(), False)], np.asarray(im) > 127
+
+
+def _object_labels(ctx, obj, rgbw, pal, bg_vec):
+    """Assign every object pixel to its solid colour (unmixing); -1 outside the object."""
+    import numpy as np
+
+    labels = np.full(obj.shape, -1, np.int32)
+    labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, ctx.s.detect.tolerance * 2)
+    return labels
+
+
+def _bleed_colours(ctx, obj, rgbw, bg_vec):
+    """Colour of every pixel of the bleed: the edge colours of the object extended outwards.
+    Returns (fill image, palette of solid colours | None, flat artwork?, labels | None)."""
+    import numpy as np
+    from scipy import ndimage as ndi
+
+    s, px = ctx.s, ctx.px
     core = obj
     for it in (max(2, int(round(0.5 * MM * px))), max(1, int(round(0.25 * MM * px))), 1):
         c2 = ndi.binary_erosion(obj, iterations=it)
         if c2.sum() > 0.15 * obj.sum():
             core = c2
             break
-    pal, solid_share = _solid_palette(rgbw[core], bg_rgb, s.detect.tolerance)
+    pal, solid_share = _solid_palette(rgbw[core], ctx.bg_rgb, s.detect.tolerance)
     flat = pal is not None and solid_share > 0.85
     labels = None
     if s.bleed_color:
@@ -532,112 +566,168 @@ def _compute_object(ctx, job):
         fill[:] = (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
     elif flat:
         # assign every object pixel to its solid color (unmixing), then take over from the nearest object pixel
-        labels = np.full(obj.shape, -1, np.int32)
-        labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
+        labels = _object_labels(ctx, obj, rgbw, pal, bg_vec)
         _d, (iy, ix) = ndi.distance_transform_edt(~obj, return_indices=True)
         fill = pal[labels[iy, ix]].astype(np.uint8)
     else:
         # photo (no solid colors): color from the nearest core pixel (~0.5 mm inside, without blend fringe)
         _d, (iy, ix) = ndi.distance_transform_edt(~core, return_indices=True)
         fill = rgbw[iy, ix]
+    return fill, pal, flat, labels
+
+
+def _bleed_image(win, bleed, cut, fill):
+    """RGBA image of the bleed, cropped to its extent. Returns (image | None, box in PDF points | None)."""
+    import numpy as np
+    from scipy import ndimage as ndi
+
     alpha = np.clip(ndi.gaussian_filter(bleed.astype(np.float32), 0.7), 0, 1)
     alpha[cut] = 1.0  # always opaque inside the cut shape (no holes)
     alpha = (alpha * 255).astype(np.uint8)
-    img = bbox = None
-    if bleed.any():
-        yy, xx = np.where(alpha > 0)
-        by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
-        rgb_b = fill[by0:by1, bx0:bx1].astype(np.uint8).copy()
-        al_b = alpha[by0:by1, bx0:bx1]
-        # invisible pixels white: if a program/driver cannot read the transparency (SMask), otherwise a
-        # colored rectangle appears – this way it stays paper white
-        rgb_b[al_b == 0] = 255
-        img = np.dstack([rgb_b, al_b])
-        p0 = to_pt(bx0 + wx0, by0 + wy0)
-        p1 = to_pt(bx1 + wx0, by1 + wy0)
-        bbox = (p0[0], p1[1], p1[0], p0[1])
-    # artwork with a background (white page, raster image): clip the original to the object shape, otherwise
-    # the background covers the bleed. Interior areas (white text, holes) are preserved.
+    if not bleed.any():
+        return None, None
+    yy, xx = np.where(alpha > 0)
+    by0, by1, bx0, bx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
+    rgb_b = fill[by0:by1, bx0:bx1].astype(np.uint8).copy()
+    al_b = alpha[by0:by1, bx0:bx1]
+    # invisible pixels white: if a program/driver cannot read the transparency (SMask), otherwise a
+    # colored rectangle appears – this way it stays paper white
+    rgb_b[al_b == 0] = 255
+    return np.dstack([rgb_b, al_b]), win.box_pt(bx0, by0, bx1, by1)
+
+
+def _visible_area(ctx, obj, rgbw, pal, flat):
+    """Part of the original that stays visible above the bleed (for artwork with a background, which would
+    otherwise cover the bleed). Interior areas (white text, holes) are preserved."""
+    import numpy as np
+    from scipy import ndimage as ndi
+
+    s, px = ctx.s, ctx.px
+    vis = ndi.binary_fill_holes(obj)
+    if s.shape == "contour" and s.inner:
+        # knock holes that will be cut out out of the original -> the bleed runs into the hole;
+        # small interior areas (white text and the like) stay visible
+        holes, nh = ndi.label(vis & ~obj)
+        if nh:
+            sizes = ndi.sum(np.ones_like(holes), holes, range(1, nh + 1))
+            big = np.isin(holes, np.where(sizes >= (s.min_size_mm * MM * px) ** 2 * 0.25)[0] + 1)
+            vis &= ~big
+    # do not show the blend fringe at the edge (edge smoothing, blurred raster) – the
+    # solid-color bleed lies there. Flat artwork: knock out everything at the edge that matches no solid color
+    # (at most 1.5 mm deep); photos (no solid colours): fixed small distance.
+    d_in = ndi.distance_transform_edt(vis)
+    if not flat:
+        return d_in > 0.25 * MM * px
+    # show only real solid-colour pixels at the edge (tight tolerance -> no light line at the cut line)
+    tol2 = max(12, s.detect.tolerance * 0.6) ** 2
+    # only the border strip (up to 1.5 mm) is needed -> search for the nearest solid color only there
+    cand = vis & (d_in <= 1.5 * MM * px)
+    nonsolid = np.zeros_like(vis)
+    if cand.any():
+        nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
+    vis &= ~nonsolid
+    vis = ndi.binary_opening(vis, iterations=1)
+    # close tiny holes (scattered blend pixels) – otherwise white speckles
+    close = max(1, int(round(0.15 * MM * px)))
+    vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
+    thr = 0.08 * MM * px
+    if thr >= 1.0:  # beneath it, the condition is met for every artwork point
+        vis = ndi.distance_transform_edt(vis) > thr
+    return vis
+
+
+def _clip_paths(win, vis):
+    """Outline of the visible area as clipping paths in PDF points."""
+    import numpy as np
+    from contourpy import LineType, contour_generator
+    from scipy import ndimage as ndi
+
+    fld = ndi.gaussian_filter(vis.astype(np.float32), 0.6)
     clip = []
+    for line in contour_generator(z=fld, line_type=LineType.Separate).lines(0.5):
+        if len(line) >= 4:
+            clip.append(win.line_pt(line))
+    return clip
+
+
+def _seam_overlay(ctx, win, obj, rgbw, pal, labels, bg_vec, knock_patch):
+    """Replace narrow blend fringes INSIDE flat artwork (e.g. a red/green edge) with the assigned solid colour.
+    Returns (RGBA overlay | None, box in PDF points | None)."""
+    import numpy as np
+    from scipy import ndimage as ndi
+
+    s, px = ctx.s, ctx.px
+    if labels is None:
+        labels = _object_labels(ctx, obj, rgbw, pal, bg_vec)
+    tol2 = (s.detect.tolerance * 2) ** 2
+    nonsolid = np.zeros_like(obj)
+    if obj.any():
+        nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
+    # fringes up to ~1 mm wide count as blend edges; wider areas = intentional gradient/photo -> kept
+    thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
+    seam = nonsolid & ~thick
+    if knock_patch is not None:
+        seam &= knock_patch  # cutout of this object (objects do not overlap)
+    if not seam.any():
+        return None, None
+    yy, xx = np.where(seam)
+    sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
+    col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
+    sm_ = seam[sy0:sy1, sx0:sx1]
+    # outside the fringes the original artwork: if a program/driver ignores the transparency (SMask),
+    # you only see the artwork instead of a colored rectangle above the object
+    col[~sm_] = rgbw[sy0:sy1, sx0:sx1][~sm_].astype(np.uint8)
+    al = (sm_ * 255).astype(np.uint8)
+    return np.dstack([col, al]), win.box_pt(sx0, sy0, sx1, sy1)
+
+
+def _compute_object(ctx, job):
+    """Compute one object (cut, bleed, cutout). Independent of other objects -> can also run in its own
+    worker process. Returns (CutObject | None, cutout in the window | None).
+    """
+    import numpy as np
+    from scipy import ndimage as ndi
+
+    obj, rgbw, window, (ox0, oy0, ox1, oy1) = job
+    s = ctx.s
+    win = _Window(ctx, window)
+    mx0, my1 = win.to_pt(ox0, oy0)
+    mx1, my0 = win.to_pt(ox1, oy1)
+    motif = (mx0, my0, mx1, my1)  # box of the artwork in PDF points
+
+    # 1. cut line and the area inside it
+    if s.shape == "contour":
+        paths, cut = _cut_along_contour(ctx, win, obj)
+    else:
+        paths, cut = _cut_basic_shape(ctx, win, motif)
+    if not paths:
+        return None, None
+
+    # 2. bleed: the ENTIRE area inside the cut line (including bays, gaps between
+    #    object and line) plus "bleed" beyond the line – filled with the outward-extended
+    #    edge colours of the object. Lies BEHIND the object, so distortions are invisible or are
+    #    trimmed. The cut line thus always sits inside the bleed.
+    bleed = (cut | (ndi.distance_transform_edt(~cut) <= ctx.bl)) if ctx.use_bleed else np.zeros_like(cut)
+    bg_vec = ctx.bg_rgb if ctx.bg_rgb is not None else np.array([255, 255, 255])
+    fill, pal, flat, labels = _bleed_colours(ctx, obj, rgbw, bg_vec)
+    img, bbox = _bleed_image(win, bleed, cut, fill)
+
+    # 3. artwork with a background (white page, raster image): clip the original to the object shape,
+    #    otherwise the background covers the bleed
+    knock_patch, clip = None, []
     if ctx.has_knock:
-        vis = ndi.binary_fill_holes(obj)
-        if s.shape == "contour" and s.inner:
-            # knock holes that will be cut out out of the original -> the bleed runs into the hole;
-            # small interior areas (white text and the like) stay visible
-            holes, nh = ndi.label(vis & ~obj)
-            if nh:
-                sizes = ndi.sum(np.ones_like(holes), holes, range(1, nh + 1))
-                big = np.isin(holes, np.where(sizes >= (s.min_size_mm * MM * px) ** 2 * 0.25)[0] + 1)
-                vis &= ~big
-        # do not show the blend fringe at the edge (edge smoothing, blurred raster) – the
-        # solid-color bleed lies there. Flat artwork: knock out everything at the edge that matches no solid color
-        # (at most 1.5 mm deep); photos (no solid colours): fixed small distance.
-        d_in = ndi.distance_transform_edt(vis)
-        if flat:
-            # show only real solid-colour pixels at the edge (tight tolerance -> no light line at the cut line)
-            tol2 = max(12, s.detect.tolerance * 0.6) ** 2
-            # only the border strip (up to 1.5 mm) is needed -> search for the nearest solid color only there
-            cand = vis & (d_in <= 1.5 * MM * px)
-            nonsolid = np.zeros_like(vis)
-            if cand.any():
-                nonsolid[cand] = _nearest_dist(rgbw[cand].astype(np.int16), pal) > tol2
-            vis &= ~nonsolid
-            vis = ndi.binary_opening(vis, iterations=1)
-            # close tiny holes (scattered blend pixels) – otherwise white speckles
-            close = max(1, int(round(0.15 * MM * px)))
-            vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
-            thr = 0.08 * MM * px
-            if thr >= 1.0:  # beneath it, the condition is met for every artwork point
-                vis = ndi.distance_transform_edt(vis) > thr
-        else:
-            vis = d_in > 0.25 * MM * px
-        knock_patch = vis
-        fld = ndi.gaussian_filter(vis.astype(np.float32), 0.6)
-        for line in contour_generator(z=fld, line_type=LineType.Separate).lines(0.5):
-            if len(line) >= 4:
-                clip.append([[float((c + wx0 - pad) / px), float(H - (r_ + wy0 - pad) / px)] for c, r_ in line])
+        knock_patch = _visible_area(ctx, obj, rgbw, pal, flat)
+        clip = _clip_paths(win, knock_patch)
+
+    # 4. blend fringes inside flat artwork
     ov_img = ov_box = None
     if s.clean_seams and flat:
-        # replace narrow blend fringes INSIDE the artwork (e.g. a red/green edge) with the assigned solid color
-        if labels is None:
-            labels = np.full(obj.shape, -1, np.int32)
-            labels[obj] = _unmix_labels(rgbw[obj], pal, bg_vec, s.detect.tolerance * 2)
-        tol2 = (s.detect.tolerance * 2) ** 2
-        nonsolid = np.zeros_like(obj)
-        if obj.any():
-            nonsolid[obj] = _nearest_dist(rgbw[obj].astype(np.int16), pal) > tol2
-        # fringes up to ~1 mm wide count as blend edges; wider areas = intentional gradient/photo -> kept
-        thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
-        seam = nonsolid & ~thick
-        if knock_patch is not None:
-            seam &= knock_patch  # cutout of this object (objects do not overlap)
-        if seam.any():
-            yy, xx = np.where(seam)
-            sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
-            col = pal[np.clip(labels[sy0:sy1, sx0:sx1], 0, None)].astype(np.uint8)
-            sm_ = seam[sy0:sy1, sx0:sx1]
-            # outside the fringes the original artwork: if a program/driver ignores the transparency (SMask),
-            # you only see the artwork instead of a colored rectangle above the object
-            col[~sm_] = rgbw[sy0:sy1, sx0:sx1][~sm_].astype(np.uint8)
-            al = (sm_ * 255).astype(np.uint8)
-            ov_img = np.dstack([col, al])
-            q0 = to_pt(sx0 + wx0, sy0 + wy0)
-            q1 = to_pt(sx1 + wx0, sy1 + wy0)
-            ov_box = (q0[0], q1[1], q1[0], q0[1])
-    mx0, my1 = to_pt(ox0, oy0)
-    mx1, my0 = to_pt(ox1, oy1)
+        ov_img, ov_box = _seam_overlay(ctx, win, obj, rgbw, pal, labels, bg_vec, knock_patch)
+
     xs_ = [x for p, _ in paths for x, _y in p] + ([bbox[0], bbox[2]] if bbox else [])
     ys_ = [y for p, _ in paths for _x, y in p] + ([bbox[1], bbox[3]] if bbox else [])
-    return CutObject(
-        paths,
-        img,
-        bbox,
-        (mx0, my0, mx1, my1),
-        (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_))),
-        clip,
-        ov_img,
-        ov_box,
-    ), knock_patch
+    extent = (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_)))
+    return CutObject(paths, img, bbox, motif, extent, clip, ov_img, ov_box), knock_patch
 
 
 def is_fast(s: CutSettings) -> bool:

@@ -2046,7 +2046,8 @@ def _issues(rep: Report) -> list[Issue]:
     return out
 
 
-def _issues_raw(rep: Report) -> list[Issue]:
+def _font_issues(rep: Report) -> list[Issue]:
+    """Fonts: not embedded, standard fonts, Type3, no Unicode mapping."""
     out = []
     for f in rep.fonts:
         pg = sorted(f.pages)
@@ -2124,6 +2125,12 @@ def _issues_raw(rep: Report) -> list[Issue]:
             )
         for i in out[n0:]:
             i.spots = _located_spots(rep, ("font", f.name), pg, f.name)
+    return out
+
+
+def _text_issues(rep: Report) -> list[Issue]:
+    """Characters without a valid mapping (garbled text)."""
+    out = []
     for p, n in sorted(rep.garbled.items()):
         out.append(
             Issue(
@@ -2133,6 +2140,12 @@ def _issues_raw(rep: Report) -> list[Issue]:
                 [p],
             )
         )
+    return out
+
+
+def _layer_issues(rep: Report) -> list[Issue]:
+    """Layers: hidden, different for view and print, content outside the page."""
+    out = []
     hidden = [L for L in rep.layers if not L.view_on or L.print_on is False]
     if hidden:
         out.append(
@@ -2169,6 +2182,12 @@ def _issues_raw(rep: Report) -> list[Issue]:
                     sorted(L.pages),
                 )
             )
+    return out
+
+
+def _line_issues(rep: Report) -> list[Issue]:
+    """Hairlines."""
+    out = []
     if rep.hairlines:
         pg = sorted(rep.hairlines)
         out.append(
@@ -2184,11 +2203,22 @@ def _issues_raw(rep: Report) -> list[Issue]:
                 _located_spots(rep, ("line",), pg),
             )
         )
-    out += _image_issues(rep)
+    return out
+
+
+def _size_issues(rep: Report) -> list[Issue]:
+    """File size (see shrink.issues)."""
+    out = []
     if rep.size is not None:
         from . import shrink
 
         out += [Issue(sev, "size", msg, []) for sev, msg in shrink.issues(rep.size)]
+    return out
+
+
+def _hdr_issues(rep: Report) -> list[Issue]:
+    """Auxiliary pages of HDR photos (gain maps)."""
+    out = []
     for h in rep.hdr:
         out.append(
             Issue(
@@ -2202,6 +2232,12 @@ def _issues_raw(rep: Report) -> list[Issue]:
                 [h["aux"] + 1],
             )
         )
+    return out
+
+
+def _transparency_issues(rep: Report) -> list[Issue]:
+    """Transparency: gradients with a soft mask, blend modes and groups, overprint."""
+    out = []
     grad = sorted(p for p, k in rep.transparency.items() if "pattern_smask" in k)
     if grad:
         out.append(
@@ -2234,7 +2270,24 @@ def _issues_raw(rep: Report) -> list[Issue]:
     op = {p for p, k in rep.transparency.items() if "overprint" in k}
     if op:
         out.append(Issue("info", "transparency", tr("Überdrucken auf {0} Seite(n).").format(len(op)), sorted(op)))
-    out += _geometry_issues(rep) + _doc_issues(rep)
+    return out
+
+
+def _issues_raw(rep: Report) -> list[Issue]:
+    out = []
+    for part in (
+        _font_issues,
+        _text_issues,
+        _layer_issues,
+        _line_issues,
+        _image_issues,
+        _size_issues,
+        _hdr_issues,
+        _transparency_issues,
+        _geometry_issues,
+        _doc_issues,
+    ):
+        out += part(rep)
     out.sort(key=lambda i: (SEV_ORDER[i.severity], i.category))
     return out
 
