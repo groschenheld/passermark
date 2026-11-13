@@ -1136,6 +1136,14 @@ class PlanDialog(QDialog):
         """Group "Einstellungen": copies, order, colour, quality, material, roll, placement, scaling, bleed, marks."""
         g = QGroupBox(tr("Einstellungen"))
         f = QFormLayout(g)
+        self._build_job_rows(f)
+        self._build_media_rows(f)
+        self._build_placement_rows(f)
+        self._build_finishing_rows(f)
+        rv.addWidget(g)
+
+    def _build_job_rows(self, f):
+        """Copies, how they are sent, order, colour and quality."""
         s0 = self.s0
         row = QHBoxLayout()
         self.spn_copies = QSpinBox()
@@ -1180,6 +1188,10 @@ class PlanDialog(QDialog):
             )
         )
         f.addRow(tr("Qualität:"), self.cmb_qmode)
+
+    def _build_media_rows(self, f):
+        """Material, roll and where on the roll the drawing sits."""
+        s0 = self.s0
         row = QHBoxLayout()
         self.cmb_mat = QComboBox()
         self.cmb_mat.setToolTip(
@@ -1209,6 +1221,10 @@ class PlanDialog(QDialog):
             )
         )
         f.addRow(tr("Auf der Rolle:"), self.cmb_align)
+
+    def _build_placement_rows(self, f):
+        """Print area, margin, orientation and scaling."""
+        s0 = self.s0
         self.cmb_media = QComboBox()  # no longer shown – the media type follows the roll
         self.ed_weights = QLineEdit(", ".join(str(w) for w in (s0.weights or [])))
         self.ed_weights.setToolTip(tr("Rollen mit dieser Grammatur werden für Pläne verwendet (leer = alle Rollen)"))
@@ -1251,6 +1267,10 @@ class PlanDialog(QDialog):
         self.spn_scale_mm.setToolTip(tr("Endmaß der Kante ohne Überfüller – die andere Kante folgt im Verhältnis"))
         row.addWidget(self.spn_scale_mm)
         f.addRow(tr("Skalierung:"), row)
+
+    def _build_finishing_rows(self, f):
+        """Bleed, crop marks, hairlines, fold marks, nesting on the roll, and drawings wider than the roll."""
+        s0 = self.s0
         row = QHBoxLayout()
         self.spn_bleed = QDoubleSpinBox()
         self.spn_bleed.setRange(0, 50)
@@ -1307,7 +1327,6 @@ class PlanDialog(QDialog):
         self.spn_overlap.setValue(s0.overlap_mm)
         row.addWidget(self.spn_overlap)
         f.addRow(tr("Breiter als die Rolle:"), row)
-        rv.addWidget(g)
 
     def _build_banner_group(self, rv):
         """Group "Banner und Schneiden": hem, eyelets, CutContour and register marks."""

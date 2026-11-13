@@ -86,7 +86,23 @@ class EditPanel(QWidget):
         self.tabs = QTabWidget()
         v.addWidget(self.tabs, 1)
         self.tabs.currentChanged.connect(lambda _i: self.refresh())
+        self._build_text_tab()
+        self._build_objects_tab()
+        self._build_layers_tab()
+        self._tab_names = [tr("Text"), tr("Objekte"), tr("Ebenen")]
+        self._last_color = ("cmyk", (0.0, 0.0, 0.0, 1.0))
+        v.addWidget(self._build_move_box())
+        self.btn_undo = QPushButton(tr("Rückgängig"))
+        self.btn_undo.clicked.connect(self._undo)
+        self.btn_undo.setEnabled(False)
+        v.addWidget(self.btn_undo)
+        from .common import responsive
 
+        responsive(self)  # wrap rows of buttons, cut nothing off in a narrow panel
+        self.setMinimumWidth(0)
+
+    def _build_text_tab(self):
+        """Tab "Text": the text lines of the page, their content and font, and the buttons to change them."""
         # ---- Text ----
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -138,6 +154,8 @@ class EditPanel(QWidget):
         lv.addLayout(row)
         self.tabs.addTab(w, tr("Text"))
 
+    def _build_objects_tab(self):
+        """Tab "Objekte": images, vector graphics and form objects of the page with the actions on them."""
         # ---- objects ----
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -177,6 +195,8 @@ class EditPanel(QWidget):
         lv.addLayout(grid)
         self.tabs.addTab(w, tr("Objekte"))
 
+    def _build_layers_tab(self):
+        """Tab "Ebenen": layers with visibility, order and the actions on them."""
         # ---- layers ----
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -215,18 +235,6 @@ class EditPanel(QWidget):
             grid.addWidget(b)
         lv.addLayout(grid)
         self.tabs.addTab(w, tr("Ebenen"))
-
-        self._tab_names = [tr("Text"), tr("Objekte"), tr("Ebenen")]
-        self._last_color = ("cmyk", (0.0, 0.0, 0.0, 1.0))
-        v.addWidget(self._build_move_box())
-        self.btn_undo = QPushButton(tr("Rückgängig"))
-        self.btn_undo.clicked.connect(self._undo)
-        self.btn_undo.setEnabled(False)
-        v.addWidget(self.btn_undo)
-        from .common import responsive
-
-        responsive(self)  # wrap rows of buttons, cut nothing off in a narrow panel
-        self.setMinimumWidth(0)
 
     # ------------------------------------------------------------------ #
     # move: snapping, grid, rulers, step by step in mm/pt/px

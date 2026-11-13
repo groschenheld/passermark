@@ -189,6 +189,24 @@ class MaterialTab(QWidget):
             outer.addWidget(note)
         h = QHBoxLayout()
         outer.addLayout(h, 1)
+        self._build_list_column(h)
+        right = QVBoxLayout()
+        self._build_material_box(right)
+        self._build_suggestions_box(right)
+        h.addLayout(right, 2)
+
+        self.lst.currentRowChanged.connect(self._show)
+        self.ed_name.editingFinished.connect(self._store)
+        self.spn_weight.valueChanged.connect(self._store)
+        self.cmb_surface.currentIndexChanged.connect(self._store)
+        self.cmb_intent.currentIndexChanged.connect(self._store)
+        self.ed_notes.textChanged.connect(self._store)
+        self.cmb_for.currentIndexChanged.connect(lambda *_: self._suggest())
+        self._cands = None
+        self._refresh()
+
+    def _build_list_column(self, h):
+        """Left column: the list of materials with the buttons to measure, add and remove."""
         left = QVBoxLayout()
         self.btn_measure_new = QPushButton(tr("Papier messen …"))
         self.btn_measure_new.setToolTip(
@@ -225,7 +243,8 @@ class MaterialTab(QWidget):
         left.addLayout(row)
         h.addLayout(left, 1)
 
-        right = QVBoxLayout()
+    def _build_material_box(self, right):
+        """Group "Material": name, weight, surface, paper white, rendering intent, notes and the profile per printer."""
         self.box = QGroupBox(tr("Material"))
         f = QFormLayout(self.box)
         self.ed_name = QLineEdit()
@@ -291,6 +310,8 @@ class MaterialTab(QWidget):
         f.addRow(tr("Profil je Drucker:"), self.tbl)
         right.addWidget(self.box)
 
+    def _build_suggestions_box(self, right):
+        """Group "Vorschläge": profiles that suit the chosen material."""
         sbox = QGroupBox(tr("Vorschläge"))
         sbox.setToolTip(
             tr(
@@ -319,17 +340,6 @@ class MaterialTab(QWidget):
         self.lbl_tip.setStyleSheet(f"color: {theme.ACCENT};")
         sv.addWidget(self.lbl_tip)
         right.addWidget(sbox, 1)
-        h.addLayout(right, 2)
-
-        self.lst.currentRowChanged.connect(self._show)
-        self.ed_name.editingFinished.connect(self._store)
-        self.spn_weight.valueChanged.connect(self._store)
-        self.cmb_surface.currentIndexChanged.connect(self._store)
-        self.cmb_intent.currentIndexChanged.connect(self._store)
-        self.ed_notes.textChanged.connect(self._store)
-        self.cmb_for.currentIndexChanged.connect(lambda *_: self._suggest())
-        self._cands = None
-        self._refresh()
 
     # ---------------------------------------------------------------- #
     @property

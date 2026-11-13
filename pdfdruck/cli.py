@@ -234,78 +234,74 @@ def _safe_streams():
             pass
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point of ``passermark-cli``; returns the process exit code."""
-    import faulthandler
-
-    faulthandler.enable()  # hard crash -> output to stderr (ends up in the GUI log)
-    if argv is None:
-        argv = sys.argv[1:]
-    if argv[:1] == ["render-server"]:  # internal: render process of the page view (not a job)
-        from .renderproc import main as render_main
-
-        return render_main()
-    _safe_streams()
-    if argv[:1] and argv[0] in API_COMMANDS:
-        return api_main(argv[0], argv[1:])
+def _cmd_list(a) -> int:
+    """ "list": the names of all jobs."""
     from . import core
+
+    for kind in core.JOBS:
+        print(kind)
+    return EXIT_OK
+
+
+def _cmd_settings(a) -> int:
+    """ "settings <job>": the default settings of a job as JSON."""
+    from . import core
+
+    if not a.input:
+        print("passermark-cli settings <auftrag>", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        cls = core.settings_class(a.input)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return EXIT_USAGE
+    print(json.dumps({"job": a.input, "settings": core.settings_to_dict(cls())}, ensure_ascii=False, indent=2))
+    return EXIT_OK
+
+
+def _cmd_examples(a) -> int:
+    """ "beispiele [folder]": install the example files and presets."""
     from .l10n import tr
 
-    parser = build_parser()
-    try:
-        a = parser.parse_args(argv)
-    except SystemExit as e:
-        return EXIT_USAGE if e.code else EXIT_OK
+    from . import examples
 
-    if a.job == "list":
-        for kind in core.JOBS:
-            print(kind)
-        return EXIT_OK
-    if a.job == "settings":
-        if not a.input:
-            print("passermark-cli settings <auftrag>", file=sys.stderr)
-            return EXIT_USAGE
+    try:
+        d = examples.install(a.input)
+    except OSError as e:
+        print(tr("Fehler: {0}").format(e), file=sys.stderr)
+        return EXIT_ERROR
+    print(d)
+    print("  " + tr("Presets: {0}").format(", ".join(n for _, n in examples.EXAMPLES)))
+    print(
+        '  passermark-cli vdp "{0}" aus.pdf --preset "{1}"'.format(
+            os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]
+        )
+    )
+    return EXIT_OK
+
+
+def _cmd_presets(a) -> int:
+    """ "presets [job]": list the saved presets."""
+    from . import core
+
+    from . import presets
+
+    kinds = [a.input] if a.input else list(core.JOBS)
+    for kind in kinds:
         try:
-            cls = core.settings_class(a.input)
+            names = presets.list_presets(kind)
         except ValueError as e:
             print(str(e), file=sys.stderr)
             return EXIT_USAGE
-        print(json.dumps({"job": a.input, "settings": core.settings_to_dict(cls())}, ensure_ascii=False, indent=2))
-        return EXIT_OK
+        for n in names:
+            print(f"{kind}\t{n}" if not a.input else n)
+    return EXIT_OK
 
-    if a.job in ("datenarten", "datenvorlage", "datencheck"):
-        return _data_cmd(a)
 
-    if a.job == "beispiele":
-        from . import examples
-
-        try:
-            d = examples.install(a.input)
-        except OSError as e:
-            print(tr("Fehler: {0}").format(e), file=sys.stderr)
-            return EXIT_ERROR
-        print(d)
-        print("  " + tr("Presets: {0}").format(", ".join(n for _, n in examples.EXAMPLES)))
-        print(
-            '  passermark-cli vdp "{0}" aus.pdf --preset "{1}"'.format(
-                os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]
-            )
-        )
-        return EXIT_OK
-
-    if a.job == "presets":
-        from . import presets
-
-        kinds = [a.input] if a.input else list(core.JOBS)
-        for kind in kinds:
-            try:
-                names = presets.list_presets(kind)
-            except ValueError as e:
-                print(str(e), file=sys.stderr)
-                return EXIT_USAGE
-            for n in names:
-                print(f"{kind}\t{n}" if not a.input else n)
-        return EXIT_OK
+def _cmd_job(a) -> int:
+    """Run one job on a file: ``passermark-cli <job> <input.pdf> <output.pdf>``."""
+    from . import core
+    from .l10n import tr
 
     rep = _Reporter(a.json_progress, a.quiet)
 
@@ -370,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
             if os.path.exists(p):
                 os.remove(p)
         return fail(tr("Abgebrochen."), EXIT_CANCELLED)
-    except Exception as e:  # noqa: BLE001 – jede Ursache melden
+    except Exception as e:  # noqa: BLE001 – report every cause
         return fail(tr("Fehler: {0}").format(e), EXIT_ERROR, raw=str(e))
     rep.finish_line()
     if a.json_progress:
@@ -381,6 +377,41 @@ def main(argv: list[str] | None = None) -> int:
         for n in r.notes:
             print("  " + tr("Hinweis: {0}").format(n))
     return EXIT_OK
+
+
+# commands of the classic command line that are not jobs
+_PLAIN_COMMANDS = {
+    "list": _cmd_list,
+    "settings": _cmd_settings,
+    "datenarten": _data_cmd,
+    "datenvorlage": _data_cmd,
+    "datencheck": _data_cmd,
+    "beispiele": _cmd_examples,
+    "presets": _cmd_presets,
+}
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point of ``passermark-cli``; returns the process exit code."""
+    import faulthandler
+
+    faulthandler.enable()  # hard crash -> output to stderr (ends up in the GUI log)
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv[:1] == ["render-server"]:  # internal: render process of the page view (not a job)
+        from .renderproc import main as render_main
+
+        return render_main()
+    _safe_streams()
+    if argv[:1] and argv[0] in API_COMMANDS:
+        return api_main(argv[0], argv[1:])
+
+    parser = build_parser()
+    try:
+        a = parser.parse_args(argv)
+    except SystemExit as e:
+        return EXIT_USAGE if e.code else EXIT_OK
+    return _PLAIN_COMMANDS.get(a.job, _cmd_job)(a)
 
 
 # --------------------------------------------------------------------------- #
@@ -406,172 +437,254 @@ API_COMMANDS = (
 )
 
 
+def _args_schema(p: argparse.ArgumentParser, cmd: str):
+    """Options of "schema"."""
+    from .l10n import tr
+
+    p.add_argument("job", nargs="?", help=tr("nur die Einstellungen dieses Auftrags"))
+
+
+def _args_check(p: argparse.ArgumentParser, cmd: str):
+    """Options of "check" and "run": workflow, input, output, variables."""
+    from .l10n import tr
+
+    p.add_argument("workflow", help=tr("Ablauf: Name aus den Ablauf-Ordnern oder JSON-Datei"))
+    if cmd == "run":
+        p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
+    else:
+        p.add_argument("--out", dest="output", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
+    p.add_argument(
+        "--in",
+        dest="inputs",
+        action="append",
+        default=[],
+        metavar=tr("DATEI"),
+        help=tr("Eingabedatei (statt der im Ablauf); mehrfach = zusammenführen"),
+    )
+    p.add_argument(
+        "--var",
+        action="append",
+        default=[],
+        metavar=tr("NAME=WERT"),
+        help=tr("Variable ${NAME} im Ablauf setzen; mehrfach möglich"),
+    )
+    p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
+
+
+def _args_workflows(p: argparse.ArgumentParser, cmd: str):
+    """Options of "workflows"."""
+    from .l10n import tr
+
+    p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
+
+
+def _args_reprint(p: argparse.ArgumentParser, cmd: str):
+    """Options of "reprint": print a job from the print log again."""
+    from .l10n import tr
+
+    p.add_argument("log", help=tr("Druckprotokoll (JSON aus dem Protokoll-Ordner)"))
+    p.add_argument(
+        "--in",
+        dest="inputs",
+        action="append",
+        default=[],
+        metavar=tr("DATEI"),
+        help=tr("andere Eingabedatei statt der protokollierten"),
+    )
+    p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur anzeigen, was gedruckt würde"))
+    p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
+
+
+def _args_tidy(p: argparse.ArgumentParser, cmd: str):
+    """Options of "tidy"."""
+    from .l10n import tr
+
+    p.add_argument("file", help=tr("Preset- oder Ablauf-Datei (JSON)"))
+    p.add_argument("--full", action="store_true", help=tr("Preset mit allen Einstellungen schreiben"))
+    p.add_argument("--out", help=tr("in diese Datei schreiben (sonst wird die Datei selbst ersetzt)"))
+    p.add_argument("--print", dest="show", action="store_true", help=tr("nur anzeigen, nichts schreiben"))
+
+
+def _args_serve(p: argparse.ArgumentParser, cmd: str):
+    """Options of "serve": the folder watcher."""
+    from .l10n import tr
+
+    p.add_argument("--config", help=tr("Watcher-Einstellung (watch.json); ohne: eigene, dann die für alle"))
+    p.add_argument("--once", action="store_true", help=tr("vorhandene Dateien verarbeiten und beenden"))
+    p.add_argument("--check", action="store_true", help=tr("nur prüfen (Ordner und Abläufe), nichts verarbeiten"))
+    p.add_argument("--init", action="store_true", help=tr("Vorlage watch.json anlegen (überschreibt nie)"))
+    p.add_argument("--system", action="store_true", help=tr("mit --init: die für alle Benutzer (Administrator)"))
+    p.add_argument("--quiet", action="store_true", help=tr("nur Fehler ausgeben"))
+    p.add_argument(
+        "--log",
+        metavar=tr("DATEI"),
+        help=tr("Meldungen zusätzlich an diese Datei anhängen (z. B. als Windows-Aufgabe ohne Konsole)"),
+    )
+
+
+def _args_caps(p: argparse.ArgumentParser, cmd: str):
+    """Options of "caps"."""
+    from .l10n import tr
+
+    p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
+
+
+def _args_rolls(p: argparse.ArgumentParser, cmd: str):
+    """Options of "rolls"."""
+    from .l10n import tr
+
+    p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
+    p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+
+
+def _args_materials(p: argparse.ArgumentParser, cmd: str):
+    """Options of "materials"."""
+    from .l10n import tr
+
+    p.add_argument("action", choices=["list", "import"], help=tr("list = anzeigen, import = aus CSV/JSON übernehmen"))
+    p.add_argument("file", nargs="?", default="", help=tr("bei import: CSV- oder JSON-Datei"))
+    p.add_argument("--printer", default="", help=tr("nur für diesen Drucker (leer = alle Drucker)"))
+    p.add_argument("--dry-run", action="store_true", help=tr("nur anzeigen, was übernommen würde"))
+
+
+def _args_shared_folder(p: argparse.ArgumentParser, cmd: str):
+    """Options of "shared-folder"."""
+    from .l10n import tr
+
+    p.add_argument(
+        "--user",
+        action="append",
+        default=[],
+        metavar=tr("NAME"),
+        help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"),
+    )
+    p.add_argument("--status", action="store_true", help=tr("nur anzeigen, nichts einrichten"))
+
+
+def _args_probe(p: argparse.ArgumentParser, cmd: str):
+    """Options of "probe"."""
+    from .l10n import tr
+
+    p.add_argument("target", help=tr("Druckername oder Geräteadresse (IP)"))
+    p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
+    p.add_argument("--community", default="", help=tr("SNMP-Community (Standard: public)"))
+    p.add_argument("--out", metavar=tr("DATEI"), help=tr("vollständigen Bericht als JSON speichern"))
+
+
+def _args_plan(p: argparse.ArgumentParser, cmd: str):
+    """Options of "plan": plan and poster printing from the command line."""
+    from .l10n import tr
+
+    p.add_argument("files", nargs="+", metavar=tr("DATEI"), help=tr("Pläne (PDF, jede Seite ein Plan; oder Bilder)"))
+    p.add_argument("--printer", default="", help=tr("Drucker (leer = Standarddrucker)"))
+    p.add_argument(
+        "--kind",
+        default="plan",
+        choices=["plan", "poster"],
+        help=tr("plan = Produktionsdruck, poster = Qualitätsdruck (nebeneinander, Überbreite abschneiden)"),
+    )
+    p.add_argument("--material", default="", help=tr("Druckmaterial (Name oder ID aus dem Programm)"))
+    p.add_argument(
+        "--plt",
+        metavar=tr("DATEI"),
+        help=tr("zusätzlich Schneidedatei (HP-GL/CAMM-GL) mit den Schnittkanten eines Satzes"),
+    )
+    p.add_argument(
+        "--rolls",
+        default="",
+        metavar="594,841,914",
+        help=tr("Rollenbreiten in mm (statt der vom Gerät gemeldeten)"),
+    )
+    p.add_argument("--copies", type=int, default=1, help=tr("Exemplare"))
+    p.add_argument("--collate", action="store_true", help=tr("sortiert (Satz für Satz) statt jeder Plan n-mal"))
+    p.add_argument("--by-roll", action="store_true", help=tr("nach Rollenbreite drucken statt in Listenreihenfolge"))
+    p.add_argument("--color", default="", help=tr("color | gray (leer = wie im Treiber)"))
+    p.add_argument(
+        "--frame",
+        default="auto",
+        choices=["auto", "frame", "margin", "none"],
+        help=tr("Druckbereich: auto, frame (zwei Außenlinien), margin (Inhalt + Rand), none (Seite)"),
+    )
+    p.add_argument("--margin", type=float, default=5.0, help=tr("Rand in mm ohne zwei Außenlinien"))
+    p.add_argument(
+        "--rotate",
+        default="auto",
+        choices=["auto", "keep", "short", "long"],
+        help=tr("auto = kürzeste Länge auf der Rolle"),
+    )
+    p.add_argument(
+        "--roll",
+        default="",
+        metavar=tr("ROLLE"),
+        help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"),
+    )
+    p.add_argument(
+        "--align",
+        default="",
+        choices=["", "center", "left", "right"],
+        help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"),
+    )
+    p.add_argument(
+        "--copies-mode",
+        default="",
+        choices=["", "sheets", "jobs", "count"],
+        help=tr(
+            "Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
+            "ein Auftrag; count = Kopienzahl"
+        ),
+    )
+    p.add_argument("--no-split", action="store_true", help=tr("wie --copies-mode count"))
+    p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
+    p.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar=tr("SCHLÜSSEL=WERT"),
+        help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"),
+    )
+    p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur Laufmeter und Rollen anzeigen"))
+    p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
+
+
+def _args_inspect(p: argparse.ArgumentParser, cmd: str):
+    """Options of "inspect"."""
+    from .l10n import tr
+
+    p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
+    p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
+    p.add_argument(
+        "--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen")
+    )
+    p.add_argument("--password", help=tr("Passwort"))
+
+
+# command -> function that adds its options to the parser (commands without options of their own are missing)
+_API_ARGS = {
+    "schema": _args_schema,
+    "check": _args_check,
+    "run": _args_check,
+    "workflows": _args_workflows,
+    "reprint": _args_reprint,
+    "tidy": _args_tidy,
+    "serve": _args_serve,
+    "caps": _args_caps,
+    "rolls": _args_rolls,
+    "materials": _args_materials,
+    "shared-folder": _args_shared_folder,
+    "probe": _args_probe,
+    "plan": _args_plan,
+    "inspect": _args_inspect,
+}
+
+
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
+    """Argument parser for one API command; every command also takes --json."""
     from .l10n import tr
 
     p = argparse.ArgumentParser(prog=f"passermark-cli {cmd}")
-    if cmd == "schema":
-        p.add_argument("job", nargs="?", help=tr("nur die Einstellungen dieses Auftrags"))
-    elif cmd in ("check", "run"):
-        p.add_argument("workflow", help=tr("Ablauf: Name aus den Ablauf-Ordnern oder JSON-Datei"))
-        if cmd == "run":
-            p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
-        else:
-            p.add_argument("--out", dest="output", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
-        p.add_argument(
-            "--in",
-            dest="inputs",
-            action="append",
-            default=[],
-            metavar=tr("DATEI"),
-            help=tr("Eingabedatei (statt der im Ablauf); mehrfach = zusammenführen"),
-        )
-        p.add_argument(
-            "--var",
-            action="append",
-            default=[],
-            metavar=tr("NAME=WERT"),
-            help=tr("Variable ${NAME} im Ablauf setzen; mehrfach möglich"),
-        )
-        p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
-    elif cmd == "workflows":
-        p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
-    elif cmd == "reprint":
-        p.add_argument("log", help=tr("Druckprotokoll (JSON aus dem Protokoll-Ordner)"))
-        p.add_argument(
-            "--in",
-            dest="inputs",
-            action="append",
-            default=[],
-            metavar=tr("DATEI"),
-            help=tr("andere Eingabedatei statt der protokollierten"),
-        )
-        p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur anzeigen, was gedruckt würde"))
-        p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
-    elif cmd == "tidy":
-        p.add_argument("file", help=tr("Preset- oder Ablauf-Datei (JSON)"))
-        p.add_argument("--full", action="store_true", help=tr("Preset mit allen Einstellungen schreiben"))
-        p.add_argument("--out", help=tr("in diese Datei schreiben (sonst wird die Datei selbst ersetzt)"))
-        p.add_argument("--print", dest="show", action="store_true", help=tr("nur anzeigen, nichts schreiben"))
-    elif cmd == "serve":
-        p.add_argument("--config", help=tr("Watcher-Einstellung (watch.json); ohne: eigene, dann die für alle"))
-        p.add_argument("--once", action="store_true", help=tr("vorhandene Dateien verarbeiten und beenden"))
-        p.add_argument("--check", action="store_true", help=tr("nur prüfen (Ordner und Abläufe), nichts verarbeiten"))
-        p.add_argument("--init", action="store_true", help=tr("Vorlage watch.json anlegen (überschreibt nie)"))
-        p.add_argument("--system", action="store_true", help=tr("mit --init: die für alle Benutzer (Administrator)"))
-        p.add_argument("--quiet", action="store_true", help=tr("nur Fehler ausgeben"))
-        p.add_argument(
-            "--log",
-            metavar=tr("DATEI"),
-            help=tr("Meldungen zusätzlich an diese Datei anhängen (z. B. als Windows-Aufgabe ohne Konsole)"),
-        )
-    elif cmd == "caps":
-        p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
-    elif cmd == "rolls":
-        p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
-        p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
-    elif cmd == "materials":
-        p.add_argument(
-            "action", choices=["list", "import"], help=tr("list = anzeigen, import = aus CSV/JSON übernehmen")
-        )
-        p.add_argument("file", nargs="?", default="", help=tr("bei import: CSV- oder JSON-Datei"))
-        p.add_argument("--printer", default="", help=tr("nur für diesen Drucker (leer = alle Drucker)"))
-        p.add_argument("--dry-run", action="store_true", help=tr("nur anzeigen, was übernommen würde"))
-    elif cmd == "shared-folder":
-        p.add_argument(
-            "--user",
-            action="append",
-            default=[],
-            metavar=tr("NAME"),
-            help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"),
-        )
-        p.add_argument("--status", action="store_true", help=tr("nur anzeigen, nichts einrichten"))
-    elif cmd == "probe":
-        p.add_argument("target", help=tr("Druckername oder Geräteadresse (IP)"))
-        p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
-        p.add_argument("--community", default="", help=tr("SNMP-Community (Standard: public)"))
-        p.add_argument("--out", metavar=tr("DATEI"), help=tr("vollständigen Bericht als JSON speichern"))
-    elif cmd == "plan":
-        p.add_argument(
-            "files", nargs="+", metavar=tr("DATEI"), help=tr("Pläne (PDF, jede Seite ein Plan; oder Bilder)")
-        )
-        p.add_argument("--printer", default="", help=tr("Drucker (leer = Standarddrucker)"))
-        p.add_argument(
-            "--kind",
-            default="plan",
-            choices=["plan", "poster"],
-            help=tr("plan = Produktionsdruck, poster = Qualitätsdruck (nebeneinander, Überbreite abschneiden)"),
-        )
-        p.add_argument("--material", default="", help=tr("Druckmaterial (Name oder ID aus dem Programm)"))
-        p.add_argument(
-            "--plt",
-            metavar=tr("DATEI"),
-            help=tr("zusätzlich Schneidedatei (HP-GL/CAMM-GL) mit den Schnittkanten eines Satzes"),
-        )
-        p.add_argument(
-            "--rolls",
-            default="",
-            metavar="594,841,914",
-            help=tr("Rollenbreiten in mm (statt der vom Gerät gemeldeten)"),
-        )
-        p.add_argument("--copies", type=int, default=1, help=tr("Exemplare"))
-        p.add_argument("--collate", action="store_true", help=tr("sortiert (Satz für Satz) statt jeder Plan n-mal"))
-        p.add_argument(
-            "--by-roll", action="store_true", help=tr("nach Rollenbreite drucken statt in Listenreihenfolge")
-        )
-        p.add_argument("--color", default="", help=tr("color | gray (leer = wie im Treiber)"))
-        p.add_argument(
-            "--frame",
-            default="auto",
-            choices=["auto", "frame", "margin", "none"],
-            help=tr("Druckbereich: auto, frame (zwei Außenlinien), margin (Inhalt + Rand), none (Seite)"),
-        )
-        p.add_argument("--margin", type=float, default=5.0, help=tr("Rand in mm ohne zwei Außenlinien"))
-        p.add_argument(
-            "--rotate",
-            default="auto",
-            choices=["auto", "keep", "short", "long"],
-            help=tr("auto = kürzeste Länge auf der Rolle"),
-        )
-        p.add_argument(
-            "--roll",
-            default="",
-            metavar=tr("ROLLE"),
-            help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"),
-        )
-        p.add_argument(
-            "--align",
-            default="",
-            choices=["", "center", "left", "right"],
-            help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"),
-        )
-        p.add_argument(
-            "--copies-mode",
-            default="",
-            choices=["", "sheets", "jobs", "count"],
-            help=tr(
-                "Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
-                "ein Auftrag; count = Kopienzahl"
-            ),
-        )
-        p.add_argument("--no-split", action="store_true", help=tr("wie --copies-mode count"))
-        p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
-        p.add_argument(
-            "--set",
-            action="append",
-            default=[],
-            metavar=tr("SCHLÜSSEL=WERT"),
-            help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"),
-        )
-        p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur Laufmeter und Rollen anzeigen"))
-        p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
-    elif cmd == "inspect":
-        p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
-        p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
-        p.add_argument(
-            "--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen")
-        )
-        p.add_argument("--password", help=tr("Passwort"))
+    add_args = _API_ARGS.get(cmd)
+    if add_args is not None:
+        add_args(p, cmd)
     p.add_argument("--json", action="store_true", help=tr("Ausgabe als JSON"))
     return p
 
@@ -663,108 +776,97 @@ def _tidy(a, rep, fail) -> int:
     return EXIT_OK
 
 
-def _serve(a, rep, fail) -> int:
-    """passermark-cli serve: watch drop folders (pdfdruck/watch.py)."""
-    import time
-    from . import core, watch, workflow
+def _serve_init(a, rep, fail) -> int:
+    """serve --init: create a template for the watcher settings."""
+    from . import watch, workflow
     from .l10n import tr
 
-    if a.init:
-        try:
-            path, new, made = watch.init_config(a.system)
-        except OSError as e:
-            return fail(workflow.E_FAILED, tr("Anlegen nicht möglich: {0}").format(e), EXIT_ERROR)
-        if a.json:
-            rep.emit(event="init", config=path, created=new, files=made)
-        elif new:
-            print(tr("Vorlage angelegt: {0}").format(path))
-            for m in made[1:]:
-                print("  + " + m)
-            print(tr("Anpassen, dann prüfen: passermark-cli serve --check"))
-        else:
-            print(tr("Gibt es schon – nichts geändert: {0}").format(path))
-        return EXIT_OK
     try:
-        path = watch.find_config(a.config)
-        cfg = watch.load_config(path)
-    except FileNotFoundError as e:
-        return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
-    except watch.WatchError as e:
+        path, new, made = watch.init_config(a.system)
+    except OSError as e:
+        return fail(workflow.E_FAILED, tr("Anlegen nicht möglich: {0}").format(e), EXIT_ERROR)
+    if a.json:
+        rep.emit(event="init", config=path, created=new, files=made)
+    elif new:
+        print(tr("Vorlage angelegt: {0}").format(path))
+        for m in made[1:]:
+            print("  + " + m)
+        print(tr("Anpassen, dann prüfen: passermark-cli serve --check"))
+    else:
+        print(tr("Gibt es schon – nichts geändert: {0}").format(path))
+    return EXIT_OK
+
+
+def _serve_check(a, rep, fail, path: str, cfg: dict) -> int:
+    """serve --check: check the watcher settings and show the folders."""
+    from . import shared, watch, workflow
+    from .l10n import tr
+
+    probs = watch.check(cfg)
+    if probs:
         return fail(
             workflow.E_INVALID,
-            tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(e.problems)),
+            tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(probs)),
             EXIT_USAGE,
-            problems=[{"where": w, "message": m} for w, m in e.problems],
+            problems=[{"where": w, "message": m} for w, m in probs],
         )
-    if a.check:
-        probs = watch.check(cfg)
-        if probs:
-            return fail(
-                workflow.E_INVALID,
-                tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(probs)),
-                EXIT_USAGE,
-                problems=[{"where": w, "message": m} for w, m in probs],
-            )
-        from . import shared
+    homes = [f for f in cfg["folders"] if shared.in_home(f["in"])]
+    if a.json:
+        rep.emit(
+            event="ok",
+            config=path,
+            folders=[
+                {"name": f["name"], "in": f["in"], "workflow": f["workflow"], "in_home": shared.in_home(f["in"])}
+                for f in cfg["folders"]
+            ],
+            notes=[shared.home_hint()] if homes else [],
+        )
+    else:
+        print(tr("Watcher-Einstellung in Ordnung: {0} Ordner").format(len(cfg["folders"])))
+        for f in cfg["folders"]:
+            print(f"  {f['in']}  →  {f['workflow']}" + ("  ⚠" if shared.in_home(f["in"]) else ""))
+        if homes:
+            print("  " + tr("Hinweis: {0}").format(shared.home_hint()))
+    return EXIT_OK
 
-        homes = [f for f in cfg["folders"] if shared.in_home(f["in"])]
-        if a.json:
-            rep.emit(
-                event="ok",
-                config=path,
-                folders=[
-                    {"name": f["name"], "in": f["in"], "workflow": f["workflow"], "in_home": shared.in_home(f["in"])}
-                    for f in cfg["folders"]
-                ],
-                notes=[shared.home_hint()] if homes else [],
-            )
-        else:
-            print(tr("Watcher-Einstellung in Ordnung: {0} Ordner").format(len(cfg["folders"])))
-            for f in cfg["folders"]:
-                print(f"  {f['in']}  →  {f['workflow']}" + ("  ⚠" if shared.in_home(f["in"]) else ""))
-            if homes:
-                print("  " + tr("Hinweis: {0}").format(shared.home_hint()))
-        return EXIT_OK
-    stop = {"flag": False}
 
-    def on_term(_sig, _frm):
-        stop["flag"] = True
+class _ServeOutput:
+    """What the watcher reports: lines with a timestamp on the console (or JSON events) and in the log file."""
 
-    try:
-        signal.signal(signal.SIGTERM, on_term)
-    except (ValueError, AttributeError, OSError):
-        pass
+    def __init__(self, a, rep, logf):
+        self.a, self.rep, self.logf = a, rep, logf
 
-    logf = None
-    if a.log:
-        try:
-            logf = open(a.log, "a", encoding="utf-8")
-        except OSError as e:
-            return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
-
-    def to_log(line):
-        if logf is not None:
+    def to_log(self, line: str):
+        """Append a line to the log file, if there is one."""
+        if self.logf is not None:
             try:
-                logf.write(line + "\n")
-                logf.flush()
+                self.logf.write(line + "\n")
+                self.logf.flush()
             except OSError:
                 pass
 
-    def say(text, err=False):
+    def say(self, text: str, err: bool = False):
+        """One line with a timestamp – to the log and, unless --quiet, to the console (errors always)."""
+        import time
+
         line = time.strftime("%Y-%m-%d %H:%M:%S") + "  " + text
-        to_log(line)
-        if a.quiet and not err:
+        self.to_log(line)
+        if self.a.quiet and not err:
             return
         try:
             print(line, file=sys.stderr if err else sys.stdout, flush=True)
         except (OSError, ValueError, AttributeError):  # Windows task without a console
             pass
 
-    def events(ev):
-        if a.json:
+    def events(self, ev: dict):
+        """Callback of the watcher: turn an event into JSON or readable lines."""
+        from .l10n import tr
+
+        say = self.say
+        if self.a.json:
             if ev["event"] != "progress":
-                rep.emit(**ev)
-                to_log(json.dumps(ev, ensure_ascii=False))
+                self.rep.emit(**ev)
+                self.to_log(json.dumps(ev, ensure_ascii=False))
             return
         e = ev["event"]
         if e == "watch_start":
@@ -793,7 +895,46 @@ def _serve(a, rep, fail) -> int:
             for pr in ev["problems"]:
                 say(f"    {pr['where'] or '–'}: {pr['message']}", err=True)
 
-    w = watch.Watcher(cfg, events, cancel=lambda: stop["flag"])
+
+def _serve(a, rep, fail) -> int:
+    """passermark-cli serve: watch drop folders (pdfdruck/watch.py)."""
+    from . import core, watch, workflow
+    from .l10n import tr
+
+    if a.init:
+        return _serve_init(a, rep, fail)
+    try:
+        path = watch.find_config(a.config)
+        cfg = watch.load_config(path)
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
+    except watch.WatchError as e:
+        return fail(
+            workflow.E_INVALID,
+            tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(e.problems)),
+            EXIT_USAGE,
+            problems=[{"where": w, "message": m} for w, m in e.problems],
+        )
+    if a.check:
+        return _serve_check(a, rep, fail, path, cfg)
+    stop = {"flag": False}
+
+    def on_term(_sig, _frm):
+        stop["flag"] = True
+
+    try:
+        signal.signal(signal.SIGTERM, on_term)
+    except (ValueError, AttributeError, OSError):
+        pass
+
+    logf = None
+    if a.log:
+        try:
+            logf = open(a.log, "a", encoding="utf-8")
+        except OSError as e:
+            return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
+    out = _ServeOutput(a, rep, logf)
+    w = watch.Watcher(cfg, out.events, cancel=lambda: stop["flag"])
     try:
         counts = w.run(once=a.once)
     except (core.Cancelled, KeyboardInterrupt):
@@ -801,7 +942,7 @@ def _serve(a, rep, fail) -> int:
     if a.json:
         rep.emit(event="stopped", **counts)
     else:
-        say(tr("Beendet: {0} verarbeitet, {1} mit Fehler").format(counts["done"], counts["failed"]))
+        out.say(tr("Beendet: {0} verarbeitet, {1} mit Fehler").format(counts["done"], counts["failed"]))
     if logf is not None:
         logf.close()
     return EXIT_ERROR if a.once and counts["failed"] else EXIT_OK

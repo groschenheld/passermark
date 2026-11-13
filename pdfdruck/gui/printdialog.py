@@ -651,11 +651,17 @@ class PrintDialog(QDialog):
 
     def _build_booklet_page(self):
         """Mode page "Broschüre": binding, signatures, blank pages, spreads for step and repeat."""
-        L = self.s.layout
         # -- Booklet
         bw = QWidget()
         self.stack.addWidget(bw)  # anchor at once, then fill
         bl = QFormLayout(bw)
+        self._build_booklet_binding(bl)
+        self._build_booklet_marks(bl)
+        self._build_booklet_spreads(bl)
+
+    def _build_booklet_binding(self, bl):
+        """Kind of binding, signatures, which pages, binding side, gutter and creep, blank pages."""
+        L = self.s.layout
         self.cmb_bkind = QComboBox()
         fill_combo(
             self.cmb_bkind,
@@ -740,6 +746,10 @@ class PrintDialog(QDialog):
         self.ed_blank = QLineEdit(L.booklet_blank_text)
         self.ed_blank.setPlaceholderText(tr("Hinweistext auf Leerseiten (optional), z. B. „Diese Seite bleibt leer“"))
         bl.addRow("", self.ed_blank)
+
+    def _build_booklet_marks(self, bl):
+        """Fold and stitch marks (only for the old path, hidden)."""
+        L = self.s.layout
         mrow = QHBoxLayout()
         self.chk_bfold = QCheckBox(tr("Falzmarken"))
         self.chk_bfold.setChecked(L.booklet_fold_marks)
@@ -761,6 +771,10 @@ class PrintDialog(QDialog):
         for _w in (self.spn_gutter, self.spn_creep):
             bl.setRowVisible(_w, False)
         bl.setRowVisible(mrow, False)
+
+    def _build_booklet_spreads(self, bl):
+        """Spreads for step and repeat, the overview and the hint line."""
+        L = self.s.layout
         # Spreads for step and repeat: booklet -> its own document (one opened spread per sheet side),
         # which is then imposed in "Nutzen" mode with arrangement/bleed/crop marks/step 2
         self.cmb_bspread = QComboBox()
