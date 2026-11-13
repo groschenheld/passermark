@@ -151,7 +151,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/__main__.py` | 148 | passermark [--print] [--open] [FILES …] |
 | `pdfdruck/app.py` | 473 | Program-wide state + single instance. |
 | `pdfdruck/cfgvalidate.py` | 313 | Validation of the admin configuration – shared by the Linux helper (pkexec) and the Windows helper (UAC). |
-| `pdfdruck/cli.py` | 1399 | Command line: run jobs without a GUI. |
+| `pdfdruck/cli.py` | 1510 | Command line: run jobs without a GUI. |
 | `pdfdruck/cmyk.py` | 386 | CMYK conversion of PDFs and color-accurate preview. |
 | `pdfdruck/colorcheck.py` | 733 | Colour check of a document against a printing condition – facts, findings, recommendations. No Qt. |
 | `pdfdruck/colorconv.py` | 63 | Color conversion of the finished print PDF to an output profile. |

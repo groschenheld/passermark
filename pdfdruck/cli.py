@@ -817,31 +817,20 @@ def _vars(items) -> dict:
     return out
 
 
-def api_main(cmd: str, argv: list[str]) -> int:
-    """Run one of the API commands (version, schema, check, run, inspect, printers, caps, plan …)."""
-    from . import __version__, core, workflow
+def _print_json(d, indent=None) -> None:
+    print(json.dumps(d, ensure_ascii=False, indent=indent))
+
+
+def _cmd_version(a, rep, fail) -> int:
+    """passermark-cli version: program, API and workflow versions; with --json also what workflows may contain."""
+    from . import __version__, conditions, workflow
     from .l10n import tr
 
-    try:
-        a = _api_parser(cmd).parse_args(argv)
-    except SystemExit as e:
-        return EXIT_USAGE if e.code else EXIT_OK
-    rep = _Reporter(a.json, getattr(a, "quiet", False))
-
-    def fail(code: str, msg: str, exit_code: int, **extra):
-        rep.finish_line()
-        if a.json:
-            rep.emit(event="cancelled" if code == workflow.E_CANCELLED else "error", code=code, message=msg, **extra)
-        else:
-            print(msg, file=sys.stderr)
-            for pr in extra.get("problems", []):
-                print(f"  {pr['where'] or '–'}: {pr['message']}", file=sys.stderr)
-        return exit_code
-
-    if cmd == "version":
-        from . import conditions
-
-        d = {
+    if not a.json:
+        print(f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})")
+        return EXIT_OK
+    _print_json(
+        {
             "passermark": __version__,
             "api": workflow.API,
             "workflow_version": workflow.VERSION,
@@ -854,95 +843,130 @@ def api_main(cmd: str, argv: list[str]) -> int:
                 "variables": conditions.VAR_PREFIX + "NAME",
             },
         }
-        print(
-            json.dumps(d, ensure_ascii=False)
-            if a.json
-            else f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})"
+    )
+    return EXIT_OK
+
+
+def _cmd_schema(a, rep, fail) -> int:
+    """passermark-cli schema [JOB]: the settings of one job, or the schema of a whole workflow."""
+    from . import workflow
+
+    if a.job:
+        try:
+            d = workflow.settings_schema(workflow.step_settings_class(a.job))
+        except ValueError as e:
+            return fail(workflow.E_USAGE, str(e), EXIT_USAGE)
+    else:
+        d = workflow.schema()
+    _print_json(d, indent=None if a.json else 2)
+    return EXIT_OK
+
+
+def _caps_text(d: dict) -> str:
+    """Capabilities of one printer (printcli.caps_info) as text for humans."""
+    from .l10n import tr
+
+    lines = [f"{d['name']} ({d['backend']})"]
+    for role, key in d["roles"].items():
+        o = next((x for x in d["options"] if x["keyword"] == key), None)
+        if o:
+            values = ", ".join(c["value"] for c in o["choices"][:12])
+            lines.append(f"  {role} = {key}: {values}" + (" …" if len(o["choices"]) > 12 else ""))
+    finishing = [o for o in d["options"] if o.get("finishing")]
+    if finishing:
+        lines.append("  " + tr("Endverarbeitung:"))
+        for o in finishing:
+            choices = [
+                c["value"] + ("" if c.get("available", True) else " (" + tr("nicht installiert") + ")")
+                for c in o["choices"]
+            ]
+            lines.append(f"    {o['keyword']} ({o['text']}): " + ", ".join(choices))
+    if d["installed_hardware"]:
+        hardware = ", ".join(f"{k}={v}" for k, v in d["installed_hardware"].items())
+        lines.append("  " + tr("Installierte Hardware:") + " " + hardware)
+    if d["finisher_presets"]:
+        lines.append("  " + tr("Finisher-Vorlagen:") + " " + ", ".join(p["name"] for p in d["finisher_presets"]))
+    if d["driver_dialog"]:
+        lines.append(
+            "  "
+            + tr(
+                "Herstellerfunktionen (Windows): in der Verwaltung als Finisher-Vorlage über den "
+                "Herstellerdialog anlegen, im Ablauf mit finisher_preset wählen."
+            )
         )
+    lines.append("  " + tr("{0} Treiberoptionen insgesamt (--json zeigt alle)").format(len(d["options"])))
+    return "\n".join(lines)
+
+
+def _cmd_printers(a, rep, fail) -> int:
+    """passermark-cli printers / caps PRINTER: the printers, or the capabilities of one of them."""
+    from . import printcli, workflow
+    from .l10n import tr
+
+    try:
+        d = printcli.printers_info() if a.cmd == "printers" else printcli.caps_info(a.printer)
+    except Exception as e:  # noqa: BLE001 – e.g. CUPS not reachable
+        return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
+    if a.json:
+        _print_json(d)
+    elif a.cmd == "printers":
+        for pr in d:
+            print(("* " if pr["default"] else "  ") + f"{pr['name']}\t{pr['state_text']}\t{pr['model']}")
+    else:
+        print(_caps_text(d))
+    return EXIT_OK
+
+
+def _roll_state(a):
+    """Rolls of printer a.printer: from the device at a.host if given, otherwise as the session finds them."""
+    from . import config, rolls as rl
+    from .session import Session
+
+    sess = Session(config.load())
+    if not a.host:
+        return rl.for_printer(sess, a.printer, live=True, force=True)
+    q = rl.query(a.host, force=True)
+    st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host, list(q.catalog))
+    caps = sess.caps_for(a.printer)
+    for i, r in enumerate(st.rolls):
+        r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
+    return st
+
+
+def _rolls_text(printer: str, st) -> str:
+    """Rolls of a printer as text for humans, including media that are defined on the device but not loaded."""
+    from .l10n import tr
+
+    lines = [f"{printer} ({st.host or '–'}, {st.origin})"]
+    for r in st.rolls:
+        lines.append("  " + r.label() + (f"  → {r.slot}" if r.slot else ""))
+    loaded = {(r.media or r.name).lower() for r in st.rolls}
+    not_loaded = [c for c in st.catalog if c["name"].lower() not in loaded]
+    if not_loaded:
+        names = ", ".join(
+            c["name"] + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g" not in c["name"] else "")
+            for c in not_loaded
+        )
+        lines.append("  " + tr("Am Gerät angelegt, nicht geladen:") + " " + names)
+    if not st.rolls:
+        lines.append("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
+    return "\n".join(lines)
+
+
+def _cmd_rolls(a, rep, fail) -> int:
+    """passermark-cli rolls PRINTER [--host H]: what is loaded in a roll printer."""
+    from . import workflow
+    from .l10n import tr
+
+    try:
+        st = _roll_state(a)
+    except Exception as e:  # noqa: BLE001 – device or driver not reachable
+        return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
+    if not a.json:
+        print(_rolls_text(a.printer, st))
         return EXIT_OK
-
-    if cmd == "schema":
-        if a.job:
-            try:
-                d = workflow.settings_schema(workflow.step_settings_class(a.job))
-            except ValueError as e:
-                return fail(workflow.E_USAGE, str(e), EXIT_USAGE)
-        else:
-            d = workflow.schema()
-        print(json.dumps(d, ensure_ascii=False, indent=None if a.json else 2))
-        return EXIT_OK
-
-    if cmd in ("printers", "caps"):
-        from . import printcli
-
-        try:
-            d = printcli.printers_info() if cmd == "printers" else printcli.caps_info(a.printer)
-        except Exception as e:  # noqa: BLE001 – z. B. CUPS nicht erreichbar
-            return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
-        if a.json:
-            print(json.dumps(d, ensure_ascii=False))
-        elif cmd == "printers":
-            for pr in d:
-                print(("* " if pr["default"] else "  ") + f"{pr['name']}\t{pr['state_text']}\t{pr['model']}")
-        else:
-            print(f"{d['name']} ({d['backend']})")
-            for role, key in d["roles"].items():
-                o = next((x for x in d["options"] if x["keyword"] == key), None)
-                if o:
-                    print(
-                        f"  {role} = {key}: "
-                        + ", ".join(c["value"] for c in o["choices"][:12])
-                        + (" …" if len(o["choices"]) > 12 else "")
-                    )
-            fin = [o for o in d["options"] if o.get("finishing")]
-            if fin:
-                print("  " + tr("Endverarbeitung:"))
-                for o in fin:
-                    ch = [
-                        c["value"] + ("" if c.get("available", True) else " (" + tr("nicht installiert") + ")")
-                        for c in o["choices"]
-                    ]
-                    print(f"    {o['keyword']} ({o['text']}): " + ", ".join(ch))
-            if d["installed_hardware"]:
-                print(
-                    "  "
-                    + tr("Installierte Hardware:")
-                    + " "
-                    + ", ".join(f"{k}={v}" for k, v in d["installed_hardware"].items())
-                )
-            if d["finisher_presets"]:
-                print("  " + tr("Finisher-Vorlagen:") + " " + ", ".join(p["name"] for p in d["finisher_presets"]))
-            if d["driver_dialog"]:
-                print(
-                    "  "
-                    + tr(
-                        "Herstellerfunktionen (Windows): in der Verwaltung als Finisher-Vorlage über den "
-                        "Herstellerdialog anlegen, im Ablauf mit finisher_preset wählen."
-                    )
-                )
-            print("  " + tr("{0} Treiberoptionen insgesamt (--json zeigt alle)").format(len(d["options"])))
-        return EXIT_OK
-
-    if cmd == "rolls":
-        from . import rolls as rl
-        from .session import Session
-        from . import config
-
-        try:
-            sess = Session(config.load())
-            if a.host:
-                q = rl.query(a.host, force=True)
-                st = rl.RollState(
-                    [rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host, list(q.catalog)
-                )
-                caps = sess.caps_for(a.printer)
-                for i, r in enumerate(st.rolls):
-                    r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
-            else:
-                st = rl.for_printer(sess, a.printer, live=True, force=True)
-        except Exception as e:  # noqa: BLE001
-            return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
-        d = {
+    _print_json(
+        {
             "printer": a.printer,
             "host": st.host,
             "origin": st.origin,
@@ -950,189 +974,350 @@ def api_main(cmd: str, argv: list[str]) -> int:
             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls],
             "catalog": list(st.catalog),
         }
-        if a.json:
-            print(json.dumps(d, ensure_ascii=False))
-        else:
-            print(f"{a.printer} ({st.host or '–'}, {st.origin})")
-            for r in st.rolls:
-                print("  " + r.label() + (f"  → {r.slot}" if r.slot else ""))
-            loaded = {(r.media or r.name).lower() for r in st.rolls}
-            more = [c for c in st.catalog if c["name"].lower() not in loaded]
-            if more:
-                print(
-                    "  "
-                    + tr("Am Gerät angelegt, nicht geladen:")
-                    + " "
-                    + ", ".join(
-                        c["name"]
-                        + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g" not in c["name"] else "")
-                        for c in more
-                    )
-                )
-            if not st.rolls:
-                print("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
-        return EXIT_OK
+    )
+    return EXIT_OK
 
-    if cmd == "plan":
-        return _plan_cmd(a, rep, fail)
 
-    if cmd == "materials":
-        from . import printmat
+def _materials_import(a, rep, fail) -> int:
+    """passermark-cli materials import FILE: add the materials of a CSV/JSON file (not with --dry-run)."""
+    from . import printmat, workflow
+    from .l10n import tr
 
-        if a.action == "import":
-            if not a.file:
-                return fail(workflow.E_USAGE, tr("Datei angeben: passermark-cli materials import DATEI"), EXIT_USAGE)
-            try:
-                new = printmat.parse_import(a.file, a.printer)
-                lst, n = printmat.merge(printmat.load(), new)
-                if not a.dry_run:
-                    printmat.save(lst)
-            except FileNotFoundError:
-                return fail(workflow.E_NOT_FOUND, tr("Datei nicht gefunden: {0}").format(a.file), EXIT_USAGE)
-            except (OSError, ValueError) as e:
-                return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
-            if a.json:
-                rep.emit(event="done", found=len(new), added=n, dry_run=a.dry_run, materials=new)
-            else:
-                print(
-                    tr("{0} gefunden, {1} neu{2}").format(
-                        len(new), n, tr(" (Probelauf – nichts gespeichert)") if a.dry_run else ""
-                    )
-                )
-                for m in new:
-                    print(f"  {m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}")
-            return EXIT_OK
-        mats = printmat.for_printer(a.printer) if a.printer else printmat.load()
-        if a.json:
-            print(json.dumps({"materials": mats}, ensure_ascii=False))
-        else:
-            for m in mats:
-                print(
-                    f"{m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}  ·  {m.get('color_mode', 'convert')}"
-                    f"  ·  {m.get('source', 'hand')} {m.get('updated', '')}"
-                    + ("" if m.get("checked", True) else "  ·  " + tr("ungeprüft"))
-                    + (f"  ·  {m['printer']}" if m["printer"] else "")
-                )
-        return EXIT_OK
-
-    if cmd == "shared-folder":
-        from . import shared
-
-        if not a.status:
-            code, out = shared.setup(a.user)
-            if code != 0:
-                return fail(workflow.E_FAILED, out or f"Code {code}", EXIT_ERROR)
-        st = shared.status()
-        if a.json:
-            rep.emit(event="done", **st, **({} if a.status else {"output": out}))
-        else:
-            if not a.status and out:
-                print(out)
-            print(shared.status_text(st))
-        return EXIT_OK
-
-    if cmd == "probe":
-        import re as _re
-        from . import probe, rolls as rl
-        from .session import Session
-        from . import config
-
-        host, printer = a.host or "", ""
-        if not host:
-            if (
-                _re.fullmatch(r"[\w.\-]+", a.target)
-                and ("." in a.target or ":" in a.target)
-                and not _is_printer(a.target)
-            ):
-                host = a.target
-            else:
-                printer = a.target
-                host = rl.host_for(Session(config.load()), printer)
-        else:
-            printer = a.target
-        d = probe.run(host, printer, a.community, progress=None if a.json else (lambda t: None))
-        if a.out:
-            probe.save(d, a.out)
-        if a.json:
-            print(json.dumps(d, ensure_ascii=False))
-        else:
-            print(probe.text(d), end="")
-            if a.out:
-                print(tr("Bericht: {0}").format(os.path.abspath(a.out)))
-        return EXIT_OK
-
-    if cmd == "inspect":
-        from . import docinfo
-
-        try:
-            d = docinfo.inspect(a.file, a.password, a.check, printer=a.printer)
-        except FileNotFoundError as e:
-            return fail(workflow.E_NOT_FOUND, str(e), EXIT_ERROR)
-        except Exception as e:  # noqa: BLE001 – jede Ursache melden
-            return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
-        print(json.dumps(d, ensure_ascii=False) if a.json else docinfo.text_summary(d))
-        return EXIT_OK
-
-    if cmd == "workflows":
-        if a.dirs:
-            d = [{"source": src, "folder": f, "exists": os.path.isdir(f)} for src, f in workflow.folders()]
-            if a.json:
-                print(json.dumps(d, ensure_ascii=False))
-            else:
-                for x in d:
-                    print(
-                        f"{x['source']:<7} "
-                        + x["folder"]
-                        + ("" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")")
-                    )
-            return EXIT_OK
-        d = workflow.list_workflows()
-        if a.json:
-            print(json.dumps(d, ensure_ascii=False))
-        else:
-            if not d:
-                print(tr("Keine Abläufe in den Ablauf-Ordnern (passermark-cli workflows --dirs)."))
-            for w in d:
-                print(
-                    f"{w['name']}\t"
-                    + (tr("Fehler: {0}").format(w["error"]) if w["error"] else " → ".join(j or "?" for j in w["jobs"]))
-                    + (f"\t{w['description']}" if w["description"] else "")
-                )
-        return EXIT_OK
-
-    if cmd == "serve":
-        return _serve(a, rep, fail)
-    if cmd == "tidy":
-        return _tidy(a, rep, fail)
-
-    # check / run / reprint
-    notes0 = []
+    if not a.file:
+        return fail(workflow.E_USAGE, tr("Datei angeben: passermark-cli materials import DATEI"), EXIT_USAGE)
     try:
-        if cmd == "reprint":  # print log: the stored workflow, exactly as it was then
-            from . import printlog
+        new = printmat.parse_import(a.file, a.printer)
+        merged, added = printmat.merge(printmat.load(), new)
+        if not a.dry_run:
+            printmat.save(merged)
+    except FileNotFoundError:
+        return fail(workflow.E_NOT_FOUND, tr("Datei nicht gefunden: {0}").format(a.file), EXIT_USAGE)
+    except (OSError, ValueError) as e:
+        return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
+    if a.json:
+        rep.emit(event="done", found=len(new), added=added, dry_run=a.dry_run, materials=new)
+        return EXIT_OK
+    dry = tr(" (Probelauf – nichts gespeichert)") if a.dry_run else ""
+    print(tr("{0} gefunden, {1} neu{2}").format(len(new), added, dry))
+    for m in new:
+        print(f"  {m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}")
+    return EXIT_OK
 
-            rec = printlog.load(a.log)
-            data = rec["workflow"]
-            a.workflow, a.output, a.var = os.path.abspath(a.log), None, []
-            if a.dry_run:
-                for st in data.get("steps") or []:
-                    if st.get("job") in workflow.PRINTS:
-                        st.setdefault("settings", {})["dry_run"] = True
-            old = rec["job"].get("file")
-            if not a.inputs and old and rec["job"].get("file_sha256") and not rec["job"].get("files"):
-                if not os.path.isfile(old):
-                    raise FileNotFoundError(
-                        tr("Protokollierte Datei nicht mehr da: {0} – mit --in angeben.").format(old)
-                    )
-                if printlog._sha256(old) != rec["job"]["file_sha256"]:
-                    notes0.append(tr("Die Datei wurde seit dem Druck verändert: {0}").format(old))
-        else:
-            a.workflow = workflow.find(a.workflow)
-            data = workflow.load(a.workflow)
-        # entries on the command line are relative to the current folder, paths in the file to its folder
-        ins = [os.path.abspath(x) for x in a.inputs] or None
-        out = os.path.abspath(a.output) if a.output else None
-        plan = workflow.prepare(data, os.path.dirname(os.path.abspath(a.workflow)), ins, out, _vars(a.var))
+
+def _cmd_materials(a, rep, fail) -> int:
+    """passermark-cli materials list|import: the print materials of plan and poster printing."""
+    from . import printmat
+    from .l10n import tr
+
+    if a.action == "import":
+        return _materials_import(a, rep, fail)
+    mats = printmat.for_printer(a.printer) if a.printer else printmat.load()
+    if a.json:
+        _print_json({"materials": mats})
+        return EXIT_OK
+    for m in mats:
+        print(
+            f"{m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}  ·  {m.get('color_mode', 'convert')}"
+            f"  ·  {m.get('source', 'hand')} {m.get('updated', '')}"
+            + ("" if m.get("checked", True) else "  ·  " + tr("ungeprüft"))
+            + (f"  ·  {m['printer']}" if m["printer"] else "")
+        )
+    return EXIT_OK
+
+
+def _cmd_shared_folder(a, rep, fail) -> int:
+    """passermark-cli shared-folder [--status]: set up the shared print folder and report its state."""
+    from . import shared, workflow
+
+    out = ""
+    if not a.status:
+        code, out = shared.setup(a.user)
+        if code != 0:
+            return fail(workflow.E_FAILED, out or f"Code {code}", EXIT_ERROR)
+    st = shared.status()
+    if a.json:
+        rep.emit(event="done", **st, **({} if a.status else {"output": out}))
+        return EXIT_OK
+    if out:
+        print(out)
+    print(shared.status_text(st))
+    return EXIT_OK
+
+
+def _probe_target(a) -> tuple[str, str]:
+    """(host, printer) for the device check: TARGET is a printer name or, if it looks like one, an address."""
+    import re
+    from . import config, rolls as rl
+    from .session import Session
+
+    if a.host:
+        return a.host, a.target
+    looks_like_address = re.fullmatch(r"[\w.\-]+", a.target) and ("." in a.target or ":" in a.target)
+    if looks_like_address and not _is_printer(a.target):
+        return a.target, ""
+    return rl.host_for(Session(config.load()), a.target), a.target
+
+
+def _cmd_probe(a, rep, fail) -> int:
+    """passermark-cli probe TARGET: what a device reveals over the network (read only)."""
+    from . import probe
+    from .l10n import tr
+
+    host, printer = _probe_target(a)
+    d = probe.run(host, printer, a.community, progress=None if a.json else (lambda t: None))
+    if a.out:
+        probe.save(d, a.out)
+    if a.json:
+        _print_json(d)
+        return EXIT_OK
+    print(probe.text(d), end="")
+    if a.out:
+        print(tr("Bericht: {0}").format(os.path.abspath(a.out)))
+    return EXIT_OK
+
+
+def _cmd_inspect(a, rep, fail) -> int:
+    """passermark-cli inspect FILE [--check]: document details, optionally with the document check."""
+    from . import docinfo, workflow
+
+    try:
+        d = docinfo.inspect(a.file, a.password, a.check, printer=a.printer)
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, str(e), EXIT_ERROR)
+    except Exception as e:  # noqa: BLE001 – report every cause
+        return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
+    print(json.dumps(d, ensure_ascii=False) if a.json else docinfo.text_summary(d))
+    return EXIT_OK
+
+
+def _cmd_workflows(a, rep, fail) -> int:
+    """passermark-cli workflows [--dirs]: the workflows that can be called by name, or their folders."""
+    from . import workflow
+    from .l10n import tr
+
+    if a.dirs:
+        d = [{"source": src, "folder": f, "exists": os.path.isdir(f)} for src, f in workflow.folders()]
+        if a.json:
+            _print_json(d)
+            return EXIT_OK
+        for x in d:
+            missing = "" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")"
+            print(f"{x['source']:<7} " + x["folder"] + missing)
+        return EXIT_OK
+    d = workflow.list_workflows()
+    if a.json:
+        _print_json(d)
+        return EXIT_OK
+    if not d:
+        print(tr("Keine Abläufe in den Ablauf-Ordnern (passermark-cli workflows --dirs)."))
+    for w in d:
+        steps = tr("Fehler: {0}").format(w["error"]) if w["error"] else " → ".join(j or "?" for j in w["jobs"])
+        print(f"{w['name']}\t{steps}" + (f"\t{w['description']}" if w["description"] else ""))
+    return EXIT_OK
+
+
+def _reprint_data(a) -> tuple[dict, list]:
+    """Workflow stored in a print log record, exactly as it ran then. -> (workflow data, notes).
+
+    Sets a.workflow/a.output/a.var for the common path. Raises FileNotFoundError if the logged file is gone.
+    """
+    from . import printlog, workflow
+    from .l10n import tr
+
+    notes = []
+    rec = printlog.load(a.log)
+    data = rec["workflow"]
+    a.workflow, a.output, a.var = os.path.abspath(a.log), None, []
+    if a.dry_run:
+        for st in data.get("steps") or []:
+            if st.get("job") in workflow.PRINTS:
+                st.setdefault("settings", {})["dry_run"] = True
+    job = rec["job"]
+    logged = job.get("file")
+    if not a.inputs and logged and job.get("file_sha256") and not job.get("files"):
+        if not os.path.isfile(logged):
+            raise FileNotFoundError(tr("Protokollierte Datei nicht mehr da: {0} – mit --in angeben.").format(logged))
+        if printlog._sha256(logged) != job["file_sha256"]:
+            notes.append(tr("Die Datei wurde seit dem Druck verändert: {0}").format(logged))
+    return data, notes
+
+
+def _prepare_plan(a) -> tuple:
+    """Load and check the workflow of check/run/reprint. -> (plan, notes). Raises what loading raises."""
+    from . import workflow
+
+    if a.cmd == "reprint":
+        data, notes = _reprint_data(a)
+    else:
+        a.workflow = workflow.find(a.workflow)
+        data, notes = workflow.load(a.workflow), []
+    # entries on the command line are relative to the current folder, paths in the file to its folder
+    inputs = [os.path.abspath(x) for x in a.inputs] or None
+    output = os.path.abspath(a.output) if a.output else None
+    plan = workflow.prepare(data, os.path.dirname(os.path.abspath(a.workflow)), inputs, output, _vars(a.var))
+    return plan, notes
+
+
+def _steps_text(steps, indent: str = "  ", num: str = "") -> list[str]:
+    """The steps of a checked workflow as numbered lines; branches are indented below their step."""
+    from . import workflow
+    from .l10n import tr
+
+    lines = []
+    for i, st in enumerate(steps, 1):
+        n = f"{num}{i}."
+        if st.job == workflow.CHOOSE:
+            lines.append(f"{indent}{n} {tr('Verzweigung')}")
+            for cond, sub in st.branches or []:
+                when = tr("wenn {0}").format(json.dumps(cond, ensure_ascii=False)) if cond is not None else tr("sonst")
+                lines.append(f"{indent}   {when}")
+                lines += _steps_text(sub, indent + "      ", n)
+            continue
+        extra = f" – {st.name}" if st.name != st.job else ""
+        if st.message:
+            extra += f" „{st.message}“"
+        if st.cond is not None:
+            extra += "  " + tr("(nur wenn {0})").format(json.dumps(st.cond, ensure_ascii=False))
+        lines.append(f"{indent}{n} {st.job}{extra}")
+    return lines
+
+
+def _show_check(a, plan) -> int:
+    """passermark-cli check: the workflow is valid – show what it would do."""
+    from .l10n import tr
+
+    if a.json:
+        _print_json(
+            {
+                "ok": True,
+                "name": plan.name,
+                "inputs": plan.inputs,
+                "output": plan.output,
+                "steps": [st.to_dict() for st in plan.steps],
+            }
+        )
+        return EXIT_OK
+    print(tr("Ablauf in Ordnung: {0} Schritt(e)").format(len(plan.steps)))
+    for line in _steps_text(plan.steps):
+        print(line)
+    print("  " + ", ".join(plan.inputs) + " → " + (plan.output or tr("(nur drucken)")))
+    return EXIT_OK
+
+
+def _branch_text(ev: dict) -> str:
+    """Text for a "branch" event: which branch of a choose step was taken."""
+    from .l10n import tr
+
+    if ev["branch"] == "else":
+        return tr("Verzweigung {0}: Zweig „sonst“").format(ev["where"])
+    if ev["taken"] is not None:
+        return tr("Verzweigung {0}: Zweig {1}").format(ev["where"], ev["taken"] + 1)
+    return tr("Verzweigung {0}: kein Zweig passt").format(ev["where"])
+
+
+class _RunOutput:
+    """Shows the events of a running workflow: JSON lines, or a progress bar with notes in between."""
+
+    def __init__(self, a, rep, steps: int):
+        self.a, self.rep = a, rep
+        self.step, self.steps, self.job = 0, steps, ""
+
+    def __call__(self, ev: dict) -> None:
+        from .l10n import tr
+
+        kind = ev["event"]
+        if kind == "step":
+            self.step, self.job, self.steps = ev["step"], ev["job"], ev.get("steps") or self.steps
+        if self.a.json:
+            self.rep.emit(**ev)
+        elif kind == "progress":
+            self.rep.progress(ev["done"], ev["total"], f"{self.step}/{self.steps} {self.job}  {ev.get('text', '')}")
+        elif kind == "step":
+            self._end_line()
+        elif kind in ("step_skipped", "branch", "stopped") and not self.a.quiet:
+            self._end_line()
+            if kind == "step_skipped":
+                print("  " + tr("übersprungen: {0} ({1}) – Bedingung nicht erfüllt").format(ev["job"], ev["where"]))
+            elif kind == "branch":
+                print("  " + _branch_text(ev))
+            else:
+                print("  " + tr("Beendet: {0}").format(ev["message"]))
+
+    def _end_line(self) -> None:
+        self.rep.finish_line()
+        self.rep.last = ""
+
+
+def _print_step_text(info: dict) -> str:
+    """One line about a finished print step: where it went, or what a dry run would have sent."""
+    from .l10n import tr
+
+    if info.get("dry_run"):
+        return tr("Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm").format(
+            info.get("printer"), info.get("pages"), *(info.get("sheet_mm") or [0, 0])
+        )
+    job_id = info.get("job_id") if info.get("job_id") is not None else "–"
+    return tr("Gedruckt auf {0}: {1} Seite(n), Auftrag {2}").format(info.get("printer"), info.get("pages"), job_id)
+
+
+def _show_result(result: dict) -> None:
+    """Summary of a finished workflow for humans: print steps, output file, notes."""
+    from . import workflow
+    from .l10n import tr
+
+    for s in result["steps"]:
+        if s["job"] == workflow.PLAN:
+            print(plan_text(s["info"] or {}))
+        elif s["job"] == workflow.PRINT:
+            print(_print_step_text(s["info"] or {}))
+    if result["output"]:
+        pages = "  (" + tr("{0} Seite(n)").format(result["pages"]) + ")" if result["pages"] is not None else ""
+        print(result["output"] + pages)
+    for note in result["notes"]:
+        print("  " + tr("Hinweis: {0}").format(note))
+
+
+def _run_plan(a, rep, fail, plan, notes: list) -> int:
+    """passermark-cli run / reprint: execute the prepared workflow and report progress and result."""
+    from . import __version__, core, workflow
+    from .l10n import tr
+
+    stop = {"flag": False}
+
+    def on_term(_sig, _frm):
+        stop["flag"] = True
+
+    try:
+        signal.signal(signal.SIGTERM, on_term)
+    except (ValueError, AttributeError, OSError):
+        pass
+    out = _RunOutput(a, rep, len(plan.steps))
+    if a.json:
+        rep.emit(event="start", api=workflow.API, version=__version__, steps=len(plan.steps), output=plan.output)
+    try:
+        result = workflow.run(plan, out, cancel=lambda: stop["flag"], variables=_vars(a.var))
+        result["notes"] = notes + list(result.get("notes") or [])
+    except (core.Cancelled, KeyboardInterrupt):
+        return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED, step=out.step)
+    except workflow.Rejected as e:  # "fail" step
+        return fail(workflow.E_REJECTED, str(e), EXIT_ERROR, step=out.step)
+    except Exception as e:  # noqa: BLE001 – report every cause
+        return fail(workflow.E_FAILED, str(e), EXIT_ERROR, step=out.step, job=out.job)
+    rep.finish_line()
+    if a.json:
+        rep.emit(event="done", **result)
+    elif not a.quiet:
+        _show_result(result)
+    return EXIT_OK
+
+
+def _cmd_workflow(a, rep, fail) -> int:
+    """passermark-cli check / run / reprint: load and check a workflow, then show or execute it."""
+    from . import workflow
+    from .l10n import tr
+
+    try:
+        plan, notes = _prepare_plan(a)
     except FileNotFoundError as e:
         return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
     except workflow.WorkflowError as e:
@@ -1144,127 +1329,53 @@ def api_main(cmd: str, argv: list[str]) -> int:
         )
     except (OSError, ValueError) as e:
         return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
+    if a.cmd == "check":
+        return _show_check(a, plan)
+    return _run_plan(a, rep, fail, plan, notes)
 
-    if cmd == "check":
-        d = {
-            "ok": True,
-            "name": plan.name,
-            "inputs": plan.inputs,
-            "output": plan.output,
-            "steps": [st.to_dict() for st in plan.steps],
-        }
+
+def _api_handler(cmd: str):
+    """The function that runs the API command ``cmd``; all take (args, reporter, fail) and return the exit code."""
+    return {
+        "version": _cmd_version,
+        "schema": _cmd_schema,
+        "printers": _cmd_printers,
+        "caps": _cmd_printers,
+        "rolls": _cmd_rolls,
+        "plan": _plan_cmd,
+        "materials": _cmd_materials,
+        "shared-folder": _cmd_shared_folder,
+        "probe": _cmd_probe,
+        "inspect": _cmd_inspect,
+        "workflows": _cmd_workflows,
+        "serve": _serve,
+        "tidy": _tidy,
+    }.get(cmd, _cmd_workflow)
+
+
+def api_main(cmd: str, argv: list[str]) -> int:
+    """Run one of the API commands (version, schema, check, run, inspect, printers, caps, plan …)."""
+    from . import workflow
+
+    try:
+        a = _api_parser(cmd).parse_args(argv)
+    except SystemExit as e:
+        return EXIT_USAGE if e.code else EXIT_OK
+    a.cmd = cmd
+    rep = _Reporter(a.json, getattr(a, "quiet", False))
+
+    def fail(code: str, msg: str, exit_code: int, **extra):
+        """Report an error (JSON event or text on stderr) and return the exit code."""
+        rep.finish_line()
         if a.json:
-            print(json.dumps(d, ensure_ascii=False))
+            rep.emit(event="cancelled" if code == workflow.E_CANCELLED else "error", code=code, message=msg, **extra)
         else:
-            print(tr("Ablauf in Ordnung: {0} Schritt(e)").format(len(plan.steps)))
+            print(msg, file=sys.stderr)
+            for pr in extra.get("problems", []):
+                print(f"  {pr['where'] or '–'}: {pr['message']}", file=sys.stderr)
+        return exit_code
 
-            def show(steps, indent, num):
-                for i, st in enumerate(steps, 1):
-                    n = f"{num}{i}."
-                    if st.job == workflow.CHOOSE:
-                        print(f"{indent}{n} {tr('Verzweigung')}")
-                        for c, sub in st.branches or []:
-                            print(
-                                f"{indent}   "
-                                + (
-                                    tr("wenn {0}").format(json.dumps(c, ensure_ascii=False))
-                                    if c is not None
-                                    else tr("sonst")
-                                )
-                            )
-                            show(sub, indent + "      ", n)
-                        continue
-                    extra = f" – {st.name}" if st.name != st.job else ""
-                    if st.message:
-                        extra += f" „{st.message}“"
-                    if st.cond is not None:
-                        extra += "  " + tr("(nur wenn {0})").format(json.dumps(st.cond, ensure_ascii=False))
-                    print(f"{indent}{n} {st.job}{extra}")
-
-            show(plan.steps, "  ", "")
-            print("  " + ", ".join(plan.inputs) + " → " + (plan.output or tr("(nur drucken)")))
-        return EXIT_OK
-
-    stop = {"flag": False}
-
-    def on_term(_sig, _frm):
-        stop["flag"] = True
-
-    try:
-        signal.signal(signal.SIGTERM, on_term)
-    except (ValueError, AttributeError, OSError):
-        pass
-    cur = {"step": 0, "n": len(plan.steps), "job": ""}
-
-    def events(ev):
-        if ev["event"] == "step":
-            cur.update(step=ev["step"], job=ev["job"], n=ev.get("steps") or cur["n"])
-        if a.json:
-            rep.emit(**ev)
-            return
-        if ev["event"] == "step":
-            rep.finish_line()
-            rep.last = ""
-        elif ev["event"] in ("step_skipped", "branch", "stopped") and not a.quiet:
-            rep.finish_line()
-            rep.last = ""
-            if ev["event"] == "step_skipped":
-                print("  " + tr("übersprungen: {0} ({1}) – Bedingung nicht erfüllt").format(ev["job"], ev["where"]))
-            elif ev["event"] == "branch":
-                print(
-                    "  "
-                    + (
-                        tr("Verzweigung {0}: Zweig „sonst“").format(ev["where"])
-                        if ev["branch"] == "else"
-                        else tr("Verzweigung {0}: Zweig {1}").format(ev["where"], ev["taken"] + 1)
-                        if ev["taken"] is not None
-                        else tr("Verzweigung {0}: kein Zweig passt").format(ev["where"])
-                    )
-                )
-            else:
-                print("  " + tr("Beendet: {0}").format(ev["message"]))
-        elif ev["event"] == "progress":
-            rep.progress(ev["done"], ev["total"], f"{cur['step']}/{cur['n']} {cur['job']}  {ev.get('text', '')}")
-
-    if a.json:
-        rep.emit(event="start", api=workflow.API, version=__version__, steps=len(plan.steps), output=plan.output)
-    try:
-        r = workflow.run(plan, events, cancel=lambda: stop["flag"], variables=_vars(a.var))
-        r["notes"] = notes0 + list(r.get("notes") or [])
-    except (core.Cancelled, KeyboardInterrupt):
-        return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED, step=cur["step"])
-    except workflow.Rejected as e:  # "fail" step
-        return fail(workflow.E_REJECTED, str(e), EXIT_ERROR, step=cur["step"])
-    except Exception as e:  # noqa: BLE001 – jede Ursache melden
-        return fail(workflow.E_FAILED, str(e), EXIT_ERROR, step=cur["step"], job=cur["job"])
-    rep.finish_line()
-    if a.json:
-        rep.emit(event="done", **r)
-    elif not a.quiet:
-        for s in r["steps"]:  # print steps: where to and which job
-            if s["job"] == workflow.PLAN:
-                print(plan_text(s["info"] or {}))
-                continue
-            if s["job"] != workflow.PRINT:
-                continue
-            i = s["info"] or {}
-            if i.get("dry_run"):
-                print(
-                    tr("Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm").format(
-                        i.get("printer"), i.get("pages"), *(i.get("sheet_mm") or [0, 0])
-                    )
-                )
-            else:
-                print(
-                    tr("Gedruckt auf {0}: {1} Seite(n), Auftrag {2}").format(
-                        i.get("printer"), i.get("pages"), i.get("job_id") if i.get("job_id") is not None else "–"
-                    )
-                )
-        if r["output"]:
-            print(r["output"] + ("  (" + tr("{0} Seite(n)").format(r["pages"]) + ")" if r["pages"] is not None else ""))
-        for n in r["notes"]:
-            print("  " + tr("Hinweis: {0}").format(n))
-    return EXIT_OK
+    return _api_handler(cmd)(a, rep, fail)
 
 
 def _is_printer(name: str) -> bool:
