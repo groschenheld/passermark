@@ -44,15 +44,15 @@ WANTED = [
 class TrayState:
     source: str  # z. B. tray-1, tray-2, by-pass-tray, main
     size_mm: tuple | None = None  # (width, height) in mm
-    size_name: str = ""  # PWG-Name, falls gemeldet (iso_a4_210x297mm)
+    size_name: str = ""  # PWG name, if reported (iso_a4_210x297mm)
     weight: int | None = None  # g/m²
     media_type: str = ""  # stationery, cardstock …
     level: int | None = None  # fill level in %; 0 = empty; None = unknown
     name: str = ""  # display name of the device (e.g. "Cassette 1")
-    roll: bool = False  # Rolle (Plotter): Breite in width_mm, Länge offen
-    width_mm: float | None = None  # Rollenbreite (bei Rollen; bei Blättern die Breite aus size_mm)
-    remaining_m: float | None = None  # Restlänge der Rolle in m (nur wenn das Gerät sie meldet)
-    media_name: str = ""  # Medienname laut Gerät (media-info / media-key)
+    roll: bool = False  # roll (plotter): width in width_mm, length open
+    width_mm: float | None = None  # roll width (for rolls; for sheets the width from size_mm)
+    remaining_m: float | None = None  # remaining length of the roll in m (only if the device reports it)
+    media_name: str = ""  # media name according to the device (media-info / media-key)
 
     @property
     def empty(self) -> bool:
@@ -64,7 +64,7 @@ class DeviceStatus:
     trays: dict = field(default_factory=dict)  # source -> TrayState
     model: str = ""
     error: str = ""
-    catalog: list = field(default_factory=list)  # am Gerät angelegte Medien (media-col-database): [{name, weight, …}]
+    catalog: list = field(default_factory=list)  # media defined on the device (media-col-database): [{name, weight, …}]
 
 
 # --------------------------------------------------------------------------- #
@@ -111,7 +111,7 @@ def _value(tag: int, raw: bytes):
 
 
 def parse_response(data: bytes) -> tuple[int, dict]:
-    """(Statuscode, {Attributname: [Werte]}) – Collections als dict."""
+    """(status code, {attribute name: [values]}) – collections as dict."""
     if len(data) < 8:
         raise ValueError(tr("IPP-Antwort zu kurz"))
     status = struct.unpack(">H", data[2:4])[0]
@@ -194,7 +194,7 @@ def interpret(attrs: dict) -> DeviceStatus:
             x, y = _first(size, "x-dimension"), _first(size, "y-dimension")
             if isinstance(x, int) and isinstance(y, int) and y > 0:
                 t.size_mm = (x / 100.0, y / 100.0)
-            elif isinstance(x, int) and x > 0:  # Rolle: y fehlt, ist 0 oder ein Bereich (min, max)
+            elif isinstance(x, int) and x > 0:  # roll: y is missing, is 0 or a range (min, max)
                 t.roll = True
                 t.width_mm = x / 100.0
         if is_roll_name(src) or is_roll_name(str(_first(col, "media-size-name", "") or "")):
@@ -227,14 +227,14 @@ def interpret(attrs: dict) -> DeviceStatus:
             t.roll = True
             if t.width_mm is None:
                 t.width_mm = to_mm(kv.get("mediaxfeed"), kv.get("dimunit", ""))
-            unit = kv.get("unit", "").lower()  # Kapazität in Längeneinheiten -> Restlänge
+            unit = kv.get("unit", "").lower()  # capacity in length units -> remaining length
             if lvl >= 0 and unit in LENGTH_M:
                 t.remaining_m = round(lvl * LENGTH_M[unit], 2)
         if lvl == 0:
             t.level = 0
         elif lvl > 0:
             t.level = round(lvl * 100 / mx) if mx > 0 else lvl
-    for t in st.trays.values():  # Rolle mit Format statt Breite (manche Geräte)
+    for t in st.trays.values():  # roll with a size instead of a width (some devices)
         if t.roll and t.width_mm is None and t.size_mm:
             t.width_mm = t.size_mm[0]
         if t.roll:
@@ -243,7 +243,7 @@ def interpret(attrs: dict) -> DeviceStatus:
 
 
 def catalog(attrs: dict) -> list:
-    """Medienkatalog des Geräts (media-col-database): [{"name", "type", "weight", "width_mm"}], ohne Doppelte."""
+    """Media catalogue of the device (media-col-database): [{"name", "type", "weight", "width_mm"}], no duplicates."""
     out, seen = [], set()
     for col in attrs.get("media-col-database", []) or []:
         if not isinstance(col, dict):
@@ -270,7 +270,7 @@ def catalog(attrs: dict) -> list:
 
 
 _ROLL = re.compile(r"roll|rolle|tekercs|rollo|rouleau", re.I)
-# Längeneinheiten (Printer-MIB / PWG 5100.13) -> Meter
+# length units (Printer MIB / PWG 5100.13) -> metres
 LENGTH_M = {"meters": 1.0, "feet": 0.3048, "micrometers": 1e-6, "tenthousandthsofinches": 2.54e-6, "inches": 0.0254}
 _DIM_MM = {"micrometers": 0.001, "tenthousandthsofinches": 0.00254}
 
@@ -280,7 +280,7 @@ def is_roll_name(name: str) -> bool:
 
 
 def to_mm(value, unit: str) -> float | None:
-    """Maß aus printer-input-tray (dimunit=micrometers | tenThousandthsOfInches) in mm – None bei unbekannt."""
+    """Measure from printer-input-tray (dimunit=micrometers | tenThousandthsOfInches) in mm – None if unknown."""
     try:
         v = float(value)
     except (TypeError, ValueError):
@@ -308,23 +308,23 @@ def _match_source(name: str, sources: list[str]) -> str | None:
 # Abfragen
 # --------------------------------------------------------------------------- #
 def host_from_device_uri(uri: str) -> str:
-    """lpd://192.168.1.20/print, ipp://drucker.local:631/…, socket://…, dnssd://Name._ipp._tcp.local/… -> Host."""
+    """lpd://192.168.1.20/print, ipp://drucker.local:631/…, socket://…, dnssd://Name._ipp._tcp.local/… -> host."""
     m = re.match(r"^[a-z]+://([^/:?]+)", uri or "", re.I)
     if not m:
         return ""
     host = urllib.request.unquote(m.group(1))
     if "._ipp" in host or "._pdl-datastream" in host or "._printer" in host:
-        return ""  # DNS-SD-Dienstname – Host muss der Admin eintragen
+        return ""  # DNS-SD service name – the admin has to enter the host
     ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)  # Windows-Anschluss „10.0.0.5-HPGL2“
     if ip:
         return ip.group(1)
     if host.upper().startswith("WSD-"):
-        return ""  # WSD-Anschluss: Adresse muss anders ermittelt werden
+        return ""  # WSD port: the address has to be determined differently
     return host
 
 
 def query(host: str, timeout: float = 4.0) -> DeviceStatus:
-    """Fragt zuerst ipps://host/ipp/print, dann ipp://host:631/ipp/print ab."""
+    """Queries ipps://host/ipp/print first, then ipp://host:631/ipp/print."""
     if not host:
         return DeviceStatus(error=tr("Keine Geräteadresse"))
     errors = []
@@ -337,7 +337,7 @@ def query(host: str, timeout: float = 4.0) -> DeviceStatus:
             )
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE  # Drucker im LAN haben selbstsignierte Zertifikate
+            ctx.verify_mode = ssl.CERT_NONE  # printers in the LAN have self-signed certificates
             with urllib.request.urlopen(req, timeout=timeout, context=ctx if scheme == "https" else None) as r:
                 status, attrs = parse_response(r.read())
             if status >= 0x0400:

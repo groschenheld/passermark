@@ -5,14 +5,14 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Convert transparent gradients (soft masks) into opaque images where needed – without Ghostscript.
 
-Hintergrund: Browser (Chrome/Skia, auch Canva-Exporte) legen CSS-Verläufe mit Transparenz als
-Muster an, in dem ein Verlauf über eine Soft-Maske (Luminosity) halbtransparent wird. Die
-Verlaufsfarbe fällt dort, wo er durchsichtig ist, auf Schwarz. Manche RIPs/Plotter ignorieren die
-Soft-Maske – dann wird der Verlauf zur schwarzen Fläche und deckt darunterliegende Bilder ab.
+Background: browsers (Chrome/Skia, also Canva exports) create CSS gradients with transparency as a
+pattern in which a gradient becomes semi-transparent through a soft mask (luminosity). Where it is
+transparent, the gradient colour falls to black. Some RIPs/plotters ignore the
+soft mask – the gradient then becomes a black area and covers images underneath.
 
-Reparatur: Jeder betroffene Mal-Befehl wird samt allem, was darunter liegt, als deckendes Bild
-gerendert (Kopie der Seite, die genau nach diesem Befehl endet) und ersetzt nur diesen Befehl.
-Alles, was danach gezeichnet wird (Text, Logos, Linien), bleibt Vektor.
+Repair: every affected paint command is rendered, together with everything below it, as an opaque
+image (copy of the page that ends exactly after this command) and replaces only this command.
+Everything drawn afterwards (text, logos, lines) stays vector.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ I6 = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
 
 
 def _mul(a, b):
-    """a·b (PDF-Matrizen, Zeilenvektor-Konvention: erst a, dann b)."""
+    """a·b (PDF matrices, row vector convention: first a, then b)."""
     return (
         a[0] * b[0] + a[1] * b[2],
         a[0] * b[1] + a[1] * b[3],
@@ -63,7 +63,7 @@ def _nums(ins):
 
 
 def _has_smask_gs(res, seen=None) -> bool:
-    """Steckt in diesen Ressourcen (oder darin verschachtelten Mustern/Formularen) eine Soft-Maske?"""
+    """Do these resources (or patterns/forms nested in them) contain a soft mask?"""
     import pikepdf
 
     if res is None:
@@ -87,7 +87,7 @@ def _has_smask_gs(res, seen=None) -> bool:
                     continue
                 if _has_smask_gs(x.get("/Resources"), seen):
                     return True
-                eg = x.get("/ExtGState")  # Shading-Muster mit eigenem Grafikzustand
+                eg = x.get("/ExtGState")  # shading pattern with its own graphics state
                 if eg is not None and eg.get("/SMask") is not None and str(eg.get("/SMask")) != "/None":
                     return True
             except Exception:
@@ -96,7 +96,7 @@ def _has_smask_gs(res, seen=None) -> bool:
 
 
 def pattern_has_softmask(pat) -> bool:
-    """Muster, das selbst mit Soft-Maske halbtransparent malt (Chrome-CSS-Verlauf o. Ä.)."""
+    """Pattern that itself paints semi-transparently with a soft mask (Chrome CSS gradient or similar)."""
     try:
         if int(pat.get("/PatternType", 0)) == 1:
             return _has_smask_gs(pat.get("/Resources"))
@@ -109,11 +109,11 @@ def pattern_has_softmask(pat) -> bool:
 @dataclass
 class Target:
     page: int  # Seitenindex (0-basiert)
-    chain: list  # [(Stromschlüssel, Index des Do)] von der Seite bis zum Formular
+    chain: list  # [(stream key, index of the Do)] from the page down to the form
     stream: tuple  # ("page", i) | ("obj", objgen)
-    start: int  # erster Pfad-Befehl
+    start: int  # first path command
     end: int  # Mal-Befehl (f / sh …)
-    ctm: tuple  # CTM beim Malen (Nutzer- -> Seitenraum)
+    ctm: tuple  # CTM when painting (user -> page space)
     bbox: tuple  # Seitenraum (x0, y0, x1, y1)
     kind: str = "pattern"  # pattern | shading
 
@@ -121,7 +121,7 @@ class Target:
 @dataclass
 class Scan:
     targets: list = field(default_factory=list)
-    skipped: int = 0  # in mehrfach verwendeten Formularen (nicht sicher ersetzbar)
+    skipped: int = 0  # in forms used several times (cannot be replaced safely)
     form_uses: dict = field(default_factory=dict)
 
 
@@ -134,7 +134,7 @@ def _stream_ops(pdf, page, key):
 
 
 def scan(pdf) -> Scan:
-    """Alle Mal-Befehle, die einen Verlauf mit Soft-Maske zeichnen (pikepdf-Dokument)."""
+    """All paint commands that draw a gradient with a soft mask (pikepdf document)."""
     import pikepdf
 
     out = Scan()
@@ -195,7 +195,7 @@ def scan(pdf) -> Scan:
             elif op in ("n", "S", "s"):
                 start, pts = None, []
             elif op == "sh" and st["smask"]:
-                # Verlauf über die ganze Clipfläche: Größe unbekannt -> als Seitenfläche behandeln
+                # gradient over the whole clip area: size unknown -> treat as the page area
                 mb = [float(v) for v in page.mediabox]
                 out.targets.append(
                     Target(pi, list(chain), key, idx, idx, st["ctm"], (mb[0], mb[1], mb[2], mb[3]), "shading")
@@ -228,7 +228,7 @@ def scan(pdf) -> Scan:
     keep = []
     for t in out.targets:
         if t.stream[0] == "obj" and out.form_uses.get(t.stream[1], 0) > 1:
-            out.skipped += 1  # gleiches Formular mehrfach -> Hintergrund je Verwendung anders
+            out.skipped += 1  # same form several times -> background differs per use
         else:
             keep.append(t)
     out.targets = keep
@@ -236,7 +236,7 @@ def scan(pdf) -> Scan:
 
 
 def count_softmask_paints(data: bytes) -> dict:
-    """Seite (1-basiert) -> Anzahl betroffener Verläufe."""
+    """Page (1-based) -> number of affected gradients."""
     import pikepdf
 
     with pikepdf.open(io.BytesIO(data)) as pdf:
@@ -248,7 +248,7 @@ def count_softmask_paints(data: bytes) -> dict:
 
 
 def _render_upto(data: bytes, t: Target, dpi: int):
-    """Seite rendern, die genau nach dem Mal-Befehl t endet; Ausschnitt = t.bbox -> PIL-Bild."""
+    """Render the page that ends exactly after paint command t; section = t.bbox -> PIL image."""
     import pikepdf
     import pypdfium2 as pdfium
 
@@ -289,7 +289,7 @@ def _render_upto(data: bytes, t: Target, dpi: int):
 
 
 def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple[bytes, list]:
-    """Verläufe mit Soft-Maske in deckende Bilder umwandeln. -> (neue Daten, Hinweise)."""
+    """Convert gradients with a soft mask into opaque images. -> (new data, notes)."""
     import pikepdf
 
     with pikepdf.open(io.BytesIO(data)) as pdf:
@@ -372,7 +372,7 @@ def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple
                 page.obj.Contents = pikepdf.Stream(pdf, raw)
             else:
                 pdf.get_object(key[1]).write(raw)
-            # nicht mehr verwendete Muster mit Soft-Maske aus den Ressourcen dieses Inhalts entfernen
+            # remove patterns with a soft mask that are no longer used from this content's resources
             used = {str(o) for ins in ops for o in getattr(ins, "operands", []) if isinstance(o, pikepdf.Name)}
             pats = res.get("/Pattern")
             if pats is not None:
@@ -394,7 +394,7 @@ def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple
 
 
 def rip_simulation(data: bytes) -> bytes:
-    """Zum Prüfen: alle Soft-Masken in Grafikzuständen entfernen – so drucken RIPs, die sie ignorieren."""
+    """For checking: remove all soft masks in graphics states – this is how RIPs that ignore them print."""
     import pikepdf
 
     with pikepdf.open(io.BytesIO(data)) as pdf:
@@ -409,7 +409,7 @@ def rip_simulation(data: bytes) -> bytes:
             except Exception:
                 pass
 
-        # auch direkte (nicht indirekte) ExtGState-Einträge
+        # also direct (not indirect) ExtGState entries
         def strip(res, seen):
             if res is None or id(res) in seen:
                 return

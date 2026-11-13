@@ -49,7 +49,7 @@ EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_CANCELLED = 0, 1, 2, 130
 
 
 def parse_pages(text: str | None) -> list[int] | None:
-    """'1,3-5' -> [0, 2, 3, 4] (Eingabe 1-basiert, Ergebnis 0-basiert)."""
+    """'1,3-5' -> [0, 2, 3, 4] (input 1-based, result 0-based)."""
     if not text:
         return None
     out = []
@@ -224,8 +224,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _safe_streams():
-    """Windows-Konsole/Pipe mit Codepage 1252/850: Zeichen wie „→“ oder „ΔE“ ließen den ganzen Auftrag abstürzen
-    (UnicodeEncodeError). Nicht darstellbare Zeichen werden jetzt ersetzt statt den Auftrag abzubrechen."""
+    """Windows console/pipe with code page 1252/850: characters such as "→" or "ΔE" made the whole job crash
+    (UnicodeEncodeError). Characters that cannot be shown are replaced instead of aborting the job.
+    """
     for s in (sys.stdout, sys.stderr):
         try:
             s.reconfigure(errors="backslashreplace")
@@ -240,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     faulthandler.enable()  # hard crash -> output to stderr (ends up in the GUI log)
     if argv is None:
         argv = sys.argv[1:]
-    if argv[:1] == ["render-server"]:  # intern: Render-Prozess der Seitenansicht (kein Auftrag)
+    if argv[:1] == ["render-server"]:  # internal: render process of the page view (not a job)
         from .renderproc import main as render_main
 
         return render_main()
@@ -576,10 +577,11 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
 
 
 def tidy_data(data: dict, full: bool = False) -> dict:
-    """Preset ({"job", "settings"}) oder Ablauf ({"passermark": "workflow"}) auf das Nötige kürzen: nur, was vom
-    Standard abweicht. Unverändert bleiben Schritte mit "preset" (dort kann ein Standardwert das Preset
-    absichtlich überschreiben) und "layout" im Druckschritt (fehlende Werte kommen dort aus der
-    Admin-Einstellung). full=True: Preset mit allen Einstellungen (nur für Presets)."""
+    """Shorten a preset ({"job", "settings"}) or workflow ({"passermark": "workflow"}) to what is needed: only what
+    differs from the default. Steps with "preset" stay unchanged (there a default value may override the preset
+    on purpose) and so does "layout" in the print step (missing values come from the
+    admin setting there). full=True: preset with all settings (presets only).
+    """
     import copy
     from . import core, workflow
     from .l10n import tr
@@ -597,7 +599,7 @@ def tidy_data(data: dict, full: bool = False) -> dict:
     if full:
         raise ValueError(tr("--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht."))
 
-    def flat(steps):  # auch Schritte in Verzweigungen („choose“)
+    def flat(steps):  # also steps inside branches ("choose")
         for st in steps or []:
             if isinstance(st, dict) and isinstance(st.get(workflow.CHOOSE), list):
                 for br in st[workflow.CHOOSE]:
@@ -617,8 +619,8 @@ def tidy_data(data: dict, full: bool = False) -> dict:
         cls = workflow.step_settings_class(st.get("job", ""))
         sett = core.compact_settings(cls, st["settings"])
         if st.get("job") == workflow.PRINT and "layout" in st["settings"]:
-            sett["layout"] = st["settings"]["layout"]  # Druck: fehlende Werte kommen aus der Admin-Einstellung,
-            #                                              nicht vom Programmstandard – darum ganz lassen
+            sett["layout"] = st["settings"]["layout"]  # print: missing values come from the admin setting,
+            #                                              not from the program default – so leave it whole
         if sett:
             st["settings"] = sett
         else:
@@ -662,7 +664,7 @@ def _tidy(a, rep, fail) -> int:
 
 
 def _serve(a, rep, fail) -> int:
-    """passermark-cli serve: Drop-Ordner überwachen (pdfdruck/watch.py)."""
+    """passermark-cli serve: watch drop folders (pdfdruck/watch.py)."""
     import time
     from . import core, watch, workflow
     from .l10n import tr
@@ -755,7 +757,7 @@ def _serve(a, rep, fail) -> int:
             return
         try:
             print(line, file=sys.stderr if err else sys.stdout, flush=True)
-        except (OSError, ValueError, AttributeError):  # Windows-Aufgabe ohne Konsole
+        except (OSError, ValueError, AttributeError):  # Windows task without a console
             pass
 
     def events(ev):
@@ -1106,7 +1108,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
     # check / run / reprint
     notes0 = []
     try:
-        if cmd == "reprint":  # Druckprotokoll: der gespeicherte Ablauf, genau wie damals
+        if cmd == "reprint":  # print log: the stored workflow, exactly as it was then
             from . import printlog
 
             rec = printlog.load(a.log)
@@ -1127,7 +1129,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
         else:
             a.workflow = workflow.find(a.workflow)
             data = workflow.load(a.workflow)
-        # Angaben auf der Kommandozeile gelten ab dem aktuellen Ordner, Pfade in der Datei ab deren Ordner
+        # entries on the command line are relative to the current folder, paths in the file to its folder
         ins = [os.path.abspath(x) for x in a.inputs] or None
         out = os.path.abspath(a.output) if a.output else None
         plan = workflow.prepare(data, os.path.dirname(os.path.abspath(a.workflow)), ins, out, _vars(a.var))
@@ -1231,7 +1233,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
         r["notes"] = notes0 + list(r.get("notes") or [])
     except (core.Cancelled, KeyboardInterrupt):
         return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED, step=cur["step"])
-    except workflow.Rejected as e:  # „fail“-Schritt
+    except workflow.Rejected as e:  # "fail" step
         return fail(workflow.E_REJECTED, str(e), EXIT_ERROR, step=cur["step"])
     except Exception as e:  # noqa: BLE001 – jede Ursache melden
         return fail(workflow.E_FAILED, str(e), EXIT_ERROR, step=cur["step"], job=cur["job"])
@@ -1239,7 +1241,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
     if a.json:
         rep.emit(event="done", **r)
     elif not a.quiet:
-        for s in r["steps"]:  # Druckschritte: wohin und welcher Auftrag
+        for s in r["steps"]:  # print steps: where to and which job
             if s["job"] == workflow.PLAN:
                 print(plan_text(s["info"] or {}))
                 continue
@@ -1275,7 +1277,7 @@ def _is_printer(name: str) -> bool:
 
 
 def plan_text(i: dict) -> str:
-    """Laufmeter je Rolle als Text: „594 mm: 5,20 m · ×2 = 10,40 m“."""
+    """Run length per roll as text: "594 mm: 5,20 m · ×2 = 10,40 m"."""
     from .l10n import tr
     from .planprint import mm_text, num
 

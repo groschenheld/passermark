@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Variable data: place fields (text, number, QR code, Code 128, EAN-13, image) on the pages – one copy per record.
 
-Datensätze kommen aus einer CSV-Datei (Zeile = Kopie) oder aus einer reinen Nummerierung (Anzahl). Inhalte sind
-Vorlagen mit Platzhaltern: {{Spaltenname}}, {{nr}} (Nummer samt Format/Prüfziffer), {{i}} (laufende Nummer ab 1).
-Alles wird als Vektor gezeichnet (Schrift, Balken, QR-Module) und als Überlagerung auf die Seite gelegt –
-die Vorlage selbst bleibt unverändert. Koordinaten in mm ab der linken oberen Ecke der sichtbaren Seite.
+Records come from a CSV file (row = copy) or from plain numbering (count). Contents are
+templates with placeholders: {{column name}}, {{nr}} (number incl. format/check digit), {{i}} (running number from 1).
+Everything is drawn as vectors (type, bars, QR modules) and laid on the page as an overlay –
+the template itself stays unchanged. Coordinates in mm from the top left corner of the visible page.
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from .l10n import tr
 
 MM = 72.0 / 25.4
 KINDS = ("text", "qr", "code128", "ean13", "image")
-FITS = ("contain", "cover", "stretch")  # Bild: einpassen | füllen (anschneiden) | verzerren
+FITS = ("contain", "cover", "stretch")  # image: fit | fill (crop) | stretch
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".pdf")
-IMAGE_MIN_PPI = 150  # darunter warnt die Datenprüfung (wirksame Auflösung im Feld)
+IMAGE_MIN_PPI = 150  # below this the data check warns (effective resolution in the field)
 STD_FONTS = ("Helvetica", "Helvetica-Bold", "Times-Roman", "Times-Bold", "Courier", "Courier-Bold")
 CHECKS = ("none", "luhn", "mod11", "ean")
 PH = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")
@@ -37,25 +37,27 @@ class VdpField:
     """One variable field on the page: kind (text, QR, Code 128, EAN-13, image), content template, position, look."""
 
     kind: str = "text"  # text | qr | code128 | ean13 | image
-    content: str = "{{nr}}"  # Vorlage mit Platzhaltern
-    x_mm: float = 10.0  # linke obere Ecke des Feldes, ab links oben auf der Seite
+    content: str = "{{nr}}"  # template with placeholders
+    x_mm: float = 10.0  # top left corner of the field, from the top left of the page
     y_mm: float = 10.0
     w_mm: float = 40.0
     h_mm: float = 10.0
-    font: str = "Helvetica"  # Standardschrift oder Pfad zu einer TTF-Datei
+    font: str = "Helvetica"  # standard font or path to a TTF file
     size_pt: float = 12.0
     color: str = "#000000"
     align: str = "left"  # left | center | right
     rotate: int = 0  # 0 | 90 | 180 | 270 (gegen den Uhrzeigersinn)
-    pages: str = ""  # nur auf diesen Seiten der Vorlage, z. B. "1", "1,3-4", "ungerade", "gerade",
-    # "ungerade 1-50" (leer = alle)
-    qr_type: str = "text"  # QR: text = Inhalt wie eingegeben; vcard, wifi, email, url, phone, sms, event, geo =
-    # Inhalt aus den Spalten der Datentabelle zusammengesetzt (siehe datakinds)
-    quiet: bool = True  # QR/Code 128: weiße Ruhezone im Feld freihalten (für sicheres Scannen)
-    qr_map: dict = field(default_factory=dict)  # QR mit Art: Feld der Art -> CSV-Spalte ("-" = leer lassen);
-    # nicht genannte Felder werden automatisch zugeordnet
-    fit: str = "contain"  # Bild: contain = einpassen | cover = füllen (Überstand abgeschnitten) | stretch = verzerren
-    fallback: str = ""  # Bild: Ersatzbild, wenn die Spalte leer ist oder die Datei fehlt (leer = Feld leer lassen)
+    pages: str = ""  # only on these pages of the template, e.g. "1", "1,3-4", "ungerade", "gerade",
+    # "ungerade 1-50" (empty = all)
+    qr_type: str = "text"  # QR: text = content as entered; vcard, wifi, email, url, phone, sms, event, geo =
+    # content composed from the columns of the data table (see datakinds)
+    quiet: bool = True  # QR/Code 128: keep a white quiet zone inside the field (for reliable scanning)
+    qr_map: dict = field(default_factory=dict)  # QR with a kind: field of the kind -> CSV column ("-" = leave empty);
+    # fields not named are mapped automatically
+    fit: str = "contain"  # image: contain = fit | cover = fill (overhang cut off) | stretch = distort
+    fallback: str = (
+        ""  # image: fallback image if the column is empty or the file is missing (empty = leave the field empty)
+    )
 
 
 @dataclass
@@ -64,47 +66,47 @@ class Numbering:
 
     start: int = 1
     step: int = 1
-    digits: int = 0  # mit Nullen auffüllen (0 = nicht)
+    digits: int = 0  # pad with zeros (0 = no padding)
     prefix: str = ""
     suffix: str = ""
-    check: str = "none"  # none | luhn | mod11 | ean  – Prüfziffer anhängen
-    continue_key: str = ""  # Name des Zählers: beim nächsten Auftrag dort weiterzählen
+    check: str = "none"  # none | luhn | mod11 | ean  – append a check digit
+    continue_key: str = ""  # name of the counter: the next job continues counting there
 
 
 @dataclass
 class VdpWindow:
     """A group of fields that applies to a set of pages ("all", "odd", "1,3-5" …)."""
 
-    pages: str = ""  # Seitengruppe des Fensters: "" = alle | "ungerade" | "gerade" | "1,3-5" | "ungerade 1-50" …
-    fields: list = field(default_factory=list)  # Felder dieses Fensters (VdpField bzw. dicts)
+    pages: str = ""  # page group of the window: "" = all | "ungerade" | "gerade" | "1,3-5" | "ungerade 1-50" …
+    fields: list = field(default_factory=list)  # fields of this window (VdpField or dicts)
 
 
 @dataclass
 class VdpSettings:
     """Settings of the job ``vdp``: fields, data source (CSV), numbering and how records map to pages."""
 
-    fields: list = field(default_factory=list)  # Liste von VdpField bzw. dicts
-    csv_path: str = ""  # Datenquelle; leer = nur Nummerierung
-    delimiter: str = ""  # leer = automatisch (; , Tab)
-    encoding: str = ""  # leer = automatisch (UTF-8, sonst Windows-1252)
-    records: str = ""  # nur diese Datensätze, z. B. "1-50" (leer = alle)
-    count: int = 1  # ohne CSV: so viele Kopien
+    fields: list = field(default_factory=list)  # list of VdpField or dicts
+    csv_path: str = ""  # data source; empty = numbering only
+    delimiter: str = ""  # empty = automatic (; , tab)
+    encoding: str = ""  # empty = automatic (UTF-8, otherwise Windows-1252)
+    records: str = ""  # only these records, e.g. "1-50" (empty = all)
+    count: int = 1  # without CSV: this many copies
     numbering: Numbering = field(default_factory=Numbering)
-    pages_per_record: int = 1  # nur bei order "each": so viele Vorlagenseiten gehören zu einem Datensatz
-    # (2 = Vorder- und Rückseite: Seite 1+2 -> Datensatz 1, 3+4 -> Datensatz 2 …)
-    order: str = "each"  # each = jede Seite der nächste Datensatz (Seiten der Vorlage reihum) |
-    # record = je Datensatz eine Kopie aller Seiten | page = wie record, Seite für Seite
-    reverse: bool = False  # rückwärts (Abreißstapel: oberstes Blatt hat die höchste Nummer)
-    log_path: str = ""  # Code-Protokoll als CSV (leer = keins)
-    doc_name: str = ""  # Name der Vorlage für {{datei}} (leer = Dateiname der Eingabe)
-    placeholders: bool = False  # {{…}} im PDF als Feldposition übernehmen
-    windows: list = field(default_factory=list)  # Fenster (Seitengruppen, 1.11) – ersetzen in der Oberfläche
-    # "Nur auf diesen Seiten", "Verteilung" und "Seiten je Datensatz".
-    # Leer = Altformat: Feld-pages/order/pages_per_record gelten unverändert.
+    pages_per_record: int = 1  # only for order "each": this many template pages belong to one record
+    # (2 = front and back: pages 1+2 -> record 1, 3+4 -> record 2 …)
+    order: str = "each"  # each = every page the next record (template pages in turn) |
+    # record = one copy of all pages per record | page = like record, page by page
+    reverse: bool = False  # backwards (tear-off pad: the top sheet has the highest number)
+    log_path: str = ""  # code log as CSV (empty = none)
+    doc_name: str = ""  # name of the template for {{datei}} (empty = file name of the input)
+    placeholders: bool = False  # take over {{…}} in the PDF as field positions
+    windows: list = field(default_factory=list)  # Windows (page groups) – in the interface they replace
+    # "only on these pages", "distribution" and "pages per record".
+    # Empty = old format: field pages/order/pages_per_record apply unchanged.
 
 
 # --------------------------------------------------------------------------- #
-# Prüfziffern
+# check digits
 # --------------------------------------------------------------------------- #
 def check_digit(digits: str, method: str) -> str:
     """Check digit for ``digits`` by ``method`` (luhn, mod11, ean); empty string for method "none"."""
@@ -120,10 +122,10 @@ def check_digit(digits: str, method: str) -> str:
                     v -= 9
             s += v
         return str((10 - s % 10) % 10)
-    if method == "ean":  # GS1: Gewichte 3,1 von rechts
+    if method == "ean":  # GS1: weights 3,1 from the right
         s = sum(v * (3 if i % 2 == 0 else 1) for i, v in enumerate(reversed(d)))
         return str((10 - s % 10) % 10)
-    if method == "mod11":  # Gewichte 2..7 von rechts; 10 -> X
+    if method == "mod11":  # weights 2..7 from the right; 10 -> X
         s = sum(v * (2 + i % 6) for i, v in enumerate(reversed(d)))
         r = (11 - s % 11) % 11
         return "X" if r == 10 else str(r)
@@ -190,7 +192,7 @@ def _save_counter(key: str, next_value: int):
 
 
 def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
-    """Alle Datensätze (in Ausgabereihenfolge) mit {{i}}, {{nr}} und den CSV-Spalten."""
+    """All records (in output order) with {{i}}, {{nr}} and the CSV columns."""
     nb = s.numbering if isinstance(s.numbering, Numbering) else Numbering(**(s.numbering or {}))
     if s.csv_path:
         cols, rows = read_csv(s.csv_path, s.delimiter, s.encoding)
@@ -211,7 +213,7 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
         rec["i"] = str(k + 1)
         rec["nr"] = format_number(n, nb)
         rec["_n"] = n
-        rec["_row"] = i + 2 if s.csv_path else None  # Zeile in der CSV (1 = Kopfzeile) – für Meldungen
+        rec["_row"] = i + 2 if s.csv_path else None  # row in the CSV (1 = header row) – for messages
         out.append(rec)
     if s.reverse:
         out.reverse()
@@ -219,7 +221,7 @@ def records(s: VdpSettings) -> tuple[list[str], list[dict]]:
 
 
 # --------------------------------------------------------------------------- #
-# Variablen außer den CSV-Spalten: {{datum}}, {{seite}}, {{zufall:6}} …
+# variables besides the CSV columns: {{datum}}, {{seite}}, {{zufall:6}} …
 # --------------------------------------------------------------------------- #
 WEEKDAYS = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
 
@@ -237,7 +239,7 @@ def _weekday(i: int) -> str:
 
 
 def system_vars(s, n_records: int = 0, now=None) -> dict:
-    """Feste Variablen eines Auftrags (Zeitpunkt = Start des Auftrags, für alle Seiten gleich)."""
+    """Fixed variables of a job (time = start of the job, the same for all pages)."""
     import datetime as _dt
 
     now = now or _dt.datetime.now()
@@ -257,7 +259,7 @@ def system_vars(s, n_records: int = 0, now=None) -> dict:
 
 
 def variables_help() -> list:
-    """(Platzhalter, Erklärung) für das „?“-Fenster und die Anleitung."""
+    """(placeholder, explanation) for the "?" window and the manual."""
     return [
         ("{{nr}}", tr("Nummer aus „3. Nummerierung“ (mit Stellen, Vorsatz, Prüfziffer)")),
         ("{{i}}", tr("laufende Nummer des Datensatzes: 1, 2, 3 …")),
@@ -291,7 +293,7 @@ def variables_help() -> list:
 
 
 def _special(key: str, sysv: dict):
-    """Variablen mit Funktion: datum:FORMAT, zufall:N, code:N, uuid. None = unbekannt."""
+    """Variables with a function: datum:FORMAT, zufall:N, code:N, uuid. None = unknown."""
     import secrets
 
     name, _, arg = key.partition(":")
@@ -323,7 +325,7 @@ def _special(key: str, sysv: dict):
 
 
 def field_value(f: VdpField, rec: dict) -> str:
-    """Inhalt eines Feldes für einen Datensatz: Vorlage mit Platzhaltern oder – bei QR mit „Art“ – aus den Spalten."""
+    """Content of a field for one record: template with placeholders or – for QR with a "kind" – from the columns."""
     t = getattr(f, "qr_type", "text") or "text"
     if f.kind == "qr" and t != "text":
         from . import datakinds
@@ -333,8 +335,9 @@ def field_value(f: VdpField, rec: dict) -> str:
 
 
 def fill(template: str, rec: dict) -> str:
-    """Platzhalter ersetzen: CSV-Spalten, nr, i, dann Auftragsvariablen (datum, seite …) und Funktionen
-    (datum:FORMAT, zufall:N …). Unbekannte Platzhalter bleiben stehen."""
+    """Replace placeholders: CSV columns, nr, i, then job variables (datum, seite …) and functions
+    (datum:FORMAT, zufall:N …). Unknown placeholders are left as they are.
+    """
     sysv = rec.get("_sys") or {}
 
     def rep(m):
@@ -371,7 +374,7 @@ def _system_ttf() -> str | None:
 
 
 def _font_for(font: str, text: str) -> str:
-    """Schriftname für reportlab. Standardschriften können nur Westeuropäisch – sonst eine Systemschrift (TTF)."""
+    """Font name for reportlab. The standard fonts only cover Western European – otherwise a system font (TTF)."""
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
 
@@ -410,14 +413,15 @@ def _color(c: str):
 
 
 def image_base(s) -> str:
-    """Bezugsordner für relative Bildpfade: der Ordner der CSV-Datei (ohne CSV: aktueller Ordner)."""
+    """Base folder for relative image paths: the folder of the CSV file (without CSV: current folder)."""
     p = getattr(s, "csv_path", "") or ""
     return os.path.dirname(os.path.abspath(p)) if p else ""
 
 
 def find_image(value: str, base: str = "") -> str | None:
-    """Bildpfad aus der CSV auflösen: absolut oder relativ zum Bezugsordner; \\ wie /, Groß-/Kleinschreibung egal
-    (unter Windows erstellte Listen), ohne Endung werden die üblichen Bildendungen probiert. -> Pfad oder None."""
+    """Resolve an image path from the CSV: absolute or relative to the base folder; \\ like /, case-insensitive
+    (lists created on Windows), without an extension the usual image extensions are tried. -> path or None.
+    """
     v = (value or "").strip().strip('"').strip()
     if not v:
         return None
@@ -444,24 +448,25 @@ def find_image(value: str, base: str = "") -> str | None:
 
 
 class Images:
-    """Bilder für Bildfelder: einmal lesen, oft zeichnen.
-    Rasterbilder (PNG, JPG, TIFF …) gehen über reportlab ins PDF; JPEG ohne Drehung unverändert.
-    PDF-Bilder (erste Seite): vector=True stellt sie als Vektor-Form auf die Seite – im Inhaltsstrom steht nur der
-    Name, das Objekt hängt build() beim Zusammenbau an (attach). vector=False rechnet sie in ein Rasterbild um."""
+    """Images for image fields: read once, draw often.
+    Raster images (PNG, JPG, TIFF …) go into the PDF via reportlab; JPEG without rotation unchanged.
+    PDF images (first page): vector=True puts them on the page as a vector form – the content stream only holds
+    the name, build() attaches the object when assembling (attach). vector=False converts them to a raster image.
+    """
 
     def __init__(self, vector: bool = False):
         from collections import OrderedDict
 
         self.vector = vector
-        self._info = {}  # Pfad -> {"size": (b, h) natürlich, "px": (b, h) | None, "pdf": bool}
-        self._readers = OrderedDict()  # Pfad -> reportlab ImageReader (nur die letzten paar)
-        self._forms = {}  # Pfad -> (Name, pikepdf.Pdf, Form-XObject, Kasten x0, y0, x1, y1)
+        self._info = {}  # path -> {"size": (w, h) natural, "px": (w, h) | None, "pdf": bool}
+        self._readers = OrderedDict()  # path -> reportlab ImageReader (only the last few)
+        self._forms = {}  # path -> (name, pikepdf.Pdf, form XObject, box x0, y0, x1, y1)
         self.page = 0
-        self.used = {}  # Ausgabeseite -> {Name: Pfad}
+        self.used = {}  # output page -> {name: path}
 
     # Lesen
     def info(self, path: str) -> dict:
-        """Größe/Art eines Bildes; wirft ValueError, wenn es sich nicht lesen lässt."""
+        """Size/kind of an image; raises ValueError if it cannot be read."""
         got = self._info.get(path)
         if isinstance(got, Exception):
             raise got
@@ -525,7 +530,7 @@ class Images:
             try:
                 pg = doc[0]
                 w, h = pg.get_size()
-                scale = min(300 / 72, 4000 / max(w, h, 1))  # 300 dpi, höchstens 4000 Pixel lang
+                scale = min(300 / 72, 4000 / max(w, h, 1))  # 300 dpi, at most 4000 pixels long
                 im = pg.render(scale=scale, may_draw_forms=True).to_pil()
             finally:
                 doc.close()
@@ -537,7 +542,7 @@ class Images:
             turned = (im.getexif() or {}).get(0x0112, 1) not in (None, 1)
             if im.format == "JPEG" and not turned and im.mode in ("RGB", "L", "CMYK"):
                 im.close()
-                r = ImageReader(path)  # JPEG unverändert durchreichen
+                r = ImageReader(path)  # pass JPEG through unchanged
             else:
                 im = ImageOps.exif_transpose(im)
                 if im.mode in ("P", "LA", "PA"):
@@ -556,7 +561,7 @@ class Images:
     # Zeichnen
     @staticmethod
     def placement(size: tuple, w: float, h: float, fit: str, align: str) -> tuple:
-        """Bild der natürlichen Größe size in einen Kasten w×h setzen -> (x, y, Breite, Höhe) im Kasten."""
+        """Place an image of natural size ``size`` into a box w×h -> (x, y, width, height) inside the box."""
         iw, ih = size
         if fit == "stretch":
             return 0.0, 0.0, w, h
@@ -570,7 +575,7 @@ class Images:
         inf = self.info(path)
         dx, dy, dw, dh = self.placement(inf["size"], w, h, fit, align)
         cv.saveState()
-        if fit == "cover":  # Überstand abschneiden
+        if fit == "cover":  # cut off the overhang
             p = cv.beginPath()
             p.rect(0, 0, w, h)
             cv.clipPath(p, stroke=0, fill=0)
@@ -585,7 +590,7 @@ class Images:
         cv.restoreState()
 
     def attach(self, over):
-        """Vektor-PDF-Bilder in die Seiten-Ressourcen des Überlagerungs-PDFs (pikepdf) eintragen."""
+        """Enter vector PDF images into the page resources of the overlay PDF (pikepdf)."""
         import pikepdf
 
         done = {}
@@ -602,7 +607,7 @@ class Images:
                 res.XObject[pikepdf.Name("/" + name)] = done[name]
 
     def ppi(self, path: str, w: float, h: float, fit: str) -> float | None:
-        """Wirksame Auflösung im Feld (Pixel je Zoll); None bei PDF-Bildern."""
+        """Effective resolution in the field (pixels per inch); None for PDF images."""
         inf = self.info(path)
         if not inf["px"]:
             return None
@@ -629,9 +634,10 @@ def _is_pdf(path: str) -> bool:
 
 
 def pick_image(f: VdpField, value: str, base: str, images: Images) -> tuple:
-    """Welches Bild kommt ins Feld? -> (Pfad | None, Art | None, Schwere, Meldung).
-    Art: None = alles gut, empty = nichts angegeben (Feld bleibt leer), fallback = Ersatzbild verwendet,
-    missing/unreadable = Fehler (ohne Ersatzbild)."""
+    """Which image goes into the field? -> (path | None, kind | None, severity, message).
+    kind: None = all fine, empty = nothing given (field stays empty), fallback = fallback image used,
+    missing/unreadable = error (without a fallback image).
+    """
 
     def fb(why_kind, why):
         if not (f.fallback or "").strip():
@@ -660,15 +666,16 @@ def pick_image(f: VdpField, value: str, base: str, images: Images) -> tuple:
 
 
 def draw_field(cv, f: VdpField, value: str, page_h: float, images: Images | None = None):
-    """Ein Feld auf die reportlab-Leinwand (pt, Ursprung unten links). Bildfeld: value = Pfad der Bilddatei
-    (schon aufgelöst, siehe pick_image; leer = nichts zeichnen)."""
+    """Draw one field on the reportlab canvas (pt, origin bottom left). Image field: value = path of the image file
+    (already resolved, see pick_image; empty = draw nothing).
+    """
     from reportlab.graphics import renderPDF
     from reportlab.graphics.barcode import createBarcodeDrawing
 
     x, w, h = f.x_mm * MM, f.w_mm * MM, f.h_mm * MM
     y = page_h - f.y_mm * MM - h
     cv.saveState()
-    # Feld = Kasten auf der Seite; gedreht wird der Inhalt im Kasten (90/270: Inhalt quer, Breite = Kastenhöhe)
+    # field = box on the page; the content is rotated inside the box (90/270: content sideways, width = box height)
     rot = int(f.rotate) % 360
     cv.translate(x, y)
     if rot == 90:
@@ -692,7 +699,7 @@ def draw_field(cv, f: VdpField, value: str, page_h: float, images: Images | None
         fn = _font_for(f.font, value)
         cv.setFillColor(col)
         cv.setFont(fn, f.size_pt)
-        base = max(0.0, (h - f.size_pt * 0.72) / 2)  # Text vertikal mittig im Feld
+        base = max(0.0, (h - f.size_pt * 0.72) / 2)  # text vertically centred in the field
         lines = value.split("\n") if value else [""]
         lead = f.size_pt * 1.15
         top = base + (len(lines) - 1) * lead / 2
@@ -723,10 +730,10 @@ def draw_field(cv, f: VdpField, value: str, page_h: float, images: Images | None
                             value, digits[:12] + check_digit(digits[:12], "ean")
                         )
                     )
-                value = digits[:12]  # Prüfziffer rechnet reportlab selbst
+                value = digits[:12]  # reportlab calculates the check digit itself
                 kw = {"humanReadable": True}
             else:
-                # Klartextzeile selbst setzen: reportlab würde sie mit den Strichen auf die Kastengröße verzerren
+                # set the plain text line ourselves: reportlab would distort it together with the bars to the box size
                 th = f.size_pt * 1.25 if f.size_pt > 0 else 0.0
                 d = createBarcodeDrawing(
                     kind,
@@ -754,8 +761,9 @@ EVEN = ("gerade", "even", "páros", "pares", "paires", "g")
 
 
 def _page_set(text: str, n: int) -> set:
-    """Seiten der Vorlage (0-basiert): „1,3-4“, „ungerade“, „gerade“, „ungerade 1-50“ (= ungerade in 1–50);
-    mehrere Angaben mit Komma = alle zusammen."""
+    """Pages of the template (0-based): "1,3-4", "ungerade" (odd), "gerade" (even), "ungerade 1-50" (= odd within
+    1–50); several entries separated by commas = all of them together.
+    """
     from .layout import parse_ranges
 
     out = set()
@@ -773,7 +781,7 @@ def _page_set(text: str, n: int) -> set:
 
 
 def _fields_of_list(items: list) -> list:
-    """Feldliste (VdpField) aus gemischten Einträgen (VdpField oder dict); unbekannte Schlüssel fallen weg."""
+    """List of fields (VdpField) from mixed entries (VdpField or dict); unknown keys are dropped."""
     out = []
     for f in items or []:
         if isinstance(f, VdpField):
@@ -784,8 +792,9 @@ def _fields_of_list(items: list) -> list:
 
 
 def _windows(s: VdpSettings) -> list:
-    """Fenster des Auftrags; Altformat (Felder mit pages-Angabe, ohne windows) wird zu Fenstern migriert:
-    Felder mit gleicher Seiten-Angabe kommen gemeinsam in ein Fenster, Reihenfolge wie angelegt."""
+    """Windows of the job; the old format (fields with pages, without windows) is migrated to windows:
+    fields with the same pages entry go into one window together, in the order they were created.
+    """
     out = []
     for w in getattr(s, "windows", None) or []:
         if isinstance(w, VdpWindow):
@@ -807,17 +816,19 @@ def _windows(s: VdpSettings) -> list:
 
 
 def window_mode(s: VdpSettings) -> bool:
-    """True, wenn Fenster (neues Format) angegeben sind – dann ersetzen sie die alte Verteilung.
-    Presets ohne windows (alte Dateien, Kommandozeile) laufen unverändert im Altformat weiter."""
+    """True if windows (new format) are given – they then replace the old distribution.
+    Presets without windows (old files, command line) keep running unchanged in the old format.
+    """
     return bool(getattr(s, "windows", None) or [])
 
 
 def windows_resolved(s: VdpSettings, npages: int) -> list:
-    """[(Seitenmenge (0-basiert), Felder)] – Fenster in ihrer Reihenfolge. „alle Seiten“ ist die
-    Grundschicht: ihre Felder gelten überall und konkurrieren mit keinem Fenster (mehrere solche
-    Fenster zeigen ihre Felder gemeinsam). Ungerade/gerade sind gleichrangig (sie überlappen sich
-    nicht); ein fester Seitenbereich (z. B. "5-8") gewinnt für seine Seiten vor ungerade/gerade –
-    bei gleichem Rang gewinnt das erste Fenster. Nur Fenster mit Feldern kommen in die Liste."""
+    """[(set of pages (0-based), fields)] – windows in their order. "All pages" is the
+    base layer: its fields apply everywhere and compete with no window (several such
+    windows show their fields together). Odd/even rank equally (they do not
+    overlap); a fixed page range (e.g. "5-8") wins for its pages over odd/even –
+    at equal rank the first window wins. Only windows with fields are listed.
+    """
     wins = []
     for w in _windows(s):
         p = (w.pages or "").strip()
@@ -826,7 +837,7 @@ def windows_resolved(s: VdpSettings, npages: int) -> list:
             prec = 1 if p in ("ungerade", "gerade") else 2
         else:
             pgs = set(range(npages))
-            prec = 0  # Grundschicht: gilt überall, ohne Vorrang-Streit
+            prec = 0  # base layer: applies everywhere, no competition for precedence
         flds = _fields_of_list(w.fields)
         if flds:
             wins.append([pgs, prec, flds])
@@ -843,7 +854,7 @@ def windows_resolved(s: VdpSettings, npages: int) -> list:
 
 
 def window_pages_used(s: VdpSettings, npages: int) -> set:
-    """Von Fenstern abgedeckte Vorlagenseiten (für Ergebniszeile und Warnung)."""
+    """Template pages covered by windows (for the result line and the warning)."""
     used = set()
     for pgs, _f in windows_resolved(s, npages):
         used |= pgs
@@ -851,11 +862,12 @@ def window_pages_used(s: VdpSettings, npages: int) -> set:
 
 
 def output_info(s: VdpSettings, npages: int, n_records: int, tpl_len: int) -> dict:
-    """Ergebniszeile und Warnbedingung. Standard: jeder Datensatz eine komplette Runde über die
-    Vorlagenseiten (Seiten werden dupliziert). warn = True, wenn Vorlagenseiten von keinem Fenster
-    abgedeckt sind und dadurch bei mehr als einem Datensatz leere Duplikate entstünden.
-    order == "each" (Fenster-Modus, ohne Duplikate): Ausgabe = npages Seiten, je pages_per_record
-    Vorlagenseiten ein Datensatz; "unused" = Datensätze ohne eigene Seiten."""
+    """Result line and warning condition. Default: every record one complete round over the
+    template pages (pages are duplicated). warn = True if template pages are covered by no window
+    and empty duplicates would result with more than one record.
+    order == "each" (window mode, no duplicates): output = npages pages, one record per pages_per_record
+    template pages; "unused" = records without pages of their own.
+    """
     out_pages = n_records * tpl_len
     unused = 0
     if window_mode(s):
@@ -877,8 +889,8 @@ def output_info(s: VdpSettings, npages: int, n_records: int, tpl_len: int) -> di
 
 
 def sequence(order: str, n_records: int, tpl: list, per_record: int = 1) -> list:
-    """Ausgabeseiten als Liste (Datensatz, Vorlagenseite)."""
-    if order == "each":  # Seite 1 -> Datensatz 1 … (reihum); mit per_record > 1 gehören so viele Seiten zusammen
+    """Output pages as a list of (record, template page)."""
+    if order == "each":  # page 1 -> record 1 … (in turn); with per_record > 1 that many pages belong together
         g = max(1, int(per_record or 1))
         return [(r, tpl[(r * g + j) % len(tpl)]) for r in range(n_records) for j in range(g)]
     if order == "page":
@@ -905,13 +917,13 @@ def _fields(s: VdpSettings) -> list[VdpField]:
 
 
 # --------------------------------------------------------------------------- #
-# Datenprüfung vor dem Erzeugen (1.18.10)
+# data check before generating
 # --------------------------------------------------------------------------- #
-CHECK_MAX = 300  # höchstens so viele Einzelmeldungen (dazu die Zählung je Art)
+CHECK_MAX = 300  # at most this many individual messages (plus the count per kind)
 
 
 def all_fields(s: VdpSettings) -> list:
-    """Alle Felder des Auftrags – auch die in Fenstern."""
+    """All fields of the job – including those in windows."""
     out = list(_fields(s)) if s.fields else []
     for w in getattr(s, "windows", None) or []:
         items = w.fields if isinstance(w, VdpWindow) else (w.get("fields") if isinstance(w, dict) else []) or []
@@ -924,7 +936,7 @@ def all_fields(s: VdpSettings) -> list:
 
 
 def _n1(v: float) -> str:
-    """Zahl mit einer Nachkommastelle in der Schreibweise der Oberflächensprache."""
+    """Number with one decimal place in the notation of the interface language."""
     try:
         from . import l10n, measure
 
@@ -939,11 +951,12 @@ def _field_label(f: VdpField, k: int) -> str:
 
 
 def check(s: VdpSettings) -> dict:
-    """Daten gegen die Felder prüfen, bevor etwas erzeugt wird: Text zu lang für sein Feld (Breite/Höhe), leere
-    Spalten, unbekannte Platzhalter, ungültige EAN-13, leere Codes, fehlende/unlesbare Bilder, Bilder mit zu
-    geringer Auflösung.
-    -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {Art: Anzahl}, "records": n}.
-    row = Zeile in der CSV (Kopfzeile = 1), record = Datensatz in der Ausgabe."""
+    """Check the data against the fields before anything is generated: text too long for its field (width/height),
+    empty columns, unknown placeholders, invalid EAN-13, empty codes, missing/unreadable images, images with too
+    low a resolution.
+    -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {kind: count}, "records": n}.
+    row = row in the CSV (header row = 1), record = record in the output.
+    """
     from reportlab.pdfbase import pdfmetrics
 
     fields = all_fields(s)
@@ -967,7 +980,7 @@ def check(s: VdpSettings) -> dict:
             )
 
     for rec0 in recs:
-        rec = dict(rec0)  # Seitenvariablen gibt's erst beim Erzeugen: breit annehmen
+        rec = dict(rec0)  # page variables only exist when generating: assume wide
         rec["_sys"] = dict(rec0.get("_sys") or {}, seite="999", seiten="999", vorlagenseite="9")
         for k, f in enumerate(fields):
             if f.kind == "qr" and (getattr(f, "qr_type", "text") or "text") != "text":
@@ -983,7 +996,7 @@ def check(s: VdpSettings) -> dict:
                         add("empty", "warning", rec, k, f, tr("Spalte „{0}“ ist leer").format(col))
                 value = fill(f.content, rec)
                 for key in PH.findall(value):
-                    if (k, key) not in unknown_done:  # je Feld nur einmal
+                    if (k, key) not in unknown_done:  # only once per field
                         unknown_done.add((k, key))
                         add(
                             "unknown",
@@ -1069,7 +1082,7 @@ def check(s: VdpSettings) -> dict:
     return {"problems": probs, "counts": counts, "records": len(recs)}
 
 
-BLOCKING = ("invalid", "missing", "unreadable")  # diese Fehler brechen das Erzeugen ab
+BLOCKING = ("invalid", "missing", "unreadable")  # these errors abort generating
 
 
 def check_blocking(res: dict) -> bool:
@@ -1079,7 +1092,7 @@ def check_blocking(res: dict) -> bool:
 
 
 def check_text(res: dict, limit: int = 20) -> str:
-    """Kurzbericht der Datenprüfung (mehrzeilig)."""
+    """Short report of the data check (several lines)."""
     names = {
         "overflow": tr("zu lang/zu hoch"),
         "empty": tr("leer"),
@@ -1107,7 +1120,7 @@ def check_text(res: dict, limit: int = 20) -> str:
 
 
 def find_placeholders(doc) -> list[tuple[int, str, tuple]]:
-    """{{name}} im Text der Vorlage: (Seite, Inhalt, Kasten in mm ab links oben: x, y, w, h)."""
+    """{{name}} in the text of the template: (page, content, box in mm from top left: x, y, w, h)."""
     out = []
     for i in range(len(doc)):
         pg = doc[i]
@@ -1134,7 +1147,7 @@ def find_placeholders(doc) -> list[tuple[int, str, tuple]]:
 
 
 def placeholder_fields(doc) -> list[VdpField]:
-    """Aus {{…}} im PDF Textfelder machen (gleiche Stelle, Schriftgröße aus der Höhe)."""
+    """Turn {{…}} in the PDF into text fields (same place, font size from the height)."""
     out = []
     for page, content, (x, y, w, h) in find_placeholders(doc):
         out.append(
@@ -1153,7 +1166,7 @@ def placeholder_fields(doc) -> list[VdpField]:
 
 
 def _strip_ph(pdf, ops):
-    """Content-Operatoren ohne BT…ET-Blöcke, deren Text nur ein {{…}}-Platzhalter ist. -> (ops, entfernt)"""
+    """Content operators without the BT…ET blocks whose text is only a {{…}} placeholder. -> (ops, removed)"""
     import pikepdf
 
     out, block, removed = [], None, 0
@@ -1184,7 +1197,7 @@ def _strip_ph(pdf, ops):
 
 
 def _remove_placeholder_text(pdf) -> int:
-    """Textobjekte, die nur aus {{…}} bestehen, aus der Vorlage entfernen – auch in Form-XObjects. Liefert Anzahl."""
+    """Remove text objects that consist only of {{…}} from the template – also in form XObjects. Returns the count."""
     import pikepdf
 
     seen, removed = set(), 0
@@ -1226,8 +1239,9 @@ def _remove_placeholder_text(pdf) -> int:
 
 
 def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, strip=False) -> tuple[bytes, dict]:
-    """Ausgabe-PDF (bytes) + Infos. pages = nur diese Vorlagenseiten (0-basiert, None = alle).
-    progress(erledigt, gesamt, text); cancel() -> True bricht ab."""
+    """Output PDF (bytes) + info. pages = only these template pages (0-based, None = all).
+    progress(done, total, text); cancel() -> True aborts.
+    """
     import pikepdf
     import pypdfium2 as pdfium
     from reportlab.pdfgen import canvas
@@ -1242,8 +1256,8 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
 
     src_doc = pdfium.PdfDocument(src)
     try:
-        trims, bleeds = page_trims(src_doc), page_doc_bleeds(src_doc)  # Endformat/Anschnitt mitnehmen
-        norm = normalized(src_doc)  # ungedreht, ab (0,0): Feldkoordinaten = sichtbare Seite
+        trims, bleeds = page_trims(src_doc), page_doc_bleeds(src_doc)  # take trim size/bleed along
+        norm = normalized(src_doc)  # unrotated, from (0,0): field coordinates = visible page
     finally:
         src_doc.close()
     try:
@@ -1264,7 +1278,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         raise ValueError(tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
     npages = len(sizes)
     if window_mode(s):
-        # Fenster-Modus: die Seitenmenge kommt vom Fenster, nicht vom einzelnen Feld
+        # window mode: the set of pages comes from the window, not from the individual field
         fields = []
         pages_of = []
         for _pgs, wf in windows_resolved(s, npages):
@@ -1282,9 +1296,9 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     if not tpl:
         raise ValueError(tr("Keine Seiten ausgewählt."))
     if window_mode(s):
-        # Fenster-Modus: jeder Datensatz eine komplette Runde über die Vorlagenseiten;
-        # "Seite für Seite" bleibt als Sortierung über order == "page" erreichbar.
-        # order == "each": keine Duplikate – je Datensatz die nächsten pages_per_record Seiten der Vorlage.
+        # window mode: every record one complete round over the template pages;
+        # "page by page" remains available as a sort order via order == "page".
+        # order == "each": no duplicates – per record the next pages_per_record pages of the template.
         if getattr(s, "order", "") == "each":
             g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
             seq = [(min(p // g, len(recs) - 1), p) for p in tpl]
@@ -1292,7 +1306,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
             seq = sequence("page" if s.order == "page" else "record", len(recs), tpl)
     else:
         seq = sequence(s.order, len(recs), tpl, s.pages_per_record)
-    # 1) alle Überlagerungen in einem PDF (eine Seite je Ausgabeseite)
+    # 1) all overlays in one PDF (one page per output page)
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
     log = []
@@ -1332,13 +1346,13 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     cv.save()
     if progress is not None:
         progress(total, total, tr("Schreibe PDF …"))
-    # 2) Vorlage je Ausgabeseite kopieren und Überlagerung darauflegen
+    # 2) copy the template per output page and put the overlay on top
     base = pikepdf.open(io.BytesIO(buf.getvalue()))
     removed = _remove_placeholder_text(base) if (s.placeholders or strip) else 0
     over = pikepdf.open(io.BytesIO(ov.getvalue()))
-    images.attach(over)  # Vektor-PDF-Bilder an ihre Seiten hängen
+    images.attach(over)  # attach vector PDF images to their pages
     out = pikepdf.new()
-    # Vorlage je Seite einmal als Form-XObject; jede Ausgabeseite = Vorlage + eigene Überlagerung (klein, getrennt)
+    # template once per page as a form XObject; every output page = template + its own overlay (small, separate)
     base_x = [out.copy_foreign(base.pages[p].as_form_xobject()) for p in range(npages)]
     for k, (r, p) in enumerate(seq):
         W, H = sizes[p]
@@ -1361,7 +1375,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     for d in (out, over, base):
         d.close()
     images.close()
-    # Protokoll und Zähler
+    # log and counters
     if s.log_path:
         with open(s.log_path, "w", newline="", encoding="utf-8-sig") as fh:
             wr = csv.writer(fh, delimiter=";")
@@ -1380,7 +1394,7 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
 
 
 def _preview_value(f: VdpField, rec: dict, base: str, images: Images) -> str:
-    """Inhalt für die Vorschau; Bildfelder bekommen den aufgelösten Pfad (fehlt das Bild: leer)."""
+    """Content for the preview; image fields get the resolved path (image missing: empty)."""
     v = field_value(f, rec)
     if f.kind == "image":
         v = pick_image(f, v, base, images)[0] or ""
@@ -1388,13 +1402,13 @@ def _preview_value(f: VdpField, rec: dict, base: str, images: Images) -> str:
 
 
 def page_for_record(s: VdpSettings, record: int, npages: int) -> int:
-    """Erste Vorlagenseite von Datensatz record (nur bei order == "each" festgelegt)."""
+    """First template page of record ``record`` (only defined for order == "each")."""
     g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
     return (record * g) % max(1, npages) if s.order == "each" else -1
 
 
 def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
-    """Eine Seite mit den Feldern des gewählten Datensatzes – als pypdfium2-Dokument (für die Vorschau)."""
+    """One page with the fields of the chosen record – as a pypdfium2 document (for the preview)."""
     import pypdfium2 as pdfium
     import tempfile
 
@@ -1403,7 +1417,7 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     s2.log_path = ""
     nb = s2.numbering
     s2.numbering = Numbering(**{**asdict(nb), "continue_key": ""})
-    if nb.continue_key:  # Vorschau zählt nicht weiter, zeigt aber den Stand
+    if nb.continue_key:  # the preview does not count on but shows the state
         s2.numbering.start = int(counter_state().get(nb.continue_key, nb.start))
     _cols, recs = records(s2)
     if not recs:
@@ -1419,7 +1433,7 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     s2.records = ""
     s2.csv_path = ""
     s2.count = 1
-    # festen Datensatz einsetzen: Nummer/Spalten als Vorlage-Konstanten
+    # insert a fixed record: number/columns as template constants
     rec = dict(recs[record])
     g = max(1, int(getattr(s, "pages_per_record", 1) or 1))
     if window_mode(s) and getattr(s, "order", "") == "each":
@@ -1459,9 +1473,9 @@ def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
                 g.pages = ""
                 fl.append(g)
     s2.fields = fl
-    s2.windows = []  # Felder sind bereits nach Fenster/Seite gefiltert und vorausgefüllt –
-    # sonst würde build() die Fenster gegen das 1-Seiten-Zwischen-PDF erneut
-    # auflösen (ungerade = Seite 1, gerade = nichts) und die Ausgabe verfälschen.
+    s2.windows = []  # The fields are already filtered by window/page and pre-filled –
+    # otherwise build() would resolve the windows against the 1-page intermediate PDF
+    # again (odd = page 1, even = nothing) and falsify the output.
     s2.placeholders = False
     if not fl:
         return pdfium.PdfDocument(one), len(recs)

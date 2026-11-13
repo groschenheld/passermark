@@ -46,20 +46,20 @@ _CSV_HEAD = [
     "result",
     "log",
     "roll_mm",
-    "run_m",  # Rolle/Laufmeter: Plandruck (seit 1.18)
+    "run_m",  # roll/run length: plan printing
     "order",
     "item",
-]  # Bestellung/Position aus dem Ablauf (Passerlink, seit 1.18.9)
-# Ablauf-Variablen, die mitprotokolliert werden (z. B. von Passerlink übergeben) – keine Kundendaten
+]  # order/item from the workflow (Passerlink)
+# workflow variables that are logged as well (e.g. passed by Passerlink) – no customer data
 LOG_VARS = ("order", "item", "qty", "product", "shop")
 VAR_MAX = 120
 
 _ctx = {
-    "source": "dialog",  # Quelle des laufenden Auftrags (dialog | cli | watch | rightclick)
+    "source": "dialog",  # source of the running job (dialog | cli | watch | rightclick)
     "inputs": None,
-    "before": None,  # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
+    "before": None,  # in a workflow: the original inputs and the steps before printing
     "vars": None,
-}  # im Ablauf: die Variablen aus LOG_VARS
+}  # in a workflow: the variables from LOG_VARS
 _pruned = {"dir": None}
 
 
@@ -76,9 +76,10 @@ def source(name: str):
 
 @contextlib.contextmanager
 def in_workflow(inputs: list, before: list, variables: dict | None = None):
-    """Druck mitten in einem Ablauf: geprotokolliert werden die Original-Eingaben und die Schritte davor – der
-    Nachdruck rechnet sie wieder durch (die Zwischendatei gibt es danach nicht mehr). variables: die
-    Ablauf-Variablen; davon kommen nur LOG_VARS ins Protokoll (Bestellung, Position, Menge, Produkt, Shop)."""
+    """Printing in the middle of a workflow: the original inputs and the steps before it are logged – a
+    reprint computes them again (the intermediate file no longer exists afterwards). variables: the
+    workflow variables; only LOG_VARS of them go into the log (order, item, quantity, product, shop).
+    """
     old = (_ctx["inputs"], _ctx["before"], _ctx["vars"])
     _ctx["inputs"], _ctx["before"], _ctx["vars"] = list(inputs), list(before), log_vars(variables)
     try:
@@ -88,7 +89,7 @@ def in_workflow(inputs: list, before: list, variables: dict | None = None):
 
 
 def log_vars(variables) -> dict:
-    """Nur die erlaubten Variablen, als reiner Text (ohne Steuerzeichen), höchstens VAR_MAX Zeichen."""
+    """Only the permitted variables, as plain text (no control characters), at most VAR_MAX characters."""
     out = {}
     for k in LOG_VARS:
         v = (variables or {}).get(k) if isinstance(variables, dict) else None
@@ -188,7 +189,7 @@ def build(
         user = getpass.getuser()
     except Exception:
         user = ""
-    if _ctx["inputs"]:  # im Ablauf: die Datei ist eine Zwischenstufe
+    if _ctx["inputs"]:  # in a workflow: the file is an intermediate stage
         file = _ctx["inputs"][0]
     entry = {
         "time": now.isoformat(timespec="seconds"),
@@ -217,7 +218,7 @@ def build(
         "result": "error" if error else "sent",
         "error": error,
     }
-    if _ctx["vars"]:  # Bestellung/Position (z. B. Passerlink) – für die Zuordnung
+    if _ctx["vars"]:  # order/item (e.g. Passerlink) – for matching
         entry["vars"] = dict(_ctx["vars"])
     st = {
         "printer": printer,
@@ -303,15 +304,16 @@ def write(rec: dict, cfg: dict | None = None) -> str | None:
 
 
 def _num(v) -> str:
-    """Zahl für die CSV (leer, wenn nicht vorhanden)."""
+    """Number for the CSV (empty if not present)."""
     if v is None or v == "":
         return ""
     return f"{float(v):g}"
 
 
 def _upgrade_csv(path: str) -> None:
-    """Ältere printlog.csv: fehlende Spalten (roll_mm/run_m seit 1.18, order/item seit 1.18.9) in der Kopfzeile
-    ergänzen, damit neue Spalten benannt sind. Alte Zeilen bleiben kürzer (= leer)."""
+    """Older printlog.csv: add missing columns (roll_mm/run_m, order/item) to the header row
+    so that new columns are named. Old rows stay shorter (= empty).
+    """
     try:
         with open(path, encoding="utf-8-sig") as f:
             first = f.readline()
@@ -353,7 +355,7 @@ def _prune(base: str, cfg: dict | None = None) -> None:
                     pass
         for d in dirs:
             try:
-                os.rmdir(os.path.join(root, d))  # nur leere Monatsordner
+                os.rmdir(os.path.join(root, d))  # only empty month folders
             except OSError:
                 pass
 

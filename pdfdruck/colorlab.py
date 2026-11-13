@@ -47,7 +47,7 @@ def surface_label(s: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Farbrechnung
+# colour arithmetic
 # --------------------------------------------------------------------------- #
 def _f(t):
     return t ** (1 / 3) if t > (6 / 29) ** 3 else t / (3 * (6 / 29) ** 2) + 4 / 29
@@ -152,7 +152,7 @@ def profile_desc(path: str) -> str:
 
 
 def profile_white(path: str):
-    """Papierweiß, wie das Profil es beschreibt (Gerätewert „keine Farbe“, absolut farbmetrisch) – Lab D50 oder None."""
+    """Paper white as the profile describes it (device value "no ink", absolute colorimetric) – Lab D50 or None."""
     try:
         st = os.stat(path)
     except OSError:
@@ -196,7 +196,7 @@ _SURF_RX = [
 
 
 def guess_surface(text: str) -> str:
-    """Oberfläche aus Profilname/Datei raten (FOGRA-Nummern, coated/uncoated …) – "" = unbekannt."""
+    """Guess the surface from the profile name/file (FOGRA numbers, coated/uncoated …) – "" = unknown."""
     for name, rx in _SURF_RX:
         if rx.search(text or ""):
             return name
@@ -215,8 +215,9 @@ RX_XYZ = re.compile(r"XYZ:\s*(-?\d+(?:\.\d+)?)[ ,]+(-?\d+(?:\.\d+)?)[ ,]+(-?\d+(
 
 
 def parse_lab_text(text: str):
-    """Freie Eingabe oder Messprotokoll: „95.1 0.4 -2.9“, „L=95,1 a=0,4 b=-2,9“ oder Zeilen mit „Lab: …“ ->
-    Lab oder None (Komma als Dezimalzeichen erlaubt)."""
+    """Free input or measurement log: "95.1 0.4 -2.9", "L=95,1 a=0,4 b=-2,9" or lines with "Lab: …" ->
+    Lab or None (a comma is allowed as the decimal separator).
+    """
     m = RX_LAB.search(text or "")
     if m:
         return tuple(float(x) for x in m.groups())
@@ -232,7 +233,7 @@ def parse_lab_text(text: str):
 
 
 def parse_measurements(text: str) -> list:
-    """Alle Messwerte eines spotread-Protokolls (oder einer Liste) -> [Lab, …]."""
+    """All measurements of a spotread log (or of a list) -> [Lab, …]."""
     out = [tuple(float(x) for x in m.groups()) for m in RX_LAB.finditer(text or "")]
     if out:
         return out
@@ -306,8 +307,9 @@ def parse_cgats(text: str) -> list:
 
 
 def paper_white_from(patches: list):
-    """Papierweiß aus Messfeldern: das Feld ohne Farbe (CMYK 0 / RGB max), sonst ein Feld namens
-    „Papier/Paper/White“, sonst das hellste. -> (Lab, Erklärung) oder (None, "")."""
+    """Paper white from patches: the patch without ink (CMYK 0 / RGB max), otherwise a patch named
+    "Papier/Paper/White", otherwise the lightest one. -> (Lab, explanation) or (None, "").
+    """
     if not patches:
         return None, ""
     blank = []
@@ -327,7 +329,7 @@ def paper_white_from(patches: list):
 
 
 def read_measurement_file(path: str):
-    """Datei mit Messwerten (CGATS oder spotread-Protokoll) -> (Lab Papierweiß, Erklärung, Anzahl Felder)."""
+    """File with measurements (CGATS or spotread log) -> (Lab paper white, explanation, number of patches)."""
     with open(path, encoding="utf-8", errors="replace") as f:
         text = f.read(20_000_000)
     patches = parse_cgats(text)
@@ -342,7 +344,7 @@ def read_measurement_file(path: str):
 
 
 # --------------------------------------------------------------------------- #
-# Messgerät (ArgyllCMS spotread)
+# measuring device (ArgyllCMS spotread)
 # --------------------------------------------------------------------------- #
 def spotread() -> str | None:
     """spotread von ArgyllCMS (X-Rite i1Pro/i1Pro 2/3, ColorMunki, i1Studio, Spyder … – reflektiv)."""
@@ -366,12 +368,12 @@ RX_PORT = re.compile(r"^\s*(\d+)\s*=\s*'([^']*)'", re.M)
 
 
 def spotread_ports(text: str) -> list:
-    """Anschlüsse aus der Hilfe von spotread (-?): [(Nummer, Beschreibung)]."""
+    """Ports from spotread's help (-?): [(number, description)]."""
     return [(int(n), d.strip()) for n, d in RX_PORT.findall(text or "")]
 
 
 def is_instrument(desc: str) -> bool:
-    """Steht ein Messgerät an diesem Anschluss (nicht nur eine serielle Schnittstelle)?"""
+    """Is a measuring device connected to this port (not just a serial interface)?"""
     return bool(
         re.search(
             r"x-?rite|i1|colormunki|munki|spyder|datacolor|dtp\d|spectro|colorimet|huey|"
@@ -383,7 +385,7 @@ def is_instrument(desc: str) -> bool:
 
 
 def spotread_args(port: int = 1, skip_cal: bool = False) -> list:
-    """Einmal kalibrieren (falls nötig) und messen, dann beenden; Lab D50 wie die Profile."""
+    """Calibrate once (if needed) and measure, then quit; Lab D50 like the profiles."""
     a = ["-O", "-c", str(max(1, int(port)))]
     if skip_cal:
         a.append("-N")
@@ -399,7 +401,7 @@ RX_FAIL = re.compile(r"no (instrument|device)s? found|failed to|error|not suppor
 
 
 def spotread_state(text: str) -> str:
-    """Zustand aus der bisherigen Ausgabe: "result" | "calibrate" | "measure" | "error" | "busy"."""
+    """State from the output so far: "result" | "calibrate" | "measure" | "error" | "busy"."""
     tail = (text or "")[-600:]
     if RX_LAB.search(tail):
         return "result"
@@ -435,7 +437,7 @@ def new_material(mid: str, name: str) -> dict:
 
 
 def all_materials(cfg: dict) -> list:
-    """Materialien der Verwaltung, dann die eigenen des Benutzers – jeweils Kopien mit "scope": "admin"/"user"."""
+    """Materials of the administration, then the user's own – copies with "scope": "admin"/"user"."""
     out = [dict(m, scope="admin") for m in (cfg or {}).get("materials", []) if isinstance(m, dict)]
     if (cfg or {}).get("_no_user_materials"):
         return out
@@ -454,7 +456,7 @@ def material_by_id(cfg: dict, mid: str):
 
 
 def materials_for(cfg: dict, printer: str = "") -> list:
-    """Materialien, die für diesen Drucker ein Profil haben (oder ein allgemeines) – zuerst die passenden."""
+    """Materials that have a profile for this printer (or a general one) – the matching ones first."""
     ms = all_materials(cfg)
     if not printer:
         return ms
@@ -462,14 +464,15 @@ def materials_for(cfg: dict, printer: str = "") -> list:
 
 
 def profile_for(cfg: dict, material: dict, printer: str = ""):
-    """Profil eines Materials für den Drucker (eigene Zuordnung, sonst die allgemeine "*"):
-    Profil-ID der Verwaltung oder – bei eigenen Materialien – Pfad einer ICC-Datei."""
+    """Profile of a material for the printer (its own assignment, otherwise the general one "*"):
+    profile id of the administration or – for the user's own materials – path of an ICC file.
+    """
     prof = (material or {}).get("profiles") or {}
     return prof.get(printer) or prof.get("*") or ""
 
 
 def resolve_profile(cfg: dict, ref: str):
-    """Profil-Verweis (ID der Verwaltung oder Pfad) -> {"id", "name", "file", "admin"} oder None."""
+    """Profile reference (id of the administration or path) -> {"id", "name", "file", "admin"} or None."""
     if not ref:
         return None
     p = next((p for p in (cfg or {}).get("color_profiles", []) if p.get("id") == ref), None)
@@ -482,8 +485,9 @@ def resolve_profile(cfg: dict, ref: str):
 
 
 def candidates(cfg: dict, extra_cmyk: bool = True) -> list:
-    """Profile, die für Vorschläge in Frage kommen: die der Verwaltung, dazu (optional) die CMYK-Profile im
-    System. -> [{"id", "name", "file", "printers", "space", "white", "surface", "admin"}]"""
+    """Profiles that qualify for suggestions: those of the administration plus (optionally) the CMYK profiles in
+    the system. -> [{"id", "name", "file", "printers", "space", "white", "surface", "admin"}]
+    """
     out, seen = [], set()
     for p in (cfg or {}).get("color_profiles", []):
         f = p.get("file") or ""
@@ -550,14 +554,15 @@ STANDARD_TIPS = {
 
 
 def suggest(material: dict, cands: list, printer: str = "", limit: int = 6) -> list:
-    """Profile für ein Material, beste zuerst. Kriterien: Abstand des Papierweiß (ΔE 2000), gleiche Oberfläche,
-    dem Drucker zugeordnet. -> [{… Kandidat …, "de", "score", "why"}]"""
+    """Profiles for a material, best first. Criteria: distance of the paper white (ΔE 2000), same surface,
+    assigned to the printer. -> [{… candidate …, "de", "score", "why"}]
+    """
     white = tuple(material["white"]) if material.get("white") else None
     surf = _surface_group(material.get("surface") or "")
     res = []
     for c in cands:
         if printer and c["printers"] and printer not in c["printers"]:
-            continue  # einem anderen Drucker zugeordnet
+            continue  # assigned to another printer
         de = round(delta_e(white, c["white"]), 1) if white and c["white"] else None
         score = de if de is not None else 8.0
         why = [tr("ΔE Papierweiß {0:.1f}").format(de) if de is not None else tr("Papierweiß nicht vergleichbar")]
@@ -573,9 +578,9 @@ def suggest(material: dict, cands: list, printer: str = "", limit: int = 6) -> l
             score -= 3.0
             why.append(tr("für {0} eingerichtet").format(printer))
         elif printer and c["space"] == "CMYK" and not c["admin"]:
-            score += 1.0  # Standardprofil (Offset) – für den Drucker nur Ersatz
+            score += 1.0  # standard profile (offset) – only a substitute for the printer
         v = verdict(de)
-        if c.get("std"):  # Standardprofil, noch nicht geladen
+        if c.get("std"):  # standard profile, not downloaded yet
             score += 0.5
             why.append(tr("noch nicht installiert"))
             v = tr("Standard – erst holen")
@@ -585,7 +590,7 @@ def suggest(material: dict, cands: list, printer: str = "", limit: int = 6) -> l
 
 
 def standard_tip(material: dict, best) -> str:
-    """Hinweis, wenn kein installiertes Profil gut passt: welches Standardprofil sich lohnt."""
+    """Hint when no installed profile fits well: which standard profile is worth getting."""
     if best and best.get("de") is not None and best["de"] <= 4:
         return ""
     tip = STANDARD_TIPS.get(_surface_group(material.get("surface") or ""))
@@ -598,8 +603,9 @@ def standard_tip(material: dict, best) -> str:
 
 
 def standard_candidates(installed_files=()) -> list:
-    """Standardprofile, die noch nicht installiert sind, als Kandidaten für Vorschläge (ohne Datei, "std" = Schlüssel).
-    Papierweiß unbekannt -> sie zählen nur über die Oberfläche."""
+    """Standard profiles that are not installed yet as candidates for suggestions (no file, "std" = key).
+    Paper white unknown -> they only count via the surface.
+    """
     from . import usercolor
 
     have = {os.path.splitext(os.path.basename(f))[0].lower() for f in installed_files}
@@ -624,8 +630,9 @@ def standard_candidates(installed_files=()) -> list:
 
 
 def recommend_conversion(output_intents: list, has_cmyk: bool, target_file: str, cands: list) -> dict:
-    """CMYK-Umwandlung für ein Dokument auf dieses Papier: Ausgabebedingung der Datei -> Profil des Papiers.
-    -> {"mode", "source", "text"} (source = Datei des Quellprofils oder "")."""
+    """CMYK conversion for a document onto this paper: output condition of the file -> profile of the paper.
+    -> {"mode", "source", "text"} (source = file of the source profile or "").
+    """
     tname = profile_desc(target_file) if target_file else ""
     if not has_cmyk:
         return {
@@ -678,9 +685,10 @@ def recommend_conversion(output_intents: list, has_cmyk: bool, target_file: str,
 
 
 def proof_choices(cfg: dict) -> list:
-    """Druckbedingungen für den Softproof: erst die Materialien (je zugeordnetem Drucker), dann die Profile der
-    Verwaltung, dann die CMYK-Profile im System.
-    -> [{"key", "label", "icc", "space", "name", "white", "material", "printer"}]"""
+    """Printing conditions for the soft proof: first the materials (per assigned printer), then the profiles of
+    the administration, then the CMYK profiles in the system.
+    -> [{"key", "label", "icc", "space", "name", "white", "material", "printer"}]
+    """
     out = []
     for m in all_materials(cfg):
         for printer, ref in sorted((m.get("profiles") or {}).items(), key=lambda kv: (kv[0] != "*", kv[0])):
@@ -727,8 +735,9 @@ def proof_choices(cfg: dict) -> list:
 
 
 def doc_color_facts(path, max_pages: int = 50) -> tuple:
-    """(Ausgabebedingungen, CMYK-Inhalte?) eines PDFs – schnell: Output Intents, Operatoren k/K, CMYK-Farbräume
-    von Bildern und Ressourcen (die ersten max_pages Seiten). path = Datei oder PDF-Bytes."""
+    """(output conditions, CMYK content?) of a PDF – fast: output intents, operators k/K, CMYK colour spaces
+    of images and resources (the first max_pages pages). path = file or PDF bytes.
+    """
     import io
     import pikepdf
 
@@ -766,8 +775,9 @@ def doc_color_facts(path, max_pages: int = 50) -> tuple:
 
 
 def cmyk_profile_of(cfg: dict, material: dict) -> str:
-    """Datei des CMYK-Profils eines Materials (für die CMYK-Umwandlung): die allgemeine Zuordnung, sonst die
-    erste CMYK-Zuordnung eines Druckers. "" = keins."""
+    """File of the CMYK profile of a material (for the CMYK conversion): the general assignment, otherwise the
+    first CMYK assignment of a printer. "" = none.
+    """
     prof = (material or {}).get("profiles") or {}
     for q in ["*"] + sorted(k for k in prof if k != "*"):
         p = resolve_profile(cfg, prof.get(q, ""))

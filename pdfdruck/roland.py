@@ -61,7 +61,7 @@ def parse_hardclip(raw: bytes) -> dict | None:
 
 
 def query(host: str, port: int = PORT, timeout: float = 3.0) -> dict:
-    """Schneidbereich des Geräts: {"width_mm", "length_mm", "raw"} – Breite = quer zur Vorschubrichtung."""
+    """Cutting area of the device: {"width_mm", "length_mm", "raw"} – width = across the feed direction."""
     raw = _ask(host, b"IN;OH;", port, timeout)
     d = parse_hardclip(raw)
     if d is None:
@@ -70,7 +70,7 @@ def query(host: str, port: int = PORT, timeout: float = 3.0) -> dict:
 
 
 def hpgl(paths_mm: list, force: int = 0, speed: int = 0) -> bytes:
-    """Schneidauftrag: [[(x, y), …], …] in mm (x = quer, y = Vorschub) -> CAMM-GL III."""
+    """Cut job: [[(x, y), …], …] in mm (x = across, y = feed) -> CAMM-GL III."""
     out = ["IN"]
     if speed:
         out.append(f"VS{int(speed)}")
@@ -79,7 +79,7 @@ def hpgl(paths_mm: list, force: int = 0, speed: int = 0) -> bytes:
     for poly in paths_mm:
         if len(poly) < 2:
             continue
-        pts = [(round(y / UNIT_MM), round(x / UNIT_MM)) for x, y in poly]  # Gerät: X = Vorschub, Y = quer
+        pts = [(round(y / UNIT_MM), round(x / UNIT_MM)) for x, y in poly]  # device: X = feed, Y = across
         out.append("PU{0},{1}".format(*pts[0]))
         out.append("PD" + ",".join(f"{a},{b}" for a, b in pts[1:]))
     out.append("PU0,0")
@@ -87,7 +87,7 @@ def hpgl(paths_mm: list, force: int = 0, speed: int = 0) -> bytes:
 
 
 def rect_paths(rects_mm: list) -> list:
-    """Rechtecke (x0, y0, x1, y1) mm -> geschlossene Pfade."""
+    """Rectangles (x0, y0, x1, y1) mm -> closed paths."""
     return [[(a, b), (c, b), (c, d), (a, d), (a, b)] for a, b, c, d in rects_mm]
 
 

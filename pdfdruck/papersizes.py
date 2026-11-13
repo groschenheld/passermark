@@ -158,9 +158,9 @@ def size_from_text(text: str) -> tuple[float, float] | None:
         return None
     t = re.sub(r"<([0-9A-Fa-f]{2})>", lambda m: chr(int(m.group(1), 16)), str(text)).strip()  # PPD: <2E> = "."
     m = _CUSTOM_RE.fullmatch(t)
-    if m and (m.group(3) or t.lower().startswith("custom.")):  # „4X7“ allein ist ein Name, keine Größe
+    if m and (m.group(3) or t.lower().startswith("custom.")):  # "4X7" alone is a name, not a size
         f = _UNIT.get((m.group(3) or "").lower())
-        if f is None:  # Custom.WxH ohne Einheit: pt (CUPS)
+        if f is None:  # Custom.WxH without a unit: pt (CUPS)
             return float(m.group(1)), float(m.group(2))
         return float(m.group(1)) * f * PT, float(m.group(2)) * f * PT
     m = _TEXT_RE.search(t)

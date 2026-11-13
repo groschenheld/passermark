@@ -25,10 +25,10 @@ LIVE_CACHE_S = 20
 class Tray:
     """One paper tray as configured by the admin: driver slot, paper size, grammage, media."""
 
-    slot: str  # Treiberwert der Lade (InputSlot / Windows-Fach-ID)
-    size: str  # Treiberwert des Formats (PageSize / Windows-Papier-ID)
-    weight: int = 0  # g/m², 0 = nicht angegeben
-    media: str = ""  # Treiberwert Medientyp ("" = nicht setzen)
+    slot: str  # driver value of the tray (InputSlot / Windows tray id)
+    size: str  # driver value of the size (PageSize / Windows paper id)
+    weight: int = 0  # g/m², 0 = not given
+    media: str = ""  # driver value of the media type ("" = do not set)
     ipp: str = ""  # tray name on the device (IPP media-source), for the fill level
 
     @classmethod
@@ -102,7 +102,7 @@ def pick(trays: list[Tray], size: str, weight: int = 0, live=None, labels: dict 
 
 
 # --------------------------------------------------------------------------- #
-# Live-Status mit kurzem Zwischenspeicher
+# live status with a short cache
 # --------------------------------------------------------------------------- #
 _cache: dict = {}
 
@@ -142,7 +142,7 @@ def size_for_mm(caps, mm: tuple) -> str | None:
 
 
 def slot_for_source(caps, source: str) -> str | None:
-    """IPP-Ladenname (tray-1, by-pass-tray, main …) -> Treiberwert der Lade."""
+    """IPP tray name (tray-1, by-pass-tray, main …) -> driver value of the tray."""
     key = caps.roles.get("source")
     if not key or key not in caps.options:
         return None

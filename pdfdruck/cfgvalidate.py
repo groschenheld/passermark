@@ -93,7 +93,7 @@ def check_opts(d, where):
 
 
 def check_dirs(dirs, windows: bool):
-    """Weitere Ablauf-Ordner: absolute Pfade (Windows auch \\\\server\\freigabe), höchstens 20."""
+    """Further workflow folders: absolute paths (Windows also \\\\server\\share), at most 20."""
     import ntpath
     import posixpath
 
@@ -127,7 +127,7 @@ def _num(v) -> bool:
 
 
 def check_materials(mats, profile_ids: set, windows: bool):
-    """Materialien (Papiere): höchstens 200, Lab-Werte im Bereich, Profile nur aus der Verwaltung."""
+    """Materials (papers): at most 200, Lab values within range, profiles only from the administration."""
     if not isinstance(mats, list) or len(mats) > 200:
         raise ValueError("materials: Liste mit höchstens 200 Einträgen erwartet")
     seen = set()

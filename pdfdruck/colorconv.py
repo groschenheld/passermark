@@ -20,7 +20,7 @@ INTENT_NUM = {"perceptual": 0, "relative": 1, "saturation": 2, "absolute": 3}
 
 
 def icc_colorspace(path: str) -> str:
-    """'RGB' | 'CMYK' | 'Gray' aus dem ICC-Header; ValueError wenn kein ICC."""
+    """'RGB' | 'CMYK' | 'Gray' from the ICC header; ValueError if it is not an ICC profile."""
     with open(path, "rb") as f:
         head = f.read(40)
     if len(head) < 40 or head[36:40] != b"acsp":

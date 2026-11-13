@@ -184,9 +184,10 @@ def _reg_subkeys(root, path: str) -> list:
 
 
 def port_host(port: str, printer: str = "") -> str:
-    """Geräteadresse zu einem Windows-Anschluss: „10.30.4.73-HPGL2“, „IP_10.0.0.5“, Standard-TCP/IP-Anschluss mit
-    beliebigem Namen (HostName/IPAddress aus der Registry, auch am Druckserver), WSD-Anschluss (Adresse aus der
-    WSD-Geräteliste). "" = unbekannt."""
+    """Device address for a Windows port: "10.30.4.73-HPGL2", "IP_10.0.0.5", standard TCP/IP port with
+    any name (HostName/IPAddress from the registry, also on the print server), WSD port (address from the
+    WSD device list). "" = unknown.
+    """
     port = str(port or "").replace("socket://", "")
     m = _IPV4.search(port)
     if m:
@@ -196,7 +197,7 @@ def port_host(port: str, printer: str = "") -> str:
     except ImportError:
         return ""
     roots = [winreg.HKEY_LOCAL_MACHINE]
-    if printer.startswith("\\\\"):  # Verbindung über einen Druckserver: dessen Registry
+    if printer.startswith("\\\\"):  # connection via a print server: its registry
         server = printer[2:].split("\\")[0]
         try:
             roots.append(winreg.ConnectRegistry("\\\\" + server, winreg.HKEY_LOCAL_MACHINE))
@@ -263,7 +264,7 @@ def load_caps(name: str) -> PrinterCaps:
             caps.page_sizes[str(pid)] = (x / 254.0 * 72.0, y / 254.0 * 72.0)
             caps.size_source[str(pid)] = "driver"
             continue
-        # Treiber meldet 0 × 0 (kommt bei Sonderformaten vor): Maße aus dem Namen bzw. der Tabelle
+        # the driver reports 0 × 0 (happens with custom sizes): measures from the name or the table
         from .printers import papersizes, std_size
 
         pt = papersizes.size_from_text(str(pname))
@@ -332,7 +333,7 @@ def imageable_for(printer: str, values: dict):
 
 
 # --------------------------------------------------------------------------- #
-# Drucken
+# printing
 # --------------------------------------------------------------------------- #
 def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
     dm = devmode_from_str(printer, values.get(DEVMODE_KEY))
@@ -371,7 +372,7 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
 
 
 # --------------------------------------------------------------------------- #
-# Drucken (nur Windows)
+# printing (Windows only)
 # --------------------------------------------------------------------------- #
 QUERYESCSUPPORT = 8
 POSTSCRIPT_PASSTHROUGH = 4115
@@ -451,7 +452,7 @@ def _jpeg_ok(gdi, hdc, data: bytes) -> bool:
 
 
 def print_settings() -> tuple[str, int]:
-    """(Verfahren, Raster-dpi) aus Datei → Einstellungen (nur Windows)."""
+    """(method, raster dpi) from File → Settings (Windows only)."""
     try:
         from .l10n import load_settings
 
@@ -477,7 +478,7 @@ def choose_mode(gdi, hdc, wanted: str) -> str:
     return wanted
 
 
-PUMP = None  # Oberfläche: zwischen den Streifen kurz Ereignisse abarbeiten (Fenster bleibt lebendig)
+PUMP = None  # interface: process events briefly between the bands (the window stays responsive)
 
 
 def _pump():
@@ -502,7 +503,7 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
     y_pt = 0.0
     while y_pt < h_pt - 1e-6:
         y2 = min(h_pt, y_pt + band_pt)
-        # Streifen [y_pt, y2] von oben gemessen rendern (crop = links, unten, rechts, oben in pt)
+        # render the band [y_pt, y2] measured from the top (crop = left, bottom, right, top in pt)
         img = (
             page.render(
                 scale=scale,
@@ -785,7 +786,7 @@ def test_print(printer: str, values: dict | None = None) -> list[tuple[str, str]
 
 
 def set_printer_default(printer: str, devmode_str: str):
-    """Treibereinstellungen als Windows-Standard des Druckers setzen (braucht Adminrechte)."""
+    """Set driver settings as the printer's Windows default (needs admin rights)."""
     import win32print
 
     h = win32print.OpenPrinter(printer, {"DesiredAccess": win32print.PRINTER_ALL_ACCESS})

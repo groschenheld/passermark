@@ -35,25 +35,25 @@ def snap(dx: float, dy: float, enabled: bool = True) -> tuple[float, float]:
 @dataclass
 class Measurement:
     length_mm: float
-    dx_mm: float  # waagrecht am Bildschirm (+ rechts)
-    dy_mm: float  # senkrecht am Bildschirm (+ oben)
-    angle_deg: float  # gegen den Uhrzeigersinn ab waagrecht rechts, -180 … 180
+    dx_mm: float  # horizontal on screen (+ right)
+    dy_mm: float  # vertical on screen (+ up)
+    angle_deg: float  # counterclockwise from horizontal right, -180 … 180
 
 
 def measure(a: tuple, b: tuple, M: tuple) -> Measurement:
-    """Messung zwischen zwei Seitenpunkten; ΔX/ΔY/Winkel so, wie man es am Bildschirm sieht (auch bei Drehung)."""
+    """Measurement between two page points; ΔX/ΔY/angle as seen on screen (also when rotated)."""
     dx, dy = b[0] - a[0], b[1] - a[1]
     length_mm = math.hypot(dx, dy) * MM_PER_PT
     ma, mb, mc, md = M
-    vx, vy = ma * dx + mc * dy, mb * dx + md * dy  # Bildschirmvektor (Pixel, y nach unten)
-    s = math.sqrt(abs(ma * md - mb * mc)) or 1.0  # Pixel je Punkt (Zoom)
-    sx, sy = vx / s * MM_PER_PT, -vy / s * MM_PER_PT  # Bildschirmachsen in mm (y nach oben)
+    vx, vy = ma * dx + mc * dy, mb * dx + md * dy  # screen vector (pixels, y down)
+    s = math.sqrt(abs(ma * md - mb * mc)) or 1.0  # pixels per point (zoom)
+    sx, sy = vx / s * MM_PER_PT, -vy / s * MM_PER_PT  # screen axes in mm (y up)
     angle = math.degrees(math.atan2(sy, sx)) if length_mm > 0 else 0.0
     return Measurement(length_mm, sx, sy, angle)
 
 
 def ruler_steps(px_per_mm: float) -> tuple[float, float]:
-    """(kleiner Strich, beschrifteter Strich) in mm – so, dass Striche ≥ 6 px und Beschriftungen ≥ 50 px auseinander."""
+    """(small tick, labelled tick) in mm – so that ticks are ≥ 6 px and labels ≥ 50 px apart."""
     minor = next((s for s in STEPS_MM if s * px_per_mm >= 6), STEPS_MM[-1])
     major = next(
         (s for s in STEPS_MM if s * px_per_mm >= 50 and s >= minor and abs(s / minor - round(s / minor)) < 1e-9),
@@ -63,9 +63,9 @@ def ruler_steps(px_per_mm: float) -> tuple[float, float]:
 
 
 def fmt(v: float, lang: str = "de", digits: int = 1) -> str:
-    """Zahl mit Komma (de, hu, es, fr) bzw. Punkt (en)."""
+    """Number with a comma (de, hu, es, fr) or a point (en)."""
     if abs(v) < 0.5 * 10 ** (-digits):
-        v = 0.0  # kein „-0,0“
+        v = 0.0  # no "-0.0"
     t = f"{v:.{digits}f}"
     return t if lang == "en" else t.replace(".", ",")
 

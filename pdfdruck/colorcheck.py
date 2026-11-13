@@ -38,11 +38,11 @@ class Target:
     name: str = ""
     space: str = ""  # CMYK | RGB | Gray
     intent: str = "relative"
-    material: str = ""  # Name des Materials ("" = nur Profil)
+    material: str = ""  # name of the material ("" = profile only)
     material_id: str = ""
-    white: list | None = None  # gemessenes Papierweiß des Materials (Lab D50)
-    surface: str = ""  # Oberfläche des Materials
-    tac_limit: int = 0  # 0 = Richtwert aus dem Profil
+    white: list | None = None  # measured paper white of the material (Lab D50)
+    surface: str = ""  # surface of the material
+    tac_limit: int = 0  # 0 = guide value from the profile
 
     @property
     def limit(self) -> int:
@@ -87,17 +87,17 @@ class Facts:
     """
 
     pages: int = 0
-    page_colors: dict = field(default_factory=dict)  # Seite (1-basiert) -> {"RGB", "CMYK", …}
+    page_colors: dict = field(default_factory=dict)  # page (1-based) -> {"RGB", "CMYK", …}
     rgb_pages: list = field(default_factory=list)
     cmyk_pages: list = field(default_factory=list)
     gray_pages: list = field(default_factory=list)
     lab_pages: list = field(default_factory=list)
     rgb_images: list = field(default_factory=list)  # [imagecheck.ImageUse]
-    rgb_tagged: int = 0  # davon mit eingebettetem ICC-Profil
-    spots: dict = field(default_factory=dict)  # Sonderfarbe -> [Seiten]
-    output_intents: list = field(default_factory=list)  # Bezeichnungen der Output Intents
-    transparency: list = field(default_factory=list)  # Seiten
-    fonts_missing: list = field(default_factory=list)  # [(Name, [Seiten])]
+    rgb_tagged: int = 0  # of which with an embedded ICC profile
+    spots: dict = field(default_factory=dict)  # spot colour -> [pages]
+    output_intents: list = field(default_factory=list)  # names of the output intents
+    transparency: list = field(default_factory=list)  # pages
+    fonts_missing: list = field(default_factory=list)  # [(name, [pages])]
     tac: dict | None = None  # {"max", "page", "over_pct", "limit", "method", "pages"}
     truncated: bool = False
 
@@ -136,7 +136,7 @@ def _pages_str(pages) -> str:
 # Fakten
 # --------------------------------------------------------------------------- #
 def facts(data: bytes, target: Target | None = None, tac: bool = True, tac_pages: int = 12, cancel=None) -> Facts:
-    """Was im Dokument steckt (pikepdf, darf im Hintergrund laufen; Ghostscript nur für den Farbauftrag)."""
+    """What the document contains (pikepdf, may run in the background; Ghostscript only for the ink coverage)."""
     from . import colorlab, preflight
 
     rep = preflight.analyze(data, deep_layers=False, pdfium_parts=False)
@@ -193,9 +193,10 @@ def _base(space: str) -> str:
 
 
 def measure_tac(data: bytes, target: Target, dpi: int = 30, max_pages: int = 12, cancel=None) -> dict | None:
-    """Maximaler Farbauftrag in %, wie er gedruckt würde: mit Ghostscript die Seiten in CMYK des Ziels rechnen
-    (RGB/Grau nach dem Zielprofil, vorhandenes CMYK bleibt) – ohne Ghostscript eine Schätzung aus dem
-    vorhandenen CMYK (Farbwerte und CMYK-Bilder)."""
+    """Maximum ink coverage in % as it would be printed: compute the pages in the target's CMYK with Ghostscript
+    (RGB/grey via the target profile, existing CMYK stays) – without Ghostscript an estimate from the
+    existing CMYK (colour values and CMYK images).
+    """
     from . import cmyk
 
     limit = target.limit
@@ -248,8 +249,9 @@ def measure_tac(data: bytes, target: Target, dpi: int = 30, max_pages: int = 12,
 
 
 def estimate_tac(data: bytes, limit: int = 300, max_pages: int = 50, cancel=None) -> dict | None:
-    """Farbauftrag ohne Ghostscript: höchste Summe der CMYK-Farbwerte (k/K, scn bei DeviceCMYK) und der CMYK-Bilder
-    (verkleinert ausgewertet). RGB wird nicht berücksichtigt (das rechnet erst die Umwandlung)."""
+    """Ink coverage without Ghostscript: highest sum of the CMYK colour values (k/K, scn with DeviceCMYK) and of the
+    CMYK images (evaluated at reduced size). RGB is not considered (only the conversion computes that).
+    """
     import io
     import pikepdf
 
@@ -311,13 +313,13 @@ def _image_tac(x) -> float:
 
 
 # --------------------------------------------------------------------------- #
-# Vergleich Druckbedingungen
+# comparing printing conditions
 # --------------------------------------------------------------------------- #
 _COND = re.compile(r"(fogra\s*\d+|crpc\s*\d+|gracol|swop|pso\s*coated|pso\s*uncoated|isocoated|isouncoated)", re.I)
 
 
 def condition_keys(text: str) -> set:
-    """Kennungen einer Druckbedingung aus Namen/Dateinamen: {"fogra39", "isocoated"} …"""
+    """Identifiers of a printing condition from names/file names: {"fogra39", "isocoated"} …"""
     t = (text or "").lower()
     keys = {re.sub(r"\s+", "", m.group(1).lower()) for m in _COND.finditer(t)}
     if re.search(r"pso\s*coated\s*v3|psocoated_?v3", t):
@@ -330,7 +332,7 @@ def condition_keys(text: str) -> set:
 
 
 def same_condition(oi: str, icc: str) -> bool:
-    """Ist der Output Intent (Bezeichnung) dieselbe Druckbedingung wie das Profil?"""
+    """Is the output intent (name) the same printing condition as the profile?"""
     from . import colorlab
 
     a = condition_keys(oi)
@@ -346,7 +348,7 @@ def same_condition(oi: str, icc: str) -> bool:
 
 
 def source_profile_for(oi: str, cfg: dict | None = None) -> str:
-    """Installiertes Profil zur Ausgabebedingung oi (für „alles neu separieren“) – "" = keins gefunden."""
+    """Installed profile for the output condition oi (for "separate everything anew") – "" = none found."""
     from . import colorlab
 
     for c in colorlab.candidates(cfg or {}):
@@ -359,7 +361,7 @@ def source_profile_for(oi: str, cfg: dict | None = None) -> str:
 # Befunde
 # --------------------------------------------------------------------------- #
 def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
-    """Befunde mit Empfehlung – schlimmste zuerst."""
+    """Findings with a recommendation – worst first."""
     from . import colorlab
     from .preflight import Spot
 
@@ -552,7 +554,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 convert_all or {"cmyk_mode": "all", "source": source_profile_for(oi, cfg) if oi else ""}, target=t.icc
             )
             if not params.get("source") and not oi_other:
-                params["source"] = t.icc  # CMYK ist schon für das Ziel – nur begrenzen
+                params["source"] = t.icc  # CMYK is already for the target – only limit
             out.append(
                 Finding(
                     "tac",
@@ -703,7 +705,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
 
 
 def summary(f: Facts) -> list:
-    """Kurzfassung der Fakten für die Anzeige: [(Bezeichnung, Wert)]."""
+    """Short version of the facts for display: [(label, value)]."""
     rows = [(tr("Seiten"), str(f.pages))]
     kinds = []
     for label, pages in (

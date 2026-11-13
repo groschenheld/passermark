@@ -65,25 +65,25 @@ class ManipSettings:
 
     cmyk: bool = False
     cmyk_mode: str = "rgb_only"  # rgb_only | all | gray
-    target: str = ""  # Pfad Zielprofil (CMYK)
+    target: str = ""  # path of the target profile (CMYK)
     source: str = ""  # source profile path for existing CMYK (mode "all")
     intent: str = "relative"
     bpc: bool = True
-    gray_to_k: bool = True  # Grau/Schwarz nur mit K drucken
-    output_intent: bool = True  # Zielprofil als Output Intent einbetten
+    gray_to_k: bool = True  # print grey/black with K only
+    output_intent: bool = True  # embed the target profile as output intent
     crop: bool = False
     crop_size: str = "A4"  # key from FORMATS or "custom"
     crop_w_mm: float = 210.0
     crop_h_mm: float = 297.0
-    crop_follow: bool = True  # Hoch-/Querformat der Seite folgen
+    crop_follow: bool = True  # follow the portrait/landscape orientation of the page
     crop_scale: bool = True  # first scale until the target is fully covered, then trim the overhang
     crop_inset_mm: float = 0.0  # trim this much all around beforehand (white margins of the original)
     crop_mode: str = "format"  # format | trim | whiteout
-    trim_l_mm: float = 0.0  # trim: links/oben/rechts/unten abschneiden
+    trim_l_mm: float = 0.0  # trim: cut off left/top/right/bottom
     trim_t_mm: float = 0.0
     trim_r_mm: float = 0.0
     trim_b_mm: float = 0.0
-    white_margin_mm: float = 0.0  # whiteout: Rand um erkannten Inhalt (negativ = hineinschneiden)
+    white_margin_mm: float = 0.0  # whiteout: margin around the detected content (negative = cut into it)
 
     @classmethod
     def from_dict(cls, d):
@@ -129,7 +129,7 @@ def _desc(path):
 
 
 def system_profile_dirs() -> list[str]:
-    """Ordner mit ICC-Profilen: System, dazu der eigene Profilordner (usercolor.icc_dir – Standardprofile holen)."""
+    """Folders with ICC profiles: system, plus the user's profile folder (usercolor.icc_dir – get standard profiles)."""
     from . import usercolor
 
     if _platform.IS_WIN:
@@ -153,7 +153,7 @@ def system_profile_dirs() -> list[str]:
 
 
 def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
-    """CMYK-Druckprofile: zuerst die vom Admin importierten, dann die im System vorhandenen."""
+    """CMYK print profiles: first those imported by the admin, then those present in the system."""
     out, seen = [], set()
 
     def add(path, origin, name=None):
@@ -202,7 +202,7 @@ def color_args(s: ManipSettings) -> list[str]:
         f"-dDeviceGrayToK={'true' if s.gray_to_k else 'false'}",
     ]
     if s.cmyk_mode == "rgb_only":
-        # Quell-CMYK = Zielprofil -> vorhandenes CMYK wird 1:1 durchgereicht
+        # source CMYK = target profile -> existing CMYK is passed through 1:1
         args.append(f"-sDefaultCMYKProfile={s.target}")
     elif s.source:
         args.append(f"-sDefaultCMYKProfile={s.source}")
@@ -255,7 +255,7 @@ def convert_pdf(src: str, dst: str, s: ManipSettings):
 
 
 def embed_output_intent(path: str, icc: str):
-    """Zielprofil als Output Intent (GTS_PDFX) einbetten – die Druckerei sieht die Druckbedingung."""
+    """Embed the target profile as output intent (GTS_PDFX) – the print shop sees the printing condition."""
     import pikepdf
 
     with open(icc, "rb") as f:
@@ -279,7 +279,7 @@ def embed_output_intent(path: str, icc: str):
 
 
 # --------------------------------------------------------------------------- #
-# Vorschau
+# preview
 # --------------------------------------------------------------------------- #
 def _render(gs, src, page, dpi, device, extra, out):
     cmd = [
@@ -310,8 +310,8 @@ class Preview:
 
     before: object  # PIL RGB
     after: object  # PIL RGB (Softproof)
-    cmyk: object = None  # PIL CMYK (echte Separationswerte) bzw. None bei Graustufen
-    gray: object = None  # PIL L bei Graustufen
+    cmyk: object = None  # PIL CMYK (real separation values) or None for greyscale
+    gray: object = None  # PIL L for greyscale
     notes: list = field(default_factory=list)
 
 
@@ -346,8 +346,9 @@ def render_preview(
 
 
 def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None):
-    """CMYK-Werte so anzeigen, wie sie mit diesem Profil gedruckt aussehen (LittleCMS). white_lab = gemessenes
-    Papierweiß des Materials (statt des Profilweiß) für die Papiersimulation."""
+    """Show CMYK values as they look when printed with this profile (LittleCMS). white_lab = measured
+    paper white of the material (instead of the profile white) for the paper simulation.
+    """
     from PIL import ImageCms
 
     if paper_white and white_lab:
@@ -363,7 +364,7 @@ def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None
 
 
 def separation(cmyk, channel: int):
-    """Einzelauszug (0=C, 1=M, 2=Y, 3=K) als Graubild: viel Farbe = dunkel (wie ein Film)."""
+    """Single separation (0=C, 1=M, 2=Y, 3=K) as a grey image: a lot of ink = dark (like a film)."""
     from PIL import ImageOps
 
     return ImageOps.invert(cmyk.split()[channel]).convert("RGB")

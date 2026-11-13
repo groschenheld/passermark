@@ -58,12 +58,12 @@ _CHOOSE_KEYS = {"choose", "name"}
 _OPTION_KEYS = {"image_dpi": (int, float), "password": (str,)}
 
 
-PRINT = "print"  # Schritt, der druckt (kein Auftrag in core.JOBS – das PDF bleibt unverändert)
-PLAN = "plan"  # Plandruck auf Rollen (jede Seite ein Plan) – druckt ebenfalls, PDF bleibt unverändert
+PRINT = "print"  # step that prints (not a job in core.JOBS – the PDF stays unchanged)
+PLAN = "plan"  # plan printing on rolls (every page a plan) – also prints, the PDF stays unchanged
 PRINTS = (PRINT, PLAN)
-FAIL, STOP, CHOOSE = "fail", "stop", "choose"  # Ablaufsteuerung: abbrechen mit Meldung, beenden, verzweigen
+FAIL, STOP, CHOOSE = "fail", "stop", "choose"  # flow control: abort with a message, stop, branch
 FLOW = (FAIL, STOP)
-E_REJECTED = "rejected"  # „fail“-Schritt: Datei abgelehnt (Meldung aus dem Ablauf)
+E_REJECTED = "rejected"  # "fail" step: file rejected (message from the workflow)
 
 
 class Rejected(RuntimeError):
@@ -339,13 +339,13 @@ class Step:
     name: str
     settings: dict
     pages: list | None
-    cond: dict | None = None  # "if": Schritt nur, wenn die Bedingung gilt
+    cond: dict | None = None  # "if": step only if the condition holds
     message: str = ""  # fail / stop
-    branches: list | None = None  # choose: [(Bedingung oder None = sonst, [Step …])]
-    where: str = ""  # steps[2].choose[0].steps[1] – für Meldungen
+    branches: list | None = None  # choose: [(condition or None = otherwise, [Step …])]
+    where: str = ""  # steps[2].choose[0].steps[1] – for messages
 
     def to_dict(self) -> dict:
-        """Für check --json und das Druckprotokoll."""
+        """For check --json and the print log."""
         if self.job == CHOOSE:
             return {
                 "choose": [
@@ -369,7 +369,7 @@ class Step:
 
 
 def walk_steps(steps):
-    """Alle Schritte, auch die in Verzweigungen."""
+    """All steps, including those in branches."""
     for st in steps:
         yield st
         for _c, sub in st.branches or []:
@@ -389,7 +389,7 @@ class Plan:
 
 
 def _has_print(raw) -> bool:
-    """Druckt der Ablauf irgendwo (auch in einem Zweig)? Dann darf die Ausgabedatei fehlen."""
+    """Does the workflow print anywhere (also in a branch)? Then the output file may be missing."""
     if not isinstance(raw, list):
         return False
     for x in raw:
@@ -474,7 +474,7 @@ def prepare(
     raw_out = output if output else data.get("output")
     prints = _has_print(data.get("steps"))
     if not raw_out and prints:
-        out_path = ""  # nur drucken, keine Datei
+        out_path = ""  # print only, no file
     elif not raw_out or not isinstance(raw_out, str):
         probs.append(("output", tr("Ausgabedatei fehlt (im Ablauf oder als zweites Argument)")))
         out_path = ""
@@ -680,7 +680,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
         return ok
 
     def message(text: str) -> str:
-        """${…} in fail/stop-Meldungen: Variablen und Prüfwerte (${format}, ${pages} …)."""
+        """${…} in fail/stop messages: variables and check values (${format}, ${pages} …)."""
 
         def sub(m):
             k = m.group(1)
@@ -749,7 +749,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
                 notes.extend(pn)
                 emit(event="step_done", step=k, job=st.job, info=info, notes=pn)
                 state["done"].append(st)
-                continue  # das PDF bleibt, wie es ist
+                continue  # the PDF stays as it is
             if st.job == PRINT:
                 from .printcli import PrintSettings, print_pdf
                 from . import printlog
@@ -772,7 +772,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
                 notes.extend(pn)
                 emit(event="step_done", step=k, job=st.job, info=info, notes=pn)
                 state["done"].append(st)
-                continue  # das PDF bleibt, wie es ist
+                continue  # the PDF stays as it is
             dst = os.path.join(work, f"step{k}.pdf")
             r = core.run_job(
                 st.job,
@@ -799,7 +799,7 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
         if state["stopped"]:
             notes.append(state["stopped"])
         base = {"steps": results, "notes": notes, "decisions": decisions, "stopped": state["stopped"]}
-        if not plan.output:  # nur gedruckt
+        if not plan.output:  # printed only
             return dict(base, output=None, pages=None)
         d = os.path.dirname(plan.output)
         if d:
@@ -826,16 +826,17 @@ def run(plan: Plan, events=None, cancel=None, variables: dict | None = None) -> 
 
 
 # --------------------------------------------------------------------------- #
-# Ablauf-Ordner: Abläufe beim Namen aufrufen (passermark-cli run Visitenkarten --in …)
+# workflow folders: call workflows by name (passermark-cli run Visitenkarten --in …)
 # --------------------------------------------------------------------------- #
 FOLDER = "workflows"
-OLD_FOLDER = "ablaeufe"  # bis 1.14 – wird beim ersten Zugriff umbenannt bzw. weiter gelesen
+OLD_FOLDER = "ablaeufe"  # old folder name – renamed on first access or still read
 
 
 def _with_legacy(d: str) -> list:
-    """[Ordner …]: der neue Ordner; ein alter „ablaeufe“ (bis 1.14) wird umbenannt. Geht das nicht (keine Rechte)
-    oder gibt es beide (z. B. „workflows“ schon von Hand angelegt), wird der alte zusätzlich gelesen –
-    nach dem neuen, damit nichts verloren geht."""
+    """[folder …]: the new folder; an old "ablaeufe" is renamed. If that is not possible (no permission)
+    or both exist (e.g. "workflows" already created by hand), the old one is read as well –
+    after the new one, so that nothing gets lost.
+    """
     old = os.path.join(os.path.dirname(d), OLD_FOLDER)
     if not os.path.isdir(old):
         return [d]
@@ -849,11 +850,12 @@ def _with_legacy(d: str) -> list:
 
 
 def folders(cfg: dict | None = None) -> list:
-    """[(Art, Ordner)] in dieser Reihenfolge – der erste mit dem Namen gewinnt:
-    user    eigene: Linux ~/.config/passermark/workflows · Windows %APPDATA%\\Passermark\\workflows
-    shared  vom Admin eingetragene (workflow_dirs, z. B. eine Netzwerkfreigabe für alle)
-    system  für alle: Linux /etc/passermark/workflows · Windows %ProgramData%\\Passermark\\workflows
-    Ein alter Ordner „ablaeufe“ neben dem neuen wird jeweils direkt danach gelesen."""
+    """[(kind, folder)] in this order – the first with the name wins:
+    user    own: Linux ~/.config/passermark/workflows · Windows %APPDATA%\\Passermark\\workflows
+    shared  entered by the admin (workflow_dirs, e.g. a network share for everyone)
+    system  for everyone: Linux /etc/passermark/workflows · Windows %ProgramData%\\Passermark\\workflows
+    An old folder "ablaeufe" next to the new one is read directly after it.
+    """
     from . import presets
     from .platform import config_dir
 
@@ -870,7 +872,7 @@ def folders(cfg: dict | None = None) -> list:
 
 
 def list_workflows() -> list:
-    """Alle Abläufe in den Ablauf-Ordnern: [{"name", "file", "source", "title", "description", "jobs", "error"}]."""
+    """All workflows in the workflow folders: [{"name", "file", "source", "title", "description", "jobs", "error"}]."""
     seen, out = set(), []
     for src, d in folders():
         try:
@@ -906,7 +908,7 @@ def list_workflows() -> list:
 
 
 def find(ref: str) -> str:
-    """Datei oder Name eines Ablaufs aus den Ablauf-Ordnern -> Pfad. FileNotFoundError mit den vorhandenen Namen."""
+    """File or name of a workflow from the workflow folders -> path. FileNotFoundError with the existing names."""
     if os.path.isfile(ref):
         return ref
     stem = ref[:-5] if ref.lower().endswith(".json") else ref

@@ -18,7 +18,7 @@ import socket
 
 PRT_INPUT_ENTRY = "1.3.6.1.2.1.43.8.2.1"
 SYS_DESCR = "1.3.6.1.2.1.1.1.0"
-# Spalten der prtInputTable, die gebraucht werden
+# columns of the prtInputTable that are needed
 COLUMNS = {
     2: "type",
     3: "dimunit",
@@ -37,7 +37,7 @@ COLUMNS = {
 }
 CONTINUOUS_ROLL = 6
 DIM_MM = {3: 0.00254, 4: 0.001}  # tenThousandthsOfInches, micrometers
-CAP_M = {3: 2.54e-6, 4: 1e-6, 16: 0.3048, 17: 1.0}  # … feet, meters (8 = sheets: keine Länge)
+CAP_M = {3: 2.54e-6, 4: 1e-6, 16: 0.3048, 17: 1.0}  # … feet, meters (8 = sheets: no length)
 
 
 class SnmpError(OSError):
@@ -108,7 +108,7 @@ def request(community: str, oids: list, req_id: int, pdu: int = 0xA1, version: i
 
 
 def parse(data: bytes) -> tuple[int, int, list]:
-    """(req_id, error_status, [(oid, value)]). value: int, bytes, str (OID) oder None (Ende/kein Objekt)."""
+    """(req_id, error_status, [(oid, value)]). value: int, bytes, str (OID) or None (end/no object)."""
     tag, msg, _ = _read(data, 0)
     if tag != 0x30:
         raise SnmpError("no SNMP message")
@@ -170,9 +170,9 @@ class Client:
                         data, _a = s.recvfrom(65535)
                         rid, err, binds = parse(data)
                         if rid != self.req:
-                            continue  # alte Antwort
+                            continue  # old answer
                         if err == 2 and pdu == 0xA1:
-                            return [("", None)]  # SNMP v1: noSuchName = Ende der Tabelle
+                            return [("", None)]  # SNMP v1: noSuchName = end of the table
                         if err:
                             raise SnmpError(f"SNMP error {err}")
                         return binds
@@ -197,7 +197,7 @@ class Client:
 
 
 def client(host: str, community: str = "public", timeout: float = 1.5) -> Client:
-    """Client, der antwortet: zuerst SNMP v2c, sonst v1 (ältere Geräte/Einstellung „nur v1“)."""
+    """Client that answers: SNMP v2c first, otherwise v1 (older devices/setting "v1 only")."""
     last = None
     for ver in (1, 0):
         c = Client(host, community, timeout=timeout, version=ver)
@@ -210,8 +210,9 @@ def client(host: str, community: str = "public", timeout: float = 1.5) -> Client
 
 
 def input_table(host: str, community: str = "public", timeout: float = 1.5, raw: list | None = None) -> list:
-    """Zeilen der prtInputTable: [{"index": "1.1", "type": 6, "width_mm": 914.0, "remaining_m": 45.0, …}].
-    raw: bekommt die Rohzeilen (für „Gerät prüfen“)."""
+    """Rows of the prtInputTable: [{"index": "1.1", "type": 6, "width_mm": 914.0, "remaining_m": 45.0, …}].
+    raw: receives the raw rows (for the device check).
+    """
     c = client(host, community, timeout)
     rows: dict = {}
     for col, key in COLUMNS.items():
@@ -219,7 +220,7 @@ def input_table(host: str, community: str = "public", timeout: float = 1.5, raw:
             vals = c.walk(f"{PRT_INPUT_ENTRY}.{col}", limit=64)
         except SnmpError:
             if col == 2:
-                raise  # nicht einmal die Lade-Typen -> kein Printer-MIB
+                raise  # not even the tray types -> no Printer MIB
             continue
         for oid, v in vals:
             idx = oid[len(PRT_INPUT_ENTRY) + len(str(col)) + 2 :]
@@ -230,7 +231,7 @@ def input_table(host: str, community: str = "public", timeout: float = 1.5, raw:
 
 
 def walk_all(host: str, prefix: str, community: str = "public", limit: int = 2000, timeout: float = 1.5) -> list:
-    """Ganzen Teilbaum lesen (für „Gerät prüfen“): [(OID, Wert)]."""
+    """Read a whole subtree (for the device check): [(OID, value)]."""
     return client(host, community, timeout).walk(prefix, limit)
 
 
@@ -241,7 +242,7 @@ def _text(v) -> str:
 
 
 def interpret_row(r: dict) -> dict:
-    """Rohwerte einer Zeile -> Breite in mm, Restlänge in m, Texte."""
+    """Raw values of a row -> width in mm, remaining length in m, texts."""
     out = {
         "index": r.get("index", ""),
         "roll": r.get("type") == CONTINUOUS_ROLL,
@@ -267,12 +268,12 @@ def interpret_row(r: dict) -> dict:
     w = r.get("weight")
     if isinstance(w, int) and w > 0:
         out["weight"] = w
-    if not out["roll"]:  # manche Geräte melden „other“ – am Namen erkennen
+    if not out["roll"]:  # some devices report "other" – recognise by the name
         from .ipp import is_roll_name
 
         out["roll"] = is_roll_name(out["name"]) or is_roll_name(out["description"]) or is_roll_name(out["media_name"])
     if not out["roll"] and out["width_mm"] and r.get("type") in (1, 2, None):
-        # „other“/„unknown“ mit Breite, aber ohne Länge (−1/−2/0 = unbegrenzt/unbekannt): bei Plottern eine Rolle
+        # "other"/"unknown" with a width but no length (−1/−2/0 = unlimited/unknown): on plotters a roll
         feed = (
             r.get("feed_chosen")
             if isinstance(r.get("feed_chosen"), int) and r.get("feed_chosen") > 0

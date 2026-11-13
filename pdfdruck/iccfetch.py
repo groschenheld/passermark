@@ -27,7 +27,7 @@ from dataclasses import dataclass
 MAX_DOWNLOAD = 400 << 20  # driver packages can be large
 ICC_EXT = (".icc", ".icm")
 
-# Bezugsquellen (Stand 10/2026). "match": Teilstrings im Druckermodell (klein), leer = immer zeigen.
+# sources (as of 10/2026). "match": substrings in the printer model (lower case), empty = always show.
 SOURCES = [
     {
         "name": "Epson-Treiberpaket (Windows/Mac) – enthält die Epson-Papierprofile",
@@ -67,10 +67,10 @@ SOURCES = [
 class IccInfo:
     path: str
     name: str  # Dateiname
-    desc: str  # Beschreibung aus dem Profil
+    desc: str  # description from the profile
     space: str  # RGB | CMYK | Gray | …
-    klass: str  # prtr (Drucker) | mntr | scnr | spac | …
-    ok_output: bool  # als Druckerausgabeprofil verwendbar?
+    klass: str  # prtr (printer) | mntr | scnr | spac | …
+    ok_output: bool  # usable as a printer output profile?
 
     @property
     def klass_text(self):
@@ -199,7 +199,7 @@ def _seven_zip(path: str, dest: str) -> list[str]:
                 and root.count(os.sep) < work.count(os.sep) + 6
             ):
                 try:
-                    found += _seven_zip(p, dest)  # verschachtelte Pakete (Treiber-Setups)
+                    found += _seven_zip(p, dest)  # nested packages (driver setups)
                 except RuntimeError:
                     pass
     return found

@@ -5,11 +5,11 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Device check: what a printer/plotter reveals over the network – raw, to pass on and evaluate. No Qt.
 
-Adresse (aus Anschluss/Einstellung), offene Ports (IPP 631, HTTPS 443, HTTP 80, RAW 9100, LPD 515, FTP 21),
-IPP (alle Attribute inkl. media-col-database, finishings-col-database), SNMP v2c/v1 (sysDescr, sysObjectID,
-prtInputTable, prtMediaPathTable, Herstellerzweig begrenzt), und was Passermark daraus an Rollen macht.
-Stufe: blind (nichts) · status (Rollen/Füllstand) · catalog (Medienkatalog vom Gerät).
-Nur lesend – nichts wird an das Gerät geschickt, das druckt oder etwas ändert (kein RAW-Text an 9100).
+Address (from the port/setting), open ports (IPP 631, HTTPS 443, HTTP 80, RAW 9100, LPD 515, FTP 21),
+IPP (all attributes incl. media-col-database, finishings-col-database), SNMP v2c/v1 (sysDescr, sysObjectID,
+prtInputTable, prtMediaPathTable, vendor branch limited), and which rolls Passermark derives from it.
+Level: blind (nothing) · status (rolls/fill level) · catalog (media catalogue from the device).
+Read only – nothing is sent to the device that prints or changes anything (no RAW text to 9100).
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def _ipp_all(host: str, timeout: float) -> dict:
 
 
 def run(host: str, printer: str = "", community: str = "", timeout: float = 2.0, progress=None) -> dict:
-    """Bericht als dict (JSON-fähig)."""
+    """Report as a dict (JSON-serialisable)."""
     from . import rolls, snmp
 
     rep = {
@@ -179,7 +179,7 @@ def run(host: str, printer: str = "", community: str = "", timeout: float = 2.0,
 
 
 def text(rep: dict) -> str:
-    """Kurzfassung für die Anzeige; der volle Bericht ist das JSON."""
+    """Short version for display; the full report is the JSON."""
     L = [
         tr("Passermark – Gerät prüfen"),
         f"{rep.get('printer') or ''} {rep.get('host')} ({rep.get('address', '?')}) · {rep.get('time')}",

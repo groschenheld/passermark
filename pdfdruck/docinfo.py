@@ -77,7 +77,7 @@ def inspect(
             pass
         out["metadata"] = meta
         out["details"] = _details(pdf)
-        if pdf.is_encrypted:  # page_info braucht eine lesbare Kopie
+        if pdf.is_encrypted:  # page_info needs a readable copy
             buf = io.BytesIO()
             pdf.save(buf)
             data = buf.getvalue()
@@ -148,8 +148,9 @@ def _pdf_date(v) -> str | None:
 
 
 def _details(pdf) -> dict:
-    """Weitere Eigenschaften: Rechte, Output Intent, Lesezeichen, Anhänge, Formularfelder, Kommentare,
-    Ebenen, schneller Webzugriff. Fehler einzelner Teile lassen die anderen stehen."""
+    """Further properties: permissions, output intent, bookmarks, attachments, form fields, comments,
+    layers, fast web view. Errors in single parts leave the others intact.
+    """
     import pikepdf
 
     d = {}
@@ -230,7 +231,7 @@ def _check(data: bytes, printer: str = "") -> dict:
     from . import preflight
 
     rep = preflight.analyze(data, True, pdfium_parts=True)
-    if printer:  # Format gegen Gerät
+    if printer:  # size against the device
         from . import config, printers
         from .session import Session
 
@@ -266,7 +267,7 @@ def _check(data: bytes, printer: str = "") -> dict:
 
 
 def text_summary(d: dict) -> str:
-    """Kurzfassung für Menschen (ohne --json)."""
+    """Short version for humans (without --json)."""
     lines = [f"{d['file']}  (" + tr("{0} Seite(n)").format(d["pages"]) + f", PDF {d.get('pdf_version', '?')})"]
     for f in d["formats_mm"]:
         lines.append("  " + tr("{0} mm: {1} Seite(n)").format(f["size"], f["pages"]))

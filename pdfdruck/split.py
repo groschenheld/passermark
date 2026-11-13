@@ -24,11 +24,11 @@ MODES = ("halves_v", "halves_h", "grid")
 
 @dataclass
 class SplitSettings:
-    mode: str = "halves_v"  # halves_v = links|rechts · halves_h = oben|unten · grid = Spalten × Zeilen
-    cols: int = 2  # nur bei grid
-    rows: int = 2  # nur bei grid
+    mode: str = "halves_v"  # halves_v = left|right · halves_h = top|bottom · grid = columns × rows
+    cols: int = 2  # only for grid
+    rows: int = 2  # only for grid
     only_spreads: bool = False  # only split pages that are twice as wide (or tall) as the others
-    rtl: bool = False  # Reihenfolge rechts nach links (Bindung rechts)
+    rtl: bool = False  # order right to left (binding on the right)
     use_trim: bool = True  # split at the trim size (TrimBox), keep the bleed area outside
 
 
@@ -43,7 +43,7 @@ def grid_of(s: SplitSettings) -> tuple[int, int]:
 
 
 # --------------------------------------------------------------------------- #
-# Geometrie: sichtbare Koordinaten (u nach rechts, v nach unten, 0…1) <-> PDF-Koordinaten
+# geometry: visible coordinates (u to the right, v down, 0…1) <-> PDF coordinates
 # --------------------------------------------------------------------------- #
 def _to_user(box, rot, u, v):
     x0, y0, x1, y1 = box
@@ -107,7 +107,7 @@ def cells(box, rot, trim, cols, rows, rtl=False):
 
 # --------------------------------------------------------------------------- #
 def _inh(obj, key):
-    """Seitenattribut auch aus dem Seitenbaum geerbt (Resources, MediaBox, CropBox, Rotate)."""
+    """Page attribute, also inherited from the page tree (Resources, MediaBox, CropBox, Rotate)."""
     seen = 0
     while obj is not None and seen < 50:
         if key in obj:

@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass, field
 from .l10n import tr
 
 CACHE_S = 20
-SETTINGS_KEY = "plan_rolls"  # Benutzereinstellung: {Drucker: [Rolle, …]}
+SETTINGS_KEY = "plan_rolls"  # user setting: {printer: [roll, …]}
 
 
 @dataclass
@@ -30,13 +30,13 @@ class Roll:
     """One roll loaded in a large-format printer: width, driver slot, name, grammage, media, remaining length."""
 
     width_mm: float
-    slot: str = ""  # Treiberwert der Zufuhr ("" = Gerät wählt selbst)
-    name: str = ""  # Anzeige („Rolle 1“)
+    slot: str = ""  # driver value of the source ("" = the device chooses)
+    name: str = ""  # display ("Rolle 1")
     weight: int = 0  # g/m², 0 = unbekannt
-    media: str = ""  # Medienname/-typ laut Gerät oder Eingabe
+    media: str = ""  # media name/type according to the device or the input
     remaining_m: float | None = None
     origin: str = "manual"  # ipp | snmp | manual
-    device: str = ""  # Name der Zufuhr am Gerät (IPP media-source / MIB)
+    device: str = ""  # name of the source on the device (IPP media-source / MIB)
     empty: bool = False
 
     @classmethod
@@ -90,11 +90,11 @@ class RollState:
     origin: str = "manual"  # ipp | snmp | manual | none
     error: str = ""
     host: str = ""
-    catalog: list = field(default_factory=list)  # am Gerät angelegte Medien (auch nicht geladene), nur IPP
+    catalog: list = field(default_factory=list)  # media defined on the device (also those not loaded), IPP only
 
 
 # --------------------------------------------------------------------------- #
-# Gerät abfragen
+# query the device
 # --------------------------------------------------------------------------- #
 def from_ipp(status) -> list:
     """Convert the trays of an IPP status into rolls (only trays that are rolls with a known width)."""
@@ -155,7 +155,7 @@ _cache: dict = {}
 
 
 def community_for(host: str) -> str:
-    """SNMP-Community: Benutzereinstellung „snmp_community“ ({Adresse: Community}), sonst „public“."""
+    """SNMP community: user setting "snmp_community" ({address: community}), otherwise "public"."""
     from . import l10n
 
     d = l10n.load_settings().get("snmp_community") or {}
@@ -163,7 +163,7 @@ def community_for(host: str) -> str:
 
 
 def query(host: str, force: bool = False, community: str = "") -> RollState:
-    """Rollen direkt vom Gerät: zuerst IPP, dann SNMP."""
+    """Rolls directly from the device: IPP first, then SNMP."""
     if not host:
         return RollState([], "none", tr("Keine Geräteadresse"))
     hit = _cache.get(host)
@@ -204,7 +204,7 @@ def query(host: str, force: bool = False, community: str = "") -> RollState:
 
 
 # --------------------------------------------------------------------------- #
-# Treiber-Zufuhr zur Rolle
+# driver source for the roll
 # --------------------------------------------------------------------------- #
 _ROLLWORD = re.compile(r"roll|rolle", re.I)
 
@@ -218,7 +218,7 @@ def roll_choices(caps) -> list:
 
 
 def slot_for(caps, device: str, index: int = 0) -> str:
-    """Zufuhr im Treiber zur Rolle am Gerät (roll-1, main-roll, Rolle 2 …). "" = Gerät wählt selbst."""
+    """Source in the driver for the roll on the device (roll-1, main-roll, Rolle 2 …). "" = the device chooses."""
     cands = roll_choices(caps)
     if not cands:
         return ""
@@ -241,14 +241,14 @@ def slot_for(caps, device: str, index: int = 0) -> str:
             if re.search(rf"(?<!\d){n}(?!\d)", f"{c.value} {c.text}"):
                 return c.value
         if n == "1" and len(real) == 1:
-            return real[0].value  # nur „Rollenpapier“
+            return real[0].value  # only "roll paper"
     if index < len(real):
         return real[index].value
     return ""
 
 
 # --------------------------------------------------------------------------- #
-# Von Hand eingetragene Rollen (Benutzereinstellung)
+# rolls entered by hand (user setting)
 # --------------------------------------------------------------------------- #
 def manual(printer: str) -> list:
     """Rolls the user entered by hand for ``printer``."""
@@ -283,7 +283,7 @@ def save_manual(printer: str, rolls: list) -> None:
 
 
 def parse_widths(text: str) -> list:
-    """„594, 841 914“ -> [Roll(594), Roll(841), Roll(914)] (für die Kommandozeile)."""
+    """ "594, 841 914" -> [Roll(594), Roll(841), Roll(914)] (for the command line)."""
     out = []
     for t in re.split(r"[,;\s]+", str(text or "").strip()):
         if not t:
@@ -312,7 +312,7 @@ def model_of(printer: str) -> str:
 
 
 def query_roland(host: str) -> RollState:
-    """Schneideplotter von Roland: eingelegte Materialbreite über „OH“ (Port 9100)."""
+    """Roland cutting plotters: loaded material width via "OH" (port 9100)."""
     from . import roland
 
     try:
@@ -329,7 +329,7 @@ def query_roland(host: str) -> RollState:
     )
 
 
-HOSTS_KEY = "plan_hosts"  # Benutzereinstellung: {Drucker: Geräteadresse}
+HOSTS_KEY = "plan_hosts"  # user setting: {printer: device address}
 
 
 def user_host(printer: str) -> str:
@@ -354,8 +354,9 @@ def set_user_host(printer: str, host: str) -> None:
 
 
 def host_for(session, printer: str) -> str:
-    """Geräteadresse: eigene Angabe (Rollen-Fenster) > Verwaltung (tray_host) > aus dem Anschluss/der Warteschlange.
-    Windows: „10.30.4.73-HPGL2“, Standard-TCP/IP-Anschluss (Registry), WSD-Anschluss (WSD-Geräteliste)."""
+    """Device address: own entry (rolls window) > administration (tray_host) > from the port/the queue.
+    Windows: "10.30.4.73-HPGL2", standard TCP/IP port (registry), WSD port (WSD device list).
+    """
     host = user_host(printer)
     if host:
         return host
@@ -380,7 +381,7 @@ def host_for(session, printer: str) -> str:
 
 
 def for_printer(session, printer: str, live: bool = True, force: bool = False) -> RollState:
-    """Rollen für den Drucker: live vom Gerät, sonst die von Hand eingetragenen. Zufuhr im Treiber zugeordnet."""
+    """Rolls for the printer: live from the device, otherwise those entered by hand. Mapped to the driver source."""
     caps = None
     try:
         caps = session.caps_for(printer) if session is not None else None
@@ -392,14 +393,14 @@ def for_printer(session, printer: str, live: bool = True, force: bool = False) -
 
         host = host_for(session, printer)
         if host and roland.is_roland(printer, model_of(printer)):
-            q = query_roland(host)  # nie „OH“ an einen normalen Drucker schicken (druckt Text)
+            q = query_roland(host)  # never send "OH" to a normal printer (it prints text)
         else:
             q = query(host, force=force)
         st = RollState(
             [Roll.from_dict(r.to_dict()) for r in q.rolls],
             q.origin,
             q.error,
-            q.host,  # Cache bleibt
+            q.host,  # the cache stays
             list(getattr(q, "catalog", []) or []),
         )
     if not st.rolls:

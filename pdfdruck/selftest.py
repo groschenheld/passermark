@@ -85,7 +85,7 @@ def run() -> int:
     step("printing", printing)
     step("Ghostscript", ghostscript)
 
-    def barcodes():  # variable Daten: reportlab-Barcodes werden dynamisch geladen
+    def barcodes():  # variable data: reportlab barcodes are loaded dynamically
         import io
         from reportlab.graphics import renderPDF
         from reportlab.graphics.barcode import createBarcodeDrawing

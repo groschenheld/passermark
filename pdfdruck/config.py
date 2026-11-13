@@ -87,17 +87,17 @@ BUILTIN = {
     # "printers": {"<queue>": {"options": {"InputSlot": "Cas1"}, "color_profile": "", "intent": "relative"}}
     "printers": {},
     # [{"id", "name", "file", "printers": [...], "intents": [...], "bpc": true,
-    #   "driver_options": {"<PPD-Key>": "<Wert>"}}]
+    #   "driver_options": {"<PPD key>": "<value>"}}]
     "color_profiles": [],
     "allow_user_profile_choice": True,
     "image_default_dpi": 96,  # images without a DPI value: this is how large 1 pixel becomes
     "office_converter": "auto",  # auto | libreoffice | onlyoffice | eurooffice
     "language": "",  # default language for all users ("" = system language)
-    "workflow_dirs": [],  # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
-    # Druckprotokoll: force = für alle an, dir = gemeinsamer Ordner ("" = je Benutzer), keep_days 0 = nie löschen
+    "workflow_dirs": [],  # further workflow folders for everyone (e.g. a network share), after the user's own
+    # print log: force = on for everyone, dir = shared folder ("" = per user), keep_days 0 = never delete
     "print_log": {"force": False, "dir": "", "keep_days": 0},
-    # Materialien (Papiere): [{"id", "name", "weight" g/m², "surface", "white": [L, a, b] | None (gemessen, D50),
-    #   "white_source": Herkunft der Messung, "profiles": {"*" | "<Drucker>": "<Profil-ID>"}, "intent", "notes"}]
+    # materials (papers): [{"id", "name", "weight" g/m², "surface", "white": [L, a, b] | None (measured, D50),
+    #   "white_source": origin of the measurement, "profiles": {"*" | "<printer>": "<profile id>"}, "intent", "notes"}]
     "materials": [],
 }
 

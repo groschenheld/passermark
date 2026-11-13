@@ -71,11 +71,11 @@ def _prune():
             pass
 
 
-SETTING = "error_logs"  # Benutzereinstellung: Fehlerprotokolle und Ruckler-Meldungen (Standard an)
+SETTING = "error_logs"  # user setting: error logs and stall reports (on by default)
 
 
 def enabled() -> bool:
-    """Fehlerprotokolle eingeschaltet? (Datei → Einstellungen; Standard an)"""
+    """Error logs switched on? (File → Settings; on by default)"""
     try:
         from . import l10n
 
@@ -140,7 +140,7 @@ def tr_safe(text: str) -> str:
 
 
 def record(title: str, details: str = "") -> None:
-    """Einen Fehler ins Protokoll schreiben (Datei bleibt dann erhalten)."""
+    """Write an error to the log (the file is then kept)."""
     f = _state["file"]
     if f is None:
         return
@@ -170,7 +170,7 @@ def _finish():
     except Exception:  # noqa: BLE001
         pass
     if _state["error"]:
-        try:  # Fehler wurden schon angezeigt -> nicht nochmal melden
+        try:  # errors were already shown -> do not report again
             f.write(f"{SEEN_MARK}\n")
         except (OSError, ValueError):
             pass

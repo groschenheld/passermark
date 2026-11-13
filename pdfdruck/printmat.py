@@ -46,11 +46,11 @@ FIELDS = (
     "checked",
     "color_mode",
 )  # 1.18.11
-SOURCES = ("hand", "device", "import")  # woher das Material kommt
+SOURCES = ("hand", "device", "import")  # where the material comes from
 COLOR_MODES = ("convert", "embed", "none")
-# convert: Passermark wandelt ins Profil um, das Gerät soll nicht mehr umrechnen (sicherster Weg, Standard)
-# embed:   Profil nur als Output Intent einbetten – das Gerät/der RIP wendet es an
-# none:    unverändert senden – Farbe macht ganz das Gerät
+# convert: Passermark converts into the profile, the device should not convert again (safest way, default)
+# embed:   only embed the profile as output intent – the device/RIP applies it
+# none:    send unchanged – the device handles colour entirely
 DEFAULTS_KEY = "print_material_default"
 MAX = 300
 DENSITY = re.compile(
@@ -116,7 +116,7 @@ def load() -> list:
 
 
 def save(mats: list) -> None:
-    """Speichern; geänderte (und neue) Materialien bekommen das heutige Datum als Stand."""
+    """Save; changed (and new) materials get today's date as their state."""
     import datetime
 
     clean = [c for c in (_clean(m) for m in mats) if c is not None][:MAX]
@@ -146,7 +146,7 @@ def for_printer(printer: str, category: str | None = None) -> list:
 
 
 def find(ref: str, printer: str = "") -> dict | None:
-    """Material nach ID oder Name (ohne Groß/klein), für diesen Drucker oder für alle."""
+    """Material by id or name (case-insensitive), for this printer or for all."""
     if not ref:
         return None
     r = str(ref).strip().lower()
@@ -181,7 +181,7 @@ def set_default(printer: str, category: str, mid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Übernehmen: vom Gerät, aus Dateien (CSV/JSON)
+# take over: from the device, from files (CSV/JSON)
 # --------------------------------------------------------------------------- #
 ALIASES = {
     "name": (
@@ -205,7 +205,7 @@ ALIASES = {
     "tac": ("tac", "ink limit", "farbauftrag", "max. farbauftrag", "total ink"),
     "notes": ("notes", "notiz", "bemerkung", "comment", "kommentar"),
 }
-PLAN_MAX_G = 90  # bis zu dieser Grammatur gilt Übernommenes als Plandruck-Papier
+PLAN_MAX_G = 90  # up to this grammage, materials taken over count as plan printing paper
 
 
 def _num_g(v) -> int:
@@ -248,9 +248,10 @@ def _row_to_mat(d: dict, printer: str, source: str) -> dict | None:
 
 
 def parse_import(path: str, printer: str = "") -> list:
-    """Materialliste aus CSV (Trennzeichen ; , Tab; Kopfzeile nötig) oder JSON (Liste bzw. {"materials": […]}).
-    Spalten werden nach Namen zugeordnet (Name/Material, Grammatur/gsm, Medientyp, Qualität, Profil …).
-    -> Materialien (noch nicht gespeichert), Quelle „import“, ungeprüft."""
+    """List of materials from CSV (delimiter ; , tab; header row required) or JSON (list or {"materials": […]}).
+    Columns are mapped by name (Name/Material, Grammatur/gsm, Medientyp, Qualität, Profil …).
+    -> materials (not saved yet), source "import", unchecked.
+    """
     import csv
 
     with open(path, "rb") as f:
@@ -280,7 +281,7 @@ def parse_import(path: str, printer: str = "") -> list:
 
 
 def from_device(dev: list, printer: str) -> list:
-    """Medien, die das Gerät meldet (geladen oder im Katalog), als Materialien – Quelle „gerät“, ungeprüft."""
+    """Media reported by the device (loaded or in the catalogue) as materials – source "gerät", unchecked."""
     out = []
     for d in dev or []:
         name = str(d.get("device_media") or d.get("name") or "").strip()
@@ -302,7 +303,7 @@ def from_device(dev: list, printer: str) -> list:
 
 
 def merge(existing: list, new: list) -> tuple[list, int]:
-    """Neue Materialien dazunehmen – gleicher Name für denselben Drucker wird übersprungen. -> (Liste, neu)."""
+    """Add new materials – the same name for the same printer is skipped. -> (list, new)."""
     have = {(m.get("name", "").lower(), m.get("printer", "")) for m in existing}
     out, n = list(existing), 0
     for m in new:
@@ -317,7 +318,7 @@ def merge(existing: list, new: list) -> tuple[list, int]:
 
 
 def density_options(caps) -> list:
-    """Treiberoptionen für Tintenmenge/Farbdichte: [(Schlüsselwort, Text)]."""
+    """Driver options for ink amount/colour density: [(keyword, text)]."""
     if caps is None:
         return []
     out = []
@@ -328,7 +329,7 @@ def density_options(caps) -> list:
 
 
 def notes(mat: dict | None, cfg: dict) -> list:
-    """Hinweise zum Material, z. B. Profil erlaubt mehr Farbauftrag als das Material verträgt."""
+    """Notes about the material, e.g. the profile allows more ink than the material can take."""
     if not mat:
         return []
     out = []

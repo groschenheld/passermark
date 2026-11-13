@@ -28,7 +28,7 @@ from .objects import DetectSettings
 
 
 class Cancelled(Exception):
-    """Auftrag wurde abgebrochen."""
+    """The job was cancelled."""
 
 
 @dataclass
@@ -74,14 +74,15 @@ def settings_from_dict(cls, data: dict | None):
 
 
 def compact_settings(cls, data: dict) -> dict:
-    """Nur, was vom Standard abweicht – verschachtelte Einstellungen (z. B. detect.tolerance) ebenso, Listen ganz.
-    Laden ergänzt den Rest wieder mit den Standardwerten (settings_from_dict)."""
+    """Only what differs from the default – nested settings (e.g. detect.tolerance) likewise, lists whole.
+    Loading fills in the rest with the defaults again (settings_from_dict).
+    """
     default = settings_to_dict(cls())
     hints = typing.get_type_hints(cls)
     out = {}
     for k, v in data.items():
         if k not in default:
-            out[k] = v  # unbekannt: lieber behalten als still verlieren
+            out[k] = v  # unknown: rather keep than lose silently
             continue
         b, t = default[k], hints.get(k)
         if isinstance(v, dict) and isinstance(b, dict) and dataclasses.is_dataclass(t):
@@ -94,7 +95,7 @@ def compact_settings(cls, data: dict) -> dict:
 
 
 def presets_full() -> bool:
-    """Programm-Einstellung: Presets mit ALLEN Einstellungen speichern (sonst nur die Abweichungen)."""
+    """Program setting: save presets with ALL settings (otherwise only the differences)."""
     try:
         from . import l10n
 
@@ -104,13 +105,14 @@ def presets_full() -> bool:
 
 
 def save_settings(path: str, kind: str, settings, full: bool | None = None) -> None:
-    """Preset-Datei schreiben: {"job": kind, "settings": {…}} – nur, was vom Standard abweicht (lesbar);
-    full=True (oder Programm-Einstellung presets_full): alle Einstellungen."""
+    """Write a preset file: {"job": kind, "settings": {…}} – only what differs from the default (readable);
+    full=True (or the program setting presets_full): all settings.
+    """
     d = settings if isinstance(settings, dict) else settings_to_dict(settings)
     if not (presets_full() if full is None else full):
         try:
             d = compact_settings(settings_class(kind), d)
-        except ValueError:  # unbekannter Auftrag: so lassen
+        except ValueError:  # unknown job: leave as is
             pass
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"job": kind, "settings": d}, f, ensure_ascii=False, indent=2)
@@ -133,7 +135,7 @@ def load_settings(path: str) -> tuple[str, dict]:
 
 
 # --------------------------------------------------------------------------- #
-# Auftrags-Einstellungen, die es bisher nur als Dialog-Felder gab
+# job settings that so far only existed as dialog fields
 # --------------------------------------------------------------------------- #
 @dataclass
 class SeparateSettings:
@@ -141,14 +143,14 @@ class SeparateSettings:
 
     detect: DetectSettings = field(default_factory=DetectSettings)
     margin_mm: float = 0.0
-    boxes: dict | None = None  # {Seite: [[x0, y0, x1, y1], …]} in pt; None = automatisch erkennen
+    boxes: dict | None = None  # {page: [[x0, y0, x1, y1], …]} in pt; None = detect automatically
 
 
 @dataclass
 class RepairSettings:
     """Settings of the job ``repair``: repair, optimise, set or remove a password."""
 
-    mode: str = "print"  # siehe repair.MODES
+    mode: str = "print"  # see repair.MODES
     password: str = ""
     new_password: str = ""
     allow_print: bool = True
@@ -159,9 +161,9 @@ class PreflightFixSettings:
     """Settings of the job ``preflight_fix``: one targeted repair from the document check."""
 
     fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency | flatten_softmask
-    font_map: dict = field(default_factory=dict)  # embed_fonts: {Schriftname: Pfad}
+    font_map: dict = field(default_factory=dict)  # embed_fonts: {font name: path}
     dpi: int = 300  # flatten_transparency, flatten_softmask
-    visible: list | None = None  # flatten_layers: sichtbare Ebenen (None = Druck-Zustand)
+    visible: list | None = None  # flatten_layers: visible layers (None = print state)
 
 
 # --------------------------------------------------------------------------- #
@@ -263,7 +265,7 @@ def _job_manip(src, dst, s, opts, progress, cancel):
     from . import pdfmanip
     from .layout import flattened
 
-    # crop_mode (format | trim | whiteout) – lesbarer Schalter für Abläufe/CLI; die Oberfläche setzt die
+    # crop_mode (format | trim | whiteout) – readable switch for workflows/CLI; the interface sets the
     # Sonderwerte direkt in crop_size (Presets daraus funktionieren weiterhin)
     if s.crop_mode == "trim":
         s.crop_size = pdfmanip.TRIM_MODE
@@ -319,7 +321,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
     if s.fix == "flatten_layers":
         if preflight.has_layers(data):
             out = preflight.flatten_layers(data, set(s.visible) if s.visible is not None else None)
-        else:  # nichts zu tun – in Ketten/Ordnern nicht abbrechen
+        else:  # nothing to do – do not abort in chains/folders
             out = data
             notes.append(tr("Keine Ebenen – Datei unverändert übernommen."))
     elif s.fix == "embed_fonts":
@@ -346,7 +348,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
 
 
 def _job_shrink(src, dst, s, opts, progress, cancel):
-    """Dateigröße verkleinern – jede Maßnahme einzeln schaltbar (siehe shrink.ShrinkOptions)."""
+    """Reduce the file size – every measure can be switched separately (see shrink.ShrinkOptions)."""
     from . import shrink
 
     with open(src, "rb") as f:
@@ -359,7 +361,7 @@ def _job_shrink(src, dst, s, opts, progress, cancel):
 
     out, notes = shrink.shrink(data, s, step)
     _check(cancel)
-    if len(out) >= len(data):  # nichts gewonnen -> Original übernehmen
+    if len(out) >= len(data):  # nothing gained -> take over the original
         out = data
         notes = [tr("Keine Einsparung – Datei unverändert übernommen.")]
     _write_atomic(dst, out)
@@ -406,14 +408,14 @@ def _job_impose(src, dst, s, opts, progress, cancel):
 
 
 def _job_vdp(src, dst, s, opts, progress, cancel):
-    """Variable Daten: Felder je Datensatz auf eine Kopie der Vorlage legen."""
+    """Variable data: place fields on a copy of the template for every record."""
     from . import vdp
 
-    try:  # Datenprüfung: Überlauf, leere Spalten, ungültige Codes
+    try:  # data check: overflow, empty columns, invalid codes
         chk = vdp.check(s)
-    except Exception:  # noqa: BLE001 – die Prüfung darf das Erzeugen nie verhindern
+    except Exception:  # noqa: BLE001 – the check must never prevent generating
         chk = {"counts": {}}
-    if vdp.check_blocking(chk):  # ungültige Codes, fehlende Bilder brechen ohnehin ab: alle auf einmal
+    if vdp.check_blocking(chk):  # invalid codes and missing images abort anyway: all at once
         raise ValueError(vdp.check_text(chk, limit=20))
     data, info = vdp.build(src, s, progress=progress, cancel=cancel, pages=opts.get("pages"))
     _check(cancel)
@@ -465,7 +467,9 @@ def _cut_settings():
 
 
 def _job_press(src, dst, s, opts, progress, cancel):
-    """Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer, optional Paket (pressexport.py)."""
+    """Output for the print shop: convert as recommended, always an output intent, optionally a package
+    (pressexport.py).
+    """
     from . import pressexport
 
     r = pressexport.run(src, dst, s, progress=lambda d, t, x: _report(progress, d, t, x), cancel=cancel)
@@ -518,7 +522,7 @@ def run_job(
         raise ValueError(tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein."))
     _check(cancel)
     pages = (options or {}).get("pages")
-    if pages:  # Seiten außerhalb des Dokuments: klare Meldung statt IndexError
+    if pages:  # pages outside the document: a clear message instead of an IndexError
         import pypdfium2 as pdfium
 
         doc = pdfium.PdfDocument(src)

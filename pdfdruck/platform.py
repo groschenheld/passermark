@@ -43,7 +43,7 @@ def user_log_dir() -> str:
 
 
 def total_memory() -> int | None:
-    """Arbeitsspeicher des Rechners in Bytes (None, wenn nicht ermittelbar)."""
+    """Memory of the computer in bytes (None if it cannot be determined)."""
     try:
         if IS_WIN:
             import ctypes
@@ -79,7 +79,7 @@ def user_cache_dir() -> str:
 
 
 def app_dirs() -> list[str]:
-    """Ordner der eigenen Programmdatei (Installer/AppImage bringen dort z. B. Ghostscript mit)."""
+    """Folder of the program file itself (installer/AppImage ship e.g. Ghostscript there)."""
     import sys
 
     if getattr(sys, "frozen", False):
@@ -99,7 +99,7 @@ def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
         ]
         for root in filter(None, roots):
             for pat in win_globs:
-                hits = sorted(glob.glob(os.path.join(root, pat)), reverse=True)  # neueste Version zuerst
+                hits = sorted(glob.glob(os.path.join(root, pat)), reverse=True)  # newest version first
                 if hits:
                     return hits[0]
     return None
@@ -114,7 +114,7 @@ def seven_zip() -> str | None:
 
 
 def notify(title: str, body: str, error: bool = False):
-    """Desktop-Benachrichtigung (Linux: notify-send, Windows: Tray-Meldung)."""
+    """Desktop notification (Linux: notify-send, Windows: tray message)."""
     if IS_WIN:
         try:
             from PySide6.QtWidgets import QApplication, QSystemTrayIcon

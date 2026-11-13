@@ -37,7 +37,9 @@ class CutSettings:
 
     dpi: int = 200
     shape: str = "contour"
-    fit: str = "motif"  # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
+    fit: str = (
+        "motif"  # basic shapes: "trim" = onto the trim size (TrimBox, otherwise page) – without rendering/detection;
+    )
     # "motif" = ums erkannte Motiv (gerechnet)
     offset_mm: float = 0.0  # cut: + outward, − inward (from the artwork or the object size)
     bleed: bool = True  # create bleed (off = artwork unchanged, e.g. for white margins)
@@ -49,12 +51,12 @@ class CutSettings:
     width_mm: float = 0.0  # shapes: cut line size in mm (0 = from the object + distance)
     height_mm: float = 0.0
     shift_x_mm: float = 0.0  # shapes: offset of the shape from the artwork center (+ is right)
-    shift_y_mm: float = 0.0  # (+ oben)
+    shift_y_mm: float = 0.0  # (+ up)
     min_size_mm: float = 3.0
     bleed_color: str = ""  # "" = automatic from the artwork, otherwise a fixed color "#rrggbb" (uniform border)
     clean_seams: bool = False  # replace narrow blend edges inside the artwork with solid colors (flat artwork only)
-    single_shape: bool = True  # Grundformen: EINE Form um das ganze Motiv (False = eine Form je Objekt)
-    per_object: bool = False  # jedes Objekt als eigene Seite
+    single_shape: bool = True  # basic shapes: ONE shape around the whole artwork (False = one shape per object)
+    per_object: bool = False  # every object as its own page
     margin_mm: float = 6.0  # margin of the individual pages around bleed/cut
     spot: str = "CutContour"
     stroke_pt: float = 0.25
@@ -70,7 +72,7 @@ class CutObject:
     bleed_box: tuple | None = None  # (x0, y0, x1, y1) pt
     motif_box: tuple = (0, 0, 0, 0)
     box: tuple = (0, 0, 0, 0)  # extent of cut + bleed
-    clip: list = field(default_factory=list)  # Umriss des Objekts (nur bei Motiven mit Hintergrund)
+    clip: list = field(default_factory=list)  # outline of the object (only for artwork with a background)
     overlay_rgba: object = None  # cleaned blend edges (above the artwork)
     overlay_box: tuple | None = None
 
@@ -81,7 +83,7 @@ class CutResult:
 
     objects: list  # [CutObject]
     page_size: tuple = (0, 0)
-    knockout: object = None  # bool-Maske (Seite, dpi) – sichtbarer Teil des Originals (Hintergrund ausgestanzt)
+    knockout: object = None  # bool mask (page, dpi) – visible part of the original (background knocked out)
     dpi: int = 0
 
     @property
@@ -159,7 +161,7 @@ def shape_polygon(kind: str, cx: float, cy: float, w: float, h: float, corner: f
         left = [(-x, y) for x, y in reversed(right)]
         return _fit([(-1, 1), (1, 1)] + right + left[1:], cx, cy, w, h)
     if kind == "arch":
-        # unten rechteckig, oben Halbkreis
+        # rectangular at the bottom, semicircle at the top
         right = [(1, -1), (1, 0)]
         top = [(math.cos(a), math.sin(a)) for a in np.linspace(0, math.pi, 120)]
         return _fit(right + top + [(-1, 0), (-1, -1)], cx, cy, w, h)
@@ -183,7 +185,7 @@ def _resample(pts, step):
 
 
 def bezier_ops(poly) -> str:
-    """Geschlossenes Polygon -> glatter Pfad (Catmull-Rom als kubische Bézierkurven), PDF-Operatoren."""
+    """Closed polygon -> smooth path (Catmull-Rom as cubic Bézier curves), PDF operators."""
     n = len(poly)
     if n < 3:
         return ""
@@ -351,8 +353,8 @@ class _ObjCtx:
     has_knock: bool
 
 
-PARALLEL_MIN_OBJECTS = 4  # darunter lohnt sich der Start von Arbeitsprozessen nicht
-PARALLEL_MIN_PIXELS = 1_500_000  # Summe der Arbeitsfenster (Bildpunkte)
+PARALLEL_MIN_OBJECTS = 4  # below this, starting worker processes is not worth it
+PARALLEL_MIN_PIXELS = 1_500_000  # sum of the working windows (pixels)
 
 
 def default_workers() -> int:
@@ -392,7 +394,7 @@ class WorkerPool:
 
 
 def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
-    """Objekte berechnen – seriell oder auf mehrere Arbeitsprozesse verteilt; Reihenfolge bleibt erhalten."""
+    """Compute the objects – serially or distributed over several worker processes; the order is kept."""
     n = len(jobs)
     pixels = sum(j[0].size for j in jobs)
     if pool is not None:
@@ -432,7 +434,7 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
                 if progress is not None:
                     progress(done_count, n)
     except BaseException:
-        if not own:  # Abbruch/Fehler: offene Aufgaben verwerfen, Prozesse beenden
+        if not own:  # cancel/error: discard open tasks, end the processes
             pool.close()
         raise
     finally:
@@ -509,7 +511,7 @@ def _compute_object(ctx, job):
 
     # 3. bleed: the ENTIRE area inside the cut line (including bays, gaps between
     #    object and line) plus "bleed" beyond the line – filled with the outward-extended
-    #    Randfarben des Objekts. Liegt HINTER dem Objekt, Verzerrungen sind dadurch unsichtbar bzw. werden
+    #    edge colours of the object. Lies BEHIND the object, so distortions are invisible or are
     #    trimmed. The cut line thus always sits inside the bleed.
     bleed = (cut | (ndi.distance_transform_edt(~cut) <= bl)) if use_bleed else np.zeros_like(cut)
     # bleed color
@@ -569,10 +571,10 @@ def _compute_object(ctx, job):
                 vis &= ~big
         # do not show the blend fringe at the edge (edge smoothing, blurred raster) – the
         # solid-color bleed lies there. Flat artwork: knock out everything at the edge that matches no solid color
-        # (max. 1,5 mm tief); Fotos (keine Vollfarben): fester kleiner Abstand.
+        # (at most 1.5 mm deep); photos (no solid colours): fixed small distance.
         d_in = ndi.distance_transform_edt(vis)
         if flat:
-            # am Rand nur echte Vollfarb-Pixel zeigen (enge Toleranz -> kein heller Strich an der Linie)
+            # show only real solid-colour pixels at the edge (tight tolerance -> no light line at the cut line)
             tol2 = max(12, s.detect.tolerance * 0.6) ** 2
             # only the border strip (up to 1.5 mm) is needed -> search for the nearest solid color only there
             cand = vis & (d_in <= 1.5 * MM * px)
@@ -642,7 +644,7 @@ def is_fast(s: CutSettings) -> bool:
     """Base shape onto the trim size: pure geometry – nothing rendered, nothing detected, no bleed from the artwork."""
     return (
         s.shape != "contour" and (s.fit or "motif") == "trim" and bool(s.single_shape)
-    )  # „je Objekt“ braucht Erkennung
+    )  # "per object" needs detection
 
 
 def fast_result(size, trim, s: CutSettings) -> CutResult:
@@ -654,7 +656,7 @@ def fast_result(size, trim, s: CutSettings) -> CutResult:
     x0, y0, x1, y1 = l, b, W - r, H - t
     w, h = x1 - x0, y1 - y0
     if s.shape == "circle" and not (s.width_mm > 0):
-        w = h = min(w, h)  # Kreis ins Endformat
+        w = h = min(w, h)  # circle into the trim size
     sw, sh = _offset_shape(s, w, h)
     poly = shape_polygon(
         s.shape,
@@ -702,7 +704,7 @@ def compute(
     if s.shape != "contour":
         # fixed size / scaling can enlarge the shape beyond the object
         grow_shape = max(0.0, (s.scale_pct / 100.0 - 1) * max(mask.shape) / 2, (s.width_mm + s.height_mm) * MM * px)
-        grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px  # Versatz braucht Platz
+        grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px  # the offset needs room
     pad = int(math.ceil(max(off, 0) + sm + bl + grow_shape + 6))
     mask = np.pad(mask, pad)
     rgb = np.pad(rgba[:, :, :3], ((pad, pad), (pad, pad), (0, 0)), mode="edge")
@@ -719,7 +721,7 @@ def compute(
     lab, n = ndi.label(work)
     minpx = s.min_size_mm * MM * px
     if s.shape != "contour" and s.single_shape and n > 1:
-        # Grundform: alle Teile des Motivs (ohne Staub) zu EINEM Objekt -> eine Form, mittig, Skalierung ab der Mitte
+        # basic shape: all parts of the artwork (without dust) as ONE object -> one shape, centred, scaled from there
         keep = [
             k
             for k, sl in enumerate(ndi.find_objects(lab), start=1)
@@ -879,7 +881,7 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
             nq += 1
         clips = [c for o in objs for c in o.clip]
         if clips:
-            # Hintergrund ausstanzen: Original nur innerhalb der Objektumrisse zeigen
+            # knock out the background: show the original only inside the object outlines
             pre += "q\n" + "\n".join(line_ops(c) for c in clips) + "\nW* n\n"
             nq += 1
         page.contents_add(pikepdf.Stream(pdf, pre.encode()), prepend=True)
@@ -899,14 +901,15 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
 
 
 def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, cancel=None, workers: int = 1):
-    """Komplett: normalisieren, Schnitte berechnen, PDF bauen. Liefert (pypdfium2-Dokument, Anzahl Schnitte).
-    progress(erledigt, gesamt, text) je Seite; cancel() -> True bricht ab (core.Cancelled)."""
+    """Complete run: normalise, compute the cuts, build the PDF. Returns (pypdfium2 document, number of cuts).
+    progress(done, total, text) per page; cancel() -> True aborts (core.Cancelled).
+    """
     from .objects import normalized
 
     norm = normalized(doc)
     results, total = {}, 0
     todo = list(pages) if pages is not None else list(range(len(norm)))
-    if is_fast(s):  # Grundform aufs Endformat: keine Berechnung, kein Prozess
+    if is_fast(s):  # basic shape onto the trim size: no computation, no process
         from .layout import page_trims
 
         trims = page_trims(doc)
@@ -937,7 +940,7 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
 
 
 PAGE_MEMORY_SHARE = 0.4  # share of RAM for pages computed simultaneously
-PAGE_MEMORY_FALLBACK = 3_000_000_000  # wenn der Arbeitsspeicher nicht ermittelbar ist
+PAGE_MEMORY_FALLBACK = 3_000_000_000  # if the amount of memory cannot be determined
 
 
 def page_memory_budget() -> int:
@@ -948,11 +951,11 @@ def page_memory_budget() -> int:
     return max(1_000_000_000, int(total * PAGE_MEMORY_SHARE)) if total else PAGE_MEMORY_FALLBACK
 
 
-BYTES_PER_PIXEL = 40  # grobe Spitze je Bildpunkt (Bild, Masken, Abstandsfelder)
+BYTES_PER_PIXEL = 40  # rough peak per pixel (image, masks, distance fields)
 
 
 def _page_worker(path: str, i: int, s: CutSettings):
-    """Arbeitsprozess: eine ganze Seite rechnen (eigenes pdfium – in eigenen Prozessen sicher)."""
+    """Worker process: compute a whole page (own pdfium – safe in separate processes)."""
     import pypdfium2 as pdfium
 
     doc = pdfium.PdfDocument(path)
@@ -978,7 +981,7 @@ def _pages_at_once(norm, todo, s, workers: int) -> int:
 
 
 def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
-    """Mehrere Seiten gleichzeitig: jeder Arbeitsprozess rechnet eine ganze Seite (kein Warten zwischen Seiten)."""
+    """Several pages at once: every worker process computes a whole page (no waiting between pages)."""
     import os
     import tempfile
     from concurrent.futures import FIRST_COMPLETED, wait
@@ -1011,7 +1014,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
                     if progress is not None:
                         progress(done, len(todo), tr("{0} von {1} Seiten fertig").format(done, len(todo)))
         except BaseException:
-            pool.close()  # Abbruch/Fehler: offene Seiten verwerfen
+            pool.close()  # cancel/error: discard open pages
             raise
         return results, total
     finally:

@@ -29,7 +29,7 @@ def cli_command() -> tuple[list[str], dict]:
         exe_dir = os.path.dirname(sys.executable)
         cli_exe = os.path.join(exe_dir, "passermark-cli.exe")
         if _platform.IS_WIN and os.path.isfile(cli_exe):
-            return [cli_exe], {}  # Windows: Konsolen-EXE (die Fenster-EXE hat keine Ausgabe)
+            return [cli_exe], {}  # Windows: console EXE (the window EXE has no output)
         return [sys.executable, "--cli"], {}  # AppImage / bundled: program file with --cli
     pkg_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     pp = os.environ.get("PYTHONPATH", "")
@@ -55,7 +55,7 @@ class JobProcess:
         pages: list[int] | None = None,
         lang: str | None = None,
     ):
-        core.settings_class(kind)  # unbekannter Auftrag -> sofort ValueError
+        core.settings_class(kind)  # unknown job -> ValueError right away
         self.kind, self.src, self.dst = kind, src, dst
         self.settings = settings or {}
         self.pages = pages
@@ -71,7 +71,7 @@ class JobProcess:
         cmd, env_extra = cli_command()
         fd, self._preset = tempfile.mkstemp(prefix="passermark-job-", suffix=".json")
         os.close(fd)
-        core.save_settings(self._preset, self.kind, self.settings)  # Datei statt --set: keine Quoting-Probleme
+        core.save_settings(self._preset, self.kind, self.settings)  # a file instead of --set: no quoting problems
         args = [self.kind, self.src, self.dst, "--preset", self._preset, "--json-progress"]
         if self.pages:
             args += ["--pages", ",".join(str(p + 1) for p in self.pages)]
@@ -83,7 +83,7 @@ class JobProcess:
         if self.lang:
             env["PASSERMARK_LANG"] = self.lang
         env["PYTHONIOENCODING"] = "utf-8"
-        self._stderr_file = tempfile.TemporaryFile(mode="w+b")  # stderr nicht volllaufen lassen (kein Pipe-Stau)
+        self._stderr_file = tempfile.TemporaryFile(mode="w+b")  # do not let stderr fill up (no pipe congestion)
         self.proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -94,7 +94,7 @@ class JobProcess:
         )
 
     def events(self):
-        """Meldungen des Prozesses, bis er endet (blockiert – in einem Lese-Thread aufrufen)."""
+        """Messages of the process until it ends (blocks – call in a reader thread)."""
         assert self.proc is not None and self.proc.stdout is not None
         for raw in self.proc.stdout:
             line = raw.decode("utf-8", "replace").strip()
@@ -119,7 +119,7 @@ class JobProcess:
             pass
 
     def wait(self, timeout: float | None = None) -> dict:
-        """Auf das Ende warten; liefert das Ergebnis (auch bei Absturz ohne eigene Meldung)."""
+        """Wait for the end; returns the result (also after a crash without a message of its own)."""
         assert self.proc is not None
         try:
             code = self.proc.wait(timeout=timeout)
@@ -127,7 +127,7 @@ class JobProcess:
             self.proc.kill()
             code = self.proc.wait()
         if self.proc.stdout is not None:
-            for _ in self.events():  # restliche Meldungen einsammeln
+            for _ in self.events():  # collect the remaining messages
                 pass
         err = self._stderr_tail()
         self._cleanup()
@@ -135,7 +135,7 @@ class JobProcess:
             res = dict(self.last)
         elif self.cancelled:
             res = {"event": "cancelled", "message": tr("Abgebrochen.")}
-        else:  # Absturz: keine Abschlussmeldung
+        else:  # crash: no final message
             res = {"event": "error", "message": tr("Die Berechnung wurde unerwartet beendet (Code {0}).").format(code)}
         res["returncode"] = code
         if err:

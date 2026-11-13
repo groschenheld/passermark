@@ -128,7 +128,7 @@ def is_supported(path: str) -> bool:
 
 
 # ---------------------------------------------------------------------- #
-# Erkennen, was installiert ist
+# detect what is installed
 # ---------------------------------------------------------------------- #
 def _x2t_candidates():
     if _platform.IS_WIN:
@@ -167,7 +167,7 @@ def _x2t_candidates():
 
 
 def detect() -> dict[str, str]:
-    """{"libreoffice": pfad, "onlyoffice": x2t, "eurooffice": x2t} – nur was gefunden wurde."""
+    """{"libreoffice": path, "onlyoffice": x2t, "eurooffice": x2t} – only what was found."""
     found = {}
     lo = _platform.find_program(["soffice", "libreoffice"], [r"LibreOffice\program\soffice.exe"])
     if _platform.IS_WIN and _msoffice_available():
@@ -209,7 +209,7 @@ def describe_available() -> str:
 # Umwandeln
 # ---------------------------------------------------------------------- #
 def _sandboxed(exe: str) -> bool:
-    """Snap/Flatpak sehen unser /tmp nicht (eigenes, abgeschottetes /tmp)."""
+    """Snap/Flatpak do not see our /tmp (they have their own, isolated /tmp)."""
     return exe.startswith("flatpak:") or "/snap/" in exe or "/snap/" in os.path.realpath(exe)
 
 
@@ -220,7 +220,7 @@ def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
     base = os.path.splitext(os.path.basename(path))[0]
     work, src = outdir, path
     if _sandboxed(exe):
-        # sichtbarer Ordner im Home – den darf ein Snap/Flatpak lesen und beschreiben
+        # visible folder in the home directory – a Snap/Flatpak may read and write it
         root = os.path.join(os.path.expanduser("~"), "Passermark-Umwandlung")
         os.makedirs(root, exist_ok=True)
         work = tempfile.mkdtemp(prefix="lo-", dir=root)
@@ -278,7 +278,7 @@ def _x2t_fonts(exe: str) -> str:
         ):
             if _fonts_ready(os.path.dirname(hit)):
                 return os.path.dirname(hit)
-    # 1) Schriftencache, den die Desktop-Editoren selbst angelegt haben
+    # 1) font cache that the desktop editors created themselves
     pats = [
         home + "/.local/share/onlyoffice/**/AllFonts.js",
         home + "/.local/share/*euro*office*/**/AllFonts.js",
@@ -290,7 +290,7 @@ def _x2t_fonts(exe: str) -> str:
         for hit in glob.glob(pat, recursive=True):
             if _fonts_ready(os.path.dirname(hit)):
                 return os.path.dirname(hit)
-    # 2) eigener Cache, einmalig mit allfontsgen erzeugt
+    # 2) own cache, created once with allfontsgen
     conv = os.path.dirname(exe)
     cache = os.path.join(_platform.user_cache_dir(), "x2t-fonts", hashlib.sha1(conv.encode()).hexdigest()[:10])
     if _fonts_ready(cache):
@@ -442,9 +442,9 @@ def conversion_order(path: str, preference: str, available: dict) -> list[str]:
     e = ext(path)
     if preference in ("libreoffice", "onlyoffice", "eurooffice", "msoffice"):
         order = [preference, "libreoffice", "eurooffice", "onlyoffice", "msoffice"]
-    elif e in OOXML_EXT:  # Microsoft-Formate: MS Office, dann OnlyOffice-Familie
+    elif e in OOXML_EXT:  # Microsoft formats: MS Office, then the OnlyOffice family
         order = ["msoffice", "eurooffice", "onlyoffice", "libreoffice"]
-    else:  # ODF & Rest: LibreOffice zuerst
+    else:  # ODF & the rest: LibreOffice first
         order = ["libreoffice", "eurooffice", "onlyoffice", "msoffice"]
     seen, out = set(), []
     for k in order:

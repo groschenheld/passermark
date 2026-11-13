@@ -54,8 +54,8 @@ def main():
     ap.add_argument("--poster", action="store_true", help="Posterdruck als eigenes Fenster (Dateien dazu)")
     ap.add_argument("files", nargs="*")
     args, _qt = ap.parse_known_args()
-    # läuft schon eine Instanz? Dann sofort weiterreichen – noch bevor Qt und die Oberfläche geladen werden
-    # (Explorer-Mehrfachauswahl startet einen Prozess je Datei; so sind die nach Sekundenbruchteilen wieder weg)
+    # is an instance already running? Then pass on right away – before Qt and the interface are loaded
+    # (a multiple selection in Explorer starts one process per file; this way they are gone again within a split second)
     early_cmd = (
         "print"
         if args.do_print
@@ -69,8 +69,8 @@ def main():
         if args.poster
         else "open"
     )
-    # Mehrere gleichzeitig gestartete Prozesse (Explorer: je Datei einer) warten hier an einer Startsperre – genau
-    # einer wird Hauptinstanz, die übrigen reichen danach ihre Datei an ihn weiter.
+    # Several processes started at once (Explorer: one per file) wait here at a start lock – exactly
+    # one becomes the main instance, the others then pass their file on to it.
     from . import fastipc
 
     start_lock = fastipc.hand_over_or_lock(early_cmd, [os.path.abspath(f) for f in args.files])
@@ -101,13 +101,13 @@ def main():
     theme.apply(app)  # dunkles Design, gelber Akzent, Mausrad-Schutz
     from .gui.common import window_modal_dialogs
 
-    window_modal_dialogs()  # Dialoge sperren nur ihr eigenes Fenster, nicht alle Passermark-Fenster
+    window_modal_dialogs()  # dialogs block only their own window, not all Passermark windows
     from . import crashlog
     from .gui import crashui
 
-    logs_on = crashlog.enabled()  # in den Einstellungen abschaltbar (Standard an)
+    logs_on = crashlog.enabled()  # can be switched off in the settings (on by default)
     if logs_on:
-        crashlog.install("gui", on_error=crashui.show_error)  # Fehlerprotokoll (Datei zum Mitschicken)
+        crashlog.install("gui", on_error=crashui.show_error)  # error log (a file to send along)
     files = [os.path.abspath(f) for f in args.files]
 
     from . import app as appmod
@@ -115,7 +115,7 @@ def main():
     cmd = early_cmd
 
     # single instance: hand over to the running instance – or become the server yourself. Several at once
-    # gestartete Prozesse (Explorer-Mehrfachauswahl) einigen sich so auf genau einen Server.
+    # started processes (multiple selection in Explorer) agree on exactly one server this way.
     import time
 
     ctl = None
@@ -128,18 +128,18 @@ def main():
         time.sleep(0.15)
     if ctl is None:
         ctl = appmod.Controller()
-    start_lock.release()  # Server lauscht: wartende Prozesse dürfen jetzt weiterreichen
+    start_lock.release()  # the server is listening: waiting processes may pass on now
     ctl.headless = cmd in ("print", "repair")
     from PySide6.QtCore import QTimer
 
     if files or cmd != "open":
-        # erst in der laufenden Ereignisschleife sammeln – sonst kann das Sammelfenster schon ablaufen, bevor die
-        # gleichzeitig gestarteten Prozesse ihre Dateien überhaupt abgeben konnten
+        # collect only once the event loop runs – otherwise the collection window may expire before the
+        # processes started at the same time could hand over their files at all
         QTimer.singleShot(0, lambda: ctl.queue_request(cmd, files))
     if not files and cmd == "open":
         ctl.new_window()
     if logs_on:
-        QTimer.singleShot(1200, crashui.notify_previous_crashes)  # Absturz beim letzten Mal? -> einmal melden
+        QTimer.singleShot(1200, crashui.notify_previous_crashes)  # crash last time? -> report once
     return app.exec()
 
 

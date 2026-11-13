@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Colour pipette: what is at a given point of the page?
 
-- **Definiert**: Farbe des obersten Objekts an der Stelle, so wie sie im PDF steht – RGB, CMYK, Grau, Lab,
-  Sonderfarbe (Separation/DeviceN mit Tonwert) oder der Pixelwert eines Bildes.
-- **Im Druck**: Farbauftrag je Kanal (C, M, Y, K in %) und gesamt – Ghostscript separiert die Seite mit dem Profil der
-  Druckbedingung wie die CMYK-Umwandlung „nur RGB/Grau“: vorhandenes CMYK bleibt 1:1, RGB/Grau/Lab/Sonderfarben
-  werden umgerechnet. Überdrucken, Transparenz und Bilder sind dabei schon verrechnet.
-- **Bildschirm**: die angezeigte Farbe (RGB).
+- **Defined**: colour of the topmost object at the point as it is written in the PDF – RGB, CMYK, grey, Lab,
+  spot colour (Separation/DeviceN with tint) or the pixel value of an image.
+- **In print**: ink per channel (C, M, Y, K in %) and in total – Ghostscript separates the page with the profile of
+  the printing condition like the CMYK conversion "RGB/grey only": existing CMYK stays 1:1, RGB/grey/Lab/spot
+  colours are converted. Overprint, transparency and images are already taken into account.
+- **Screen**: the displayed colour (RGB).
 
-Ohne Qt – die Oberfläche (gui/pipettedialog.py) ruft sample() in einem Hintergrund-Thread auf.
+No Qt – the interface (gui/pipettedialog.py) calls sample() in a background thread.
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from dataclasses import dataclass, field
 
 from .l10n import tr
 
-MAX_PX = 3000  # längste Seite der Separation in Pixeln (Plakate werden gröber gerastert)
+MAX_PX = 3000  # longest side of the separation in pixels (posters are rasterised more coarsely)
 DPI = 150
-_INK_CACHE: dict = {}  # (Datei-Hash, Seite, Profil, Intent, dpi) -> (numpy CMYK, Breite, Höhe)
+_INK_CACHE: dict = {}  # (file hash, page, profile, intent, dpi) -> (numpy CMYK, width, height)
 _SCREEN_CACHE: dict = {}
-_FILES: dict = {}  # Datei-Hash -> temporäre PDF für Ghostscript
+_FILES: dict = {}  # file hash -> temporary PDF for Ghostscript
 
 
 @dataclass
@@ -34,18 +34,18 @@ class Sample:
     page: int = 0
     x: float = 0.0
     y: float = 0.0
-    kind: str = ""  # text | path | image | shading | form | "" (nichts gefunden = Papier)
-    paint: str = "fill"  # fill | stroke (Pfad nur mit Kontur)
+    kind: str = ""  # text | path | image | shading | form | "" (nothing found = paper)
+    paint: str = "fill"  # fill | stroke (path with a stroke only)
     space: str = ""  # RGB | CMYK | Gray | Lab | Separation | DeviceN | Indexed | Pattern
-    values: list = field(default_factory=list)  # 0..1 je Kanal (Lab: L 0..100, a, b)
-    spot: str = ""  # Name(n) der Sonderfarbe(n)
-    icc: bool = False  # Farbraum über ICC-Profil festgelegt (ICCBased)
-    detail: str = ""  # z. B. „Bild 1200 × 800 px, 300 ppi“
-    sure: bool = True  # Objekt passt zur angezeigten Farbe (sonst: ungefähr)
-    ink: list | None = None  # C, M, Y, K in % im Druck
+    values: list = field(default_factory=list)  # 0..1 per channel (Lab: L 0..100, a, b)
+    spot: str = ""  # name(s) of the spot colour(s)
+    icc: bool = False  # colour space defined by an ICC profile (ICCBased)
+    detail: str = ""  # e.g. "Bild 1200 × 800 px, 300 ppi"
+    sure: bool = True  # the object matches the displayed colour (otherwise: approximately)
+    ink: list | None = None  # C, M, Y, K in % in print
     profile: str = ""
     limit: int = 0  # Richtwert Gesamtfarbauftrag
-    screen: tuple = ()  # RGB 0..255 wie angezeigt
+    screen: tuple = ()  # RGB 0..255 as displayed
     notes: list = field(default_factory=list)
 
     @property
@@ -53,7 +53,7 @@ class Sample:
         return float(sum(self.ink)) if self.ink else 0.0
 
     def as_cmyk(self) -> list | None:
-        """Zum Wiederverwenden: definiertes CMYK, sonst der Farbauftrag im Druck (0..1)."""
+        """For reuse: the defined CMYK, otherwise the ink in print (0..1)."""
         if self.space == "CMYK" and len(self.values) == 4:
             return [float(v) for v in self.values]
         if self.ink:
@@ -61,7 +61,7 @@ class Sample:
         return None
 
     def as_rgb(self) -> list | None:
-        """Zum Wiederverwenden: definiertes RGB, sonst die Bildschirmfarbe (0..1)."""
+        """For reuse: the defined RGB, otherwise the screen colour (0..1)."""
         if self.space == "RGB" and len(self.values) == 3:
             return [float(v) for v in self.values]
         if self.space == "Gray" and len(self.values) == 1:
@@ -93,7 +93,7 @@ class Sample:
 
 
 # --------------------------------------------------------------------------- #
-# Farbräume aus dem Inhaltsstrom
+# colour spaces from the content stream
 # --------------------------------------------------------------------------- #
 _DEVICE = {
     "/DeviceGray": ("Gray", 1),
@@ -108,7 +108,7 @@ _DEVICE = {
 
 
 def _space(obj, res) -> dict:
-    """Farbraum (Name oder Array, ggf. aus /Resources/ColorSpace) -> {"space", "n", "spot", "icc", "base"}."""
+    """Colour space (name or array, possibly from /Resources/ColorSpace) -> {"space", "n", "spot", "icc", "base"}."""
     import pikepdf
 
     if isinstance(obj, pikepdf.Name):
@@ -168,9 +168,10 @@ def _initial(sp: dict) -> list:
 
 
 def page_colors(data: bytes, page_index: int) -> dict:
-    """Farben je Objekt der Seite in pdfiums Reihenfolge:
-    {("path", n): {"fill": (Raum, Werte), "stroke": (…), "paint": "fill"|"stroke"},
-     ("text", n): {"fill": …, "stroke": …, "mode": Tr}, ("image", n): {"name": XObject-Name | None}}."""
+    """Colours per object of the page in pdfium's order:
+    {("path", n): {"fill": (space, values), "stroke": (…), "paint": "fill"|"stroke"},
+     ("text", n): {"fill": …, "stroke": …, "mode": Tr}, ("image", n): {"name": XObject name | None}}.
+    """
     import pikepdf
     from .editing import PATH_PAINT_OPS, PATH_CONSTR_OPS, SHOW_OPS, _show_nonempty
 
@@ -254,14 +255,14 @@ def page_colors(data: bytes, page_index: int) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# Seite rendern (Bildschirm) und separieren (Druck)
+# render the page (screen) and separate it (print)
 # --------------------------------------------------------------------------- #
 def _hash(data: bytes) -> str:
     return hashlib.sha1(data).hexdigest()
 
 
 def _pixel(x: float, y: float, crop: tuple, rot: int, size: tuple) -> tuple:
-    """Seitenpunkt (pt) -> Pixel (Spalte, Zeile) im gerenderten Bild (CropBox, /Rotate im Uhrzeigersinn)."""
+    """Page point (pt) -> pixel (column, row) in the rendered image (CropBox, /Rotate clockwise)."""
     W, H = size
     cx0, cy0, cx1, cy1 = crop
     u = (x - cx0) / max(1e-6, cx1 - cx0)
@@ -269,7 +270,7 @@ def _pixel(x: float, y: float, crop: tuple, rot: int, size: tuple) -> tuple:
     rot %= 360
     if rot == 0:
         col, row = u * W, (1 - v) * H
-    elif rot == 90:  # im Uhrzeigersinn: links oben wandert nach rechts oben
+    elif rot == 90:  # clockwise: top left moves to top right
         col, row = v * W, u * H
     elif rot == 180:
         col, row = (1 - u) * W, v * H
@@ -290,7 +291,7 @@ def _geometry(data: bytes, page_index: int) -> tuple:
 
 
 def screen_color(data: bytes, page_index: int, x: float, y: float) -> tuple:
-    """Angezeigte Farbe (RGB 0..255) – pdfium, 2 px je pt (bei großen Seiten weniger)."""
+    """Displayed colour (RGB 0..255) – pdfium, 2 px per pt (fewer for large pages)."""
     import numpy as np
     import pypdfium2 as pdfium
 
@@ -333,7 +334,7 @@ def _temp_pdf(data: bytes) -> str:
 def ink_color(
     data: bytes, page_index: int, x: float, y: float, icc: str, intent: str = "relative", password: str = ""
 ) -> list:
-    """Farbauftrag im Druck an der Stelle: [C, M, Y, K] in % (Ghostscript-Separation mit dem Profil)."""
+    """Ink in print at the point: [C, M, Y, K] in % (Ghostscript separation with the profile)."""
     import numpy as np
     from PIL import Image
     from . import cmyk
@@ -367,11 +368,12 @@ def ink_color(
 
 
 # --------------------------------------------------------------------------- #
-# Objekt an der Stelle
+# object at the point
 # --------------------------------------------------------------------------- #
 def _object_at(data: bytes, page_index: int, x: float, y: float, screen: tuple) -> tuple:
-    """Oberstes Objekt, dessen Rahmen die Stelle enthält und dessen Farbe zur Anzeige passt
-    -> (Art, Ordinalzahl je Art, pdfium-Index, sicher?, Matrix bei Bildern) oder ("", -1, -1, True, None)."""
+    """Topmost object whose bounding box contains the point and whose colour matches the display
+    -> (kind, ordinal per kind, pdfium index, certain?, matrix for images) or ("", -1, -1, True, None).
+    """
     import ctypes
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
@@ -409,7 +411,7 @@ def _object_at(data: bytes, page_index: int, x: float, y: float, screen: tuple) 
                 m = r.FS_MATRIX()
                 if r.FPDFPageObj_GetMatrix(o, m):
                     mat = (m.a, m.b, m.c, m.d, m.e, m.f)
-                return k, ordn, i, True, mat  # Bilder sind rechteckig: Rahmen = Fläche
+                return k, ordn, i, True, mat  # images are rectangular: bounding box = area
             if k in ("shading", "form"):
                 if first is None:
                     first = (k, ordn, i, False, None)
@@ -434,14 +436,14 @@ def _object_at(data: bytes, page_index: int, x: float, y: float, screen: tuple) 
             ):
                 return k, ordn, i, True, None
         if first is not None and screen and min(screen) >= 248:
-            return "", -1, -1, True, None  # nichts passt und es ist hell: Papier (z. B. in einer Kontur)
+            return "", -1, -1, True, None  # nothing matches and it is light: paper (e.g. inside an outline)
         return first or ("", -1, -1, True, None)
     finally:
         d.close()
 
 
 def _image_pixel(data: bytes, page_index: int, info: dict, mat: tuple, x: float, y: float) -> tuple:
-    """Pixelwert eines Bildes an der Stelle -> (Raum, Werte 0..1, ICC?, Detail)."""
+    """Pixel value of an image at the point -> (space, values 0..1, ICC?, detail)."""
     import pikepdf
 
     if not mat:
@@ -484,7 +486,7 @@ def _image_pixel(data: bytes, page_index: int, info: dict, mat: tuple, x: float,
         space = {"L": "Gray", "RGB": "RGB", "RGBA": "RGB", "CMYK": "CMYK", "LA": "Gray"}.get(mode, sp["space"])
         vals = [v / 255.0 for v in vals][: {"Gray": 1, "RGB": 3, "CMYK": 4}.get(space, len(vals))]
         if sp["space"] == "Separation":
-            space, vals = "Separation", [1.0 - vals[0]] if vals else vals  # Tonwert: 1 = volle Farbe
+            space, vals = "Separation", [1.0 - vals[0]] if vals else vals  # tint: 1 = full colour
         return space, vals, bool(sp.get("icc")), detail
     finally:
         pdf.close()
@@ -492,8 +494,9 @@ def _image_pixel(data: bytes, page_index: int, info: dict, mat: tuple, x: float,
 
 # --------------------------------------------------------------------------- #
 def sample(data: bytes, page_index: int, x: float, y: float, target=None, password: str = "") -> Sample:
-    """Alles zur Stelle (x, y in pt, PDF-Koordinaten der Seite). target = colorcheck.Target (Druckbedingung) oder
-    None (dann ohne Farbauftrag)."""
+    """Everything about the point (x, y in pt, PDF coordinates of the page). target = colorcheck.Target (printing
+    condition) or None (then without ink values).
+    """
     s = Sample(page=page_index, x=x, y=y)
     try:
         s.screen = screen_color(data, page_index, x, y)
@@ -536,7 +539,7 @@ def sample(data: bytes, page_index: int, x: float, y: float, target=None, passwo
 
 
 def format_values(s: Sample) -> str:
-    """Definierte Farbe als kurzer Text: „CMYK 0 / 40 / 100 / 0 (140 %)“, „RGB 245 / 167 / 35 · #F5A723“ …"""
+    """Defined colour as short text: "CMYK 0 / 40 / 100 / 0 (140 %)", "RGB 245 / 167 / 35 · #F5A723" …"""
     v = s.values
     if not s.space:
         return tr("Papier (kein Objekt)") if not s.kind else "–"

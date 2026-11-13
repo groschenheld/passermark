@@ -22,7 +22,7 @@ import os
 
 from .l10n import tr
 
-# Name -> (Typ, Beschreibung). Typen: int, float, bool, str, list
+# name -> (type, description). Types: int, float, bool, str, list
 FACTS = {
     "pages": ("int", "number of pages"),
     "width_mm": ("float", "width of the first page in mm (reading direction)"),
@@ -145,7 +145,7 @@ def _cmp(actual, op: str, want) -> bool:
 
 
 def evaluate(cond, facts) -> tuple[bool, str]:
-    """(erfüllt?, Begründung für Protokoll/JSON, z. B. "pages 12 >= 8, format A5 == A5")."""
+    """(met?, reason for the log/JSON, e.g. "pages 12 >= 8, format A5 == A5")."""
     parts, ok = [], True
     for k, v in cond.items():
         if k == "all":
@@ -180,7 +180,7 @@ def _show(v) -> str:
 
 
 class Facts:
-    """Prüfwerte eines PDFs – erst berechnet, wenn eine Bedingung sie braucht; einmal je Datei."""
+    """Check values of a PDF – computed only when a condition needs them; once per file."""
 
     def __init__(self, path: str, filename: str = "", variables: dict | None = None):
         self.path, self.filename, self.vars = path, filename or os.path.basename(path), dict(variables or {})

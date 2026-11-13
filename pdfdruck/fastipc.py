@@ -5,12 +5,12 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Hand a request to the running instance – without Qt, at the very start of the program.
 
-Explorer startet bei einer Mehrfachauswahl („Als ein PDF zusammenführen“ auf 110 Pläne) pro Datei einen eigenen
-Prozess. Bisher lud jeder davon erst die ganze Oberfläche, bevor er seine Datei weitergab – die Dateien kamen
-über Sekunden verteilt an. So ist jeder Prozess nach Sekundenbruchteilen wieder weg.
+For a multiple selection ("merge into one PDF" on 110 plans) Explorer starts a separate process per file.
+If each of them first loaded the whole interface before passing its file on, the files would arrive
+spread over seconds. This way every process is gone again within a split second.
 
-Spricht dasselbe Protokoll wie app.Controller (QLocalServer): eine JSON-Zeile hin, „ok“ zurück.
-QLocalServer: Windows = Named Pipe \\\\.\\pipe\\<Name>, sonst Unix-Socket <TMPDIR oder /tmp>/<Name>.
+Speaks the same protocol as app.Controller (QLocalServer): one JSON line there, "ok" back.
+QLocalServer: Windows = named pipe \\\\.\\pipe\\<name>, otherwise Unix socket <TMPDIR or /tmp>/<name>.
 """
 
 from __future__ import annotations
@@ -28,12 +28,12 @@ def server_name() -> str:
 
 
 def send(cmd: str, files: list, timeout: float = 3.0) -> bool:
-    """True = laufende Instanz hat den Auftrag angenommen. False = keine da (oder nicht erreichbar)."""
+    """True = the running instance accepted the request. False = none there (or not reachable)."""
     return send_ex(cmd, files, timeout) == "ok"
 
 
 def send_ex(cmd: str, files: list, timeout: float = 3.0) -> str:
-    """„ok“ = angenommen, „none“ = keine Instanz da, „busy“ = Instanz da, hat aber (noch) nicht geantwortet."""
+    """ "ok" = accepted, "none" = no instance there, "busy" = instance there but it has not answered (yet)."""
     msg = (json.dumps({"cmd": cmd, "files": files}) + "\n").encode("utf-8")
     try:
         if os.name == "nt":
@@ -55,7 +55,7 @@ def _send_unix(msg: bytes, timeout: float) -> str:
         s.connect(path)
     except (ConnectionRefusedError, FileNotFoundError):
         s.close()
-        return "none"  # verwaiste Socket-Datei nach Absturz
+        return "none"  # orphaned socket file after a crash
     except OSError:
         s.close()
         return "busy"
@@ -76,7 +76,7 @@ def _send_pipe(msg: bytes, timeout: float) -> str:
         try:
             f = open(path, "r+b", buffering=0)
         except FileNotFoundError:
-            return "none"  # keine Instanz
+            return "none"  # no instance
         except OSError:  # Pipe gerade belegt (viele gleichzeitig): kurz warten
             if time.monotonic() > end:
                 return "busy"
@@ -101,13 +101,14 @@ def _send_pipe(msg: bytes, timeout: float) -> str:
 
 
 class StartLock:
-    """Startsperre über alle Prozesse des Benutzers: Nur wer sie hält, darf Server (Hauptinstanz) werden.
+    """Start lock across all processes of the user: only the holder may become the server (main instance).
 
-    Explorer startet bei Mehrfachauswahl je Datei einen Prozess – alle gleichzeitig, keiner findet eine Instanz.
-    Ohne Sperre wurden mehrere davon Server (QLocalServer.listen klappt unter Windows auch, wenn auf dem Namen
-    schon einer lauscht) – jeder bekam nur einen Teil der Dateien: „nur Einzeldateien zusammengeführt“.
-    Mit Sperre: einer wird Server, die anderen warten (ohne Qt zu laden) und reichen danach weiter.
-    Das Betriebssystem gibt die Sperre frei, wenn der Prozess endet (auch bei Absturz)."""
+    For a multiple selection Explorer starts one process per file – all at once, none finds an instance.
+    Without a lock several of them would become servers (QLocalServer.listen also succeeds on Windows when
+    someone is already listening on the name) – each would get only part of the files.
+    With the lock: one becomes the server, the others wait (without loading Qt) and then pass on.
+    The operating system releases the lock when the process ends (also after a crash).
+    """
 
     def __init__(self):
         self._h = None
@@ -119,7 +120,7 @@ class StartLock:
                 return self._acquire_win(timeout)
             return self._acquire_posix(timeout)
         except Exception:
-            return False  # im Zweifel ohne Sperre weiter (wie bisher)
+            return False  # when in doubt continue without a lock
 
     def _acquire_win(self, timeout: float) -> bool:
         import ctypes
@@ -134,7 +135,7 @@ class StartLock:
         if not h:
             return False
         r = k32.WaitForSingleObject(h, int(timeout * 1000))
-        if r in (0x0, 0x80):  # WAIT_OBJECT_0 / WAIT_ABANDONED (Vorgänger abgestürzt)
+        if r in (0x0, 0x80):  # WAIT_OBJECT_0 / WAIT_ABANDONED (the predecessor crashed)
             self._h, self._k32 = h, k32
             return True
         k32.CloseHandle(h)
@@ -173,18 +174,19 @@ class StartLock:
 
 
 def hand_over_or_lock(cmd: str, files: list, wait: float = 20.0):
-    """Auftrag an die laufende Instanz geben – oder die Startsperre holen, um selbst Hauptinstanz zu werden.
-    Rückgabe: None = weitergereicht (Prozess kann enden), sonst die gehaltene StartLock (ggf. ohne Sperre)."""
+    """Give the request to the running instance – or take the start lock to become the main instance.
+    Returns: None = passed on (the process can end), otherwise the StartLock held (possibly without a lock).
+    """
     if send_ex(cmd, files) == "ok":
         return None
     lock = StartLock()
     lock.acquire(wait)
     end = time.monotonic() + 10.0
-    while True:  # inzwischen ist vielleicht ein anderer Prozess Server geworden
+    while True:  # another process may have become the server in the meantime
         st = send_ex(cmd, files, timeout=5.0)
         if st == "ok":
             lock.release()
             return None
         if st == "none" or time.monotonic() > end:
-            return lock  # keiner da (oder hängt): selbst übernehmen
+            return lock  # nobody there (or hanging): take over ourselves
         time.sleep(0.2)

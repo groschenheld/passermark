@@ -5,9 +5,9 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Edit mode: the changes as named operations (no user interface).
 
-Damit laufen sie im Analyse-Prozess (renderproc „edit“): Laden, Ändern, Speichern und die Sicherheitsprüfung
-einer großen Datei blockieren das Fenster nicht mehr. Jede Operation: (Daten, Seite, …) -> (neue Daten | None,
-Hinweise); None = lässt sich nicht sicher ändern, Dokument bleibt wie es ist.
+This lets them run in the analysis process (renderproc "edit"): loading, changing, saving and the safety check
+of a large file no longer block the window. Every operation: (data, page, …) -> (new data | None,
+notes); None = cannot be changed safely, the document stays as it is.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .l10n import tr
 
 
 def pdfium_edit(data: bytes, page: int, fn):
-    """pdfium-Änderung an einer frisch geladenen Kopie -> (neue Daten, Hinweise)."""
+    """pdfium change on a freshly loaded copy -> (new data, notes)."""
     import pypdfium2 as pdfium
 
     d = pdfium.PdfDocument(data)
@@ -33,7 +33,7 @@ def pdfium_edit(data: bytes, page: int, fn):
 
 
 def match_line(L0, lines):
-    """Dieselbe Zeile nach einer Änderung wiederfinden: gleicher Text, nächstgelegene Mitte."""
+    """Find the same row again after a change: same text, nearest centre."""
     cx, cy = (L0.bbox[0] + L0.bbox[2]) / 2, (L0.bbox[1] + L0.bbox[3]) / 2
     same = [L for L in lines if L.text == L0.text] or lines
     if not same:
@@ -45,7 +45,7 @@ def match_line(L0, lines):
 
 
 def move_lines(data, page, lines, s, dx, dy, origin):
-    """Bevorzugt nur die Textblöcke umschließen (Seite bleibt sonst unverändert), Rest über pdfium."""
+    """Preferably wrap only the text blocks (the page otherwise stays unchanged), the rest via pdfium."""
     new, pending = data, []
     for L in lines:
         b = editing.transform_line_blocks(new, page, L, s, dx, dy, origin)
@@ -59,7 +59,7 @@ def move_lines(data, page, lines, s, dx, dy, origin):
 
 
 def move_objects(data, page, objs, s, dx, dy, origin):
-    """Bevorzugt nur die Objekte im Seiteninhalt umschließen (Rest der Seite bleibt unverändert), sonst pdfium."""
+    """Preferably wrap only the objects in the page content (the rest of the page stays unchanged), otherwise pdfium."""
     new = editing.edit_objects_content(data, page, objs, "transform", s, dx, dy, origin)
     if new is not None:
         return new, []
@@ -67,7 +67,7 @@ def move_objects(data, page, objs, s, dx, dy, origin):
 
 
 def delete_objects(data, page, objs):
-    """Bevorzugt nur die Objekte aus dem Seiteninhalt nehmen, sonst pdfium (schreibt die ganze Seite neu)."""
+    """Preferably take only the objects out of the page content, otherwise pdfium (rewrites the whole page)."""
     new = editing.edit_objects_content(data, page, objs, "delete")
     if new is not None:
         return new, []
@@ -87,8 +87,9 @@ def edit_line(data, page, line, text, font, size):
 
 
 def edit_lines(data, page, lines, font, size):
-    """Mehrere Zeilen: Schrift/Größe für alle; nach jeder Änderung die nächste Zeile neu suchen
-    (Objektnummern können sich durch die Änderung verschieben)."""
+    """Several rows: font/size for all; after every change look up the next row again
+    (object numbers can shift because of the change).
+    """
     import pypdfium2 as pdfium
 
     cur, notes = data, []
@@ -121,8 +122,9 @@ OPS = {
 
 
 def apply_and_verify(data: bytes, page: int, op: str, kwargs: dict, boxes: list) -> dict:
-    """Operation ausführen und prüfen. -> {"new": Bytes | None, "unsafe": bool, "err": Text, "notes": […],
-    "error": Text}  (error = Operation selbst gescheitert, z. B. Zeile nicht gefunden)."""
+    """Run the operation and check it. -> {"new": bytes | None, "unsafe": bool, "err": text, "notes": […],
+    "error": text}  (error = the operation itself failed, e.g. row not found).
+    """
     try:
         new, notes = OPS[op](data, page, **kwargs)
     except Exception as e:

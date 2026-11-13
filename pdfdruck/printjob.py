@@ -26,8 +26,9 @@ def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bo
 
 
 def apply_borderless(caps, values: dict, settings: layout.LayoutSettings):
-    """Randlos abgleichen: Häkchen im Layout schaltet das Gerät um (Papiervariante/Option/IPP); ist schon randloses
-    Papier gewählt, gilt das Layout als randlos. -> (Werte, Layout). Fehler, wenn es nicht geht."""
+    """Reconcile borderless: the switch in the layout switches the device (paper variant/option/IPP); if borderless
+    paper is already chosen, the layout counts as borderless. -> (values, layout). Error if it is not possible.
+    """
     import dataclasses
 
     if caps is None or caps.backend == "pdf":
@@ -85,9 +86,10 @@ def resolve_tray(session, printer: str, values: dict, weight: int = 0, live: boo
 
 
 def step2_values(caps: printers.PrinterCaps, values: dict, settings: layout.LayoutSettings) -> dict:
-    """Mehrfachnutzen mit Schritt 2: Papier = Zielformat aus Schritt 2 (nicht das Montageblatt aus Schritt 1).
-    Das Format aus der Geräteliste, sonst das Format des Treibers mit diesen Maßen. Ohne Schritt 2 unverändert.
-    ValueError, wenn der Drucker das Zielformat nicht hat."""
+    """Step and repeat with step 2: paper = target size from step 2 (not the imposition sheet from step 1).
+    The size from the device list, otherwise the driver's size with these measures. Unchanged without step 2.
+    ValueError if the printer does not have the target size.
+    """
     if not layout.is_step2(settings) or caps.backend == "pdf":
         return values
     key = caps.roles.get("pagesize")
@@ -136,8 +138,9 @@ def submit_document(
     file: str | None = None,
 ) -> int:
     """Impose, optional color conversion, assemble the options, send to CUPS.
-    values: Papier = Montageblatt (Schritt 1). Mit Schritt 2 wird das Papier hier aufs Zielformat gesetzt.
-    file: Quelldatei fürs Druckprotokoll (falls eingeschaltet)."""
+    values: paper = imposition sheet (step 1). With step 2 the paper is set to the target size here.
+    file: source file for the print log (if switched on).
+    """
     from . import printlog
 
     if printer == printers.PDF_TARGET or not printlog.enabled(session.cfg):
@@ -195,7 +198,7 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     if values is None:
         values = session.values_for(printer)
     values, settings = apply_borderless(caps, values, settings)
-    flat = layout.flattened(doc)  # Formularwerte/Kommentare mit auf das Blatt
+    flat = layout.flattened(doc)  # form values/comments onto the sheet as well
     if (
         manip is not None and manip.active
     ):  # only on explicit request any more (e.g. scripts)  # document manipulation: crop, CMYK
@@ -210,7 +213,7 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     spread_from = None
     if layout.is_booklet_spreads(settings):
         spread_from = settings
-        # Broschüre als Druckbögen: erst aufgeklappte Bögen bilden, dann mit der Nutzen-Logik montieren
+        # booklet as printer's spreads: first build the opened spreads, then impose them with the step-and-repeat logic
         spreads, pages, settings, _notes = layout.spread_source(doc, pages, settings, layout.page_trims(doc))
         if doc is not src_doc:
             doc.close()
@@ -228,8 +231,8 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     if not plans:
         raise RuntimeError(tr("Nichts zu drucken (Seiten-/Bogenbereich leer?)"))
     step2 = layout.is_step2(settings)
-    if step2:  # Mehrfachnutzen mit Schritt 2: wie beim Speichern beide Schritte,
-        values = step2_values(caps, values, settings)  # Papier = Zielformat aus Schritt 2
+    if step2:  # step and repeat with step 2: both steps as when saving,
+        values = step2_values(caps, values, settings)  # paper = target size from step 2
 
     def imposed():
         if step2:
@@ -268,7 +271,7 @@ def _submit(doc, title, session, printer, pages, settings, copies, collate, reve
     try:
         job = os.path.join(tmp, "job.pdf")
         out = imposed()
-        info["out_pages"] = len(out)  # Seiten der gesendeten Datei je Exemplar (Druckprotokoll)
+        info["out_pages"] = len(out)  # pages of the sent file per copy (print log)
         out.save(job)
         out.close()
         job_values = dict(values)
@@ -296,8 +299,9 @@ def send_prepared(
     collate: bool = True,
     sent: dict | None = None,
 ) -> int:
-    """Fertig ausgeschossene PDF senden: Farbprofil des Druckers (Admin), alle Treiberoptionen, Kopien.
-    Gemeinsam für den normalen Druck und den Plandruck. sent: bekommt die gesendeten Optionen."""
+    """Send a fully imposed PDF: colour profile of the printer (admin), all driver options, copies.
+    Shared by normal printing and plan printing. sent: receives the options that were sent.
+    """
     opts = caps.job_options(values)
     if sent is not None:
         sent.clear()
@@ -323,7 +327,7 @@ def send_prepared(
                 "multiple-document-handling": "separate-documents-collated-copies"
                 if collate
                 else "separate-documents-uncollated-copies",
-                # Das PDF ist bereits exakt auf das Blatt ausgeschossen:
+                # The PDF is already imposed exactly onto the sheet:
                 "print-scaling": "none",
                 "fit-to-page": "false",
                 "number-up": "1",
@@ -337,7 +341,7 @@ def send_prepared(
 
 
 def print_file(path: str, session, password: str | None = None) -> tuple[str, int]:
-    """Rechtsklick-Druck: ganze Datei mit den aktuellen Sitzungs- bzw. Admin-Standards."""
+    """Right-click printing: the whole file with the current session or admin defaults."""
     import pypdfium2 as pdfium
     from . import images
 

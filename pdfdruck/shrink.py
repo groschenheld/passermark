@@ -6,21 +6,21 @@
 """File size: show what takes up the space and reduce it selectively – every measure can be switched
 separately. Without Ghostscript (pikepdf + Pillow + numpy).
 
-Verlustfrei (das Druckbild bleibt gleich):
-  rewrite      neu schreiben: alte Speicherstände (inkrementelles Speichern) fallen weg, Objekte in
-               komprimierten Objekt-Streams, ZIP-Streams stärker gepackt
-  unreferenced nicht mehr verwendete Ressourcen entfernen
-  dedupe       doppelt gespeicherte Bilder, Schriften, ICC-Profile zusammenlegen
-  private      Illustrator-/Photoshop-Bearbeitungsdaten (PieceInfo) entfernen
-  thumbs       eingebettete Seitenvorschaubilder entfernen
-  pack         unkomprimierte / schwach gepackte Bilder verlustfrei packen (ZIP + PNG-Prädiktor)
-Im Druck nicht sichtbar, aber eine Änderung (eigene Häkchen):
-  bits16       16 Bit je Kanal -> 8 Bit
-  attachments  eingebettete Dateien (Anhänge) entfernen
-  hidden       Inhalte ausgeblendeter Ebenen entfernen (Sichtbares festschreiben)
+Lossless (the printed image stays the same):
+  rewrite      write anew: old save states (incremental saving) are dropped, objects go into
+               compressed object streams, ZIP streams are packed harder
+  unreferenced remove resources that are no longer used
+  dedupe       merge images, fonts and ICC profiles that are stored twice
+  private      remove Illustrator/Photoshop editing data (PieceInfo)
+  thumbs       remove embedded page thumbnails
+  pack         pack uncompressed / weakly packed images losslessly (ZIP + PNG predictor)
+Not visible in print, but a change (switches of their own):
+  bits16       16 bits per channel -> 8 bits
+  attachments  remove embedded files (attachments)
+  hidden       remove the content of hidden layers (make the visible state permanent)
 Optional:
-  downsample   Bilder, deren effektive Auflösung (am größten platzierten Ort) über Ziel × Schwelle
-               liegt, auf die Ziel-dpi herunterrechnen; Fotos als JPEG (Qualität wählbar), sonst ZIP
+  downsample   downsample images whose effective resolution (at the largest placement) is above
+               target × threshold to the target dpi; photos as JPEG (quality selectable), otherwise ZIP
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from .l10n import tr
 
 MB = 1024 * 1024
 A4_M2 = 0.210 * 0.297
-WARN_MB_PER_A4 = 20.0  # ab hier „sehr groß“ (je A4-Fläche)
+WARN_MB_PER_A4 = 20.0  # from here on "very large" (per A4 area)
 
 
 # --------------------------------------------------------------------------- #
@@ -48,8 +48,8 @@ class ImageInfo:
     bpc: int
     comps: int
     codec: str
-    raw: int  # Bytes in der Datei
-    dpi: float | None  # größte Verwendung = kleinste effektive Auflösung; None = nicht platziert gefunden
+    raw: int  # bytes in the file
+    dpi: float | None  # largest use = smallest effective resolution; None = not found placed
     smask: bool = False
     is_mask: bool = False
     is_smask: bool = False  # selbst Soft-Maske eines anderen Bilds
@@ -64,10 +64,10 @@ class SizeReport:
     size: int = 0
     pages: int = 0
     area_m2: float = 0.0
-    revisions: int = 0  # angehängte Speicherstände (inkrementell)
+    revisions: int = 0  # appended save states (incremental)
     parts: dict = field(default_factory=dict)  # Kategorie -> Bytes
     images: list = field(default_factory=list)  # [ImageInfo]
-    duplicates: int = 0  # Anzahl doppelter Streams
+    duplicates: int = 0  # number of duplicate streams
     duplicate_bytes: int = 0
     private_bytes: int = 0
     thumb_bytes: int = 0
@@ -117,7 +117,7 @@ def _codec(img) -> str:
 
 
 def _walk_streams(obj, out: set, depth=0):
-    """Alle indirekten Streams unterhalb eines Objekts (für PieceInfo u. Ä.)."""
+    """All indirect streams below an object (for PieceInfo and the like)."""
     import pikepdf
 
     if depth > 30:
@@ -143,8 +143,9 @@ def _walk_streams(obj, out: set, depth=0):
 
 
 def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
-    """Wofür geht der Platz drauf? (pikepdf, darf im Hintergrund laufen).
-    colors: schon vorhandenes imagecheck.ColorReport (spart den zweiten Durchlauf)."""
+    """What takes up the space? (pikepdf, may run in the background).
+    colors: an existing imagecheck.ColorReport (saves the second pass).
+    """
     import pikepdf
     from . import imagecheck
 
@@ -157,7 +158,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
         rep.pages = len(pdf.pages)
         try:
             if pdf.is_linearized and rep.revisions:
-                rep.revisions -= 1  # linearisiert: zweites %%EOF gehört zur Schnellansicht
+                rep.revisions -= 1  # linearised: the second %%EOF belongs to the fast web view
         except Exception:
             pass
         for p in pdf.pages:
@@ -203,7 +204,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
             rep.has_hidden_layers = any(L.key not in vis for L in layers)
         except Exception:
             pass
-        # effektive Auflösung je Bild-Objekt: kleinste dpi = größte Platzierung
+        # effective resolution per image object: smallest dpi = largest placement
         best: dict = {}
         try:
             for u in (colors or imagecheck.analyze(pdf, max_uses=20000)).images:
@@ -288,7 +289,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
 
 
 def summary_lines(rep: SizeReport, top: int = 4) -> list:
-    """Aufschlüsselung als Textzeilen (größter Anteil zuerst)."""
+    """Breakdown as text lines (largest share first)."""
     out = [
         tr("Datei: {0:.1f} MB · {1} Seite(n) · {2:.1f} MB je A4-Fläche").format(rep.size / MB, rep.pages, rep.mb_per_a4)
     ]
@@ -316,7 +317,7 @@ def summary_lines(rep: SizeReport, top: int = 4) -> list:
 
 
 def candidates(rep: SizeReport, target_dpi: int = 300, threshold: float = 1.5) -> list:
-    """Bilder, die beim Herunterrechnen auf target_dpi angefasst würden."""
+    """Images that would be touched when downsampling to target_dpi."""
     return [
         i
         for i in rep.images
@@ -325,8 +326,9 @@ def candidates(rep: SizeReport, target_dpi: int = 300, threshold: float = 1.5) -
 
 
 def zip_photos(rep: SizeReport) -> list:
-    """Vermutlich Fotos, die als ZIP bzw. unkomprimiert gespeichert sind: ZIP spart bei Fotos kaum etwas
-    (> 50 % der Rohgröße) – als JPEG wären sie meist ein Zehntel so groß."""
+    """Probably photos stored as ZIP or uncompressed: ZIP saves hardly anything for photos
+    (> 50 % of the raw size) – as JPEG they would mostly be a tenth of the size.
+    """
     lossless = {"ZIP", "LZW", "RLE", tr("unkomprimiert")}
     out = []
     for i in rep.images:
@@ -338,7 +340,7 @@ def zip_photos(rep: SizeReport) -> list:
 
 
 def issues(rep: SizeReport) -> list:
-    """Befunde für die Prüfung: [(Schwere, Text)]."""
+    """Findings for the check: [(severity, text)]."""
     out = []
     if rep.too_big:
         main = max(rep.parts.items(), key=lambda kv: kv[1]) if rep.parts else ("other", 0)
@@ -410,7 +412,7 @@ def issues(rep: SizeReport) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Maßnahmen
+# measures
 # --------------------------------------------------------------------------- #
 @dataclass
 class ShrinkOptions:
@@ -425,13 +427,13 @@ class ShrinkOptions:
     hidden: bool = False
     downsample: bool = False
     target_dpi: int = 300
-    threshold: float = 1.5  # nur Bilder über Ziel × Schwelle
+    threshold: float = 1.5  # only images above target × threshold
     jpeg_quality: int = 92
-    photos_jpeg: bool = False  # Fotos, die als ZIP/unkomprimiert gespeichert sind, als JPEG
+    photos_jpeg: bool = False  # photos stored as ZIP/uncompressed, as JPEG
 
 
 def _png_up(arr, bpp: int) -> bytes:
-    """Zeilen mit PNG-Filter „Up“ (Typ 2) kodieren -> Bytes für FlateDecode /Predictor 12."""
+    """Encode rows with PNG filter "Up" (type 2) -> bytes for FlateDecode /Predictor 12."""
     import numpy as np
 
     rows = arr.reshape(arr.shape[0], -1)
@@ -444,7 +446,7 @@ def _png_up(arr, bpp: int) -> bytes:
 
 
 def _write_flate(img, raw: bytes, w: int, h: int, comps: int, bpc: int):
-    """Abtastwerte (dekodiert) verlustfrei als ZIP + PNG-Prädiktor ablegen."""
+    """Store samples (decoded) losslessly as ZIP + PNG predictor."""
     import numpy as np
     import pikepdf
 
@@ -460,8 +462,9 @@ def _write_flate(img, raw: bytes, w: int, h: int, comps: int, bpc: int):
 
 
 def _replace_refs(container, dup: dict, depth: int = 0):
-    """Verweise auf doppelte Objekte auf das behaltene umbiegen – auch in direkt eingebetteten
-    Wörterbüchern/Arrays (z. B. [/ICCBased 13 0 R] direkt im Farbraum der Seite)."""
+    """Redirect references to duplicate objects to the one that is kept – also in directly embedded
+    dictionaries/arrays (e.g. [/ICCBased 13 0 R] directly in the colour space of the page).
+    """
     import pikepdf
 
     if depth > 40:
@@ -484,7 +487,9 @@ def _replace_refs(container, dup: dict, depth: int = 0):
 
 
 def _is_icc(sd) -> bool:
-    """ICC-Profil-Stream: /N (Kanäle), kein /Type/Subtype – auch wenn das [/ICCBased …] direkt im Farbraum steckt."""
+    """ICC profile stream: /N (channels), no /Type/Subtype – also when the [/ICCBased …] sits directly in the colour
+    space.
+    """
     try:
         return "/N" in sd and "/Subtype" not in sd and "/Type" not in sd and int(sd.N) in (1, 3, 4)
     except Exception:
@@ -502,7 +507,7 @@ LOSSLESS = {
     "/A85",
     "/ASCIIHexDecode",
     "/AHx",
-}  # Text-Kodierungen (z. B. ReportLab) gleich mit
+}  # text encodings (e.g. ReportLab) along with it
 DCT = {"/DCTDecode", "/DCT"}
 
 
@@ -529,7 +534,7 @@ def _set_dct(img, jpg: bytes):
 
 
 def _undo_filters(data: bytes, filters: list) -> bytes:
-    """Allgemeine Filter (ZIP, ASCII85, ASCIIHex, RunLength) der Reihe nach lösen – LZW: ValueError."""
+    """Resolve the general filters (ZIP, ASCII85, ASCIIHex, RunLength) one after the other – LZW: ValueError."""
     import base64
 
     for f in filters:
@@ -562,7 +567,7 @@ def _undo_filters(data: bytes, filters: list) -> bytes:
 
 
 def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
-    """Ein Bild-Objekt bearbeiten (alle Schritte prüfen ihr eigenes Häkchen)."""
+    """Process one image object (every step checks its own switch)."""
     import numpy as np
     import pikepdf
     from PIL import Image
@@ -570,12 +575,12 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     before = len(img.read_raw_bytes())
     fl = _filters(img)
     w, h, comps, bpc = im.w, im.h, im.comps, im.bpc
-    # ZIP um ein JPEG herum: inneres JPEG für Herunterrechnen; ohne ZIP-Schicht nur wenn's kleiner wird
+    # ZIP around a JPEG: inner JPEG for downsampling; without the ZIP layer only if it gets smaller
     jpeg = None
-    # auch ASCII85/ASCIIHex/LZW davor (ReportLab u. a.): pikepdf löst die allgemeinen Filter, das JPEG bleibt
+    # also ASCII85/ASCIIHex/LZW in front (ReportLab etc.): pikepdf resolves the general filters, the JPEG stays
     wrapped = len(fl) >= 2 and fl[-1] in DCT and all(x in LOSSLESS for x in fl[:-1])
     if wrapped:
-        try:  # nur die äußeren Filter lösen, das JPEG bleibt wie es ist
+        try:  # resolve only the outer filters, the JPEG stays as it is
             jpeg = _undo_filters(img.read_raw_bytes(), fl[:-1])
         except Exception:
             jpeg = b""
@@ -584,8 +589,8 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     elif fl in (["/DCTDecode"], ["/DCT"]):
         jpeg = img.read_raw_bytes()
     is_jpeg = jpeg is not None
-    lossless = all(x in LOSSLESS for x in fl)  # auch: unkomprimiert
-    # optional: herunterrechnen (am größten platzierten Ort über Ziel × Schwelle)
+    lossless = all(x in LOSSLESS for x in fl)  # also: uncompressed
+    # optional: downsample (above target × threshold at the largest placement)
     f = 1.0
     if opts.downsample and im.dpi and im.dpi > opts.target_dpi * opts.threshold and not _indexed(img):
         f = opts.target_dpi / im.dpi
@@ -593,7 +598,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
         nw, nh = max(1, round(w * f)), max(1, round(h * f))
         if is_jpeg:
             pil = Image.open(io.BytesIO(jpeg))
-            pil.draft(pil.mode, (nw, nh))  # schneller bei großen JPEGs
+            pil.draft(pil.mode, (nw, nh))  # faster for large JPEGs
             small = pil.convert(pil.mode).resize((nw, nh), Image.LANCZOS)
             buf = io.BytesIO()
             kw = {"icc_profile": pil.info["icc_profile"]} if pil.info.get("icc_profile") else {}
@@ -601,7 +606,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
             _set_dct(img, buf.getvalue())
         else:
             if bpc == 16 and isinstance(img.stream_dict.get("/Mask"), pikepdf.Array):
-                return  # Farbschlüssel-Maske passt nach 8 Bit nicht mehr
+                return  # a colour key mask no longer fits after 8 bit
             ok_jpeg = opts.photos_jpeg and _jpeg_ok(img, im)
             arr = _resized(img, w, h, comps, bpc, nw, nh)
             if ok_jpeg and _photo_like(arr):
@@ -641,7 +646,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
             if n < before * 0.9:
                 note("photos", before - n)
                 return
-            img.write(old[0])  # bringt nichts -> Original zurück
+            img.write(old[0])  # no gain -> back to the original
             for k, v in (("/Filter", old[1]), ("/DecodeParms", old[2])):
                 if v is None:
                     if k in img.stream_dict:
@@ -678,7 +683,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
 
 
 def _jpeg_ok(img, im: ImageInfo) -> bool:
-    """Darf dieses Bild als JPEG gespeichert werden? (keine Masken, keine Decode-Umkehr, keine Farbschlüssel)"""
+    """May this image be stored as JPEG? (no masks, no inverted Decode, no colour keys)"""
     import pikepdf
 
     sd = img.stream_dict
@@ -705,13 +710,13 @@ def _samples8(img, w, h, comps, bpc):
 
 
 def _photo_like(arr) -> bool:
-    """Foto (viele Farbtöne) statt Grafik/Logo/Text (wenige Farben, harte Kanten) – nur Fotos als JPEG."""
+    """Photo (many tones) rather than graphic/logo/text (few colours, hard edges) – only photos as JPEG."""
     import numpy as np
 
     step_y, step_x = max(1, arr.shape[0] // 64), max(1, arr.shape[1] // 64)
     sample = np.ascontiguousarray(arr[::step_y, ::step_x]).reshape(-1, arr.shape[2])
     if arr.shape[2] == 1:
-        # Graustufen: viele Töne UND nicht überwiegend reines Schwarz/Weiß (Text-Scan, Strichzeichnung)
+        # greyscale: many tones AND not mostly pure black/white (text scan, line drawing)
         v = sample[:, 0]
         extreme = np.mean((v < 16) | (v > 239))
         return len(np.unique(v)) > 128 and extreme < 0.5
@@ -719,7 +724,7 @@ def _photo_like(arr) -> bool:
 
 
 def _write_jpeg(img, arr, quality: int) -> int:
-    """8-Bit-Array als JPEG ablegen. CMYK: Pillow schreibt Adobe-üblich invertiert -> /Decode [1 0 …]."""
+    """Store an 8-bit array as JPEG. CMYK: Pillow writes inverted as Adobe does -> /Decode [1 0 …]."""
     import pikepdf
     from PIL import Image
 
@@ -755,7 +760,7 @@ def _resized(img, w, h, comps, bpc, nw, nh):
 
 
 def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list]:
-    """Verkleinern nach opts. -> (neue Daten, Hinweise mit Einsparung je Maßnahme)."""
+    """Reduce according to opts. -> (new data, notes with the saving per measure)."""
     import pikepdf
 
     saved: dict = {}
@@ -779,7 +784,7 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
     rep = analyze(src)
     pdf = pikepdf.open(io.BytesIO(src))
     try:
-        # 1) Bearbeitungsdaten, Vorschaubilder, Anhänge
+        # 1) editing data, thumbnails, attachments
         if opts.private:
             for o in list(pdf.objects) + [pdf.Root] + [p.obj for p in pdf.pages]:
                 try:
@@ -803,7 +808,7 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
                 note("attachments", rep.attachment_bytes)
             if "/AF" in pdf.Root:
                 del pdf.Root["/AF"]
-        # 2) Bilder: herunterrechnen / 16 -> 8 Bit / verlustfrei packen / ZIP+JPEG entpacken
+        # 2) images: downsample / 16 -> 8 bit / pack losslessly / unpack ZIP+JPEG
         info = {im.key: im for im in rep.images}
         imgs = [
             o

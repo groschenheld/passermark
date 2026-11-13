@@ -7,8 +7,8 @@
 the effective resolution of every placed image (also inside forms, also when used several times) and
 the resulting maximum print size. pikepdf only – may run in the background.
 
-Effektive Auflösung = Pixel / platzierte Größe auf der Seite (über die Transformationsmatrix),
-also das, was beim Druck in Originalgröße tatsächlich ankommt.
+Effective resolution = pixels / placed size on the page (via the transformation matrix),
+i.e. what actually arrives when printing at original size.
 """
 
 from __future__ import annotations
@@ -18,17 +18,17 @@ from dataclasses import dataclass, field
 from .l10n import tr
 
 MM = 72.0 / 25.4
-GOOD_DPI, OK_DPI = 300, 150  # Nahbetrachtung / Plakat, Großformat
+GOOD_DPI, OK_DPI = 300, 150  # close viewing / poster, large format
 GOOD_DPI_1BIT, OK_DPI_1BIT = 600, 300  # Strichbilder (1 Bit)
-MIN_PLACED_MM = 2.0  # winzige Platzierungen (Punkte, Linien) nicht bewerten
+MIN_PLACED_MM = 2.0  # do not rate tiny placements (dots, lines)
 
 
 @dataclass
 class ImageUse:
     page: int  # 1-basiert
     name: str
-    px: tuple  # (Breite, Höhe) in Pixeln
-    placed_mm: tuple  # (Breite, Höhe) auf der Seite
+    px: tuple  # (width, height) in pixels
+    placed_mm: tuple  # (width, height) on the page
     dpi: float  # effektiv (kleinere Richtung)
     space: str  # "RGB" | "CMYK" | "Grau" | "Sonderfarbe …" | …
     profile: str = ""  # ICC-Profilname (falls eingebettet)
@@ -36,10 +36,10 @@ class ImageUse:
     codec: str = ""  # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
     mask: bool = False  # 1-Bit-Maske (Strich)
     key: tuple | None = None  # Objektnummer des Bildes (None = eingebettet/inline)
-    bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, Seitenkoordinaten – wo es auf der Seite liegt
+    bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, page coordinates – where it lies on the page
 
     def max_mm(self, dpi: float) -> tuple:
-        """Größte Druckgröße bei dieser Auflösung."""
+        """Largest print size at this resolution."""
         return (self.px[0] / dpi * 25.4, self.px[1] / dpi * 25.4)
 
     @property
@@ -60,10 +60,10 @@ class ImageUse:
 @dataclass
 class ColorReport:
     images: list = field(default_factory=list)  # [ImageUse]
-    page_colors: dict = field(default_factory=dict)  # Seite -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
-    page_size_mm: dict = field(default_factory=dict)  # Seite -> (b, h)
+    page_colors: dict = field(default_factory=dict)  # page -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
+    page_size_mm: dict = field(default_factory=dict)  # page -> (w, h)
     output_intent: str = ""  # Profilname des Output-Intents (PDF/X)
-    spots: dict = field(default_factory=dict)  # Seite -> {Sonderfarbenname}
+    spots: dict = field(default_factory=dict)  # page -> {spot colour name}
     truncated: bool = False
 
 
@@ -71,7 +71,7 @@ class ColorReport:
 # ICC-Profilname
 # --------------------------------------------------------------------------- #
 def icc_name(data: bytes) -> str:
-    """Beschreibung (Tag „desc“) eines ICC-Profils – v2 (desc) und v4 (mluc)."""
+    """Description (tag "desc") of an ICC profile – v2 (desc) and v4 (mluc)."""
     try:
         n = int.from_bytes(data[128:132], "big")
         for k in range(min(n, 200)):
@@ -101,10 +101,10 @@ def _icc_of(stream) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Farbräume
+# colour spaces
 # --------------------------------------------------------------------------- #
 def describe_space(cs, res=None, depth=0) -> tuple[str, str]:
-    """PDF-Farbraum -> (Art, ICC-Profilname). Art: RGB, CMYK, Grau, Lab, Sonderfarbe „X“, DeviceN (…), Muster."""
+    """PDF colour space -> (kind, ICC profile name). Kind: RGB, CMYK, Grau, Lab, Sonderfarbe „X“, DeviceN, Muster."""
     import pikepdf
 
     if cs is None or depth > 4:
@@ -125,7 +125,7 @@ def describe_space(cs, res=None, depth=0) -> tuple[str, str]:
         named = (res.get("/ColorSpace") or {}).get(n) if res is not None else None
         return describe_space(named, res, depth + 1) if named is not None else ("", "")
     if isinstance(cs, pikepdf.Array) and len(cs) == 1:
-        return describe_space(cs[0], res, depth + 1)  # [/DeviceCMYK] u. Ä.
+        return describe_space(cs[0], res, depth + 1)  # [/DeviceCMYK] and the like
     if isinstance(cs, pikepdf.Array) and len(cs):
         kind = str(cs[0])
         if kind == "/ICCBased":
@@ -165,7 +165,7 @@ SPOT_NAMES: dict = {}  # Anzeige-Bezeichnung -> Sonderfarbennamen
 
 
 def space_label(s: str) -> str:
-    """Farbraum für die Anzeige (Grundarten übersetzt, z. B. RGB -> RVB auf Französisch)."""
+    """Colour space for display (basic kinds translated, e.g. RGB -> RVB in French)."""
     if s in _BASE:
         return {"RGB": tr("RGB"), "CMYK": tr("CMYK"), "Grau": tr("Grau"), "Lab": tr("Lab")}[s]
     if s.startswith(tr("Indiziert")) and "(" in s:
@@ -249,7 +249,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
             return
         if not w or not h:
             return
-        pw = math.hypot(ctm[0], ctm[1]) / MM  # Bild-Einheitsquadrat -> Seite
+        pw = math.hypot(ctm[0], ctm[1]) / MM  # image unit square -> page
         ph = math.hypot(ctm[2], ctm[3]) / MM
         if pw <= 0 or ph <= 0:
             return
@@ -353,7 +353,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
 
 
 def page_limits(rep: ColorReport) -> dict:
-    """Seite -> (niedrigste dpi, max. Vergrößerung bei 300 dpi, bei 150 dpi) – nur bewertbare Bilder."""
+    """Page -> (lowest dpi, max. enlargement at 300 dpi, at 150 dpi) – only images that can be rated."""
     out = {}
     for u in rep.images:
         if u.mask or u.rating == "tiny":

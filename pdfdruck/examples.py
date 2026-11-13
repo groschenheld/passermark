@@ -20,7 +20,7 @@ VDP_DIR = os.path.join(DOCS_DIR, "beispiele", "vdp")
 CLI_HOWTO = os.path.join(DOCS_DIR, "passermark-cli-anleitung.pdf")
 VDP_HOWTO = os.path.join(DOCS_DIR, "passermark-vdp-anleitung.pdf")
 
-# Datei (ohne .json) -> Name in der Preset-Leiste
+# file (without .json) -> name in the preset bar
 EXAMPLES = [
     ("beispiel-1-qr-nummer", "Beispiel 1 – QR mit Nummer"),
     ("beispiel-2-qr-csv", "Beispiel 2 – QR aus CSV"),
@@ -37,8 +37,9 @@ def default_target() -> str:
 
 
 def install(target: str | None = None, presets_too: bool = True) -> str:
-    """Beispiele nach <target>/vdp kopieren (vorhandene Dateien werden ersetzt) und – wenn presets_too – als
-    Presets „Beispiel 1 …“ eintragen. Liefert den Ordner mit den Beispielen."""
+    """Copy the examples to <target>/vdp (existing files are replaced) and – if presets_too – register them as
+    presets "Beispiel 1 …". Returns the folder with the examples.
+    """
     from . import core, presets
 
     if not os.path.isdir(VDP_DIR):

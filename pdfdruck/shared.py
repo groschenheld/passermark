@@ -39,13 +39,13 @@ def path(sub: str = "hotfolder") -> str:
 
 
 def hotfolder_dir() -> str:
-    """Vorschlag für neue Hotfolder/Drop-Ordner: im gemeinsamen Ordner, sonst (noch nicht eingerichtet) das Home."""
+    """Suggestion for new hot folders/drop folders: in the shared folder, otherwise (not set up yet) the home folder."""
     d = path("hotfolder")
     return d if os.path.isdir(d) else os.path.expanduser("~")
 
 
 def in_home(p: str) -> bool:
-    """Ordner in einem Home-Verzeichnis – für Dienste (eigene Benutzer) meist gesperrt."""
+    """Folder inside a home directory – usually blocked for services (users of their own)."""
     if not p:
         return False
     a = os.path.normcase(os.path.abspath(os.path.expanduser(p)))
@@ -65,8 +65,9 @@ def home_hint() -> str:
 
 
 def status() -> dict:
-    """{root, exists, dirs: {name: {exists, writable}}, group (Linux: gibt's die Gruppe), member (aktiver Benutzer in
-    der Gruppe – None unter Windows), member_pending (in /etc/group, aber noch nicht angemeldet), ok}."""
+    """{root, exists, dirs: {name: {exists, writable}}, group (Linux: does the group exist), member (active user in
+    the group – None on Windows), member_pending (in /etc/group but not logged in again yet), ok}.
+    """
     r = root()
     dirs = {}
     for s in SUBDIRS:
@@ -112,8 +113,9 @@ def status_text(st: dict | None = None) -> str:
 
 
 def helper_cmd() -> list:
-    """Root-Helfer aufrufen: als root direkt, sonst über pkexec. Installiert: /usr/libexec/passermark-admin;
-    AppImage: das AppImage selbst (--admin-helper); aus dem Quellordner: admin/passermark-admin."""
+    """Call the root helper: directly as root, otherwise via pkexec. Installed: /usr/libexec/passermark-admin;
+    AppImage: the AppImage itself (--admin-helper); from the source folder: admin/passermark-admin.
+    """
     from . import config
 
     appimage = os.environ.get("APPIMAGE")
@@ -128,8 +130,9 @@ def helper_cmd() -> list:
 
 
 def setup(users: list | None = None) -> tuple[int, str]:
-    """Linux: einrichten über den Root-Helfer (ein Passwort). users leer = der aufrufende Benutzer.
-    -> (Rückgabecode, Ausgabe). 126/127 = abgebrochen bzw. pkexec fehlt."""
+    """Linux: set up via the root helper (one password). users empty = the calling user.
+    -> (return code, output). 126/127 = cancelled or pkexec missing.
+    """
     if IS_WIN:
         from .l10n import tr
 

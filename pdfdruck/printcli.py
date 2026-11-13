@@ -5,18 +5,18 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Printing without a user interface (workflow step "print", passermark-cli printers / caps).
 
-Gedruckt wird über denselben Weg wie aus dem Druckdialog (printjob.submit_document): Nutzen/Broschüre/Poster,
-Farbprofil des Druckers aus der Admin-Einstellung, automatische Fachwahl, Windows-Herstellereinstellungen.
+Printing takes the same path as from the print dialog (printjob.submit_document): step and repeat/booklet/poster,
+the printer's colour profile from the admin setting, automatic tray selection, Windows vendor settings.
 
-Optionen werden über ihre Rolle angesprochen (paper, tray, media, duplex, color, quality, output_bin und die
-Finisher staple, punch, fold, saddle, trim, stacker). Der Wert darf der Treiberwert oder der angezeigte Name sein
-("A3", "Fach 2", "Heften links oben"); duplex zusätzlich none | long | short, color zusätzlich color | gray.
-Was keiner Rolle zugeordnet ist, geht roh über options {"Treiber-Schlüsselwort": "Wert"}.
+Options are addressed by their role (paper, tray, media, duplex, color, quality, output_bin and the
+finishers staple, punch, fold, saddle, trim, stacker). The value may be the driver value or the displayed name
+("A3", "Fach 2", "Heften links oben"); duplex additionally none | long | short, color additionally color | gray.
+Whatever has no role goes raw via options {"driver keyword": "value"}.
 
-Alle installierten Finisher: unter Linux sind sie Treiberoptionen (PPD) – Werte, die laut Treiber mit der
-eingetragenen Hardware nicht gehen, werden abgelehnt. Unter Windows stecken die Herstellerfunktionen im
-Original-Treiberdialog; der wird in der Verwaltung als Finisher-Vorlage gespeichert und hier mit
-finisher_preset gewählt (das gilt auch unter Linux, z. B. für Kombinationen aus mehreren Optionen).
+All installed finishers: on Linux they are driver options (PPD) – values that, according to the driver, do not
+work with the installed hardware are rejected. On Windows the vendor functions live in the
+original driver dialog; it is stored in the administration as a finisher preset and chosen here with
+finisher_preset (this also works on Linux, e.g. for combinations of several options).
 """
 
 from __future__ import annotations
@@ -53,28 +53,28 @@ _SYNONYMS = {
 
 @dataclass
 class PrintSettings:
-    printer: str = ""  # leer = Standarddrucker (Admin-Einstellung bzw. System)
-    paper: str = ""  # Papierformat (Treiberwert oder Name, z. B. "A3", "SRA3") · "auto" = nach der PDF
-    tray: str = ""  # Fach/Zufuhr
+    printer: str = ""  # empty = default printer (admin setting or system)
+    paper: str = ""  # paper size (driver value or name, e.g. "A3", "SRA3") · "auto" = from the PDF
+    tray: str = ""  # tray/source
     media: str = ""  # Medientyp
-    duplex: str = ""  # none | long | short – oder Treiberwert/Name
-    color: str = ""  # color | gray – oder Treiberwert/Name
+    duplex: str = ""  # none | long | short – or driver value/name
+    color: str = ""  # color | gray – or driver value/name
     quality: str = ""
     output_bin: str = ""  # Ausgabefach
     finishing: dict = field(default_factory=dict)  # {"staple": …, "punch": …, "fold": …, "saddle": …, …}
-    options: dict = field(default_factory=dict)  # Treiberoptionen roh: {"Schlüsselwort": "Wert"}
-    finisher_preset: str = ""  # Finisher-Vorlage aus der Verwaltung (Optionen + Windows-Herstellerdialog)
+    options: dict = field(default_factory=dict)  # raw driver options: {"keyword": "value"}
+    finisher_preset: str = ""  # finisher preset from the administration (options + Windows vendor dialog)
     copies: int = 1
     collate: bool = True
-    reverse: bool = False  # umgekehrte Reihenfolge
+    reverse: bool = False  # reverse order
     subset: str = "all"  # all | odd | even
-    layout: dict = field(default_factory=dict)  # Seitenhandhabung wie im Druckdialog (LayoutSettings)
-    borderless: bool = False  # randlos (Papiervariante/Option des Treibers; Endformat aufs ganze Blatt)
-    profile: str = "admin"  # admin = Farbprofil laut Admin-Einstellung · none = ohne · sonst Profil-ID
-    intent: str = ""  # leer = wie in der Admin-Einstellung
-    auto_tray: bool = True  # automatische Fachwahl (falls für den Drucker eingerichtet)
-    title: str = ""  # Auftragsname in der Warteschlange (leer = Dateiname)
-    dry_run: bool = False  # nichts senden – nur auflösen und melden, was gedruckt würde
+    layout: dict = field(default_factory=dict)  # page handling as in the print dialog (LayoutSettings)
+    borderless: bool = False  # borderless (paper variant/option of the driver; trim size onto the whole sheet)
+    profile: str = "admin"  # admin = colour profile as in the admin setting · none = without · otherwise profile id
+    intent: str = ""  # empty = as in the admin setting
+    auto_tray: bool = True  # automatic tray selection (if set up for the printer)
+    title: str = ""  # job name in the queue (empty = file name)
+    dry_run: bool = False  # send nothing – only resolve and report what would be printed
 
 
 def _norm(s) -> str:
@@ -82,7 +82,7 @@ def _norm(s) -> str:
 
 
 def match_choice(opt: printers.Option, wanted: str, role: str = "") -> str:
-    """Treiberwert zu einer Angabe: genauer Wert, Anzeigename, Kurzform (duplex/color) oder eindeutiger Teil."""
+    """Driver value for an entry: exact value, display name, short form (duplex/color) or an unambiguous part."""
     w = str(wanted).strip()
     vals = [c.value for c in opt.choices]
     if w in vals:
@@ -110,7 +110,7 @@ def finisher_presets(cfg: dict, printer: str) -> list:
 
 
 def unavailable(caps: printers.PrinterCaps, values: dict, key: str, value: str) -> bool:
-    """True = laut Treiber (PPD-Einschränkungen) mit der eingetragenen Hardware nicht möglich."""
+    """True = not possible with the installed hardware according to the driver (PPD constraints)."""
     if caps.backend != "ppd" or getattr(caps, "_ppd", None) is None:
         return False
     try:
@@ -120,8 +120,9 @@ def unavailable(caps: printers.PrinterCaps, values: dict, key: str, value: str) 
 
 
 def resolve(caps: printers.PrinterCaps, base: dict, s: PrintSettings, presets: list | None = None) -> tuple[dict, list]:
-    """Treiberwerte aus den Einstellungen. -> (Werte, Probleme [(Feld, Meldung)]).
-    Reihenfolge: Admin/Treiber-Standard < Finisher-Vorlage < einzelne Angaben."""
+    """Driver values from the settings. -> (values, problems [(field, message)]).
+    Order: admin/driver default < finisher preset < individual entries.
+    """
     vals, probs = dict(base), []
     if s.finisher_preset:
         pr = next((p for p in presets or [] if p.get("name") == s.finisher_preset), None)
@@ -165,7 +166,7 @@ def resolve(caps: printers.PrinterCaps, base: dict, s: PrintSettings, presets: l
             explicit.append((f"options.{k}", k))
         except ValueError as e:
             probs.append((f"options.{k}", str(e)))
-    for fld, key in explicit:  # nicht installierte Finisher u. Ä. gleich melden
+    for fld, key in explicit:  # report finishers etc. that are not installed right away
         if key != caps.roles.get("pagesize") and unavailable(caps, vals, key, vals[key]):
             probs.append(
                 (
@@ -183,8 +184,9 @@ AUTO = "auto"
 
 
 def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, str]:
-    """Papier passend zur PDF ("paper": "auto"): bei „Größe“ die Seite, bei der Broschüre zwei Seiten nebeneinander.
-    Gemessen wird die erste zu druckende Seite. -> (Treiberwert, Hinweis bei gemischten Formaten)."""
+    """Paper matching the PDF ("paper": "auto"): for "size" the page, for a booklet two pages side by side.
+    The first page to be printed is measured. -> (driver value, note for mixed sizes).
+    """
     MM = 72 / 25.4
     if lay.handling not in ("size", "booklet") or getattr(lay, "step_repeat", False):
         raise ValueError(
@@ -216,7 +218,7 @@ def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, st
                 round(w / MM), round(h / MM), caps.name, known
             )
         )
-    # ohne Randlos-/Sondervarianten bevorzugen, sonst den kürzesten Namen
+    # prefer sizes without borderless/special variants, otherwise the shortest name
     plain = [v for v in hits if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)]
     best = sorted(plain or hits, key=lambda v: (len(v), v))[0]
     mixed = any(abs(a - b) > tol for sz in sizes_pt[1:] for a, b in zip(sorted(need(sz)), sorted((w, h))))
@@ -227,7 +229,7 @@ def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, st
 
 
 def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=None, progress=None) -> dict:
-    """PDF drucken wie aus dem Druckdialog. -> {"printer", "job_id", "sheets", "options", "dry_run"}."""
+    """Print a PDF as from the print dialog. -> {"printer", "job_id", "sheets", "options", "dry_run"}."""
     import os
     import pypdfium2 as pdfium
     from . import config, layout, printjob
@@ -250,7 +252,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
     lay_d = dict(s.layout or {})
     pr = next((p for p in presets if p.get("name") == s.finisher_preset), None) if s.finisher_preset else None
     if pr and pr.get("booklet") and "handling" not in lay_d:
-        lay_d["handling"] = "booklet"  # Vorlage für Broschüren (wie im Druckdialog)
+        lay_d["handling"] = "booklet"  # preset for booklets (as in the print dialog)
     lay = layout.LayoutSettings.from_dict(dict(session.layout.to_dict(), **lay_d))
     doc = pdfium.PdfDocument(path)
     try:
@@ -258,7 +260,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
         if pages:
             sel = [p for p in sel if p in set(pages)]
         note = ""
-        if str(s.paper).strip().lower() == AUTO:  # Papier nach der Seitengröße der PDF
+        if str(s.paper).strip().lower() == AUTO:  # paper from the page size of the PDF
             import dataclasses
 
             if not sel:
@@ -273,8 +275,8 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
         vals, lay = printjob.apply_borderless(caps, vals, lay)
         eff = layout.spread_settings(lay) if layout.is_booklet_spreads(lay) else lay
         pkey = caps.roles.get("pagesize") or ""
-        paper1 = vals.get(pkey)  # Montageblatt (Schritt 1)
-        vals = printjob.step2_values(caps, vals, eff)  # Mehrfachnutzen mit Schritt 2: Papier = Zielformat
+        paper1 = vals.get(pkey)  # imposition sheet (step 1)
+        vals = printjob.step2_values(caps, vals, eff)  # step and repeat with step 2: paper = target size
         if s.profile != "admin" or s.intent:
             pid, intent = session.color_for(printer)
             session.color[printer] = (
@@ -284,7 +286,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
             if s.profile not in ("admin", "none") and not config.profile_by_id(session.cfg, s.profile):
                 raise ValueError(tr("Farbprofil nicht gefunden: {0}").format(s.profile))
         preset_tray = bool(pr and caps.roles.get("source") in (pr.get("options") or {}))
-        if s.auto_tray and not s.tray and not preset_tray:  # Vorlage bestimmt das Fach selbst
+        if s.auto_tray and not s.tray and not preset_tray:  # the preset decides the tray itself
             vals, _note, _warn = printjob.resolve_tray(session, printer, vals)
         rev = s.reverse and lay.handling == "booklet"
         if progress:
@@ -308,7 +310,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
             if progress:
                 progress(1, 1, "")
             return info
-        send = dict(vals, **({pkey: paper1} if pkey and paper1 is not None else {}))  # Blatt für Schritt 1;
+        send = dict(vals, **({pkey: paper1} if pkey and paper1 is not None else {}))  # sheet for step 1;
         from . import printlog
 
         with printlog.source(printlog.current() if printlog.current() != "dialog" else "cli"):
@@ -324,7 +326,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
                 rev,
                 values=send,
                 file=path,
-            )  # Zielformat (Schritt 2) setzt submit_document
+            )  # submit_document sets the target size (step 2)
         if progress:
             progress(1, 1, "")
         return info
@@ -333,7 +335,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
 
 
 # --------------------------------------------------------------------------- #
-# Abfragen für andere Programme
+# queries for other programs
 # --------------------------------------------------------------------------- #
 def printers_info() -> list:
     out = []
@@ -408,7 +410,7 @@ def caps_info(name: str) -> dict:
         "page_sizes_mm": {
             k: [round(w / layout.MM, 1), round(h / layout.MM, 1)] for k, (w, h) in caps.page_sizes.items()
         },
-        # woher die Maße stammen: driver | code (PPD-PostScript) | text (Name) | table; Fehler in der PPD je Format
+        # where the measures come from: driver | code (PPD PostScript) | text (name) | table; PPD errors per size
         "page_size_source": dict(caps.size_source),
         "page_size_problems": {k: list(v) for k, v in caps.size_problems.items()},
         "borderless": {

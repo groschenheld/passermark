@@ -177,9 +177,10 @@ def load_config(path: str) -> dict:
 
 
 def init_config(system: bool = False) -> tuple[str, bool, list]:
-    """Vorlage watch.json anlegen (eigene, mit system=True die für alle) – NIE überschreiben.
-    -> (Pfad, neu angelegt?, angelegte Dateien/Ordner). Dazu ein harmloser Beispiel-Ablauf (verkleinern) und der
-    Beispiel-Ordner – nur wenn es sie noch nicht gibt."""
+    """Create a template watch.json (the user's own, with system=True the one for everyone) – NEVER overwrite.
+    -> (path, newly created?, created files/folders). Plus a harmless example workflow (shrink) and the
+    example folder – only if they do not exist yet.
+    """
     from .platform import IS_WIN
 
     path = config_paths()[1 if system else 0]
@@ -188,7 +189,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
     base = os.path.dirname(path)
     from . import shared
 
-    if system or os.path.isdir(shared.path("hotfolder")):  # gemeinsamer Druckordner (alle Programme)
+    if system or os.path.isdir(shared.path("hotfolder")):  # shared print folder (all programs)
         drop = os.path.join(shared.path("hotfolder"), "beispiel").replace("\\", "/")
     else:
         drop = os.path.abspath(os.path.join(os.path.expanduser("~"), "hotfolder", "beispiel")).replace("\\", "/")
@@ -223,7 +224,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
     tmp = path + ".part"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    if os.path.exists(path):  # inzwischen von woanders angelegt: nichts überschreiben
+    if os.path.exists(path):  # created from elsewhere in the meantime: overwrite nothing
         os.remove(tmp)
         return path, False, made
     os.replace(tmp, path)
@@ -232,7 +233,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
         os.makedirs(drop, exist_ok=True)
         made.append(drop)
         if not IS_WIN and os.path.abspath(drop).startswith(shared.root() + os.sep):
-            os.chmod(drop, 0o2770)  # nur die Programme (Gruppe passermark), auch ohne ACL
+            os.chmod(drop, 0o2770)  # only the programs (group passermark), also without ACL
     except OSError:
         pass
     return path, True, made
@@ -346,7 +347,7 @@ class Watcher:
             return out
         present = {e.path for e in entries}
         for p in [p for p in self.seen if os.path.dirname(p) == f["in"] and p not in present]:
-            del self.seen[p]  # weg (umbenannt, gelöscht, von einem anderen Watcher geholt)
+            del self.seen[p]  # gone (renamed, deleted, fetched by another watcher)
         for e in entries:
             name = e.name
             if name.startswith((".", "~")) or name.lower().endswith(_SKIP):

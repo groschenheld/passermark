@@ -50,7 +50,7 @@ STANDARD14 = {
     "ZapfDingbats",
 }
 
-# Metrisch kompatible freie Ersatzschriften (gleiche Zeichenbreiten -> Text verrutscht nicht)
+# metrically compatible free substitute fonts (same character widths -> text does not shift)
 METRIC = [
     (r"arial|helvetica|arimo", "Liberation Sans"),
     (r"timesnewroman|times|tinos", "Liberation Serif"),
@@ -70,11 +70,11 @@ SEV_ORDER = {"error": 0, "warning": 1, "info": 2}
 
 @dataclass
 class Spot:
-    """Eine Fundstelle: Seite (1-basiert), optional der Bereich auf der Seite (pt, Seitenkoordinaten)."""
+    """One location: page (1-based), optionally the area on the page (pt, page coordinates)."""
 
     page: int
     box: tuple | None = None
-    label: str = ""  # was genau dort ist („72 dpi, 400 × 300 px“, Schriftname …)
+    label: str = ""  # what exactly is there ("72 dpi, 400 × 300 px", font name …)
 
 
 @dataclass
@@ -85,7 +85,7 @@ class Issue:
     category: str  # font | layer | transparency | text | image
     message: str
     pages: list = field(default_factory=list)
-    spots: list = field(default_factory=list)  # [Spot] – wo genau (leer: nur die Seiten)
+    spots: list = field(default_factory=list)  # [Spot] – where exactly (empty: only the pages)
 
 
 @dataclass
@@ -103,7 +103,7 @@ class FontInfo:
     cid: bool
     standard14: bool
     pages: set = field(default_factory=set)
-    suggestion: str = ""  # Pfad der Ersatzschrift
+    suggestion: str = ""  # path of the substitute font
     suggestion_name: str = ""
 
     @property
@@ -125,7 +125,7 @@ class LayerInfo:
     key: str
     name: str
     view_on: bool
-    print_on: bool | None  # None = keine eigene Druck-Einstellung (folgt der Ansicht)
+    print_on: bool | None  # None = no print setting of its own (follows the view)
     locked: bool = False
     pages: set = field(default_factory=set)
     outside_pct: float | None = None
@@ -138,22 +138,21 @@ class Report:
     pages: int = 0
     fonts: list = field(default_factory=list)
     layers: list = field(default_factory=list)
-    transparency: dict = field(default_factory=dict)  # Seite -> {Art}
-    garbled: dict = field(default_factory=dict)  # Seite -> Anzahl
+    transparency: dict = field(default_factory=dict)  # page -> {kind}
+    garbled: dict = field(default_factory=dict)  # page -> count
     hdr: list = field(default_factory=list)  # HDR-Foto: [{"main": i, "aux": j, …}] (0-basiert)
-    colors: object = None  # imagecheck.ColorReport: Bilder (dpi, Farbraum), Farben
-    size: object = None  # shrink.SizeReport: wofür der Platz draufgeht
+    colors: object = None  # imagecheck.ColorReport: images (dpi, colour space), colours
+    size: object = None  # shrink.SizeReport: what takes up the space
     issues: list = field(default_factory=list)
-    boxes: dict = field(default_factory=dict)  # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
-    located: dict = field(default_factory=dict)  # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
-    hairlines: dict = field(default_factory=dict)  # Seite -> Anzahl Linien dünner als HAIRLINE_MM
-    # 1.18.2
-    geometry: dict = field(default_factory=dict)  # Seite -> {media, crop, trim, bleed (pt, None = fehlt), rotate, uu}
+    boxes: dict = field(default_factory=dict)  # page -> MediaBox (x0, y0, x1, y1) – for "where on the page"
+    located: dict = field(default_factory=dict)  # ("font", name) / ("transparency",) -> {page: [area]}
+    hairlines: dict = field(default_factory=dict)  # page -> number of lines thinner than HAIRLINE_MM
+    geometry: dict = field(default_factory=dict)  # page -> {media, crop, trim, bleed (pt, None = missing), rotate, uu}
     security: dict = field(default_factory=dict)  # {encrypted, print, print_high}
-    pdfx: dict = field(default_factory=dict)  # {version, intent, missing_trim: [Seiten]}
-    forms: dict = field(default_factory=dict)  # {fields, widgets: [(Seite, Rect, druckt)], need_ap}
-    blank: list = field(default_factory=list)  # leere Seiten (1-basiert)
-    edge_ink: dict = field(default_factory=dict)  # Seite -> {Seite der Box: Beschnitt mm} – Inhalt bis zum Rand
+    pdfx: dict = field(default_factory=dict)  # {version, intent, missing_trim: [pages]}
+    forms: dict = field(default_factory=dict)  # {fields, widgets: [(page, rect, prints)], need_ap}
+    blank: list = field(default_factory=list)  # blank pages (1-based)
+    edge_ink: dict = field(default_factory=dict)  # page -> {side of the box: bleed mm} – content up to the edge
     _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
@@ -264,8 +263,8 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                 if gs.get("/OP") is True or gs.get("/op") is True:
                     trans.setdefault(pno, set()).add("overprint")
             for _n, pat in (res.get("/Pattern") or {}).items():
-                # Verlauf mit Soft-Maske im Muster (Chrome/Skia, Canva …): RIPs, die die Maske ignorieren,
-                # drucken ihn als schwarze Fläche – darunterliegende Bilder verschwinden
+                # gradient with a soft mask in the pattern (Chrome/Skia, Canva …): RIPs that ignore the mask
+                # print it as a black area – images underneath disappear
                 try:
                     from .softmask import pattern_has_softmask
 
@@ -317,7 +316,7 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
             ):
                 f.suggestion, f.suggestion_name = suggest_font(f.name)
         flagged = [p for p, k in trans.items() if "pattern_smask" in k]
-        if flagged:  # nur melden, wo wirklich damit gemalt wird (nach Reparatur: nicht mehr)
+        if flagged:  # only report where it is really painted with (after the repair: no longer)
             try:
                 from .softmask import scan
 
@@ -384,15 +383,15 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
 
 
 # --------------------------------------------------------------------------- #
-# Seitengeometrie, Rechte, PDF/X, Formulare, leere Seiten (1.18.2)
+# page geometry, permissions, PDF/X, forms, blank pages
 # --------------------------------------------------------------------------- #
 BOX_TOL_MM = 0.5
-BLEED_MIN_MM = 2.0  # darunter: prüfen, ob Inhalt bis an den Endformat-Rand geht
+BLEED_MIN_MM = 2.0  # below this: check whether content reaches the trim edge
 INHERITABLE = ("/MediaBox", "/CropBox", "/Rotate")
 
 
 def _inh(obj, key):
-    """Seitenattribut, auch vom Seitenbaum geerbt (MediaBox, CropBox, Rotate)."""
+    """Page attribute, also inherited from the page tree (MediaBox, CropBox, Rotate)."""
     o, depth = obj, 0
     while o is not None and depth < 50:
         v = o.get(key)
@@ -446,13 +445,13 @@ def _differs(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
 
 
 def _inside(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
-    """a liegt in b."""
+    """a lies inside b."""
     t = tol_mm * MM_PT
     return a[0] >= b[0] - t and a[1] >= b[1] - t and a[2] <= b[2] + t and a[3] <= b[3] + t
 
 
 def effective(g: dict) -> tuple:
-    """(Crop, Bleed, Trim) so, wie ein Drucker sie auslegt: Crop ∩ Media, Bleed/Trim ersatzweise Crop."""
+    """(crop, bleed, trim) as a printer interprets them: crop ∩ media, bleed/trim fall back to crop."""
     crop = _isect(g["crop"], g["media"]) if g["crop"] else g["media"]
     crop = crop or g["media"]
     bleed = _isect(g["bleed"], crop) if g["bleed"] else crop
@@ -461,7 +460,7 @@ def effective(g: dict) -> tuple:
 
 
 def bleed_mm(g: dict) -> dict:
-    """Beschnitt je Seite der Box (l, b, r, t) in mm – nur mit TrimBox, sonst {}."""
+    """Bleed per side of the box (l, b, r, t) in mm – only with a TrimBox, otherwise {}."""
     if not g.get("trim"):
         return {}
     _c, bl, tr_ = effective(g)
@@ -485,7 +484,7 @@ def _content_len(obj) -> int:
         except Exception:
             n += 100000
     if obj.get("/Annots"):
-        n += 100000  # Anmerkungen/Formulare: nicht als leer werten
+        n += 100000  # annotations/forms: do not count as empty
     return n
 
 
@@ -550,8 +549,9 @@ def _doc_checks(pdf, rep: Report):
 
 
 def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: int = 50):
-    """pdfium: leere Seiten (nur Kandidaten mit wenig Inhalt) und Inhalt bis an den Endformat-Rand bei zu wenig
-    Beschnitt."""
+    """pdfium: blank pages (only candidates with little content) and content up to the trim edge with too little
+    bleed.
+    """
     import pypdfium2 as pdfium
     from .planprint import _render_gray
 
@@ -601,7 +601,7 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
                         x0, x1 = max(0, min(x0, x1)), min(W, max(x0, x1, min(x0, x1) + 1))
                         y0, y1 = max(0, min(y0, y1)), min(H, max(y0, y1, min(y0, y1) + 1))
                         reg = a[y0:y1, x0:x1]
-                        if reg.size and (reg < 235).mean() > 0.2:  # ein Fünftel des Randstreifens bedruckt
+                        if reg.size and (reg < 235).mean() > 0.2:  # a fifth of the edge strip is printed
                             hit[k] = round(max(0.0, v), 1)
                     if hit:
                         rep.edge_ink[p] = hit
@@ -619,7 +619,7 @@ def _fmt_box(b) -> str:
 
 
 def _group(pages: dict) -> list:
-    """{Seite: Text} -> [(Text, [Seiten])] – gleiche Befunde zusammenfassen."""
+    """{page: text} -> [(text, [pages])] – combine identical findings."""
     by = {}
     for p, t in sorted(pages.items()):
         by.setdefault(t, []).append(p)
@@ -723,8 +723,9 @@ def _geometry_issues(rep: Report) -> list:
 
 
 def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) -> list:
-    """Format gegen Gerät: passt jede Seite (sichtbarer Bereich inkl. Anschnitt) 1:1 auf ein Papierformat des
-    Druckers bzw. auf eine seiner Rollen? Kategorie „device“. Ohne Drucker/Formate: []."""
+    """Size against the device: does every page (visible area incl. bleed) fit 1:1 on a paper size of the
+    printer or on one of its rolls? Category "device". Without a printer/sizes: [].
+    """
     if caps is None or not rep.geometry:
         return []
     key = caps.roles.get("pagesize")
@@ -745,7 +746,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
     for p, g in sorted(rep.geometry.items()):
         c = effective(g)[0]
         w, h = (c[2] - c[0]) / MM_PT, (c[3] - c[1]) / MM_PT
-        if widths:  # Rollendrucker: kurze Seite quer zur Rolle
+        if widths:  # roll printer: short side across the roll
             ok = min(w, h) <= max(widths) + tol
         else:
             ok = any((w <= pw + tol and h <= ph + tol) or (w <= ph + tol and h <= pw + tol) for pw, ph, _n in papers)
@@ -796,7 +797,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
 
 
 def add_device_issues(rep: Report, caps, printer: str, rolls: list | None = None) -> Report:
-    """Befunde „Format gegen Gerät“ dazunehmen (einmal je Bericht und Drucker)."""
+    """Add the findings "size against the device" (once per report and printer)."""
     if getattr(rep, "_device_for", None) == printer:
         return rep
     rep.issues = [i for i in rep.issues if i.category != "device"]
@@ -914,7 +915,7 @@ def _font_info(f, k) -> FontInfo:
     enc = f.get("/Encoding")
     encoding = str(enc)[1:] if isinstance(enc, pikepdf.Name) else ("custom" if enc is not None else "")
     if isinstance(enc, pikepdf.Dictionary):
-        # eigene Glyphennamen (g01, glyph12, cid45 …) -> Zeichenbedeutung nur in der Originalschrift
+        # own glyph names (g01, glyph12, cid45 …) -> the meaning of the characters exists only in the original font
         names = [str(x) for x in (enc.get("/Differences") or []) if isinstance(x, pikepdf.Name)]
         if names and sum(bool(re.match(r"^/(g|glyph|cid|G|uni)?[0-9A-Fa-f]{1,5}$", n)) for n in names) > 0.5 * len(
             names
@@ -935,8 +936,9 @@ def _font_info(f, k) -> FontInfo:
 
 
 def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000) -> dict:
-    """Wo genau? Text-Objekte je nicht eingebetteter/auffälliger Schrift und Objekte mit Transparenz – Bereiche je
-    Seite (pdfium, Seitenkoordinaten). Nur für Schriften, zu denen es einen Befund gibt."""
+    """Where exactly? Text objects per non-embedded/conspicuous font and objects with transparency – areas per
+    page (pdfium, page coordinates). Only for fonts that have a finding.
+    """
     import ctypes
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
@@ -962,7 +964,7 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
                     1 for k in range(n) if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(pg.raw, k)) == r.FPDF_PAGEOBJ_TEXT
                 )
                 seq = order.get(p) or []
-                use_seq = len(seq) == n_text  # je Textobjekt die Schrift laut Inhaltsstrom
+                use_seq = len(seq) == n_text  # the font per text object according to the content stream
                 ti = -1
                 for k in range(n):
                     obj = r.FPDFPage_GetObject(pg.raw, k)
@@ -980,7 +982,7 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
                     if typ == r.FPDF_PAGEOBJ_TEXT and want:
                         if use_seq:
                             name = seq[ti]
-                        else:  # pdfium nennt bei Ersatzschriften oft den Ersatz
+                        else:  # for substituted fonts pdfium often names the substitute
                             if get_name is None:
                                 continue
                             font = r.FPDFTextObj_GetFont(obj)
@@ -1001,8 +1003,9 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
 
 
 def _text_fonts_in_order(data: bytes) -> dict:
-    """Seite -> [Schriftname je Text-Ausgabe (Tj, TJ, ', ")] in der Reihenfolge des Inhaltsstroms der Seite
-    (ohne Formulare) – so viele, wie pdfium Textobjekte direkt auf der Seite hat."""
+    """Page -> [font name per text output (Tj, TJ, ', ")] in the order of the page's content stream
+    (without forms) – as many as pdfium has text objects directly on the page.
+    """
     import pikepdf
 
     out = {}
@@ -1030,7 +1033,7 @@ def _text_fonts_in_order(data: bytes) -> dict:
 
 
 def _merge_boxes(boxes: list, limit: int = 6) -> list:
-    """Viele Kästen einer Seite (z. B. jede Textzeile) zu wenigen zusammenfassen: nahe beieinander -> ein Bereich."""
+    """Combine many boxes of a page (e.g. every text row) into a few: close together -> one area."""
     out = []
     for b in sorted(boxes, key=lambda b: (-b[3], b[0])):
         for i, m in enumerate(out):
@@ -1045,7 +1048,7 @@ def _merge_boxes(boxes: list, limit: int = 6) -> list:
 
 
 def where_text(rep: Report, spot: Spot) -> str:
-    """„Seite 3 – oben links, 40 × 20 mm“ (Lage im Seitendrittel, Größe) – ohne Bereich nur „Seite 3“."""
+    """ "Seite 3 – oben links, 40 × 20 mm" (position by thirds of the page, size) – without an area just "Seite 3"."""
     head = tr("Seite {0}").format(spot.page)
     if spot.box is None:
         return head + (f" – {spot.label}" if spot.label else "")
@@ -1089,7 +1092,7 @@ def _garbled(data: bytes) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# Ebenen
+# layers
 # --------------------------------------------------------------------------- #
 def _ocp(pdf):
     return pdf.Root.get("/OCProperties")
@@ -1117,7 +1120,7 @@ def _layers(pdf) -> list[LayerInfo]:
         except Exception:
             pass
         out[k] = LayerInfo(k, str(g.get("/Name", "?")), view, pr, k in locked)
-    # Seiten je Ebene (BDC /OC in Inhalten und XObjects mit /OC)
+    # pages per layer (BDC /OC in contents and XObjects with /OC)
     for i, page in enumerate(pdf.pages, start=1):
         res = _resources(page)
         props = res.get("/Properties") or {}
@@ -1240,7 +1243,7 @@ def _visible(oc, visible: set) -> bool:
 
 
 def _rewrite(pdf, obj, props, res, visible, strip, done):
-    """Inhaltsstrom filtern: unsichtbare OC-Inhalte entfernen; bei strip auch die OC-Marker entfernen."""
+    """Filter a content stream: remove invisible OC content; with strip also remove the OC markers."""
     import pikepdf
 
     ok = _key(obj)
@@ -1415,7 +1418,7 @@ def set_layer_states(data: bytes, states: dict) -> bytes:
             printers.append(g)
         d.BaseState = pikepdf.Name.ON
         d.ON, d.OFF = on, off
-        # Druck-Zustand automatisch anwenden (Viewer, die Usage auswerten)
+        # apply the print state automatically (viewers that evaluate Usage)
         d.AS = pikepdf.Array(
             [
                 pikepdf.Dictionary(
@@ -1434,7 +1437,7 @@ def set_layer_states(data: bytes, states: dict) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Schriften
+# fonts
 # --------------------------------------------------------------------------- #
 def _norm(name: str) -> tuple[str, bool, bool]:
     """BaseFont -> (Familie normalisiert, fett, kursiv)."""
@@ -1520,18 +1523,18 @@ def find_font_file(family: str, bold=False, italic=False) -> str:
 
 
 def suggest_font(name: str) -> tuple[str, str]:
-    """(Pfad, Anzeigename) einer passenden Ersatzschrift – bevorzugt metrisch kompatibel."""
+    """(path, display name) of a suitable substitute font – preferably metrically compatible."""
     fam, bold, italic = _norm(name)
     for pat, repl in METRIC:
         if re.search(pat, fam):
             p = find_font_file(repl, bold, italic)
             if p:
                 return p, repl + (" Bold" if bold else "") + (" Italic" if italic else "")
-    # gleichnamige Schrift im System?
+    # a font of the same name in the system?
     p = _scan_files(fam, bold, italic)
     if p:
         return p, os.path.basename(p)
-    # CAD-Normschriften ohne osifont: schmale serifenlose Ausweichschrift (Breiten bleiben aus dem PDF)
+    # CAD standard fonts without osifont: narrow sans-serif fallback (widths stay from the PDF)
     if re.search(r"isocp|isoct|romans|simplex|txt|cad|norm", fam):
         for fb in ("DejaVu Sans Condensed", "Liberation Sans Narrow", "DejaVu Sans"):
             p = find_font_file(fb, bold, italic)
@@ -1540,7 +1543,7 @@ def suggest_font(name: str) -> tuple[str, str]:
     return "", ""
 
 
-# Kommerzielle Schriften -> freier, metrisch gleicher Zwilling auf fontsource.org (gleiche Zeichenbreiten)
+# commercial fonts -> free, metrically identical twin on fontsource.org (same character widths)
 DOWNLOAD_ALIAS = [
     (r"arial|helvetica|arimo", "Arimo"),
     (r"timesnewroman|times|tinos", "Tinos"),
@@ -1554,7 +1557,7 @@ FONTSOURCE = "https://api.fontsource.org/v1/fonts"
 
 
 def free_alternative(name: str) -> str:
-    """Freier, (meist metrisch kompatibler) Zwilling einer kommerziellen Schrift – oder ""."""
+    """Free (mostly metrically compatible) twin of a commercial font – or ""."""
     fam = _norm(name)[0]
     for pat, alt in DOWNLOAD_ALIAS:
         if re.search(pat, fam):
@@ -1563,7 +1566,7 @@ def free_alternative(name: str) -> str:
 
 
 def _get_json(url):
-    import urllib.request  # erst bei Bedarf: lädt SSL – kostete beim ersten Fenster spürbar Zeit
+    import urllib.request  # only when needed: loads SSL – cost noticeable time for the first window
 
     req = urllib.request.Request(url, headers={"User-Agent": "Passermark"})
     with urllib.request.urlopen(req, timeout=20) as r:
@@ -1618,7 +1621,7 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
         meta = None
         api_err = e
     if meta is None:
-        # API nicht erreichbar: direkt vom fontsource-CDN (gleiche Dateien)
+        # API not reachable: directly from the fontsource CDN (same files)
         meta = {
             "family": used,
             "variants": {
@@ -1647,7 +1650,7 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
                 ) as r:
                     data = r.read()
             except Exception:
-                continue  # Schnitt nicht vorhanden (z. B. keine Kursive)
+                continue  # style not available (e.g. no italic)
             with open(dst, "wb") as f:
                 f.write(data)
             paths.append(dst)
@@ -1731,7 +1734,7 @@ def flatten_transparency(data: bytes, dpi: int = 300) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Bilder und Farben (imagecheck)
+# images and colours (imagecheck)
 # --------------------------------------------------------------------------- #
 def _mm(t) -> str:
     return f"{t[0]:.0f} × {t[1]:.0f} mm"
@@ -1783,7 +1786,7 @@ def _image_issues(rep: Report) -> list:
         return txt
 
     for pages, sev, kind in ((low_pages, "warning", "low"), (ok_pages, "info", "ok")):
-        if len(pages) > 8:  # viele Seiten: eine Sammelmeldung
+        if len(pages) > 8:  # many pages: one collective message
             worst = min((u for p in pages for u in by_page[p] if u.rating == kind), key=lambda u: u.dpi)
             msg = (
                 tr("Bilder unter {0} dpi auf {1} Seiten – niedrigste {2:.0f} dpi (Seite {3}).")
@@ -1857,7 +1860,7 @@ def _image_issues(rep: Report) -> list:
 
 
 def colors_text(rep: Report) -> list:
-    """Bilder und Farben als Textzeilen (für Bericht und Panel)."""
+    """Images and colours as text lines (for the report and the panel)."""
     cr = rep.colors
     if cr is None:
         return []
@@ -1872,10 +1875,10 @@ def colors_text(rep: Report) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# HDR-Fotos, als zwei Seiten geöffnet (Foto + graue Helligkeitskarte)
+# HDR photos opened as two pages (photo + grey gain map)
 # --------------------------------------------------------------------------- #
 def _single_image(page):
-    """Seite, die nur aus einem Bild besteht (wie beim Öffnen eines Fotos) -> (Name, Bild) oder None."""
+    """Page that consists of a single image only (as when opening a photo) -> (name, image) or None."""
     import pikepdf
 
     try:
@@ -1911,8 +1914,9 @@ def _components(img) -> int:
 
 
 def hdr_aux_pages(pdf) -> list:
-    """Paare (Foto, graue Helligkeitskarte) aufeinanderfolgender Bildseiten – so öffnet img2pdf HDR-Fotos
-    vom Handy, wenn nicht repariert wurde. Gleiches Seitenverhältnis, Karte grau und nicht größer."""
+    """Pairs (photo, grey gain map) of consecutive image pages – that is how img2pdf opens HDR photos
+    from a phone if they were not repaired. Same aspect ratio, map grey and not larger.
+    """
     out, pages = [], list(pdf.pages)
     i = 0
     while i + 1 < len(pages):
@@ -1952,8 +1956,9 @@ def hdr_aux_pages(pdf) -> list:
 
 
 def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes:
-    """HDR-Zusatzseiten entfernen. size: "aux" = Fotoseite bekommt die Größe der Zusatzseite,
-    "main" = Größe bleibt. merge: Helligkeitskarte ins Foto einrechnen (neues JPEG)."""
+    """Remove the HDR extra pages. size: "aux" = the photo page gets the size of the extra page,
+    "main" = size stays. merge: apply the gain map to the photo (new JPEG).
+    """
     import pikepdf
 
     pdf = pikepdf.open(io.BytesIO(data))
@@ -1997,7 +2002,7 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 # --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
-HAIRLINE_MM = 0.1  # dünnere Linien sind auf Plottern/Laser kaum oder gar nicht zu sehen
+HAIRLINE_MM = 0.1  # thinner lines are hardly or not at all visible on plotters/laser printers
 
 
 def _mm_num(v: float) -> str:
@@ -2007,7 +2012,7 @@ def _mm_num(v: float) -> str:
 
 
 def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
-    """Haarlinien je Seite (Anzahl + Bereiche in rep.located[("line",)])."""
+    """Hairlines per page (count + areas in rep.located[("line",)])."""
     import pypdfium2 as pdfium
     from .planprint import hairline_boxes
 
@@ -2024,7 +2029,7 @@ def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
 
 
 def _located_spots(rep: Report, key: tuple, pages, label: str = "") -> list:
-    """Fundstellen aus rep.located (Bereiche je Seite), Seiten ohne Bereich als ganze Seite."""
+    """Locations from rep.located (areas per page), pages without an area as a whole page."""
     loc = rep.located.get(key) or {}
     out = []
     for p in sorted(pages):
@@ -2235,7 +2240,7 @@ def _issues_raw(rep: Report) -> list[Issue]:
 
 
 def report_text(rep: Report, title: str = "") -> str:
-    """Bericht als Text (zum Speichern/Weitergeben)."""
+    """Report as text (for saving/passing on)."""
     lines = [tr("Passermark – Prüfbericht") + (f": {title}" if title else ""), ""]
     c = rep.counts()
     lines.append(

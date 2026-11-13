@@ -35,16 +35,16 @@ RGB_CHOICES = ("ask", "convert", "keep")
 
 @dataclass
 class PressSettings:
-    target: str = ""  # CMYK-Profil der Druckbedingung (.icc) – Pflicht
+    target: str = ""  # CMYK profile of the printing condition (.icc) – required
     intent: str = "relative"  # perceptual | relative | saturation | absolute
     bpc: bool = True  # Tiefenkompensierung
     cmyk_mode: str = "auto"  # auto | rgb_only | all | none
-    source: str = ""  # Quellprofil für vorhandenes CMYK bei „all“ ("" = aus dem Output Intent der Datei)
+    source: str = ""  # source profile for existing CMYK with "all" ("" = from the file's output intent)
     rgb: str = "ask"  # convert | keep | ask
-    gray_to_k: bool = True  # Grau/Schwarz nur mit K
-    tac_limit: int = 0  # Richtwert Farbauftrag in % (0 = aus dem Profil)
-    material: str = ""  # Material-ID (Papierweiß/Name für den Bericht)
-    package: bool = False  # zusätzlich <Ausgabe>_Druckerei.zip: PDF, ICC-Profile, Bericht
+    gray_to_k: bool = True  # grey/black with K only
+    tac_limit: int = 0  # guide value for ink coverage in % (0 = from the profile)
+    material: str = ""  # material id (paper white/name for the report)
+    package: bool = False  # additionally <output>_Druckerei.zip: PDF, ICC profiles, report
 
 
 def _target(s: PressSettings, cfg: dict | None):
@@ -111,7 +111,7 @@ def plan(f, t, s: PressSettings, cfg: dict | None = None) -> dict:
         else:
             notes.append(tr("RGB wird mit umgewandelt – beim Neu-Separieren rechnet Ghostscript alle Farben."))
     if mode == "rgb_only" and over and not f.has_cmyk:
-        pass  # RGB -> Ziel: das Profil begrenzt den Farbauftrag
+        pass  # RGB -> target: the profile limits the ink coverage
     elif mode in ("rgb_only", "none") and over:
         tac_note = tr("Farbauftrag {0} % über dem Richtwert {1} % bleibt – mit cmyk_mode=all neu separieren.").format(
             f.tac["max"], f.tac["limit"]
@@ -127,8 +127,9 @@ def plan(f, t, s: PressSettings, cfg: dict | None = None) -> dict:
 
 
 def tag_rgb_srgb(pdf) -> int:
-    """RGB ohne Profil als sRGB kennzeichnen (Bilder: ICCBased statt DeviceRGB, Seiten/Formulare: DefaultRGB).
-    -> Anzahl geänderter Stellen."""
+    """Mark RGB without a profile as sRGB (images: ICCBased instead of DeviceRGB, pages/forms: DefaultRGB).
+    -> number of changed places.
+    """
     import pikepdf
     from PIL import ImageCms
 

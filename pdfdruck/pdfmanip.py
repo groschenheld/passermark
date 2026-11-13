@@ -29,7 +29,7 @@ TRIM_MODE = "__trim__"
 WHITEOUT_MODE = "__whiteout__"
 from .papersizes import UI_FORMATS as _UI_FORMATS
 
-FORMATS = {  # Anzeige-Reihenfolge; mm, Hochformat – Normformate aus der gemeinsamen Tabelle (papersizes.py)
+FORMATS = {  # display order; mm, portrait – standard sizes from the shared table (papersizes.py)
     **_UI_FORMATS,
     "Visitenkarte 85×55": (55, 85),
     "Visitenkarte 90×50": (50, 90),
@@ -57,7 +57,7 @@ def _inset_box(box, s) -> tuple:
 def _oriented(W: float, H: float, target, follow: bool):
     tw, th = target
     if follow and abs(W - H) > 1 and (W > H) != (tw > th):
-        tw, th = th, tw  # Querformat-Seite -> Querformat-Ziel
+        tw, th = th, tw  # landscape page -> landscape target
     return tw, th
 
 
@@ -69,14 +69,14 @@ def fill_geometry(W: float, H: float, target, follow: bool):
 
 
 def crop_box_for(box, rotation: int, target, follow: bool):
-    """Neue Box (l, b, r, t) im ungedrehten Seitensystem + Hinweise. box: (l, b, r, t) der sichtbaren Seite."""
+    """New box (l, b, r, t) in the unrotated page system + notes. box: (l, b, r, t) of the visible page."""
     l, b, r, t = box
     W, H = r - l, t - b
     tw, th = target
-    if rotation % 180:  # Ziel ist in Leserichtung angegeben
+    if rotation % 180:  # the target is given in reading direction
         tw, th = th, tw
     if follow and abs(W - H) > 1 and (W > H) != (tw > th):
-        tw, th = th, tw  # Querformat-Seite -> Querformat-Ziel
+        tw, th = th, tw  # landscape page -> landscape target
     dx, dy = W - tw, H - th
     notes = []
     if dx > 0.05:
@@ -91,7 +91,7 @@ def crop_box_for(box, rotation: int, target, follow: bool):
 
 
 def trim_box_for(box, rotation, s):
-    """Kanten abschneiden ohne Zielformat: neue Box + (l, o, r, u) in Leserichtung."""
+    """Cut off edges without a target size: new box + (l, t, r, b) in reading direction."""
     l, b, r, t = box
     lmm, tmm, rmm, bmm = s.trim_l_mm, s.trim_t_mm, s.trim_r_mm, s.trim_b_mm
     rot = rotation % 360
@@ -106,20 +106,21 @@ def trim_box_for(box, rotation, s):
 
 
 def _white_bbox(pg, dpi=72, tol=12):
-    """Content-BBox (l, b, r, t in pt, im ungedrehten Seitensystem) – None wenn Seite leer/weiß.
+    """Content bbox (l, b, r, t in pt, in the unrotated page system) – None if the page is empty/white.
 
-    Hintergrund = Median der RANDPIXEL (äußerster Streifen der Seite; meist Weiß, kann leicht getönt sein).
-    Nicht der Median der ganzen Seite: füllt der Inhalt mehr als die Hälfte, wäre das die Inhaltsfarbe.
-    JPEG-Rauschen im Weißen wird über zwei Filter unterdrückt:
-    Toleranz gegen den Hintergrund + Einzelpixel brauchen Nachbarn (3×3, mind. 3).
-    Achtung: gerendertes Bild hat y=0 OBEN, PDF hat y=0 UNTEN -> y wird hier umgerechnet."""
+    Background = median of the EDGE PIXELS (outermost strip of the page; mostly white, may be slightly tinted).
+    Not the median of the whole page: if the content fills more than half, that would be the content colour.
+    JPEG noise in the white is suppressed by two filters:
+    tolerance against the background + single pixels need neighbours (3×3, at least 3).
+    Note: the rendered image has y=0 at the TOP, PDF has y=0 at the BOTTOM -> y is converted here.
+    """
     import numpy as np
 
     W0, H0 = pg.get_size()
     scale = dpi / 72.0
     bmp = pg.render(scale=scale)
     a = np.asarray(bmp.to_pil().convert("RGB"), dtype=np.int16)
-    k = max(1, min(a.shape[0], a.shape[1]) // 100)  # Randstreifen ~1 % der kürzeren Seite
+    k = max(1, min(a.shape[0], a.shape[1]) // 100)  # edge strip ~1 % of the shorter side
     edge = np.concatenate(
         [a[:k].reshape(-1, 3), a[-k:].reshape(-1, 3), a[:, :k].reshape(-1, 3), a[:, -k:].reshape(-1, 3)]
     )
@@ -145,15 +146,15 @@ def _white_bbox(pg, dpi=72, tol=12):
         return None
     ys, xs = np.where(m)
     return (
-        xs.min() / scale,  # links
-        H0 - (ys.max() + 1) / scale,  # unten  (y-Bild oben -> PDF unten)
-        (xs.max() + 1) / scale,  # rechts
+        xs.min() / scale,  # left
+        H0 - (ys.max() + 1) / scale,  # bottom  (y image top -> PDF bottom)
+        (xs.max() + 1) / scale,  # right
         H0 - ys.min() / scale,
-    )  # oben
+    )  # top
 
 
 def whiteout_doc(doc, s: _cmyk.ManipSettings):
-    """Weißraum entfernen: erkannte BBox + Margin = neues Seitenformat (Inhalt bleibt 1:1)."""
+    """Remove white space: detected bbox + margin = new page size (content stays 1:1)."""
     import pypdfium2 as pdfium
     from .layout import flattened
     from .objects import normalized
@@ -175,17 +176,17 @@ def whiteout_doc(doc, s: _cmyk.ManipSettings):
             finally:
                 pg.close()
             if bb is None:
-                out.new_page(W0, H0)  # leere Seite unverändert übernehmen
+                out.new_page(W0, H0)  # take over a blank page unchanged
                 skipped.append(i + 1)
                 continue
             m = s.white_margin_mm * MM
             l, b, r, t = bb[0] - m, bb[1] - m, bb[2] + m, bb[3] + m
             l, b = max(l, 0.0), max(b, 0.0)
-            r, t = min(r, W0), min(t, H0)  # Rand darf nicht über die Seite hinaus
+            r, t = min(r, W0), min(t, H0)  # the margin must not extend beyond the page
             pg_out = out.new_page(max(r - l, 1.0), max(t - b, 1.0))
             xo = norm.page_as_xobject(i, out)
             po = xo.as_pageobject()
-            po.transform(pdfium.PdfMatrix().translate(-l, -b))  # nur verschieben, nicht skalieren
+            po.transform(pdfium.PdfMatrix().translate(-l, -b))  # only move, do not scale
             pg_out.insert_obj(po)
             pg_out.gen_content()
             pg_out.close()
@@ -257,7 +258,7 @@ def fill_doc(doc, s: _cmyk.ManipSettings):
 
     flat = flattened(doc)  # Formularwerte/Kommentare mitnehmen
     try:
-        norm = normalized(flat)  # ungedreht, ab (0,0): sichtbare Seite = Seite
+        norm = normalized(flat)  # unrotated, from (0,0): visible page = page
     finally:
         if flat is not doc:
             flat.close()

@@ -63,17 +63,18 @@ class Controller(QObject):
         self.cfg = config.load()
         self.session = Session(self.cfg)
         self.windows = []
-        self.hosts = []  # Fensterrahmen (je einer mit einem oder mehreren Reitern)
+        self.hosts = []  # window frames (each with one or more tabs)
         self.server: QLocalServer | None = None
-        self.view_single = True  # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
+        self.view_single = True  # single page with jumping as the default (the view can be switched)
         self._start_stallwatch()
         self._ensure_sendto()
 
     @staticmethod
     def _ensure_sendto():
-        """Windows: „Senden an → Passermark – zusammenführen“ für den angemeldeten Benutzer (einmalig).
-        Übergibt alle markierten Dateien auf einmal an EINEN Prozess – für große Mengen (110 Pläne) viel
-        schneller als das Kontextmenü, bei dem Explorer je Datei einen Prozess startet."""
+        """Windows: "Send to → Passermark – zusammenführen" for the logged-in user (once).
+        Hands all selected files to ONE process at once – for large numbers (110 plans) much
+        faster than the context menu, where Explorer starts one process per file.
+        """
         if os.name != "nt" or not getattr(sys, "frozen", False):
             return
         try:
@@ -81,7 +82,7 @@ class Controller(QObject):
 
             st = l10n.load_settings()
             if st.get("sendto_created"):
-                return  # schon angelegt (oder bewusst gelöscht) – nicht wieder
+                return  # already created (or deliberately deleted) – not again
             folder = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "SendTo")
             if not os.path.isdir(folder):
                 return
@@ -100,19 +101,19 @@ class Controller(QObject):
             pass
 
     def _start_stallwatch(self):
-        """Ruckler-Protokoll (ruckler.txt im Ordner der Fehlerprotokolle): Hänger der Oberfläche mit Ursache."""
+        """Stall log (ruckler.txt in the folder of the error logs): hangs of the interface with their cause."""
         try:
             from . import crashlog
 
-            if not crashlog.enabled():  # Fehlerprotokolle abgeschaltet: auch keine Ruckler-Meldungen
+            if not crashlog.enabled():  # error logs switched off: no stall reports either
                 self._stallwatch = None
                 return
             from .gui.renderclient import RenderService
             from .gui.stallwatch import StallWatch
 
             def ctx():
-                # läuft im Wächter-Thread: den Dienst nur ansehen, nie hier anlegen (sonst gehört sein Timer
-                # diesem Thread, der Render-Prozess bekommt nie Aufträge – Seiten blieben weiß)
+                # runs in the watchdog thread: only look at the service, never create it here (otherwise its timer
+                # belongs to this thread and the render process never gets requests – pages would stay white)
                 svc = RenderService._instances.get("render")
                 return "Vorschau im Programm" if svc is not None and not svc.ok else ""
 
@@ -181,10 +182,10 @@ class Controller(QObject):
 
     # ---------------------------------------------------------------- #
     def start_server(self) -> bool:
-        """Als Einzelinstanz-Server lauschen. False, wenn gerade eine andere Instanz Server wurde."""
+        """Listen as the single-instance server. False if another instance has just become the server."""
         if os.name == "nt":
-            # Windows: listen() klappt auch, wenn auf dem Namen schon eine Instanz lauscht (Named Pipe ohne
-            # „erste Instanz“) – dann gäbe es zwei Server, und die Dateien einer Mehrfachauswahl würden aufgeteilt.
+            # Windows: listen() also succeeds when an instance is already listening on the name (named pipe without
+            # "first instance") – there would then be two servers and the files of a multiple selection would be split.
             probe = QLocalSocket()
             probe.connectToServer(server_name())
             if probe.waitForConnected(200):
@@ -240,11 +241,11 @@ class Controller(QObject):
         """
         cmd = cmd if cmd in ("print", "merge", "repair", "open", "plan", "poster") else "open"
         if cmd in ("plan", "poster"):
-            self.plan_window(cmd, files=files)  # eigenes Fenster; schon offen: Dateien dort dazu
+            self.plan_window(cmd, files=files)  # own window; already open: add the files there
             return
         dlg = getattr(self, "_merge_dlg", None)
         if cmd == "merge" and dlg is not None:
-            dlg.add_paths(files)  # Zusammenführen-Dialog ist schon offen: dort dazu (kein zweiter)
+            dlg.add_paths(files)  # the merge dialog is already open: add there (no second one)
             return
         if not hasattr(self, "_pending"):
             self._pending = {}
@@ -270,11 +271,11 @@ class Controller(QObject):
             else:
                 self.open_paths(files)
         if not self.windows and not self.plan_windows():
-            QApplication.instance().quit()  # nichts mehr offen (reiner Druck/Reparatur/abgebrochen): fertig
+            QApplication.instance().quit()  # nothing open any more (print only/repair/cancelled): done
 
     # ---------------------------------------------------------------- #
     def plan_window(self, kind: str = "plan", entry: dict | None = None, files=None):
-        """Plan-/Posterdruck als eigenes Fenster – bleibt offen, wenn die Dokumentfenster geschlossen werden."""
+        """Plan/poster printing as its own window – stays open when the document windows are closed."""
         from .gui.plandialog import open_window
 
         return open_window(self.session, self, kind, entry, [os.path.abspath(f) for f in files or []])
@@ -335,7 +336,7 @@ class Controller(QObject):
 
     @staticmethod
     def blocked(w) -> bool:
-        """Ist das Fenster (bzw. sein Rahmen mit allen Reitern) gerade durch einen offenen Dialog gesperrt?"""
+        """Is the window (or its frame with all tabs) currently blocked by an open dialog?"""
         from PySide6.QtWidgets import QDialog
 
         top = getattr(w, "_host", None) or w
@@ -346,14 +347,14 @@ class Controller(QObject):
 
     def _target_window(self, tab_of=None):
         if tab_of is None:  # from outside (double-click, "Open with"): use an empty window –
-            for w in self.windows:  # aber nicht in einem Rahmen, in dem gerade ein Werkzeug offen ist
+            for w in self.windows:  # but not in a frame in which a tool is currently open
                 if w.doc is None and not self.blocked(w):
                     return w
             return self.new_window()
         if self.blocked(tab_of):  # result/open from a locked window: its own window
             return self.new_window()
         if getattr(tab_of, "doc", 1) is None and tab_of in self.windows:
-            return tab_of  # leeres Fenster selbst nutzen (kein unsichtbarer leerer Reiter)
+            return tab_of  # use the empty window itself (no invisible empty tab)
         return self.new_window(tab_of)
 
     def open_paths(self, paths: list[str], tab_of=None):
@@ -364,10 +365,10 @@ class Controller(QObject):
         imgs = [p for p in paths if images.is_image(p)]
         rest = [p for p in paths if not images.is_image(p)]
         last = None
-        if imgs:  # mehrere Bilder auf einmal -> ein Dokument
+        if imgs:  # several images at once -> one document
             last = self._target_window(tab_of)
             last.open_images(imgs)
-        for p in rest:  # PDF direkt, Office wird umgewandelt
+        for p in rest:  # PDF directly, Office files are converted
             last = self._target_window(tab_of)
             last.open_any(p)
         if not self.windows:
@@ -375,8 +376,9 @@ class Controller(QObject):
         self.show_window(last or self.windows[-1])
 
     def merge_paths(self, paths: list[str]):
-        """Right-click "Merge into one PDF": check the order, then merge. Dateien, die noch nachkommen
-        (Explorer startet je Datei einen Prozess), landen im selben, schon offenen Dialog."""
+        """Right-click "Merge into one PDF": check the order, then merge. Files that still arrive
+        (Explorer starts one process per file) end up in the same dialog that is already open.
+        """
         from . import convert
         from .gui.viewer import MergeDialog
 

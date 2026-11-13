@@ -5,17 +5,18 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix.
 
-Für die Seitenansicht: Mauskoordinaten, Rahmen, Auswahl – bisher hat dafür jede Seite im Programm geladen
-werden müssen (bei Vektor-lastigen Seiten bis über eine Sekunde). Gebraucht werden nur CropBox (∩ MediaBox)
-und /Rotate der Seite (renderproc.page_info). Geprüft gegen FPDF_PageToDevice (tests/test_pagegeom.py).
+For the page view: mouse coordinates, frames, selection – otherwise every page would have to be loaded
+in the program for this (over a second for vector-heavy pages). Only the CropBox (∩ MediaBox)
+and /Rotate of the page are needed (renderproc.page_info). Checked against FPDF_PageToDevice (tests/test_pagegeom.py).
 """
 
 from __future__ import annotations
 
 
 def display_matrix(info: dict, width: float, height: float, view_rotation: int = 0):
-    """(a, b, c, d, e, f) mit x' = a x + c y + e, y' = b x + d y + f  (Seite pt -> Gerätepixel) oder None.
-    info: {"crop": (x0, y0, x1, y1), "rotate": 0..3}; view_rotation in Grad (0/90/180/270)."""
+    """(a, b, c, d, e, f) with x' = a x + c y + e, y' = b x + d y + f  (page pt -> device pixels) or None.
+    info: {"crop": (x0, y0, x1, y1), "rotate": 0..3}; view_rotation in degrees (0/90/180/270).
+    """
     x0, y0, x1, y1 = info["crop"]
     pr = int(info.get("rotate", 0)) % 4
     if pr == 1:

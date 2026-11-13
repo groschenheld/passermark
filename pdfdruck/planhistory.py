@@ -2,9 +2,9 @@
 """History of plan and poster printing: every print with its files, quantities, per-plan overrides,
 settings and printer – to reopen it with exactly these settings.
 
-Die Dateien werden mitgesichert (Kundendateien liegen oft im Hotfolder und sind später weg; bearbeitete Dokumente
-gibt es nur im Speicher). Ablage: <Statusordner>/plan_history/<id>/entry.json + Dateien. „Aufräumen“ löscht.
-Höchstens MAX_ENTRIES Einträge – die ältesten fallen automatisch weg.
+The files are saved along (customer files often lie in the hot folder and are gone later; edited documents
+exist only in memory). Storage: <state folder>/plan_history/<id>/entry.json + files. "Clean up" deletes.
+At most MAX_ENTRIES entries – the oldest are dropped automatically.
 """
 
 from __future__ import annotations
@@ -28,8 +28,9 @@ def _entry_path(eid: str) -> str:
 
 
 def add(kind: str, printer: str, settings: dict, items: list, total_m: float = 0.0, jobs: int = 0) -> dict:
-    """Druck merken. items: [{"doc": pdfium-Dokument | None, "source": Pfad, "page", "qty", "ov", "frame",
-    "own": vom Fenster selbst aus der Datei geöffnet (dann Datei kopieren, sonst Dokument speichern)}]."""
+    """Remember a print. items: [{"doc": pdfium document | None, "source": path, "page", "qty", "ov", "frame",
+    "own": opened from the file by the window itself (then copy the file, otherwise save the document)}].
+    """
     os.makedirs(history_dir(), exist_ok=True)
     eid = time.strftime("%Y%m%d-%H%M%S") + f"-{os.getpid() % 1000:03d}"
     d = os.path.join(history_dir(), eid)
@@ -49,16 +50,16 @@ def add(kind: str, printer: str, settings: dict, items: list, total_m: float = 0
             try:
                 if it.get("own") and src and os.path.isfile(src) and src.lower().endswith(".pdf"):
                     try:
-                        os.link(src, dst)  # gleiche Platte: kein Platz extra
+                        os.link(src, dst)  # same disk: no extra space
                     except OSError:
                         shutil.copy2(src, dst)
                 elif it.get("doc") is not None:
-                    it["doc"].save(dst)  # auch bearbeitete/umgewandelte Dokumente
+                    it["doc"].save(dst)  # also edited/converted documents
                 elif src and os.path.isfile(src):
                     shutil.copy2(src, dst)
                 else:
                     name = ""
-            except Exception:  # noqa: BLE001 – Verlauf darf den Druck nie stören
+            except Exception:  # noqa: BLE001 – the history must never disturb printing
                 name = ""
             files[key] = name
         out.append(
@@ -88,7 +89,7 @@ def add(kind: str, printer: str, settings: dict, items: list, total_m: float = 0
 
 
 def entries(kind: str | None = None) -> list:
-    """Neueste zuerst; kind = "plan" | "poster" | None (alle)."""
+    """Newest first; kind = "plan" | "poster" | None (all)."""
     root = history_dir()
     out = []
     try:
@@ -107,7 +108,7 @@ def entries(kind: str | None = None) -> list:
 
 
 def file_of(entry: dict, item: dict) -> str:
-    """Pfad der gesicherten Datei – sonst die Originaldatei, wenn es sie noch gibt; "" = weg."""
+    """Path of the saved file – otherwise the original file if it still exists; "" = gone."""
     if item.get("file"):
         p = os.path.join(history_dir(), entry["id"], item["file"])
         if os.path.isfile(p):
@@ -117,7 +118,7 @@ def file_of(entry: dict, item: dict) -> str:
 
 
 def label(entry: dict) -> str:
-    """„09.11. 14:32 · 3 Pläne · ColorWave · 4,2 m“"""
+    """Display text of an entry, e.g. "09.11. 14:32 · 3 Pläne · ColorWave · 4,2 m"."""
     from .l10n import tr
     from .planprint import num
 
@@ -141,7 +142,7 @@ def remove(eid: str) -> None:
 
 
 def clear(kind: str | None = None) -> int:
-    """Verlauf aufräumen (nur eine Art oder alles). -> Anzahl gelöschter Einträge."""
+    """Clean up the history (one kind only or everything). -> number of deleted entries."""
     n = 0
     for e in entries(kind):
         remove(e["id"])

@@ -32,13 +32,14 @@ import pickle
 import sys
 from collections import OrderedDict
 
-KEEP_PAGES = 4  # offene Seiten je Dokument: pdfium behält dekodierte Bilder, solange die Seite offen ist
+KEEP_PAGES = 4  # open pages per document: pdfium keeps decoded images as long as the page is open
 
 
 def page_info(data: bytes) -> list:
-    """Je Seite die Rahmen wie pdfium sie sieht, ohne Seiten zu laden (pikepdf, nur Wörterbücher):
+    """Per page the boxes as pdfium sees them, without loading pages (pikepdf, dictionaries only):
     {"crop": (x0, y0, x1, y1) = CropBox ∩ MediaBox, "rotate": 0..3, "trim": … | None, "bleed": … | None}.
-    Werte werden wie bei pdfium über /Parent geerbt."""
+    Values are inherited via /Parent as in pdfium.
+    """
     import io
     import pikepdf
 
@@ -75,9 +76,9 @@ def page_info(data: bytes) -> list:
             except Exception:
                 rot = 0
             trim, bleed = box(attr(o, "/TrimBox")), box(attr(o, "/BleedBox"))
-            raw = {"trim_raw": trim, "art": box(attr(o, "/ArtBox"))}  # für die Statuszeile (wie page_trims)
+            raw = {"trim_raw": trim, "art": box(attr(o, "/ArtBox"))}  # for the status line (like page_trims)
             if trim is not None and all(abs(trim[k] - crop[k]) < 0.5 for k in range(4)):
-                trim = None  # Endformat = Seite: kein Anschnitt
+                trim = None  # trim size = page: no bleed
             if trim is None:
                 bleed = None
             out.append(dict(raw, crop=crop, rotate=(rot // 90) % 4, trim=trim, bleed=bleed))
@@ -103,7 +104,7 @@ def _call_verify(before: str, after: str, page: int, boxes: list):
 
 
 def _call_edit(before: str, out: str, page: int, op: str, kwargs: dict, boxes: list):
-    """Bearbeiten-Modus: Änderung + Sicherheitsprüfung; das Ergebnis landet in out (nur wenn übernommen)."""
+    """Edit mode: change + safety check; the result ends up in out (only if accepted)."""
     from . import editops
 
     with open(before, "rb") as f:
@@ -117,11 +118,11 @@ def _call_edit(before: str, out: str, page: int, op: str, kwargs: dict, boxes: l
     return res
 
 
-_SHEET_SRC: OrderedDict = OrderedDict()  # (Pfad, flach) -> (Stempel, Dokument) – Druckvorschau
+_SHEET_SRC: OrderedDict = OrderedDict()  # (path, flat) -> (stamp, document) – print preview
 
 
 def _sheet_source(path: str, flatten: bool):
-    """Quelle der Druckvorschau, je Datei einmal geladen (und Formulare/Kommentare eingebrannt)."""
+    """Source of the print preview, loaded once per file (with forms/comments flattened)."""
     import pypdfium2 as pdfium
     from . import layout
 
@@ -156,7 +157,7 @@ def _close_quiet(*docs):
 
 
 def _rgb(page, scale: float, rotation: int, proof_args=None):
-    """Seite -> (Breite, Höhe, RGB-Bytes), optional mit Proof (Farbsimulation)."""
+    """Page -> (width, height, RGB bytes), optionally with proof (colour simulation)."""
     bmp = page.render(scale=scale, rotation=rotation % 360, may_draw_forms=True, draw_annots=True)
     try:
         img = bmp.to_pil().convert("RGB")
@@ -185,11 +186,12 @@ def _call_sheet(
     sheet1=None,
     limit: int = 400,
 ):
-    """Druckvorschau: Bogen montieren und rendern (wie die Ausgabe, nur im eigenen Prozess).
-    mode "sheet": impose_with, only = Bogennummern (Vorder- und ggf. Rückseite)
-    mode "step2": impose_step2 (Schritt 2), only = [Bogen]
-    mode "overview": alle Bögen (bis limit) als kleine Bilder, scale gilt für alle.
-    -> Liste von (Breite, Höhe, RGB-Bytes)."""
+    """Print preview: impose and render a sheet (like the output, only in its own process).
+    mode "sheet": impose_with, only = sheet numbers (front and, if any, back)
+    mode "step2": impose_step2 (step 2), only = [sheet]
+    mode "overview": all sheets (up to limit) as small images, scale applies to all.
+    -> list of (width, height, RGB bytes).
+    """
     from . import layout
 
     src = _sheet_source(path, flatten)
@@ -198,7 +200,7 @@ def _call_sheet(
         try:
             sub = _raster_source(src, plans, only if only is not None else range(min(len(plans), limit)), scale)
         except Exception:
-            sub = None  # dann direkt (wie die Ausgabe)
+            sub = None  # then directly (like the output)
         if sub is not None:
             src = sub
     if mode == "step2":
@@ -223,10 +225,11 @@ def _call_sheet(
 
 
 def _raster_source(src, plans, sheets, scale: float):
-    """Nur für die Vorschau: kommt eine Seite mehrfach auf die Bögen (Nutzen, Step & Repeat), wird sie einmal
-    in Vorschau-Auflösung gerendert und das Bild montiert – statt die Seite für jeden Nutzen neu zu
-    zeichnen (große Fotos, CAD-Pläne: jeder Nutzen dekodierte alles neu). Die Montage selbst (Lage,
-    Anschnitt, Spiegelung, Marken) bleibt genau dieselbe. None = nicht nötig (jede Seite nur einmal)."""
+    """Preview only: if a page appears several times on the sheets (step and repeat), it is rendered once
+    at preview resolution and the image is imposed – instead of drawing the page anew for every
+    copy (large photos, CAD plans: every copy decoded everything again). The imposition itself (position,
+    bleed, mirroring, marks) stays exactly the same. None = not needed (every page only once).
+    """
     import pypdfium2 as pdfium
 
     need: dict = {}
@@ -265,13 +268,13 @@ def _raster_source(src, plans, sheets, scale: float):
 
 
 def _call_sheet_release():
-    """Druckdialog zu: geladene Vorschau-Quellen freigeben."""
+    """Print dialog closed: release the loaded preview sources."""
     while _SHEET_SRC:
         _close_quiet(*_SHEET_SRC.popitem()[1][1:])
 
 
 def _call_inspect(path: str, password: str | None = None):
-    """Eigenschaften-Fenster: alle Dokumentangaben samt Prüfung (wie passermark-cli inspect --check)."""
+    """Properties window: all document details incl. the check (like passermark-cli inspect --check)."""
     from . import docinfo
 
     return docinfo.inspect(path, password, check=True)
@@ -291,7 +294,7 @@ def serve(inp, out) -> int:
     import pypdfium2 as pdfium
 
     docs: dict = {}
-    paths: dict = {}  # Dokument -> (Pfad, Passwort) für den Softproof
+    paths: dict = {}  # document -> (path, password) for the soft proof
     pages: OrderedDict = OrderedDict()
 
     def send(head: dict, payload: bytes = b""):
@@ -338,7 +341,7 @@ def serve(inp, out) -> int:
             req = json.loads(line)
         except ValueError:
             continue
-        if req.get("n"):  # Argumente als Pickle hinter der Zeile
+        if req.get("n"):  # arguments as a pickle after the line
             raw = inp.read(int(req["n"]))
             try:
                 req["args"] = pickle.loads(raw)
@@ -350,14 +353,14 @@ def serve(inp, out) -> int:
         try:
             if op == "open":
                 close_doc(key)
-                with open(req["path"], "rb") as f:  # in den Speicher: Datei bleibt frei (Windows:
-                    data = f.read()  # Speichern über die offene Datei, Zwischendatei löschen)
+                with open(req["path"], "rb") as f:  # into memory: the file stays free (Windows:
+                    data = f.read()  # save via the open file, delete the intermediate file)
                 docs[key] = pdfium.PdfDocument(data, password=req.get("password") or None)
                 paths[key] = (req["path"], req.get("password") or None)
                 try:
                     info = page_info(data)
                 except Exception:
-                    info = None  # z. B. verschlüsselt: Ansicht nimmt pdfium
+                    info = None  # e.g. encrypted: the view uses pdfium
                 send({"id": rid, "ok": True, "pages": len(docs[key]), "fmt": "pickle"}, pickle.dumps(info))
             elif op == "chars":
                 pg = page_of(key, int(req["page"]))
@@ -375,7 +378,7 @@ def serve(inp, out) -> int:
                 if req.get("kind") == "text":
                     res = editing.text_lines(docs[key], page, include_undecodable=True)
                 else:
-                    res = editing.limit_objects(editing.page_objects(docs[key], page))  # (Auswahl, Gesamtzahl)
+                    res = editing.limit_objects(editing.page_objects(docs[key], page))  # (selection, total)
                 send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(res))
             elif op == "call":
                 result = CALLS[req["fn"]](**(req.get("args") or {}))
@@ -437,7 +440,7 @@ def serve(inp, out) -> int:
                     bmp.close()
             else:
                 send({"id": rid, "ok": False, "error": f"unknown op {op!r}"})
-        except Exception as e:  # Fehler zurückmelden, Server läuft weiter
+        except Exception as e:  # report the error, the server keeps running
             send({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})
     for key in list(docs):
         close_doc(key)

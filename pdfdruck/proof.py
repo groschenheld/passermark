@@ -40,7 +40,7 @@ def _num(v):
 
 
 def adjustments(caps, values: dict) -> dict:
-    """Ermittelt aus den Treiberoptionen, was die Vorschau simulieren soll."""
+    """Determine from the driver options what the preview should simulate."""
     adj = {"gray": False, "brightness": 0.0, "contrast": 0.0, "saturation": 0.0, "labels": []}
     if caps is None:
         return adj
@@ -103,7 +103,7 @@ def _proof_transform(icc_path: str, intent: str, bpc: bool):
 
 
 def apply(img, adj: dict, icc: str | None = None, intent: str = "relative", bpc: bool = True):
-    """img: PIL-Bild (RGB). Reihenfolge wie im Druckweg: Profil, dann Treiberregler."""
+    """img: PIL image (RGB). Order as in the print path: profile, then driver controls."""
     from PIL import ImageEnhance, ImageOps
 
     img = img.convert("RGB")
@@ -111,7 +111,7 @@ def apply(img, adj: dict, icc: str | None = None, intent: str = "relative", bpc:
         try:
             img = ImageCms_apply(img, _proof_transform(icc, intent, bpc))
         except Exception:
-            pass  # defektes/inkompatibles Profil -> ohne Softproof
+            pass  # broken/incompatible profile -> without soft proof
     if adj.get("gray"):
         img = ImageOps.grayscale(img).convert("RGB")
     t = adj.get("saturation", 0.0)
@@ -155,15 +155,15 @@ def describe(adj: dict, profile_name: str | None) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Softproof der Seitenansicht (allgemein, unabhängig vom Druckdialog)
+# soft proof of the page view (general, independent of the print dialog)
 # --------------------------------------------------------------------------- #
-# spec = {"icc": Pfad, "space": "CMYK"|"RGB"|"Gray", "name": Anzeigename, "intent": "relative", "bpc": True,
-#         "paper": Papierfarbe simulieren, "black": schwarze Druckfarbe simulieren, "white": [L, a, b] | None
-#         (gemessenes Papierweiß des Materials statt des Profilweiß), "warn": "none"|"gamut"|"tac", "tac": 300}
+# spec = {"icc": path, "space": "CMYK"|"RGB"|"Gray", "name": display name, "intent": "relative", "bpc": True,
+#         "paper": simulate paper colour, "black": simulate black ink, "white": [L, a, b] | None
+#         (measured paper white of the material instead of the profile white), "warn": "none"|"gamut"|"tac", "tac": 300}
 #
-# CMYK-Profil + Ghostscript: die Seite wird wie bei der CMYK-Umwandlung separiert (vorhandenes CMYK bleibt,
-# RGB/Grau -> Profil) und diese CMYK-Werte werden angezeigt – genau die Farben, die gedruckt würden.
-# Sonst (RGB-Druckerprofil, kein Ghostscript): Bild der Seite (sRGB) -> Profil -> Bildschirm.
+# CMYK profile + Ghostscript: the page is separated as in the CMYK conversion (existing CMYK stays,
+# RGB/grey -> profile) and these CMYK values are shown – exactly the colours that would be printed.
+# Otherwise (RGB printer profile, no Ghostscript): image of the page (sRGB) -> profile -> screen.
 PROOF_MAX_DPI = 300
 GAMUT_COLOR = (255, 0, 255)
 TAC_COLOR = (255, 0, 64)
@@ -218,9 +218,10 @@ _sp_cache: dict = {}
 
 
 def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = True):
-    """Zwischengespeicherte LittleCMS-Transformationen:
-    to_dev  sRGB -> Gerät (Intent, BPC)         dev_lab  Gerät -> Lab (relativ, ohne BPC: Papier = L 100)
-    srgb_lab sRGB -> Lab (relativ)              dev_scr  Gerät -> Bildschirm (Variante in intent/bpc kodiert)"""
+    """Cached LittleCMS transforms:
+    to_dev  sRGB -> device (intent, BPC)        dev_lab  device -> Lab (relative, no BPC: paper = L 100)
+    srgb_lab sRGB -> Lab (relative)             dev_scr  device -> screen (variant encoded in intent/bpc)
+    """
     from PIL import ImageCms
 
     key = (kind, icc, space, intent, bpc)
@@ -242,7 +243,7 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
         tf = ImageCms.buildTransform(
             ImageCms.getOpenProfile(icc), lab, mode, "LAB", renderingIntent=R.RELATIVE_COLORIMETRIC
         )
-    elif kind == "dev_lab_bpc":  # für die Farbumfang-Warnung: Tiefen wie im Druck skaliert
+    elif kind == "dev_lab_bpc":  # for the gamut warning: shadows scaled as in print
         tf = ImageCms.buildTransform(
             ImageCms.getOpenProfile(icc),
             lab,
@@ -253,7 +254,7 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
         )
     elif kind == "srgb_lab":
         tf = ImageCms.buildTransform(srgb, lab, "RGB", "LAB", renderingIntent=R.RELATIVE_COLORIMETRIC)
-    else:  # dev_scr: intent "absolute" = Papier, bpc False = Schwarz
+    else:  # dev_scr: intent "absolute" = paper, bpc False = black
         tf = ImageCms.buildTransform(
             ImageCms.getOpenProfile(icc),
             srgb,
@@ -271,14 +272,15 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
 def _lab_arrays(lab_img):
     import numpy as np
 
-    a = np.asarray(lab_img, dtype=np.uint8)  # Pillow speichert a/b mit Vorzeichen (0 = neutral)
+    a = np.asarray(lab_img, dtype=np.uint8)  # Pillow stores a/b signed (0 = neutral)
     ab = a[..., 1:].view(np.int8).astype(np.float32)
     return a[..., 0].astype(np.float32) * (100.0 / 255.0), ab[..., 0], ab[..., 1]
 
 
 def lab_to_screen(lab_img, white=None):
-    """Lab-Bild (relativ: Papier = L 100) -> sRGB-Bild. white = Papierweiß (Lab D50): das Papier erscheint
-    in dieser Farbe, alle Farben im selben Verhältnis (wie absolut farbmetrisch, nur mit dem Messwert)."""
+    """Lab image (relative: paper = L 100) -> sRGB image. white = paper white (Lab D50): the paper appears
+    in this colour, all colours in the same ratio (like absolute colorimetric, but with the measured value).
+    """
     import numpy as np
     from PIL import Image
     from .colorlab import D50, lab_to_xyz
@@ -303,7 +305,7 @@ def lab_to_screen(lab_img, white=None):
 
 
 def device_to_screen(dev, spec):
-    """Gerätefarben (Bild im Modus des Profils) so zeigen, wie sie auf dem Papier aussehen."""
+    """Show device colours (image in the mode of the profile) as they look on the paper."""
     from PIL import ImageCms
 
     icc, space = spec["icc"], spec.get("space") or "CMYK"
@@ -315,7 +317,7 @@ def device_to_screen(dev, spec):
 
 
 def gamut_mask(rgb, spec, limit: float = 5.0):
-    """Wo das Profil die (sRGB-)Farbe nicht erreicht: Abstand Original <-> Hin-und-zurück über das Profil (ΔE 76)."""
+    """Where the profile cannot reach the (sRGB) colour: distance original <-> round trip via the profile (ΔE 76)."""
     import numpy as np
     from PIL import ImageCms
 
@@ -340,7 +342,7 @@ def _mark(img, mask, color):
 
 
 def softproof_rgb(rgb, spec):
-    """Seitenbild (sRGB, wie pdfium es liefert) -> Druckergebnis auf dem Bildschirm."""
+    """Page image (sRGB, as pdfium delivers it) -> print result on screen."""
     from PIL import ImageCms
 
     rgb = rgb.convert("RGB")
@@ -370,7 +372,7 @@ def _tac_mask(cmyk_img, spec):
 
 
 def softproof_cmyk(cmyk_img, spec, rgb_for_gamut=None):
-    """Echte CMYK-Werte (Ghostscript-Separation) -> Bildschirm."""
+    """Real CMYK values (Ghostscript separation) -> screen."""
     out = device_to_screen(cmyk_img, spec).convert("RGB")
     if spec.get("warn") == "tac":
         out = _mark(out, _tac_mask(cmyk_img, spec), TAC_COLOR)
@@ -383,7 +385,7 @@ def softproof_cmyk(cmyk_img, spec, rgb_for_gamut=None):
 
 
 def can_separate(spec) -> bool:
-    """CMYK-Weg möglich (CMYK-Profil und Ghostscript da)?"""
+    """Is the CMYK path possible (CMYK profile and Ghostscript present)?"""
     if not spec or (spec.get("space") or "") != "CMYK":
         return False
     from . import platform as _platform
@@ -395,8 +397,9 @@ _SEP_CACHE: dict = {}
 
 
 def separated_page(path: str, index: int, dpi: float, spec, password: str | None = None):
-    """Seite mit Ghostscript separieren (wie die CMYK-Umwandlung „nur RGB/Grau“) und für den Bildschirm
-    aufbereiten -> PIL RGB der ganzen Seite (CropBox, /Rotate berücksichtigt). Zwischengespeichert."""
+    """Separate the page with Ghostscript (like the CMYK conversion "RGB/grey only") and prepare it for the
+    screen -> PIL RGB of the whole page (CropBox, /Rotate applied). Cached.
+    """
     import shutil
     import tempfile
     from PIL import Image
@@ -451,8 +454,9 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
 def proofed_render(
     page, scale: float, rotation: int, crop, spec, path: str | None = None, index: int = 0, password: str | None = None
 ):
-    """Wie page.render(...), aber als Softproof -> PIL RGB. Mit CMYK-Profil und Ghostscript über die echte
-    Separation, sonst über das Seitenbild."""
+    """Like page.render(...), but as a soft proof -> PIL RGB. With a CMYK profile and Ghostscript via the real
+    separation, otherwise via the page image.
+    """
     from PIL import Image
 
     crop = tuple(float(c) for c in (crop or (0, 0, 0, 0)))
@@ -469,7 +473,7 @@ def proofed_render(
                 )
             import math
 
-            # Größe genau wie pdfium (page.render): ganze Seite aufgerundet, Ausschnitt in Pixeln aufgerundet
+            # size exactly like pdfium (page.render): whole page rounded up, section rounded up in pixels
             sw, sh = math.ceil(page.get_width() * scale), math.ceil(page.get_height() * scale)
             if rot in (90, 270):
                 sw, sh = sh, sw
@@ -485,7 +489,7 @@ def proofed_render(
             )
             return part.resize((w, h), Image.Resampling.LANCZOS) if (w, h) != part.size else part
         except Exception:
-            pass  # z. B. Ghostscript-Fehler -> über das Seitenbild
+            pass  # e.g. Ghostscript error -> via the page image
     bmp = page.render(scale=scale, rotation=rotation % 360, crop=crop, may_draw_forms=True, draw_annots=True)
     try:
         img = bmp.to_pil().convert("RGB")
@@ -494,4 +498,4 @@ def proofed_render(
     try:
         return softproof_rgb(img, spec)
     except Exception:
-        return img  # defektes Profil: ohne Softproof
+        return img  # broken profile: without soft proof

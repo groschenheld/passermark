@@ -28,7 +28,7 @@ from .l10n import tr
 class Col:
     """One column of a data kind: CSV column name, hint, whether it is required, example value."""
 
-    key: str  # Spaltenname in der CSV (= Platzhalter {{key}})
+    key: str  # column name in the CSV (= placeholder {{key}})
     hint: str = ""  # short explanation (header tooltip, manual)
     required: bool = False
     example: str = ""
@@ -40,7 +40,7 @@ class Kind:
 
     id: str
     title: str
-    field_kind: str  # passendes Feld in Variable Daten: qr | code128 | ean13 | text
+    field_kind: str  # matching field in variable data: qr | code128 | ean13 | text
     cols: list = field(default_factory=list)
     help: str = ""
     free_cols: bool = False  # custom columns wanted (text)
@@ -191,7 +191,7 @@ def _kinds() -> dict:
 
 
 IDS = ("vcard", "wifi", "email", "url", "phone", "sms", "event", "geo", "qrtext", "code128", "ean13", "text")
-# QR-Feld „Art“: was im QR-Code steht. "text" = Inhalt wie eingegeben (Vorlage mit Platzhaltern)
+# QR field "kind": what the QR code contains. "text" = content as entered (template with placeholders)
 QR_TYPES = ("text", "vcard", "wifi", "email", "url", "phone", "sms", "event", "geo")
 
 
@@ -216,7 +216,7 @@ def qr_type_text(t: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Spalten lesen
+# read the columns
 # --------------------------------------------------------------------------- #
 def _v(rec: dict, key: str) -> str:
     if key in rec:
@@ -229,7 +229,7 @@ def _v(rec: dict, key: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Spalten zuordnen: fremde Kopfzeilen (Outlook, Google, Thunderbird, Kunden-CSV) auf die Felder einer Art
+# map columns: foreign header rows (Outlook, Google, Thunderbird, customer CSV) to the fields of a kind
 # --------------------------------------------------------------------------- #
 # synonyms per field; "kind:field" applies only to that kind (e.g. city = town on a business card, venue
 # for an event). Comparison ignores case, spaces and punctuation; umlauts as ae/oe/ue/ss.
@@ -436,7 +436,7 @@ SYNONYMS = {
     "Code": ["Artikelnummer", "Article", "SKU", "Nummer", "Number", "ID", "Barcode", "Ticket", "Cikkszám"],
     "EAN": ["EAN13", "EAN-13", "GTIN", "EAN-Code", "EAN Code", "Barcode", "Vonalkód"],
 }
-NONE = "-"  # in einer Zuordnung: diese Angabe bewusst leer lassen
+NONE = "-"  # in a mapping: leave this entry empty on purpose
 
 
 def _norm(s: str) -> str:
@@ -458,7 +458,7 @@ def _auto(kind_id: str, cols: tuple) -> tuple:
         return tuple((c.key, c.key if c.key in cols else "") for c in k.cols)
     normed = [(_norm(c), c) for c in cols]
     used, out = set(), {}
-    # 1) genau gleich (Name selbst vor Synonymen, Felder in ihrer Reihenfolge)
+    # 1) exactly equal (the name itself before synonyms, fields in their order)
     for c in k.cols:
         for cand in synonyms(kind_id, c.key):
             n = _norm(cand)
@@ -484,12 +484,12 @@ def _auto(kind_id: str, cols: tuple) -> tuple:
 
 
 def auto_map(kind_id: str, cols) -> dict:
-    """Vorschlag: Feld der Art -> Spalte der CSV ('' = nicht gefunden)."""
+    """Suggestion: field of the kind -> column of the CSV ('' = not found)."""
     return dict(_auto(kind_id, tuple(cols or ())))
 
 
 def resolve_map(kind_id: str, cols, mapping: dict | None = None) -> dict:
-    """Zuordnung, die beim Erzeugen gilt: eigene Wahl (Spalte oder NONE) vor dem automatischen Vorschlag."""
+    """Mapping that applies when generating: the user's choice (column or NONE) before the automatic suggestion."""
     res = auto_map(kind_id, cols)
     have = {c.lower(): c for c in (cols or ())}
     for key, col in (mapping or {}).items():
@@ -503,7 +503,7 @@ def resolve_map(kind_id: str, cols, mapping: dict | None = None) -> dict:
 
 
 def mapped(kind_id: str, rec: dict, mapping: dict | None = None) -> dict:
-    """Datensatz mit den Feldnamen der Art (Werte aus den zugeordneten Spalten)."""
+    """Record with the field names of the kind (values from the mapped columns)."""
     cols = [k for k in rec if isinstance(k, str) and not k.startswith("_")]
     m = resolve_map(kind_id, cols, mapping)
     return {key: (rec.get(col, "") if col else "") for key, col in m.items()}
@@ -529,7 +529,7 @@ def guess_kind(cols: list) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Inhalt zusammensetzen
+# compose the content
 # --------------------------------------------------------------------------- #
 def _vesc(s: str) -> str:
     """vCard/iCal-Text maskieren."""
@@ -567,7 +567,7 @@ _D_FORMATS = ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y")
 
 
 def parse_when(s: str):
-    """'24.10.2026 18:00' -> datetime; '24.10.2026' -> date; sonst ValueError."""
+    """'24.10.2026 18:00' -> datetime; '24.10.2026' -> date; otherwise ValueError."""
     s = (s or "").strip()
     for f in _DT_FORMATS:
         try:
@@ -772,7 +772,7 @@ def series(
 
 
 def write_csv(path: str, cols: list, rows: list) -> None:
-    """UTF-8 mit BOM (Excel erkennt Umlaute), Semikolon, Zeilen ohne Inhalt fallen weg."""
+    """UTF-8 with BOM (Excel recognises umlauts), semicolon, rows without content are dropped."""
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";", quoting=csv.QUOTE_MINIMAL)
         w.writerow(cols)

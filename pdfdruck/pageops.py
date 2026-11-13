@@ -11,11 +11,12 @@ A4 = (595.2756, 841.8898)
 
 
 def insert_blank(doc, index: int, ref: int | None = None, count: int = 1) -> int:
-    """count Leerseiten vor Seite index einfügen (index = len(doc) -> ans Ende).
+    """Insert count blank pages before page index (index = len(doc) -> at the end).
 
-    Die neue Seite übernimmt von der Vorlagenseite ref Format, Drehung und die Rahmen (Beschnitt-, Endformat-,
-    Anschnittrahmen) – so passt sie in Ausschießen, Duplex und Druckaufbereitung wie die Nachbarseiten.
-    Ohne Vorlage: A4 hoch. Rückgabe: Anzahl eingefügter Seiten."""
+    The new page takes size, rotation and the boxes (crop, trim, bleed box) from the template page ref –
+    so it fits imposition, duplex and print preparation like its neighbours.
+    Without a template: A4 portrait. Returns the number of inserted pages.
+    """
     n = len(doc)
     index = max(0, min(int(index), n))
     count = max(1, int(count))

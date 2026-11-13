@@ -143,7 +143,7 @@ def run_elevated(bundle: dict) -> tuple[int, str, dict]:
                 nShow=win32con.SW_HIDE,
             )
         except pywintypes.error as e:
-            if getattr(e, "winerror", 0) == 1223:  # Benutzer hat UAC abgelehnt
+            if getattr(e, "winerror", 0) == 1223:  # the user declined UAC
                 return 126, "Abgebrochen", {}
             raise
         h = info["hProcess"]

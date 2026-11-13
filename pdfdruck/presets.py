@@ -34,14 +34,14 @@ def root_dir() -> str:
 
 def settings_class(kind: str):
     """Return the settings dataclass of the job ``kind``."""
-    return core.settings_class(kind)  # unbekannter Auftrag -> ValueError
+    return core.settings_class(kind)  # unknown job -> ValueError
 
 
 def job_dir(kind: str) -> str:
     """Folder with the presets of job ``kind`` (migrates the folder name used before 1.7)."""
     settings_class(kind)
     d = os.path.join(root_dir(), kind)
-    if kind == PRINT:  # 1.7: Druck-Presets lagen unter „druck“
+    if kind == PRINT:  # print presets used to live under "druck"
         old = os.path.join(root_dir(), "druck")
         if os.path.isdir(old) and not os.path.exists(d):
             try:
@@ -90,7 +90,7 @@ def save(kind: str, name: str, settings) -> str:
 
 
 def load(kind: str, name: str):
-    """Einstellungen (Datenklasse des Auftrags) aus einem Preset; FileNotFoundError, wenn es keines gibt."""
+    """Settings (dataclass of the job) from a preset; FileNotFoundError if there is none."""
     p = path_for(kind, name)
     k, d = core.load_settings(p)
     if k == "druck" and kind == PRINT:
@@ -113,7 +113,7 @@ def save_last(kind: str, settings) -> None:
     try:
         save(kind, LAST, settings)
     except OSError:
-        pass  # „zuletzt verwendet“ ist nur Komfort
+        pass  # "last used" is only a convenience
 
 
 def load_last(kind: str):

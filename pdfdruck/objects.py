@@ -31,10 +31,10 @@ MM = 72.0 / 25.4
 class DetectSettings:
     dpi: int = 150
     mode: str = "auto"  # auto | transparent | color
-    tolerance: int = 28  # 0–255 Abstand zur Hintergrundfarbe
+    tolerance: int = 28  # 0–255 distance from the background colour
     min_size_mm: float = 5.0  # kleinere Objekte (Staub, Schmutz) ignorieren
     gap_mm: float = 1.0  # parts lying closer together belong together
-    margin_mm: float = 0.0  # Rand um jedes Objekt (negativ = nach innen)
+    margin_mm: float = 0.0  # margin around every object (negative = inwards)
 
 
 @dataclass
@@ -42,7 +42,7 @@ class Box:
     x0: float
     y0: float
     x1: float
-    y1: float  # pt, normalisierte Seite (y nach oben)
+    y1: float  # pt, normalised page (y up)
 
     @property
     def w(self):
@@ -55,7 +55,7 @@ class Box:
 
 # --------------------------------------------------------------------------- #
 def normalized(doc):
-    """Kopie, in der jede Seite ungedreht ist und bei (0,0) beginnt (Drehung/CropBox eingerechnet)."""
+    """Copy in which every page is unrotated and starts at (0,0) (rotation/CropBox applied)."""
     import pypdfium2 as pdfium
 
     out = pdfium.PdfDocument.new()
@@ -100,21 +100,21 @@ def motif_mask(rgba, s: DetectSettings):
     if mode == "transparent":
         return alpha > 96, mode
     rgb = rgba[:, :, :3].astype(np.int16)
-    # Hintergrund = Median der Randpixel (robust gegen einzelne Objekte am Rand)
+    # background = median of the edge pixels (robust against single objects at the edge)
     border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]])
     bg = np.median(border, axis=0)
     # border not uniform -> there is no background: the artwork fills the entire page
-    # (z. B. Visitenkarte/Sticker im Endformat) -> die ganze Seite ist ein Objekt
+    # (e.g. business card/sticker at trim size) -> the whole page is one object
     if (np.abs(border - bg).max(axis=1) <= s.tolerance).mean() < 0.6:
         return alpha > 96, "page"
-    # ganzzahlig rechnen (schnell); doppelte Werte, damit ein „halber“ Median exakt gleich verglichen wird
+    # integer arithmetic (fast); doubled values so that a "half" median compares exactly equal
     bg2 = np.rint(bg * 2).astype(np.int16)
     diff2 = np.abs(rgb * 2 - bg2).max(axis=2)
     return (diff2 > 2 * s.tolerance) & (alpha > 96), mode
 
 
 def detect(page, s: DetectSettings) -> list[Box]:
-    """Objekte einer (normalisierten) Seite finden. Reihenfolge: zeilenweise von oben links."""
+    """Find the objects of a (normalised) page. Order: row by row from the top left."""
     import numpy as np
     from scipy import ndimage as ndi
 
@@ -134,7 +134,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
         if sl is None:
             continue
         ys, xs = sl
-        # wahre Ausdehnung aus der Originalmaske (ohne die Verbindungs-Dilatation)
+        # true extent from the original mask (without the connecting dilation)
         sub = mask[ys, xs]
         if not sub.any():
             continue
@@ -144,7 +144,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
         x0p, x1p = xs.start + cols[0], xs.start + cols[-1] + 1
         if (x1p - x0p) < minpx or (y1p - y0p) < minpx:
             continue
-        m = s.margin_mm * MM  # negativ = nach innen beschneiden
+        m = s.margin_mm * MM  # negative = crop inwards
         b = Box(max(0.0, x0p / px - m), max(0.0, H - y1p / px - m), min(W, x1p / px + m), min(H, H - y0p / px + m))
         if b.w > 1 and b.h > 1:
             boxes.append(b)
@@ -152,7 +152,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
 
 
 def reading_order(boxes: list[Box]) -> list[Box]:
-    """Zeilen von oben nach unten, in der Zeile von links nach rechts."""
+    """Rows from top to bottom, within a row from left to right."""
     rest = sorted(boxes, key=lambda b: -b.y1)
     out = []
     while rest:
@@ -171,7 +171,7 @@ def with_margin(b: Box, margin_mm: float, page_w: float, page_h: float) -> Box:
 
 
 def separate(norm_doc, boxes_by_page: dict[int, list[Box]], margin_mm: float = 0.0):
-    """Neues Dokument: jedes Objekt eine Seite (Reihenfolge: Seiten, darin Lesereihenfolge)."""
+    """New document: every object one page (order: pages, within them reading order)."""
     import pypdfium2 as pdfium
 
     out = pdfium.PdfDocument.new()

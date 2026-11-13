@@ -138,7 +138,7 @@ def import_icc(path: str) -> str:
     """Copy an ICC file into the own ICC folder -> new path (the same file is not copied twice)."""
     from .colorconv import icc_colorspace
 
-    icc_colorspace(path)  # ValueError, wenn kein ICC
+    icc_colorspace(path)  # ValueError if it is not an ICC profile
     d = icc_dir()
     os.makedirs(d, exist_ok=True)
     if os.path.realpath(os.path.dirname(path)) == os.path.realpath(d):
@@ -159,7 +159,7 @@ def import_icc(path: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Standard-Druckbedingungen (ICC Profile Registry)
+# standard printing conditions (ICC Profile Registry)
 # --------------------------------------------------------------------------- #
 REGISTRY = "https://registry.color.org/profile-registry/profiles/{0}.icc"
 REGISTRY_PAGE = "https://registry.color.org/profile-registry/{0}"
@@ -300,15 +300,15 @@ def tac_limit_for(icc_path: str, default: int = 300) -> int:
     except Exception:
         pass
     text = re.sub(r"[^a-z0-9]", "", text)
-    for p in STANDARD_PROFILES:  # genau dieses Profil
+    for p in STANDARD_PROFILES:  # exactly this profile
         if re.sub(r"[^a-z0-9]", "", p["key"].lower()) in text:
             return p["tac"]
     m = re.search(r"(?:tac|gcr|ucr|vigc)(2[4-9]0|3[0-5]0)", text)
-    if m:  # Grenze im Namen („…_VIGC_260“, „TAC300“)
+    if m:  # limit in the name ("…_VIGC_260", "TAC300")
         return int(m.group(1))
     if "isocoatedv2" in text or "fogra39" in text or "fogra27" in text:
         return 330  # ISO Coated v2 / FOGRA39: 330 %
-    for p in STANDARD_PROFILES:  # gleiche Druckbedingung
+    for p in STANDARD_PROFILES:  # same printing condition
         if p["condition"].lower() in text:
             return p["tac"]
     return default
