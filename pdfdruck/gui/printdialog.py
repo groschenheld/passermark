@@ -234,7 +234,7 @@ class SideTab(QPushButton):
         path.lineTo(r.right(), r.bottom())
         path.closeSubpath()
         p.fillPath(path, bg)
-        ink = QColor("#1b1d20")
+        ink = QColor(theme.PAPER_INK)
         # arrow at the top: ◀ = open (the window opens to the left), ▶ = close
         cx, cy, a = r.center().x(), r.top() + self.W / 2 + 2, 5.5
         pts = (
@@ -2628,7 +2628,7 @@ class PrintDialog(QDialog):
             pages = self._pages()
             self.ed_range.setStyleSheet("")
         except ValueError as e:
-            self.ed_range.setStyleSheet("background: #ffd6d6;")
+            self.ed_range.setStyleSheet(f"background: {theme.INVALID_FIELD};")
             self.lbl_warn.setText(str(e))
             self.plans = []
             self.preview.set_content(None, None, False)

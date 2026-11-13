@@ -89,11 +89,11 @@ class VdpCanvas(QWidget):
         if self.trim is not None:
             l, t, r, b = self.trim
             p.setBrush(Qt.BrushStyle.NoBrush)
-            pen = QPen(QColor("#2e9e4f"), 1)  # inner frame: trim size/inner distance
+            pen = QPen(QColor(theme.MARK_OK), 1)  # inner frame: trim size/inner distance
             p.setPen(pen)
             p.drawRect(QRectF(ox + l * s, oy + t * s, max(1.0, W - l - r) * s, max(1.0, H - t - b) * s))
             if self.bleed > 0:  # outside: bleed
-                pen = QPen(QColor("#e04040"), 1)
+                pen = QPen(QColor(theme.MARK_ERROR), 1)
                 pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen)
                 p.drawRect(
@@ -107,7 +107,7 @@ class VdpCanvas(QWidget):
         for i, f in enumerate(self.fields):
             if self.vis is not None and i not in self.vis:
                 continue  # the field belongs to a window that does not cover this page
-            col = QColor(theme.ACCENT if i == self.sel else "#ec008c")
+            col = QColor(theme.ACCENT if i == self.sel else theme.MARK)
             pen = QPen(col, 2 if i == self.sel else 1)
             pen.setStyle(Qt.PenStyle.SolidLine if i == self.sel else Qt.PenStyle.DashLine)
             p.setPen(pen)

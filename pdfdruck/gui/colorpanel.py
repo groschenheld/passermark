@@ -309,7 +309,7 @@ class ColorPanel(QWidget):
                     n["error"], n["warning"], n["info"]
                 )
             )
-        col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "ok": "#3fa34d"}
+        col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "ok": theme.OK}
         self.tree.clear()
         for x in self.findings:
             it = QTreeWidgetItem([tr(SEV_TEXT[x.severity]), x.title])

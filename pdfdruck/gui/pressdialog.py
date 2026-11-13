@@ -42,7 +42,7 @@ from . import theme
 from .common import fill_combo
 
 SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis", "ok": "OK"}
-SEV_COL = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "ok": "#3fa34d"}
+SEV_COL = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "ok": theme.OK}
 
 
 class _Run(QThread):

@@ -142,8 +142,8 @@ class PageCanvas(QWidget):
             p.drawPixmap(QRectF(self.to_widget(x0, y1), self.to_widget(x1, y0)), pm, QRectF(pm.rect()))
         for i, b in enumerate(self.boxes):
             sel = i in self.selected
-            p.setPen(QPen(QColor(theme.ACCENT) if sel else QColor(0, 160, 255), 2.5 if sel else 1.5))
-            c = QColor(theme.ACCENT if sel else "#00a0ff")
+            p.setPen(QPen(QColor(theme.ACCENT) if sel else QColor(theme.MARK_OBJECT), 2.5 if sel else 1.5))
+            c = QColor(theme.ACCENT if sel else theme.MARK_OBJECT)
             c.setAlpha(50)
             p.setBrush(c)
             r = self._rect(b)
@@ -151,17 +151,17 @@ class PageCanvas(QWidget):
             if abs(self.margin_pt) > 0.01:
                 mb = objects.with_margin(b, self.margin_pt / objects.MM, self.page_w, self.page_h)
                 p.save()
-                p.setPen(QPen(QColor(236, 0, 140), 1.5, Qt.PenStyle.DashLine))
+                p.setPen(QPen(QColor(theme.MARK), 1.5, Qt.PenStyle.DashLine))
                 p.setBrush(Qt.BrushStyle.NoBrush)
                 p.drawRect(self._rect(mb))
                 p.restore()
-                p.setPen(QPen(QColor(theme.ACCENT) if sel else QColor(0, 160, 255), 2.5 if sel else 1.5))
+                p.setPen(QPen(QColor(theme.ACCENT) if sel else QColor(theme.MARK_OBJECT), 2.5 if sel else 1.5))
             p.setPen(QColor("#000"))
             p.drawText(r.adjusted(4, 2, 0, 0), int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), str(i + 1))
         if self.paths:
             p.setBrush(Qt.BrushStyle.NoBrush)
             live = self.live != (1.0, 1.0, 0.0, 0.0)
-            p.setPen(QPen(QColor(236, 0, 140), 1.6, Qt.PenStyle.DashLine if live else Qt.PenStyle.SolidLine))
+            p.setPen(QPen(QColor(theme.MARK), 1.6, Qt.PenStyle.DashLine if live else Qt.PenStyle.SolidLine))
             for poly in self.paths:
                 tpoly = self._transformed(poly) if live else poly
                 path = QPainterPath(self.to_widget(*tpoly[0]))
@@ -225,7 +225,7 @@ class PageCanvas(QWidget):
     def _paint_handles(self, p):
         hs = self._handles()
         top = self.to_widget((self._box_now()[0] + self._box_now()[2]) / 2, self._box_now()[3])
-        p.setPen(QPen(QColor(236, 0, 140), 1))
+        p.setPen(QPen(QColor(theme.MARK), 1))
         p.drawLine(top, hs["move"])
         p.setBrush(QColor("#ffffff"))
         for name, c in hs.items():
@@ -233,7 +233,7 @@ class PageCanvas(QWidget):
                 continue
             p.drawRect(QRectF(c.x() - self.HANDLE, c.y() - self.HANDLE, 2 * self.HANDLE, 2 * self.HANDLE))
         m = hs["move"]
-        p.setBrush(QColor(236, 0, 140))
+        p.setBrush(QColor(theme.MARK))
         p.drawEllipse(m, self.HANDLE + 3, self.HANDLE + 3)
         p.setPen(QPen(QColor("#ffffff"), 1.4))
         a = self.HANDLE

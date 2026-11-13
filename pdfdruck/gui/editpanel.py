@@ -41,8 +41,8 @@ from ..l10n import tr
 from . import theme
 
 MM = 72.0 / 25.4
-SEL_TEXT = "#ff8a00"
-SEL_LAYER = "#00a8ff"
+SEL_TEXT = theme.SELECT_TEXT
+SEL_LAYER = theme.SELECT_LAYER
 
 
 def _err(parent, e):

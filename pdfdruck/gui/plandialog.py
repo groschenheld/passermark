@@ -2076,7 +2076,7 @@ class PlanDialog(QDialog):
             p.drawImage(1, 1, img.scaled(w, h))
         except Exception:  # noqa: BLE001 – Vorschau darf nie stören
             p = QPainter(pm)
-        p.setPen(QPen(QColor("#999999"), 1))
+        p.setPen(QPen(QColor(theme.PAPER_LINE), 1))
         p.drawRect(0, 0, w + 1, h + 1)
         p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
         p.drawLine(0, h + 1, w + 1, h + 1)  # cut at the end of the sheet

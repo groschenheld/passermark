@@ -490,7 +490,7 @@ class PreflightPanel(QWidget):
         if cr.truncated:
             lines.append(tr("(Nur die ersten {0} Bildplatzierungen ausgewertet.)").format(len(cr.images)))
         self.lbl_colors.setText("\n".join(lines))
-        col = {"good": QColor("#3fa34d"), "ok": QColor(theme.ACCENT), "low": QColor(theme.ERROR)}
+        col = {"good": QColor(theme.OK), "ok": QColor(theme.ACCENT), "low": QColor(theme.ERROR)}
 
         self.tbl_images.setRowCount(len(cr.images))
         for r, u in enumerate(cr.images):

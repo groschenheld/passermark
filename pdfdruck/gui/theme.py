@@ -14,18 +14,67 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QSlider
 
+# All colours of the user interface live here – nothing else in gui/ names a colour of its own (paper white and
+# the colours a user picks for their document are not interface colours).
+
+# surfaces
 BG = "#15171a"  # window
 PANEL = "#1e2124"  # bars, groups
 FIELD = "#0e1012"  # input fields
 VIEW = "#2a2d31"  # background behind the pages
+BUTTON = "#2a2e33"  # push buttons
+PLACEHOLDER = "#2c2f33"  # thumbnail that is not selected
+TIP_BG = "#000000"  # tool tips
+SCROLL = "#4a5057"  # handle of the scroll bars
+
+# lines
 BORDER = "#5a6068"  # border (deliberately light enough for contrast)
+BORDER_HOVER = "#8a9099"  # border under the mouse / with focus; check boxes
+BORDER_SUBTLE = "#3a3e43"  # faint border (thumbnails, page number field)
+BORDER_OFF = "#34383d"  # disabled button
+BORDER_OFF_FIELD = "#2e3236"  # disabled input field
+
+# text and icons
 TEXT = "#f3f4f5"
 MUTED = "#a9afb6"
-ACCENT = "#ffc62b"  # yellow
-ACCENT_SOFT = "rgba(255, 198, 43, 0.20)"
-ERROR = "#ff6b6b"
 ICON = "#d9dde1"
 ICON_OFF = "#5c6168"
+
+# accent: what is active, chosen or to be clicked next
+ACCENT = "#ffc62b"  # yellow
+ACCENT_OFF = "#6b5a1f"  # checked but disabled – a dimmed ACCENT, change both together
+ON_ACCENT = "#000000"  # text and check marks on the accent colour
+
+# status
+ERROR = "#ff6b6b"
+OK = "#3fa34d"
+INVALID_FIELD = "#ffd6d6"  # background of a field with an invalid entry
+
+# drawn on top of the page (must stand out against paper and artwork, not against the dark interface)
+MARK = "#ec008c"  # magenta: cut lines, handles, variable-data fields
+MARK_OBJECT = "#00a0ff"  # detected objects
+MARK_OK = "#2e9e4f"  # inside the limits (trim size, measured value fits)
+MARK_ERROR = "#e0301e"  # outside the limits
+SELECT_TEXT = "#ff8a00"  # edit mode: chosen text / object
+SELECT_LAYER = "#00a8ff"  # edit mode: chosen layer
+PAPER_INK = "#1b1d20"  # schematic drawing on the paper preview
+PAPER_LINE = "#999999"  # auxiliary lines on the paper preview
+
+
+def alpha(color: str, a: int) -> QColor:
+    """The colour with an opacity of a (0–255) – for translucent fills."""
+    c = QColor(color)
+    c.setAlpha(a)
+    return c
+
+
+def _rgba(color: str, opacity: str) -> str:
+    """ "#rrggbb" as "rgba(r, g, b, opacity)" for style sheets."""
+    r, g, b = (int(color[i : i + 2], 16) for i in (1, 3, 5))
+    return f"rgba({r}, {g}, {b}, {opacity})"
+
+
+ACCENT_SOFT = _rgba(ACCENT, "0.20")
 
 UI_FONTS = ["IBM Plex Sans", "Inter", "Segoe UI Variable Text", "Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans"]
 MONO_FONTS = ["IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", "Ubuntu Mono", "DejaVu Sans Mono"]
@@ -50,8 +99,8 @@ def mono_font(size: float = 9.5) -> QFont:
 QSS = f"""
 * {{ color: {TEXT}; }}
 QMainWindow, QDialog {{ background: {BG}; }}
-QWidget {{ selection-background-color: {ACCENT}; selection-color: #000; }}
-QToolTip {{ background: #000; color: {TEXT}; border: 1px solid {ACCENT}; padding: 4px; }}
+QWidget {{ selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
+QToolTip {{ background: {TIP_BG}; color: {TEXT}; border: 1px solid {ACCENT}; padding: 4px; }}
 
 QMenuBar {{ background: {PANEL}; border-bottom: 1px solid {BORDER}; }}
 QMenuBar::item {{ padding: 4px 10px; background: transparent; }}
@@ -69,26 +118,26 @@ QToolButton:hover {{ border-color: {ACCENT}; background: {ACCENT_SOFT}; }}
 QToolButton:pressed, QToolButton:checked {{ background: {ACCENT_SOFT}; border-color: {ACCENT}; color: {ACCENT}; }}
 QToolButton:disabled {{ color: {ICON_OFF}; }}
 
-QPushButton {{ background: #2a2e33; border: 1px solid {BORDER}; border-radius: 4px; padding: 5px 14px; }}
+QPushButton {{ background: {BUTTON}; border: 1px solid {BORDER}; border-radius: 4px; padding: 5px 14px; }}
 QPushButton:hover {{ border-color: {ACCENT}; }}
-QPushButton:pressed, QPushButton:checked {{ background: {ACCENT}; color: #000; border-color: {ACCENT}; }}
+QPushButton:pressed, QPushButton:checked {{ background: {ACCENT}; color: {ON_ACCENT}; border-color: {ACCENT}; }}
 QPushButton:default {{ border: 2px solid {ACCENT}; }}
-QPushButton:disabled {{ color: {ICON_OFF}; border-color: #34383d; }}
+QPushButton:disabled {{ color: {ICON_OFF}; border-color: {BORDER_OFF}; }}
 
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {{
     background: {FIELD}; border: 1px solid {BORDER}; border-radius: 3px; padding: 4px 6px; min-height: 18px; }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QPlainTextEdit:focus {{
     border: 1px solid {ACCENT}; }}
-QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {{ border-color: #8a9099; }}
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {{ border-color: {BORDER_HOVER}; }}
 QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QLineEdit:disabled {{
-    color: {ICON_OFF}; border-color: #2e3236; }}
+    color: {ICON_OFF}; border-color: {BORDER_OFF_FIELD}; }}
 QComboBox QAbstractItemView {{ background: {FIELD}; border: 1px solid {ACCENT}; outline: none;
-    selection-background-color: {ACCENT}; selection-color: #000; }}
+    selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
 
 QGroupBox {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 5px; margin-top: 14px; padding-top: 8px; }}
 QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 4px; color: {ACCENT}; font-weight: 600; }}
 
-QCheckBox::indicator, QRadioButton::indicator {{ width: 14px; height: 14px; border: 1px solid #8a9099; background: {FIELD}; }}
+QCheckBox::indicator, QRadioButton::indicator {{ width: 14px; height: 14px; border: 1px solid {BORDER_HOVER}; background: {FIELD}; }}
 QCheckBox::indicator {{ border-radius: 2px; }}
 QRadioButton::indicator {{ border-radius: 7px; }}
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
@@ -111,7 +160,7 @@ QScrollArea {{ border: none; }}
 
 QScrollBar:vertical {{ background: {BG}; width: 11px; margin: 0; }}
 QScrollBar:horizontal {{ background: {BG}; height: 11px; margin: 0; }}
-QScrollBar::handle {{ background: #4a5057; border-radius: 4px; min-height: 30px; min-width: 30px; margin: 2px; }}
+QScrollBar::handle {{ background: {SCROLL}; border-radius: 4px; min-height: 30px; min-width: 30px; margin: 2px; }}
 QScrollBar::handle:hover {{ background: {ACCENT}; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
@@ -126,8 +175,12 @@ def _indicator_qss() -> str:
     os.makedirs(d, exist_ok=True)
     files = {
         "check.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3 6.6-7" '
-        'fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-        "dot.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.6" fill="#000"/></svg>',
+        'fill="none" stroke="'
+        + ON_ACCENT
+        + '" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        "dot.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.6" fill="'
+        + ON_ACCENT
+        + '"/></svg>',
     }
     for name, svg in files.items():
         with open(os.path.join(d, name), "w") as f:
@@ -138,8 +191,8 @@ def _indicator_qss() -> str:
 QCheckBox::indicator:checked, QListView::indicator:checked, QGroupBox::indicator:checked {{
     image: url({chk}); background: {ACCENT}; border-color: {ACCENT}; }}
 QRadioButton::indicator:checked {{ image: url({dot}); background: {ACCENT}; border-color: {ACCENT}; }}
-QListView::indicator {{ width: 14px; height: 14px; border: 1px solid #8a9099; background: {FIELD}; border-radius: 2px; }}
-QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled {{ background: #6b5a1f; border-color: #6b5a1f; }}
+QListView::indicator {{ width: 14px; height: 14px; border: 1px solid {BORDER_HOVER}; background: {FIELD}; border-radius: 2px; }}
+QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled {{ background: {ACCENT_OFF}; border-color: {ACCENT_OFF}; }}
 """
 
 
@@ -243,11 +296,11 @@ def apply(app: QApplication):
         (QPalette.ColorRole.Base, FIELD),
         (QPalette.ColorRole.AlternateBase, PANEL),
         (QPalette.ColorRole.Text, TEXT),
-        (QPalette.ColorRole.Button, "#2a2e33"),
+        (QPalette.ColorRole.Button, BUTTON),
         (QPalette.ColorRole.ButtonText, TEXT),
         (QPalette.ColorRole.Highlight, ACCENT),
-        (QPalette.ColorRole.HighlightedText, "#000000"),
-        (QPalette.ColorRole.ToolTipBase, "#000000"),
+        (QPalette.ColorRole.HighlightedText, ON_ACCENT),
+        (QPalette.ColorRole.ToolTipBase, TIP_BG),
         (QPalette.ColorRole.ToolTipText, TEXT),
         (QPalette.ColorRole.PlaceholderText, MUTED),
         (QPalette.ColorRole.Link, ACCENT),

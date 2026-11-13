@@ -1622,7 +1622,7 @@ class PageView(QScrollArea):
             if sp is not None and sp[0] == w.index:
                 # Ctrl preview cross hairs; bold + circle when snapped to an edge
                 px, py = self.to_widget(w, sp[1], sp[2])
-                col = QColor("#2e9e4f") if sp[3] else QColor(theme.MUTED)
+                col = QColor(theme.MARK_OK) if sp[3] else QColor(theme.MUTED)
                 pen = QPen(col, 2 if sp[3] else 1)
                 if not sp[3]:
                     pen.setStyle(Qt.PenStyle.DashLine)
@@ -1643,8 +1643,8 @@ class PageView(QScrollArea):
                 else:
                     pg_, _tp = self._textpage(w.index)
                     crop = pg_.get_cropbox()
-                green = QColor("#2e9e4f")
-                red = QColor("#e0301e")
+                green = QColor(theme.MARK_OK)
+                red = QColor(theme.MARK_ERROR)
                 outer = self._rect_widget(w, crop[0], crop[1], crop[2], crop[3])
                 inner = self._rect_widget(w, trim[0], trim[1], trim[2], trim[3])
                 # ring between page edge and trim size: only a fine red frame
@@ -1922,11 +1922,11 @@ class ThumbDelegate(QStyledItemDelegate):
         sel = bool(option.state & QStyle.StateFlag.State_Selected)
         box = self.box_rect(r)
         if sel:
-            p.setBrush(QColor(255, 198, 43, 60))
+            p.setBrush(theme.alpha(theme.ACCENT, 60))
             p.setPen(QPen(QColor(theme.ACCENT), 2))
         else:
-            p.setBrush(QColor("#2c2f33"))
-            p.setPen(QPen(QColor("#3a3e43"), 1))
+            p.setBrush(QColor(theme.PLACEHOLDER))
+            p.setPen(QPen(QColor(theme.BORDER_SUBTLE), 1))
         p.drawRoundedRect(box, 4, 4)
         img = self.image_rect(r, index.data(THUMB_ASPECT) or 1.414)
         p.setPen(Qt.PenStyle.NoPen)
@@ -2212,9 +2212,9 @@ class PageEdit(QLineEdit):
         self.setFixedWidth(64)
         self.setClearButtonEnabled(False)
         self.setStyleSheet(
-            "QLineEdit { border: 1px solid #3a3e43; border-radius: 3px; padding: 1px 4px;"
+            "QLineEdit { border: 1px solid " + theme.BORDER_SUBTLE + "; border-radius: 3px; padding: 1px 4px;"
             " background: " + theme.PANEL + "; color: " + theme.TEXT + "; }"
-            "QLineEdit:focus { border-color: #8a9099; }"
+            "QLineEdit:focus { border-color: " + theme.BORDER_HOVER + "; }"
         )
 
     # ---- update the display ----

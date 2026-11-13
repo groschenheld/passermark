@@ -24,6 +24,7 @@ ENV = dict(
     os.environ,
     PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
     PASSERMARK_LANG="de",
+    PASSERMARK_SHARED_ROOT=os.path.join(TMP, "shared"),  # never touch the real shared folder of the machine
     XDG_CONFIG_HOME=os.path.join(TMP, "cfg"),
     PDFDRUCK_CONFIG_DIR=os.path.join(TMP, "etc"),
 )
