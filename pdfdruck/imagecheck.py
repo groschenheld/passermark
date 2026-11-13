@@ -19,22 +19,24 @@ from .l10n import tr
 
 MM = 72.0 / 25.4
 GOOD_DPI, OK_DPI = 300, 150  # close viewing / poster, large format
-GOOD_DPI_1BIT, OK_DPI_1BIT = 600, 300  # Strichbilder (1 Bit)
+GOOD_DPI_1BIT, OK_DPI_1BIT = 600, 300  # line art (1 bit)
 MIN_PLACED_MM = 2.0  # do not rate tiny placements (dots, lines)
 
 
 @dataclass
 class ImageUse:
-    page: int  # 1-basiert
+    """One placement of an image on a page: pixel size, placed size, effective resolution, colour space."""
+
+    page: int  # 1-based
     name: str
     px: tuple  # (width, height) in pixels
     placed_mm: tuple  # (width, height) on the page
-    dpi: float  # effektiv (kleinere Richtung)
+    dpi: float  # effective (smaller direction)
     space: str  # "RGB" | "CMYK" | "Grau" | "Sonderfarbe …" | …
-    profile: str = ""  # ICC-Profilname (falls eingebettet)
+    profile: str = ""  # ICC profile name (if embedded)
     bits: int = 8
     codec: str = ""  # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
-    mask: bool = False  # 1-Bit-Maske (Strich)
+    mask: bool = False  # 1-bit mask (line art)
     key: tuple | None = None  # Objektnummer des Bildes (None = eingebettet/inline)
     bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, page coordinates – where it lies on the page
 
@@ -44,14 +46,17 @@ class ImageUse:
 
     @property
     def good(self) -> float:
+        """Resolution from which this image counts as good (higher for 1-bit line art)."""
         return GOOD_DPI_1BIT if self.bits == 1 else GOOD_DPI
 
     @property
     def ok(self) -> float:
+        """Resolution from which this image counts as acceptable."""
         return OK_DPI_1BIT if self.bits == 1 else OK_DPI
 
     @property
     def rating(self) -> str:
+        """Rating of the resolution: good, ok, low – or tiny for placements too small to judge."""
         if min(self.placed_mm) < MIN_PLACED_MM:
             return "tiny"
         return "good" if self.dpi >= self.good * 0.98 else "ok" if self.dpi >= self.ok * 0.98 else "low"
@@ -59,6 +64,8 @@ class ImageUse:
 
 @dataclass
 class ColorReport:
+    """Images and colours of a document: image placements, colour spaces and spot colours per page."""
+
     images: list = field(default_factory=list)  # [ImageUse]
     page_colors: dict = field(default_factory=dict)  # page -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
     page_size_mm: dict = field(default_factory=dict)  # page -> (w, h)
@@ -68,7 +75,7 @@ class ColorReport:
 
 
 # --------------------------------------------------------------------------- #
-# ICC-Profilname
+# ICC profile name
 # --------------------------------------------------------------------------- #
 def icc_name(data: bytes) -> str:
     """Description (tag "desc") of an ICC profile – v2 (desc) and v4 (mluc)."""
@@ -161,7 +168,7 @@ def describe_space(cs, res=None, depth=0) -> tuple[str, str]:
 
 
 _BASE = {"RGB", "CMYK", "Grau", "Lab"}
-SPOT_NAMES: dict = {}  # Anzeige-Bezeichnung -> Sonderfarbennamen
+SPOT_NAMES: dict = {}  # display label -> spot colour names
 
 
 def space_label(s: str) -> str:
@@ -215,7 +222,7 @@ def _nums(ins):
 
 
 # --------------------------------------------------------------------------- #
-# Analyse
+# analysis
 # --------------------------------------------------------------------------- #
 def analyze(pdf, max_uses: int = 2000) -> ColorReport:
     """pikepdf-Dokument -> ColorReport."""
@@ -312,7 +319,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                     image_use(pno, nm, x, ctm, res)
                 elif sub == pikepdf.Name.Form:
                     og = x.objgen
-                    if og in seen_forms:  # Rekursion verhindern
+                    if og in seen_forms:  # prevent recursion
                         continue
                     m = tuple(float(v) for v in x.get("/Matrix", [1, 0, 0, 1, 0, 0]))
                     try:

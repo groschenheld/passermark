@@ -40,10 +40,12 @@ logging.getLogger("img2pdf").setLevel(logging.ERROR)
 
 
 def is_image(path: str) -> bool:
+    """Whether the file has an image extension that can be opened."""
     return os.path.splitext(path)[1].lower() in IMAGE_EXT
 
 
 def heif_available() -> bool:
+    """Whether HEIC/HEIF photos can be read (pillow_heif installed)."""
     try:
         import pillow_heif  # noqa: F401
 
@@ -288,13 +290,13 @@ def merge_gain_map(base, gm, icc=None, params: dict | None = None, stops: float 
     sdr = lin(np.asarray(base, np.float32) / 255.0)
     g = np.asarray(gm, np.float32)[..., None] / 255.0
     p = params
-    if p and "GainMapMax" in p:  # Ultra HDR: logarithmisch codierte Karte
+    if p and "GainMapMax" in p:  # Ultra HDR: logarithmically encoded map
         lo, hi = p.get("GainMapMin", 0.0), p["GainMapMax"]
         rec = np.power(g, 1.0 / max(p.get("Gamma", 1.0), 1e-3))
         o_s, o_h = p.get("OffsetSDR", 1 / 64), p.get("OffsetHDR", 1 / 64)
         hdr = (sdr + o_s) * np.power(2.0, lo + (hi - lo) * rec) - o_h
         H = 2.0**hi
-    else:  # Apple: hdr = sdr · (1 + (H − 1) · Karte)
+    else:  # Apple: hdr = sdr · (1 + (H − 1) · map)
         H = 2.0 ** (stops if stops is not None else HDR_APPLE_STOPS)
         hdr = sdr * (1.0 + (H - 1.0) * lin(g))
     # back to paper: unchanged up to the knee, above it soft up to white (the hue stays)

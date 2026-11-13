@@ -62,8 +62,9 @@ FINISH_LABELS = [
 
 
 class PageBox(QWidget):
-    """Statt QStackedWidget: nur die sichtbare Seite ist im Layout — die Gruppe
-    passt ihre Höhe in JEDEM Modus exakt an (kein Leerraum, keine Riesen-Reserve)."""
+    """Instead of QStackedWidget: only the visible page is in the layout — the group
+    adapts its height exactly in EVERY mode (no empty space, no huge reserve).
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,6 +76,7 @@ class PageBox(QWidget):
         self._lay = lay
 
     def addWidget(self, w: QWidget):
+        """Add a page (hidden until it is made current)."""
         self._pages.append(w)
         self._lay.addWidget(w)
         w.hide()
@@ -85,12 +87,15 @@ class PageBox(QWidget):
         return len(self._pages)
 
     def currentIndex(self) -> int:
+        """Index of the visible page."""
         return self._idx
 
     def currentWidget(self):
+        """The visible page, or None."""
         return self._pages[self._idx] if 0 <= self._idx < len(self._pages) else None
 
     def setCurrentIndex(self, i: int):
+        """Show page ``i`` and hide the previous one."""
         if i == self._idx or not (0 <= i < len(self._pages)):
             return
         if 0 <= self._idx < len(self._pages):
@@ -100,19 +105,21 @@ class PageBox(QWidget):
 
 
 class Preview(QWidget):
-    """Zeigt ein ausgeschossenes Blatt in Leserichtung + bedruckbaren Bereich.
-    Bei Duplex zusätzlich die Rückseite – links/rechts/darunter, je nach Wendekante."""
+    """Shows an imposed sheet in reading direction + the printable area.
+    With duplex also the back side – left/right/below, depending on the flip edge.
+    """
 
     def __init__(self):
         super().__init__()
         self.setMinimumSize(380, 460)
         self.pixmap = None
-        self.back = None  # Rückseite (Pixmap) oder None
+        self.back = None  # back side (pixmap) or None
         self.back_side = None  # "left" | "right" | "below" | "above"
         self.sheet = None
         self.landscape = False
 
     def set_content(self, pixmap, sheet, landscape, back=None, back_side=None):
+        """Set the sheet image to show, with its sheet, orientation and optional back side."""
         self.pixmap, self.sheet, self.landscape = pixmap, sheet, landscape
         self.back, self.back_side = back, back_side
         self.update()
@@ -148,7 +155,7 @@ class Preview(QWidget):
         p.fillRect(r, Qt.GlobalColor.white)
         if pixmap is not None:
             p.drawPixmap(r, pixmap, QRectF(pixmap.rect()))
-        # bedruckbarer Bereich (gestrichelt)
+        # printable area (dashed)
         LW, LH, (x, y, w, h) = layout._logical(self.sheet, self.landscape)
         s = r.width() / LW
         pen = QPen(QColor(theme.ACCENT), 1, Qt.PenStyle.DashLine)
@@ -171,17 +178,18 @@ class Preview(QWidget):
 
 
 class SideTab(QPushButton):
-    """Senkrechter Reiter am linken Dialogrand (gelb, Text von unten nach oben, Pfeil zum Öffnen).
-    Öffnet/schließt ein zugehöriges Fenster; der Pfeil zeigt, ob es offen ist, der Punkt,
-    ob die Funktion aktiv ist."""
+    """Vertical tab at the left edge of the dialog (yellow, text from bottom to top, arrow for opening).
+    Opens/closes an associated window; the arrow shows whether it is open, the dot
+    whether the function is active.
+    """
 
     W = 30
 
     def __init__(self, text: str, parent=None):
         super().__init__(parent)
         self._text = text
-        self.window_fn = lambda: None  # -> das zugehörige Fenster (für den Offen-Zustand)
-        self.active_fn = lambda: False  # -> Funktion zugeschaltet?
+        self.window_fn = lambda: None  # -> the associated window (for the open state)
+        self.active_fn = lambda: False  # -> function switched on?
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedWidth(self.W)
         fm = self.fontMetrics()
@@ -189,6 +197,7 @@ class SideTab(QPushButton):
         self.setAccessibleName(text)
 
     def watch(self, w):
+        """Follow show/hide events of the window this tab belongs to."""
         w.installEventFilter(self)
 
     def eventFilter(self, obj, ev):
@@ -214,7 +223,7 @@ class SideTab(QPushButton):
             bg = bg.darker(118)
         elif self.underMouse():
             bg = bg.lighter(110)
-        # links abgerundet, rechts bündig am Dialog
+        # rounded on the left, flush with the dialog on the right
         rad = 7.0
         path = QPainterPath()
         path.moveTo(r.right(), r.top())
@@ -226,7 +235,7 @@ class SideTab(QPushButton):
         path.closeSubpath()
         p.fillPath(path, bg)
         ink = QColor("#1b1d20")
-        # Pfeil oben: ◀ = öffnen (Fenster geht nach links auf), ▶ = schließen
+        # arrow at the top: ◀ = open (the window opens to the left), ▶ = close
         cx, cy, a = r.center().x(), r.top() + self.W / 2 + 2, 5.5
         pts = (
             [QPointF(cx + a * 0.6, cy - a), QPointF(cx - a * 0.6, cy), QPointF(cx + a * 0.6, cy + a)]
@@ -236,7 +245,7 @@ class SideTab(QPushButton):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(ink)
         p.drawPolygon(QPolygonF(pts))
-        # Text von unten nach oben
+        # text from bottom to top
         p.save()
         p.translate(r.center().x(), r.center().y() + self.W / 2 - 4)
         p.rotate(-90)
@@ -247,7 +256,7 @@ class SideTab(QPushButton):
         h = self.height() - self.W - 20
         p.drawText(QRectF(-h / 2, -self.W / 2, h, self.W), int(Qt.AlignmentFlag.AlignCenter), self._text)
         p.restore()
-        # aktiv: Punkt unten
+        # active: dot at the bottom
         if self.active_fn():
             p.setBrush(ink)
             p.drawEllipse(QPointF(cx, r.bottom() - 10), 3.5, 3.5)
@@ -267,8 +276,9 @@ class SideTab(QPushButton):
 
 
 class _print_pump:
-    """Windows-Druck rastert Seite für Seite im Hauptfenster (2–6 s bei großen Blättern). Dazwischen darf das Fenster
-    sich neu zeichnen und der Herzschlag weiterlaufen – Eingaben bleiben bis zum Ende gesperrt."""
+    """Windows printing rasterises page by page in the main window (2–6 s for large sheets). In between the window
+    may repaint and the heartbeat keeps running – input stays blocked until the end.
+    """
 
     def __init__(self):
         self._mod = None
@@ -285,12 +295,15 @@ class _print_pump:
             self._mod = None
 
     def close(self):
+        """Remove the hook again."""
         if self._mod is not None:
             self._mod.PUMP = None
             self._mod = None
 
 
 class PrintDialog(QDialog):
+    """The print dialog: printer and options on the left, live preview of the imposed sheets on the right."""
+
     def __init__(
         self,
         parent,
@@ -305,37 +318,37 @@ class PrintDialog(QDialog):
         self.setWindowTitle(tr("Drucken"))
         self.resize(1180, 760)
         self.doc, self.path, self.current, self.s = doc, path, current, session
-        # Datei mit genau dem Inhalt von doc + Seitendaten (Ansicht): Vorschau im Render-Prozess
+        # file with exactly the content of doc + page data (view): preview in the render process
         self.src_path, self.pinfo = src_path, pinfo
-        self._pv_busy = False  # eine Vorschau-Anfrage unterwegs
-        self._pv_next = {}  # wartende Anfragen: True = Vorschau, False = Übersicht (je nur die neueste)
+        self._pv_busy = False  # one preview request on its way
+        self._pv_next = {}  # waiting requests: True = preview, False = overview (only the newest of each)
         self._pv_gen = 0
-        self._pv_used = False  # Render-Prozess hat eine Vorschau-Quelle geladen (beim Schließen freigeben)
-        self._spr_file = None  # Druckbögen als Datei für den Render-Prozess
+        self._pv_used = False  # the render process has loaded a preview source (release when closing)
+        self._spr_file = None  # printer's spreads as a file for the render process
         self.cfg = session.cfg
         self.sizes = [doc.get_page_size(i) for i in range(len(doc))]
         self.caps: printers.PrinterCaps | None = None
         self.plans: list[layout.SheetPlan] = []
-        self.plans1 = None  # Schritt 1: Pläne auf dem gewählten Papier (bei Schritt 2)
-        self.plans2 = None  # Schritt 2: Pläne auf dem Zielformat (für Vorschau/Ausgabe)
+        self.plans1 = None  # step 1: plans on the chosen paper (with step 2)
+        self.plans2 = None  # step 2: plans on the target size (for preview/output)
         self.sheet_index = 0
         self._preview_timer = QTimer(self, singleShot=True, interval=150, timeout=self._update_preview)
 
         root = self._root = QHBoxLayout(self)
         left = QVBoxLayout()
-        # Preset oben: gilt für die ganze linke Spalte (ohne Drucker/Fach)
+        # preset at the top: applies to the whole left column (without printer/tray)
         from .presetbar import PresetBar
 
         self.presetbar = PresetBar(self, "impose", self._preset_settings, self._load_layout)
         self.presetbar.setToolTip(tr("Seitenhandhabung, Broschüre, Poster, Nutzen und weitere Optionen – ohne Drucker"))
         left.addWidget(self.presetbar)
-        # Eine durchlaufende Spalte statt Reiter: Führung von oben nach unten
+        # one continuous column instead of tabs: guidance from top to bottom
         self.general = QWidget()
         self.general.setMinimumWidth(380)
         left.addWidget(self._scroll(self.general), 1)
 
         right = QVBoxLayout()
-        # Einstellungen | Vorschau mit verschiebbarem Teiler (breiter ziehen statt abgeschnitten)
+        # settings | preview with a movable splitter (drag wider instead of cut off)
         from PySide6.QtWidgets import QSplitter
 
         lw, rw = QWidget(), QWidget()
@@ -406,10 +419,10 @@ class PrintDialog(QDialog):
         return sa
 
     # ================================================================== #
-    # Aufbau "Allgemein"
+    # structure of "Allgemein"
     # ================================================================== #
     def _section(self, title: str, expanded: bool = True):
-        """Einheitlicher einklappbarer Abschnitt mit Formular im Haupt-Layout."""
+        """Uniform collapsible section with a form in the main layout."""
         sec = CollapsibleSection(title, expanded=expanded)
         self._col.addWidget(sec)
         inner = QWidget()
@@ -421,7 +434,7 @@ class PrintDialog(QDialog):
         v = QVBoxLayout(self.general)
         self._col = v
 
-        # Drucker
+        # printer
         sec = self._section(tr("Drucker"))
         f = sec.form
         self.cmb_printer = QComboBox()
@@ -437,7 +450,7 @@ class PrintDialog(QDialog):
         self.btn_reset = QPushButton(tr("Auf Admin-Standards zurücksetzen"))
         self.btn_reset.clicked.connect(self._reset_to_admin)
         f.addRow("", self.btn_reset)
-        # nur beim Speichern als PDF: Passwortschutz
+        # only when saving as PDF: password protection
         self.pw_box = QWidget()
         pv = QVBoxLayout(self.pw_box)
         pv.setContentsMargins(0, 0, 0, 0)
@@ -472,7 +485,7 @@ class PrintDialog(QDialog):
         row.addStretch()
         f.addRow(tr("Kopien:"), row)
 
-        # Seiten
+        # pages
         sec = self._section(tr("Zu druckende Seiten"))
         gw = QWidget()
         sec.body_layout.addWidget(gw)
@@ -506,10 +519,10 @@ class PrintDialog(QDialog):
         # page size and handling
         L = self.s.layout
         sec = CollapsibleSection(tr("Was soll gedruckt werden?"), expanded=True)
-        self.handling_group = sec  # sofort verankert, einheitliche Überschrift
+        self.handling_group = sec  # anchored at once, uniform heading
         v.addWidget(sec)
         gv = sec.body_layout
-        tog = QVBoxLayout()  # Knöpfe untereinander: immer lesbar
+        tog = QVBoxLayout()  # buttons below each other: always readable
         self.handling_btns = {}
         bg = QButtonGroup(self)
         for key, text, page in [
@@ -526,9 +539,9 @@ class PrintDialog(QDialog):
             tog.addWidget(b)
             self.handling_btns[key] = b
         gv.addLayout(tog)
-        # Step & Repeat: kein Modus, sondern ein eigenes Fenster, das auf den gewählten Modus wirkt
-        # (Einzelblätter: die Seiten, Broschüre: die Druckbögen) – inkl. Schritt 2
-        # als senkrechter gelber Reiter am linken Dialogrand (öffnet/schließt das Fenster)
+        # Step & repeat: not a mode but a window of its own that acts on the chosen mode
+        # (single sheets: the pages, booklet: the spreads) – incl. step 2
+        # as a vertical yellow tab at the left edge of the dialog (opens/closes the window)
         self.btn_srwin = SideTab(tr("Step && Repeat …").replace("&&", "&"))
         self.btn_srwin.setToolTip(
             tr(
@@ -550,14 +563,14 @@ class PrintDialog(QDialog):
         gv.addWidget(self.lbl_modehint)
         self.stack = PageBox()
         gv.addWidget(self.stack)
-        self.stack.addWidget(QWidget())  # Seite 0: Einzelblätter – Optionen stehen bei „Wie aufs Blatt?“
+        self.stack.addWidget(QWidget())  # page 0: single sheets – the options are under "Wie aufs Blatt?"
 
-        # -- Size-Optionen (Anpassen/Tatsächlich/…) stehen jetzt in der Gruppe
-        #    „Wie aufs Blatt?“ weiter unten – nicht mehr als eigene Stack-Seite.
+        # -- the size options (fit/actual/…) now live in the group
+        #    "Wie aufs Blatt?" further down – no longer a stack page of their own.
 
-        # -- Mehrere
+        # -- several per sheet
         mg = QWidget()
-        self.stack.addWidget(mg)  # sofort verankern, dann füllen
+        self.stack.addWidget(mg)  # anchor at once, then fill
         ml = QFormLayout(mg)
         row = QHBoxLayout()
         self.cmb_nup = QComboBox()
@@ -617,7 +630,7 @@ class PrintDialog(QDialog):
 
         # -- Booklet
         bw = QWidget()
-        self.stack.addWidget(bw)  # sofort verankern, dann füllen
+        self.stack.addWidget(bw)  # anchor at once, then fill
         bl = QFormLayout(bw)
         self.cmb_bkind = QComboBox()
         fill_combo(
@@ -720,12 +733,12 @@ class PrintDialog(QDialog):
             mrow.addWidget(c)
         mrow.addStretch()
         bl.addRow(tr("Marken:"), mrow)
-        # Falzbogen-Optionen gelten nur für den alten Weg (Bogen aufs Blatt eingepasst) – ausgeblendet
+        # the folded-sheet options only apply to the old path (sheet fitted onto the paper) – hidden
         for _w in (self.spn_gutter, self.spn_creep):
             bl.setRowVisible(_w, False)
         bl.setRowVisible(mrow, False)
-        # Druckbögen für Nutzen: Broschüre -> eigenes Dokument (je Bogenseite ein aufgeklappter Bogen),
-        # das danach im Modus „Nutzen“ mit Anordnung/Überfüller/Schnittmarken/Schritt 2 montiert wird
+        # Spreads for step and repeat: booklet -> its own document (one opened spread per sheet side),
+        # which is then imposed in "Nutzen" mode with arrangement/bleed/crop marks/step 2
         self.cmb_bspread = QComboBox()
         fill_combo(
             self.cmb_bspread,
@@ -750,8 +763,8 @@ class PrintDialog(QDialog):
                 "genau das."
             )
         )
-        self.chk_bnutzen.setChecked(True)  # seit 1.12: Broschüre IMMER als Druckbögen – VOR dem
-        self.chk_bnutzen.setVisible(False)  # Verbinden setzen (Dialog ist hier noch im Aufbau)
+        self.chk_bnutzen.setChecked(True)  # booklet ALWAYS as spreads – set BEFORE
+        self.chk_bnutzen.setVisible(False)  # connecting (the dialog is still being built here)
         self.chk_bnutzen.toggled.connect(self._changed)
         self.cmb_bspread.currentIndexChanged.connect(self._changed)
         bl.addRow("", self.chk_bnutzen)
@@ -778,7 +791,7 @@ class PrintDialog(QDialog):
 
         # -- Poster
         ow = QWidget()
-        self.stack.addWidget(ow)  # sofort verankern, dann füllen
+        self.stack.addWidget(ow)  # anchor at once, then fill
         ol = QFormLayout(ow)
         self.cmb_pmode = QComboBox()
         fill_combo(
@@ -840,9 +853,9 @@ class PrintDialog(QDialog):
         for c in (self.chk_pmarks, self.chk_plabels, self.chk_plarge):
             ol.addRow("", c)
 
-        # -- Nutzen (Step & Repeat) – vormals Reiter „Weitere Optionen“
-        # Eigenes, frei bewegliches Fenster (verschieben, minimieren, schließen) – Kind des Druckdialogs:
-        # lebt und wirkt nur mit ihm; Schließen versteckt es, die Einstellungen bleiben.
+        # -- step and repeat – formerly the tab "Weitere Optionen"
+        # A freely movable window of its own (move, minimise, close) – child of the print dialog:
+        # it lives and acts only with it; closing hides it, the settings stay.
         self.sr_win = QWidget(
             self,
             Qt.WindowType.Window
@@ -939,8 +952,8 @@ class PrintDialog(QDialog):
             L.sr_rotate,
         )
         f.addRow(tr("Nutzen drehen:"), self.cmb_srrot)
-        # „Anordnung“ + „Abstand“ stehen seit 1.12 beim Schnittmarken-/Anschnitt-Abschnitt
-        # (sie wirken auch dort: Nutzen-Abstand = Überfüller-/Zuschnitt-Frage)
+        # "Anordnung" + "Abstand" live in the crop marks/bleed section
+        # (they act there too: step-and-repeat gap = a bleed/cutting question)
         self.chk_srseq = QCheckBox(tr("Je Nutzen die nächste Seite (variable Daten, Nummerierung)"))
         self.chk_srseq.setChecked(L.sr_sequence)
         self.chk_srseq.setToolTip(
@@ -979,8 +992,8 @@ class PrintDialog(QDialog):
                 "neues Dokument aus (neuer Reiter) und schließt diesen Dialog."
             )
         )
-        # Schritt 2 als eigener Block: liegt im Nutzen-Panel – bei „Broschüre als Druckbögen“
-        # wandert er ins Broschüren-Panel (_place_sr2), Werte und Logik bleiben dieselben
+        # Step 2 as a block of its own: it lives in the step-and-repeat panel – with "booklet as spreads"
+        # it moves into the booklet panel (_place_sr2), values and logic stay the same
         self.sr2_box = QWidget(self)
         f2 = QFormLayout(self.sr2_box)
         f2.setContentsMargins(0, 0, 0, 0)
@@ -1036,13 +1049,13 @@ class PrintDialog(QDialog):
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
 
-        # die Modus-Gruppe ist bereits in v verankert (direkt nach Erstellung)
+        # the mode group is already anchored in v (right after creation)
 
-        # Wie kommt die Seite aufs Blatt? – passt zu jedem Druckmodus
+        # How does the page get onto the sheet? – fits every print mode
         sec = self._section(tr("Wie aufs Blatt?"))
         wf = sec.form
-        # Skalierungswahl (Anpassen/Tatsächlich/…) wirkt in JEDEM Modus:
-        # fit = Modus-Standard, actual/shrink/custom überschreiben die
+        # The scaling choice (fit/actual/…) acts in EVERY mode:
+        # fit = mode default, actual/shrink/custom override the
         # Modus-Skalierung (layout.global_scale).
         self.scale_box = QWidget()
         sec.body_layout.insertWidget(0, self.scale_box)
@@ -1123,7 +1136,7 @@ class PrintDialog(QDialog):
         self.spn_bleed.setSuffix(tr(" mm"))
         self.spn_bleed.setValue(L.bleed_mm)
         f.addRow(tr("Überfüller / Anschnitt (gespiegelt):"), self.spn_bleed)
-        # Nutzen-Anordnung (hat seit 1.12 hier ihren Platz – bei den Schnitt-/Zuschnitt-Fragen)
+        # step-and-repeat arrangement (lives here – with the cut/cutting questions)
         self.cmb_srjoin = QComboBox()
         fill_combo(
             self.cmb_srjoin,
@@ -1175,11 +1188,11 @@ class PrintDialog(QDialog):
         self.paper_group = self._section(tr("Papier und Ausgabe"))
         self.paper_form = self.paper_group.form
 
-        # Endverarbeitung (Finisher) – Vorlagen + erkannte Felder; unter Windows Herstellerdialog
+        # finishing – presets + detected fields; on Windows the vendor dialog
         self.finish_group = self._section(tr("Endverarbeitung (Finisher)"))
         self.finish_form = self.finish_group.form
 
-        # Farbe
+        # colour
         sec = self._section(tr("Farbmanagement"))
         f = sec.form
         self.cmb_material = QComboBox()
@@ -1196,7 +1209,7 @@ class PrintDialog(QDialog):
         f.addRow("", self.lbl_profile_note)
         self.color_form = f
 
-        # Seltenes gut sichtbar, aber eingeklappt:
+        # rarely used things clearly visible but collapsed:
         sec = CollapsibleSection(tr("Spiegeln (z. B. Transferpapier, Folienrückseite)"))
         self.chk_mirror_h = QCheckBox(tr("Horizontal spiegeln (z. B. Transferpapier, Bügelfolie, Folienrückseite)"))
         self.chk_mirror_h.setChecked(L.mirror_h)
@@ -1213,7 +1226,7 @@ class PrintDialog(QDialog):
         v.addWidget(sec)
         v.addStretch()
 
-        # Signale
+        # signals
         bg.buttonClicked.connect(self._handling_changed)
         for w in (
             self.rb_all,
@@ -1267,7 +1280,7 @@ class PrintDialog(QDialog):
             w.currentIndexChanged.connect(self._changed)
         for w in (self.chk_pmarks, self.chk_plabels, self.chk_plarge):
             w.toggled.connect(self._changed)
-        # Signale des ehemaligen Reiters „Weitere Optionen“ (Nutzen, Marken, Spiegeln)
+        # signals of the former tab "Weitere Optionen" (step and repeat, marks, mirroring)
         for w in (self.chk_sr, self.chk_sr2, self.chk_marks, self.chk_srseq):
             w.toggled.connect(self._changed)
         for w in (self.cmb_srmode, self.cmb_srorient, self.cmb_srrot, self.cmb_srjoin, self.cmb_srstack):
@@ -1294,7 +1307,7 @@ class PrintDialog(QDialog):
         self._sync_enabled()
 
     def _fill_sr2_formats(self):
-        """Zielformat-Liste für Schritt 2: die Formate des gewählten Geräts + eigene Maße."""
+        """List of target sizes for step 2: the sizes of the chosen device + custom measures."""
         if not hasattr(self, "cmb_sr2fmt"):
             return
         cur = self.cmb_sr2fmt.currentData() or getattr(self.s.layout, "sr2_format", "") or "custom"
@@ -1314,7 +1327,7 @@ class PrintDialog(QDialog):
         self._sr2_format_changed()
 
     def _sr2_format_changed(self, *_):
-        """Zielformat gewählt: die mm-Felder aus dem Gerät übernehmen (bei „Eigene Maße“ frei)."""
+        """Target size chosen: take the mm fields from the device (free for "Eigene Maße")."""
         if not hasattr(self, "spn_sr2w"):
             return
         v = self.cmb_sr2fmt.currentData()
@@ -1330,7 +1343,7 @@ class PrintDialog(QDialog):
         self._sync_enabled()
 
     def _sr2_output(self):
-        """Schritt 1 + Schritt 2 im Speicher montieren und als neues Dokument öffnen."""
+        """Impose step 1 + step 2 in memory and open the result as a new document."""
         if not self.caps:
             return
         try:
@@ -1350,7 +1363,7 @@ class PrintDialog(QDialog):
         try:
             self._ensure_trims()
             sheet = self._sheet()
-            self._make_plans(pages)  # derselbe Weg wie die Vorschau (auch Broschüre als Druckbögen)
+            self._make_plans(pages)  # the same path as the preview (also booklet as spreads)
             plans1 = self.plans1
             if not plans1:
                 raise RuntimeError(tr("Nichts zu montieren (Seiten-/Bogenbereich leer?)"))
@@ -1368,10 +1381,10 @@ class PrintDialog(QDialog):
             return
         notes = [w for p in plans1 for w in p.warnings] + [w for p in plans2 for w in p.warnings]
         opener(out, "_nutzen2", notes)
-        self.accept()  # wie beim Drucken: Dialog schließen, Ergebnis liegt im neuen Reiter
+        self.accept()  # as when printing: close the dialog, the result is in the new tab
 
     def _booklet_spreads_output(self):
-        """Broschüre als Druckbögen-Dokument öffnen (Schritt 1); montiert wird danach mit „Nutzen“."""
+        """Open the booklet as a document of spreads (step 1); imposing then happens with "Nutzen"."""
         try:
             pages = self._pages()
         except ValueError as e:
@@ -1393,7 +1406,7 @@ class PrintDialog(QDialog):
             QMessageBox.critical(self, tr("Druckbögen"), tr("Kein Fenster zum Öffnen des Ergebnisses gefunden."))
             return
         opener(out, "_druckboegen", notes)
-        self.accept()  # wie Schritt 2: Dialog schließen, Druckbögen liegen im neuen Reiter
+        self.accept()  # like step 2: close the dialog, the spreads are in the new tab
 
     def _show_admin_info(self, name):
         if name == printers.PDF_TARGET:
@@ -1440,15 +1453,16 @@ class PrintDialog(QDialog):
         return next((k for k, b in self.handling_btns.items() if b.isChecked()), "size")
 
     def _toggle_sr_window(self):
-        """Reiter: offen -> schließen (Einstellungen bleiben), sonst öffnen."""
+        """Tab: open -> close (settings stay), otherwise open."""
         if self.sr_win.isVisible() and not self.sr_win.isMinimized():
             self.sr_win.hide()
         else:
             self._open_sr_window()
 
     def _open_sr_window(self):
-        """Step-&-Repeat-Fenster zeigen (auch wenn es minimiert war) und nach vorne holen.
-        Beim ersten Mal links neben den Druckdialog (dorthin zeigt der Pfeil), sonst wo es zuletzt war."""
+        """Show the step-and-repeat window (also if it was minimised) and bring it to the front.
+        The first time to the left of the print dialog (where the arrow points), otherwise where it was last.
+        """
         if not getattr(self, "_sr_placed", False) and not self.sr_win.isVisible():
             self._sr_placed = True
             try:
@@ -1486,9 +1500,9 @@ class PrintDialog(QDialog):
         )
 
     def _sync_enabled(self):
-        # Globale Skalierung („Wie aufs Blatt?“) wirkt in JEDEM Druckmodus:
-        # fit = Modus-Standard, actual = Originalgröße, shrink = höchstens 100 %,
-        # custom = Maßstab/Eigene Maße. Deshalb immer sichtbar und wählbar.
+        # The global scaling ("Wie aufs Blatt?") acts in EVERY print mode:
+        # fit = mode default, actual = original size, shrink = at most 100 %,
+        # custom = scale/custom measures. Hence always visible and selectable.
         cust = self.rb_custom.isChecked()
         by = self.cmb_custom_by.currentData()
         self.cmb_custom_by.setEnabled(cust)
@@ -1512,23 +1526,23 @@ class PrintDialog(QDialog):
         if hasattr(self, "chk_sr"):
             sr = self.chk_sr.isChecked()
             grid = self.cmb_srmode.currentData() == "grid"
-            nup = self._handling() == "multiple"  # Nutzen-Anordnung gilt auch bei „Mehrere pro Blatt“
-            # … und bei Broschüre als Druckbögen (die Bögen werden mit der Nutzen-Logik montiert)
+            nup = self._handling() == "multiple"  # the step-and-repeat arrangement also applies to "several per sheet"
+            # … and to booklets as spreads (the spreads are imposed with the step-and-repeat logic)
             nup = nup or (self._handling() == "booklet" and self.chk_bnutzen.isChecked())
             for w in (self.cmb_srmode, self.cmb_srby, self.spn_srpct, self.spn_srmm, self.cmb_srorient, self.cmb_srrot):
                 w.setEnabled(sr)
-            self.cmb_srjoin.setEnabled(True)  # Anordnung: in jedem Modus einstellbar (wirkt, sobald Nutzen entstehen)
+            self.cmb_srjoin.setEnabled(True)  # arrangement: adjustable in every mode (acts as soon as copies result)
             by = self.cmb_srby.currentData()
             self.spn_srpct.setVisible(by == "percent")
             self.spn_srmm.setVisible(by != "percent")
             self.lbl_srsize.setVisible(sr)
             join = self.cmb_srjoin.currentData()
-            self.spn_srgap.setEnabled(join == "gap")  # Abstand: immer einstellbar, sobald „Mit Abstand“ gewählt
+            self.spn_srgap.setEnabled(join == "gap")  # gap: always adjustable once "Mit Abstand" is chosen
             self.chk_srseq.setEnabled(sr)
             self.cmb_srstack.setEnabled(sr and self.chk_srseq.isChecked())
-            # bei „Mehrere pro Blatt“ übersteuert die Nutzen-Anordnung den alten
-            # Abstand (edge immer; bleed ab 1 mm Anschnitt; gap immer) – Feld dann
-            # ausgrauen, damit klar ist, wo der wirksame Wert herkommt
+            # With "several per sheet" the step-and-repeat arrangement overrides the old
+            # gap (edge always; bleed from 1 mm bleed; gap always) – the field is then
+            # greyed out so that it is clear where the effective value comes from
             overridden = nup and (join != "bleed" or self.spn_bleed.value() > 0)
             self.spn_gap.setEnabled(not overridden)
             self.spn_srcols.setEnabled(sr and grid)
@@ -1551,8 +1565,8 @@ class PrintDialog(QDialog):
             tr("Bögen in umgekehrter Reihenfolge") if booklet else tr("Seiten in umgekehrter Reihenfolge")
         )
         if booklet and self.caps is not None:
-            # Druckbögen: gewendet wird an der Kante parallel zum Falz (hängt von Blattlage und
-            # „Seiten aneinander“ ab – steht nach der Planung im ersten Bogen)
+            # Spreads: the sheet is flipped at the edge parallel to the fold (depends on sheet orientation and
+            # "Seiten aneinander" – found in the first sheet after planning)
             plans = getattr(self, "plans", None) or []
             short = bool(plans and plans[0].landscape == (self.cmb_bspread.currentData() != "top"))
             edge = tr("kurzen Kante") if short else tr("langen Kante")
@@ -1576,7 +1590,7 @@ class PrintDialog(QDialog):
                 self.lbl_bhint.setText(tr("Beidseitig an der langen Kante wenden (Standard-Duplex)."))
 
     # ================================================================== #
-    # Drucker
+    # printer
     # ================================================================== #
     def _load_printers(self):
         try:
@@ -1663,7 +1677,7 @@ class PrintDialog(QDialog):
                 label = tr(label)
                 text = label if drv.lower() in (label.lower(), key.lower()) else f"{label}\n({drv})"
                 if role == "pagesize":
-                    if self.caps.backend == "pdf":  # NEU: Layout nur fürs PDF-Ziel
+                    if self.caps.backend == "pdf":  # layout only for the PDF target
                         row = QHBoxLayout()
                         row.addWidget(cb, 1)
                         b = QPushButton(tr("Sonderformate …"))
@@ -1676,7 +1690,7 @@ class PrintDialog(QDialog):
                         b.clicked.connect(self._custom_sizes)
                         row.addWidget(b)
                         self.paper_form.addRow(text + ":", row)
-                    else:  # Gerät: schlicht ohne Button
+                    else:  # device: plain, without a button
                         self.paper_form.addRow(text + ":", cb)
                     continue
                 self.paper_form.addRow(text + ":", cb)
@@ -1694,12 +1708,12 @@ class PrintDialog(QDialog):
             return
         self.s.refresh_custom_sizes()
         key = self.caps.roles.get("pagesize") if self.caps else None
-        if key and dlg.chosen and self.caps.backend == "pdf":  # NEU: nur PDF-Ziel
+        if key and dlg.chosen and self.caps.backend == "pdf":  # PDF target only
             self.values[key] = dlg.chosen
         self._build_paper()
         self._changed()
 
-    # ---------------- automatische Fachwahl ---------------- #
+    # ---------------- automatic tray selection ---------------- #
     def _pc(self):
         return self.cfg.get("printers", {}).get(self.caps.name, {}) if self.caps else {}
 
@@ -1790,7 +1804,7 @@ class PrintDialog(QDialog):
                 cb.blockSignals(False)
 
     # ------------------------------------------------------------------ #
-    # Randlos (1.18.13)
+    # borderless
     def _build_borderless(self):
         self.chk_borderless = None
         self._bl_want = False
@@ -1841,7 +1855,7 @@ class PrintDialog(QDialog):
         self._changed()
 
     def _borderless_sync(self):
-        """Häkchen und Hinweis nach dem, was gerade eingestellt ist (auch wenn randloses Papier direkt gewählt wurde)."""
+        """Tick and note according to what is currently set (also if borderless paper was chosen directly)."""
         cb = getattr(self, "chk_borderless", None)
         if cb is None:
             return
@@ -1929,7 +1943,7 @@ class PrintDialog(QDialog):
         from .stallwatch import paused
 
         try:
-            with paused():  # Windows-Dialog mit eigener Schleife: kein Ruckler
+            with paused():  # Windows dialog with its own loop: not a stall
                 res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
         except Exception as e:
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
@@ -1953,11 +1967,11 @@ class PrintDialog(QDialog):
         if pr.get("booklet") and self._handling() != "booklet":
             self.handling_btns["booklet"].setChecked(True)
             self.stack.setCurrentIndex(self.handling_btns["booklet"].property("page"))
-        # Felder neu aufbauen, damit sie die Vorlage zeigen
+        # rebuild the fields so that they show the preset
         self._build_paper()
         skey = self.caps.roles.get("source")
         if skey and skey in pr.get("options", {}) and hasattr(self, "chk_autotray"):
-            # Vorlage bestimmt das Fach selbst (z. B. Umschlagkarton aus dem Mehrzweckfach)
+            # the preset decides the tray itself (e.g. cover board from the multi-purpose tray)
             self.chk_autotray.blockSignals(True)
             self.chk_autotray.setChecked(False)
             self.chk_autotray.blockSignals(False)
@@ -1971,7 +1985,7 @@ class PrintDialog(QDialog):
     def _build_driver_tab(self):
         old = self.driver_box.layout()
         if old is not None:
-            QWidget().setLayout(old)  # altes Layout entsorgen
+            QWidget().setLayout(old)  # dispose of the old layout
         v = QVBoxLayout(self.driver_box)
         self.lbl_conflict = QLabel()
         self.lbl_conflict.setWordWrap(True)
@@ -2025,7 +2039,7 @@ class PrintDialog(QDialog):
         self.values[key] = cb.currentData()
         if self.caps and key == self.caps.roles.get("pagesize"):
             if getattr(self, "_bl_want", False) and not self.caps.is_borderless(self.values):
-                vals, ok = self.caps.set_borderless(self.values, True)  # anderes Format: randlos bleibt an
+                vals, ok = self.caps.set_borderless(self.values, True)  # other size: borderless stays on
                 if ok and vals.get(key) != self.values.get(key):
                     self.values = vals
                     self._set_combo(key, vals[key])
@@ -2058,7 +2072,7 @@ class PrintDialog(QDialog):
         self._profile_note()
 
     def _build_materials(self, printer: str, enabled: bool):
-        """Materialien mit einem Profil für diesen Drucker (eigene Zuordnung oder „alle Drucker“)."""
+        """Materials with a profile for this printer (own assignment or "all printers")."""
         from .. import colorlab
 
         allowed = {p["id"] for p in config.profiles_for(self.cfg, printer)}
@@ -2131,7 +2145,7 @@ class PrintDialog(QDialog):
         if m is not None and colorlab.profile_for(self.cfg, m, self.caps.name) != (
             self.cmb_profile.currentData() or ""
         ):
-            self.cmb_material.blockSignals(True)  # Profil von Hand geändert: kein Material mehr
+            self.cmb_material.blockSignals(True)  # profile changed by hand: no material any more
             self.cmb_material.setCurrentIndex(0)
             self.cmb_material.blockSignals(False)
             getattr(self.s, "material", {}).pop(self.caps.name, None)
@@ -2153,7 +2167,7 @@ class PrintDialog(QDialog):
         self.lbl_profile_note.setText(txt)
 
     # ================================================================== #
-    # Zustand -> Layout
+    # state -> layout
     # ================================================================== #
     def _settings(self) -> layout.LayoutSettings:
         L = layout.LayoutSettings()
@@ -2193,8 +2207,8 @@ class PrintDialog(QDialog):
         L.poster_large_only = self.chk_plarge.isChecked()
         L.mirror_h = self.chk_mirror_h.isChecked()
         L.mirror_v = self.chk_mirror_v.isChecked()
-        # Step & Repeat wirkt auf den gewählten Modus: Broschüre -> die Druckbögen (sr_multi),
-        # sonst die Seiten (step_repeat, wie bisher)
+        # Step & repeat acts on the chosen mode: booklet -> the spreads (sr_multi),
+        # otherwise the pages (step_repeat)
         L.sr_multi = self.chk_sr.isChecked()
         L.step_repeat = self.chk_sr.isChecked() and h != "booklet"
         L.sr_mode = self.cmb_srmode.currentData()
@@ -2229,7 +2243,7 @@ class PrintDialog(QDialog):
         return L
 
     def _load_layout(self, L: layout.LayoutSettings):
-        """Felder aus Layout-Einstellungen setzen (Preset)."""
+        """Set the fields from layout settings (preset)."""
 
         def pick(cmb, val):
             i = cmb.findData(val)
@@ -2264,7 +2278,7 @@ class PrintDialog(QDialog):
         self.spn_creep.setValue(L.booklet_creep_mm)
         pick(self.cmb_bspread, getattr(L, "booklet_spread", "side"))
         self.chk_bnutzen.blockSignals(True)
-        self.chk_bnutzen.setChecked(True)  # alte Presets: Broschüre läuft immer über Druckbögen
+        self.chk_bnutzen.setChecked(True)  # old presets: booklets always go through spreads
         self.chk_bnutzen.blockSignals(False)
         pick(self.cmb_blanks, L.booklet_blanks)
         self.ed_blank.setText(L.booklet_blank_text)
@@ -2291,7 +2305,7 @@ class PrintDialog(QDialog):
             and L.borderless != self.chk_borderless.isChecked()
             and self.chk_borderless.isEnabled()
         ):
-            self.chk_borderless.setChecked(L.borderless)  # Preset: randlos an/aus übernehmen
+            self.chk_borderless.setChecked(L.borderless)  # preset: take over borderless on/off
         self.chk_mirror_h.setChecked(L.mirror_h)
         self.chk_mirror_v.setChecked(L.mirror_v)
         self.chk_sr.setChecked(L.step_repeat)
@@ -2332,8 +2346,9 @@ class PrintDialog(QDialog):
         return layout.select_pages(n, rng, self.cmb_subset.currentData(), rev, cur)
 
     def _ensure_trims(self):
-        """Endformat/Anschnitt je Seite – aus den Seitendaten der Ansicht (ohne eine Seite zu laden),
-        sonst wie bisher über pdfium."""
+        """Trim size/bleed per page – from the page data of the view (without loading a page),
+        otherwise via pdfium.
+        """
         if getattr(self, "trims", None) is not None:
             return
         info = self.pinfo
@@ -2351,8 +2366,8 @@ class PrintDialog(QDialog):
         sheet = self._sheet()
         self._spr_active = layout.is_booklet_spreads(s)
         if self._spr_active:
-            # Broschüre als Druckbögen: aufgeklappte Bögen mit der Nutzen-Logik montieren –
-            # Vorschau, Bogenübersicht und Schritt 2 sehen genau das, was gedruckt wird
+            # Booklet as spreads: impose the opened spreads with the step-and-repeat logic –
+            # preview, sheet overview and step 2 see exactly what is printed
             s = self._spreads(pages, s)
             plans = printjob.make_plans(
                 self._spr_sizes, self._spr_pages, sheet, s, False, self._spr_trims, self._spr_bleeds
@@ -2365,7 +2380,7 @@ class PrintDialog(QDialog):
                 self.sizes, pages, sheet, s, self.chk_reverse.isChecked(), self.trims, self.doc_bleeds
             )
         if layout.is_step2(s) and plans:
-            # Vorschau zeigt Schritt 2: die fertigen Bögen aufs Zielformat montiert
+            # the preview shows step 2: the finished sheets imposed on the target size
             self.plans1 = plans
             self.plans2 = layout.plan_step2((sheet.width, sheet.height), len(plans), s)
             return self.plans2
@@ -2375,9 +2390,9 @@ class PrintDialog(QDialog):
     def _short_edge_choice(self):
         return printjob.short_edge_choice(self.caps)
 
-    # ---------------- Duplex-Vorschau (Vorder-/Rückseite je Wendekante) ------------- #
+    # ---------------- duplex preview (front/back per flip edge) ------------- #
     def _duplex_active(self) -> bool:
-        """Duplex am Gerät gewählt (Vorder- UND Rückseite auf einem Blatt)?"""
+        """Duplex chosen on the device (front AND back on one sheet)?"""
         if self.caps is None:
             return False
         key = self.caps.roles.get("duplex")
@@ -2392,28 +2407,28 @@ class PrintDialog(QDialog):
         )
 
     def _duplex_short(self) -> bool:
-        """Wendekante der aktuellen Duplex-Einstellung: kurze Kante (tumble)?"""
+        """Flip edge of the current duplex setting: short edge (tumble)?"""
         dc = self._short_edge_choice()
         if not dc:
             return False
         return self.values.get(dc[0]) == dc[1]
 
     def _duplex_layout(self):
-        """Wo die Rückseite in der Vorschau liegt: None = keine Rückseite zeigen.
+        """Where the back side lies in the preview: None = do not show a back side.
 
-        Querformat: kurze Kante -> Rückseite links, lange Kante -> darunter.
-        Hochformat: kurze Kante -> darunter, lange Kante -> rechts davon.
+        Landscape: short edge -> back side on the left, long edge -> below.
+        Portrait: short edge -> below, long edge -> to the right.
         """
         if self.caps is None or not self.plans:
             return None
         s = self._settings()
         if s.handling == "poster":
-            return None  # Poster: der nächste Plan ist die nächste Kachel, keine Rückseite
+            return None  # poster: the next plan is the next tile, no back side
         if s.handling == "booklet" and s.booklet_sides != "both":
-            return None  # nur Vorder-/Rückseiten: Rückseite ist nicht ausgeschossen
+            return None  # front/back sides only: the back side is not imposed
         if s.handling == "booklet":
             land = self.plans[self.sheet_index].landscape
-            short = land == (s.booklet_spread != "top")  # Druckbögen: Wendekante parallel zum Falz
+            short = land == (s.booklet_spread != "top")  # spreads: flip edge parallel to the fold
         elif self._duplex_active():
             short = self._duplex_short()
         else:
@@ -2455,24 +2470,24 @@ class PrintDialog(QDialog):
         return layout.Sheet(w, h, ia)
 
     def _base_print_doc(self):
-        """Druckfassung des Dokuments: Formularwerte/Kommentare eingebrannt (einmal je Dialog)."""
+        """Print version of the document: form values/comments flattened (once per dialog)."""
         if getattr(self, "_flat", None) is None:
             self._flat = layout.flattened(self.doc)
         return self._flat
 
     def _print_doc(self):
-        """Quelle für Vorschau/Montage: das Dokument – bzw. bei „Als Druckbögen montieren“ die Druckbögen."""
+        """Source for preview/imposition: the document – or, with "impose as spreads", the spreads."""
         if getattr(self, "_spr_active", False) and getattr(self, "_spr_doc", None) is not None:
             return self._spr_doc
         return self._base_print_doc()
 
     def _eff_settings(self):
-        """Einstellungen, nach denen montiert wird (Broschüre als Druckbögen -> Nutzen-Logik)."""
+        """Settings used for imposing (booklet as spreads -> step-and-repeat logic)."""
         s = self._settings()
         return layout.spread_settings(s) if layout.is_booklet_spreads(s) else s
 
     def _spreads(self, pages, s):
-        """Druckbögen (zwischengespeichert, neu nur wenn sich Seiten oder Broschüren-Werte ändern)."""
+        """Spreads (cached, rebuilt only when pages or booklet values change)."""
         key = (
             tuple(pages),
             s.booklet_spread,
@@ -2529,7 +2544,7 @@ class PrintDialog(QDialog):
         self._sync_enabled()
         if not self.caps:
             return
-        # Sitzung merken (nur RAM)
+        # remember the session (RAM only)
         self.s.layout = self._settings()
         self.s.copies = self.spn_copies.value()
         self.s.collate = self.chk_collate.isChecked()
@@ -2564,7 +2579,7 @@ class PrintDialog(QDialog):
             self.lbl_warn.setText(tr("Vorschau nicht möglich: {0}").format(e))
 
     def _pair_step(self) -> int:
-        """Duplex-Vorschau zeigt Vorder- UND Rückseite: dann bogenweise (2 Seiten) blättern."""
+        """The duplex preview shows front AND back: then page through sheet by sheet (2 pages)."""
         try:
             return 2 if self._duplex_layout() else 1
         except Exception:
@@ -2582,7 +2597,8 @@ class PrintDialog(QDialog):
 
     def _sheet_overview(self):
         """All sheets as thumbnails (reading order) – shows the distribution of the pages at a glance.
-        Gerendert im Render-Prozess: das Fenster bleibt bedienbar, auch bei vielen Bögen."""
+        Rendered in the render process: the window stays usable, also with many sheets.
+        """
         if not self.plans:
             QMessageBox.information(self, tr("Bogenübersicht"), tr("Keine Seiten"))
             return
@@ -2670,7 +2686,7 @@ class PrintDialog(QDialog):
         dlg.exec()
 
     # ------------------------------------------------------------------ #
-    # Vorschau im Render-Prozess
+    # preview in the render process
     # ------------------------------------------------------------------ #
     def _pv_service(self):
         if os.environ.get("PASSERMARK_RENDER", "") == "local":
@@ -2684,7 +2700,7 @@ class PrintDialog(QDialog):
         return svc if svc.ok else None
 
     def _pv_source(self):
-        """(Datei, einbrennen?) mit genau dem Inhalt, der montiert wird – oder None (dann im Programm)."""
+        """(file, flatten?) with exactly the content that is imposed – or None (then in the program)."""
         if getattr(self, "_spr_active", False) and getattr(self, "_spr_doc", None) is not None:
             if self._spr_file is None:
                 import tempfile
@@ -2710,7 +2726,7 @@ class PrintDialog(QDialog):
                 pass
 
     def _pv_proof(self):
-        """Proof-Werte für den Render-Prozess (None = ohne) – setzt auch die Proof-Zeile."""
+        """Proof values for the render process (None = without) – also sets the proof line."""
         if not self.chk_proof.isChecked():
             self.lbl_proof.setText("")
             return None
@@ -2729,7 +2745,7 @@ class PrintDialog(QDialog):
             pg.close()
 
     def _pv_request(self, req, dpr, show, local):
-        """Vorschau-Bogen anfordern. Läuft schon einer, wartet nur der neueste (Zwischenstände entfallen)."""
+        """Request a preview sheet. If one is already running, only the newest waits (others are dropped)."""
         self._pv_gen += 1
         gen = self._pv_gen
 
@@ -2746,7 +2762,7 @@ class PrintDialog(QDialog):
     def _pv_call(self, req, dpr, show, local, failed):
         job = (req, dpr, show, local, failed)
         if self._pv_busy:
-            # je Art wartet nur die neueste (Vorschau ersetzt Vorschau; die Übersicht bleibt erhalten)
+            # per kind only the newest waits (preview replaces preview; the overview is kept)
             self._pv_next[req.get("proof", True)] = job
             return
         self._pv_send(job)
@@ -2774,7 +2790,7 @@ class PrintDialog(QDialog):
             try:
                 if err:
                     if "unavailable" in str(err) or "ended" in str(err):
-                        show(local())  # Prozess weg: im Programm wie bisher
+                        show(local())  # process gone: in the program
                     else:
                         failed(str(err))
                 else:
@@ -2800,7 +2816,7 @@ class PrintDialog(QDialog):
         return pm
 
     def _render_sheet2(self, s):
-        """Vorschau des Schritt-2-Bogens: fertig montierte Bögen aufs Zielformat, mittig."""
+        """Preview of the step 2 sheet: finished sheets imposed on the target size, centred."""
         n = len(self.plans)
         if n:
             lab = self.plans[self.sheet_index].label
@@ -2817,8 +2833,8 @@ class PrintDialog(QDialog):
             return
         sheet = layout.step2_sheet(s)
         sp = self.plans[self.sheet_index]
-        # derselbe Weg wie bei der Ausgabe: Schritt-1-Bogen flach zwischenspeichern,
-        # dann montieren – Vorschau und Ergebnis sind identisch
+        # The same path as for the output: save the step 1 sheet flat to a temporary file,
+        # then impose – preview and result are identical
         target_h = max(200, self.preview.height() - 32)
         ph = sheet.width if sp.landscape else sheet.height
         scale = target_h / ph
@@ -2880,7 +2896,7 @@ class PrintDialog(QDialog):
             return self._render_sheet2(s)
         n = len(self.plans)
         st = self._pair_step() if n else 1
-        if st == 2:  # Duplex: immer bei der Vorderseite eines Bogens beginnen
+        if st == 2:  # duplex: always start at the front side of a sheet
             self.sheet_index -= self.sheet_index % 2
         if n:
             lab = self.plans[self.sheet_index].label
@@ -2906,7 +2922,7 @@ class PrintDialog(QDialog):
         ph = sheet.width if sp.landscape else sheet.height
         scale = target_h / ph
         dpr = self.devicePixelRatioF()
-        # Duplex: Rückseite des Bogens mit zeigen (Lage je nach Wendekante)
+        # duplex: show the back side of the sheet too (position depends on the flip edge)
         back_side = self._duplex_layout()
         only, rots = [self.sheet_index], [90 if sp.landscape else 0]
         if back_side and self.sheet_index + 1 < len(self.plans):
@@ -2950,7 +2966,7 @@ class PrintDialog(QDialog):
             pl = sp.placements[0]
             _sz = self._spr_sizes if getattr(self, "_spr_active", False) else self.sizes
             ow, oh = _sz[pl.src]
-            # Darstellung in Leserichtung der Seite (nicht gedreht), auf 0,1 mm
+            # display in the reading direction of the page (not rotated), to 0.1 mm
             nw, nh = (pl.h, pl.w) if pl.rot == 90 else (pl.w, pl.h)
             size_txt = tr("Seite {0}: {1:.1f} × {2:.1f} mm → {3:.1f} × {4:.1f} mm auf dem Blatt").format(
                 pl.src + 1, ow / layout.MM, oh / layout.MM, nw / layout.MM, nh / layout.MM
@@ -2968,9 +2984,9 @@ class PrintDialog(QDialog):
                         nw / layout.MM, nh / layout.MM, pl.scale * 100, pl.src + 1
                     )
                 )
-        # wirksame Nutzen-Anordnung + Abstände (bei Nutzen/Mehrere): Zellabstand
-        # = Abstand der Schnittlinien; Weißabstand = sichtbar freier Raum zwischen
-        # den Karten (der gespiegelte Anschnitt füllt den Rest)
+        # Effective step-and-repeat arrangement + gaps (step and repeat/several): cell gap
+        # = distance of the cut lines; white gap = visibly free space between
+        # the cards (the mirrored bleed fills the rest)
         join_txt = ""
         if s.handling == "multiple" or s.step_repeat:
             names = {"edge": tr("Kante an Kante"), "bleed": tr("Überfüller an Überfüller"), "gap": tr("Mit Abstand")}
@@ -2997,7 +3013,7 @@ class PrintDialog(QDialog):
             + (f"\n{size_txt}" if size_txt else "")
         )
         warns = sorted({w for p in self.plans for w in p.warnings})
-        note = printers.size_note(self.caps, self.values, fmt_txt)  # „Wie Dokument“ (PDF): keine Warnung
+        note = printers.size_note(self.caps, self.values, fmt_txt)  # "Wie Dokument" (PDF): no warning
         if note:
             warns.insert(0, note)
         self.lbl_warn.setText("\n".join(warns[:4]) + (" …" if len(warns) > 4 else ""))
@@ -3038,7 +3054,7 @@ class PrintDialog(QDialog):
         self._preview_timer.start()
 
     # ================================================================== #
-    # Drucken
+    # printing
     # ================================================================== #
     def _print(self):
         if not self.caps:
@@ -3104,7 +3120,7 @@ class PrintDialog(QDialog):
                 self.parent().ctl.open_paths([out], tab_of=self.parent())
             self.accept()
             return
-        try:  # Mehrfachnutzen mit Schritt 2: Papier = Zielformat (wie beim Speichern)
+        try:  # step and repeat with step 2: paper = target size (as when saving)
             values = printjob.step2_values(self.caps, self.values, self._eff_settings())
         except ValueError as e:
             QMessageBox.warning(self, tr("Schritt 2"), str(e))
@@ -3122,7 +3138,7 @@ class PrintDialog(QDialog):
                 ):
                     return
         pkey = self.caps.roles.get("pagesize")
-        if pkey and pkey in self.values:  # Blatt für Schritt 1 wie gewählt – das Zielformat setzt submit_document
+        if pkey and pkey in self.values:  # sheet for step 1 as chosen – submit_document sets the target size
             values = dict(values, **{pkey: self.values[pkey]})
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         pump = _print_pump()

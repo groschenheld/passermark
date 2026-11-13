@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Mehrfachauswahl im Dateimanager: viele gleichzeitig gestartete Prozesse einigen sich auf GENAU eine Hauptinstanz,
-alle Dateien landen dort (früher: mehrere Server, jeder bekam nur einen Teil -> „nur Einzeldateien zusammengeführt“).
-Dazu Leerseiten einfügen (Seitenleiste)."""
+"""Multiple selection in the file manager: many processes started at once agree on EXACTLY one main instance,
+all files end up there (instead of several servers, each getting only part of them).
+Plus inserting blank pages (sidebar).
+"""
 
 import io
 import os
@@ -23,7 +24,7 @@ f = sys.argv[1]
 lock = fastipc.hand_over_or_lock("merge", [f])
 if lock is None:
     sys.exit(0)
-time.sleep(1.0)                                   # langsamer Start der Oberfläche
+time.sleep(1.0)                                   # slow start of the interface
 path = os.path.join(sys.argv[2], fastipc.server_name())
 srv = socket.socket(socket.AF_UNIX); srv.bind(path); srv.listen(30)
 lock.release()
@@ -40,7 +41,7 @@ print("SERVER " + ",".join(sorted(got)))
 
 def test_one_server_for_parallel_starts():
     if os.name == "nt":
-        return  # Named-Pipe-Variante: nur auf Windows prüfbar
+        return  # named pipe variant: can only be checked on Windows
     d = tempfile.mkdtemp()
     script = os.path.join(d, "proc.py")
     with open(script, "w") as fh:
@@ -69,7 +70,7 @@ def test_insert_blank_takes_neighbour_format():
     pk.save(b)
     doc = pdfium.PdfDocument(b.getvalue())
     assert pageops.insert_blank(doc, 2, ref=1, count=2) == 2
-    pageops.insert_blank(doc, len(doc))  # ohne Vorlage: A4
+    pageops.insert_blank(doc, len(doc))  # without a template: A4
     out = io.BytesIO()
     doc.save(out)
     q = pikepdf.open(io.BytesIO(out.getvalue()))

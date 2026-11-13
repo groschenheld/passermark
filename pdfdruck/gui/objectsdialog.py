@@ -55,6 +55,7 @@ SHAPES = [
 
 
 def fmt_mm(v: float) -> str:
+    """Format a length in mm in the notation of the interface language."""
     from .. import l10n
     from ..measure import fmt
 
@@ -69,6 +70,7 @@ def show_error(parent, title, exc):
 
 
 def rgba_to_pixmap(arr) -> QPixmap:
+    """Convert an RGBA numpy array to a QPixmap."""
     import numpy as np
 
     a = np.ascontiguousarray(arr.astype(np.uint8))
@@ -88,24 +90,25 @@ class PageCanvas(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.editable = editable
         self.page_w = self.page_h = 1.0
-        self.layers = []  # [(QPixmap, (x0, y0, x1, y1) pt)] – von unten nach oben
+        self.layers = []  # [(QPixmap, (x0, y0, x1, y1) pt)] – from bottom to top
         self.boxes: list[objects.Box] = []
         self.selected: set[int] = set()
         self.paths = []  # Konturen in pt
-        self.shape_box = None  # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
+        self.shape_box = None  # basic shape: frame of the shape (pt) -> handles for scaling/moving
         self.on_shape = None  # callback (sx, sy, dx_pt, dy_pt) on release
         self.keep_aspect = False  # circle: side handles scale uniformly
         self.on_shaping = None  # callback (sx, sy, dx_pt, dy_pt) while dragging (display)
         self.live = (1.0, 1.0, 0.0, 0.0)
         self._sdrag = None
-        self.margin_pt = 0.0  # Vorschau des Randes (gestrichelt)
+        self.margin_pt = 0.0  # preview of the margin (dashed)
         self._drag = None
 
     def set_page(self, w, h, layers):
+        """Set the page size and the image layers to draw."""
         self.page_w, self.page_h, self.layers = w, h, layers
         self.update()
 
-    # Koordinaten -------------------------------------------------------- #
+    # coordinates -------------------------------------------------------- #
     def _geom(self):
         m = 12
         s = min((self.width() - 2 * m) / self.page_w, (self.height() - 2 * m) / self.page_h)
@@ -114,10 +117,12 @@ class PageCanvas(QWidget):
         return s, ox, oy
 
     def to_widget(self, x, y):
+        """Map a page point (pt) to widget coordinates."""
         s, ox, oy = self._geom()
         return QPointF(ox + x * s, oy + (self.page_h - y) * s)
 
     def to_pt(self, p):
+        """Map a widget position to a page point (pt)."""
         s, ox, oy = self._geom()
         return (p.x() - ox) / s, self.page_h - (p.y() - oy) / s
 
@@ -125,7 +130,7 @@ class PageCanvas(QWidget):
         a, c = self.to_widget(b.x0, b.y1), self.to_widget(b.x1, b.y0)
         return QRectF(a, c)
 
-    # Zeichnen ------------------------------------------------------------ #
+    # drawing ------------------------------------------------------------- #
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -171,7 +176,7 @@ class PageCanvas(QWidget):
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(QRectF(self._drag[0], self._drag[1]).normalized())
 
-    # Griffe der Grundform ------------------------------------------------ #
+    # handles of the basic shape ------------------------------------------- #
     HANDLE = 5  # half handle size (px)
     GRIP_OFF = 18  # move handle: distance above the shape (px)
 
@@ -232,10 +237,10 @@ class PageCanvas(QWidget):
         p.drawEllipse(m, self.HANDLE + 3, self.HANDLE + 3)
         p.setPen(QPen(QColor("#ffffff"), 1.4))
         a = self.HANDLE
-        p.drawLine(QPointF(m.x() - a, m.y()), QPointF(m.x() + a, m.y()))  # Kreuz = verschieben
+        p.drawLine(QPointF(m.x() - a, m.y()), QPointF(m.x() + a, m.y()))  # cross = move
         p.drawLine(QPointF(m.x(), m.y() - a), QPointF(m.x(), m.y() + a))
 
-    # Maus/Tastatur ------------------------------------------------------- #
+    # mouse/keyboard ------------------------------------------------------ #
     def mousePressEvent(self, e):
         if not self.editable:
             if self.shape_box is not None and self.paths and e.button() == Qt.MouseButton.LeftButton:
@@ -333,12 +338,14 @@ class PageCanvas(QWidget):
             super().keyPressEvent(e)
 
     def remove_selected(self):
+        """Delete the selected frames."""
         self.boxes = [b for i, b in enumerate(self.boxes) if i not in self.selected]
         self.selected = set()
         self.changed.emit()
         self.update()
 
     def merge_selected(self):
+        """Combine the selected frames into one."""
         sel = [self.boxes[i] for i in sorted(self.selected)]
         if len(sel) < 2:
             return
@@ -437,12 +444,12 @@ class SeparateDialog(QDialog):
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         left.addWidget(hint)
-        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
+        # left: preview – goes into a movable splitter with the settings further down
 
         right = QVBoxLayout()
         g, self.w = _detect_group(self, self.ds)
         right.addWidget(g)
-        # Rand wirkt sofort (auch auf eigene Rahmen); die anderen Regler erkennen die Seite automatisch neu
+        # the margin acts at once (also on custom frames); the other controls detect the page anew automatically
         self.w["margin"].valueChanged.connect(self._margin_changed)
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -506,7 +513,7 @@ class SeparateDialog(QDialog):
 
     def _detect(self, pages):
         _read_detect(self.w, self.ds)
-        raw = dataclasses.replace(self.ds, margin_mm=0.0)  # Rahmen = Objekt; Rand erst bei der Ausgabe
+        raw = dataclasses.replace(self.ds, margin_mm=0.0)  # frame = object; margin only on output
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             for i in pages:
@@ -543,7 +550,7 @@ class SeparateDialog(QDialog):
         if not any(self.boxes.values()):
             QMessageBox.information(self, tr("Nichts zu tun"), tr("Keine Objekte gefunden."))
             return
-        # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
+        # only describe the job – it is computed in the background (own process)
         boxes = {str(i): [[b.x0, b.y0, b.x1, b.y1] for b in bs] for i, bs in self.boxes.items() if bs}
         self.job = ("separate", {"margin_mm": self.w["margin"].value(), "boxes": boxes}, sorted(int(i) for i in boxes))
         self.accept()
@@ -555,7 +562,7 @@ class SeparateDialog(QDialog):
 
 # --------------------------------------------------------------------------- #
 class _CutWorker(QThread):
-    """Konturberechnung im Hintergrund (nur numpy/scipy – die Seite wurde vorher im Hauptthread gerendert)."""
+    """Contour computation in the background (numpy/scipy only – the page was rendered in the main thread before)."""
 
     done = Signal(int, object, str)
 
@@ -586,7 +593,7 @@ class CutContourDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
         self.page = min(current, len(self.norm) - 1)
-        self.s = cutcontour.CutSettings(shape="rect", fit="trim")  # Standard: Rechteck aufs Endformat (sofort)
+        self.s = cutcontour.CutSettings(shape="rect", fit="trim")  # default: rectangle onto the trim size (at once)
         self.result = None
         self.count = 0
 
@@ -607,7 +614,7 @@ class CutContourDialog(QDialog):
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         nav.addWidget(self.lbl_info)
         left.addLayout(nav)
-        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
+        # left: preview – goes into a movable splitter with the settings further down
 
         right = QVBoxLayout()
         from .presetbar import PresetBar
@@ -776,7 +783,7 @@ class CutContourDialog(QDialog):
         self.cmb_bcol.currentIndexChanged.connect(self._sync)
         self.chk_bleed.toggled.connect(self._sync)
         self.cmb_out.currentIndexChanged.connect(self._sync)
-        # Vorschau automatisch: jede Einstellung -> kurz warten -> im Hintergrund neu rechnen
+        # automatic preview: every setting -> wait briefly -> compute anew in the background
         self._pv_gen, self._pv_worker, self._pv_pending = 0, None, False
         self._pv_timer = QTimer(self)
         self._pv_timer.setSingleShot(True)
@@ -853,7 +860,7 @@ class CutContourDialog(QDialog):
         self._preview()
 
     def _load_settings(self, s, preview=True):
-        """Felder aus Einstellungen setzen (Preset, zuletzt verwendet)."""
+        """Set the fields from settings (preset, last used)."""
 
         def pick(cmb, val):
             i = cmb.findData(val)
@@ -949,7 +956,7 @@ class CutContourDialog(QDialog):
         for w in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.btn_shift0, self.btn_size0, self.cmb_single):
             w.setEnabled(not contour)
         circle = shape == "circle"
-        self.spn_fh.setEnabled(not contour and not circle)  # Kreis: ein Durchmesser
+        self.spn_fh.setEnabled(not contour and not circle)  # circle: one diameter
         self.canvas.keep_aspect = circle
         if circle and abs(self.spn_fh.value() - self.spn_fw.value()) > 0.05:
             d = max(self.spn_fw.value(), self.spn_fh.value())
@@ -969,7 +976,7 @@ class CutContourDialog(QDialog):
         s.scale_pct = 100.0  # size only in mm now (field or handles)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
         if s.shape == "circle" and s.width_mm > 0:
-            s.height_mm = s.width_mm  # Kreis bleibt Kreis
+            s.height_mm = s.width_mm  # a circle stays a circle
         s.shift_x_mm, s.shift_y_mm = self.spn_sx.value(), self.spn_sy.value()
         s.per_object = bool(self.cmb_out.currentData())
         s.bleed_color = self._bcol if self.cmb_bcol.currentData() == "fixed" else ""
@@ -1002,13 +1009,15 @@ class CutContourDialog(QDialog):
             return None
 
     def _preview(self):
-        """Seite im Hauptthread rendern (pdfium, wenige ms), Kontur im Hintergrund rechnen – Fenster bleibt bedienbar."""
+        """Render the page in the main thread (pdfium, a few ms), compute the contour in the background – the window
+        stays usable.
+        """
         import copy
 
         if getattr(self, "_closing", False):  # window closing or document already gone: no more preview
             return
         if self._pv_worker is not None and self._pv_worker.isRunning():
-            self._pv_pending = True  # nach der laufenden Berechnung mit dem neuesten Stand nochmal
+            self._pv_pending = True  # once more with the newest state after the running computation
             return
         s = copy.deepcopy(self._settings(preview=True))
         try:
@@ -1047,7 +1056,7 @@ class CutContourDialog(QDialog):
         rgba = self._pv_rgba.copy()
         w, h = self._pv_size
         if r.knockout is not None and r.knockout.shape == rgba.shape[:2]:
-            rgba[:, :, 3] = rgba[:, :, 3] * r.knockout  # Hintergrund wie in der Ausgabe ausblenden
+            rgba[:, :, 3] = rgba[:, :, 3] * r.knockout  # hide the background as in the output
         motif = rgba_to_pixmap(rgba)
         layers = [(rgba_to_pixmap(o.bleed_rgba), o.bleed_box) for o in r.objects if o.bleed_rgba is not None]
         layers.append((motif, (0, 0, w, h)))
@@ -1114,7 +1123,7 @@ class CutContourDialog(QDialog):
         self._pv_timer.start()
 
     def _apply(self):
-        """Nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess), das Fenster friert nicht ein."""
+        """Only describe the job – it is computed in the background (own process), the window does not freeze."""
         from .. import core
 
         s = self._settings()

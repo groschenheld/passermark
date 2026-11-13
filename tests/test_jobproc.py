@@ -54,10 +54,10 @@ def test_error_reported():
 def test_pages_option():
     import test_cli as tcl
 
-    src = tcl._slow_input()  # 12 Seiten
+    src = tcl._slow_input()  # 12 pages
     dst = os.path.join(TMP, "seiten.pdf")
     r = jobproc.JobProcess("separate", src, dst, {}, pages=[1]).run()
-    assert r["event"] == "done" and r["info"]["objects"] == 80, r  # nur Seite 2: 8 × 10 Kreise
+    assert r["event"] == "done" and r["info"]["objects"] == 80, r  # only page 2: 8 × 10 circles
 
 
 def test_cancel_midway():
@@ -66,7 +66,7 @@ def test_cancel_midway():
     dst = os.path.join(TMP, "abbruch.pdf")
     job = jobproc.JobProcess("cutcontour", tcl._slow_input(), dst, {})
     job.start()
-    first = next(job.events())  # er rechnet wirklich
+    first = next(job.events())  # it really computes
     assert first["event"] == "progress"
     time.sleep(0.3)
     job.cancel()

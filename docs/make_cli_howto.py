@@ -61,7 +61,7 @@ MSG = {}  # translation catalog docs/howto_<LANG>.py (key = German)
 
 
 def _load_howto(lang):
-    """Katalog docs/howto_<lang>.py laden (fehlende Datei = leerer Katalog)."""
+    """Load the catalogue docs/howto_<lang>.py (missing file = empty catalogue)."""
     import importlib.util
 
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"howto_{lang}.py")
@@ -146,7 +146,7 @@ def example(title, text, cmd):
 
 W = A4[0] - 40 * mm
 
-# Ablauf-Beispiele: im Handbuch gezeigt und in tests/test_cli_howto.py wirklich ausgeführt
+# workflow examples: shown in the manual and really executed in tests/test_cli_howto.py
 WORKFLOWS = {
     "visitenkarten.json": """{
   "passermark": "workflow", "version": 1,
@@ -192,7 +192,7 @@ WORKFLOWS = {
 }""",
 }
 
-# Watcher-Beispiel: im Handbuch gezeigt und in tests/test_cli_howto.py geprüft
+# watcher example: shown in the manual and checked in tests/test_cli_howto.py
 WATCH = """{
   "passermark": "watch", "version": 1,
   "interval": 5, "settle": 5,

@@ -4,7 +4,8 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Farbe → Papiere und Messungen: own materials without admin rights (saved right away), standard profiles,
-short colour management help."""
+short colour management help.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +32,8 @@ from . import theme
 
 
 class MaterialsDialog(QDialog):
+    """Dialog "Papiere und Messungen": the user's own materials and standard profiles."""
+
     changed = Signal()
 
     def __init__(self, parent, cfg: dict, select: str = "", measure: bool = False):
@@ -98,7 +101,7 @@ class MaterialsDialog(QDialog):
 
 
 class StandardProfilesDialog(QDialog):
-    """Standard-Druckbedingungen aus der ICC Profile Registry holen (in den eigenen Profilordner)."""
+    """Get standard printing conditions from the ICC Profile Registry (into the user's profile folder)."""
 
     def __init__(self, parent, surface: str = ""):
         super().__init__(parent)
@@ -246,6 +249,7 @@ HELP = [
 
 
 def show_help(parent):
+    """Show the short explanation of colour management."""
     dlg = QDialog(parent)
     dlg.setWindowTitle(tr("Farbmanagement kurz erklärt"))
     v = QVBoxLayout(dlg)

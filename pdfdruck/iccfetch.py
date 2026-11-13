@@ -65,8 +65,10 @@ SOURCES = [
 
 @dataclass
 class IccInfo:
+    """Header data of an ICC profile file: description, device class, colour space."""
+
     path: str
-    name: str  # Dateiname
+    name: str  # file name
     desc: str  # description from the profile
     space: str  # RGB | CMYK | Gray | …
     klass: str  # prtr (printer) | mntr | scnr | spac | …
@@ -74,6 +76,7 @@ class IccInfo:
 
     @property
     def klass_text(self):
+        """Device class as text (printer, monitor …)."""
         return {
             "prtr": "Drucker",
             "mntr": "Monitor",
@@ -86,11 +89,13 @@ class IccInfo:
 
 
 def sources_for(model: str) -> list[dict]:
+    """Download sources for ICC profiles that match the printer model."""
     m = (model or "").lower()
     return [s for s in SOURCES if not s["match"] or any(k in m for k in s["match"])]
 
 
 def icc_info(path: str) -> IccInfo | None:
+    """Read the header of an ICC profile; None if the file is not a readable profile."""
     try:
         with open(path, "rb") as f:
             head = f.read(128)
@@ -119,6 +124,7 @@ def icc_info(path: str) -> IccInfo | None:
 
 
 def download(url: str, dest_dir: str, progress=None) -> str:
+    """Download ``url`` (https only) into ``dest_dir`` and return the path of the file."""
     if not re.match(r"^https://", url, re.I):
         raise ValueError(tr("Nur https-Links werden geladen."))
     req = urllib.request.Request(url, headers={"User-Agent": "Passermark/0.9 (ICC-Import)"})
@@ -233,6 +239,7 @@ def extract_icc(path: str, dest: str) -> list[IccInfo]:
 
 
 def profile_id(desc: str, taken: set[str]) -> str:
+    """Derive an unused profile id from the description."""
     base = re.sub(r"[^A-Za-z0-9_-]+", "_", desc).strip("_")[:48] or "profil"
     pid, i = base, 2
     while pid in taken:

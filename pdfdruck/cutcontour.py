@@ -40,13 +40,13 @@ class CutSettings:
     fit: str = (
         "motif"  # basic shapes: "trim" = onto the trim size (TrimBox, otherwise page) – without rendering/detection;
     )
-    # "motif" = ums erkannte Motiv (gerechnet)
+    # "motif" = around the detected artwork (computed)
     offset_mm: float = 0.0  # cut: + outward, − inward (from the artwork or the object size)
     bleed: bool = True  # create bleed (off = artwork unchanged, e.g. for white margins)
     bleed_mm: float = 2.0  # bleed (from the object, at least this far beyond the cut line)
     smooth_mm: float = 1.5  # contour only: bays < 2× are bridged, edges rounded
     inner: bool = False  # contour only: also cut inner contours (holes)
-    corner_mm: float = 3.0  # abgerundetes Rechteck: Eckenradius
+    corner_mm: float = 3.0  # rounded rectangle: corner radius
     scale_pct: float = 100.0  # shapes: size relative to the object
     width_mm: float = 0.0  # shapes: cut line size in mm (0 = from the object + distance)
     height_mm: float = 0.0
@@ -93,7 +93,7 @@ class CutResult:
 
 
 # --------------------------------------------------------------------------- #
-# Formen
+# shapes
 # --------------------------------------------------------------------------- #
 def _fit(pts, cx, cy, w, h):
     import numpy as np
@@ -315,7 +315,7 @@ def _unmix_labels(px, pal, bg, solid_tol):
         bl = np.where(upd, pick, bl)
 
     for k in range(K):
-        line(B, C[k], -1, k)  # Hintergrund–Vollfarbe
+        line(B, C[k], -1, k)  # background–solid colour
     top = np.argsort(-np.bincount(lab, minlength=K))[:8]  # solid–solid (most common)
     for i in range(len(top)):
         for j in range(i + 1, len(top)):
@@ -463,7 +463,7 @@ def _compute_object(ctx, job):
     def to_px(x, y):
         return x * px + pad, (H - y) * px + pad
 
-    # 2. Schnittbereich
+    # 2. cut area
     paths = []
     if s.shape == "contour":
         if off >= 0:
@@ -715,7 +715,7 @@ def compute(
     def to_px(x, y):
         return x * px + pad, (H - y) * px + pad
 
-    # 1. Objekte: nahe Teile zusammenfassen, Staub entfernen
+    # 1. objects: combine nearby parts, remove dust
     gap = s.detect.gap_mm * MM * px / 2
     work = (ndi.distance_transform_edt(~mask) <= gap) if gap > 0 else mask
     lab, n = ndi.label(work)
@@ -782,7 +782,7 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     import pypdfium2 as pdfium
     from PIL import Image
 
-    # Seitenliste festlegen: (Quellseite, [Objekte], Einzelobjekt?)
+    # define the page list: (source page, [objects], single object?)
     plan = []
     for i in range(len(norm_doc)):
         r = results.get(i)

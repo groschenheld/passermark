@@ -28,6 +28,42 @@ def test_every_module_has_a_docstring():
     assert not missing, missing
 
 
+# Qt and container overrides whose meaning is defined by the base class
+INHERITED = {
+    "paintEvent", "resizeEvent", "closeEvent", "keyPressEvent", "mousePressEvent", "mouseMoveEvent",
+    "mouseReleaseEvent", "wheelEvent", "showEvent", "eventFilter", "sizeHint", "minimumSizeHint", "dragEnterEvent",
+    "dropEvent", "rowCount", "columnCount", "data", "headerData", "flags", "run", "accept", "reject", "done", "event",
+    "leaveEvent", "enterEvent", "contextMenuEvent", "mouseDoubleClickEvent", "keyReleaseEvent", "changeEvent",
+    "hideEvent", "focusOutEvent", "timerEvent", "dragMoveEvent", "heightForWidth", "hasHeightForWidth", "setGeometry",
+    "addItem", "count", "itemAt", "takeAt", "expandingDirections", "minimumSize", "setData",
+}  # fmt: skip
+
+
+def test_public_api_is_documented():
+    """Every public class, function and method has a docstring (nested helpers and Qt overrides excepted)."""
+    missing = []
+
+    def visit(node, path):
+        for n in ast.iter_child_nodes(node):
+            if isinstance(n, ast.ClassDef):
+                if not n.name.startswith("_") and not ast.get_docstring(n):
+                    missing.append(f"{path}:{n.lineno} class {n.name}")
+                visit(n, path)
+            elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if n.name.startswith("_") or n.name in INHERITED:
+                    continue
+                if not ast.get_docstring(n):
+                    missing.append(f"{path}:{n.lineno} {n.name}")
+
+    for folder in ("pdfdruck", os.path.join("pdfdruck", "gui")):
+        for name in sorted(os.listdir(os.path.join(ROOT, folder))):
+            if name.endswith(".py"):
+                path = os.path.join(folder, name)
+                with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+                    visit(ast.parse(f.read()), path)
+    assert not missing, "\n".join(missing)
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

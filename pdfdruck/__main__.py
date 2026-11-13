@@ -19,6 +19,7 @@ import sys
 
 
 def main():
+    """Entry point of the program: parse the arguments, hand over to a running instance or start the interface."""
     import multiprocessing
 
     multiprocessing.freeze_support()  # bundled program file: start the worker process instead of the program
@@ -82,7 +83,7 @@ def main():
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Passermark")
     app.setApplicationDisplayName("Passermark")
-    app.setDesktopFileName("passermark")  # Wayland app-id -> Icon/Desktop-Eintrag
+    app.setDesktopFileName("passermark")  # Wayland app id -> icon/desktop entry
     from PySide6.QtGui import QIcon
 
     _ic = os.path.join(os.path.dirname(__file__), "gui", "passermark.svg")
@@ -98,7 +99,7 @@ def main():
         app.installTranslator(_tr)  # Qt standard texts (Yes/No, Cancel, file dialog) in the interface language
     from .gui import theme
 
-    theme.apply(app)  # dunkles Design, gelber Akzent, Mausrad-Schutz
+    theme.apply(app)  # dark theme, yellow accent, mouse wheel guard
     from .gui.common import window_modal_dialogs
 
     window_modal_dialogs()  # dialogs block only their own window, not all Passermark windows

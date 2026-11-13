@@ -18,6 +18,7 @@ MAX_ENTRIES = 50
 
 
 def history_dir() -> str:
+    """Folder that holds the history entries."""
     from .platform import user_log_dir
 
     return os.path.join(os.path.dirname(user_log_dir()), "plan_history")
@@ -138,6 +139,7 @@ def label(entry: dict) -> str:
 
 
 def remove(eid: str) -> None:
+    """Delete one history entry with its files."""
     shutil.rmtree(os.path.join(history_dir(), os.path.basename(eid)), ignore_errors=True)
 
 
@@ -151,6 +153,7 @@ def clear(kind: str | None = None) -> int:
 
 
 def size_bytes(kind: str | None = None) -> int:
+    """Disk space used by the history (optionally of one kind only)."""
     total = 0
     for e in entries(kind):
         d = os.path.join(history_dir(), e["id"])

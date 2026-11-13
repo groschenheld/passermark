@@ -5,10 +5,10 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Stall log: notices when the interface hangs and records what the main window is doing at that moment.
 
-Ein Herzschlag im Hauptfenster (alle 100 ms) und ein Wächter-Thread. Bleibt der Herzschlag länger als
-THRESHOLD aus, schaut der Wächter alle 50 ms nach, in welcher Funktion das Hauptfenster steckt. Nach dem
-Hänger wird eine Zeile mit Dauer und der häufigsten Aufrufkette in  ruckler.txt  (Ordner der
-Fehlerprotokolle) geschrieben – zum Mitschicken. Kostet praktisch nichts, solange nichts hängt.
+A heartbeat in the main window (every 100 ms) and a watchdog thread. If the heartbeat stays away longer than
+THRESHOLD, the watchdog checks every 50 ms which function the main window is in. After the
+hang a line with the duration and the most frequent call chain is written to  ruckler.txt  (folder of the
+error logs) – to send along. Costs practically nothing as long as nothing hangs.
 """
 
 from __future__ import annotations
@@ -20,15 +20,16 @@ import threading
 import time
 import traceback
 
-THRESHOLD = 0.4  # s ohne Herzschlag = Hänger
-MAX_BYTES = 512 * 1024  # Logdatei klein halten
+THRESHOLD = 0.4  # s without a heartbeat = hang
+MAX_BYTES = 512 * 1024  # keep the log file small
 
 _paused = 0
 
 
 class paused:
-    """Kein Ruckler, sondern gewollt: z. B. der Original-Treiberdialog von Windows (modal, eigene Nachrichten-
-    schleife) – solange er offen ist, schlägt das Herz nicht. Mit  with stallwatch.paused(): …  nicht mitschreiben."""
+    """Not a stall but intended: e.g. the original driver dialog of Windows (modal, own message
+    loop) – while it is open the heart does not beat. Use  with stallwatch.paused(): …  to skip logging.
+    """
 
     def __enter__(self):
         global _paused
@@ -42,15 +43,18 @@ class paused:
 
 
 class StallWatch:
+    """Heartbeat in the main thread plus a watchdog thread that logs hangs of the interface."""
+
     def __init__(self, log_path: str, context=None):
         self.log_path = log_path
         self.context = context or (lambda: "")
         self.beat = time.monotonic()
         self.main_id = threading.main_thread().ident
         self._stop = threading.Event()
-        self.last: dict | None = None  # letzter Hänger (für Tests)
+        self.last: dict | None = None  # last hang (for tests)
 
     def start(self, parent):
+        """Start the heartbeat timer and the watchdog thread."""
         from PySide6.QtCore import QTimer
 
         self._timer = QTimer(parent, interval=100, timeout=self._heartbeat)
@@ -60,6 +64,7 @@ class StallWatch:
         return self
 
     def stop(self):
+        """Stop the watchdog thread."""
         self._stop.set()
 
     def _heartbeat(self):
@@ -70,7 +75,7 @@ class StallWatch:
         if frame is None:
             return ()
         stack = traceback.extract_stack(frame)
-        # nur eigener Code (pdfdruck) + die innerste Stelle, kurz
+        # only our own code (pdfdruck) + the innermost place, short
         own = [f for f in stack if "pdfdruck" in f.filename.replace("\\", "/")]
         keep = own[-6:] + ([stack[-1]] if stack and (not own or stack[-1] is not own[-1]) else [])
         return tuple(f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in keep)

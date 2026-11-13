@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Messen in der Seitenansicht ohne Bildschirm (Qt-Ersatz): Klick 1/2, Umschalt-Einrasten, Anzeige, Esc."""
+"""Measuring in the page view without a screen (Qt stand-in): click 1/2, Shift snapping, display, Esc."""
 
 import os
 import subprocess
@@ -38,7 +38,7 @@ class E:
     def button(s): return viewer.Qt.MouseButton.LeftButton
     def modifiers(s): return s.m
     def key(s): return s.k
-viewer.QPointF = lambda x, y: P(x, y)            # Qt-Ersatz: echter Punkt statt Platzhalter
+viewer.QPointF = lambda x, y: P(x, y)            # Qt stand-in: real point instead of a placeholder
 def strecke(a, b, shift=0):
     w.view.mouse_press(pg, E(*a)); w.view.mouse_move(pg, E(*b, mod=shift)); w.view.mouse_press(pg, E(*b, mod=shift))
     return w.view.meas, out[-1]
@@ -60,7 +60,7 @@ print("senkrecht:", txt)
 assert abs(m["a"][0] - m["b"][0]) < 0.01 and abs(nums(txt)[1]) <= 0.05, (m, txt)
 w._show_rulers(True)
 w._rulers_cursor(pg, P(50, 50))
-w.ruler_h.paintEvent(None); w.ruler_v.paintEvent(None)      # Lineale zeichnen ohne Fehler
+w.ruler_h.paintEvent(None); w.ruler_v.paintEvent(None)      # drawing the rulers without errors
 w.view.keyPressEvent(E(0, 0, key=27))
 assert w.view.meas is None and out[-1] == ""
 w._measure_mode(False)

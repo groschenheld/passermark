@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Materialien und Messwerte (1.16): ΔE 2000, Papierweiß der Profile, CGATS/spotread einlesen, Zustände des
-Messgeräts, Profilvorschläge, Umwandlungs-Empfehlung, Prüfung der Admin-Einstellung."""
+"""Materials and measurements: ΔE 2000, paper white of the profiles, reading CGATS/spotread, states of the
+measuring device, profile suggestions, conversion recommendation, check of the admin setting.
+"""
 
 import copy
 import os
@@ -34,7 +35,7 @@ END_DATA
 
 
 def test_delta_e_reference_pairs():
-    # Sharma, Wu, Dalal (2005) – Prüfpaare
+    # Sharma, Wu, Dalal (2005) – test pairs
     pairs = [
         ((50, 2.6772, -79.7751), (50, 0, -82.7485), 2.0425),
         ((50, 3.1571, -77.2803), (50, 0, -82.7485), 2.8615),
@@ -63,7 +64,7 @@ def test_read_measurements():
     p = os.path.join(TMP, "messung.txt")
     open(p, "w").write(CGATS)
     lab, why, n = colorlab.read_measurement_file(p)
-    assert n == 4 and lab == (93.2, 0.8, 4.0) and "2" in why, (lab, why)  # beide Papierfelder gemittelt
+    assert n == 4 and lab == (93.2, 0.8, 4.0) and "2" in why, (lab, why)  # both paper patches averaged
     xyz = CGATS.replace("LAB_L LAB_A LAB_B", "XYZ_X XYZ_Y XYZ_Z").replace("93.10 0.90 4.10", "80.0 83.0 65.0")
     pts = colorlab.parse_cgats(xyz)
     assert len(pts) == 4 and abs(pts[0]["lab"][0] - colorlab.xyz_to_lab((80, 83, 65))[0]) < 0.01
@@ -146,11 +147,11 @@ def test_conversion_recommendation():
     r = colorlab.recommend_conversion([], False, f, cands)
     assert r["mode"] == "rgb_only" and "Keine CMYK" in r["text"]
     r = colorlab.recommend_conversion(["FOGRA39L Coated"], True, f, cands)
-    assert r["mode"] == "rgb_only" and "schon" in r["text"], r  # gleiche Bedingung: CMYK bleibt
+    assert r["mode"] == "rgb_only" and "schon" in r["text"], r  # same condition: CMYK stays
     r = colorlab.recommend_conversion(
         ["Coated FOGRA39 (ISO 12647-2:2004)"], True, "/x/PSOuncoated_v3_FOGRA52.icc", cands
     )
-    assert r["mode"] == "all" and r["source"] == f, r  # Quellprofil installiert -> gefunden
+    assert r["mode"] == "all" and r["source"] == f, r  # source profile installed -> found
     r = colorlab.recommend_conversion(["FOGRA27"], True, f, cands)
     assert r["mode"] == "all" and r["source"] == "" and "nicht installiert" in r["text"]
 

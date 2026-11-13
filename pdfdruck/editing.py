@@ -295,7 +295,7 @@ def _merge_arc_lines(lines: list[TextLine], rots: dict) -> None:
             and abs(lines[j + 1].size - L.size) < 0.01
         ):
             j += 1
-        if j - k >= 2:  # mindestens 3 Buchstaben
+        if j - k >= 2:  # at least 3 letters
             c = _circle_fit([rots[lines[m].objs[0]][1:] for m in range(k, j + 1)])
             angs = [rots[lines[m].objs[0]][0] for m in range(k, j + 1)]
             if c is not None:
@@ -304,7 +304,7 @@ def _merge_arc_lines(lines: list[TextLine], rots: dict) -> None:
                 if math.degrees(max(sp) - min(sp)) > 10.0:
                     runs.append((k, j, c[0], c[1]))
         k = j + 1
-    for k, j, cx, cy in reversed(runs):  # von hinten: Indices bleiben stabil
+    for k, j, cx, cy in reversed(runs):  # from the back: indexes stay stable
         grp = lines[k : j + 1]
         merged = TextLine(
             0,
@@ -1038,7 +1038,7 @@ def transform_line_blocks(
             k += 1
         if not segs or {info[i][1] for st, en in segs for i in range(st, en + 1) if info[i][1] is not None} != targets:
             return None
-        # 3) Neu zusammensetzen
+        # 3) reassemble
         out, seg_at = [], {st: en for st, en in segs}
         k = 0
         while k < len(ops):
@@ -1079,7 +1079,7 @@ def _circle_fit(pts: list) -> tuple | None:
     sxz = sum(x * (x * x + y * y) for x, y in pts)
     syz = sum(y * (x * x + y * y) for x, y in pts)
     sz = sum(x * x + y * y for x, y in pts)
-    # Normalgleichungen: D·sxx + E·sxy + F·sx = -sxz usw. (x²+y² = -D·x - E·y - F)
+    # normal equations: D·sxx + E·sxy + F·sx = -sxz etc. (x²+y² = -D·x - E·y - F)
     rows = [[sxx, sxy, sx, -sxz], [sxy, syy, sy, -syz], [sx, sy, n, -sz]]
 
     def solve(m):
@@ -1324,7 +1324,7 @@ def recolor(
     try:
         pg = pdf.pages[page_index]
         out = []
-        fcol, scol = [I([0], O("g"))], [I([0], O("G"))]  # Anfangszustand: Schwarz
+        fcol, scol = [I([0], O("g"))], [I([0], O("G"))]  # initial state: black
         stack = []
         in_bt, path_start, pord, tord = False, None, -1, -1
         new_fill = color_ops(color) if fill else []

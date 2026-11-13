@@ -47,6 +47,7 @@ MODES = [
 
 
 def pil_to_pixmap(img) -> QPixmap:
+    """Convert a PIL image to a QPixmap."""
     img = img.convert("RGB")
     data = img.tobytes("raw", "RGB")
     qi = QImage(data, img.width, img.height, 3 * img.width, QImage.Format.Format_RGB888).copy()
@@ -122,7 +123,7 @@ class ManipPanel(QWidget):
         f.addRow(self.btn_preview)
         v.addWidget(g)
 
-        # ---------------- Beschneiden ----------------
+        # ---------------- cropping ----------------
         g = self.grp_crop = QGroupBox(tr("Auf Format beschneiden"))
         f = QFormLayout(g)
         self.chk_crop = QCheckBox(tr("Seiten auf ein Zielformat bringen (Überstand beidseitig gleich)"))
@@ -266,7 +267,9 @@ class ManipPanel(QWidget):
             )
 
     def _material_changed(self, *_):
-        """Material gewählt: Zielprofil + Intent vom Material, Methode nach der Datei (Ausgabebedingung, CMYK)."""
+        """Material chosen: target profile + intent from the material, method according to the file (output condition,
+        CMYK).
+        """
         import io
         from .. import colorlab
 
@@ -353,7 +356,7 @@ class ManipPanel(QWidget):
             if lab is not None:
                 lab.setVisible(on)
 
-        self.cmb_size.setVisible(crop)  # Modus-Auswahl bleibt immer erreichbar
+        self.cmb_size.setVisible(crop)  # the mode selection always stays reachable
         self.cmb_size.setEnabled(crop)
         show(self.row_wh, crop and custom and fmt)
         for w in (self.chk_follow, self.chk_scale):
@@ -374,15 +377,17 @@ class ManipPanel(QWidget):
 
     def _changed(self, *_):
         s = self.settings()
-        self.s.__dict__.update(s.__dict__)  # Sitzung aktualisieren
+        self.s.__dict__.update(s.__dict__)  # update the session
         self._sync()
         self.changed.emit()
 
     def set_current(self, page: int):
+        """Set the page the panel refers to."""
         self.current = page
         self._sync()
 
     def settings(self) -> cmyk.ManipSettings:
+        """The settings as entered in the panel."""
         s = cmyk.ManipSettings()
         s.cmyk = self.chk_cmyk.isChecked()
         s.cmyk_mode = self.cmb_mode.currentData() or "rgb_only"
@@ -404,7 +409,7 @@ class ManipPanel(QWidget):
         return s
 
     def load_settings(self, s: cmyk.ManipSettings):
-        """Felder aus Einstellungen setzen (Preset). Ein Zielprofil, das es hier nicht gibt, wird gemeldet."""
+        """Set the fields from settings (preset). A target profile that does not exist here is reported."""
         import os
 
         def pick(cmb, val):
@@ -481,6 +486,7 @@ class ManipPanel(QWidget):
             )
 
     def open_preview(self):
+        """Open the before/after colour preview for the current page."""
         if self.doc is None:
             return
         s = self.settings()
@@ -492,6 +498,8 @@ class ManipPanel(QWidget):
 
 # --------------------------------------------------------------------------- #
 class _PreviewWorker(QThread):
+    """Renders the colour preview in a background thread."""
+
     done = Signal(object, str)
 
     def __init__(self, path, page, s, dpi, paper, white=None):
@@ -694,7 +702,7 @@ class ManipDialog(QDialog):
         if mode == "cmyk":
             self.panel.grp_crop.hide()
             self.panel.chk_cmyk.setChecked(True)
-            self.panel.chk_cmyk.hide()  # in diesem Dialog immer an
+            self.panel.chk_cmyk.hide()  # always on in this dialog
         elif mode == "crop":
             self.panel.grp_cmyk.hide()
             self.panel.chk_crop.setChecked(True)
@@ -730,7 +738,7 @@ class ManipDialog(QDialog):
                 self, tr("Nichts zu tun"), tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren.")
             )
             return
-        # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
+        # only describe the job – it is computed in the background (own process)
         from .. import core
 
         self.job = ("manip", core.settings_to_dict(s), None)

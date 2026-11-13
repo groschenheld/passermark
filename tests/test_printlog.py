@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Druckprotokoll (1.16): jeder Druckauftrag mit allen Einstellungen als JSON + printlog.csv, eingeschaltet
-vom Benutzer oder vom Admin erzwungen; passermark-cli reprint druckt ihn genauso nochmal – auch einen Druck
-mitten in einem Ablauf (die Schritte davor werden wieder durchgerechnet)."""
+"""Print log: every print job with all settings as JSON + printlog.csv, switched on
+by the user or forced by the admin; passermark-cli reprint prints it again the same way – also a print
+in the middle of a workflow (the steps before it are computed again).
+"""
 
 import contextlib
 import csv
@@ -38,7 +39,7 @@ def test_off_by_default_then_on():
     src = T.doc(2)
     with T.FakePrinter():
         printcli.print_pdf(src, printcli.PrintSettings(paper="A4"))
-    assert not logs()  # aus: nichts geschrieben
+    assert not logs()  # off: nothing written
     l10n.save_settings(dict(l10n.load_settings(), print_log=True))
     with T.FakePrinter():
         printcli.print_pdf(
@@ -52,16 +53,16 @@ def test_off_by_default_then_on():
     assert j["options"]["StapleLocation"] == "TopLeft" and j["options"]["Duplex"] == "DuplexTumble"
     assert j["file"] == os.path.abspath(src) and len(j["file_sha256"]) == 64 and j["pages"] == "1-2"
     assert j["sent"]["copies"] == "2" and j["layout"]["handling"]
-    assert j["out_pages"] == 2  # 1.18.3: gesendete Seiten je Exemplar
+    assert j["out_pages"] == 2  # sent pages per copy
     rows = list(csv.reader(open(os.path.join(LOGDIR, "printlog.csv"), encoding="utf-8-sig"), delimiter=";"))
     assert rows[0][0] == "time" and rows[1][6] == "Canon" and rows[1][11] == "sent"
-    # Nachdruck: genau dieselben Treiberoptionen
+    # reprint: exactly the same driver options
     with T.FakePrinter() as fp, contextlib.redirect_stdout(io.StringIO()):
         assert cli.main(["reprint", p, "--quiet"]) == 0
     o = fp.sent[-1]["opts"]
     assert o["PageSize"] == "A3" and o["StapleLocation"] == "TopLeft" and o["copies"] == "2", o
-    assert len(logs()) == 2  # der Nachdruck wird selbst protokolliert
-    # Datei inzwischen verändert -> Hinweis; --dry-run sendet nichts
+    assert len(logs()) == 2  # the reprint is logged itself
+    # file changed in the meantime -> note; --dry-run sends nothing
     open(src, "ab").write(b"\n%")
     out = io.StringIO()
     with T.FakePrinter() as fp, contextlib.redirect_stdout(out):
@@ -70,7 +71,7 @@ def test_off_by_default_then_on():
 
 
 def test_out_pages_bei_nutzen():
-    """Mehrfachnutzen: Bogenzahl steht sonst nirgends im Protokoll (PassCount braucht sie)."""
+    """Step and repeat: the number of sheets is otherwise nowhere in the log (PassCount needs it)."""
     l10n.save_settings(dict(l10n.load_settings(), print_log=True))
     before = set(logs())
     with T.FakePrinter():
@@ -99,7 +100,7 @@ def test_error_logged_and_workflow_reprint():
             )
         except ValueError:
             pass
-    # Fehler vor dem Senden (Zielformat fehlt) passieren in print_pdf – im Protokoll nur, was gesendet werden sollte
+    # errors before sending (target size missing) happen in print_pdf – the log only holds what was to be sent
     n = len(logs())
     wf = {
         "passermark": "workflow",

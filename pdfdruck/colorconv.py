@@ -33,6 +33,7 @@ def icc_colorspace(path: str) -> str:
 
 
 def convert(src: str, dst: str, icc: str, intent: str = "relative", bpc: bool = True) -> None:
+    """Convert ``src`` into the colour space of the ICC profile ``icc`` with Ghostscript and write ``dst``."""
     from . import platform as _platform
 
     gs = _platform.ghostscript()

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Bedingungen in Abläufen (1.16): "if" an Schritten, "choose" mit "else", "fail" und "stop" – geprüft am
-aktuellen PDF; check meldet Tippfehler; JSON-Ereignisse; der Watcher legt abgelehnte Dateien nach failed/."""
+"""Conditions in workflows: "if" on steps, "choose" with "else", "fail" and "stop" – checked against the
+current PDF; check reports typos; JSON events; the watcher moves rejected files to failed/.
+"""
 
 import json
 import os
@@ -26,7 +27,7 @@ WF = {
     "version": 1,
     "output": "${dir}/out/${stem}.pdf",
     "steps": [
-        {"job": "shrink", "if": {"size_mb": {">": 500}}},  # nie: Dateien sind klein
+        {"job": "shrink", "if": {"size_mb": {">": 500}}},  # never: the files are small
         {
             "choose": [
                 {
@@ -56,13 +57,13 @@ def prep(inp, **v):
 def test_branches():
     a5 = T.doc(8, (148, 210))
     r = workflow.run(prep(a5), variables={})
-    assert [s["job"] for s in r["steps"]] == ["impose"] and r["pages"] == 4, r  # Broschüre: 4 A4-Bogenseiten
+    assert [s["job"] for s in r["steps"]] == ["impose"] and r["pages"] == 4, r  # booklet: 4 A4 sheet sides
     assert r["decisions"][0]["result"] is False and "size_mb" in r["decisions"][0]["why"]
-    # A4: stop – Ergebnis = unverändert, Meldung mit Prüfwert
+    # A4: stop – result = unchanged, message with the check value
     a4 = T.doc(3, (210, 297))
     r = workflow.run(prep(a4), variables={})
     assert r["steps"] == [] and r["stopped"] == "A4 – passt schon (3 Seite(n))" and r["pages"] == 3, r
-    # anderes Format: fail mit Meldung
+    # other size: fail with a message
     a6 = T.doc(1, (105, 148))
     try:
         workflow.run(prep(a6), variables={})
@@ -77,15 +78,15 @@ def test_branches():
     r = workflow.run(prep(named), variables={})
     assert r["stopped"]
     r = workflow.run(prep(a5, kunde="Huber"), variables={"kunde": "Huber"})
-    assert [s["job"] for s in r["steps"]] == ["impose", "impose"], r  # Bedingung mit Variable
+    assert [s["job"] for s in r["steps"]] == ["impose", "impose"], r  # condition with a variable
 
 
 def test_facts_and_check_facts():
     a5 = T.doc(2, (148, 210))
     f = conditions.Facts(a5)
     assert f.get("format") == "A5" and f.get("orientation") == "portrait" and f.get("pages") == 2
-    assert f._check is None  # Prüfung erst bei Bedarf
-    assert f.get("fonts_missing") is False and f.get("errors") == 0  # Helvetica: Standardschrift
+    assert f._check is None  # check only when needed
+    assert f.get("fonts_missing") is False and f.get("errors") == 0  # Helvetica: standard font
     import test_preflight as tp
 
     p = os.path.join(TMP, "problem.pdf")

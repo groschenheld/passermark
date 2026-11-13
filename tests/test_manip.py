@@ -40,16 +40,16 @@ def test_crop_symmetric():
     s = cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False)
     out, small = pdfmanip.crop_doc(d, s)
     sz = [tuple(round(v / MM, 1) for v in out.get_page_size(i)) for i in range(4)]
-    assert sz[0] == (210.0, 297.0)  # 3 mm je Seite weg
-    assert sz[1] == (297.0, 210.0)  # Querformat folgt dem Ziel quer
-    assert sz[2] == (200.0, 297.0) and small == [3]  # zu schmal -> Breite bleibt, Hinweis
+    assert sz[0] == (210.0, 297.0)  # 3 mm off per side
+    assert sz[1] == (297.0, 210.0)  # landscape follows the target in landscape
+    assert sz[2] == (200.0, 297.0) and small == [3]  # too narrow -> the width stays, note
     assert sz[3] == (210.0, 297.0)
     l, b, r, t = out[0].get_cropbox()
-    assert abs(l / MM - 3) < 0.05 and abs(b / MM - 3) < 0.05  # zentriert: links 3, unten 3
+    assert abs(l / MM - 3) < 0.05 and abs(b / MM - 3) < 0.05  # centred: left 3, bottom 3
 
 
 def test_crop_rotated_page():
-    d = _pdf([(216, 303)], "/tmp/_crop_rot.pdf", rotate={0})  # /Rotate 90 -> sichtbar quer
+    d = _pdf([(216, 303)], "/tmp/_crop_rot.pdf", rotate={0})  # /Rotate 90 -> visibly landscape
     out, _ = pdfmanip.crop_doc(d, cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False))
     w, h = (round(v / MM, 1) for v in out.get_page_size(0))
     assert (w, h) == (297.0, 210.0)
@@ -69,13 +69,13 @@ def test_fill_scale_and_crop():
     c.setPageSize((210 * MM, 297 * MM))
     c.setFillColorRGB(1, 0, 0)
     c.rect(0, 277 * MM, 20 * MM, 20 * MM, fill=1, stroke=0)
-    c.showPage()  # rotes Quadrat oben links
+    c.showPage()  # red square at the top left
     c.setPageSize((200 * MM, 600 * MM))
     c.setFillColorRGB(0, 0, 1)
     c.rect(0, 0, 200 * MM, 100 * MM, fill=1, stroke=0)
     c.setFillColorRGB(0, 1, 0)
     c.rect(0, 250 * MM, 200 * MM, 100 * MM, fill=1, stroke=0)
-    c.showPage()  # schmal
+    c.showPage()  # narrow
     c.save()
     d = pdfium.PdfDocument("/tmp/_fill.pdf")
     s = cmyk.ManipSettings(crop=True, crop_size="A6")
@@ -84,13 +84,13 @@ def test_fill_scale_and_crop():
     out, small = pdfmanip.crop_doc(d, s)
     assert small == [] and [tuple(round(v / MM) for v in out.get_page_size(i)) for i in range(2)] == [(105, 148)] * 2
     a = out[0].render(scale=1).to_pil().convert("RGB")
-    assert a.getpixel((5, 5))[0] > 200 and a.getpixel((5, 5))[1] < 60  # Quadrat oben links mitskaliert
+    assert a.getpixel((5, 5))[0] > 200 and a.getpixel((5, 5))[1] < 60  # square at the top left scaled along
     assert a.getpixel((40, 40)) == (255, 255, 255)  # 10 mm * 50 % ≈ 14 px -> white behind
     b = out[1].render(scale=1).to_pil().convert("RGB")
     assert b.getpixel((b.width // 2, b.height // 2))[1] > 200  # green centre of the poster
     assert b.getpixel((b.width // 2, b.height - 3)) == (255, 255, 255)  # blue foot is cut off
     big, _ = pdfmanip.crop_doc(_pdf([(105, 148)], "/tmp/_small.pdf"), cmyk.ManipSettings(crop=True, crop_size="A4"))
-    assert tuple(round(v / MM) for v in big.get_page_size(0)) == (210, 297)  # kleiner -> hochskaliert
+    assert tuple(round(v / MM) for v in big.get_page_size(0)) == (210, 297)  # smaller -> scaled up
 
 
 def test_fill_with_inset():
@@ -108,10 +108,10 @@ def test_fill_with_inset():
     out, _ = pdfmanip.crop_doc(d, s)
     im = out[0].render(scale=1).to_pil().convert("RGB")
     for xy in ((1, 1), (im.width - 2, im.height - 2), (1, im.height // 2), (im.width // 2, 1)):
-        assert im.getpixel(xy)[2] > 200 and im.getpixel(xy)[0] < 60, (xy, im.getpixel(xy))  # bis zum Rand blau
+        assert im.getpixel(xy)[2] > 200 and im.getpixel(xy)[0] < 60, (xy, im.getpixel(xy))  # blue up to the edge
     s2 = cmyk.ManipSettings(crop=True, crop_size="A4", crop_scale=False, crop_inset_mm=10)
     o2, _ = pdfmanip.crop_doc(d, s2)
-    assert tuple(round(v / MM) for v in o2.get_page_size(0)) == (190, 277)  # nur abschneiden
+    assert tuple(round(v / MM) for v in o2.get_page_size(0)) == (190, 277)  # only cut off
 
 
 def test_color_args():
@@ -136,14 +136,14 @@ def test_softproof_and_tac():
     rgb = cmyk.cmyk_to_screen(img, FOGRA)
     white, black, cyan, rich = rgb.getpixel((0, 0)), rgb.getpixel((1, 0)), rgb.getpixel((2, 0)), rgb.getpixel((3, 0))
     assert min(white) > 245  # paper white (relative) = white
-    assert max(black) < 60  # 400 % ≈ tiefes Schwarz
+    assert max(black) < 60  # 400 % ≈ deep black
     assert cyan[2] > cyan[0] + 100  # cyan appears blue-green
     paper = cmyk.cmyk_to_screen(img, FOGRA, paper_white=True).getpixel((0, 0))
-    assert paper != (255, 255, 255)  # absolut: Papierton sichtbar
+    assert paper != (255, 255, 255)  # absolute: paper tone visible
     mx, pct, warn = cmyk.tac(img, 300)
     assert round(mx) == 400 and abs(pct - 50) < 0.1  # 2 of 4 pixels above 300 %
     assert warn.getpixel((1, 0)) == (255, 0, 64)
-    assert cmyk.separation(img, 0).getpixel((2, 0))[0] == 0  # volles Cyan = schwarz im Auszug
+    assert cmyk.separation(img, 0).getpixel((2, 0))[0] == 0  # full cyan = black in the separation
 
 
 def test_find_profiles():
@@ -200,23 +200,25 @@ def test_crop_file_then_print_end_to_end():
 
 
 def test_trim_edges_all_rotations_asymmetric():
-    """Kanten abschneiden: Eingabe in Leserichtung, in allen 4 Drehungen mit UNGLEICHEN Werten
-    (gleiche Werte würden ein falsches Mapping verdecken)."""
+    """Cut off edges: input in reading direction, in all 4 rotations with UNEQUAL values
+    (equal values would hide a wrong mapping).
+    """
     S = type("S", (), {"trim_l_mm": 1.0, "trim_t_mm": 2.0, "trim_r_mm": 3.0, "trim_b_mm": 4.0})()
     box = (0.0, 0.0, 210 * MM, 297 * MM)
-    # angezeigt -> ungedreht: welche PDF-Kante liegt links/oben/rechts/unten (Anzeige im Uhrzeigersinn gedreht)
+    # displayed -> unrotated: which PDF edge lies left/top/right/bottom (display rotated clockwise)
     shown = {0: ("l", "t", "r", "b"), 90: ("b", "l", "t", "r"), 180: ("r", "b", "l", "t"), 270: ("t", "r", "b", "l")}
     for rot, edges in shown.items():
         (l, b, r, t), orig = pdfmanip.trim_box_for(box, rot, S)
         cut = {"l": l / MM, "b": b / MM, "r": (box[2] - r) / MM, "t": (box[3] - t) / MM}
-        got = tuple(round(cut[e], 3) for e in edges)  # links, oben, rechts, unten wie angezeigt
+        got = tuple(round(cut[e], 3) for e in edges)  # left, top, right, bottom as displayed
         assert got == (1.0, 2.0, 3.0, 4.0), (rot, got)
         assert orig == (1.0, 2.0, 3.0, 4.0)
 
 
 def test_white_bbox_large_and_tinted_content():
-    """Weißraum: Inhalt größer als die halbe Seite bzw. getönter Hintergrund wird trotzdem erkannt
-    (Hintergrund kommt vom Seitenrand, nicht vom Median der ganzen Seite)."""
+    """White space: content larger than half the page or a tinted background is still detected
+    (the background comes from the page edge, not from the median of the whole page).
+    """
     import io
     from reportlab.pdfgen import canvas
 

@@ -38,10 +38,12 @@ WARN_MB_PER_A4 = 20.0  # from here on "very large" (per A4 area)
 
 
 # --------------------------------------------------------------------------- #
-# Analyse
+# analysis
 # --------------------------------------------------------------------------- #
 @dataclass
 class ImageInfo:
+    """One image object of the file: pixel size, bytes, compression, effective resolution."""
+
     key: tuple
     w: int
     h: int
@@ -52,20 +54,23 @@ class ImageInfo:
     dpi: float | None  # largest use = smallest effective resolution; None = not found placed
     smask: bool = False
     is_mask: bool = False
-    is_smask: bool = False  # selbst Soft-Maske eines anderen Bilds
+    is_smask: bool = False  # itself the soft mask of another image
 
     @property
     def raw_mb(self) -> float:
+        """Uncompressed size in MB."""
         return self.raw / MB
 
 
 @dataclass
 class SizeReport:
+    """What takes up the space in a file: totals, share per category, images."""
+
     size: int = 0
     pages: int = 0
     area_m2: float = 0.0
     revisions: int = 0  # appended save states (incremental)
-    parts: dict = field(default_factory=dict)  # Kategorie -> Bytes
+    parts: dict = field(default_factory=dict)  # category -> bytes
     images: list = field(default_factory=list)  # [ImageInfo]
     duplicates: int = 0  # number of duplicate streams
     duplicate_bytes: int = 0
@@ -76,10 +81,12 @@ class SizeReport:
 
     @property
     def mb_per_a4(self) -> float:
+        """File size in MB per A4 area."""
         return (self.size / MB) / max(self.area_m2 / A4_M2, 1e-6)
 
     @property
     def too_big(self) -> bool:
+        """Whether the file counts as conspicuously large."""
         return self.size > 10 * MB and self.mb_per_a4 > WARN_MB_PER_A4
 
 
@@ -416,6 +423,8 @@ def issues(rep: SizeReport) -> list:
 # --------------------------------------------------------------------------- #
 @dataclass
 class ShrinkOptions:
+    """Settings of the job ``shrink``: one switch per measure, plus target resolution and JPEG quality."""
+
     rewrite: bool = True
     unreferenced: bool = True
     dedupe: bool = True
@@ -670,7 +679,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
             img.read_raw_bytes(),
         )
         newlen = _write_flate(img, img.read_bytes(), w, h, comps, bpc)
-        if newlen >= before * 0.97:  # bringt nichts -> Original behalten
+        if newlen >= before * 0.97:  # no gain -> keep the original
             img.write(old_data)
             for k, v in (("/Filter", old_filter), ("/DecodeParms", old_parms)):
                 if v is None:
@@ -826,7 +835,7 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
                 _image(img, im, opts, note, done)
             except Exception:
                 continue
-        # 3) Duplikate zusammenlegen
+        # 3) merge duplicates
         if opts.dedupe:
             canon, dup = {}, {}
             for o in pdf.objects:

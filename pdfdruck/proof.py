@@ -56,7 +56,7 @@ def adjustments(caps, values: dict) -> dict:
             if v is None or not nums:
                 break
             lo, hi = min(nums), max(nums)
-            mid = 100.0 if lo >= 0 and hi > 100 else 0.0  # 0..200 % Skalen
+            mid = 100.0 if lo >= 0 and hi > 100 else 0.0  # 0..200 % scales
             span = max(abs(hi - mid), abs(lo - mid)) or 1.0
             t = max(-1.0, min(1.0, (v - mid) / span))
             if abs(t) > 1e-6:
@@ -133,8 +133,8 @@ def tone_curve(brightness: float, contrast: float):
     p = 1.0 / (1.0 + STRENGTH["contrast"] * 1.4 * contrast) if contrast > -0.7 else 2.7
     lut = []
     for i in range(256):
-        x = (i / 255.0) ** g  # Helligkeit: Gamma, Endpunkte fix
-        u = 2.0 * x - 1.0  # Kontrast: S-Kurve um Mittelgrau, Endpunkte fix
+        x = (i / 255.0) ** g  # brightness: gamma, end points fixed
+        u = 2.0 * x - 1.0  # contrast: S-curve around mid grey, end points fixed
         x = 0.5 + 0.5 * (abs(u) ** p) * (1 if u >= 0 else -1)
         lut.append(max(0, min(255, round(x * 255))))
     lut[0], lut[255] = 0, 255
@@ -142,12 +142,14 @@ def tone_curve(brightness: float, contrast: float):
 
 
 def ImageCms_apply(img, tf):
+    """Apply a LittleCMS transform to an image."""
     from PIL import ImageCms
 
     return ImageCms.applyTransform(img, tf)
 
 
 def describe(adj: dict, profile_name: str | None) -> str:
+    """Text for the preview: what is being simulated."""
     parts = list(adj.get("labels", []))
     if profile_name:
         parts.insert(0, tr("Softproof: {0}").format(profile_name))
@@ -180,6 +182,7 @@ _XYZ_SRGB = (
 
 
 def spec_key(spec) -> tuple:
+    """Hashable key of a soft proof spec (to tell rendered images of different proofs apart)."""
     if not spec:
         return ()
     w = tuple(round(float(x), 2) for x in spec["white"]) if spec.get("white") else None
@@ -196,6 +199,7 @@ def spec_key(spec) -> tuple:
 
 
 def describe_spec(spec) -> str:
+    """Short text describing a soft proof spec."""
     if not spec:
         return ""
     parts = [spec.get("name") or os.path.basename(spec.get("icc", ""))]

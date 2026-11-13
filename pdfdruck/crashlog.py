@@ -34,10 +34,12 @@ _lock = threading.Lock()
 
 
 def log_dir() -> str:
+    """Folder for error logs."""
     return _platform.user_log_dir()
 
 
 def system_info() -> str:
+    """Version and system details as text for the head of a log."""
     from . import __version__
 
     lines = [
@@ -131,6 +133,7 @@ def install(kind: str = "gui", on_error=None) -> str | None:
 
 
 def tr_safe(text: str) -> str:
+    """Translate ``text``; return it unchanged if translating fails (used while handling an error)."""
     try:
         from .l10n import tr
 
@@ -157,6 +160,7 @@ def record(title: str, details: str = "") -> None:
 
 
 def current_path() -> str | None:
+    """Path of the log file of this run, or None if nothing has been logged."""
     return _state["path"]
 
 
@@ -209,6 +213,7 @@ def pending_crashes() -> list[str]:
 
 
 def mark_seen(paths: list[str]) -> None:
+    """Mark log files as shown to the user so that they are not reported again."""
     for p in paths:
         try:
             with open(p, "a", encoding="utf-8") as fh:

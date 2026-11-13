@@ -188,6 +188,7 @@ class Facts:
         self._check = None
 
     def get(self, key: str):
+        """Value of the fact ``key`` (a workflow variable, a file property or a check value)."""
         if key.startswith(VAR_PREFIX):
             return self.vars.get(key[len(VAR_PREFIX) :], "")
         if key == "filename":
@@ -197,9 +198,11 @@ class Facts:
         return self.basic().get(key)
 
     def as_dict(self, keys=None) -> dict:
+        """The given facts (default: all) as a dict."""
         return {k: self.get(k) for k in (keys or FACTS)}
 
     def basic(self) -> dict:
+        """Basic document facts from docinfo (computed once)."""
         if self._basic is None:
             from . import docinfo
 
@@ -225,6 +228,7 @@ class Facts:
         return self._basic
 
     def check(self) -> dict:
+        """Facts from the document check (computed once, only when a condition needs them)."""
         if self._check is None:
             from . import preflight
 

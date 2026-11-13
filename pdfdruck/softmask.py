@@ -108,18 +108,22 @@ def pattern_has_softmask(pat) -> bool:
 
 @dataclass
 class Target:
-    page: int  # Seitenindex (0-basiert)
+    """One paint command that draws a gradient with a soft mask, and where it is."""
+
+    page: int  # page index (0-based)
     chain: list  # [(stream key, index of the Do)] from the page down to the form
     stream: tuple  # ("page", i) | ("obj", objgen)
     start: int  # first path command
-    end: int  # Mal-Befehl (f / sh …)
+    end: int  # paint command (f / sh …)
     ctm: tuple  # CTM when painting (user -> page space)
-    bbox: tuple  # Seitenraum (x0, y0, x1, y1)
+    bbox: tuple  # page space (x0, y0, x1, y1)
     kind: str = "pattern"  # pattern | shading
 
 
 @dataclass
 class Scan:
+    """Result of looking for gradients with a soft mask in a document."""
+
     targets: list = field(default_factory=list)
     skipped: int = 0  # in forms used several times (cannot be replaced safely)
     form_uses: dict = field(default_factory=dict)

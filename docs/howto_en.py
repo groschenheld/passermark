@@ -1,6 +1,6 @@
-"""Übersetzung der Anleitungen (CLI + Variable Daten) – Englisch.
-Schlüssel = deutscher Ausgangstext (inkl. Markup); fehlende Einträge bleiben deutsch.
-Erzeugt die PDFs mit:  PM_HOWTO_LANG=en python3 docs/make_cli_howto.py  usw.
+"""Translation of the manuals (CLI + variable data) – English.
+Key = German source text (incl. markup); missing entries stay German.
+Generate the PDFs with:  PM_HOWTO_LANG=en python3 docs/make_cli_howto.py  etc.
 """
 
 MESSAGES = {
@@ -627,7 +627,7 @@ MESSAGES = {
     "Vorlage für den Bearbeiten-Modus: Kreistext „PASSERMARK“ wie aus einer Gestaltungs-App, zwei überlappende Rechtecke, eine gerade Zeile (Abschnitt 8)": "Template for the editing mode: circular text “PASSERMARK” as from a design app, two overlapping rectangles, one straight line (section 8)",
     'Zum Ausprobieren: im Beispielordner (Abschnitt 2, „Beispiele holen“) liegt die Vorlage <font face="DVM">vorlage-bogen-text.pdf</font> – Kreistext „PASSERMARK“ wie aus einer Gestaltungs-App, dazu zwei überlappende Rechtecke für die Z-Ordnung und eine gerade Zeile, die nicht in den Bogen fallen darf. Öffnen, Arbeitsbereich Bearbeiten, und die Zeigerliste zeigt alle drei Sorten zum Üben.': 'To try it out: the examples folder (section 2, “Fetch examples”) contains the template <font face="DVM">vorlage-bogen-text.pdf</font> – circular text “PASSERMARK” as from a design app, plus two overlapping rectangles for the z-order and a straight line that must not be swept into the arc. Open it, editing workspace, and the pointer list shows all three kinds to practise on.',
     "Was nicht geht: Text in Pfaden (ohne echte Schriftinformation) lässt sich nicht als Text bearbeiten – „Text in Pfade“ vorher zurücknehmen oder im Erzeugerprogramm ändern. Eingebettete Schriften ohne lesbare Textinformation erscheinen gar nicht erst in der Liste.": "What does not work: outlined text (without real font information) cannot be edited as text – undo “outline text” beforehand or change it in the originating program. Embedded fonts without readable text information do not appear in the list at all.",
-    # 1.18 – Plandruck
+    # plan printing
     "Plandruck auf Rollen: Rollenwahl, Laufmeter, drucken (Abschnitt 6)": "Plan printing on rolls: roll choice, run length, printing (section 6)",
     '<font face="DVM">rolls DRUCKER</font>': '<font face="DVM">rolls PRINTER</font>',
     '<font face="DVM">plan plaene.pdf …</font>': '<font face="DVM">plan plans.pdf …</font>',

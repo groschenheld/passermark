@@ -28,7 +28,7 @@ from .printers import Choice, Option, PrinterCaps, PrinterInfo, _assign_roles
 
 DEVMODE_KEY = "__devmode__"
 
-# GDI-Konstanten
+# GDI constants
 DC_BINS, DC_PAPERS, DC_PAPERSIZE, DC_DUPLEX = 6, 2, 3, 7
 DC_BINNAMES, DC_PAPERNAMES, DC_COLORDEVICE = 12, 16, 32
 DC_MEDIATYPENAMES, DC_MEDIATYPES = 34, 35
@@ -63,6 +63,7 @@ PUBLIC_FIELDS = (
 # DEVMODE <-> text (for configuration and session)
 # --------------------------------------------------------------------------- #
 def devmode_to_str(dm) -> str:
+    """Serialise a Windows DEVMODE (public fields and driver data) to a text string."""
     d = {f: getattr(dm, f) for f in PUBLIC_FIELDS if hasattr(dm, f)}
     d["DriverName"] = getattr(dm, "DeviceName", "")
     d["DriverData"] = base64.b64encode(bytes(dm.DriverData or b"")).decode()
@@ -118,6 +119,7 @@ def driver_dialog(hwnd: int, printer: str, current: str | None) -> str | None:
 # printers and capabilities
 # --------------------------------------------------------------------------- #
 def list_printers() -> list[PrinterInfo]:
+    """All printers known to Windows (local and connections)."""
     import win32print
 
     default = win32print.GetDefaultPrinter()
@@ -235,6 +237,7 @@ def _caps(printer, port, cap):
 
 
 def load_caps(name: str) -> PrinterCaps:
+    """Read the capabilities of printer ``name`` from the Windows driver."""
     import win32print
 
     h = win32print.OpenPrinter(name)

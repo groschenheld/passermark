@@ -68,6 +68,7 @@ class JobProcess:
 
     # ------------------------------------------------------------------ #
     def command(self) -> tuple[list[str], dict]:
+        """Command line and extra environment for the job; the settings go into a temporary preset file."""
         cmd, env_extra = cli_command()
         fd, self._preset = tempfile.mkstemp(prefix="passermark-job-", suffix=".json")
         os.close(fd)
@@ -78,6 +79,7 @@ class JobProcess:
         return cmd + args, env_extra
 
     def start(self):
+        """Start the job process."""
         cmd, env_extra = self.command()
         env = dict(os.environ, **env_extra)
         if self.lang:

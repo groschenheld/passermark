@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Variable Daten: Prüfziffern, Nummerierung, CSV, Felder (Text/QR/Code 128/EAN-13) als Überlagerung, Reihenfolge,
-Weiterzählen, Protokoll, {{…}}-Platzhalter, Kommandozeile, Nutzen mit je eigener Seite (inkl. Schneiden und Stapeln)."""
+"""Variable data: check digits, numbering, CSV, fields (text/QR/Code 128/EAN-13) as an overlay, order,
+counting on, log, {{…}} placeholders, command line, step and repeat with its own page each (incl. cut and stack).
+"""
 
 import csv
 import json
@@ -35,7 +36,7 @@ def _text(path, i):
 
 
 def test_check_digits_and_numbers():
-    assert vdp.check_digit("7992739871", "luhn") == "3"  # Lehrbuchbeispiel Luhn
+    assert vdp.check_digit("7992739871", "luhn") == "3"  # textbook example for Luhn
     assert vdp.check_digit("400638133393", "ean") == "1"  # EAN 4006381333931
     assert vdp.check_digit("123456789", "mod11") in "0123456789X"
     nb = vdp.Numbering(start=7, digits=5, prefix="A", check="luhn", suffix="/26")
@@ -69,15 +70,15 @@ def test_build_overlays_are_separate_per_copy():
     open(out, "wb").write(data)
     assert info["records"] == 3 and info["pages"] == 6
     t0, t1, t2 = _text(out, 0), _text(out, 1), _text(out, 2)
-    assert "Anna Müller – Graz #A000075" in t0 and "Béla" not in t0  # keine angehäuften Überlagerungen
-    assert "Anna" not in t1 and "TA000075" in t1  # Textfeld nur auf Seite 1
+    assert "Anna Müller – Graz #A000075" in t0 and "Béla" not in t0  # no accumulated overlays
+    assert "Anna" not in t1 and "TA000075" in t1  # text field only on page 1
     assert "Béla Kovács – Győr #A000083" in t2
     rows = list(csv.reader(open(s.log_path, encoding="utf-8-sig"), delimiter=";"))
     assert len(rows) == 7 and rows[3][3].startswith("Béla")
 
 
 def test_each_page_gets_next_record():
-    """Gemeldet: auf jeder Seite stand 1 bzw. derselbe Name. Standard jetzt: Seite 1 -> Datensatz 1, Seite 2 -> 2 …"""
+    """Reported: every page showed 1 or the same name. Default now: page 1 -> record 1, page 2 -> 2 …"""
     out = os.path.join(TMP, "each.pdf")
     data, info = vdp.build(SAMPLE, vdp.VdpSettings(count=7, fields=[dict(content="Nr {{nr}} i{{i}}")]))
     open(out, "wb").write(data)
@@ -85,7 +86,7 @@ def test_each_page_gets_next_record():
     data, info = vdp.build(SAMPLE, vdp.VdpSettings(csv_path=CSV, fields=[dict(content="{{Name}}")]))
     open(out, "wb").write(data)
     assert info["pages"] == 3 and "Anna" in _text(out, 0) and "Béla" in _text(out, 1) and "Zoë" in _text(out, 2)
-    # einseitige Vorlage: reihum dieselbe Seite -> 5 Seiten mit 1…5
+    # one-page template: the same page in turn -> 5 pages with 1…5
     data, info = vdp.build(SAMPLE, vdp.VdpSettings(count=5, fields=[dict(content="T{{nr}}")]), pages=[0])
     open(out, "wb").write(data)
     assert info["pages"] == 5 and "T5" in _text(out, 4) and "1" in _text(out, 4)
@@ -102,11 +103,11 @@ def test_order_reverse_count_and_continue():
     data, _ = vdp.build(SAMPLE, s, pages=[0])
     out = os.path.join(TMP, "rev.pdf")
     open(out, "wb").write(data)
-    assert "Nr 25" in _text(out, 0) and "Nr 10" in _text(out, 3)  # Abreißblock: höchste oben
+    assert "Nr 25" in _text(out, 0) and "Nr 10" in _text(out, 3)  # tear-off pad: highest on top
     assert vdp.counter_state()["t"] == 30
     data, _ = vdp.build(SAMPLE, s, pages=[0])
     open(out, "wb").write(data)
-    assert "Nr 45" in _text(out, 0)  # weitergezählt ab 30
+    assert "Nr 45" in _text(out, 0)  # counted on from 30
 
 
 def test_placeholders_from_pdf():
@@ -177,7 +178,7 @@ def test_cli_and_step_repeat_sequence():
 
 
 def test_code128_klartext_in_schriftgroesse():
-    """Klartext unter Code 128 wird in der eingestellten Größe gesetzt, nicht mit den Strichen verzerrt."""
+    """Plain text below Code 128 is set in the chosen size, not distorted with the bars."""
     out = os.path.join(TMP, "c128.pdf")
     s = vdp.VdpSettings(count=1, fields=[vdp.VdpField("code128", "T{{nr}}", 10, 10, 120, 40, size_pt=9)])
     with open(out, "wb") as f:
@@ -187,16 +188,16 @@ def test_code128_klartext_in_schriftgroesse():
     assert "T1" in tp.get_text_range()
     i = tp.get_text_range().index("T1")
     l, b, r, t = tp.get_charbox(i)
-    assert (t - b) < 12, t - b  # 9 pt Schrift, nicht auf 40 mm Kastenhöhe gestreckt
+    assert (t - b) < 12, t - b  # 9 pt type, not stretched to 40 mm box height
     d.close()
 
 
 def test_front_back_pages_per_record_and_parity():
-    """100-Visitenkarten-Fall: Vorder-/Rückseite je Datensatz, Name nur ungerade, QR nur gerade (1.10.2)."""
+    """100 business cards case: front/back per record, name only on odd pages, QR only on even pages."""
     from reportlab.lib.units import mm as _mm
     from reportlab.pdfgen import canvas as _cv
 
-    for npages in (2, 6):  # Vorlage 2 Seiten (reihum) oder schon 3 Karten × 2
+    for npages in (2, 6):  # template 2 pages (in turn) or already 3 cards × 2
         tpl = os.path.join(TMP, f"karte{npages}.pdf")
         c = _cv.Canvas(tpl, pagesize=(85 * _mm, 55 * _mm))
         for i in range(npages):
@@ -246,7 +247,7 @@ def test_more_variables():
 
     now = dt.datetime(2026, 10, 9, 14, 5)
     rec = {"Name": "Anna", "datum": "aus CSV", "_sys": vdp.system_vars(vdp.VdpSettings(doc_name="flyer.pdf"), 7, now)}
-    assert vdp.fill("{{datum}}", rec) == "aus CSV"  # CSV-Spalte geht vor
+    assert vdp.fill("{{datum}}", rec) == "aus CSV"  # the CSV column takes precedence
     del rec["datum"]
     out = vdp.fill("{{datum}} {{zeit}} {{jahr}} {{kw}} {{wochentag}} {{datei}} {{datensaetze}} {{datum:%y%m%d}}", rec)
     assert out == "09.10.2026 14:05 2026 41 Freitag flyer 7 261009", out
@@ -256,17 +257,17 @@ def test_more_variables():
     assert vdp.fill("{{gibtsnicht}} {{Name}}", rec) == "{{gibtsnicht}} Anna"
     names = [p for p, _ in vdp.variables_help()]
     assert "{{datum}}" in names and "{{seite}}" in names and "{{zufall:10}}" in names
-    # Datenarten sehen die Variablen nicht als Spalten (z. B. Termin-Beginn ≠ {{datum}})
+    # data kinds do not see the variables as columns (e.g. start of an appointment ≠ {{datum}})
     from pdfdruck import datakinds
 
     assert datakinds.mapped("event", {"Titel": "x", "_sys": {"datum": "1.1.2026"}})["Beginn"] == ""
 
 
 # --------------------------------------------------------------------------- #
-# 1.11 Fenster (Seitengruppen)
+# windows (page groups)
 # --------------------------------------------------------------------------- #
 def test_windows_migration_grouping():
-    """Altformat: Felder mit gleicher pages-Angabe landen gemeinsam in einem Fenster."""
+    """Old format: fields with the same pages entry end up in one window together."""
     s = vdp.VdpSettings(
         fields=[
             dict(kind="text", content="{{Name}}", pages="ungerade"),
@@ -278,7 +279,7 @@ def test_windows_migration_grouping():
     assert len(wins) == 2, wins
     assert wins[0].pages == "ungerade" and len(wins[0].fields) == 2
     assert wins[1].pages == "gerade" and len(wins[1].fields) == 1
-    # Fenster geben die Seitenmenge vor; fester Bereich gewinnt vor ungerade/gerade
+    # windows define the set of pages; a fixed range wins over odd/even
     s2 = vdp.VdpSettings(
         windows=[
             dict(pages="5-8", fields=[dict(content="A")]),
@@ -288,13 +289,13 @@ def test_windows_migration_grouping():
     )
     res = vdp.windows_resolved(s2, 10)
     assert [sorted(p) for p, _f in res] == [[4, 5, 6, 7], [0, 2, 8], list(range(10))], res
-    # Fenster mit „alle Seiten“ (Grundschicht) gelten überall – auch unter anderen Fenstern
-    # window_mode: nur gesetzt, wenn windows angegeben sind (Altformat bleibt Altformat)
+    # windows with "all pages" (base layer) apply everywhere – also below other windows
+    # window_mode: only set if windows are given (the old format stays the old format)
     assert vdp.window_mode(s) is False and vdp.window_mode(s2) is True
 
 
 def test_windows_pairing():
-    """Vorder-/Rückseite mit demselben Datensatz: 8 Datensätze x 2 Seiten -> 16 Seiten."""
+    """Front/back with the same record: 8 records x 2 pages -> 16 pages."""
     s = vdp.VdpSettings(
         count=8,
         order="record",
@@ -306,19 +307,19 @@ def test_windows_pairing():
     assert vdp.window_mode(s) is True
     seq = vdp.sequence("record", 8, [0, 1])
     assert len(seq) == 16
-    assert seq[0] == (0, 0) and seq[1] == (0, 1)  # Datensatz 1: Seite 1 + 2
-    assert seq[2] == (1, 0) and seq[3] == (1, 1)  # Datensatz 2: Seite 1 + 2
+    assert seq[0] == (0, 0) and seq[1] == (0, 1)  # record 1: pages 1 + 2
+    assert seq[2] == (1, 0) and seq[3] == (1, 1)  # record 2: pages 1 + 2
 
 
 def test_output_info_warn():
-    """200 gestaltete Seiten, Fenster nur auf 2 Seiten, 8 Datensätze -> Warnung; 1 Datensatz: keine."""
+    """200 designed pages, windows on 2 pages only, 8 records -> warning; 1 record: none."""
     s = vdp.VdpSettings(
         count=8, order="record", windows=[vdp.VdpWindow(pages="1,2", fields=[vdp.VdpField(content="{{nr}}")])]
     )
     info = vdp.output_info(s, 200, 8, 200)
     assert info["pages"] == 1600 and info["warn"] is True and len(info["uncovered"]) == 198
     assert vdp.output_info(s, 200, 1, 200)["warn"] is False
-    # Fenster decken alles ab: keine Warnung
+    # the windows cover everything: no warning
     s2 = vdp.VdpSettings(
         count=8,
         windows=[
@@ -327,14 +328,14 @@ def test_output_info_warn():
         ],
     )
     assert vdp.output_info(s2, 2, 8, 2)["warn"] is False
-    # Altformat: nie gewarnt (unverändertes Verhalten)
+    # old format: never warned (unchanged behaviour)
     assert (
         vdp.output_info(vdp.VdpSettings(count=3, fields=[dict(content="{{nr}}", pages="1")]), 6, 3, 6)["warn"] is False
     )
 
 
 def test_build_windows_front_back(tmp_path=None):
-    """build() im Fenster-Modus: Ausgabe = Datensätze x Vorlagenseiten, Paar mit demselben Datensatz."""
+    """build() in window mode: output = records x template pages, pair with the same record."""
     from reportlab.lib.units import mm as _mm
     from reportlab.pdfgen import canvas as _cv
 
@@ -358,15 +359,15 @@ def test_build_windows_front_back(tmp_path=None):
     out = os.path.join(TMP, "fw-out.pdf")
     data, info = vdp.build(tpl, s)
     open(out, "wb").write(data)
-    assert info["pages"] == 6, info  # 3 Datensätze x 2 Seiten
+    assert info["pages"] == 6, info  # 3 records x 2 pages
     t = [_text(out, i) for i in range(6)]
     assert "Anna Müller D1" in t[0] and "VORNE" in t[0] and "QR" not in t[0], t[0]
     assert "QR Anna Müller" in t[1] and "HINTEN" in t[1] and "D1" not in t[1], t[1]
-    assert "Béla Kovács D2" in t[2] and "QR Béla Kovács" in t[3]  # dasselbe Paar, derselbe Datensatz
+    assert "Béla Kovács D2" in t[2] and "QR Béla Kovács" in t[3]  # the same pair, the same record
 
 
 def test_legacy_settings_unchanged():
-    """Altformat ohne windows: Verhalten bleibt exakt wie bisher (order=each zählt Seiten reihum)."""
+    """Old format without windows: behaviour stays exactly as before (order=each counts pages in turn)."""
     s = vdp.VdpSettings(count=2, order="each", pages_per_record=2)
     assert vdp.window_mode(s) is False
     seq = vdp.sequence(s.order, 2, [0, 1], s.pages_per_record)
@@ -374,8 +375,9 @@ def test_legacy_settings_unchanged():
 
 
 def test_image_fields():
-    """Bildfelder: Pfad aus der CSV (relativ, \\, ohne Endung, Groß/klein), Einpassen/Füllen, Handyfoto-Drehung,
-    PDF-Bild bleibt Vektor, fehlende/kaputte Bilder mit CSV-Zeile, Ersatzbild, geringe Auflösung."""
+    """Image fields: path from the CSV (relative, \\, without extension, case), fit/fill, phone photo rotation,
+    PDF image stays vector, missing/broken images with the CSV row, fallback image, low resolution.
+    """
     import pikepdf
     from PIL import Image
     from reportlab.pdfgen import canvas
@@ -385,7 +387,7 @@ def test_image_fields():
     Image.new("RGBA", (800, 400), (255, 0, 0, 128)).save(os.path.join(d, "bilder", "rot.png"))
     im = Image.new("RGB", (600, 300), (0, 0, 255))
     ex = im.getexif()
-    ex[0x0112] = 6  # Handyfoto: hochkant gespeichert
+    ex[0x0112] = 6  # phone photo: stored in portrait
     im.save(os.path.join(d, "bilder", "Hoch.JPG"), exif=ex)
     Image.new("CMYK", (600, 600), (0, 100, 200, 0)).save(os.path.join(d, "bilder", "cmyk.tif"))
     Image.new("RGB", (20, 20)).save(os.path.join(d, "bilder", "klein.png"))
@@ -403,21 +405,21 @@ def test_image_fields():
     cov = vdp.VdpField(kind="image", content="{{Foto}}", x_mm=10, y_mm=60, w_mm=60, h_mm=40, fit="cover", rotate=90)
     s = vdp.VdpSettings(fields=[img, cov, vdp.VdpField(content="{{Name}}", x_mm=10, y_mm=110, w_mm=40)], csv_path=csvp)
     res = vdp.check(s)
-    assert res["counts"] == {"empty": 2}, res  # Zeile 6 ohne Bild: Feld bleibt leer
+    assert res["counts"] == {"empty": 2}, res  # row 6 without an image: the field stays empty
     data, info = vdp.build(SAMPLE, s)
     out = pikepdf.open(__import__("io").BytesIO(data))
     assert len(out.pages) == 5
-    ov = out.pages[3].Resources.XObject.O  # Datensatz D: PDF-Bild als Vektor-Form, Text lesbar
+    ov = out.pages[3].Resources.XObject.O  # record D: PDF image as a vector form, text readable
     assert any(str(k).startswith("/PMImg") for k in ov.Resources.XObject.keys())
     p = os.path.join(TMP, "img.pdf")
     with open(p, "wb") as fh:
         fh.write(data)
     assert "VEKTORLOGO" in _text(p, 3)
-    ex = vdp.Images()  # Handyfoto: gedreht -> hochkant eingepasst
+    ex = vdp.Images()  # phone photo: rotated -> fitted in portrait
     assert ex.info(vdp.find_image("bilder/Hoch.JPG", d))["size"] == (300.0, 600.0)
     assert vdp.Images.placement((300, 600), 100, 100, "contain", "center") == (25.0, 0.0, 50.0, 100.0)
     assert vdp.Images.placement((300, 600), 100, 100, "cover", "center")[2:] == (100.0, 200.0)
-    # Fehler: fehlende und kaputte Bilder mit CSV-Zeile; Erzeugen bricht ab
+    # errors: missing and broken images with the CSV row; generating aborts
     with open(csvp, "a", encoding="utf-8") as fh:
         fh.write("F;bilder/fehlt.png\nG;bilder/kaputt.png\nH;bilder/klein.png\n")
     res = vdp.check(s)
@@ -430,13 +432,13 @@ def test_image_fields():
         raise AssertionError("fehlendes Bild hätte abbrechen müssen")
     except ValueError as e:
         assert "Zeile 7" in str(e)
-    img.fallback = cov.fallback = os.path.join(d, "logo.pdf")  # mit Ersatzbild: nur Hinweise
+    img.fallback = cov.fallback = os.path.join(d, "logo.pdf")  # with a fallback image: notes only
     res = vdp.check(s)
     assert not vdp.check_blocking(res) and res["counts"].get("fallback") == 6, res
     data, _i = vdp.build(SAMPLE, s)
     assert data.startswith(b"%PDF")
     doc = pdfium.PdfDocument(SAMPLE)
-    pv, n = vdp.preview(doc, 0, s, record=5)  # Vorschau löst den Pfad relativ zur CSV auf
+    pv, n = vdp.preview(doc, 0, s, record=5)  # the preview resolves the path relative to the CSV
     assert n == 8 and "VEKTORLOGO" in pv[0].get_textpage().get_text_range()
 
 

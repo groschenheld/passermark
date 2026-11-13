@@ -71,12 +71,14 @@ class Rejected(RuntimeError):
 
 
 def step_jobs() -> list:
+    """Names of everything a workflow step can run: all jobs plus print and plan."""
     from . import core
 
     return list(core.JOBS) + [PRINT, PLAN]
 
 
 def step_settings_class(job: str):
+    """Settings dataclass for the step ``job``."""
     if job == PRINT:
         from .printcli import PrintSettings
 
@@ -335,6 +337,8 @@ def _subst(obj, vars_: dict, missing: set):
 
 @dataclasses.dataclass
 class Step:
+    """One step of a workflow: job, settings, optional condition and branches."""
+
     job: str
     name: str
     settings: dict
@@ -404,6 +408,7 @@ def _has_print(raw) -> bool:
 
 
 def load(path: str) -> dict:
+    """Read a workflow file; raises ValueError if it is not valid JSON or not a workflow."""
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -502,7 +507,7 @@ def prepare(
             if not isinstance(st, dict):
                 probs.append((where, tr("Objekt erwartet")))
                 continue
-            if CHOOSE in st:  # Verzweigung
+            if CHOOSE in st:  # branch
                 for k in st:
                     if k not in _CHOOSE_KEYS:
                         probs.append((f"{where}.{k}", tr("unbekannter Eintrag")))

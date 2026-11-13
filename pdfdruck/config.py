@@ -113,6 +113,7 @@ def _merge(base, over):
 
 
 def load() -> dict:
+    """Read the admin configuration; the built-in defaults if the file is missing or unreadable."""
     try:
         with open(DEFAULTS_FILE, encoding="utf-8") as f:
             data = json.load(f)
@@ -124,8 +125,10 @@ def load() -> dict:
 
 
 def profiles_for(cfg: dict, printer: str) -> list[dict]:
+    """Colour profiles that are valid for ``printer`` (profiles without a printer list apply to all)."""
     return [p for p in cfg.get("color_profiles", []) if not p.get("printers") or printer in p.get("printers", [])]
 
 
 def profile_by_id(cfg: dict, pid: str) -> dict | None:
+    """The colour profile with id ``pid``, or None."""
     return next((p for p in cfg.get("color_profiles", []) if p.get("id") == pid), None)

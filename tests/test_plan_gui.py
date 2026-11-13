@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Plandruck-Fenster ohne Bildschirm (Qt-Attrappe aus tests/_qtstub): Pläne erkennen, Rollen von Hand, Laufmeter,
-Druck an einen nachgebauten Plotter, Einstellungen merken, Rollen-Fenster."""
+"""Plan printing window without a screen (Qt stand-in from tests/_qtstub): detect plans, rolls by hand, run length,
+printing to an imitated plotter, remembering settings, rolls window.
+"""
 
 import os
 import subprocess
@@ -86,32 +87,32 @@ with T.FakePlotter() as fp:
         dlg._analyze_next()
     s = dlg.settings()
     assert s.weights == [75, 80] and not s.collate and s.copies == 1
-    # 914 hat 180 g -> nicht für Pläne: 600 × 850 auf 841 (Länge 850)
+    # 914 has 180 g -> not for plans: 600 × 850 on 841 (length 850)
     assert all(it.area.kind == "frame" and it.fit.width_mm == 841 for it in dlg.items), [it.fit for it in dlg.items]
     dlg.spn_copies.setValue(2)
     dlg.items[1].qty = 3
     dlg._refresh()
     lens = T.pp.run_lengths(dlg.items, dlg.rolls, 2)
     assert len(lens) == 1 and abs(lens[0]["single_m"] - 4 * 0.8497) < 0.01 and abs(lens[0]["total_m"] - 8 * 0.8497) < 0.02
-    # Rand statt Rahmen für einen Plan
+    # margin instead of frame for one plan
     dlg._set_frame([0], "margin")
     while dlg._queue:
         dlg._analyze_next()
     assert dlg.items[0].area.kind == "margin" and dlg.items[1].area.kind == "frame"
-    # Graustufen, nach Rolle, drucken
+    # greyscale, by roll, print
     dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
     assert dlg.settings().quality_mode == "production"          # Plan: Produktionsdruck, umschaltbar
     dlg.cmb_qmode.setCurrentIndex(dlg.cmb_qmode.findData("quality"))
     assert dlg.settings().quality_mode == "quality"
     dlg._print()
-    # seit 1.18.7 Standard: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1, Anzahl im Titel)
+    # default: one job per plan, one sheet per copy (copies = 1, count in the title)
     assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent), fp.sent
     assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
-    assert dlg.items == [] and dlg.settings().copies == 1 and dlg.settings().color != "gray"   # Fenster bleibt: leer, Standard
+    assert dlg.items == [] and dlg.settings().copies == 1 and dlg.settings().color != "gray"   # the window stays: empty, default
     assert dlg.settings().quality_mode == "production"
     assert P.PlanDialog(None, sess, None, None, "", "", "poster").settings().quality_mode == "quality"
-    from pdfdruck import planhistory              # Verlauf: Druck gemerkt, mit Dateien und Mengen wieder öffnen
+    from pdfdruck import planhistory              # history: print remembered, reopen with files and quantities
     ents = planhistory.entries("plan")
     assert ents and ents[0]["printer"] == "Plotter" and [i["qty"] for i in ents[0]["items"]] == [1, 3], ents[:1]
     assert ents[0]["settings"].get("color") == "gray" and planhistory.file_of(ents[0], ents[0]["items"][0])
@@ -119,8 +120,8 @@ with T.FakePlotter() as fp:
     d2.load_history(ents[0])
     assert [it.qty for it in d2.items] == [1, 3] and d2.settings().copies == 2 and d2.settings().color == "gray", [it.qty for it in d2.items]
     assert d2.printer == "Plotter"
-    d2._cleanup(1)                                # wie gedruckt/übernommen: merkt nichts
-    st = P.load_settings()                       # nach dem Drucken: wieder der Standard
+    d2._cleanup(1)                                # as printed/accepted: remembers nothing
+    st = P.load_settings()                       # after printing: the default again
     assert st.color == pp.PlanSettings(**pp.defaults_for("plan")).color and st.copies == 1, st
     dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
     dlg._save_standard()                          # eigener Standard: Graustufen
@@ -138,10 +139,10 @@ with T.FakePlotter() as fp:
     assert len(d) == 2
     d.close()
     dlg._cleanup(0)
-    # Rollen-Fenster
+    # rolls window
     rd = P.RollsDialog(None, sess, "Plotter")
     rd._remove()
-    # Posterdruck: Standard einzeln (Nebeneinander zuschaltbar), Überbreite abschneiden; Banner-Einstellungen
+    # poster printing: default single (side by side can be switched on), crop when too wide; banner settings
     doc2 = pdfium.PdfDocument(T.plan_pdf("gui_poster.pdf", 420, 594, frames=0))
     pd = P.PlanDialog(None, sess, None, doc2, "gui_poster.pdf", kind="poster")
     while pd._queue:
@@ -158,7 +159,7 @@ with T.FakePlotter() as fp:
     assert os.path.isfile(out2)
     pd._cleanup(0)
     assert P.load_settings("poster").hem_mm == 30 and P.load_settings("plan").hem_mm == 0
-    # eigenes Fenster je Art: kein Elternfenster, ein zweiter Aufruf holt dasselbe nach vorne, Dateien dazu
+    # own window per kind: no parent window, a second call brings the same one to the front, files added
     w1 = P.open_window(sess, None, "plan")
     assert P.open_window(sess, None, "plan") is w1 and w1.items == [] and w1.kind == "plan"
     w2 = P.open_window(sess, None, "poster", files=[src])

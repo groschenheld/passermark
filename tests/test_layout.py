@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
 from pdfdruck.layout import *
 
-A4 = Sheet(595.28, 841.89, (12, 12, 583.28, 829.89))  # ~4.2 mm Rand
+A4 = Sheet(595.28, 841.89, (12, 12, 583.28, 829.89))  # ~4.2 mm margin
 A3 = Sheet(841.89, 1190.55, (12, 12, 829.89, 1178.55))
 src = pdfium.PdfDocument(os.path.join(os.path.dirname(__file__), "sample.pdf"))
 sizes = [src.get_page_size(i) for i in range(len(src))]
@@ -32,7 +32,7 @@ def test_ranges():
 def test_actual():
     p = plan(sizes, [0], A4, LayoutSettings(mode="actual"))[0]
     pl = p.placements[0]
-    assert abs(pl.scale - 1) < 1e-9 and abs(pl.x) < 0.1 and p.warnings  # A4 auf A4 mit Rand -> Warnung
+    assert abs(pl.scale - 1) < 1e-9 and abs(pl.x) < 0.1 and p.warnings  # A4 on A4 with margin -> warning
 
 
 def test_fit_auto_landscape():
@@ -72,7 +72,7 @@ def test_render(tmp="/tmp/pdfdruck_test"):
         d = pdfium.PdfDocument(out)
         for i in range(len(d)):
             w, h = d.get_page_size(i)
-            assert abs(w - sheet.width) < 0.1 and abs(h - sheet.height) < 0.1  # immer physisch Hochformat
+            assert abs(w - sheet.width) < 0.1 and abs(h - sheet.height) < 0.1  # always physically portrait
         d[0].render(scale=0.3).to_pil().save(os.path.join(tmp, name + ".png"))
 
 
@@ -80,13 +80,13 @@ def test_booklet_order():
     o = booklet_order(8)
     assert o == [([7, 0], [1, 6]), ([5, 2], [3, 4])]
     assert booklet_order(8, "right")[0] == ([0, 7], [6, 1])
-    assert len(booklet_order(5)) == 2  # 5 Seiten -> 8 (3 Leerseiten)
+    assert len(booklet_order(5)) == 2  # 5 pages -> 8 (3 blank pages)
 
 
 def test_booklet_plan():
     ps = plan(sizes, list(range(7)), A4, LayoutSettings(handling="booklet"))
     assert len(ps) == 4 and all(p.landscape for p in ps) and ps[0].duplex_short
-    assert [pl.src for pl in ps[0].placements] == [0]  # Bogen 1 vorne: [Leer, 1]
+    assert [pl.src for pl in ps[0].placements] == [0]  # sheet 1 front: [blank, 1]
     assert [pl.src for pl in ps[1].placements] == [1, 6]
     f = plan(sizes, list(range(7)), A4, LayoutSettings(handling="booklet", booklet_sides="front"))
     assert len(f) == 2 and not f[0].duplex_short
@@ -100,7 +100,7 @@ def test_poster():
     s = LayoutSettings(handling="poster", poster_mode="sheets", poster_cols=2, poster_rows=2)
     assert len(plan(sizes, [0], A4, s)) == 4
     s = LayoutSettings(handling="poster", poster_percent=100, poster_large_only=True)
-    assert len(plan(sizes, [0, 2], A3, s)) == 2  # passt auf A3 -> keine Kachelung
+    assert len(plan(sizes, [0, 2], A3, s)) == 2  # fits on A3 -> no tiling
 
 
 def test_render_new(tmp="/tmp/pdfdruck_test"):
@@ -128,7 +128,7 @@ def test_step_repeat_bleed_marks():
     vk = pdfium.PdfDocument("/tmp/_vk.pdf")
     sz = [vk.get_page_size(0)]
     p0 = plan(sz, [0], A4, LayoutSettings(step_repeat=True))[0]
-    assert len(p0.placements) == 10, len(p0.placements)  # klassisch 10 Visitenkarten auf A4
+    assert len(p0.placements) == 10, len(p0.placements)  # classic 10 business cards on A4
     p1 = plan(sz, [0], A4, LayoutSettings(step_repeat=True, bleed_mm=3, crop_marks=True))[0]
     assert len(p1.placements) == 9 and p1.marks and p1.placements[0].bleed > 0
     out = impose_with(vk, A4, [p1], LayoutSettings())
@@ -137,24 +137,24 @@ def test_step_repeat_bleed_marks():
 
 def test_step_repeat_orientation_join():
     s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=2, sr_rows=1)
-    a3 = Sheet(841.89, 1190.55, None)  # randlos
+    a3 = Sheet(841.89, 1190.55, None)  # borderless
     p = plan([(595.28, 841.89)], [0], a3, s)[0]
-    assert p.landscape and not p.warnings  # 2 x A4 -> automatisch quer
+    assert p.landscape and not p.warnings  # 2 x A4 -> automatically landscape
     s.sr_orientation = "portrait"
     assert plan([(595.28, 841.89)], [0], a3, s)[0].warnings
     e = plan([(240.9, 155.9)], [0], A4, LayoutSettings(step_repeat=True, bleed_mm=3, sr_join="edge"))[0]
     pls = e.placements
-    assert any(not all(pl.bleed_sides) for pl in pls)  # innen kein Anschnitt
+    assert any(not all(pl.bleed_sides) for pl in pls)  # no bleed inside
     xs = sorted({round(pl.x, 1) for pl in pls})
-    assert abs(xs[1] - xs[0] - pls[0].w) < 0.2  # Kante an Kante
+    assert abs(xs[1] - xs[0] - pls[0].w) < 0.2  # edge to edge
 
 
 def test_custom_edge():
     a4 = (595.28, 841.89)
     p = plan([a4], [0], A3, LayoutSettings(mode="custom", custom_by="short", custom_mm=148))[0].placements[0]
-    assert abs(p.w / MM - 148) < 0.05 and abs(p.h / MM - 209.3) < 0.2  # A4 -> kurze Kante 148 mm
+    assert abs(p.w / MM - 148) < 0.05 and abs(p.h / MM - 209.3) < 0.2  # A4 -> short edge 148 mm
     p = plan([a4], [0], A3, LayoutSettings(mode="custom", custom_by="long", custom_mm=420))[0].placements[0]
-    assert abs(p.h / MM - 420) < 0.05 and abs(p.w / MM - 297) < 0.2  # lange Kante 420 -> A3
+    assert abs(p.h / MM - 420) < 0.05 and abs(p.w / MM - 297) < 0.2  # long edge 420 -> A3
     q = plan([(841.89, 595.28)], [0], A3, LayoutSettings(mode="custom", custom_by="short", custom_mm=100))[0]
     pl = q.placements[0]
     assert abs(min(pl.w, pl.h) / MM - 100) < 0.05  # landscape: short edge = height
@@ -167,7 +167,7 @@ def test_step_repeat_edge():
     sp = plan([a4], [0], A4, LayoutSettings(step_repeat=True, sr_by="short", sr_mm=70))[0]
     pl = sp.placements[0]
     assert abs(min(pl.w, pl.h) / MM - 70) < 0.05 and abs(max(pl.w, pl.h) / MM - 99.0) < 0.2
-    assert len(sp.placements) >= 6  # A4 -> 70 × 99 mm passt mehrfach auf A4
+    assert len(sp.placements) >= 6  # A4 -> 70 × 99 mm fits several times on A4
     vk = (240.94, 155.91)  # 85 × 55 mm
     a = plan([vk], [0], A4, LayoutSettings(step_repeat=True, sr_by="long", sr_mm=85))[0]
     b = plan([vk], [0], A4, LayoutSettings(step_repeat=True))[0]
@@ -192,7 +192,7 @@ def test_step_repeat_guard():
 def test_step2_nutzen():
     from pdfdruck.layout import is_step2, step2_sheet, plan_step2, _logical
 
-    A4s = Sheet(595.28, 841.89, None)  # Schritt-1-Blatt = gewähltes Papier (A4)
+    A4s = Sheet(595.28, 841.89, None)  # step 1 sheet = chosen paper (A4)
     s = LayoutSettings(
         step_repeat=True,
         sr_mode="grid",
@@ -208,49 +208,49 @@ def test_step2_nutzen():
         sr2_rows=0,
     )
     assert is_step2(s)
-    assert not is_step2(LayoutSettings(step_repeat=True))  # ohne Häkchen: aus
+    assert not is_step2(LayoutSettings(step_repeat=True))  # without the tick: off
     t = step2_sheet(s)
     assert abs(t.width - 320 * MM) < 0.01 and abs(t.height - 450 * MM) < 0.01
-    # Schritt 1: 9 Visitenkarten auf A4 (wie immer, mit Überfüller + Marken)
+    # step 1: 9 business cards on A4 (as always, with bleed + marks)
     plans1 = plan([(240.94, 155.91)], [0], A4s, s)
     assert len(plans1[0].placements) == 9
     assert plans1[0].marks and any(pl.bleed > 0 for pl in plans1[0].placements)
-    # Schritt 2 automatisch: der fertige A4-Bogen, unverändert, aufs Zielformat
+    # step 2 automatic: the finished A4 sheet, unchanged, onto the target size
     plans2 = plan_step2((A4s.width, A4s.height), len(plans1), s)
-    assert len(plans2) == len(plans1)  # je Schritt-1-Bogen ein Zielblatt
-    assert len(plans2[0].placements) >= 2  # automatisch: mehrfach drauf
+    assert len(plans2) == len(plans1)  # one target sheet per step 1 sheet
+    assert len(plans2[0].placements) >= 2  # automatic: several times on the sheet
     for sp in plans2:
-        assert not sp.marks  # nie zusätzliche Marken/Überfüller
+        assert not sp.marks  # never additional marks/bleed
         for pl in sp.placements:
             assert abs(pl.scale - 1.0) < 1e-9 and pl.bleed <= 0 and pl.src < len(plans1)
-            assert pl.trim is None  # Bogen bleibt komplett (Marken bleiben!)
-    # Rasterblock liegt immer mittig (gleicher Rand links/rechts wie rechts, oben/unten)
+            assert pl.trim is None  # the sheet stays complete (marks stay!)
+    # the grid block is always centred (same margin left/right and top/bottom)
     sp = plans2[0]
     LW, LH, area = _logical(step2_sheet(s), sp.landscape)
     xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
     ys = [v for pl in sp.placements for v in (pl.y, pl.y + pl.h)]
     assert abs(min(xs) - (LW - max(xs))) < 1.0
     assert abs(min(ys) - (LH - max(ys))) < 1.0
-    # Raster fest: 2 × 1 -> genau 2
+    # fixed grid: 2 × 1 -> exactly 2
     s.sr2_cols, s.sr2_rows = 2, 1
     plans2 = plan_step2((A4s.width, A4s.height), len(plans1), s)
     assert len(plans2[0].placements) == 2
-    # Drehung aus Schritt 1 wird übernommen: sr_rotate=0 -> nie gedreht
+    # rotation from step 1 is taken over: sr_rotate=0 -> never rotated
     s.sr2_cols, s.sr2_rows = 0, 0
     s.sr_rotate = "0"
     plans2 = plan_step2((A4s.width, A4s.height), 1, s)
     assert all(pl.rot == 0 for sp in plans2 for pl in sp.placements)
     s.sr_rotate = "auto"
-    # Zielformat zu klein -> KEIN Fehler: trotzdem montieren, mit Warnung
+    # target size too small -> NO error: impose anyway, with a warning
     s.sr2_w_mm, s.sr2_h_mm = 100, 100
     plans2 = plan_step2((A4s.width, A4s.height), 1, s)
     assert len(plans2) == 1 and len(plans2[0].placements) == 1
     assert plans2[0].warnings and "beschnitten" in plans2[0].warnings[0]
-    # Raster zu groß fürs Zielformat -> ebenfalls Warnung statt Fehler
+    # grid too large for the target size -> also a warning instead of an error
     s.sr2_w_mm, s.sr2_h_mm, s.sr2_cols, s.sr2_rows = 320, 450, 3, 3
     plans2 = plan_step2((A4s.width, A4s.height), 1, s)
     assert len(plans2[0].placements) == 9 and plans2[0].warnings
-    # ... und der Block trotzdem mittig (symmetrischer Überhang)
+    # ... and the block still centred (symmetric overhang)
     sp = plans2[0]
     LW, LH, area = _logical(step2_sheet(s), sp.landscape)
     xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
@@ -259,11 +259,12 @@ def test_step2_nutzen():
 
 
 def test_step_repeat_trim_show_edge():
-    """Nutzen + TrimBox: Außenseiten des Blocks zeigen den echten Dokumentrand
-    (vorhandene Schnittmarken werden verwendet, nicht abgeschnitten)."""
+    """Step and repeat + TrimBox: the outer sides of the block show the real document edge
+    (existing crop marks are used, not cut off).
+    """
     sizes = [(302.05, 216.91)]  # 106.5 x 76.5 mm
-    trims = [(30.5039, 30.5039, 30.5040, 30.5040)]  # Endformat 85 x 55 mm
-    bleeds = [8.5039]  # Dokument-Anschnitt 3 mm
+    trims = [(30.5039, 30.5039, 30.5040, 30.5040)]  # trim size 85 x 55 mm
+    bleeds = [8.5039]  # document bleed 3 mm
     sheet = Sheet(595.28, 841.89, None)  # A4
     s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=3, sr_rows=3, sr_join="bleed")
     plans = plan(sizes, [0], sheet, s, trims, bleeds)
@@ -271,44 +272,45 @@ def test_step_repeat_trim_show_edge():
     for pl in plans[0].placements:
         c = round((pl.x - min(p.x for p in plans[0].placements)) // (pl.w + 17.0))
         c = min(2, int(round((pl.x - min(p.x for p in plans[0].placements)) / (pl.w + 17.001))))
-        # trim_show_edge nur auf Block-Außenseiten
+        # trim_show_edge only on the outer sides of the block
         assert pl.trim_show_edge[0] == (pl.x == min(p.x for p in plans[0].placements))
         assert pl.trim_show_edge[2] == (pl.x + pl.w == max(p.x + p.w for p in plans[0].placements))
         assert pl.trim_show_edge[3] == (pl.y + pl.h == max(p.y + p.h for p in plans[0].placements))
         assert pl.trim_show_edge[1] == (pl.y == min(p.y for p in plans[0].placements))
-    # Kachel-Ausdehnung: außen bis zum echten Rand, innen nur konfigurierter Überfüller
+    # tile extent: outside up to the real edge, inside only the configured bleed
     for pl in plans[0].placements:
         b = pl.bleed
         eL = pl.trim[0] * pl.scale
         bL = max(b if pl.bleed_sides[0] else 0.0, eL if pl.trim_show_edge[0] else 0.0)
         if pl.trim_show_edge[0]:
-            assert bL >= eL - 0.01  # ganzer Dokumentrand sichtbar (Marken!)
+            assert bL >= eL - 0.01  # whole document edge visible (marks!)
         else:
             assert bL == (b if pl.bleed_sides[0] else 0.0)
-    # ohne TrimBox: keine Änderung (trim_show_edge bleibt ohne Wirkung)
+    # without TrimBox: no change (trim_show_edge has no effect)
     plans2 = plan(sizes, [0], sheet, s, None, None)
     for pl in plans2[0].placements:
-        assert pl.trim is None  # kein Endformat -> Fast-Pfad wie bisher
+        assert pl.trim is None  # no trim size -> fast path
 
 
 def test_step2_raster_exakt():
-    """Definiertes Raster wird immer exakt montiert (Schritt 1 + 2) – passt es
-    nicht, wird symmetrisch beschnitten und gewarnt, aber nie verkleinert.
-    Auto im Schritt 2 setzt so viele Bögen wie aufs Zielformat passen
-    (2 × A4 auf A3)."""
+    """A defined grid is always imposed exactly (step 1 + 2) – if it does not
+    fit, it is clipped symmetrically with a warning, but never reduced.
+    Auto in step 2 places as many sheets as fit on the target size
+    (2 × A4 on A3).
+    """
     from pdfdruck.layout import plan_step2, _logical
 
     A4t = (595.28, 841.89)
     A3 = Sheet(297 * MM, 420 * MM, None)
     s = LayoutSettings(step_repeat=True, sr_pass2=True, sr2_w_mm=297, sr2_h_mm=420)
-    # Auto: 2 A4 passen auf A3 (quer, nebeneinander)
+    # auto: 2 A4 fit on A3 (landscape, side by side)
     plans = plan_step2(A4t, 1, s, target=A3)
     assert len(plans[0].placements) == 2 and not plans[0].warnings
-    # fest 2 x 1: identisch
+    # fixed 2 x 1: identical
     s.sr2_cols, s.sr2_rows = 2, 1
     plans = plan_step2(A4t, 1, s, target=A3)
     assert len(plans[0].placements) == 2 and not plans[0].warnings
-    # fest 3 x 3 auf zu kleines A3: 9 bleiben 9, Warnung, symmetrischer Überhang
+    # fixed 3 x 3 on an A3 that is too small: 9 stay 9, warning, symmetric overhang
     s.sr2_cols, s.sr2_rows = 3, 3
     plans = plan_step2(A4t, 1, s, target=A3)
     sp = plans[0]
@@ -316,13 +318,13 @@ def test_step2_raster_exakt():
     xs = [v for pl in sp.placements for v in (pl.x, pl.x + pl.w)]
     LW, LH, area = _logical(A3, sp.landscape)
     assert abs(min(xs) - (LW - max(xs))) < 1.0
-    # Drehung aus Schritt 1: sr_rotate=90 -> Bogen gedreht, 2 untereinander auf A3 hoch
+    # rotation from step 1: sr_rotate=90 -> sheet rotated, 2 below each other on A3 portrait
     s.sr2_cols, s.sr2_rows = 0, 0
     s.sr_rotate = "90"
     plans = plan_step2(A4t, 1, s, target=A3)
     assert len(plans[0].placements) == 2 and all(pl.rot == 90 for pl in plans[0].placements)
     s.sr_rotate = "auto"
-    # Schritt 1: festes Raster bleibt exakt, auch wenn zu klein (nur Warnung)
+    # step 1: a fixed grid stays exact even if too small (warning only)
     small = Sheet(100 * MM, 150 * MM, None)
     s1 = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=3, sr_rows=3, sr_join="bleed", bleed_mm=3.0)
     p1 = plan([(241, 156)], [0], small, s1, [(30.5, 30.5, 30.5, 30.5)], [8.5])
@@ -330,8 +332,9 @@ def test_step2_raster_exakt():
 
 
 def test_booklet_spreads():
-    """Broschüre -> Druckbögen (1.12): Endformat aufgeklappt, Reihenfolge, Anschnitt nur außen,
-    nebeneinander/übereinander; danach montiert der Nutzen-Modus sie ohne Warnung."""
+    """Booklet -> spreads: trim size opened, order, bleed only outside,
+    side by side/one above the other; afterwards step-and-repeat mode imposes them without a warning.
+    """
     import io
     import pikepdf
     from reportlab.pdfgen import canvas
@@ -340,7 +343,7 @@ def test_booklet_spreads():
     cols = [(1, 0, 0), (0, 0.6, 0), (0, 0, 1), (1, 0.8, 0), (0.6, 0, 0.6), (0, 0.7, 0.7), (0.3, 0.3, 0.3), (1, 0.5, 0)]
     b = io.BytesIO()
     c = canvas.Canvas(b)
-    for i in range(8):  # 210 × 210 mm + 3 mm Anschnitt, je Seite eigene Farbe
+    for i in range(8):  # 210 × 210 mm + 3 mm bleed, own colour per page
         c.setPageSize((216 * MMx, 216 * MMx))
         c.setFillColorRGB(*cols[i])
         c.rect(0, 0, 216 * MMx, 216 * MMx, fill=1, stroke=0)
@@ -359,16 +362,16 @@ def test_booklet_spreads():
         assert len(out) == 4 and (round(w / MMx), round(h / MMx)) == size, (mode, w / MMx, h / MMx)
         img = out[0].render(scale=1).to_pil().convert("RGB")
         W, H = img.size
-        # Bogen 1 vorne: Seite 8 | Seite 1 (bzw. 8 oben, 1 unten); Anschnitt außen echt, am Falz geschnitten
+        # sheet 1 front: page 8 | page 1 (or 8 on top, 1 below); real bleed outside, cut at the fold
         if mode == "side":
             a, z, fa, fz = (1, H / 2), (W - 2, H / 2), (W / 2 - 2, H / 2), (W / 2 + 2, H / 2)
         else:
             a, z, fa, fz = (W / 2, 1), (W / 2, H - 2), (W / 2, H / 2 - 2), (W / 2, H / 2 + 2)
-        assert px(img, *a) == px(img, *fa) == (255, 128, 0)  # Seite 8
-        assert px(img, *z) == px(img, *fz) == (255, 0, 0)  # Seite 1
+        assert px(img, *a) == px(img, *fa) == (255, 128, 0)  # page 8
+        assert px(img, *z) == px(img, *fz) == (255, 0, 0)  # page 1
         t = page_trims(out)[0]
-        assert t and all(abs(v - 3 * MMx) < 0.5 for v in t)  # TrimBox gesetzt, 3 mm Anschnitt
-        # Nutzen montiert die Druckbögen ohne Warnung
+        assert t and all(abs(v - 3 * MMx) < 0.5 for v in t)  # TrimBox set, 3 mm bleed
+        # step and repeat imposes the spreads without a warning
         sz = [out.get_page_size(i) for i in range(len(out))]
         ps = plan(
             sz,
@@ -382,8 +385,9 @@ def test_booklet_spreads():
 
 
 def test_step_repeat_rotates_when_nothing_fits():
-    """Raster 2 × 4 A6 mit Überfüller + Schnittmarken auf A3 passt nie ganz: Hochformat-Daten werden gedreht und
-    landen genauso wie Querformat-Daten (früher blieben sie ungedreht und standen 20 cm über) – 1.15.1."""
+    """Grid 2 × 4 A6 with bleed + crop marks on A3 never fits completely: portrait data are rotated and
+    end up exactly like landscape data (instead of staying unrotated and overhanging by 20 cm).
+    """
     import dataclasses
 
     a3 = Sheet(297 * MM, 420 * MM, None)
@@ -396,30 +400,30 @@ def test_step_repeat_rotates_when_nothing_fits():
         xs = sorted({round(pl.x / MM) for pl in sp.placements})
         ys = sorted({round(pl.y / MM) for pl in sp.placements})
         res[name] = (sp.landscape, len(xs), len(ys), round(sp.placements[0].w / MM), round(sp.placements[0].h / MM))
-        assert sp.warnings  # passt nicht ganz – Warnung bleibt
+        assert sp.warnings  # does not fit completely – the warning stays
         assert sp.placements[0].rot == (90 if name == "hoch" else 0), (name, sp.label)
     assert res["hoch"] == res["quer"] == (False, 2, 4, 148, 105), res
-    # „Nutzen drehen: 0°“ bleibt erzwungen ungedreht
+    # "Nutzen drehen: 0°" stays forced unrotated
     sp = plan_step_repeat([(105 * MM, 148 * MM)], [0], a3, dataclasses.replace(s, sr_rotate="0"))[0]
     assert sp.placements[0].rot == 0
-    # passt alles, bleibt es beim Grundsatz „ungedreht“ (auch wenn gedreht mehr Platz bliebe)
+    # if everything fits, the principle "unrotated" holds (even if rotated would leave more room)
     sp = plan_step_repeat([(105 * MM, 148 * MM)], [0], a3, dataclasses.replace(s, sr_cols=2, sr_rows=2))[0]
     assert sp.placements[0].rot == 0 and not sp.warnings
-    # passt nicht einmal einmal: Lage mit dem kleinsten Überhang
+    # does not fit even once: orientation with the smallest overhang
     sp = plan_step_repeat([(440 * MM, 300 * MM)], [0], a3, LayoutSettings(step_repeat=True, use_margins=False))[0]
     assert len(sp.placements) == 1 and sp.landscape, sp.label
 
 
 def test_step2_rotates_when_nothing_fits():
-    """Schritt 2: Bogen 200 × 300 im Raster 1 × 2 auf 600 × 300 – ungedreht viel zu hoch, gedreht passt es fast."""
+    """Step 2: sheet 200 × 300 in a 1 × 2 grid on 600 × 300 – unrotated far too tall, rotated it almost fits."""
     s = LayoutSettings(
         step_repeat=True, sr_pass2=True, sr2_w_mm=590, sr2_h_mm=300, sr2_cols=2, sr2_rows=1, sr_orientation="portrait"
     )
     plans = plan_step2((200 * MM, 300 * MM), 1, s)
-    assert plans[0].placements[0].rot == 0  # 2 × 1 ungedreht: 400 × 300 passt
+    assert plans[0].placements[0].rot == 0  # 2 × 1 unrotated: 400 × 300 fits
     s.sr2_cols, s.sr2_rows = 1, 2
     plans = plan_step2((200 * MM, 300 * MM), 1, s)
-    assert plans[0].placements[0].rot == 90, plans[0].label  # 1 × 2: gedreht 300 × 400 statt 200 × 600
+    assert plans[0].placements[0].rot == 90, plans[0].label  # 1 × 2: rotated 300 × 400 instead of 200 × 600
 
 
 if __name__ == "__main__":

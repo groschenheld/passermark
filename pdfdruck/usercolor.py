@@ -44,6 +44,7 @@ def user_dir() -> str:
 
 
 def materials_file() -> str:
+    """File that holds the user's own materials (papers)."""
     return os.path.join(user_dir(), "materials.json")
 
 
@@ -58,7 +59,7 @@ def icc_dir() -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Materialien des Benutzers
+# the user's materials
 # --------------------------------------------------------------------------- #
 def _clean(m: dict) -> dict | None:
     """One material from the file – tolerant: unknown fields away, wrong values to defaults."""
@@ -94,6 +95,7 @@ def _clean(m: dict) -> dict | None:
 
 
 def load_materials() -> list:
+    """The user's own materials (an empty list if there are none or the file is unreadable)."""
     try:
         with open(materials_file(), encoding="utf-8") as f:
             d = json.load(f)
@@ -123,6 +125,7 @@ def save_materials(mats: list):
 
 
 def new_id(name: str, existing) -> str:
+    """Derive an unused material id from the name."""
     base = PREFIX + (re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")[:48] or "material")
     ids = set(existing)
     mid, i = base, 2
@@ -132,7 +135,7 @@ def new_id(name: str, existing) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Eigene ICC-Profile
+# the user's ICC profiles
 # --------------------------------------------------------------------------- #
 def import_icc(path: str) -> str:
     """Copy an ICC file into the own ICC folder -> new path (the same file is not copied twice)."""
@@ -233,6 +236,7 @@ STANDARD_PROFILES = [
 
 
 def standard_by_key(key: str):
+    """The standard profile with this key, or None."""
     return next((p for p in STANDARD_PROFILES if p["key"] == key), None)
 
 

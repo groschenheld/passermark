@@ -94,7 +94,7 @@ def test_csv_roundtrip_excel_safe():
     p = os.path.join(TMP, "k.csv")
     rows = [{"Vorname": "Zoë", "Nachname": "Müller; Söhne", "Notiz": "zwei\nZeilen"}, {"Vorname": "", "Nachname": ""}]
     D.write_csv(p, D.columns("vcard"), rows)
-    assert open(p, "rb").read(3) == b"\xef\xbb\xbf"  # BOM: Excel erkennt UTF-8
+    assert open(p, "rb").read(3) == b"\xef\xbb\xbf"  # BOM: Excel recognises UTF-8
     cols, back = vdp.read_csv(p)
     assert cols == D.columns("vcard") and len(back) == 1  # empty row is dropped
     assert back[0]["Nachname"] == "Müller; Söhne" and back[0]["Notiz"] == "zwei\nZeilen"
@@ -110,7 +110,7 @@ def test_ean_wrong_check_digit_is_an_error():
 
 
 def test_qr_types_scan_back():
-    """Jede QR-Art aus einer CSV erzeugen und wieder lesen – Inhalt muss genau stimmen."""
+    """Generate every QR kind from a CSV and read it again – the content must match exactly."""
     if not C.HAVE_CV2:
         print("  (OpenCV fehlt – Lesen übersprungen)")
         return
@@ -135,7 +135,7 @@ def test_qr_types_scan_back():
 
 
 def test_quiet_zone_makes_qr_readable_alone():
-    """Mit Ruhezone ist der QR-Code auch als enger Ausschnitt lesbar (vorher nicht)."""
+    """With a quiet zone the QR code is readable as a tight crop too (not before)."""
     if not C.HAVE_CV2:
         return
     res = {}
@@ -181,7 +181,7 @@ def test_code128_and_ean_scan_back():
 
 
 def test_old_presets_still_load():
-    """Presets ohne qr_type/quiet (bis 1.9) laden weiter – Standard: Inhalt wie eingegeben, mit Ruhezone."""
+    """Presets without qr_type/quiet (old files) still load – default: content as entered, with quiet zone."""
     s = vdp.VdpSettings(count=1, fields=[{"kind": "qr", "content": "x", "x_mm": 1, "y_mm": 1, "w_mm": 20, "h_mm": 20}])
     f = vdp._fields(s)[0]
     assert f.qr_type == "text" and f.quiet is True
@@ -322,7 +322,7 @@ def test_auto_map_contact_exports():
         m = D.auto_map("vcard", cols)
         for k, v in {**exp, **extra}.items():
             assert m[k] == v, (k, m[k], v)
-        assert m["Position"] != "Title"  # Outlook „Title“ = Anrede, nicht Funktion
+        assert m["Position"] != "Title"  # Outlook "Title" = salutation, not job title
         assert D.guess_kind(cols) == "vcard"
     assert D.guess_kind(["SSID", "Password"]) == "wifi"
     assert D.auto_map("wifi", ["ssid", "Kennwort"]) == {
@@ -356,7 +356,7 @@ def test_outlook_export_to_vcard_qr():
     csvp = _outlook_csv(os.path.join(TMP, "outlook.csv"))
     f = vdp.VdpField("qr", "", 40, 10, 60, 60, qr_type="vcard", qr_map={"Position": "Title"})
     s = vdp.VdpSettings(csv_path=csvp, fields=[f])
-    presets.save("vdp", "Outlook-Karten", s)  # Zuordnung bleibt im Preset
+    presets.save("vdp", "Outlook-Karten", s)  # the mapping stays in the preset
     s2 = presets.load("vdp", "Outlook-Karten")
     f2 = vdp._fields(s2)[0]
     assert f2.qr_map == {"Position": "Title"} and f2.qr_type == "vcard"
@@ -400,7 +400,7 @@ d2 = DataDialog(None, p)
 assert d2.kind == "wifi" and len(d2.data_rows()) == 5 and "Tisch" in d2.cols   # fill takes all 5 rows
 d5 = DataDialog(None, "", "code128"); d5.fill_column("Code", 1, 1, 4, "T", count=100)
 assert len(d5.data_rows()) == 100 and d5.rows[99]["Code"] == "T0100" and d5.problems() == []
-d2.set_kind("vcard")                                     # Art wechseln: Spalten dazu, Daten bleiben
+d2.set_kind("vcard")                                     # change the kind: columns added, data stay
 assert "Vorname" in d2.cols and d2.rows[0]["Netzname"] == "Gaeste"
 d3 = DataDialog(None, "", "ean13"); d3.paste_text("4006381333932\nabc", 0, 0)
 assert len(d3.problems()) == 2
@@ -414,12 +414,12 @@ from pdfdruck.gui.vdpdialog import VdpDialog
 vd = VdpDialog(None, pdfium.PdfDocument(sys.argv[1]), 0)
 vd.use_data(p, "wifi")
 assert [x.kind for x in vd.fields] == ["qr"] and vd.fields[0].qr_type == "wifi", vd.fields
-vd.use_data(p, "wifi")                                   # zweimal: kein zweites Feld
+vd.use_data(p, "wifi")                                   # twice: no second field
 assert len(vd.fields) == 1
 vd._qr_widgets(vd.fields[0]); vd._refresh()
 s = vd._settings()
 assert s.fields[0]["qr_type"] == "wifi" and s.csv_path == p and s.order == "record" and s.windows, s
-vd.cols = ["Name", "Foto"]                               # Bildfeld: Spalte erraten, Einpassen, Ersatzbild
+vd.cols = ["Name", "Foto"]                               # image field: guess the column, fit, fallback image
 vd._add("image")
 fi = vd.fields[-1]
 assert fi.kind == "image" and fi.content == "{{Foto}}" and fi.align == "center", fi
@@ -482,7 +482,7 @@ assert jobs and jobs[0][0] == "split" and jobs[0][1]["mode"] == "halves_h" and j
 w.split_dialog(selection=True)
 sd2 = SplitDialog(None, pdfium.PdfDocument(sys.argv[1]), 0, [0, 1], which="selected"); sd2._apply()
 dd = DataDialog(None, op)
-assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # keine doppelten Spalten
+assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # no duplicate columns
 assert dd.problems() == [], dd.problems()
 print("ok")
 """

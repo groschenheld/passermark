@@ -29,6 +29,8 @@ from . import theme
 
 
 class SettingsDialog(QDialog):
+    """Dialog "Einstellungen": the user's program settings (language, document check, print log …)."""
+
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle(tr("Einstellungen"))
@@ -39,7 +41,7 @@ class SettingsDialog(QDialog):
         f = QFormLayout(g)
         self.cmb = QComboBox()
         self.cmb.addItem(tr("Automatisch (Systemsprache)"), "auto")
-        for code, name in l10n.LANGS.items():  # Sprachnamen immer in der eigenen Sprache
+        for code, name in l10n.LANGS.items():  # language names always in their own language
             self.cmb.addItem(name, code)
         i = self.cmb.findData(self.settings.get("language", "auto"))
         self.cmb.setCurrentIndex(max(0, i))
@@ -189,7 +191,7 @@ def restart(window):
     ctl = getattr(window, "ctl", None)
     for w in list(getattr(ctl, "windows", [])):
         if not w.close():
-            return  # Benutzer hat beim Speichern abgebrochen
+            return  # the user cancelled while saving
     if ctl is not None and ctl.server is not None:
         ctl.server.close()
     if getattr(sys, "frozen", False):

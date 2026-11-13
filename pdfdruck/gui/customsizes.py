@@ -27,12 +27,14 @@ from . import theme
 
 
 class CustomSizesDialog(QDialog):
+    """Dialog for the user's custom paper sizes."""
+
     def __init__(self, parent):
         super().__init__(parent)
         self.setWindowTitle(tr("Sonderformate – Passermark"))
         self.resize(460, 420)
         self.sizes = printers.load_custom_sizes()
-        self.chosen = None  # Papierwert, der danach eingestellt werden soll
+        self.chosen = None  # paper value to be set afterwards
         v = QVBoxLayout(self)
         self.lst = QListWidget()
         v.addWidget(self.lst, 1)

@@ -46,6 +46,8 @@ SEV_COL = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "
 
 
 class _Run(QThread):
+    """Produces the output for the print shop in a background thread."""
+
     done = Signal(object, str)
     step = Signal(str)
 
@@ -73,6 +75,8 @@ def _findings_tree(tree: QTreeWidget, findings):
 
 
 class PressDialog(QDialog):
+    """Wizard "Für Druckerei ausgeben": printing condition, check and plan, save, result."""
+
     open_result = Signal(str)
 
     def __init__(
@@ -94,7 +98,7 @@ class PressDialog(QDialog):
         self.stack = QStackedWidget()
         v.addWidget(self.stack, 1)
 
-        # 1 Druckbedingung
+        # 1 printing condition
         w = QWidget()
         f = QFormLayout(w)
         t = QLabel(
@@ -132,7 +136,7 @@ class PressDialog(QDialog):
         f.addRow(tr("Max. Farbauftrag:"), self.spn_tac)
         self.stack.addWidget(w)
 
-        # 2 Prüfen und Plan
+        # 2 check and plan
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lbl_check = QLabel()
@@ -182,7 +186,7 @@ class PressDialog(QDialog):
         self.cmb_mode.currentIndexChanged.connect(lambda *_: self._update_plan())
         self.stack.addWidget(w)
 
-        # 3 Speichern
+        # 3 save
         w = QWidget()
         f = QFormLayout(w)
         h = QHBoxLayout()
@@ -206,7 +210,7 @@ class PressDialog(QDialog):
         f.addRow(self.lbl_run)
         self.stack.addWidget(w)
 
-        # 4 Ergebnis
+        # 4 result
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lbl_done = QLabel()
@@ -329,7 +333,7 @@ class PressDialog(QDialog):
         elif i == 2:
             self._output()
 
-    # ---------------- 2: prüfen ---------------- #
+    # ---------------- 2: check ---------------- #
     def _check(self):
         try:
             data = self.data_fn()
@@ -346,7 +350,7 @@ class PressDialog(QDialog):
         self.rb_convert.setText(
             tr("RGB nach „{0}“ umwandeln (empfohlen, wenn die Druckerei nichts anderes sagt)").format(t.name)
         )
-        for rb in (self.rb_convert, self.rb_keep):  # immer fragen: keine Vorauswahl
+        for rb in (self.rb_convert, self.rb_keep):  # always ask: no preselection
             self.grp_rgb.setExclusive(False)
             rb.setChecked(False)
             self.grp_rgb.setExclusive(True)
@@ -376,7 +380,7 @@ class PressDialog(QDialog):
             return
         s = self._settings()
         if self.facts.has_rgb and s.rgb == "ask":
-            s.rgb = "convert"  # nur für die Vorschau des Plans
+            s.rgb = "convert"  # only for the preview of the plan
             pending = True
         else:
             pending = False
@@ -408,7 +412,7 @@ class PressDialog(QDialog):
             lines.append(tr("Achtung: Für die Umwandlung wird Ghostscript gebraucht – nicht gefunden."))
         self.lbl_plan.setText("\n".join(lines))
 
-    # ---------------- 3: ausgeben ---------------- #
+    # ---------------- 3: output ---------------- #
     def _pick_out(self):
         p, _ = QFileDialog.getSaveFileName(self, tr("Speichern als"), self.ed_out.text(), tr("PDF (*.pdf)"))
         if p:
@@ -474,7 +478,7 @@ class PressDialog(QDialog):
             ok(res)
 
         th.done.connect(done)
-        self._threads.add(th)  # Verweis halten, bis der Thread wirklich fertig ist
+        self._threads.add(th)  # keep a reference until the thread has really finished
         th.finished.connect(lambda th=th: self._threads.discard(th))
         th.start()
 

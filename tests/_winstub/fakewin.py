@@ -1,4 +1,4 @@
-"""Nachgebaute Windows-Druckschnittstellen (win32gui/win32print/gdi32) – zeichnen auf eine Leinwand."""
+"""Imitated Windows print interfaces (win32gui/win32print/gdi32) – they draw on a canvas."""
 
 import ctypes
 import io

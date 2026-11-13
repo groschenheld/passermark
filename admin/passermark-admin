@@ -39,7 +39,7 @@ RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
 RX_USER = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}\$?$")
 
-SHARED = "/srv/passermark"            # gemeinsamer Druckordner (Regel für alle Passermark-Programme)
+SHARED = "/srv/passermark"            # shared print folder (rule for all Passermark programs)
 SHARED_SUBS = ("hotfolder", "ausgabe", "archiv")
 SHARED_GROUP = "passermark"
 
@@ -276,9 +276,9 @@ def cmd_shared_folder(users):
         if st.st_uid != 0 or st.st_gid != gid:
             os.chown(d, 0, gid)
         if (st.st_mode & 0o7777) != 0o2770:
-            os.chmod(d, 0o2770)                   # nur root und die Gruppe – andere kommen nicht hinein
+            os.chmod(d, 0o2770)                   # only root and the group – others cannot get in
 
-    # Dienste der Passermark-Programme und ihre Benutzer
+    # services of the Passermark programs and their users
     services = _services()
     svc_users = [u for _unit, u, dyn in services if u and u != "root" and not dyn and RX_USER.match(u)]
     all_users = []
@@ -307,7 +307,7 @@ def cmd_shared_folder(users):
         if r.returncode != 0:
             done.append("Hinweis: ACL nicht gesetzt (" + (r.stderr.strip() or "setfacl") + ")")
 
-    # systemd: Schutz öffnen und Dienste neu starten, damit Gruppe/Freigabe greifen
+    # systemd: open the protection and restart the services so that group/share take effect
     sc = _tool("systemctl")
     changed = []
     for unit, u, dyn in services:
@@ -320,7 +320,7 @@ def cmd_shared_folder(users):
             done.append(f"Dienst {unit}: Druckordner freigegeben" + ("" if r.returncode == 0 else
                                                                       f" (Neustart fehlgeschlagen: {r.stderr.strip()})"))
 
-    # Probe: darf jeder Programmbenutzer wirklich schreiben?
+    # probe: may every program user really write?
     for u in all_users:
         if not _exists(u):
             continue

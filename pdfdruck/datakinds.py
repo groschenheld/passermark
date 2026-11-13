@@ -749,7 +749,7 @@ def validate(kind_id: str, cols: list, rows: list, mapping: dict | None = None) 
 
 
 # --------------------------------------------------------------------------- #
-# Tabellen
+# tables
 # --------------------------------------------------------------------------- #
 def columns(kind_id: str) -> list:
     """Column names of the data kind, in order."""

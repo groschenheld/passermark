@@ -41,6 +41,8 @@ CAP_M = {3: 2.54e-6, 4: 1e-6, 16: 0.3048, 17: 1.0}  # … feet, meters (8 = shee
 
 
 class SnmpError(OSError):
+    """The device did not answer or answered with an error."""
+
     pass
 
 
@@ -139,9 +141,11 @@ def parse(data: bytes) -> tuple[int, int, list]:
 
 
 # --------------------------------------------------------------------------- #
-# Abfragen
+# queries
 # --------------------------------------------------------------------------- #
 class Client:
+    """Minimal SNMP client (v1/v2c, UDP) for reading values."""
+
     def __init__(
         self,
         host: str,
@@ -183,9 +187,11 @@ class Client:
         raise SnmpError(f"SNMP: no answer from {self.addr[0]} ({last})")
 
     def get(self, oid: str):
+        """Read the value of one OID."""
         return self._ask([oid], 0xA0)[0][1]
 
     def walk(self, prefix: str, limit: int = 200) -> list:
+        """Read all values below ``prefix``: [(oid, value)]."""
         out, cur = [], prefix
         for _ in range(limit):
             oid, val = self._ask([cur], 0xA1)[0]

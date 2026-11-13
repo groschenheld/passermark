@@ -34,7 +34,7 @@ def fold_read(sheets, binding="left"):
 def lagen_from_plans(plans, n_sheets_per_sig):
     """Turn the finished sheet plans (placements) back into sheets [front(l,r), back(l,r)]."""
     out = []
-    LW = A3.height  # Querbogen: logische Breite = lange Kante
+    LW = A3.height  # landscape sheet: logical width = long edge
     for i in range(0, len(plans), 2):
         faces = []
         for sp in plans[i : i + 2]:
@@ -75,10 +75,10 @@ def test_fold_simulation_all_kinds():
 
 
 def test_known_orders():
-    # Sammelheftung 8 Seiten: Bogen 1 vorne 8|1, hinten 2|7; Bogen 2 vorne 6|3, hinten 4|5
+    # saddle stitch 8 pages: sheet 1 front 8|1, back 2|7; sheet 2 front 6|3, back 4|5
     lay, blanks, nsig = layout.booklet_layout(8, LayoutSettings())
     assert [f for (_l, _j, _k, f) in lay] == [([7, 0], [1, 6]), ([5, 2], [3, 4])] and nsig == 1
-    # Stapel: jede Lage ein Bogen mit 4 aufeinanderfolgenden Seiten
+    # stack: every signature one sheet with 4 consecutive pages
     lay, _, nsig = layout.booklet_layout(8, LayoutSettings(booklet_kind="stack"))
     assert [f for (*_x, f) in lay] == [([3, 0], [1, 2]), ([7, 4], [5, 6])] and nsig == 2
     # groups 2 sheets/section, 16 pages: section 2 starts with page 9
@@ -93,8 +93,8 @@ def test_three_sheets_per_signature_24_pages():
     lay, _b, nsig = layout.booklet_layout(24, LayoutSettings(booklet_kind="grouped", booklet_per_sig=3))
     faces = [[[x + 1 for x in side] for side in f] for (*_x, f) in lay]
     assert nsig == 2
-    assert faces[0] == [[12, 1], [2, 11]] and faces[2] == [[8, 5], [6, 7]]  # Lage 1: Seiten 1–12
-    assert faces[3] == [[24, 13], [14, 23]]  # Lage 2 beginnt mit 13
+    assert faces[0] == [[12, 1], [2, 11]] and faces[2] == [[8, 5], [6, 7]]  # signature 1: pages 1–12
+    assert faces[3] == [[24, 13], [14, 23]]  # signature 2 starts with 13
 
 
 def test_creep_shifts_inner_sheets_to_fold():
@@ -124,9 +124,9 @@ def test_marks_and_blank_text():
     kinds = [m[0] for m in plans[0].marks]
     assert kinds.count("bezier") == 4 and "rect" in kinds and ("line", A3.height / 2, 0) == plans[0].marks[0][:3]
     rects = [m for sp in plans for m in sp.marks if m[0] == "rect"]
-    assert len(rects) == 2 and rects[0][2] != rects[1][2] or rects[0][1:3] != rects[1][1:3]  # Treppe
+    assert len(rects) == 2 and rects[0][2] != rects[1][2] or rects[0][1:3] != rects[1][1:3]  # staircase
     assert any(m[0] == "text" and m[4] == "Leerseite" for sp in plans for m in sp.marks)
-    # Marken werden ins PDF geschrieben (Kreis = Bézier, Balken = Rechteck)
+    # marks are written into the PDF (circle = Bézier, bar = rectangle)
     import pypdfium2 as pdfium
 
     src = pdfium.PdfDocument(os.path.join(HERE, "sample.pdf"))
@@ -142,7 +142,7 @@ def test_cli_impose():
 
     tmp = tempfile.mkdtemp(prefix="pm-impose-")
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
-    src = os.path.join(HERE, "sample.pdf")  # 7 Seiten A4
+    src = os.path.join(HERE, "sample.pdf")  # 7 pages A4
     out = os.path.join(tmp, "heft.pdf")
     r = subprocess.run(
         [
@@ -202,7 +202,7 @@ def test_cli_impose():
     d = pdfium.PdfDocument(out2)
     assert len(d) == 1 and [round(v / MM) for v in d.get_page_size(0)] == [320, 450]
     d.close()
-    # Druck-Preset aus dem Programm (Art "impose") per Name
+    # print preset from the program (kind "impose") by name
     from pdfdruck import presets
 
     os.environ["XDG_CONFIG_HOME"] = tmp
@@ -250,11 +250,11 @@ def test_trimbox_recognized():
     _trim_pdf(path)
     d = pdfium.PdfDocument(path)
     t = [tuple(round(v / MM, 1) for v in x) for x in layout.page_trims(d)]
-    assert t == [(3, 3, 3, 3), (3, 3, 3, 3), (3, 3, 3, 5)], t  # gedreht: links (5) wird oben
+    assert t == [(3, 3, 3, 3), (3, 3, 3, 3), (3, 3, 3, 5)], t  # rotated: left (5) becomes top
     w, h, b = layout.trim_info(d, 0)
     assert (round(w), round(h), round(b)) == (210, 297, 3)
     assert layout.page_boxes(d)[0][1] is not None
-    # Nutzen: Endformat 210×297 wird platziert, Anschnitt kommt aus dem Dokument (rot), nicht gespiegelt (blau)
+    # step and repeat: trim size 210×297 is placed, the bleed comes from the document (red), not mirrored (blue)
     sizes = [d.get_page_size(i) for i in range(len(d))]
     s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=1, sr_rows=1, bleed_mm=3, crop_marks=True)
     sh = Sheet(320 * MM, 450 * MM)
@@ -262,7 +262,7 @@ def test_trimbox_recognized():
     pl = plans[0].placements[0]
     assert abs(pl.w / pl.scale / MM - 210) < 0.2 and pl.trim
     out = layout.impose_with(d, sh, plans, s)
-    k = 4.0  # px je pt
+    k = 4.0  # px per pt
     im = out[0].render(scale=k).to_pil().convert("RGB")
     H = im.height
 
@@ -270,9 +270,9 @@ def test_trimbox_recognized():
         return im.getpixel((int(x_pt * k), int(H - y_pt * k)))
 
     x0, y0 = pl.x, pl.y + pl.h / 2
-    assert px(x0 + 1.5 * MM * pl.scale, y0)[2] > 200  # innen: blau
+    assert px(x0 + 1.5 * MM * pl.scale, y0)[2] > 200  # inside: blue
     inside_bleed = px(x0 - 1.5 * MM * pl.scale, y0)
-    assert inside_bleed[0] > 200 and inside_bleed[2] < 80, inside_bleed  # Anschnitt: rot aus dem Dokument
+    assert inside_bleed[0] > 200 and inside_bleed[2] < 80, inside_bleed  # bleed: red from the document
     out.close()
     # without imposition (normal "size" printing) the whole page remains
     plain = layout.plan(sizes, [0], sh, LayoutSettings(), layout.page_trims(d))
@@ -292,16 +292,16 @@ def test_cutcontour_objects_bleed_to_bleed():
     assert all(1.5 * MM < b < 2.6 * MM for b in bleeds), bleeds
     sizes = [out.get_page_size(i) for i in range(len(out))]
     for s, want_gap in (
-        (LayoutSettings(step_repeat=True, sr_join="bleed"), 2 * bleeds[0]),  # aus dem Dokument
-        (LayoutSettings(step_repeat=True, sr_join="bleed", bleed_mm=1), 2 * MM),  # eingestellt
+        (LayoutSettings(step_repeat=True, sr_join="bleed"), 2 * bleeds[0]),  # from the document
+        (LayoutSettings(step_repeat=True, sr_join="bleed", bleed_mm=1), 2 * MM),  # set
         (LayoutSettings(step_repeat=True, sr_join="gap", sr_gap_mm=0), 0.0),
-    ):  # Abstand 0
+    ):  # gap 0
         sp = layout.plan(sizes, [0], Sheet(210 * MM, 297 * MM), s, trims, bleeds)[0]
         xs = sorted({round(pl.x, 3) for pl in sp.placements})
         w = sp.placements[0].w
         gaps = [b - a - w for a, b in zip(xs, xs[1:])]
         assert gaps and all(abs(g - want_gap) < 0.05 for g in gaps), (s.sr_join, s.bleed_mm, gaps, want_gap)
-    # Objekte trennen mit Rand: Endformat = Objekt, Rand = Anschnitt
+    # separate objects with a margin: trim size = object, margin = bleed
     from pdfdruck import objects
 
     norm = objects.normalized(tc.stickers())

@@ -31,6 +31,8 @@ _FILES: dict = {}  # file hash -> temporary PDF for Ghostscript
 
 @dataclass
 class Sample:
+    """What the pipette found at one point: defined colour, ink in print, screen colour."""
+
     page: int = 0
     x: float = 0.0
     y: float = 0.0
@@ -44,12 +46,13 @@ class Sample:
     sure: bool = True  # the object matches the displayed colour (otherwise: approximately)
     ink: list | None = None  # C, M, Y, K in % in print
     profile: str = ""
-    limit: int = 0  # Richtwert Gesamtfarbauftrag
+    limit: int = 0  # guide value for total ink coverage
     screen: tuple = ()  # RGB 0..255 as displayed
     notes: list = field(default_factory=list)
 
     @property
     def ink_total(self) -> float:
+        """Total ink coverage in percent (0 if there are no ink values)."""
         return float(sum(self.ink)) if self.ink else 0.0
 
     def as_cmyk(self) -> list | None:
@@ -71,6 +74,7 @@ class Sample:
         return None
 
     def to_dict(self) -> dict:
+        """Plain dict for JSON output (position in mm, page 1-based)."""
         return {
             "page": self.page + 1,
             "x_mm": round(self.x / 72 * 25.4, 2),
@@ -453,7 +457,7 @@ def _image_pixel(data: bytes, page_index: int, info: dict, mat: tuple, x: float,
     if abs(det) < 1e-9:
         return "", [], False, ""
     px, py = x - e, y - f
-    u = (px * d_ - py * c) / det  # Einheitsquadrat des Bildes
+    u = (px * d_ - py * c) / det  # unit square of the image
     v = (py * a - px * b) / det
     pdf = pikepdf.open(io.BytesIO(data))
     try:

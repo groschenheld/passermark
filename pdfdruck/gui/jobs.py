@@ -18,6 +18,8 @@ from ..l10n import tr
 
 
 class JobReader(QThread):
+    """Reads the messages of a job process in a thread and passes them on as signals."""
+
     progress = Signal(int, int, str)
     finished_job = Signal(dict)
 
@@ -37,7 +39,7 @@ class JobReader(QThread):
 
 
 class JobWidget(QWidget):
-    """Ein laufender Auftrag in der Statusleiste: Titel, Fortschritt, Abbrechen."""
+    """A running job in the status bar: title, progress, cancel."""
 
     def __init__(self, title: str, on_cancel):
         super().__init__()
@@ -47,7 +49,7 @@ class JobWidget(QWidget):
         self.lbl = QLabel(title)
         self.bar = QProgressBar()
         self.bar.setFixedWidth(140)
-        self.bar.setRange(0, 0)  # unbestimmt, bis die erste Meldung kommt
+        self.bar.setRange(0, 0)  # indeterminate until the first message arrives
         self.bar.setTextVisible(True)
         self.btn = QToolButton()
         self.btn.setText("✕")
@@ -59,11 +61,13 @@ class JobWidget(QWidget):
         self.title = title
 
     def set_progress(self, done: int, total: int, text: str):
+        """Show the progress of the job."""
         if total > 0:
             self.bar.setRange(0, total)
             self.bar.setValue(done)
         self.lbl.setText(f"{self.title} – {text}" if text else self.title)
 
     def set_cancelling(self):
+        """Show that the job is being cancelled."""
         self.btn.setEnabled(False)
         self.lbl.setText(f"{self.title} – {tr('wird abgebrochen …')}")

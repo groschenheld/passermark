@@ -12,7 +12,7 @@ import numpy as np
 import pypdfium2 as pdfium
 import pypdfium2.raw as r
 import fakewin
-from pdfdruck import printers  # noqa: F401  zuerst laden: unter Windows bindet printers.py printers_win ein
+from pdfdruck import printers  # noqa: F401  load first: on Windows printers.py pulls in printers_win
 from pdfdruck import printers_win as pw
 
 SAMPLE = os.path.join(HERE, "sample.pdf")
@@ -124,7 +124,7 @@ def test_test_print_all_modes():
             del r.FPDF_RenderPage
     assert list(res) == [lab for _m, lab in pw.TEST_MODES]
     assert res["Raster"] == "ok" and res["Raster + JPEG"] == "ok" and res["Vektor (GDI)"] == "ok"
-    assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"  # Treiber kann es nicht -> gemeldet
+    assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"  # the driver cannot do it -> reported
     assert len(g.pages) == 4 and ("vector",) in g.calls
 
 

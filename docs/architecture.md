@@ -148,110 +148,110 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 
 | Module | Lines | Purpose |
 |---|---:|---|
-| `pdfdruck/__main__.py` | 147 | passermark [--print] [--open] [FILES …] |
+| `pdfdruck/__main__.py` | 148 | passermark [--print] [--open] [FILES …] |
 | `pdfdruck/app.py` | 473 | Program-wide state + single instance. |
-| `pdfdruck/cfgvalidate.py` | 311 | Validation of the admin configuration – shared by the Linux helper (pkexec) and the Windows helper (UAC). |
+| `pdfdruck/cfgvalidate.py` | 313 | Validation of the admin configuration – shared by the Linux helper (pkexec) and the Windows helper (UAC). |
 | `pdfdruck/cli.py` | 1399 | Command line: run jobs without a GUI. |
 | `pdfdruck/cmyk.py` | 386 | CMYK conversion of PDFs and color-accurate preview. |
 | `pdfdruck/colorcheck.py` | 733 | Colour check of a document against a printing condition – facts, findings, recommendations. No Qt. |
-| `pdfdruck/colorconv.py` | 62 | Color conversion of the finished print PDF to an output profile. |
+| `pdfdruck/colorconv.py` | 63 | Color conversion of the finished print PDF to an output profile. |
 | `pdfdruck/colorlab.py` | 790 | Colour measurement and materials (papers) – no Qt. |
-| `pdfdruck/conditions.py` | 258 | Conditions in workflows ("if", "choose") – checked against the CURRENT PDF of the workflow. No Qt. |
-| `pdfdruck/config.py` | 131 | Admin defaults from /etc/passermark/defaults.json. |
-| `pdfdruck/convert.py` | 502 | Any files -> PDF: PDFs directly, images via img2pdf, Office via LibreOffice, OnlyOffice or Euro-Office. |
+| `pdfdruck/conditions.py` | 262 | Conditions in workflows ("if", "choose") – checked against the CURRENT PDF of the workflow. No Qt. |
+| `pdfdruck/config.py` | 134 | Admin defaults from /etc/passermark/defaults.json. |
+| `pdfdruck/convert.py` | 507 | Any files -> PDF: PDFs directly, images via img2pdf, Office via LibreOffice, OnlyOffice or Euro-Office. |
 | `pdfdruck/core.py` | 540 | Core interface: every heavy function as "input PDF + settings → output PDF". |
-| `pdfdruck/crashlog.py` | 217 | Error log: every kind of error ends up in a file you can send along. |
+| `pdfdruck/crashlog.py` | 222 | Error log: every kind of error ends up in a file you can send along. |
 | `pdfdruck/cutcontour.py` | 1069 | CutContour for cutting plotters (Roland VersaWorks and others) with automatically generated bleed. |
 | `pdfdruck/datakinds.py` | 782 | Data kinds for variable data: which columns a table needs and how the content of a code is built from them. |
 | `pdfdruck/docinfo.py` | 296 | Document information for other programs (passermark-cli inspect): pages, formats, trim and bleed and, optionally, the check results – as a plain dict (JSON). |
 | `pdfdruck/editing.py` | 1987 | Edit mode: change text rows (text, font, size) and edit layers. |
-| `pdfdruck/editops.py` | 139 | Edit mode: the changes as named operations (no user interface). |
-| `pdfdruck/examples.py` | 61 | Bundled examples (variable data) and manuals. |
-| `pdfdruck/fastipc.py` | 192 | Hand a request to the running instance – without Qt, at the very start of the program. |
-| `pdfdruck/i18n.py` | 359 | German names for typical (English) driver options and values. |
-| `pdfdruck/iccfetch.py` | 240 | Obtaining ICC profiles: download via link, unpacking (ZIP, driver packages via 7z), validation. |
-| `pdfdruck/imagecheck.py` | 364 | Check images and colours: colour space (RGB/CMYK/grey/spot) with the ICC profile name, the effective resolution of every placed image (also inside forms, also when used several times) and the resulting maximum print size. |
-| `pdfdruck/images.py` | 391 | Opening images as PDFs – at their actual size (from the image's DPI value). |
-| `pdfdruck/ipp.py` | 349 | Minimal IPP client (RFC 8010/8011): asks the printer directly what lies in which tray. |
-| `pdfdruck/jobproc.py` | 184 | Jobs as a separate process: the GUI starts the command line in the background. |
-| `pdfdruck/l10n.py` | 142 | Interface language: German (source language), English, Hungarian, Spanish, French. |
+| `pdfdruck/editops.py` | 142 | Edit mode: the changes as named operations (no user interface). |
+| `pdfdruck/examples.py` | 62 | Bundled examples (variable data) and manuals. |
+| `pdfdruck/fastipc.py` | 195 | Hand a request to the running instance – without Qt, at the very start of the program. |
+| `pdfdruck/i18n.py` | 362 | German names for typical (English) driver options and values. |
+| `pdfdruck/iccfetch.py` | 247 | Obtaining ICC profiles: download via link, unpacking (ZIP, driver packages via 7z), validation. |
+| `pdfdruck/imagecheck.py` | 371 | Check images and colours: colour space (RGB/CMYK/grey/spot) with the ICC profile name, the effective resolution of every placed image (also inside forms, also when used several times) and the resulting maximum print size. |
+| `pdfdruck/images.py` | 393 | Opening images as PDFs – at their actual size (from the image's DPI value). |
+| `pdfdruck/ipp.py` | 357 | Minimal IPP client (RFC 8010/8011): asks the printer directly what lies in which tray. |
+| `pdfdruck/jobproc.py` | 186 | Jobs as a separate process: the GUI starts the command line in the background. |
+| `pdfdruck/l10n.py` | 145 | Interface language: German (source language), English, Hungarian, Spanish, French. |
 | `pdfdruck/layout.py` | 1761 | Page selection, scaling and N-up imposition. |
-| `pdfdruck/measure.py` | 81 | Ruler and measuring – pure computation logic (no GUI, therefore precisely testable). |
-| `pdfdruck/objects.py` | 198 | Object detection on PDF pages (vector and raster) and splitting into individual pages. |
-| `pdfdruck/pagegeom.py` | 58 | Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix. |
+| `pdfdruck/measure.py` | 84 | Ruler and measuring – pure computation logic (no GUI, therefore precisely testable). |
+| `pdfdruck/objects.py` | 204 | Object detection on PDF pages (vector and raster) and splitting into individual pages. |
+| `pdfdruck/pagegeom.py` | 60 | Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix. |
 | `pdfdruck/pageops.py` | 52 | Page operations on the open document (pdfium), no user interface. |
 | `pdfdruck/papersizes.py` | 181 | Paper sizes in ONE place (mm, portrait) – no Qt. |
-| `pdfdruck/pdfmanip.py` | 370 | Document manipulation: cropping to a target size and CMYK conversion. |
-| `pdfdruck/pipette.py` | 559 | Colour pipette: what is at a given point of the page? |
-| `pdfdruck/planhistory.py` | 168 | History of plan and poster printing |
+| `pdfdruck/pdfmanip.py` | 372 | Document manipulation: cropping to a target size and CMYK conversion. |
+| `pdfdruck/pipette.py` | 563 | Colour pipette: what is at a given point of the page? |
+| `pdfdruck/planhistory.py` | 171 | History of plan and poster printing |
 | `pdfdruck/planprint.py` | 2064 | Plan printing on roll printers (production print, usually 75/80 g paper). No Qt. |
-| `pdfdruck/platform.py` | 150 | Operating system differences in one place: paths, user id, notifications, programs. |
+| `pdfdruck/platform.py` | 154 | Operating system differences in one place: paths, user id, notifications, programs. |
 | `pdfdruck/preflight.py` | 2321 | Preflight: check a document (fonts, layers, transparency, characters) and repair it in a targeted way. |
 | `pdfdruck/presets.py` | 139 | Presets: named settings per job – the same files for the GUI, the command line and (later) the watcher. |
-| `pdfdruck/pressexport.py` | 341 | Output for the print shop (job "press"): convert as recommended, always embed the printing condition as output intent, check before/after, optionally a package with PDF, ICC profiles and a short report. |
-| `pdfdruck/printcli.py` | 423 | Printing without a user interface (workflow step "print", passermark-cli printers / caps). |
+| `pdfdruck/pressexport.py` | 344 | Output for the print shop (job "press"): convert as recommended, always embed the printing condition as output intent, check before/after, optionally a package with PDF, ICC profiles and a short report. |
+| `pdfdruck/printcli.py` | 428 | Printing without a user interface (workflow step "print", passermark-cli printers / caps). |
 | `pdfdruck/printers.py` | 1062 | Printer integration via CUPS (pycups). |
-| `pdfdruck/printers_win.py` | 798 | Printer integration on Windows (pywin32). |
-| `pdfdruck/printjob.py` | 380 | Build and send a print job â shared by the print dialog and right-click printing. |
-| `pdfdruck/printlog.py` | 370 | Print log: every print job with its exact settings – one JSON file per job plus printlog.csv. No Qt. |
-| `pdfdruck/printmat.py` | 369 | Print materials for roll printers (plan & poster): main category, then the settings per material. |
-| `pdfdruck/probe.py` | 244 | Device check: what a printer/plotter reveals over the network – raw, to pass on and evaluate. No Qt. |
-| `pdfdruck/proof.py` | 501 | Preview the way it comes out of the printer (as far as predictable). |
-| `pdfdruck/renderproc.py` | 462 | Render server for the page view: its own process with its own pdfium (pdfium is not thread-safe). |
-| `pdfdruck/repair.py` | 259 | Repair PDFs and optimize them for sharing. |
-| `pdfdruck/roland.py` | 96 | Roland cutting plotters (CAMM-1 GS/GS2/GR/GX …) over the network (raw port 9100): loaded material width and direct cut jobs in CAMM-GL III (HP-GL dialect). |
+| `pdfdruck/printers_win.py` | 801 | Printer integration on Windows (pywin32). |
+| `pdfdruck/printjob.py` | 382 | Build and send a print job â shared by the print dialog and right-click printing. |
+| `pdfdruck/printlog.py` | 375 | Print log: every print job with its exact settings – one JSON file per job plus printlog.csv. No Qt. |
+| `pdfdruck/printmat.py` | 375 | Print materials for roll printers (plan & poster): main category, then the settings per material. |
+| `pdfdruck/probe.py` | 246 | Device check: what a printer/plotter reveals over the network – raw, to pass on and evaluate. No Qt. |
+| `pdfdruck/proof.py` | 505 | Preview the way it comes out of the printer (as far as predictable). |
+| `pdfdruck/renderproc.py` | 463 | Render server for the page view: its own process with its own pdfium (pdfium is not thread-safe). |
+| `pdfdruck/repair.py` | 264 | Repair PDFs and optimize them for sharing. |
+| `pdfdruck/roland.py` | 99 | Roland cutting plotters (CAMM-1 GS/GS2/GR/GX …) over the network (raw port 9100): loaded material width and direct cut jobs in CAMM-GL III (HP-GL dialect). |
 | `pdfdruck/rolls.py` | 413 | Rolls of large-format printers and plotters: what is loaded (width, grammage, media, remaining length). |
 | `pdfdruck/selftest.py` | 135 | Self-test of the finished program file (EXE/AppImage): checks that all bundled dependencies load. |
 | `pdfdruck/session.py` | 74 | Print session (printers, options, colour profile, layout) – no Qt, for the program and the command line. |
-| `pdfdruck/shared.py` | 154 | Shared print folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …). |
-| `pdfdruck/shrink.py` | 912 | File size: show what takes up the space and reduce it selectively – every measure can be switched separately. |
-| `pdfdruck/snmp.py` | 283 | Minimal SNMP v2c client (read only) – fallback when a printer does not report its rolls over IPP. |
-| `pdfdruck/softmask.py` | 432 | Convert transparent gradients (soft masks) into opaque images where needed – without Ghostscript. |
-| `pdfdruck/split.py` | 227 | Splitting pages: halve a page vertically/horizontally or cut it into a grid – every piece becomes its own page. |
+| `pdfdruck/shared.py` | 158 | Shared print folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …). |
+| `pdfdruck/shrink.py` | 921 | File size: show what takes up the space and reduce it selectively – every measure can be switched separately. |
+| `pdfdruck/snmp.py` | 289 | Minimal SNMP v2c client (read only) – fallback when a printer does not report its rolls over IPP. |
+| `pdfdruck/softmask.py` | 436 | Convert transparent gradients (soft masks) into opaque images where needed – without Ghostscript. |
+| `pdfdruck/split.py` | 230 | Splitting pages: halve a page vertically/horizontally or cut it into a grid – every piece becomes its own page. |
 | `pdfdruck/trays.py` | 169 | Automatic tray selection: size (+ grammage) -> first matching, non-empty tray. |
-| `pdfdruck/usercolor.py` | 314 | Own materials and ICC profiles of the user – no admin rights, no Qt. |
+| `pdfdruck/usercolor.py` | 318 | Own materials and ICC profiles of the user – no admin rights, no Qt. |
 | `pdfdruck/vdp.py` | 1483 | Variable data |
-| `pdfdruck/watch.py` | 494 | Drop folders (passermark-cli serve): files dropped into a folder run through a workflow. No Qt. |
+| `pdfdruck/watch.py` | 499 | Drop folders (passermark-cli serve): files dropped into a folder run through a workflow. No Qt. |
 | `pdfdruck/winadmin.py` | 164 | Admin changes on Windows: counterpart to polkit/pkexec. |
-| `pdfdruck/workflow.py` | 924 | Workflows: several jobs in a row, described as JSON – the public interface for other programs. |
+| `pdfdruck/workflow.py` | 929 | Workflows: several jobs in a row, described as JSON – the public interface for other programs. |
 
 ### User interface (PySide6)
 
 | Module | Lines | Purpose |
 |---|---:|---|
-| `pdfdruck/gui/admindialog.py` | 1267 | Management of the defaults – saved via pkexec + helper (a single password prompt). |
-| `pdfdruck/gui/colorpanel.py` | 362 | Farbe → Farbprüfung: side panel next to the soft proof. |
-| `pdfdruck/gui/common.py` | 377 | Shared GUI helpers and the session state (kept in memory only). |
-| `pdfdruck/gui/crashui.py` | 72 | Error log in the interface: message on unexpected errors, notice after a crash. |
-| `pdfdruck/gui/customsizes.py` | 113 | Manage custom sizes: name, width, height – stored permanently, for all printers and "Save as PDF". |
-| `pdfdruck/gui/datadialog.py` | 589 | Dialog "Enter data": create a data table for variable data right inside Passermark. |
-| `pdfdruck/gui/editpanel.py` | 1802 | Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace, scale/move). |
-| `pdfdruck/gui/hdrdialog.py` | 71 | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
+| `pdfdruck/gui/admindialog.py` | 1272 | Management of the defaults – saved via pkexec + helper (a single password prompt). |
+| `pdfdruck/gui/colorpanel.py` | 373 | Farbe → Farbprüfung: side panel next to the soft proof. |
+| `pdfdruck/gui/common.py` | 384 | Shared GUI helpers and the session state (kept in memory only). |
+| `pdfdruck/gui/crashui.py` | 73 | Error log in the interface: message on unexpected errors, notice after a crash. |
+| `pdfdruck/gui/customsizes.py` | 115 | Manage custom sizes: name, width, height – stored permanently, for all printers and "Save as PDF". |
+| `pdfdruck/gui/datadialog.py` | 601 | Dialog "Enter data": create a data table for variable data right inside Passermark. |
+| `pdfdruck/gui/editpanel.py` | 1820 | Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace, scale/move). |
+| `pdfdruck/gui/hdrdialog.py` | 72 | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
 | `pdfdruck/gui/iccimport.py` | 205 | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |
-| `pdfdruck/gui/icons.py` | 102 | Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme. |
-| `pdfdruck/gui/jobs.py` | 69 | Jobs in the interface: shown in the status bar with progress and cancel. |
-| `pdfdruck/gui/manipdialog.py` | 737 | Document manipulation: control panel (tab in the print dialog + its own dialog) and colour preview. |
-| `pdfdruck/gui/mapdialog.py` | 125 | Dialog "Map columns": which column of your CSV provides which piece of a QR code with a kind (business card, WLAN …). |
-| `pdfdruck/gui/materialsdialog.py` | 260 | Farbe → Papiere und Messungen |
-| `pdfdruck/gui/materialtab.py` | 615 | Materials (papers) |
-| `pdfdruck/gui/measuredialog.py` | 350 | Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand. |
-| `pdfdruck/gui/objectsdialog.py` | 1136 | Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters). |
-| `pdfdruck/gui/pipettedialog.py` | 301 | Colour pipette: small tool window next to the page. |
-| `pdfdruck/gui/plandialog.py` | 2514 | Plan & Poster → Plandruck … and Rollen … |
-| `pdfdruck/gui/preflightpanel.py` | 817 | Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window). |
-| `pdfdruck/gui/presetbar.py` | 194 | Preset bar for dialogs: pick saved settings, save, delete, share as a file. |
-| `pdfdruck/gui/pressdialog.py` | 487 | Farbe → Für Druckerei ausgeben … – assistant in four steps |
-| `pdfdruck/gui/printdialog.py` | 3151 | Own print dialog (Acrobat layout): settings on the left, live preview on the right. |
-| `pdfdruck/gui/propsdialog.py` | 397 | Datei → Eigenschaften: Speicherort, Datei, Dokument, Seiten, Schriften, Prüfung. |
-| `pdfdruck/gui/renderclient.py` | 306 | Page rendering in the background: one render process for the whole program (see renderproc.py). |
-| `pdfdruck/gui/repairdialog.py` | 286 | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
-| `pdfdruck/gui/settingsdialog.py` | 199 | File → Settings: the user's personal settings (currently: language). |
-| `pdfdruck/gui/shrinkdialog.py` | 303 | Reduce file size: breakdown of the file size and every measure on/off separately. |
-| `pdfdruck/gui/softproofdialog.py` | 214 | Set up the soft proof of the page view: printing condition (material or profile), intent, paper white, black, warnings. |
-| `pdfdruck/gui/splitdialog.py` | 216 | Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines. |
-| `pdfdruck/gui/stallwatch.py` | 120 | Stall log: notices when the interface hangs and records what the main window is doing at that moment. |
-| `pdfdruck/gui/tabhost.py` | 157 | Window frame with tabs: every document is a full Passermark window (menus, bars, sidebars) – here as a tab. |
-| `pdfdruck/gui/theme.py` | 265 | Dark theme with a yellow accent + global mouse wheel guard. |
-| `pdfdruck/gui/vdpdialog.py` | 1618 | Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview of any record. |
-| `pdfdruck/gui/viewer.py` | 4561 | Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations. |
+| `pdfdruck/gui/icons.py` | 103 | Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme. |
+| `pdfdruck/gui/jobs.py` | 73 | Jobs in the interface: shown in the status bar with progress and cancel. |
+| `pdfdruck/gui/manipdialog.py` | 745 | Document manipulation: control panel (tab in the print dialog + its own dialog) and colour preview. |
+| `pdfdruck/gui/mapdialog.py` | 131 | Dialog "Map columns": which column of your CSV provides which piece of a QR code with a kind (business card, WLAN …). |
+| `pdfdruck/gui/materialsdialog.py` | 264 | Farbe → Papiere und Messungen |
+| `pdfdruck/gui/materialtab.py` | 632 | Materials (papers) |
+| `pdfdruck/gui/measuredialog.py` | 354 | Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand. |
+| `pdfdruck/gui/objectsdialog.py` | 1145 | Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters). |
+| `pdfdruck/gui/pipettedialog.py` | 305 | Colour pipette: small tool window next to the page. |
+| `pdfdruck/gui/plandialog.py` | 2527 | Plan & Poster → Plandruck … and Rollen … |
+| `pdfdruck/gui/preflightpanel.py` | 822 | Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window). |
+| `pdfdruck/gui/presetbar.py` | 196 | Preset bar for dialogs: pick saved settings, save, delete, share as a file. |
+| `pdfdruck/gui/pressdialog.py` | 491 | Farbe → Für Druckerei ausgeben … – assistant in four steps |
+| `pdfdruck/gui/printdialog.py` | 3167 | Own print dialog (Acrobat layout): settings on the left, live preview on the right. |
+| `pdfdruck/gui/propsdialog.py` | 397 | Datei → Eigenschaften: location, file, document, pages, fonts, check. |
+| `pdfdruck/gui/renderclient.py` | 316 | Page rendering in the background: one render process for the whole program (see renderproc.py). |
+| `pdfdruck/gui/repairdialog.py` | 290 | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
+| `pdfdruck/gui/settingsdialog.py` | 201 | File → Settings: the user's personal settings (currently: language). |
+| `pdfdruck/gui/shrinkdialog.py` | 306 | Reduce file size: breakdown of the file size and every measure on/off separately. |
+| `pdfdruck/gui/softproofdialog.py` | 220 | Set up the soft proof of the page view: printing condition (material or profile), intent, paper white, black, warnings. |
+| `pdfdruck/gui/splitdialog.py` | 219 | Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines. |
+| `pdfdruck/gui/stallwatch.py` | 125 | Stall log: notices when the interface hangs and records what the main window is doing at that moment. |
+| `pdfdruck/gui/tabhost.py` | 164 | Window frame with tabs: every document is a full Passermark window (menus, bars, sidebars) – here as a tab. |
+| `pdfdruck/gui/theme.py` | 269 | Dark theme with a yellow accent + global mouse wheel guard. |
+| `pdfdruck/gui/vdpdialog.py` | 1625 | Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview of any record. |
+| `pdfdruck/gui/viewer.py` | 4655 | Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations. |
 <!-- modules:end -->

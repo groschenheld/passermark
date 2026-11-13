@@ -3,10 +3,10 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Datei → Eigenschaften: Speicherort, Datei, Dokument, Seiten, Schriften, Prüfung.
+"""Datei → Eigenschaften: location, file, document, pages, fonts, check.
 
-Die Dokumentangaben kommen aus docinfo.inspect – dieselben wie bei passermark-cli inspect – und werden im
-Analyse-Prozess gelesen; das Fenster ist sofort da (Speicherort, Größe), der Rest kommt kurz danach.
+The document details come from docinfo.inspect – the same as with passermark-cli inspect – and are read in the
+analysis process; the window is there at once (location, size), the rest follows shortly.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def _yes(v) -> str:
 
 
 def _date(v: str) -> str:
-    """ISO-Datum aus docinfo (2026-10-17 15:44:26 +02:00) wie im Programm üblich anzeigen."""
+    """Show an ISO date from docinfo (2026-10-17 15:44:26 +02:00) as usual in the program."""
     try:
         d = datetime.datetime.strptime(v[:19], "%Y-%m-%d %H:%M:%S")
         return d.strftime("%d.%m.%Y %H:%M:%S") + v[19:]
@@ -119,7 +119,7 @@ class PropertiesDialog(QDialog):
 
     # ------------------------------------------------------------------ #
     def location(self) -> tuple[str | None, str]:
-        """(Datei auf dem Datenträger oder None, Status-Text)."""
+        """(file on disk or None, status text)."""
         w = self.win
         temp = getattr(w, "_temp_path", None)
         if w.path and os.path.isfile(w.path):
@@ -162,7 +162,7 @@ class PropertiesDialog(QDialog):
 
     # ------------------------------------------------------------------ #
     def _source_for_analysis(self) -> str | None:
-        """Datei mit genau dem aktuellen Inhalt (bei Änderungen die Zwischendatei der Ansicht)."""
+        """File with exactly the current content (for changes the intermediate file of the view)."""
         w = self.win
         if not w.modified and w.path and os.path.isfile(w.path) and w.path.lower().endswith(".pdf"):
             return w.path
@@ -184,7 +184,7 @@ class PropertiesDialog(QDialog):
         if svc.ok and os.environ.get("PASSERMARK_RENDER", "") != "local":
             svc.call("inspect", {"path": src}, self._done)
             return
-        try:  # ohne Analyse-Prozess: hier lesen
+        try:  # without the analysis process: read here
             from .. import docinfo
 
             self._done(None, docinfo.inspect(src, check=True))
@@ -389,7 +389,7 @@ class PropertiesDialog(QDialog):
         _fill(t, rows)
         hh = t.horizontalHeader()
         hh.setStretchLastSection(False)
-        hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Befund umbrechen statt seitlich scrollen
+        hh.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # wrap the finding instead of scrolling sideways
         t.setWordWrap(True)
         t.resizeRowsToContents()
         hh.sectionResized.connect(lambda *_: t.resizeRowsToContents())

@@ -49,6 +49,8 @@ _SKIP = (".part", ".tmp", ".crdownload", ".partial", ".download")
 
 
 class WatchError(Exception):
+    """The watch configuration is invalid; ``problems`` lists what is wrong."""
+
     def __init__(self, problems: list):
         super().__init__("; ".join(f"{w}: {m}" if w else m for w, m in problems))
         self.problems = problems
@@ -63,6 +65,7 @@ def config_paths() -> list:
 
 
 def find_config(path: str | None = None) -> str:
+    """Path of the watch configuration: the given file, otherwise the first one found in the standard places."""
     if path:
         if not os.path.isfile(path):
             raise FileNotFoundError(tr("Datei nicht gefunden: {0}").format(path))
@@ -102,7 +105,7 @@ def load_config(path: str) -> dict:
             )
         )
     for k in data:
-        if k not in _TOP and not str(k).startswith("_"):  # "_hinweis" … = Kommentar
+        if k not in _TOP and not str(k).startswith("_"):  # "_hinweis" … = comment
             probs.append((k, tr("unbekannter Eintrag")))
     out = {"file": os.path.abspath(path), "interval": 5.0, "settle": 5.0, "folders": []}
     for k in ("interval", "settle"):
@@ -317,6 +320,7 @@ class Watcher:
         self.counts = {"done": 0, "failed": 0}
 
     def emit(self, **ev):
+        """Report an event to the listener, if there is one."""
         if self.events is not None:
             self.events(ev)
 
@@ -384,6 +388,7 @@ class Watcher:
         return n
 
     def process(self, f: dict, path: str) -> bool:
+        """Run the workflow of folder ``f`` on one file and store result, original or error. True on success."""
         from . import core, workflow
 
         name = os.path.basename(path)

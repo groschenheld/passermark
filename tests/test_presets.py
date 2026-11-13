@@ -15,7 +15,7 @@ sys.path.insert(0, ROOT)
 SAMPLE = os.path.join(HERE, "sample.pdf")
 
 TMP = tempfile.mkdtemp(prefix="pm-presets-")
-os.environ["XDG_CONFIG_HOME"] = TMP  # eigene Ablage, nichts vom Benutzer anfassen
+os.environ["XDG_CONFIG_HOME"] = TMP  # own storage, touch nothing of the user's
 os.environ["APPDATA"] = TMP
 
 from pdfdruck import core, cutcontour, presets  # noqa: E402
@@ -31,7 +31,7 @@ def test_roundtrip_and_list():
     t = presets.load("cutcontour", "Sticker rund")
     assert t.shape == "rounded" and t.corner_mm == 4.5 and t.bleed_mm == 3.0 and t.detect.tolerance == 55
     with open(p, encoding="utf-8") as f:
-        assert json.load(f)["job"] == "cutcontour"  # gleiches Format wie `passermark-cli settings`
+        assert json.load(f)["job"] == "cutcontour"  # same format as `passermark-cli settings`
     presets.delete("cutcontour", "Sticker rund")
     assert presets.list_presets("cutcontour") == []
 
@@ -50,7 +50,7 @@ def test_names_and_last():
     presets.save_last("manip", ManipSettings(crop=True, crop_size="A5"))
     last = presets.load_last("manip")
     assert last.crop and last.crop_size == "A5"
-    assert presets.list_presets("manip") == []  # „zuletzt“ steht nicht in der Liste
+    assert presets.list_presets("manip") == []  # "last used" is not in the list
 
 
 def test_print_layout_kind():
@@ -188,7 +188,7 @@ pdlg = pd.PrintDialog(None, pdfium.PdfDocument(sys.argv[1]), sys.argv[1], 0, s)
 pdlg._load_layout(LayoutSettings(handling="booklet", cols=2, rows=3, booklet_kind="grouped", booklet_per_sig=2,
                                  booklet_fold_marks=True))
 imp = pdlg._preset_settings()
-# Broschüre als Druckbögen (1.12): Preset laden, Anordnung freischalten, Montage über die Druckbögen
+# booklet as spreads: load the preset, unlock the arrangement, imposition via the spreads
 pdlg._load_layout(LayoutSettings(handling="booklet", booklet_nutzen=True, booklet_spread="top", sr_join="bleed"))
 pdlg._sync_enabled()
 from pdfdruck import layout as _lay
@@ -207,8 +207,8 @@ from pdfdruck.gui.customsizes import CustomSizesDialog
 CustomSizesDialog(None)
 s.refresh_custom_sizes()
 from pdfdruck.layout import ImposeSettings
-assert isinstance(imp, ImposeSettings)              # Qt-Ersatz liefert keine echten Feldwerte
-# zweiter Programmstart ohne Datei -> neues Fenster (vorher passierte nichts)
+assert isinstance(imp, ImposeSettings)              # the Qt stand-in delivers no real field values
+# second program start without a file -> new window
 from pdfdruck import app as appmod
 import json as _json
 ctl = appmod.Controller()
@@ -232,7 +232,7 @@ w3 = ctl2.new_window()
 assert w1._host is w2._host and w3._host is not w1._host and len(ctl2.hosts) == 2, (w1._host, w2._host, w3._host, ctl2.hosts, ctl2.tabs_enabled())
 st = l10n.load_settings(); st["open_in_tabs"] = False; l10n.save_settings(st)
 w4 = ctl2.new_window(tab_of=w1)
-assert w4._host is not w1._host                     # Reiter abgeschaltet -> eigenes Fenster
+assert w4._host is not w1._host                     # tabs switched off -> own window
 st["open_in_tabs"] = True; l10n.save_settings(st)
 n_win = len(ctl2.windows)
 ctl2.open_paths([sys.argv[1]], tab_of=w1)           # open button in an empty window: use this window
@@ -243,12 +243,12 @@ assert ctl2.windows[-1]._host is w1._host and len(ctl2.windows) == n_win + 1
 ctl2.blocked = lambda w: w._host is w1._host
 for w_ in ctl2.windows:
     if w_._host is w1._host and w_ is not w1:
-        w_.doc = None                              # leerer Reiter im gesperrten Rahmen
+        w_.doc = None                              # empty tab in the locked frame
 assert ctl2._target_window()._host is not w1._host
 assert ctl2._target_window(w1)._host is not w1._host
 del ctl2.blocked
 n_hosts = len(ctl2.hosts)
-ctl2.open_paths([sys.argv[1]])                      # Doppelklick im Dateimanager: leeres Fenster nutzen / neues
+ctl2.open_paths([sys.argv[1]])                      # double click in the file manager: use the empty window / a new one
 assert ctl2.windows[-1]._host is not w1._host or len(ctl2.hosts) == n_hosts
 w1._detach()
 print("ok")

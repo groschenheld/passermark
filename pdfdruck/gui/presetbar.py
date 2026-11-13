@@ -28,7 +28,7 @@ from ..l10n import tr
 
 
 class PresetBar(QWidget):
-    """get_settings() -> Datenklasse, set_settings(datenklasse) setzt die Felder des Dialogs."""
+    """get_settings() -> dataclass, set_settings(dataclass) sets the fields of the dialog."""
 
     def __init__(self, parent, kind: str, get_settings, set_settings):
         super().__init__(parent)
@@ -71,6 +71,7 @@ class PresetBar(QWidget):
 
     # -------------------------------------------------------------- #
     def refresh(self, select: str | None = None):
+        """Reload the list of presets, optionally selecting one."""
         self.cmb.blockSignals(True)
         self.cmb.clear()
         self.cmb.addItem(tr("– wählen –"), None)
@@ -82,6 +83,7 @@ class PresetBar(QWidget):
         self.a_del.setEnabled(self.cmb.count() > 1)
 
     def current(self) -> str | None:
+        """Name of the selected preset, or None."""
         return self.cmb.currentData()
 
     def _apply(self, s, name=None):

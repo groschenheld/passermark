@@ -10,7 +10,7 @@ import os as _os
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
-import test_backend as tb  # Fake-pycups
+import test_backend as tb  # fake pycups
 from pdfdruck import printers, printjob, layout, config
 
 SENT = []
@@ -90,7 +90,7 @@ def test_custom_size_pdf_and_cups():
     )
     w, h = pdfium.PdfDocument(out).get_page_size(0)
     assert round(w / 72 * 25.4) == 330 and round(h / 72 * 25.4) == 1000
-    # CUPS-Drucker: seit 1.11.1 KEINE ★-Formate mehr (nur „Als PDF speichern") – Geräte schneiden sonst falsch
+    # CUPS printers: NO ★ sizes (only "Als PDF speichern") – devices would otherwise cut wrongly
     sess = FakeSession()
     caps_c = sess.caps_for("canon")
     printers.apply_custom_sizes(caps_c)
@@ -103,7 +103,7 @@ def test_print_booklet_sets_tumble():
     SENT.clear()
     printjob.print_file(os.path.join(HERE, "sample.pdf"), FakeSession(handling="booklet"))
     opts = SENT[0][2]
-    # Fake-PPD kennt nur DuplexNoTumble -> kein Tumble-Wert vorhanden, darf NICHT NoTumble setzen
+    # the fake PPD only knows DuplexNoTumble -> no tumble value available, must NOT set NoTumble
     assert opts["Duplex"] == "None"
 
 
@@ -132,16 +132,17 @@ def test_auto_tray_on_print():
         }
     }
     printjob.print_file(os.path.join(HERE, "sample.pdf"), sess)
-    assert SENT[0][2]["InputSlot"] == "Cas1"  # A4-Standard -> erste A4-Lade
+    assert SENT[0][2]["InputSlot"] == "Cas1"  # A4 default -> first A4 tray
     sess.weights = {"canon": 120}
     SENT.clear()
     printjob.print_file(os.path.join(HERE, "sample.pdf"), sess)
-    assert SENT[0][2]["InputSlot"] == "Manual"  # 120 g -> Mehrzweckfach
+    assert SENT[0][2]["InputSlot"] == "Manual"  # 120 g -> multi-purpose tray
 
 
 def test_booklet_spreads_print_pdf():
-    """Broschüre als Druckbögen über den echten Druckweg („Als PDF speichern“): A5-Broschüre mit Anschnitt
-    -> aufgeklappte Bögen 296 × 210 mm, mit der Nutzen-Logik aufs Blatt, Schnittmarken an."""
+    """Booklet as spreads via the real print path ("Als PDF speichern"): A5 booklet with bleed
+    -> opened spreads 296 × 210 mm, onto the sheet with the step-and-repeat logic, crop marks on.
+    """
     import io
     import tempfile
     import pikepdf
@@ -172,15 +173,16 @@ def test_booklet_spreads_print_pdf():
         doc, "x", S, printers.PDF_TARGET, list(range(8)), s, values=dict(caps.defaults(), __out__=out)
     )
     r = pdfium.PdfDocument(out)
-    assert len(r) == 4  # 8 Seiten -> 2 Bögen -> 4 Bogenseiten
+    assert len(r) == 4  # 8 pages -> 2 sheets -> 4 sheet sides
     spreads, pages, ss, _n = layout.spread_source(doc, list(range(8)), s)
     w, h = spreads.get_page_size(0)
     assert (round(w / MMx), round(h / MMx)) == (302, 216) and ss.step_repeat  # 296 × 210 + 2 × 3 mm
 
 
 def test_borderless():
-    """Randlos: Papiervariante (PPD/Windows), eigene Option (Gutenprint, Canon), IPP media-col; Erweiterung erkannt;
-    Laser ohne Randlos; mit Anschnitt im Dokument liegt das Endformat genau auf dem Blatt."""
+    """Borderless: paper variant (PPD/Windows), own option (Gutenprint, Canon), IPP media-col; expansion detected;
+    laser without borderless; with bleed in the document the trim size lies exactly on the sheet.
+    """
     import io
     import pikepdf
     import pypdfium2 as pdfium
@@ -208,7 +210,7 @@ def test_borderless():
     v, ok = c.set_borderless({"PageSize": "A4"}, True)
     assert ok and v["PageSize"] == "A4.Borderless" and c.is_borderless(v) and c.sheet_for(v)[2] is None
     assert c.set_borderless(v, False)[0]["PageSize"] == "A4"
-    assert c.set_borderless({"PageSize": "A3"}, True) == ({"PageSize": "A3"}, False)  # A3 gibt's nicht randlos
+    assert c.set_borderless({"PageSize": "A3"}, True) == ({"PageSize": "A3"}, False)  # A3 does not exist borderless
     g = PrinterCaps("Gutenprint", "ppd")
     g.options["PageSize"] = Option("PageSize", "Papier", "Allg", [Choice("A4", "A4")], "A4")
     g.page_sizes["A4"], g.imageable["A4"] = (595.3, 841.9), (9, 9, 586, 832)
@@ -243,8 +245,8 @@ def test_borderless():
     except RuntimeError:
         pass
     _v, lay = printjob.apply_borderless(c, {"PageSize": "A4.Borderless"}, layout.LayoutSettings())
-    assert lay.borderless  # randloses Papier gewählt -> Layout randlos
-    # Dokument mit 3 mm Anschnitt: Endformat genau aufs Blatt, Anschnitt über den Rand
+    assert lay.borderless  # borderless paper chosen -> layout borderless
+    # document with 3 mm bleed: trim size exactly on the sheet, bleed beyond the edge
     buf = io.BytesIO()
     cv = canvas.Canvas(buf, pagesize=(216 * mm, 303 * mm))
     cv.setFillColorRGB(0.8, 0.3, 0.1)
@@ -265,7 +267,7 @@ def test_borderless():
         .to_pil()
         .convert("RGB")
     )
-    assert im.getpixel((0, 0)) != (255, 255, 255)  # Farbe bis in die Ecke
+    assert im.getpixel((0, 0)) != (255, 255, 255)  # colour right into the corner
 
 
 if __name__ == "__main__":

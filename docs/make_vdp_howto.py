@@ -10,7 +10,7 @@ Style and helper functions come from make_cli_howto.py.
 
 import os
 
-os.environ["PASSERMARK_LANG"] = os.environ.get("PM_HOWTO_LANG", "de")  # de, en, es, fr, hu – wie make_cli_howto
+os.environ["PASSERMARK_LANG"] = os.environ.get("PM_HOWTO_LANG", "de")  # de, en, es, fr, hu – as in make_cli_howto
 import sys
 import tempfile
 

@@ -22,6 +22,7 @@ import time
 
 
 def server_name() -> str:
+    """Name of the local socket of the running instance (one per user)."""
     from .platform import user_id
 
     return f"passermark-{user_id()}"
@@ -77,7 +78,7 @@ def _send_pipe(msg: bytes, timeout: float) -> str:
             f = open(path, "r+b", buffering=0)
         except FileNotFoundError:
             return "none"  # no instance
-        except OSError:  # Pipe gerade belegt (viele gleichzeitig): kurz warten
+        except OSError:  # pipe busy right now (many at once): wait briefly
             if time.monotonic() > end:
                 return "busy"
             time.sleep(0.05)
@@ -115,6 +116,7 @@ class StartLock:
         self._f = None
 
     def acquire(self, timeout: float = 20.0) -> bool:
+        """Take the lock, waiting up to ``timeout`` seconds; False if it could not be taken."""
         try:
             if os.name == "nt":
                 return self._acquire_win(timeout)
@@ -159,6 +161,7 @@ class StartLock:
                 time.sleep(0.05)
 
     def release(self):
+        """Release the lock (safe to call when it is not held)."""
         try:
             if self._h is not None:
                 self._k32.ReleaseMutex(self._h)

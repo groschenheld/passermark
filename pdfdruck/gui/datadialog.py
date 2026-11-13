@@ -50,6 +50,8 @@ from .common import fill_combo, no_enter_default, split_panels
 
 
 class DataDialog(QDialog):
+    """Dialog "Daten erfassen": edit a data table (CSV) for variable data, guided by a data kind."""
+
     def __init__(self, parent, path: str = "", kind: str = ""):
         super().__init__(parent)
         self.setWindowTitle(tr("Daten erfassen – Passermark"))
@@ -157,7 +159,7 @@ class DataDialog(QDialog):
         else:
             self.set_kind(self.kind, reset=True)
 
-    # -------------------------------------------------------------- Modell
+    # -------------------------------------------------------------- model
     def set_kind(self, kind: str, reset: bool = False):
         """Switch data kind: add missing columns (existing data is kept)."""
         self.kind = kind
@@ -180,17 +182,20 @@ class DataDialog(QDialog):
         self._render()
 
     def add_row(self, values: dict | None = None):
+        """Append a row, optionally with values."""
         self.rows.append({c: (values or {}).get(c, "") for c in self.cols})
         self.dirty = True
         self._render()
 
     def duplicate(self, i: int):
+        """Insert a copy of row ``i`` below it."""
         if 0 <= i < len(self.rows):
             self.rows.insert(i + 1, dict(self.rows[i]))
             self.dirty = True
             self._render()
 
     def delete(self, idx):
+        """Delete the rows with the given indexes."""
         for i in sorted(set(idx), reverse=True):
             if 0 <= i < len(self.rows):
                 del self.rows[i]
@@ -198,6 +203,7 @@ class DataDialog(QDialog):
         self._render()
 
     def add_column(self, name: str) -> bool:
+        """Add a column; False if the name is empty, already used or contains braces."""
         name = (name or "").strip()
         if not name or name.lower() in {c.lower() for c in self.cols} or "{" in name or "}" in name:
             return False
@@ -236,12 +242,15 @@ class DataDialog(QDialog):
         self._render()
 
     def data_rows(self) -> list:
+        """The rows that contain any data."""
         return [r for r in self.rows if any(str(v or "").strip() for v in r.values())]
 
     def problems(self) -> list:
+        """Problems the data kind finds in the table."""
         return datakinds.validate(self.kind, self.cols, self.data_rows())
 
     def load(self, path: str):
+        """Load the table from a CSV file."""
         cols, rows = vdp.read_csv(path)
         self.cols = list(cols)
         self.rows = [{c: str(r.get(c, "") or "") for c in self.cols} for r in rows]
@@ -255,12 +264,13 @@ class DataDialog(QDialog):
         self._title()
 
     def save(self, path: str):
+        """Write the table to a CSV file."""
         datakinds.write_csv(path, self.cols, self.rows)
         self.path = os.path.abspath(path)
         self.dirty = False
         self._title()
 
-    # -------------------------------------------------------------- Ansicht
+    # -------------------------------------------------------------- view
     def _title(self):
         self.setWindowTitle(
             tr("Daten erfassen – Passermark") + (f" – {os.path.basename(self.path)}" if self.path else "")
@@ -337,6 +347,7 @@ class DataDialog(QDialog):
             self.txt_value.setPlainText(value + "\n\n⚠ " + str(e))
 
     def content_of(self, rec: dict) -> str:
+        """Code content the data kind builds from one record (for the preview)."""
         return datakinds.build(self.kind, rec)
 
     def _code_pixmap(self, value: str):
@@ -362,7 +373,7 @@ class DataDialog(QDialog):
         return QPixmap.fromImage(QImage(data, img.width, img.height, 3 * img.width, QImage.Format.Format_RGB888).copy())
 
     def eventFilter(self, obj, ev):
-        """Strg+V / Strg+C / Entf in der Tabelle."""
+        """Ctrl+V / Ctrl+C / Del in the table."""
         try:
             from PySide6.QtCore import QEvent
 
@@ -399,7 +410,7 @@ class DataDialog(QDialog):
     def _selected_rows(self) -> list:
         return sorted({ix.row() for ix in self.tbl.selectedIndexes()} or {self.tbl.currentRow()})
 
-    # -------------------------------------------------------------- Buttons
+    # -------------------------------------------------------------- buttons
     def _kind_changed(self, _i):
         k = self.cmb_kind.currentData()
         if k and k != self.kind:
@@ -560,6 +571,7 @@ class _FillDialog(QDialog):
         f.addRow(bb)
 
     def values(self):
+        """The values entered in the dialog."""
         return (
             self.cmb.currentData(),
             self.spn_start.value(),

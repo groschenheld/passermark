@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Rollen erkennen: IPP (media-col-ready, printer-input-tray), SNMP Printer-MIB (nachgestellter Agent auf
-localhost), Zuordnung zur Treiber-Zufuhr, von Hand eingetragene Rollen."""
+"""Detect rolls: IPP (media-col-ready, printer-input-tray), SNMP Printer MIB (imitated agent on
+localhost), mapping to the driver source, rolls entered by hand.
+"""
 
 import os
 import socket
@@ -97,7 +98,7 @@ def test_ipp_rolls():
     r1 = st.trays["roll-1"]
     assert r1.roll and r1.width_mm == 594 and r1.size_mm is None and r1.weight == 80
     assert r1.remaining_m == 45 and r1.media_name == "Bond 80"
-    assert st.trays["roll-4"].width_mm == 1067 and st.trays["roll-4"].empty  # nur aus printer-input-tray
+    assert st.trays["roll-4"].width_mm == 1067 and st.trays["roll-4"].empty  # only from printer-input-tray
     rl = rolls.from_ipp(st)
     assert [r.width_mm for r in rl] == [594, 841, 914, 1067]
     assert rl[0].weight == 80 and rl[1].weight == 75 and rl[2].weight == 0
@@ -123,7 +124,7 @@ def test_slot_mapping():
 
 # ---------------- SNMP ----------------
 def _agent(table: dict):
-    """Mini-Agent: beantwortet GetNext aus table {oid: value} (int oder bytes)."""
+    """Mini agent: answers GetNext from table {oid: value} (int or bytes)."""
     keys = sorted(table, key=lambda o: [int(x) for x in o.split(".")])
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind(("127.0.0.1", 0))
@@ -138,7 +139,7 @@ def _agent(table: dict):
                 data, addr = s.recvfrom(65535)
             except OSError:
                 return
-            # Anfrage zerlegen
+            # take the request apart
             _t, msg, _ = snmp._read(data, 0)
             _, _v, p = snmp._read(msg, 0)
             _, com, p = snmp._read(msg, p)
@@ -150,7 +151,7 @@ def _agent(table: dict):
             _, vb, _ = snmp._read(binds, 0)
             _, oid, _ = snmp._read(vb, 0)
             want = [int(x) for x in snmp._decode_oid(oid).split(".")]
-            if ptag == 0xA0:  # Get: genau dieses Objekt
+            if ptag == 0xA0:  # Get: exactly this object
                 nxt = ".".join(map(str, want)) if ".".join(map(str, want)) in table else None
             else:
                 nxt = next((k for k in keys if [int(x) for x in k.split(".")] > want), None)
@@ -179,7 +180,7 @@ def test_snmp_input_table():
         t[f"{E}.13.{idx}"] = name
         t[f"{E}.12.{idx}"] = b"Plain Paper"
         t[f"{E}.20.{idx}"] = wt
-    t["1.3.6.1.2.1.43.9.1.1.1"] = 1  # danach: anderer Zweig
+    t["1.3.6.1.2.1.43.9.1.1.1"] = 1  # afterwards: another branch
     s = _agent(t)
     port = s.getsockname()[1]
     old = snmp.Client.__init__.__defaults__
@@ -224,7 +225,7 @@ def test_manual_rolls_and_fallback():
 
 
 def test_snmp_other_type_plotter_and_probe():
-    """Plotter meldet Typ „other“ ohne Rollen-Namen, Länge unbekannt (−2): trotzdem Rolle. Dazu „Gerät prüfen“."""
+    """The plotter reports type "other" without a roll name, length unknown (−2): still a roll. Plus device check."""
     from pdfdruck import probe
 
     E = snmp.PRT_INPUT_ENTRY
@@ -232,7 +233,7 @@ def test_snmp_other_type_plotter_and_probe():
     for idx, w in (("1.1", 914000), ("1.2", 841000), ("1.3", 594000)):
         t[f"{E}.2.{idx}"] = 1  # other
         t[f"{E}.3.{idx}"] = 4
-        t[f"{E}.4.{idx}"] = -2  # Länge unbekannt
+        t[f"{E}.4.{idx}"] = -2  # length unknown
         t[f"{E}.5.{idx}"] = w
         t[f"{E}.13.{idx}"] = b"Drawer " + idx[-1].encode()
     s_ = _agent(t)
@@ -264,14 +265,14 @@ def test_windows_ports_and_own_address():
     assert ipp.host_from_device_uri("socket://WSD-d186ce9a-263a") == ""
     assert printers_win.port_host("10.30.4.73-HPGL2") == "10.30.4.73"
     assert printers_win.port_host("socket://10.30.4.73_1") == "10.30.4.73"
-    assert printers_win.port_host("WSD-d186ce9a") == ""  # ohne Windows-Registry: unbekannt
+    assert printers_win.port_host("WSD-d186ce9a") == ""  # without the Windows registry: unknown
 
     class S:
         cfg = {"printers": {"CW": {"tray_host": "10.1.1.1"}}}
 
     assert rolls.host_for(S(), "CW") == "10.1.1.1"
     rolls.set_user_host("CW", "10.30.4.73")
-    assert rolls.host_for(S(), "CW") == "10.30.4.73"  # eigene Angabe geht vor
+    assert rolls.host_for(S(), "CW") == "10.30.4.73"  # the user's own entry takes precedence
     rolls.set_user_host("CW", "")
     assert rolls.host_for(S(), "CW") == "10.1.1.1"
     st = rolls.query("diesen-namen-gibt-es-nicht.invalid", force=True)

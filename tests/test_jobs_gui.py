@@ -11,7 +11,7 @@ ROOT = os.path.dirname(HERE)
 SCRIPT = r"""
 import os, sys, tempfile, threading, time, types
 from pdfdruck.gui import viewer, objectsdialog as od
-viewer.PageView._dpi_scale = lambda self: 1.0      # Qt-Ersatz: kein Bildschirm -> feste Werte
+viewer.PageView._dpi_scale = lambda self: 1.0      # Qt stand-in: no screen -> fixed values
 viewer.PageView.page_zoom = lambda self, i: 1.0
 from pdfdruck import config, core
 from pdfdruck.gui.common import Session
@@ -43,7 +43,7 @@ viewer.QMessageBox.Icon = types.SimpleNamespace(Critical=0)
 def run_sync(entry_index=-1):
     w._jobs[entry_index]["reader"].run()          # the Qt stub starts no threads: run the read loop directly
 
-# 1) Erfolg: Ergebnis in neuem Fenster, Eingabe-Kopie weg, Liste leer
+# 1) success: result in a new window, input copy gone, list empty
 w.start_job("cutcontour", {"shape": "rect", "single_shape": False}, None, suffix="_CutContour", title="CutContour",
             notes=lambda info: [f"{info.get('cuts')} Schnitte"])
 src = w._jobs[-1]["src"]; dst = w._jobs[-1]["dst"]
@@ -53,7 +53,7 @@ res_win = ctl.made[-1]
 assert len(res_win.doc) == 1 and res_win._temp_path == dst and os.path.exists(dst)
 print("Erfolg ok:", os.path.basename(dst))
 
-# 2) Abbrechen mitten in der Rechnung
+# 2) cancel in the middle of the computation
 w2 = viewer.MainWindow(ctl); w2.statusBar = w.statusBar
 slow = tcl._slow_input()
 w2._set_doc(pdfium.PdfDocument(slow), slow, "slow.pdf", False)
@@ -66,13 +66,13 @@ assert not w2._jobs and msgs and msgs[-1] == "Abgebrochen." and not os.path.exis
 assert not os.path.exists(entry["src"])
 print("Abbrechen ok")
 
-# 3) Fehler: Meldung, reservierte Ausgabe entfernt
+# 3) error: message, reserved output removed
 w.start_job("separate", {"detect": {"min_size_mm": 5000}}, None, suffix="_einzeln", title="Objekte trennen")
 entry = w._jobs[-1]; run_sync()
 assert boxes and boxes[-1][0] == "box" and not os.path.exists(entry["dst"]), boxes
 print("Fehler ok:", boxes[-1][1])
 
-# 4) Dialoge beschreiben nur noch den Auftrag
+# 4) dialogs only describe the job
 od.QDialog.done = lambda self, r: None
 dlg = od.CutContourDialog(None, pdfium.PdfDocument(os.path.join(tmp, "bogen.pdf")), 0)
 dlg._settings = lambda preview=False: core.settings_from_dict(__import__("pdfdruck.cutcontour", fromlist=["x"]).CutSettings, {"shape": "heart"})

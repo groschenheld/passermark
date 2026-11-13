@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Paralleles Rechnen (CutContour): bitgleich zu seriell, Arbeitsprozesse einmal je Auftrag, Abbrechen ohne Reste."""
+"""Parallel computation (CutContour): bit-identical to serial, workers once per job, cancel without leftovers."""
 
 import json
 import multiprocessing
@@ -36,7 +36,7 @@ def test_parallel_equals_serial():
     import test_cutcontour as tc
 
     old = cutcontour.PARALLEL_MIN_OBJECTS, cutcontour.PARALLEL_MIN_PIXELS
-    cutcontour.PARALLEL_MIN_OBJECTS, cutcontour.PARALLEL_MIN_PIXELS = 2, 0  # auch den kleinen Bogen parallel
+    cutcontour.PARALLEL_MIN_OBJECTS, cutcontour.PARALLEL_MIN_PIXELS = 2, 0  # the small sheet in parallel too
     try:
         for kw in (
             dict(shape="contour", bleed_mm=2, inner=True, clean_seams=True),
@@ -107,7 +107,7 @@ def test_cancel_leaves_no_workers():
 
     def cancel():
         calls.append(1)
-        return len(calls) > 3  # mitten in der Berechnung abbrechen
+        return len(calls) > 3  # cancel in the middle of the computation
 
     try:
         cutcontour.make(

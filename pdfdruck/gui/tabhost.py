@@ -19,6 +19,8 @@ from ..l10n import tr
 
 
 class TabHost(QMainWindow):
+    """Top-level window frame that holds one or more document windows as tabs."""
+
     def __init__(self, ctl):
         super().__init__()
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -29,7 +31,7 @@ class TabHost(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
-        self.tabs.setTabBarAutoHide(True)  # ein Dokument = sieht aus wie ein normales Fenster
+        self.tabs.setTabBarAutoHide(True)  # one document = looks like a normal window
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self._current_changed)
         bar = self.tabs.tabBar()
@@ -40,6 +42,7 @@ class TabHost(QMainWindow):
 
     # -------------------------------------------------------------- #
     def add(self, w, activate: bool = True):
+        """Add a document window as a tab."""
         w._host = self
         w.setWindowFlags(Qt.WindowType.Widget)
         try:
@@ -52,9 +55,11 @@ class TabHost(QMainWindow):
         self.update_tab(w)
 
     def windows(self) -> list:
+        """The document windows in this frame."""
         return [self.tabs.widget(i) for i in range(self.tabs.count())]
 
     def show_tab(self, w):
+        """Select the tab of ``w`` and bring the frame to the front."""
         if self.tabs.indexOf(w) >= 0:
             self.tabs.setCurrentWidget(w)
         self.show()
@@ -62,6 +67,7 @@ class TabHost(QMainWindow):
         self.activateWindow()
 
     def update_tab(self, w):
+        """Refresh title and tooltip of the tab of ``w``."""
         i = self.tabs.indexOf(w)
         if i < 0:
             return
@@ -78,6 +84,7 @@ class TabHost(QMainWindow):
 
     # -------------------------------------------------------------- #
     def close_tab(self, i):
+        """Close the document in tab ``i``."""
         w = self.tabs.widget(i)
         if w is not None:
             w.close()  # asks about unsaved changes; afterwards the tab is removed

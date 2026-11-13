@@ -153,7 +153,7 @@ def test_ipp():
     assert c.options["print-quality"].default == "4"
 
 
-# ---- Helper-Validierung -------------------------------------------------
+# ---- helper validation --------------------------------------------------
 def test_helper_validate():
     from pdfdruck import cfgvalidate
 
@@ -198,7 +198,7 @@ def test_std_size_fallback():
     )
     c.roles["pagesize"] = "PageSize"
     c.page_sizes["A4"] = (595, 842)
-    w, h, ia, exact = c.sheet_info({"PageSize": "A3"})  # A3 fehlt in page_sizes -> Tabelle
+    w, h, ia, exact = c.sheet_info({"PageSize": "A3"})  # A3 is missing in page_sizes -> table
     assert exact and round(w) == 842 and round(h) == 1191
 
 

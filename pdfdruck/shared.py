@@ -29,12 +29,14 @@ GROUP = "passermark"
 
 
 def root() -> str:
+    """Root of the shared print folder."""
     if IS_WIN:
         return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Passermark")
     return "/srv/passermark"
 
 
 def path(sub: str = "hotfolder") -> str:
+    """Path of a subfolder of the shared print folder."""
     return os.path.join(root(), sub)
 
 
@@ -56,6 +58,7 @@ def in_home(p: str) -> bool:
 
 
 def home_hint() -> str:
+    """Warning text for folders inside a home directory."""
     from .l10n import tr
 
     return tr(
@@ -94,6 +97,7 @@ def status() -> dict:
 
 
 def status_text(st: dict | None = None) -> str:
+    """State of the shared print folder as text for the user."""
     from .l10n import tr
 
     st = st or status()

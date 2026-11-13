@@ -64,6 +64,7 @@ def load_settings() -> dict:
 
 
 def save_settings(d: dict):
+    """Write the user settings (atomically) and drop the cache."""
     global _settings_cache
     _settings_cache = None
     p = _settings_file()
@@ -85,6 +86,7 @@ def _admin_default() -> str:
 
 
 def system_language() -> str:
+    """Language code of the system (de, en, hu, es, fr); English if it is none of the supported ones."""
     cands = [os.environ.get(v, "") for v in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG")]
     if sys.platform == "win32":
         try:
@@ -106,6 +108,7 @@ def system_language() -> str:
 
 
 def current() -> str:
+    """Language code of the interface: environment variable, user setting or system language."""
     global _lang
     if _lang is None:
         want = os.environ.get("PASSERMARK_LANG") or load_settings().get("language") or "auto"

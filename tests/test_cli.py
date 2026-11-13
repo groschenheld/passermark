@@ -61,8 +61,8 @@ def test_job_with_set_and_preset():
     out2 = os.path.join(TMP, "b.pdf")
     r = run("cutcontour", stickers(), out2, "--preset", preset, "--set", "single_shape=false")
     assert r.returncode == 0 and os.path.exists(out2) and "cuts: 3" in r.stdout, r.stdout + r.stderr
-    assert "%" in r.stderr  # Fortschrittsbalken
-    r = run("separate", stickers(), out2, "--preset", preset)  # Preset passt nicht zum Auftrag
+    assert "%" in r.stderr  # progress bar
+    r = run("separate", stickers(), out2, "--preset", preset)  # the preset does not match the job
     assert r.returncode == 2
 
 
@@ -77,7 +77,7 @@ def test_json_progress():
 
 
 def test_exit_codes():
-    assert run("cutcontour").returncode == 2  # Eingabe/Ausgabe fehlen
+    assert run("cutcontour").returncode == 2  # input/output missing
     assert run("gibts_nicht", "a", "b").returncode == 2
     assert run("cutcontour", stickers(), os.path.join(TMP, "x.pdf"), "--pages", "0").returncode == 2
     assert run("--hilfe-gibts-nicht").returncode == 2
@@ -121,7 +121,7 @@ def test_cancel_by_signal_leaves_no_file():
             text=True,
             env=ENV,
         )
-        first = p.stdout.readline()  # warten, bis er wirklich rechnet
+        first = p.stdout.readline()  # wait until it really computes
         assert json.loads(first)["event"] == "progress", first
         time.sleep(0.5)
         p.send_signal(sig)

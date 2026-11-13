@@ -29,16 +29,20 @@ MM = 72.0 / 25.4
 
 @dataclass
 class DetectSettings:
+    """Parameters for detecting separate objects on a page (resolution, tolerance, minimum size, margin)."""
+
     dpi: int = 150
     mode: str = "auto"  # auto | transparent | color
     tolerance: int = 28  # 0–255 distance from the background colour
-    min_size_mm: float = 5.0  # kleinere Objekte (Staub, Schmutz) ignorieren
+    min_size_mm: float = 5.0  # ignore smaller objects (dust, dirt)
     gap_mm: float = 1.0  # parts lying closer together belong together
     margin_mm: float = 0.0  # margin around every object (negative = inwards)
 
 
 @dataclass
 class Box:
+    """Bounding box of a detected object in pt."""
+
     x0: float
     y0: float
     x1: float
@@ -46,10 +50,12 @@ class Box:
 
     @property
     def w(self):
+        """Width of the box."""
         return self.x1 - self.x0
 
     @property
     def h(self):
+        """Height of the box."""
         return self.y1 - self.y0
 
 

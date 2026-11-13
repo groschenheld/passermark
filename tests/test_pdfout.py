@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Als PDF speichern + Formularwerte beim Druck (Flatten)."""
+"""Save as PDF + form values when printing (flatten)."""
 
 import os
 import sys
@@ -46,7 +46,7 @@ def test_flatten_keeps_form_values():
     f = layout.flattened(d)
     assert f is not d and "Formularwert" in f[0].get_textpage().get_text_range()
     plain = pdfium.PdfDocument(os.path.join(HERE, "sample.pdf"))
-    assert layout.flattened(plain) is plain  # ohne Anmerkungen: Original
+    assert layout.flattened(plain) is plain  # without annotations: original
 
 
 def test_save_as_pdf_doc_size_and_nup():

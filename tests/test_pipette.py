@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Farbpipette: definierte Farbe (CMYK, RGB, Grau, Sonderfarbe mit Tonwert, Kontur, Bildpixel, Text), Papier,
-gedrehte Seite. Der Farbauftrag kommt sonst von Ghostscript – hier ersetzt durch pdfium + LittleCMS mit demselben
-Profil (die Ghostscript-Aufrufe sind dieselben wie beim Softproof und dort getestet)."""
+"""Colour pipette: defined colour (CMYK, RGB, grey, spot colour with tint, stroke, image pixel, text), paper,
+rotated page. The ink values otherwise come from Ghostscript – replaced here by pdfium + LittleCMS with the same
+profile (the Ghostscript calls are the same as for the soft proof and tested there).
+"""
 
 import io
 import os
@@ -87,7 +88,7 @@ def test_defined_colors():
     assert s.spot == "HKS 5 K" and "60 %" in pipette.format_values(s)
     s = pipette.sample(data, 0, 201, 625)
     assert s.paint == "stroke"
-    s = pipette.sample(data, 0, 250, 625)  # innerhalb der Kontur: Papier
+    s = pipette.sample(data, 0, 250, 625)  # inside the outline: paper
     assert s.kind == "" and s.screen == (255, 255, 255)
     s = pipette.sample(data, 0, 100, 500)
     assert "300 × 200 px" in s.detail and "216 ppi" in s.detail, s.detail
@@ -107,10 +108,10 @@ def test_ink_and_rotation():
     try:
         data = _page()
         t = colorcheck.target_from_file(icc)
-        s = pipette.sample(data, 0, 250, 725, t)  # RGB-Rot -> wieviel CMYK im Druck
+        s = pipette.sample(data, 0, 250, 725, t)  # RGB red -> how much CMYK in print
         assert s.ink and s.ink[1] > 80 and s.ink[2] > 80 and s.ink[0] < 10 and s.ink_total > 150, s.ink
         assert s.as_cmyk() == [round(v) / 100 for v in s.ink]
-        assert pipette.sample(data, 0, 500, 100, t).ink_total < 1  # Papier
+        assert pipette.sample(data, 0, 500, 100, t).ink_total < 1  # paper
         for rot in (90, 180, 270):
             p = pikepdf.open(io.BytesIO(data))
             p.pages[0].Rotate = rot

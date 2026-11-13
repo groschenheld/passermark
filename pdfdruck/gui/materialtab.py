@@ -48,7 +48,7 @@ NONE = ""
 
 
 class AdminHost:
-    """Materialien der Verwaltung (AdminDialog: cfg, plist, new_icc, import_profile_file)."""
+    """Materials of the administration (AdminDialog: cfg, plist, new_icc, import_profile_file)."""
 
     user_mode = False
 
@@ -59,26 +59,31 @@ class AdminHost:
 
     @property
     def mats(self) -> list:
+        """The materials in the admin configuration."""
         return self.cfg["materials"]
 
     def printers(self) -> list:
+        """Names of the printers."""
         return [q.name for q in self.a.plist]
 
     def profile_items(self) -> list:
+        """Colour profiles as ``(id, name)`` for combo boxes."""
         return [(p["id"], p.get("name") or p["id"]) for p in self.cfg.get("color_profiles", [])]
 
     def candidates(self) -> list:
-        view = dict(self.cfg)  # neu importierte Profile liegen noch bei der Quelle
+        """Profiles that can be suggested for a material."""
+        view = dict(self.cfg)  # newly imported profiles are still at their source
         view["color_profiles"] = [
             dict(p, file=self.a.new_icc.get(p["id"], p.get("file", ""))) for p in self.cfg.get("color_profiles", [])
         ]
         return colorlab.candidates(view)
 
     def take(self, cand: dict) -> str:
-        """Kandidat zuordnen -> Profil-ID ("" = abgebrochen). Systemprofile werden in die Verwaltung übernommen."""
+        """Assign a candidate -> profile id ("" = cancelled). System profiles are taken into the administration."""
         return cand["id"] or self.a.import_profile_file(cand["file"], cand["name"])
 
     def new_id(self, name: str) -> str:
+        """Derive an unused material id from the name."""
         base = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")[:48] or "material"
         ids = {m["id"] for m in self.mats}
         mid, i = base, 2
@@ -87,11 +92,12 @@ class AdminHost:
         return mid
 
     def changed(self):
-        pass  # gespeichert wird mit „Speichern“ des Admin-Dialogs
+        """Called after a change; nothing to do here because the admin dialog saves."""
+        pass  # saved with "Speichern" of the admin dialog
 
 
 class UserHost:
-    """Eigene Materialien (usercolor.py) – Profile: die der Verwaltung (ID) oder eine ICC-Datei (Pfad)."""
+    """The user's own materials (usercolor.py) – profiles: those of the administration (id) or an ICC file (path)."""
 
     user_mode = True
 
@@ -105,9 +111,11 @@ class UserHost:
 
     @property
     def mats(self) -> list:
+        """The user's own materials."""
         return self._mats
 
     def printers(self) -> list:
+        """Names of the printers."""
         try:
             from .. import printers
 
@@ -116,7 +124,7 @@ class UserHost:
             return []
 
     def profile_items(self) -> list:
-        """Verwaltung (ID) + installierte Profile (Pfad) + bereits zugeordnete Dateien."""
+        """Administration (id) + installed profiles (path) + files already assigned."""
         items = [
             (p["id"], tr("Verwaltung: {0}").format(p.get("name") or p["id"]))
             for p in self.cfg.get("color_profiles", [])
@@ -135,17 +143,21 @@ class UserHost:
         return items
 
     def candidates(self) -> list:
+        """Profiles that can be suggested for a material."""
         return colorlab.candidates(self.cfg)
 
     def take(self, cand: dict) -> str:
+        """Reference to store for a suggested profile: its id, otherwise its file."""
         return cand["id"] or cand["file"]
 
     def new_id(self, name: str) -> str:
+        """Derive an unused material id from the name."""
         from .. import usercolor
 
         return usercolor.new_id(name, {m["id"] for m in self._mats})
 
     def changed(self):
+        """Called after a change: save the user's materials right away."""
         from .. import usercolor
 
         try:
@@ -156,6 +168,8 @@ class UserHost:
 
 
 class MaterialTab(QWidget):
+    """List of materials with their details (paper white, surface, profiles); used by admin and user."""
+
     def __init__(self, admin=None, host=None):
         super().__init__()
         self.host = host or AdminHost(admin)
@@ -320,9 +334,11 @@ class MaterialTab(QWidget):
     # ---------------------------------------------------------------- #
     @property
     def mats(self) -> list:
+        """The materials shown."""
         return self.host.mats
 
     def cur(self):
+        """The selected material, or None."""
         r = self.lst.currentRow()
         return self.mats[r] if 0 <= r < len(self.mats) else None
 
@@ -530,15 +546,16 @@ class MaterialTab(QWidget):
         self.host.changed()
         self._refresh(m["id"])
 
-    # ---------------- Vorschläge ---------------- #
+    # ---------------- suggestions ---------------- #
     def candidates(self) -> list:
+        """Profiles that can be suggested, including standard profiles not installed yet (cached)."""
         if self._cands is None:
             cands = self.host.candidates()
             self._cands = cands + colorlab.standard_candidates([c["file"] for c in cands])
         return self._cands
 
     def invalidate(self):
-        """Profile geändert (Import/Entfernen/Standardprofil geholt)."""
+        """Profiles changed (import/remove/standard profile downloaded)."""
         self._cands = None
         if self.isVisible():
             self._show()

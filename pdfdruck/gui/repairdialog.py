@@ -51,6 +51,8 @@ def _mb(n):
 
 
 class _Worker(QThread):
+    """Repairs the files one after the other in a background thread."""
+
     progress = Signal(str)
     done = Signal(list)
 
@@ -72,6 +74,8 @@ class _Worker(QThread):
 
 
 class RepairDialog(QDialog):
+    """Dialog "Reparieren, optimieren, Passwort": choose the mode and run it on one or more files."""
+
     def __init__(
         self, parent, files: list[str], display_names: dict | None = None, out_dir: str | None = None, open_cb=None
     ):
@@ -215,7 +219,7 @@ class RepairDialog(QDialog):
             npw = self.ed_pw.text()
         jobs = []
         for src in self.files:
-            # Passwort der Quelle vorab abfragen (im Hauptthread)
+            # ask for the password of the source beforehand (in the main thread)
             if src not in self.passwords and repair.needs_password(src):
                 while True:
                     pw, ok = QInputDialog.getText(

@@ -43,18 +43,18 @@ def test_python_error_logged_and_shown_once():
     text = open(logs[0], encoding="utf-8").read()
     assert "Testfehler 42" in text and "Traceback" in text and "Passermark " in text and "Kerne:" in text
     r = _run("from pdfdruck import crashlog\ncrashlog.install('gui')\nprint(len(crashlog.pending_crashes()))", st)
-    assert r.stdout.strip() == "0", r.stdout  # schon angezeigt -> beim Start nicht nochmal
+    assert r.stdout.strip() == "0", r.stdout  # already shown -> not again at start
 
 
 def test_hard_crash_reported_once():
     st = tempfile.mkdtemp()
-    r = _run(PRE + "import ctypes\nctypes.string_at(0)", st)  # echter Speicherzugriffsfehler
+    r = _run(PRE + "import ctypes\nctypes.string_at(0)", st)  # real memory access error
     assert r.returncode != 0
     logs = _logs(st)
     assert len(logs) == 1 and "Fatal Python error" in open(logs[0], encoding="utf-8").read(), logs
     code = "from pdfdruck import crashlog\ncrashlog.install('gui')\np=crashlog.pending_crashes()\nprint(len(p))\ncrashlog.mark_seen(p)"
     assert _run(code, st).stdout.strip() == "1"  # the next start reports it
-    assert _run(code, st).stdout.strip() == "0"  # und danach nicht mehr
+    assert _run(code, st).stdout.strip() == "0"  # and not afterwards either
 
 
 def test_thread_error_logged():

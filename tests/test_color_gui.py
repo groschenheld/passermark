@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Farbe in der Oberfläche (1.17): Menü Farbe, Farbprüfung mit Aktionen, eigene Papiere (ohne Admin), Assistent
-„Für Druckerei ausgeben“.
-  test_color_gui_stub  – Qt-Attrappe (läuft überall): Aufbau, Handler, Speichern der eigenen Papiere
-  test_color_gui_qt    – echtes Qt ohne Bildschirm: Prüfung im Hintergrund, Assistent bis zur fertigen Datei"""
+"""Colour in the interface: menu Farbe, colour check with actions, own papers (without admin), wizard
+"Für Druckerei ausgeben".
+  test_color_gui_stub  – Qt stand-in (runs everywhere): structure, handlers, saving the own papers
+  test_color_gui_qt    – real Qt without a screen: check in the background, wizard up to the finished file
+"""
 
 import os
 import subprocess
@@ -27,7 +28,7 @@ w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(co
 path = T.write(T.sample_pdf())
 w._set_doc(pdfium.PdfDocument(path), path, "x.pdf", False)
 
-# ---- Farbprüfung ----
+# ---- colour check ----
 w.color_check()
 cp = w.color_panel
 ch = next(c for c in cp.choices if c["icc"] == F)
@@ -50,7 +51,7 @@ x = next(x for x in res if x.key == "rgb")
 w._color_action("convert", dict(x.params, intent="relative", material="", tac_limit=0, has_rgb=True))
 kind, s = jobs[-1][0][0], jobs[-1][0][1]
 assert kind == "press" and s["rgb"] == "convert" and s["cmyk_mode"] == "rgb_only" and s["target"] == F and asked
-w._ask_rgb = lambda name: ""                     # abgebrochen -> kein Auftrag
+w._ask_rgb = lambda name: ""                     # cancelled -> no job
 w._color_action("convert", dict(x.params, has_rgb=True))
 assert len(jobs) == 1
 w._color_action("embed_oi", {"target": F, "has_rgb": False})
@@ -61,7 +62,7 @@ w._color_action("press", {})
 w._color_action("choose_target", {})
 w._proof_for_choice(ch)
 
-# ---- eigene Papiere (ohne Admin) ----
+# ---- own papers (without admin) ----
 from pdfdruck.gui import materialtab, measuredialog
 materialtab.QInputDialog.getText = staticmethod(lambda *a, **k: ("Munken Pure 120 g", True))
 host = materialtab.UserHost(w, w.session.cfg)
@@ -146,7 +147,7 @@ ctl = Controller()
 path = T.write(T.sample_pdf())
 ctl.open_paths([path]); w = ctl.windows[-1]
 assert any(a.text().replace("&", "") == "Farbe" for a in w.menuBar().actions())
-# ---- Farbprüfung im Hintergrund ----
+# ---- colour check in the background ----
 w.color_check()
 cp = w.color_panel
 i = next(k for k in range(cp.cmb.count()) if cp.cmb.itemData(k) and cp.cmb.itemData(k).endswith(F))
@@ -158,22 +159,22 @@ assert any("RGB" in t for t in titles), titles
 cp.tree.setCurrentItem(cp.tree.topLevelItem(0))
 assert cp.lbl_detail.text()
 
-# ---- eigene Papiere ----
+# ---- own papers ----
 from pdfdruck.gui.materialsdialog import MaterialsDialog
 md = MaterialsDialog(w, w.session.cfg)
 md.tab._new()
 assert usercolor.load_materials()[0]["surface"] == "uncoated"
 md.reject()
 
-# ---- Assistent bis zur Datei ----
+# ---- wizard up to the file ----
 from pdfdruck.gui.pressdialog import PressDialog
 out = path[:-4] + "_Druck.pdf"
 d = PressDialog(w, w._doc_bytes, w.session.cfg, out, cp.cmb.currentData())
 d._next()
 assert pump(lambda: d.facts is not None), d.lbl_check.text()
-assert d.box_rgb.isVisibleTo(d) and not d.rb_convert.isChecked() and not d.rb_keep.isChecked()   # immer fragen
+assert d.box_rgb.isVisibleTo(d) and not d.rb_convert.isChecked() and not d.rb_keep.isChecked()   # always ask
 d._next()
-assert d.stack.currentIndex() == 1                   # ohne Entscheidung geht es nicht weiter
+assert d.stack.currentIndex() == 1                   # no progress without a decision
 d.rb_keep.setChecked(True)
 d.cmb_mode.setCurrentIndex(d.cmb_mode.findData("none"))
 assert "sRGB" in d.lbl_plan.text(), d.lbl_plan.text()

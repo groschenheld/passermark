@@ -47,8 +47,8 @@ if "edit_panel" in w.__dict__:
     ep.tabs.currentIndex = lambda: tab[0]
     ep.lst_text.currentRow = lambda: row["t"]
     ep.lst_text.setCurrentRow = lambda r: (row.__setitem__("t", r), ep._text_selected(r))
-    # Mehrfachauswahl (1.12): Ziehen/Skalieren wirkt auf die gewählten Zeilen – wie in echtem Qt
-    # gilt die aktuelle Zeile als gewählt
+    # multiple selection: dragging/scaling acts on the chosen rows – as in real Qt
+    # the current row counts as chosen
     ep.lst_text.selectedIndexes = lambda: [types.SimpleNamespace(row=lambda: row["t"])] if row["t"] >= 0 else []
     ep.lst_layers.currentRow = lambda: row["l"]
     ep.lst_layers.setCurrentRow = lambda r: (row.__setitem__("l", r), ep._layer_selected(r))
@@ -81,7 +81,7 @@ if "edit_panel" in w.__dict__:
     assert not any(l.text.startswith("Hallo") for l in editing.text_lines(w.doc, 0)) and others("Hallo") == keep
     for _k in range(3):
         ep._undo()
-    tab[0] = 2; ep.refresh()                 # Reiter: 0 Text, 1 Objekte (1.12), 2 Ebenen
+    tab[0] = 2; ep.refresh()                 # tabs: 0 text, 1 objects, 2 layers
     K = {x.name: x.key for x in preflight.analyze(w._doc_bytes(), deep_layers=False).layers}
     w.view.mouse_press(pg(), E(150, 217)); w.view.mouse_move(pg(), E(150, 317)); w.view.mouse_release(pg(), E(150, 317))
     b = editing.layer_map(w._doc_bytes(), 0, [K["Bemaßung"]]).boxes[K["Bemaßung"]]
@@ -95,9 +95,9 @@ if "edit_panel" in w.__dict__:
     ep._undo(); ep._undo()
     b3 = editing.layer_map(w._doc_bytes(), 0, [K["Bemaßung"]]).boxes[K["Bemaßung"]]
     assert abs(b3[1] - 598) < 5, b3
-    # 1.18.14: schrittweise verschieben (10 mm nach rechts), Einrasten am Seitenrand, Farbpipette
+    # move step by step (10 mm to the right), snapping to the page edge, colour pipette
     from pdfdruck.gui import editpanel as EPm
-    class _NoMods:                              # keine Taste gedrückt (die Attrappe kennt keine Flags)
+    class _NoMods:                              # no key pressed (the stand-in knows no flags)
         def __and__(self, other): return 0
     EPm.QApplication.keyboardModifiers = staticmethod(lambda: _NoMods())
     tab[0] = 0
@@ -112,7 +112,7 @@ if "edit_panel" in w.__dict__:
     assert abs(x_after - x_before - 10 * 72 / 25.4) < 1.0, (x_before, x_after)
     ep.chk_snap.isChecked = lambda: True
     ep.spn_grid.value = lambda: 0.0
-    dx, dy, guides = ep._snap_move((50.0, 500.0, 150.0, 520.0), -46.0, 0.0)     # linke Kante fast am Seitenrand
+    dx, dy, guides = ep._snap_move((50.0, 500.0, 150.0, 520.0), -46.0, 0.0)     # left edge almost at the page edge
     assert abs(dx + 50.0) < 0.01 and guides, (dx, guides)
     ep.spn_grid.value = lambda: 10.0
     ep.chk_snap.isChecked = lambda: False
@@ -124,22 +124,22 @@ if "edit_panel" in w.__dict__:
     from pdfdruck import pipette
     w.pipette_dlg._done(pipette.sample(w._doc_bytes(), 0, 160, 460), "")
     w.pipette_dlg._take("rgb")
-    w._pipette_picked("rgb", w.pipette_dlg.sample.as_rgb())     # Signale liefert die Attrappe nicht
+    w._pipette_picked("rgb", w.pipette_dlg.sample.as_rgb())     # the stand-in delivers no signals
     assert ep._last_color[0] == "rgb" and len(ep._last_color[1]) == 3, ep._last_color
     w.a_pipette.isChecked = lambda: False
     w._pipette_mode(False)
     assert w.view.imode == "edit"
     w._edit_mode(False)
-from pdfdruck import planhistory               # Plan & Poster → Letzte Drucke
+from pdfdruck import planhistory               # Plan & Poster → recent prints
 w._fill_plan_history()
 planhistory.add("poster", "Plotter", {"copies": 1}, [{"source": sys.argv[1], "page": 0, "qty": 1, "ov": {}, "own": True}], 1.0, 1)
 w._fill_plan_history(); w._clear_plan_history()
 planhistory.clear()
-from pdfdruck.gui import plandialog            # Plan/Poster: eigenes Fenster, offenes Dokument wird nicht übernommen
+from pdfdruck.gui import plandialog            # plan/poster: own window, the open document is not taken over
 w.plan_dialog("poster")
 pw_ = plandialog.open_windows()
 assert len(pw_) == 1 and pw_[0].kind == "poster" and pw_[0].items == [] and pw_[0].ctl is w.ctl, pw_
-from pdfdruck import app as appmod              # passermark --plan a.pdf (bzw. vom zweiten Start weitergereicht)
+from pdfdruck import app as appmod              # passermark --plan a.pdf (or passed on from a second start)
 appmod.Controller().queue_request("plan", [sys.argv[1]])
 pw_ = {d.kind: d for d in plandialog.open_windows()}
 assert set(pw_) == {"plan", "poster"} and pw_["plan"].items, pw_
@@ -157,7 +157,7 @@ def test_start_and_basic_actions():
         PDFTOOLKIT_LANG="en",
         PDFTOOLBOX_LANG="en",
         PASSERMARK_RENDER="local",
-    )  # Qt-Attrappe hat keine Ereignisschleife: alles im Programm
+    )  # the Qt stand-in has no event loop: everything in the program
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT, SAMPLE], capture_output=True, text=True, env=env, timeout=300)
     assert "SMOKE-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]

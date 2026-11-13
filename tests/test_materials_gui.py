@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Materialien und Softproof in der Oberfläche (echtes Qt, ohne Bildschirm): Papierweiß messen (nachgestelltes
-spotread: kalibrieren, messen), Datei/Hand, Verwaltung → Materialien mit Vorschlag und Übernahme,
-Material im Druckdialog und in der CMYK-Umwandlung, Softproof der Seitenansicht."""
+"""Materials and soft proof in the interface (real Qt, without a screen): measure paper white (imitated
+spotread: calibrate, measure), file/by hand, administration → materials with suggestion and take-over,
+material in the print dialog and in the CMYK conversion, soft proof of the page view.
+"""
 
 import os
 import subprocess
@@ -39,7 +40,7 @@ def pump(cond, n=500):
     return False
 
 
-# ---- Papierweiß messen ----
+# ---- measure paper white ----
 from pdfdruck.gui.measuredialog import MeasureDialog
 md = MeasureDialog(None, "Natur")
 assert md.exe and md.btn_measure.isEnabled()
@@ -54,7 +55,7 @@ assert md.values[0][0] == (93.51, 0.81, 4.21), md.values
 md.ed_lab.setText("93,9 0,6 3,9")
 md._add_manual()
 assert md.result_lab() == (93.71, 0.71, 4.05) and "Streuung" in md.lbl_mean.text()
-md._start()                                          # abbrechen mitten in der Kalibrierung
+md._start()                                          # cancel in the middle of the calibration
 assert pump(lambda: md.btn_next.isEnabled())
 md._stop()
 assert pump(lambda: md.proc is None)
@@ -79,9 +80,9 @@ assert t.tree.topLevelItemCount() >= 1 and "FOGRA52" in t.lbl_tip.text(), t.lbl_
 t.cmb_for.setCurrentIndex(t.cmb_for.findData("epson"))
 from PySide6.QtCore import Qt
 items = [t.tree.topLevelItem(i) for i in range(t.tree.topLevelItemCount())]
-assert any((it.data(0, Qt.ItemDataRole.UserRole) or {}).get("std") for it in items)   # Standards (noch nicht geholt)
+assert any((it.data(0, Qt.ItemDataRole.UserRole) or {}).get("std") for it in items)   # standards (not downloaded yet)
 t.tree.setCurrentItem(next(it for it in items if not it.data(0, Qt.ItemDataRole.UserRole).get("std")))
-t._take()                                            # Systemprofil -> importiert und zugeordnet
+t._take()                                            # system profile -> imported and assigned
 pid = m["profiles"]["epson"]
 assert pid in d.new_icc and d.new_icc[pid] == F, (pid, d.new_icc)
 cfgvalidate.validate(d.cfg, str(config.ICC_DIR))
@@ -95,7 +96,7 @@ assert m["profiles"] == {}                            # Profil weg -> Zuordnung 
 cfgvalidate.validate(d.cfg, str(config.ICC_DIR))
 d.reject()
 
-# ---- Druckdialog ----
+# ---- print dialog ----
 with T.FakePrinter():
     cfg = config.load()
     cfg["default_printer"] = "Canon"
@@ -108,7 +109,7 @@ with T.FakePrinter():
     p = T.doc(1)
     s = Session(cfg)
     dlg = pd.PrintDialog(None, pdfium.PdfDocument(p), p, 0, s)
-    assert dlg.cmb_material.count() == 2                 # „keins“ + Bilderdruck (Nur Epson passt nicht zu Canon)
+    assert dlg.cmb_material.count() == 2                 # "none" + art paper (Epson only does not match Canon)
     dlg.cmb_material.setCurrentIndex(1)
     assert dlg.cmb_profile.currentData() == "fogra39" and dlg.cmb_intent.currentData() == "perceptual"
     assert s.color["Canon"] == ("fogra39", "perceptual") and s.material == {"Canon": "bd"}
@@ -132,7 +133,7 @@ assert pan.cmb_target.currentData() == F and pan.cmb_mode.currentData() == "all"
 assert "FOGRA27" in pan.lbl_rec.text() and pan.material_white == [94, 0.5, -1.5]
 assert s.manip.target == F and s.manip.intent == "perceptual"
 
-# ---- Softproof der Ansicht ----
+# ---- soft proof of the view ----
 from pdfdruck.app import Controller
 from pdfdruck.gui import softproofdialog as SD
 ctl = Controller()

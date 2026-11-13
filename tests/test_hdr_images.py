@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""HDR-Fotos (JPEG mit Helligkeitskarte als Zusatzbild, Multi-Picture-Format):
-ohne Reparatur zwei Seiten, mit Reparatur eine Seite – Foto verlustfrei, Größe wählbar."""
+"""HDR photos (JPEG with a gain map as an extra image, Multi-Picture Format):
+without repair two pages, with repair one page – photo lossless, size selectable.
+"""
 
 import io
 import os
@@ -16,14 +17,14 @@ MM = 72 / 25.4
 
 
 def _hdr_jpeg(aux_mode="L") -> str:
-    """Foto 600×800 px mit 300 dpi + Zusatzbild 300×400 px mit 72 dpi (wie Apple-HDR)."""
+    """Photo 600×800 px at 300 dpi + extra image 300×400 px at 72 dpi (like Apple HDR)."""
     from PIL import Image
 
     photo = Image.new("RGB", (600, 800), (200, 60, 40))
-    for x in range(0, 600, 40):  # etwas Struktur, damit es kein Einfarb-JPEG ist
+    for x in range(0, 600, 40):  # some structure so that it is not a single-colour JPEG
         photo.paste((20, 120, 200), (x, 0, x + 20, 800))
     aux = Image.new(aux_mode, (300, 400), 30 if aux_mode == "L" else (90, 90, 90))
-    aux.paste(220 if aux_mode == "L" else (250, 250, 250), (100, 100, 200, 200))  # „Lichter“
+    aux.paste(220 if aux_mode == "L" else (250, 250, 250), (100, 100, 200, 200))  # "highlights"
     fd, p = tempfile.mkstemp(suffix=".jpg")
     os.close(fd)
     photo.save(p, "MPO", save_all=True, append_images=[aux], dpi=(300, 300), quality=92)
@@ -39,10 +40,10 @@ def test_detect_and_repair_sizes():
     try:
         info = images.hdr_aux_info(p)
         assert info and info["main_px"] == (600, 800) and info["aux_px"] == (300, 400) and info["aux_mode"] == "L"
-        d = images.images_to_document([p], 96, {"keep": True})  # alt: zwei Seiten
+        d = images.images_to_document([p], 96, {"keep": True})  # old: two pages
         assert len(d) == 2
         d.close()
-        d = images.images_to_document([p], 96)  # Standard: eine Seite, Größe der Zusatzseite
+        d = images.images_to_document([p], 96)  # default: one page, size of the extra page
         aw, ah = images.hdr_size_mm(info, "aux")
         assert len(d) == 1 and _sizes(d) == [(round(aw), round(ah))], _sizes(d)
         d.close()
@@ -83,8 +84,8 @@ def test_merge_brightens_only_highlights():
             im.seek(0)
             a = np.asarray(im.convert("L"), np.float32)
         b = np.asarray(Image.open(io.BytesIO(images.hdr_merged_jpeg(p))).convert("L"), np.float32)
-        lit = (slice(250, 350), slice(250, 350))  # Karte hell -> Foto heller
-        dark = (slice(600, 700), slice(450, 550))  # Karte dunkel -> fast unverändert
+        lit = (slice(250, 350), slice(250, 350))  # map light -> photo lighter
+        dark = (slice(600, 700), slice(450, 550))  # map dark -> almost unchanged
         assert b[lit].mean() > a[lit].mean() + 5
         assert abs(b[dark].mean() - a[dark].mean()) < 6
     finally:
@@ -92,7 +93,7 @@ def test_merge_brightens_only_highlights():
 
 
 def test_color_aux_never_merged():
-    p = _hdr_jpeg("RGB")  # z. B. 3D-Kamera: zweites Farbbild
+    p = _hdr_jpeg("RGB")  # e.g. 3D camera: second colour image
     try:
         info = images.hdr_aux_info(p)
         assert info and info["aux_mode"] == "RGB"
@@ -126,8 +127,9 @@ def _doc_bytes(doc) -> bytes:
 
 
 def test_preflight_finds_and_repairs_two_page_hdr():
-    """Unverändert geöffnet (2 Seiten) oder schon als PDF gespeichert: die Prüfung findet die
-    graue Zusatzseite und repariert sie."""
+    """Opened unchanged (2 pages) or already saved as PDF: the check finds the
+    grey extra page and repairs it.
+    """
     import pypdfium2 as pdfium
     from pdfdruck import preflight
 
@@ -159,7 +161,7 @@ def test_preflight_finds_and_repairs_two_page_hdr():
 
 
 def test_preflight_no_false_hdr():
-    """Zwei Bildseiten, die nicht zusammengehören (anderes Seitenverhältnis bzw. beide farbig): kein Befund."""
+    """Two image pages that do not belong together (different aspect ratio or both coloured): no finding."""
     from PIL import Image
     from pdfdruck import preflight
 

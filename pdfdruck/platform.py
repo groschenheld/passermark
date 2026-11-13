@@ -25,6 +25,7 @@ def user_id() -> str:
 
 
 def config_dir() -> str:
+    """Folder of the admin configuration (can be overridden with PDFDRUCK_CONFIG_DIR)."""
     env = os.environ.get("PDFDRUCK_CONFIG_DIR")
     if env:
         return env
@@ -72,6 +73,7 @@ def total_memory() -> int | None:
 
 
 def user_cache_dir() -> str:
+    """Cache folder of the user."""
     if IS_WIN:
         base = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
         return os.path.join(base, "Passermark", "cache")
@@ -106,10 +108,12 @@ def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
 
 
 def ghostscript() -> str | None:
+    """Path of the Ghostscript program, or None."""
     return find_program(["gs", "gswin64c", "gswin32c"], [r"gs\gs*\bin\gswin64c.exe", r"gs\gs*\bin\gswin32c.exe"])
 
 
 def seven_zip() -> str | None:
+    """Path of the 7-Zip program, or None."""
     return find_program(["7z", "7zz", "7za"], [r"7-Zip\7z.exe"])
 
 

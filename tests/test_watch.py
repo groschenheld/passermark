@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Drop-Ordner (passermark-cli serve): Einstellung prüfen, Dateien verarbeiten, Ergebnis/Original/Fehler ablegen,
-nur Druckende Abläufe, unterbrochene Dateien zurücklegen, halb geschriebene Dateien abwarten."""
+"""Drop folders (passermark-cli serve): check the setting, process files, store result/original/errors,
+print-only workflows, put interrupted files back, wait for half-written files.
+"""
 
 import json
 import os
@@ -48,7 +49,7 @@ def setup(name):
             "passermark": "workflow",
             "version": 1,
             "name": "Nutzen",
-            "output": "${dir}/${stem}-nutzen.pdf",  # würde im Eingang landen – der Watcher legt nach out
+            "output": "${dir}/${stem}-nutzen.pdf",  # would end up in the inbox – the watcher puts it into out
             "steps": [{"job": "impose", "settings": {"sheet": "A4", "step_repeat": True}}],
         },
         open(os.path.join(base, "nutzen.json"), "w"),
@@ -128,8 +129,8 @@ def test_process_files():
     evs = []
     counts = watch.Watcher(watch.load_config(p), evs.append).run(once=True)
     assert counts == {"done": 1, "failed": 1}, (counts, evs)
-    assert os.path.isfile(os.path.join(ind, "output", "karte.pdf"))  # Ergebnis
-    assert os.path.isfile(os.path.join(ind, "processed", "karte.pdf"))  # Original
+    assert os.path.isfile(os.path.join(ind, "output", "karte.pdf"))  # result
+    assert os.path.isfile(os.path.join(ind, "processed", "karte.pdf"))  # original
     assert os.path.isfile(os.path.join(ind, "failed", "kaputt.pdf"))
     assert os.path.isfile(os.path.join(ind, "failed", "kaputt.pdf.log"))
     assert sorted(os.listdir(ind)) == sorted(
@@ -138,7 +139,7 @@ def test_process_files():
     assert not os.listdir(os.path.join(ind, ".passermark"))
     kinds = [e["event"] for e in evs]
     assert kinds[0] == "watch_start" and "file_done" in kinds and "file_failed" in kinds and "step" in kinds
-    # gleicher Name nochmal: nichts wird überschrieben
+    # same name again: nothing is overwritten
     pdf(os.path.join(ind, "karte.pdf"))
     watch.Watcher(watch.load_config(p)).run(once=True)
     assert os.path.isfile(os.path.join(ind, "output", "karte-1.pdf"))
@@ -161,7 +162,7 @@ def test_print_only_and_recover():
         open(p, "w"),
     )
     pdf(os.path.join(ind, "a3.pdf"), 2, (297, 420))
-    # Rest eines Absturzes: liegt noch im Arbeitsordner -> kommt zurück und wird verarbeitet
+    # leftover of a crash: still in the work folder -> comes back and is processed
     os.makedirs(os.path.join(ind, ".passermark"))
     pdf(os.path.join(ind, ".passermark", "liegengeblieben.pdf"), 1, (210, 297))
     evs = []
@@ -172,7 +173,7 @@ def test_print_only_and_recover():
     assert evs[0]["recovered"] == 1
     done = [e for e in evs if e["event"] == "file_done"]
     assert all(e["output"] is None and e["moved_to"] is None and e["prints"][0]["job_id"] == 4711 for e in done)
-    assert sorted(os.listdir(ind)) == [".passermark"]  # nur gedruckt: kein Ergebnis, Original weg
+    assert sorted(os.listdir(ind)) == [".passermark"]  # printed only: no result, original gone
 
 
 def test_settle_waits_for_complete_file():
@@ -186,9 +187,9 @@ def test_settle_waits_for_complete_file():
     w = watch.Watcher(watch.load_config(p))
     f = os.path.join(ind, "gross.pdf")
     pdf(f)
-    assert w.scan_once() == 0  # gerade erst gesehen
+    assert w.scan_once() == 0  # only just seen
     time.sleep(0.4)
-    with open(f, "ab") as fh:  # wächst noch -> wieder warten
+    with open(f, "ab") as fh:  # still growing -> wait again
         fh.write(b"\n%")
     assert w.scan_once() == 0
     time.sleep(0.4)
@@ -235,12 +236,12 @@ def test_cli_serve():
     assert r.returncode == 0 and not r.stdout, r.stdout
     txt = open(log, encoding="utf-8").read()
     assert "Karten: k2.pdf → nutzen.json" in txt and "Beendet: 1 verarbeitet" in txt, txt
-    # ohne --config: eigene Einstellung unter ~/.config/passermark/watch.json
+    # without --config: own setting under ~/.config/passermark/watch.json
     own = os.path.join(TMP, "cfg", "passermark")
     os.makedirs(own, exist_ok=True)
     shutil.copy(p, os.path.join(own, "watch.json"))
     r = cli("--check")
-    assert r.returncode == 2 and "folders[0].in" in r.stderr, r.stdout + r.stderr  # „in“ relativ zur eigenen Datei
+    assert r.returncode == 2 and "folders[0].in" in r.stderr, r.stdout + r.stderr  # "in" relative to its own file
     r = subprocess.run(
         [sys.executable, "-m", "pdfdruck.cli", "serve", "--config", "fehlt.json", "--json"],
         capture_output=True,
@@ -253,7 +254,7 @@ def test_cli_serve():
 
 
 def test_init_never_overwrites():
-    """serve --init: Vorlage + Beispiel-Ablauf + Beispiel-Ordner, sofort lauffähig; zweiter Aufruf ändert nichts."""
+    """serve --init: template + example workflow + example folder, runnable at once; a second call changes nothing."""
     home = os.path.join(TMP, "inithome")
     os.makedirs(home)
     env = dict(ENV, HOME=home, XDG_CONFIG_HOME=os.path.join(home, "cfg"), PDFDRUCK_CONFIG_DIR=os.path.join(home, "etc"))
@@ -273,7 +274,7 @@ def test_init_never_overwrites():
     assert r.returncode == 0 and ev["created"] and ev["config"].endswith(os.path.join("passermark", "watch.json")), ev
     cfgp = ev["config"]
     assert cli("--check").returncode == 0
-    open(cfgp, "a").write("\n")  # eigene Änderung
+    open(cfgp, "a").write("\n")  # own change
     before = open(cfgp).read()
     r = cli("--init")
     assert r.returncode == 0 and "nichts geändert" in r.stdout and open(cfgp).read() == before
@@ -282,7 +283,7 @@ def test_init_never_overwrites():
     assert r.returncode == 0 and os.path.isfile(os.path.join(home, "hotfolder", "beispiel", "output", "x.pdf")), (
         r.stdout + r.stderr
     )
-    r = cli("--init", "--system")  # für alle: eigener Ort, ebenfalls nie überschreiben
+    r = cli("--init", "--system")  # for everyone: own place, also never overwritten
     assert r.returncode == 0 and os.path.isfile(os.path.join(home, "etc", "watch.json"))
 
 

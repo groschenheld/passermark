@@ -101,7 +101,7 @@ class _Reporter:
 
     def emit(self, **ev):
         """Write one JSON event line to stdout."""
-        sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")  # reines ASCII: egal welche Konsolen-Codepage
+        sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")  # pure ASCII: whatever the console code page
         sys.stdout.flush()
 
     def progress(self, done, total, text=""):

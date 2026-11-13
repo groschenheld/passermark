@@ -46,7 +46,7 @@ def calibrate() -> float:
 
 
 def best(fn, runs=3, min_time=0.3):
-    """Beste Zeit je Aufruf; kurze Aufgaben so oft hintereinander, dass eine Messung ≥ min_time dauert."""
+    """Best time per call; short tasks repeated so often that one measurement takes ≥ min_time."""
     t = time.perf_counter()
     fn()
     first = time.perf_counter() - t
@@ -61,7 +61,7 @@ def best(fn, runs=3, min_time=0.3):
 
 
 def judge(res: dict, cal: float, baseline: dict):
-    """[(Name, Zeit, Faktor, Bezug, relativ, „ok“|„WARNUNG“|„FEHLER“|„neu“)]"""
+    """[(name, time, factor, reference, relative, "ok"|"WARNUNG"|"FEHLER"|"neu")]"""
     out = []
     for k, t in res.items():
         ratio = t / cal
@@ -139,7 +139,7 @@ def measure() -> dict:
 
 
 def test_judge_logic():
-    """Entscheidung mit erfundenen Zahlen: gleich schnell ok, 2× gelb, 4× rot, unbekannt neu."""
+    """Decision with made-up numbers: equally fast ok, 2× yellow, 4× red, unknown new."""
     base = {"a": 1.0, "b": 1.0, "c": 1.0}
     r = {x[0]: x[5] for x in judge({"a": 0.5, "b": 1.0, "c": 2.0, "d": 1.0}, 0.5, base)}
     assert r == {"a": "ok", "b": "WARNUNG", "c": "FEHLER", "d": "neu"}, r

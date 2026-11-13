@@ -50,7 +50,7 @@ from .common import Session, fill_combo, fit_width
 
 
 def _helper_cmd() -> list:
-    """Root-Helfer: installiert (install.sh) bzw. – im AppImage – das AppImage selbst als root (pkexec)."""
+    """Root helper: installed (install.sh) or – in the AppImage – the AppImage itself as root (pkexec)."""
     appimage = os.environ.get("APPIMAGE")
     if not os.path.exists(config.HELPER) and appimage:
         return ["pkexec", "env", "APPIMAGE_EXTRACT_AND_RUN=1", appimage, "--admin-helper"]
@@ -58,7 +58,7 @@ def _helper_cmd() -> list:
 
 
 def _scroll(widget):
-    """Reiter-Inhalt scrollbar machen (kleine Bildschirme, Windows-Skalierung)."""
+    """Make the tab content scrollable (small screens, Windows scaling)."""
     from PySide6.QtWidgets import QFrame, QScrollArea
 
     sa = QScrollArea()
@@ -84,6 +84,11 @@ def _fit_screen(dlg, want_w: int, want_h: int):
 
 
 class AdminDialog(QDialog):
+    """Management dialog: admin defaults for printers, trays, colour profiles, materials and folders.
+
+    Saving goes through the root helper (pkexec/UAC).
+    """
+
     def __init__(self, parent, session: Session):
         super().__init__(parent)
         self.setWindowTitle(tr("Verwaltung – Standardeinstellungen (Admin)"))
@@ -91,7 +96,7 @@ class AdminDialog(QDialog):
         self.cfg = copy.deepcopy(session.cfg)
         self.queue_changes: dict[tuple[str, str], str] = {}
         self.touched: set[str] = set()  # printers whose defaults were changed
-        self.new_icc: dict[str, str] = {}  # id -> Quelldatei
+        self.new_icc: dict[str, str] = {}  # id -> source file
         self.removed_icc: set[str] = set()
         try:
             self.plist = printers.list_printers()
@@ -162,7 +167,7 @@ class AdminDialog(QDialog):
             tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben")
         )
         f.addRow(tr("Standardsprache:"), self.cmb_lang)
-        # weitere Ablauf-Ordner für alle (passermark-cli run <Name>), z. B. eine Netzwerkfreigabe
+        # further workflow folders for everyone (passermark-cli run <name>), e.g. a network share
         self.lst_wfdirs = QListWidget()
         self.lst_wfdirs.setMaximumHeight(90)
         for d in self.cfg.get("workflow_dirs") or []:
@@ -189,7 +194,7 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
-        # gemeinsamer Druckordner für Passermark und die Zusatzprogramme (Watcher, Passerlink, PassCount …)
+        # shared print folder for Passermark and the add-on programs (watcher, Passerlink, PassCount …)
         from .. import shared
 
         sbox = QVBoxLayout()
@@ -213,7 +218,7 @@ class AdminDialog(QDialog):
         sbox.addLayout(srow)
         f.addRow(tr("Gemeinsamer Druckordner:"), sbox)
         self._shared_text()
-        # Druckprotokoll für alle
+        # print log for everyone
         pl = self.cfg.get("print_log") or {}
         self.chk_plog = QCheckBox(tr("Jeden Druckauftrag protokollieren – für alle Benutzer"))
         self.chk_plog.setChecked(bool(pl.get("force", False)))
@@ -766,7 +771,7 @@ class AdminDialog(QDialog):
             return
         opts = self._pcfg(name)["options"]
         if val == o.default:
-            opts.pop(o.keyword, None)  # nur Abweichungen speichern
+            opts.pop(o.keyword, None)  # save only the differences
         else:
             opts[o.keyword] = val
 
@@ -940,7 +945,7 @@ class AdminDialog(QDialog):
         self.pf_space.setText(space)
 
     def import_profile_file(self, path: str, name: str = "") -> str:
-        """ICC-Datei in die Verwaltung übernehmen (wird beim Speichern installiert) -> neue Profil-ID ("" = Fehler)."""
+        """Take an ICC file into the administration (installed on saving) -> new profile id ("" = error)."""
         try:
             colorconv.icc_colorspace(path)
         except (OSError, ValueError) as e:
@@ -1026,7 +1031,7 @@ class AdminDialog(QDialog):
         for pc in self.cfg.get("printers", {}).values():
             if pc.get("color_profile") == p["id"]:
                 pc["color_profile"] = ""
-        for m in self.cfg.get("materials", []):  # Materialien verlieren die Zuordnung
+        for m in self.cfg.get("materials", []):  # materials lose the assignment
             m["profiles"] = {q: pid for q, pid in (m.get("profiles") or {}).items() if pid != p["id"]}
         self._refresh_profiles()
         if hasattr(self, "mat_tab"):

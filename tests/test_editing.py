@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Bearbeiten-Modus: Textzeilen und Ebenen."""
+"""Edit mode: text rows and layers."""
 
 import io
 import os
@@ -13,7 +13,7 @@ try:
     import pypdfium2 as pdfium
     from pdfdruck import preflight
     import test_preflight as tp
-except ModuleNotFoundError:  # reine Logik-Tests laufen ohne PDF-Bibliotheken
+except ModuleNotFoundError:  # pure logic tests run without PDF libraries
     pdfium = None
 from pdfdruck import editing
 
@@ -21,7 +21,7 @@ MM = 72 / 25.4
 
 
 def plan():
-    """Plan mit Ebenen + Text (aus dem Preflight-Test, Seite A4)."""
+    """Plan with layers + text (from the preflight test, page A4)."""
     return tp.problem_pdf()
 
 
@@ -43,7 +43,7 @@ def test_text_lines_edit_and_font():
     d3 = pdfium.PdfDocument(buf.getvalue())
     L3 = next(l for l in editing.text_lines(d3, 0) if l.text == "Neue Schrift")
     assert "Times" in L3.font and abs(L3.size - 30) < 0.1
-    assert abs(L3.bbox[0] - L.bbox[0]) < 2  # gleiche Position
+    assert abs(L3.bbox[0] - L.bbox[0]) < 2  # same position
     editing.delete_line(d3, 0, L3)
     assert not any(l.text == "Neue Schrift" for l in editing.text_lines(d3, 0))
 
@@ -53,7 +53,7 @@ def test_layer_map_click_transform_replace():
     K = {L.name: L.key for L in preflight.analyze(data, deep_layers=False).layers}
     lm = editing.layer_map(data, 0)
     b = lm.boxes[K["Verrutscht"]]
-    assert b[0] > 595  # liegt rechts neben der Seite
+    assert b[0] > 595  # lies to the right of the page
     assert K["Bemaßung"] in editing.layers_at(lm, 150, 625)  # red rectangle of the dimension layer
     out = editing.transform_layer(data, K["Verrutscht"], dx=-500)
     b2 = editing.layer_map(out, 0, [K["Verrutscht"]]).boxes[K["Verrutscht"]]
@@ -75,8 +75,9 @@ def test_layer_map_click_transform_replace():
 
 
 def chrome_like() -> bytes:
-    """Wie ein Chrome-/Skia-PDF: Type3-Schrift, gespiegeltes Koordinatensystem ohne q/Q, mehrere Zeilen in
-    einem Textblock, jeder Buchstabe einzeln positioniert. pdfium kann solche Seiten nicht neu schreiben."""
+    """Like a Chrome/Skia PDF: Type3 font, mirrored coordinate system without q/Q, several rows in
+    one text block, every letter positioned separately. pdfium cannot rewrite such pages.
+    """
     import pikepdf
 
     pdf = pikepdf.new()
@@ -128,7 +129,7 @@ def test_chrome_like_type3_edits():
     moved = next(l for l in after if l.text == "ABC")
     still = next(l for l in after if l.text == "CABA")
     assert abs(moved.bbox[0] - (L.bbox[0] + 40)) < 1 and abs(moved.bbox[1] - (L.bbox[1] - 30)) < 1
-    assert abs(still.bbox[0] - other.bbox[0]) < 0.5 and abs(still.bbox[1] - other.bbox[1]) < 0.5  # Rest bleibt
+    assert abs(still.bbox[0] - other.bbox[0]) < 0.5 and abs(still.bbox[1] - other.bbox[1]) < 0.5  # the rest stays
     assert editing.verify_edit(data, new, 0, [L.bbox, moved.bbox]) == ""
     big = editing.transform_line_blocks(data, 0, L, 2.0, 0, 0, (L.bbox[0], L.bbox[1]))
     b2 = next(l for l in editing.text_lines(pdfium.PdfDocument(big), 0) if l.text == "ABC")
@@ -147,7 +148,7 @@ def test_chrome_like_type3_edits():
 
 
 def test_layer_transform_in_scaled_coordinates():
-    """CAD-typisch: Inhalt in einem skalierten Koordinatensystem (0.12) – Verschiebung trotzdem in Seiten-pt."""
+    """Typical for CAD: content in a scaled coordinate system (0.12) – the move is still in page pt."""
     import pikepdf
 
     pdf = pikepdf.new()
@@ -168,8 +169,9 @@ def test_layer_transform_in_scaled_coordinates():
 
 
 def _path_text_pdf() -> bytes:
-    """Logo mit Pfadtext: drei Buchstaben einzeln gesetzt, je eigene Drehung auf einem Bogen,
-    plus schwarzer Balken als Seiteninhalt, der unverändert bleiben muss."""
+    """Logo with text on a path: three letters set separately, each with its own rotation on an arc,
+    plus a black bar as page content that must stay unchanged.
+    """
     import math
     import pikepdf
 
@@ -182,7 +184,7 @@ def _path_text_pdf() -> bytes:
     parts = [b"q 0 0 0 rg 50 50 495 200 re f Q"]
     for ch, deg in (("l", 105), ("d", 90), ("r", 75)):
         a = math.radians(deg)
-        th = a - math.pi / 2  # Buchstabe tangential, aufrecht zum Bogen
+        th = a - math.pi / 2  # letter tangential, upright to the arc
         x, y = cx + rad * math.cos(a), cy + rad * math.sin(a)
         parts.append(
             (
@@ -197,14 +199,15 @@ def _path_text_pdf() -> bytes:
 
 
 def test_merge_arc_lines():
-    """Bogen-Gruppierung (pure Logik, kein PDF nötig): 10 einzeln gesetzte, gedrehte
-    Buchstaben auf einem Kreis um (297.5, 500), r=80 – wie Affinity-Pfadtext."""
+    """Arc grouping (pure logic, no PDF needed): 10 separately set, rotated
+    letters on a circle around (297.5, 500), r=80 – like Affinity text on a path.
+    """
     import math
 
     lines, rots = [], {}
     text = "PASSERMARK"
     for k, ch in enumerate(text):
-        deg = 150 - k * (120.0 / (len(text) - 1))  # Bogen 150° → 30°
+        deg = 150 - k * (120.0 / (len(text) - 1))  # arc 150° → 30°
         a = math.radians(deg)
         th = a - math.pi / 2
         x, y = 297.5 + 80 * math.cos(a), 500 + 80 * math.sin(a)
@@ -213,7 +216,7 @@ def test_merge_arc_lines():
         rots[obj] = (rot, x, y)
         bbox = (x - 10, y - 10, x + 10, y + 10)
         lines.append(editing.TextLine(k, [obj], ch, "ArialMT", 30.0, bbox, False, False, [k]))
-    # gerade Zeile dazwischen darf nicht mit hineinfallen
+    # a straight row in between must not fall into it
     lines.append(editing.TextLine(10, [200], "Normal", "ArialMT", 30.0, (50, 400, 150, 430), False, False, [10]))
     editing._merge_arc_lines(lines, rots)
     texts = [L.text for L in lines]
@@ -223,7 +226,7 @@ def test_merge_arc_lines():
     assert arc.path_center is not None
     assert abs(arc.path_center[0] - 297.5) < 1.0 and abs(arc.path_center[1] - 500.0) < 1.0
     assert len(arc.objs) == 10 and arc.index in (0, 1)
-    # gerade Zeile (alle Buchstaben ungedreht) wird NICHT gebogen zusammengefasst
+    # a straight row (all letters unrotated) is NOT merged as an arc
     lines2, rots2 = [], {}
     for k, ch in enumerate("gerade"):
         obj = 300 + k
@@ -236,15 +239,15 @@ def test_merge_arc_lines():
 
 
 def test_page_objects():
-    """Objektliste: Vektor- und Bildobjekte der Seite, Nadelobjekte raus."""
-    data = _path_text_pdf()  # enthaelt 1 Pfad (schwarzer Balken) + 3 Textobjekte
+    """Object list: vector and image objects of the page, pin objects removed."""
+    data = _path_text_pdf()  # contains 1 path (black bar) + 3 text objects
     d = pdfium.PdfDocument(data)
     objs = editing.page_objects(d, 0)
     d.close()
     assert [(o.kind, len(o.objs)) for o in objs] == [("path", 1)], objs
     b = objs[0].bbox
-    assert abs(b[2] - b[0] - 495) < 1 and abs(b[3] - b[1] - 200) < 1  # Balken 495x200
-    # verschieben + loeschen (pdfium-Pfad), verify_edit sichert den Rest
+    assert abs(b[2] - b[0] - 495) < 1 and abs(b[3] - b[1] - 200) < 1  # bar 495x200
+    # move + delete (pdfium path), verify_edit secures the rest
     d = pdfium.PdfDocument(data)
     editing.transform_object(d, 0, objs[0], 1.0, 10.0, 5.0)
     buf = io.BytesIO()
@@ -273,14 +276,14 @@ def test_path_text_font_size():
     L = next(l for l in lines if l.text.replace(" ", "") == "ldr")
     assert len(L.objs) == 3, "Pfadtext-Buchstaben als eine Zeile erkannt"
     assert L.path_center is not None, "Bogenzentrum erkannt (path_center gesetzt)"
-    # Größe ändern: skalieren um das Bogenzentrum, Seite bleibt sonst unangetastet
+    # change size: scale around the arc centre, the page otherwise stays untouched
     new, notes = editing.edit_line_bytes(data, 0, L, L.text, None, 36)
     assert editing.verify_edit(data, new, 0, [(167.5, 370.0, 427.5, 630.0)]) == ""
     d2 = pdfium.PdfDocument(new)
     L2 = next(l for l in editing.text_lines(d2, 0) if l.text.replace(" ", "") == "ldr")
     d2.close()
     assert abs(L2.size - 36) < 2 and len(L2.objs) == 3
-    # Text ändern geht bei Pfadtext nicht: klare Meldung statt halber Seite
+    # changing text is not possible for text on a path: a clear message instead of half a page
     try:
         editing.edit_line_bytes(data, 0, L, "xyz", None, None)
         assert False, "ValueError erwartet"
@@ -289,14 +292,14 @@ def test_path_text_font_size():
 
 
 def test_z_runs_and_permute():
-    """Z-Order-Kernlogik (rein, ohne PDF): Run-Zerlegung und Permutation."""
+    """Z-order core logic (pure, without PDF): splitting into runs and permutation."""
     names = ["q", "rg", "re", "f", "Q", "BT", "Tf", "Tm", "Tj", "ET"]
     runs = editing._z_runs(names, set())
     assert runs == [(0, 4, "path"), (5, 9, "text")], runs
-    # Bild: Do mit cm davor -> Run umfasst cm
+    # image: Do with cm before it -> the run includes cm
     runs = editing._z_runs(["cm", "Do"], {1})
     assert runs == [(0, 1, "image")], runs
-    # Pfad mit Clip (W ... n) wird NICHT als verschiebbarer Run erkannt
+    # a path with a clip (W ... n) is NOT recognised as a movable run
     runs = editing._z_runs(["re", "W", "n"], set())
     assert runs == [], runs
     # Permutation
@@ -304,16 +307,17 @@ def test_z_runs_and_permute():
     assert editing._z_permute(4, {1}, "down") == [1, 0, 2, 3]
     assert editing._z_permute(4, {1}, "front") == [0, 2, 3, 1]
     assert editing._z_permute(4, {1}, "back") == [1, 0, 2, 3]
-    assert editing._z_permute(3, {2}, "up") == [0, 1, 2]  # schon ganz vorn: bleibt stehen
-    assert editing._z_permute(3, {0}, "down") == [0, 1, 2]  # schon ganz hinten: bleibt stehen
-    assert editing._z_permute(4, {2, 3}, "up") == [0, 1, 2, 3]  # Block schon vorn: keine Vertauschung
-    # mehrere Ziele wandern als Block nach vorn
+    assert editing._z_permute(3, {2}, "up") == [0, 1, 2]  # already at the very front: stays
+    assert editing._z_permute(3, {0}, "down") == [0, 1, 2]  # already at the very back: stays
+    assert editing._z_permute(4, {2, 3}, "up") == [0, 1, 2, 3]  # block already at the front: no swap
+    # several targets move to the front as a block
     assert editing._z_permute(5, {1, 3}, "front") == [0, 2, 4, 1, 3]
 
 
 def test_reorder_objects_and_lines():
-    """Z-Order: rotes Rechteck hinter blauem nach vorne holen (Pixel check),
-    mehrere Zeilen gemeinschaftlich verschieben."""
+    """Z-order: bring a red rectangle behind a blue one to the front (pixel check),
+    move several rows together.
+    """
     import pikepdf
     import numpy as np
 
@@ -347,17 +351,17 @@ BT /F1 12 Tf 20 20 Td (Zweite) Tj ET"""
     objs = editing.page_objects(d, 0)
     d.close()
     assert len(objs) == 2
-    new = editing.reorder_objects(data, 0, [objs[0]], "front")  # rot nach vorne
+    new = editing.reorder_objects(data, 0, [objs[0]], "front")  # red to the front
     assert new is not None and new != data
     assert abs(pixel(new, 145, 145)[0] - 255) < 10, "rot liegt jetzt oben"
-    # "up" gegen Grenze: ganz vorn geht nicht -> unverändert (data zurueck)
+    # "up" against the limit: the very front is not possible -> unchanged (data returned)
     d = pdfium.PdfDocument(new)
     objs = editing.page_objects(d, 0)
     d.close()
-    front = max(objs, key=lambda o: o.objs[0])  # oberstes Objekt (rot)
+    front = max(objs, key=lambda o: o.objs[0])  # topmost object (red)
     same = editing.reorder_objects(new, 0, [front], "up")
     assert same == new, "schon ganz vorn: Datei unveraendert"
-    # mehrere Textzeilen gemeinsam verschieben (Bulk, pdfium-Pfad)
+    # move several text rows together (bulk, pdfium path)
     d = pdfium.PdfDocument(new)
     lines = editing.text_lines(d, 0)
     d.close()
@@ -377,7 +381,7 @@ BT /F1 12 Tf 20 20 Td (Zweite) Tj ET"""
 
 
 def _color_pdf() -> bytes:
-    """Drei Rechtecke (rot, blau, eines erbt Blau) + zwei Textzeilen (erben Blau)."""
+    """Three rectangles (red, blue, one inherits blue) + two text rows (inherit blue)."""
     import pikepdf
 
     pdf = pikepdf.new()
@@ -402,7 +406,7 @@ BT /F1 12 Tf 20 20 Td (Zweite) Tj ET""",
 
 
 def test_recolor_cmyk_keeps_rest():
-    """Farbe ändern (CMYK): nur die gewählten Objekte/Zeilen, alles danach behält seine Farbe."""
+    """Change colour (CMYK): only the chosen objects/rows, everything after keeps its colour."""
     import numpy as np
 
     data = _color_pdf()
@@ -452,8 +456,9 @@ def test_remove_several_lines():
 
 
 def test_objects_in_content_keep_text():
-    """Objekte löschen/verschieben direkt im Seiteninhalt: Text bleibt Byte für Byte, Ergebnis wie pdfium,
-    Pfad mit Beschnitt bleibt beim Löschen als Beschnitt, verschachtelte cm werden berücksichtigt."""
+    """Delete/move objects directly in the page content: text stays byte for byte, result like pdfium,
+    a path with a clip stays as a clip when deleted, nested cm are taken into account.
+    """
     import numpy as np
     from reportlab.pdfgen import canvas
     from pdfdruck import editops
@@ -465,7 +470,7 @@ def test_objects_in_content_keep_text():
         c.drawString(40, y, "Kenntnisse Druckvorstufe Preflight " * 3)
     c.setFillColorRGB(0.85, 0.86, 0.6)
     c.rect(100, 200, 95, 15, fill=1, stroke=0)
-    c.rect(300, 200, 40, 40, fill=1, stroke=0)  # gleiche Farbe: darf nach dem Löschen nicht wechseln
+    c.rect(300, 200, 40, 40, fill=1, stroke=0)  # same colour: must not change after deleting
     c.saveState()
     c.translate(400, 100)
     c.scale(2, 2)
@@ -498,7 +503,7 @@ def test_objects_in_content_keep_text():
             kw = {} if act == "delete" else dict(scale=1.5, dx=10, dy=-5, origin=(O.bbox[0], O.bbox[1]))
             a = editing.edit_objects_content(data, 0, [O], act, **kw)
             if a is None:
-                assert act == "transform" and k == 3, (k, act)  # Pfad mit Beschnitt verschieben: pdfium-Weg
+                assert act == "transform" and k == 3, (k, act)  # move a path with a clip: pdfium way
                 continue
             if act == "delete":
                 b = editops.pdfium_edit(data, 0, lambda d: editing.delete_objects(d, 0, [O]))[0]

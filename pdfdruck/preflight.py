@@ -140,7 +140,7 @@ class Report:
     layers: list = field(default_factory=list)
     transparency: dict = field(default_factory=dict)  # page -> {kind}
     garbled: dict = field(default_factory=dict)  # page -> count
-    hdr: list = field(default_factory=list)  # HDR-Foto: [{"main": i, "aux": j, …}] (0-basiert)
+    hdr: list = field(default_factory=list)  # HDR photo: [{"main": i, "aux": j, …}] (0-based)
     colors: object = None  # imagecheck.ColorReport: images (dpi, colour space), colours
     size: object = None  # shrink.SizeReport: what takes up the space
     issues: list = field(default_factory=list)
@@ -164,7 +164,7 @@ class Report:
 
 
 # --------------------------------------------------------------------------- #
-# Hilfen
+# helpers
 # --------------------------------------------------------------------------- #
 def _key(obj) -> str:
     try:
@@ -224,7 +224,7 @@ def _walk_resources(res, page_no, visit, seen):
 
 
 # --------------------------------------------------------------------------- #
-# Analyse
+# analysis
 # --------------------------------------------------------------------------- #
 def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
     """Check the document. pdfium_parts=False: only the parts without pdfium (for background threads – pdfium is not
@@ -1756,7 +1756,7 @@ def _image_issues(rep: Report) -> list:
         return []
     out = []
     by_page: dict = {}
-    hdr_aux = {h["aux"] + 1 for h in (rep.hdr or [])}  # graue HDR-Zusatzseite: eigener Befund
+    hdr_aux = {h["aux"] + 1 for h in (rep.hdr or [])}  # grey HDR extra page: a finding of its own
     for u in cr.images:
         if (u.mask and u.rating == "tiny") or u.page in hdr_aux:
             continue
@@ -2000,7 +2000,7 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 
 
 # --------------------------------------------------------------------------- #
-# Befunde
+# findings
 # --------------------------------------------------------------------------- #
 HAIRLINE_MM = 0.1  # thinner lines are hardly or not at all visible on plotters/laser printers
 

@@ -28,6 +28,8 @@ from .common import fill_combo
 
 
 class MapDialog(QDialog):
+    """Dialog for mapping CSV columns to the fields of a data kind."""
+
     def __init__(self, parent, kind: str, cols: list, mapping: dict | None = None, sample: dict | None = None):
         super().__init__(parent)
         self.kind = kind
@@ -80,6 +82,7 @@ class MapDialog(QDialog):
         self._preview()
 
     def set_choice(self, key: str, col):
+        """Set or clear the column for one field."""
         if not isinstance(col, str) or not col:
             self.mapping.pop(key, None)
         else:
@@ -87,6 +90,7 @@ class MapDialog(QDialog):
         self._preview()
 
     def reset(self):
+        """Drop the user's choices and go back to the automatic mapping."""
         self.mapping = {}
         for cb in self.combos.values():
             cb.blockSignals(True)
@@ -95,6 +99,7 @@ class MapDialog(QDialog):
         self._preview()
 
     def preview_text(self) -> str:
+        """Code content for the sample record with the current mapping."""
         if not self.sample:
             return tr("(keine Daten geladen)")
         try:
@@ -106,6 +111,7 @@ class MapDialog(QDialog):
         self.txt.setPlainText(self.preview_text())
 
     def result_mapping(self) -> dict:
+        """A copy of the mapping chosen in the dialog."""
         return dict(self.mapping)
 
 

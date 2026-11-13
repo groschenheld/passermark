@@ -20,7 +20,7 @@ def stickers(path="/tmp/_stickers.pdf"):
     c = canvas.Canvas(path, pagesize=(210 * MM, 297 * MM))
     c.setFillColorRGB(0.9, 0.2, 0.1)
     c.circle(50 * MM, 240 * MM, 25 * MM, fill=1, stroke=0)
-    c.setFillColorRGB(0.1, 0.5, 0.2)  # C: Ring mit echtem 1 mm breitem Schlitz rechts
+    c.setFillColorRGB(0.1, 0.5, 0.2)  # C: ring with a real 1 mm wide slit on the right
     cx, cy, ro, ri = 140 * MM, 240 * MM, 30 * MM, 18 * MM
     to, ti = (0.5 * MM) / ro, (0.5 * MM) / ri
     pts = [(cx + ro * math.cos(a), cy + ro * math.sin(a)) for a in np.linspace(to, 2 * math.pi - to, 180)]
@@ -121,7 +121,7 @@ def test_offset_outward_and_inward():
 
 
 def test_shapes_sized_to_object():
-    """Option „eine Form je Objekt“ (Aufkleberbogen): jede Form passt zu ihrem Aufkleber."""
+    """Option "one shape per object" (sticker sheet): every shape fits its sticker."""
     norm = objects.normalized(stickers())
     for kind in cutcontour.SHAPES[1:]:
         r = cutcontour.compute(norm[0], cutcontour.CutSettings(shape=kind, corner_mm=5, single_shape=False))
@@ -172,7 +172,7 @@ def test_single_shape_around_whole_motif():
     )
     rc = cutcontour.compute(norm[0], cutcontour.CutSettings(shape="circle", offset_mm=0, bleed_mm=0))
     bc = box(rc)
-    assert abs((bc[2] - bc[0]) - 82) < 0.8, bc  # Durchmesser = Breite des ganzen Motivs
+    assert abs((bc[2] - bc[0]) - 82) < 0.8, bc  # diameter = width of the whole artwork
     assert len(cutcontour.compute(norm[0], cutcontour.CutSettings(shape="contour", bleed_mm=0)).paths) == 3
 
 
@@ -182,7 +182,7 @@ def test_pdf_output_on_sheet_and_per_object():
     doc, n = cutcontour.make(stickers(), cutcontour.CutSettings(single_shape=False))
     assert n == 3 and len(doc) == 1
     w, h = doc.get_page_size(0)
-    assert abs(w / MM - 210) < 0.5 and abs(h / MM - 297) < 0.5  # Bogen bleibt erhalten
+    assert abs(w / MM - 210) < 0.5 and abs(h / MM - 297) < 0.5  # the arc is kept
     doc.save("/tmp/_cut_out.pdf")
     pk = pikepdf.open("/tmp/_cut_out.pdf")
     pg = pk.pages[0]
@@ -265,7 +265,7 @@ def test_soft_raster_solid_bleed_and_inner_hole():
     a = np.asarray(o.bleed_rgba)
     solid = a[a[:, :, 3] > 250][:, :3].astype(int)
     dist = np.abs(solid - [105, 140, 40]).max(axis=1)
-    assert (dist <= 6).mean() > 0.97, (dist <= 6).mean()  # praktisch nur die Vollfarbe
+    assert (dist <= 6).mean() > 0.97, (dist <= 6).mean()  # practically only the solid colour
     out, _ = cutcontour.make(doc, cutcontour.CutSettings(bleed_mm=3, smooth_mm=1, inner=True))
     out.save("/tmp/_soft_out.pdf")
     dd = pdfium.PdfDocument("/tmp/_soft_out.pdf")
@@ -285,7 +285,7 @@ def test_unmix_pale_pink_is_red():
     d = ((pink[:, None, :] - pal[None]) ** 2).sum(axis=2)
     assert d.argmin(axis=1)[0] == 0  # old approach: wrong (green)
     lab = cutcontour._unmix_labels(pink, pal, np.array([255, 255, 255]), 40)
-    assert list(lab) == [1, 1, 1]  # Entmischen: Rot
+    assert list(lab) == [1, 1, 1]  # unmixing: red
     seam = np.array([[160, 85, 40], [130, 115, 40]], np.int16)  # red/green mixture -> nearer side
     assert list(cutcontour._unmix_labels(seam, pal, np.array([255, 255, 255]), 20)) == [1, 0]
 
@@ -332,14 +332,14 @@ def test_bleed_off_white_border():
 
 
 def test_fast_shape_on_trim_without_rendering():
-    """Grundform aufs Endformat: keine Seite rendern, kein Arbeitsprozess; Linie genau auf TrimBox (± Abstand)."""
+    """Basic shape onto the trim size: render no page, no worker process; line exactly on the TrimBox (± offset)."""
     import io
     import re
     import pikepdf
     from reportlab.pdfgen import canvas
 
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(91 * MM, 61 * MM))  # Visitenkarte 85 × 55 + 3 mm Anschnitt
+    c = canvas.Canvas(buf, pagesize=(91 * MM, 61 * MM))  # business card 85 × 55 + 3 mm bleed
     c.setFillColorRGB(0.1, 0.4, 0.8)
     c.rect(0, 0, 91 * MM, 61 * MM, fill=1, stroke=0)
     c.showPage()
@@ -380,7 +380,7 @@ def test_fast_shape_on_trim_without_rendering():
     finally:
         cutcontour.render_rgba = old
         cutcontour.WorkerPool.get = old_pool
-    # „je Objekt“ braucht Erkennung -> kein schneller Weg
+    # "per object" needs detection -> no fast path
     assert not cutcontour.is_fast(cutcontour.CutSettings(shape="rect", fit="trim", single_shape=False))
     assert not cutcontour.is_fast(cutcontour.CutSettings(shape="contour", fit="trim"))
 

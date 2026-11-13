@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Mitgelieferte Beispiele (Variable Daten) und Anleitungen: im Paket, holen, Presets, Kommandozeile."""
+"""Supplied examples (variable data) and manuals: in the package, fetching, presets, command line."""
 
 import json
 import os
@@ -54,7 +54,7 @@ def test_in_package():
         assert s in full, s
     for s in ("Visitenkarte (vCard)", "Spalten zuordnen", "kontakte-outlook.csv"):
         assert s in full, s
-    for s in ("Business card", "phone offers", "Wi-Fi access"):  # Handbuch nie in der Systemsprache
+    for s in ("Business card", "phone offers", "Wi-Fi access"):  # manual never in the system language
         assert s not in full, s
 
 
@@ -76,7 +76,7 @@ def test_install_copies_and_registers_presets():
     assert s.csv_path == os.path.join(d, "daten.csv") and os.path.isfile(s.csv_path)
     data, info = vdp.build(os.path.join(d, "vorlage-a6.pdf"), s)
     assert data[:5] == b"%PDF-"
-    # zweimal holen ist kein Fehler
+    # fetching twice is not an error
     examples.install(target)
 
 
@@ -104,7 +104,7 @@ def test_cli_relative_csv_next_to_preset():
 
 
 def test_examples_numbers():
-    """Die in Anleitung und LIESMICH genannten Werte stimmen."""
+    """The values named in the manual and README are correct."""
     assert vdp.check_digit("978316148410", "ean") == "0"
     assert vdp.check_digit("201234500001", "ean") == "8"
     n, text = _pages(os.path.join(examples.VDP_DIR, "ergebnis", "beispiel-1-qr-nummer.pdf"))

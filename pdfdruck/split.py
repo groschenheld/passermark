@@ -24,6 +24,8 @@ MODES = ("halves_v", "halves_h", "grid")
 
 @dataclass
 class SplitSettings:
+    """Settings of the job ``split``: halve pages or cut them into a grid."""
+
     mode: str = "halves_v"  # halves_v = left|right · halves_h = top|bottom · grid = columns × rows
     cols: int = 2  # only for grid
     rows: int = 2  # only for grid
@@ -33,6 +35,7 @@ class SplitSettings:
 
 
 def grid_of(s: SplitSettings) -> tuple[int, int]:
+    """Grid ``(columns, rows)`` that the settings describe."""
     if s.mode == "halves_v":
         return 2, 1
     if s.mode == "halves_h":

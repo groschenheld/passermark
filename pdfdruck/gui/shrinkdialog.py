@@ -31,6 +31,8 @@ MB = shrink.MB
 
 
 class _Analyze(QThread):
+    """Analyses what takes up the space in a background thread."""
+
     done = Signal(object, str)
 
     def __init__(self, data: bytes):
@@ -49,7 +51,7 @@ def _mb(b: int) -> str:
 
 
 class ShrinkDialog(QDialog):
-    """rep: fertige Analyse (aus der Prüfung) oder None – dann wird sie hier im Hintergrund erstellt."""
+    """rep: finished analysis (from the check) or None – it is then created here in the background."""
 
     def __init__(self, parent, rep: shrink.SizeReport | None = None, data: bytes | None = None):
         super().__init__(parent)
@@ -288,6 +290,7 @@ class ShrinkDialog(QDialog):
             self.lbl_ds.setText(tr("Kein Bild liegt über dieser Grenze."))
 
     def options(self) -> shrink.ShrinkOptions:
+        """The measures as chosen in the dialog."""
         o = shrink.ShrinkOptions(
             target_dpi=int(self.cmb_dpi.currentData()),
             threshold=float(self.spin_thr.value()),

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Prüfung (1.16): jeder Befund sagt, wo er ist (Seite, Bereich, was genau) – Klick springt hin und markiert.
-Teil 1 ohne Oberfläche (Fundstellen), Teil 2 mit echtem Qt (Klick in der Liste, ◀ ▶, Markierung)."""
+"""Check: every finding says where it is (page, area, what exactly) – a click jumps there and marks it.
+Part 1 without the interface (locations), part 2 with real Qt (click in the list, ◀ ▶, marking).
+"""
 
 import io
 import os
@@ -17,8 +18,9 @@ os.environ.setdefault("PASSERMARK_LANG", "de")
 
 
 def sample_pdf() -> bytes:
-    """3 Seiten: S. 1 Text in nicht eingebetteter Arial (oben links), S. 2 ein 40 × 20 mm-Bild mit 50 dpi unten rechts
-    in RGB, S. 3 dasselbe Bild nochmal oben in der Mitte."""
+    """3 pages: p. 1 text in non-embedded Arial (top left), p. 2 a 40 × 20 mm image at 50 dpi at the bottom right
+    in RGB, p. 3 the same image again at the top centre.
+    """
     from PIL import Image
     from reportlab.lib.utils import ImageReader
     from reportlab.pdfgen import canvas
@@ -37,7 +39,7 @@ def sample_pdf() -> bytes:
     import pikepdf
 
     pdf = pikepdf.open(io.BytesIO(b.getvalue()))
-    for pg in pdf.pages[:1]:  # Helvetica -> nicht eingebettete Arial (wie test_preflight)
+    for pg in pdf.pages[:1]:  # Helvetica -> non-embedded Arial (as in test_preflight)
         for _n, f in (pg.Resources.get("/Font") or {}).items():
             f.BaseFont = pikepdf.Name("/ArialMT")
     out = io.BytesIO()
@@ -59,9 +61,9 @@ def test_spots_without_gui():
     assert any(w.startswith("Seite 2 – unten rechts, 40 × 20 mm") for w in where), where
     assert any(w.startswith("Seite 3 – oben, 40 × 20 mm") for w in where), where
     assert all("50 dpi" in w for w in where), where
-    # jeder Befund hat mindestens eine Fundstelle
+    # every finding has at least one location
     assert all(i.spots for i in rep.issues if i.pages)
-    # auch im Bericht und in inspect --json
+    # also in the report and in inspect --json
     txt = preflight.report_text(rep)
     assert "· Seite 2 – unten rechts" in txt
     from pdfdruck import docinfo
@@ -92,7 +94,7 @@ rep = preflight.analyze(T.sample_pdf(), True, True)
 w._pf_show(rep)
 panel, view, tree = w.pf_panel, w.view, w.pf_panel.tree
 rgb = next(tree.topLevelItem(k) for k in range(tree.topLevelItemCount()) if "RGB" in tree.topLevelItem(k).text(1))
-assert rgb.childCount() == 2, rgb.childCount()                # Bild auf S. 2 und S. 3
+assert rgb.childCount() == 2, rgb.childCount()                # image on p. 2 and p. 3
 tree.setCurrentItem(rgb); panel._issue_clicked(rgb, 1)
 assert view.current == 1 and view.pf_mark and view.pf_mark[0] == 1 and view.pf_mark[1] is not None, view.pf_mark
 assert "1/2" in panel.lbl_nav.text(), panel.lbl_nav.text()
@@ -100,9 +102,9 @@ panel._step_spot(+1)
 assert view.current == 2 and view.pf_mark[0] == 2 and "2/2" in panel.lbl_nav.text()
 ch = rgb.child(0); tree.setCurrentItem(ch); panel._issue_clicked(ch, 1)
 assert view.current == 1
-panel._go(preflight.Spot(3))                                   # ohne Bereich: ganze Seite markiert
+panel._go(preflight.Spot(3))                                   # without an area: whole page marked
 assert view.current == 2 and view.pf_mark == (2, None)
-w.repaint(); app.processEvents()                               # Zeichnen der Markierung wirft nichts
+w.repaint(); app.processEvents()                               # drawing the mark raises nothing
 view._clear_spot()
 assert view.pf_mark is None
 print("OK")

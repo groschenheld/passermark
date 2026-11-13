@@ -96,7 +96,7 @@ def test_trim_and_bleed_kept_outside():
 def test_grid_and_rotated_page():
     src = os.path.join(TMP, "r.pdf")
     c = canvas.Canvas(src, pagesize=A4)
-    for i, col in enumerate(COLORS[:4]):  # 2×2 Felder in sichtbarer Lage (nach Drehung)
+    for i, col in enumerate(COLORS[:4]):  # 2×2 fields in visible orientation (after rotation)
         c.setFillColorRGB(*col)
         c.rect((i % 2) * A4[0] / 2, (1 - i // 2) * A4[1] / 2, A4[0] / 2, A4[1] / 2, fill=1, stroke=0)
     c.showPage()
@@ -113,7 +113,7 @@ def test_grid_and_rotated_page():
     data, info = split.split(src, split.SplitSettings(mode="halves_v"))
     d = pdfium.PdfDocument(data)
     w, h = d[0].get_size()
-    assert abs(w - A4[1] / 2) < 1 and abs(h - A4[0]) < 1, (w / mm, h / mm)  # sichtbar quer, links|rechts geteilt
+    assert abs(w - A4[1] / 2) < 1 and abs(h - A4[0]) < 1, (w / mm, h / mm)  # visibly landscape, split left|right
     d.close()
 
 
@@ -164,7 +164,7 @@ def test_cli():
         text=True,
         env=env,
     )
-    assert r.returncode == 0 and len(pdfium.PdfDocument(out)) == 6, r.stderr  # Seite 1 → 3, Rest bleibt
+    assert r.returncode == 0 and len(pdfium.PdfDocument(out)) == 6, r.stderr  # page 1 → 3, the rest stays
 
 
 if __name__ == "__main__":

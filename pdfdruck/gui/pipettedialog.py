@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Colour pipette: small tool window next to the page.
 
-Klick auf die Seite -> definierte Farbe (RGB/CMYK/Grau/Sonderfarbe/Bildpixel), Farbauftrag im Druck je Kanal und
-gesamt (mit dem Profil der Druckbedingung), Bildschirmfarbe. Die Farbe lässt sich als CMYK oder RGB übernehmen –
-sie steht dann in „Farbe …“ beim Bearbeiten bereit.
+Click on the page -> defined colour (RGB/CMYK/grey/spot colour/image pixel), ink in print per channel and
+in total (with the profile of the printing condition), screen colour. The colour can be taken over as CMYK or
+RGB – it is then available under "Farbe …" when editing.
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ from .common import fill_combo
 
 
 class _Worker(QThread):
+    """Samples the colour at one point in a background thread."""
+
     done = Signal(object, str)
 
     def __init__(self, data, page, x, y, target, password):
@@ -43,7 +45,9 @@ class _Worker(QThread):
 
 
 class PipetteDialog(QDialog):
-    picked = Signal(str, object)  # ("cmyk" | "rgb", Werte 0..1)
+    """Tool window of the colour pipette: shows the values at the clicked point and hands colours over."""
+
+    picked = Signal(str, object)  # ("cmyk" | "rgb", values 0..1)
     closed = Signal()
 
     def __init__(self, win):
@@ -83,7 +87,7 @@ class PipetteDialog(QDialog):
         self.lbl_screen = QLabel("–")
         for lb in (self.lbl_obj, self.lbl_def, self.lbl_ink, self.lbl_total, self.lbl_screen):
             lb.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            lb.setWordWrap(lb not in (self.lbl_ink, self.lbl_def))  # Werte nie umbrechen/abschneiden
+            lb.setWordWrap(lb not in (self.lbl_ink, self.lbl_def))  # never wrap/cut off values
         self.lbl_ink.setFont(theme.mono_font(10))
         self.lbl_def.setFont(theme.mono_font(10))
         g.addRow(tr("Objekt:"), self.lbl_obj)
@@ -159,7 +163,7 @@ class PipetteDialog(QDialog):
 
     # ------------------------------------------------------------------ #
     def measure(self, page: int, x: float, y: float):
-        """Stelle messen (im Hintergrund; ein neuer Klick während des Messens wird danach gemessen)."""
+        """Measure the point (in the background; a new click while measuring is measured afterwards)."""
         if self._worker is not None and self._worker.isRunning():
             self._pending = (page, x, y)
             return
@@ -168,7 +172,7 @@ class PipetteDialog(QDialog):
         except Exception as e:  # noqa: BLE001
             self.lbl_note.setText(str(e))
             return
-        pw = ""  # _doc_bytes ist schon entschlüsselt
+        pw = ""  # _doc_bytes is already decrypted
         from .. import l10n, measure as ms
 
         self.lbl_where.setText(
@@ -262,7 +266,7 @@ class PipetteDialog(QDialog):
         self.btn_cmyk.setEnabled(s.as_cmyk() is not None)
         self.btn_rgb.setEnabled(s.as_rgb() is not None)
         self.btn_copy.setEnabled(True)
-        self.adjustSize()  # Fenster wächst mit (Hinweise, lange Profilnamen)
+        self.adjustSize()  # the window grows along (notes, long profile names)
 
     def _take(self, kind: str):
         s = self.sample

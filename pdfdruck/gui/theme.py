@@ -14,14 +14,14 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QSlider
 
-BG = "#15171a"  # Fenster
-PANEL = "#1e2124"  # Leisten, Gruppen
-FIELD = "#0e1012"  # Eingabefelder
-VIEW = "#2a2d31"  # Hintergrund hinter den Seiten
+BG = "#15171a"  # window
+PANEL = "#1e2124"  # bars, groups
+FIELD = "#0e1012"  # input fields
+VIEW = "#2a2d31"  # background behind the pages
 BORDER = "#5a6068"  # border (deliberately light enough for contrast)
 TEXT = "#f3f4f5"
 MUTED = "#a9afb6"
-ACCENT = "#ffc62b"  # Gelb
+ACCENT = "#ffc62b"  # yellow
 ACCENT_SOFT = "rgba(255, 198, 43, 0.20)"
 ERROR = "#ff6b6b"
 ICON = "#d9dde1"
@@ -37,6 +37,7 @@ def _first_available(names):
 
 
 def mono_font(size: float = 9.5) -> QFont:
+    """A monospaced font that is available on this system."""
     f = QFont()
     fam = _first_available(MONO_FONTS)
     if fam:
@@ -150,8 +151,9 @@ def _scroll_area_of(target):
 
 
 def _guarded_wheel(self, ev):
-    """Ersetzt wheelEvent von Auswahlfeldern/Drehfeldern/Schiebereglern: nie den Wert ändern, sondern die
-    Umgebung scrollen (wie vorher der Ereignisfilter – nur ohne Kosten für alle anderen Ereignisse)."""
+    """Replaces wheelEvent of combo boxes/spin boxes/sliders: never change the value but scroll the
+    surroundings (as the event filter did before – only without the cost for all other events).
+    """
     global _wheel_hit
     _wheel_hit = True
     area = _scroll_area_of(self)
@@ -169,9 +171,9 @@ class WheelGuard(QObject):
     """The mouse wheel NEVER changes selection fields/spin boxes – it always scrolls the surroundings.
     Values are changed by clicking or via the keyboard.
 
-    Nur noch Rückfall: als Filter auf der ganzen Anwendung lief jedes einzelne Ereignis (Zeichnen, Layout,
-    Fokus …) durch Python – beim Öffnen eines Reiters/Fensters zigtausendmal, das waren die 0,4–0,5-s-Ruckler
-    in theme.py eventFilter. Normal wird stattdessen wheelEvent der drei Widget-Arten ersetzt (install_wheel_guard).
+    Only a fallback now: as a filter on the whole application every single event (painting, layout,
+    focus …) ran through Python – tens of thousands of times when opening a tab/window, which caused
+    stalls of 0.4–0.5 s. Normally wheelEvent of the three widget kinds is replaced instead (install_wheel_guard).
     """
 
     TYPES = (QComboBox, QAbstractSpinBox, QSlider)
@@ -180,7 +182,7 @@ class WheelGuard(QObject):
         if ev.type() != QEvent.Type.Wheel:
             return False
         w, target = obj, None
-        for _ in range(3):  # auch innere Editfelder von Spin-/Comboboxen
+        for _ in range(3):  # also the inner edit fields of spin/combo boxes
             if w is None or not hasattr(w, "parentWidget"):
                 break
             if isinstance(w, self.TYPES):
@@ -196,8 +198,9 @@ class WheelGuard(QObject):
 
 
 def install_wheel_guard(app) -> bool:
-    """wheelEvent der Auswahl-/Drehfelder/Schieberegler ersetzen und prüfen, ob Qt den Ersatz wirklich aufruft.
-    True = geklappt (kein globaler Filter nötig)."""
+    """Replace wheelEvent of the combo boxes/spin boxes/sliders and check whether Qt really calls the replacement.
+    True = it worked (no global filter needed).
+    """
     global _wheel_hit
     from PySide6.QtCore import QPoint, QPointF
     from PySide6.QtGui import QWheelEvent
@@ -230,6 +233,7 @@ _guard = None
 
 
 def apply(app: QApplication):
+    """Apply the dark theme to the application and install the mouse wheel guard."""
     global _guard
     app.setStyle("Fusion")
     pal = QPalette()
@@ -260,6 +264,6 @@ def apply(app: QApplication):
     f.setPointSizeF(10)
     app.setFont(f)
     app.setStyleSheet(QSS + _indicator_qss())
-    if not install_wheel_guard(app):  # Rückfall: wie bisher als Filter für die ganze Anwendung
+    if not install_wheel_guard(app):  # fallback: as a filter for the whole application
         _guard = WheelGuard(app)
         app.installEventFilter(_guard)

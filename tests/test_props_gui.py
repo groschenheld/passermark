@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Datei → Eigenschaften (echtes Qt, ohne Bildschirm): Speicherort, Dokument, Seiten, Schriften, Prüfung –
-für eine gespeicherte Datei und für ein nur im Speicher vorhandenes Dokument (Zusammenführen)."""
+"""Datei → Eigenschaften (real Qt, without a screen): location, document, pages, fonts, check –
+for a saved file and for a document that exists only in memory (merge).
+"""
 
 import os
 import subprocess
@@ -58,7 +59,7 @@ fonts = dlg.fonts_w.findChildren(QTableWidget)
 assert fonts and fonts[0].item(0, 0).text() == "Helvetica"
 assert "Fehler" in texts(dlg.check_w)
 dlg.done(0)
-# nur im Speicher: zusammengeführt
+# only in memory: merged
 ctl.merge_into_window([p, p]); m = ctl.windows[-1]
 dlg = PropertiesDialog(m); dlg.show(); wait(dlg)
 f = texts(dlg.tabs.widget(0))

@@ -26,7 +26,7 @@ from PySide6.QtGui import QImage
 
 
 def _clean_leftovers():
-    """Zwischendateien der Seitenansicht aus früheren Sitzungen (z. B. nach einem Absturz), älter als 1 Tag."""
+    """Intermediate files of the page view from earlier sessions (e.g. after a crash), older than 1 day."""
     import glob
     import time
 
@@ -39,7 +39,9 @@ def _clean_leftovers():
 
 
 class _Reader(QThread):
-    got = Signal(dict, object)  # Kopf, QImage | None
+    """Reads the answers of the render process in a thread."""
+
+    got = Signal(dict, object)  # header, QImage | None
     dead = Signal()
 
     def __init__(self, stream):
@@ -60,7 +62,7 @@ class _Reader(QThread):
                 img = None
                 if n and head.get("ok"):
                     if head.get("fmt") == "pickle":
-                        img = pickle.loads(data)  # nur von unserem eigenen Prozess
+                        img = pickle.loads(data)  # only from our own process
                     else:
                         fmt = QImage.Format.Format_RGB32 if head.get("fmt") == "bgrx" else QImage.Format.Format_BGR888
                         img = QImage(data, head["w"], head["h"], head["stride"], fmt).copy()
@@ -79,9 +81,10 @@ class RenderService(QObject):
 
     @classmethod
     def get(cls, name: str = "render") -> RenderService:
+        """The shared service with this name (created on first use)."""
         if name not in cls._instances:
             svc = RenderService()
-            try:  # immer im Hauptthread anlegen (Timer, Signale)
+            try:  # always create in the main thread (timers, signals)
                 from PySide6.QtWidgets import QApplication
 
                 app = QApplication.instance()
@@ -98,8 +101,8 @@ class RenderService(QObject):
         self.reader = None
         self.ok = os.environ.get("PASSERMARK_RENDER", "") != "local"
         self.restarts = 0
-        self.sources: list = []  # Objekte mit render_priority() und next_render() / render_done()
-        self.ops: list = []  # open/close – vor allen Bild-Anfragen
+        self.sources: list = []  # objects with render_priority() and next_render() / render_done()
+        self.ops: list = []  # open/close – before all image requests
         self.busy = None
         self._id = 0
         self._stderr = None
@@ -113,6 +116,7 @@ class RenderService(QObject):
 
     # ------------------------------------------------------------------ #
     def start(self) -> bool:
+        """Start the render process if it is not running; False if it is not available."""
         if not self.ok:
             return False
         if self.proc is not None and self.proc.poll() is None:
@@ -143,6 +147,7 @@ class RenderService(QObject):
         return True
 
     def stop(self):
+        """End the render process."""
         p, self.proc = self.proc, None
         if p is not None and p.poll() is None:
             try:
@@ -168,38 +173,43 @@ class RenderService(QObject):
 
     # ------------------------------------------------------------------ #
     def register(self, source):
+        """Register a source of render requests (a view)."""
         if source not in self.sources:
             self.sources.append(source)
 
     def unregister(self, source):
+        """Remove a source and drop its waiting requests."""
         if source in self.sources:
             self.sources.remove(source)
         self.ops = [o for o in self.ops if o.get("source") is not source]
 
     def open_doc(self, key: str, path: str, on_done=None):
+        """Open a document in the render process under ``key``."""
         self.ops.append({"op": "open", "doc": key, "path": path, "cb": on_done})
         self.kick()
 
     def close_doc(self, key: str, on_done=None):
+        """Close the document ``key`` in the render process."""
         self.ops.append({"op": "close", "doc": key, "cb": on_done})
         self.kick()
 
     def call(self, fn: str, args: dict, on_done):
-        """Funktion im Prozess ausführen (siehe renderproc.CALLS); on_done(err, result)."""
+        """Run a function in the process (see renderproc.CALLS); on_done(err, result)."""
         self.ops.append({"op": "call", "fn": fn, "args": args, "cb2": on_done})
         self.kick()
 
     def lists(self, key: str, page: int, kind: str, on_done):
-        """Bearbeiten-Modus: Textzeilen ("text") bzw. Objekte ("objects") einer Seite."""
+        """Edit mode: text rows ("text") or objects ("objects") of a page."""
         self.ops.append({"op": "lists", "doc": key, "page": page, "kind": kind, "cb2": on_done})
         self.kick()
 
     def chars(self, key: str, page: int, on_done):
-        """Zeichenkästen einer Seite (für den Text-Cursor ohne die Seite im Programm zu laden)."""
+        """Character boxes of a page (for the text cursor without loading the page in the program)."""
         self.ops.append({"op": "chars", "doc": key, "page": page, "cb2": on_done})
         self.kick()
 
     def kick(self):
+        """Schedule sending the next request."""
         if self.ok:
             self._kick.start()
 
@@ -232,7 +242,7 @@ class RenderService(QObject):
             if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind", "proof")
         }
         payload = b""
-        if req.get("op") == "call":  # Argumente können Objekte sein (Zeilen, Objekte)
+        if req.get("op") == "call":  # arguments can be objects (rows, objects)
             payload = pickle.dumps(req.get("args") or {})
             wire["n"] = len(payload)
         if not self._send(wire, payload):
@@ -266,7 +276,7 @@ class RenderService(QObject):
         self.kick()
 
     def _on_dead(self):
-        """Prozess weg: einmal neu starten (offene Dokumente neu öffnen), beim zweiten Mal im Programm rendern."""
+        """Process gone: restart once (reopen the open documents), the second time render in the program."""
         req, self.busy = self.busy, None
         self.proc = None
         self.restarts += 1
@@ -280,7 +290,7 @@ class RenderService(QObject):
             return
         for src in list(self.sources):
             try:
-                src.render_reset()  # Quelle öffnet ihr Dokument neu
+                src.render_reset()  # the source reopens its document
             except Exception:
                 pass
         if req is not None and req.get("source") is not None:

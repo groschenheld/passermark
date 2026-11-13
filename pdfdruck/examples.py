@@ -33,6 +33,7 @@ EXAMPLES = [
 
 
 def default_target() -> str:
+    """Default folder for the supplied examples in the user's home directory."""
     return os.path.join(os.path.expanduser("~"), "Passermark-Beispiele")
 
 

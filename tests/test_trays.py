@@ -28,14 +28,14 @@ def live(empty):
 
 def test_first_by_format():
     assert trays.pick(T, "A3").tray.slot == "Cas4"
-    assert trays.pick(T, "A4").tray.slot == "Cas1"  # mehrere A4 -> erste
+    assert trays.pick(T, "A4").tray.slot == "Cas1"  # several A4 -> the first
 
 
 def test_weight():
     assert trays.pick(T, "A4", 120).tray.slot == "Cas5"
     assert trays.pick(T, "A4", 80).tray.slot == "Cas1"
     p = trays.pick(T, "A3", 120)
-    assert p.tray is None and p.warn  # A3 120 g gibt es nicht
+    assert p.tray is None and p.warn  # A3 120 g does not exist
 
 
 def test_empty_skips():
@@ -44,7 +44,7 @@ def test_empty_skips():
     p = trays.pick(T, "A4", 80, live({"tray-1", "tray-2"}), LAB)
     assert p.tray.slot == "Cas3"
     p = trays.pick(T, "A4", 80, live({"tray-1", "tray-2", "tray-3"}), LAB)
-    assert p.tray.slot == "Cas1" and p.warn  # alle leer -> erste + Warnung
+    assert p.tray.slot == "Cas1" and p.warn  # all empty -> first + warning
 
 
 def test_unknown_format():
@@ -69,7 +69,7 @@ def test_mapping():
     c.page_sizes = {"A4": (595.28, 841.89), "A3": (841.89, 1190.55), "TA4": (595.28, 841.89)}
     assert trays.slot_for_source(c, "tray-2") == "Cas2"
     assert trays.slot_for_source(c, "by-pass-tray") == "Manual"
-    assert trays.size_for_mm(c, (210, 297)) == "A4"  # nicht die randlose Variante
+    assert trays.size_for_mm(c, (210, 297)) == "A4"  # not the borderless variant
     assert trays.size_for_mm(c, (420, 297)) == "A3"
 
 

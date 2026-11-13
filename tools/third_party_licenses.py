@@ -227,7 +227,7 @@ def dpkg_packages(dirs: list[str]) -> dict:
                     names.add(fn)
     pkgs: dict = {}
     names = sorted(names)
-    for i in range(0, len(names), 200):  # wenige dpkg-Aufrufe statt einem je Datei
+    for i in range(0, len(names), 200):  # few dpkg calls instead of one per file
         chunk = names[i : i + 200]
         try:
             r = subprocess.run(["dpkg", "-S", *["*/" + n for n in chunk]], capture_output=True, text=True, timeout=120)
@@ -241,7 +241,7 @@ def dpkg_packages(dirs: list[str]) -> dict:
             if fn not in chunk:
                 continue
             for pkg in left.split(","):
-                pkg = pkg.strip().split(":")[0]  # Architektur-Zusatz (:amd64) weg
+                pkg = pkg.strip().split(":")[0]  # remove the architecture suffix (:amd64)
                 if pkg:
                     pkgs.setdefault(pkg, set()).add(fn)
                     break

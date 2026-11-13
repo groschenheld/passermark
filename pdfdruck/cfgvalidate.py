@@ -17,7 +17,7 @@ import re
 
 RX_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RX_QUEUE_UNIX = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
-RX_QUEUE_WIN = re.compile(r'^[^\x00-\x1f"<>|*?]{1,220}$')  # Windows: Leerzeichen, \\server\drucker …
+RX_QUEUE_WIN = re.compile(r'^[^\x00-\x1f"<>|*?]{1,220}$')  # Windows: spaces, \\server\printer …
 RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
 RX_NAME = re.compile(r"^[^\x00-\x1f]{1,64}$")
@@ -85,6 +85,7 @@ def _queue_ok(name: str, windows: bool) -> bool:
 
 
 def check_opts(d, where):
+    """Check a dict of driver options (keys and values must be plain option tokens); raises ValueError."""
     if not isinstance(d, dict):
         raise ValueError(f"{where}: Objekt erwartet")
     for k, v in d.items():
@@ -174,6 +175,7 @@ def check_materials(mats, profile_ids: set, windows: bool):
 
 
 def validate(cfg, icc_dir: str, windows: bool = False):
+    """Validate the admin configuration before the root helper writes it; raises ValueError with the reason."""
     if not isinstance(cfg, dict):
         raise ValueError("Konfiguration muss ein Objekt sein")
     allowed = {

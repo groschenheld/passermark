@@ -291,6 +291,7 @@ CALLS = {
 
 
 def serve(inp, out) -> int:
+    """Main loop of the render process: read requests from ``inp``, write answers to ``out``."""
     import pypdfium2 as pdfium
 
     docs: dict = {}

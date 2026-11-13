@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Posterdruck (Qualitätsdruck): nebeneinander mit dem wenigsten Papier, Überbreite abschneiden oder in Bahnen,
-Banner mit Saum und Ösenmarken, CutContour für Print & Cut, Faltmarken DIN 824, Ausgabe in einen Hotfolder,
-Druckmaterialien (Medientyp, Qualität, Tintenmenge, Profil), Roland (Breite über OH, Schneidedatei)."""
+"""Poster printing (quality print): side by side with the least paper, crop when too wide or split into strips,
+banner with hem and eyelet marks, CutContour for print & cut, fold marks DIN 824, output into a hot folder,
+print materials (media type, quality, ink amount, profile), Roland (width via OH, cut file).
+"""
 
 import json
 import os
@@ -31,27 +32,27 @@ def poster(**kw):
 def test_nest_least_paper():
     R = [rolls.Roll(610), rolls.Roll(914)]
     d = pdfium.PdfDocument(T.plan_pdf("a3n.pdf", 297, 420, frames=1))
-    s = poster(nest=True)  # Nebeneinander ist beim Poster nicht mehr Standard
+    s = poster(nest=True)  # side by side is no longer the default for posters
     items = pp.analyze(d, [0], s, R, "a3n.pdf", qty=7)
     runs = pp.build_runs(items, R, s, 1)
-    # 610: zwei hoch nebeneinander (297 + 5 + 297) braucht am wenigsten Papier; seit 1.18.5 ist jede Reihe eine
-    # eigene Druckseite (Schnitt je Reihe): 3 × die volle Reihe, 1 × die Reihe mit dem Rest
+    # 610: two upright side by side (297 + 5 + 297) need the least paper; every row is its
+    # own print page (cut per row): 3 × the full row, 1 × the row with the rest
     assert [(r.width_mm, len(r.pieces), r.copies) for r in runs] == [(610, 2, 3), (610, 1, 1)], runs
-    for run in runs:  # keine Überlappung, alles innerhalb der Seite
+    for run in runs:  # no overlap, everything inside the page
         boxes = [(x, y, x + p.across, y + p.along) for p, x, y in run.pieces]
         for i, a in enumerate(boxes):
             assert a[0] >= -0.01 and a[1] >= -0.01 and a[2] <= run.across + 0.01 and a[3] <= run.along + 0.01
             for b in boxes[i + 1 :]:
                 assert a[2] <= b[0] + 0.01 or b[2] <= a[0] + 0.01 or a[3] <= b[1] + 0.01 or b[3] <= a[1] + 0.01
         assert T.near(run.along, 420, 0.5)
-    # A2 ×5: 610 gedreht (420 je Stück) braucht weniger Papier als 914 mit zwei nebeneinander
+    # A2 ×5: 610 rotated (420 per piece) needs less paper than 914 with two side by side
     d2 = pdfium.PdfDocument(T.plan_pdf("a2n.pdf", 420, 594, frames=0))
     items = pp.analyze(d2, [0], s, R, "a2n.pdf", qty=5)
     runs = pp.build_runs(items, R, s, 1)
     assert runs[0].width_mm == 610 and len(runs[0].pieces) * runs[0].copies == 5
     lens = pp.lengths(items, R, poster(copies=2, nest=True))
     assert lens[0]["width_mm"] == 610 and T.near(lens[0]["total_m"], 10 * 420 / 1000, 0.01)
-    # ohne Nebeneinander (Plandruck): ein Stück je Seite
+    # without side by side (plan printing): one piece per page
     runs = pp.build_runs(items, R, pp.PlanSettings(weights=[]), 1)
     assert len(runs) == 1 and runs[0].copies == 5
 
@@ -75,7 +76,7 @@ def test_overwidth_crop_and_tile():
     out = os.path.join(T.TMP, "tiles.pdf")
     import dataclasses
 
-    assert pp.save_pdf([it], R, dataclasses.replace(st, nest=True), out) == 2  # seit 1.18.5: je Reihe eine Seite
+    assert pp.save_pdf([it], R, dataclasses.replace(st, nest=True), out) == 2  # one page per row
     assert pp.save_pdf([it], R, dataclasses.replace(st, nest=False), out) == 2
 
 
@@ -84,7 +85,7 @@ def test_banner_hem_grommets_cut():
     d = pdfium.PdfDocument(T.plan_pdf("ban.pdf", 1000, 500, frames=0))
     s = poster(hem_mm=30, hem_sides="lr", grommet_spacing_mm=300, grommet_inset_mm=20, cut_contour=True, bleed_mm=5)
     it = pp.analyze(d, [0], s, R, "ban.pdf")[0]
-    assert T.near(it.size[0], 1000 + 60, 0.5) and T.near(it.size[1], 500 + 10, 0.5)  # Saum statt Überfüller
+    assert T.near(it.size[0], 1000 + 60, 0.5) and T.near(it.size[1], 500 + 10, 0.5)  # hem instead of bleed
     pts = pp.grommet_points(1000, 500, 20, 300, "lrtb")
     assert (20, 20) in pts and (980, 480) in pts and len([p for p in pts if p[1] == 20]) == 5
     out = os.path.join(T.TMP, "ban_out.pdf")
@@ -100,7 +101,7 @@ def test_banner_hem_grommets_cut():
         )
     )
     assert b"re S" in data and b"/PMCut CS" in data
-    # Schnittkante = Endformat + Saum: 1060 × 500 (ohne den Überfüller oben/unten)
+    # cut edge = trim size + hem: 1060 × 500 (without the bleed at top/bottom)
     import re
 
     m = re.search(rb"([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re S", data)
@@ -112,7 +113,7 @@ def test_fold_marks_din824():
     xs, ys = pp.fold_positions(1189, 841)
     assert xs[-1] == 999 and 210 in xs and ys == [297, 594]
     xs, ys = pp.fold_positions(420, 297)
-    assert xs == [210.0, 230.0] and ys == []  # 190 von rechts, Rest auf 210
+    assert xs == [210.0, 230.0] and ys == []  # 190 from the right, the rest at 210
     d = pdfium.PdfDocument(T.plan_pdf("fold.pdf", 851, 604))
     R = [rolls.Roll(914)]
     s = pp.PlanSettings(fold_marks=True, rotate="keep", weights=[])
@@ -138,7 +139,7 @@ def test_hotfolder_output_and_log():
     files = os.listdir(hot)
     assert len(files) == 1 and files[0].endswith("_hot_p1_2x.pdf"), files
     d = pdfium.PdfDocument(os.path.join(hot, files[0]))
-    assert len(d) == 2  # Ordner kennt keine Kopienzahl: Seite zweimal
+    assert len(d) == 2  # a folder knows no copy count: the page twice
     assert info["jobs"][0]["job_id"] == files[0]
     rows = open(os.path.join(logdir, printlog.CSV_NAME), encoding="utf-8-sig").read()
     assert "folder:VersaWorks" in rows and ";1370;" in rows
@@ -186,7 +187,7 @@ def test_material_values():
         s = poster(printer="Plotter", material="Fotopapier 200")
         vals = pp.values_for(sess, "Plotter", caps, s)
     assert vals["MediaType"] == "Photo" and vals["EPIJ_Dens"] == "-10" and vals["cupsPrintQuality"] == "High"
-    # Material mit Grammatur wählt die Rolle
+    # a material with a grammage chooses the roll
     R = [rolls.Roll(914, weight=80), rolls.Roll(1067, weight=200)]
     use, _n = pp.eligible_for(R, s)
     assert [r.width_mm for r in use] == [1067]
@@ -219,7 +220,7 @@ def test_roland():
     assert roland.is_roland("Roland GS-24") and roland.is_roland("", "CAMM-1 GR2-640") and not roland.is_roland("Canon")
     h = roland.hpgl(roland.rect_paths([(10, 0, 110, 50)]), force=80, speed=20).decode()
     assert h.startswith("IN;VS20;FS80;PU0,400;PD0,4400,2000,4400") and h.endswith("PU0,0;")
-    # Rollenabfrage nimmt bei Roland-Geräten OH statt IPP/SNMP
+    # the roll query uses OH instead of IPP/SNMP for Roland devices
     old = roland.PORT
     port, _got = _fake_roland(b"0,0,99999,52000\r")
     try:
@@ -253,7 +254,7 @@ def test_cli_poster_and_plt():
     )
     assert r.returncode == 0, r.stderr
     done = json.loads(r.stdout.strip().splitlines()[-1])
-    # nebeneinander: 3 A3 je Reihe auf 914, seit 1.18.5 je Reihe eine Druckseite -> 2 × dieselbe Reihe
+    # side by side: 3 A3 per row on 914, one print page per row -> 2 × the same row
     job = done["jobs"][0]
     assert done["nest"] and done["kind"] == "poster" and job["pieces"] * job["copies"] == 6, done["jobs"]
     assert done["cut_file"]["cuts"] == 1 and open(plt).read().startswith("IN;")

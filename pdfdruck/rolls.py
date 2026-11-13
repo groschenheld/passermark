@@ -32,7 +32,7 @@ class Roll:
     width_mm: float
     slot: str = ""  # driver value of the source ("" = the device chooses)
     name: str = ""  # display ("Rolle 1")
-    weight: int = 0  # g/m², 0 = unbekannt
+    weight: int = 0  # g/m², 0 = unknown
     media: str = ""  # media name/type according to the device or the input
     remaining_m: float | None = None
     origin: str = "manual"  # ipp | snmp | manual
@@ -296,7 +296,7 @@ def parse_widths(text: str) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Alles zusammen
+# everything together
 # --------------------------------------------------------------------------- #
 def model_of(printer: str) -> str:
     """Model and description of ``printer`` as one string (empty if unknown)."""

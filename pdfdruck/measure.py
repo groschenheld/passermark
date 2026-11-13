@@ -34,6 +34,8 @@ def snap(dx: float, dy: float, enabled: bool = True) -> tuple[float, float]:
 
 @dataclass
 class Measurement:
+    """Result of measuring between two points: length, horizontal and vertical distance, angle."""
+
     length_mm: float
     dx_mm: float  # horizontal on screen (+ right)
     dy_mm: float  # vertical on screen (+ up)
@@ -78,4 +80,5 @@ def describe(m: Measurement, lang: str = "de") -> str:
 
 
 def describe_pos(x_mm: float, y_mm: float, lang: str = "de") -> str:
+    """Position as text for the status bar."""
     return f"X {fmt(x_mm, lang)}   Y {fmt(y_mm, lang)} mm"

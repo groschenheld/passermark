@@ -116,14 +116,17 @@ X2T_PDF = 513  # AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF
 
 
 def ext(path: str) -> str:
+    """File extension in lower case, with the dot."""
     return os.path.splitext(path)[1].lower()
 
 
 def is_office(path: str) -> bool:
+    """Whether the file is an office document that has to be converted to PDF."""
     return ext(path) in OFFICE_EXT
 
 
 def is_supported(path: str) -> bool:
+    """Whether the file can be opened at all (PDF, image or office document)."""
     return ext(path) in PDF_EXT or images.is_image(path) or is_office(path)
 
 
@@ -198,6 +201,7 @@ def _msoffice_available() -> bool:
 
 
 def describe_available() -> str:
+    """Translated text listing the office converters that were found."""
     d = detect()
     if not d:
         return tr("Kein Office-Konverter gefunden.")
@@ -206,7 +210,7 @@ def describe_available() -> str:
 
 
 # ---------------------------------------------------------------------- #
-# Umwandeln
+# convert
 # ---------------------------------------------------------------------- #
 def _sandboxed(exe: str) -> bool:
     """Snap/Flatpak do not see our /tmp (they have their own, isolated /tmp)."""
@@ -257,7 +261,7 @@ def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
         if work != outdir:
             shutil.rmtree(work, ignore_errors=True)
             try:
-                os.rmdir(os.path.dirname(work))  # leeren Sammelordner wieder entfernen
+                os.rmdir(os.path.dirname(work))  # remove the empty collection folder again
             except OSError:
                 pass
 
@@ -439,6 +443,7 @@ def _msoffice(path: str, outdir: str, timeout: int) -> str:
 
 
 def conversion_order(path: str, preference: str, available: dict) -> list[str]:
+    """Converters to try for this file, best first, limited to those that are available."""
     e = ext(path)
     if preference in ("libreoffice", "onlyoffice", "eurooffice", "msoffice"):
         order = [preference, "libreoffice", "eurooffice", "onlyoffice", "msoffice"]

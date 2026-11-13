@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Preflight: Analyse (Schriften, Ebenen, Transparenz) und Ebenen-Reparaturen."""
+"""Preflight: analysis (fonts, layers, transparency) and layer repairs."""
 
 import io
 import os
@@ -100,9 +100,9 @@ def test_flatten_layers_print_state():
     content = pk.pages[0].Contents.read_bytes()
     assert b"/OC" not in content and b"BDC" not in content
     assert b"1 0 0 rg" not in content  # dimension layer removed
-    assert b"0 0 1 rg 50 500" not in content  # Hilfslinien: Druck aus -> entfernt
-    assert b"0 1 0 rg" in content  # Verrutscht: sichtbar -> bleibt (ohne Marker)
-    assert px(out, 100, 725)[:3] == (0, 0, 0)  # Grundinhalt bleibt
+    assert b"0 0 1 rg 50 500" not in content  # guide lines: print off -> removed
+    assert b"0 1 0 rg" in content  # "Verrutscht": visible -> stays (without marker)
+    assert px(out, 100, 725)[:3] == (0, 0, 0)  # the base content stays
 
 
 def test_remove_layer_keeps_others():
@@ -196,7 +196,7 @@ def test_testfile_findings():
 
 
 def test_download_cdn_fallback(tmp_dir="/tmp/_pm_fonts2"):
-    """API nicht erreichbar -> Dateien direkt vom fontsource-CDN."""
+    """API not reachable -> files directly from the fontsource CDN."""
     import shutil
     import urllib.error
     import urllib.request

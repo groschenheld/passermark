@@ -102,10 +102,12 @@ def log_vars(variables) -> dict:
 
 
 def current() -> str:
+    """Source of the running job (dialog, cli, watch, rightclick)."""
     return _ctx["source"]
 
 
 def admin_cfg(cfg: dict | None = None) -> dict:
+    """The print log part of the admin configuration."""
     if cfg is None:
         from . import config
 
@@ -115,6 +117,7 @@ def admin_cfg(cfg: dict | None = None) -> dict:
 
 
 def enabled(cfg: dict | None = None) -> bool:
+    """Whether print jobs are logged (forced by the admin or switched on by the user)."""
     if admin_cfg(cfg).get("force"):
         return True
     try:
@@ -126,6 +129,7 @@ def enabled(cfg: dict | None = None) -> bool:
 
 
 def folder(cfg: dict | None = None) -> str:
+    """Folder of the print log: the shared one set by the admin, otherwise the user's."""
     d = str(admin_cfg(cfg).get("dir") or "").strip()
     if d:
         return os.path.expandvars(os.path.expanduser(d))
@@ -361,6 +365,7 @@ def _prune(base: str, cfg: dict | None = None) -> None:
 
 
 def load(path: str) -> dict:
+    """Read one print log record; raises ValueError if the file is not one."""
     with open(path, encoding="utf-8") as f:
         rec = json.load(f)
     if not isinstance(rec, dict) or rec.get("passermark") != KIND or not isinstance(rec.get("workflow"), dict):

@@ -39,16 +39,18 @@ SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis", "ok": "O
 
 
 def load_choice() -> dict:
+    """The stored selection of the colour check (printing condition, intent, ink limit)."""
     from .. import l10n
 
     st = l10n.load_settings().get("colorcheck")
     if isinstance(st, dict):
         return st
-    sp = l10n.load_settings().get("softproof")  # sonst wie der Softproof
+    sp = l10n.load_settings().get("softproof")  # otherwise like the soft proof
     return {"key": sp.get("key", ""), "intent": sp.get("intent", "")} if isinstance(sp, dict) else {}
 
 
 def save_choice(d: dict):
+    """Store the selection of the colour check in the user settings."""
     from .. import l10n
 
     st = l10n.load_settings()
@@ -61,6 +63,8 @@ def save_choice(d: dict):
 
 
 class _Worker(QThread):
+    """Runs the colour check in a background thread."""
+
     done = Signal(object, object, str)
 
     def __init__(self, data: bytes, target, cfg):
@@ -69,6 +73,7 @@ class _Worker(QThread):
         self._cancel = False
 
     def cancel(self):
+        """Ask the running check to stop."""
         self._cancel = True
 
     def run(self):
@@ -82,13 +87,15 @@ class _Worker(QThread):
 
 
 class ColorPanel(QWidget):
+    """Side panel "Farbe": choose a printing condition, check the document's colours, offer fixes."""
+
     goto_spot = Signal(int, object)
     action_requested = Signal(str, object)
     proof_requested = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.data_fn = None  # liefert die aktuellen Dokument-Bytes
+        self.data_fn = None  # returns the current document bytes
         self.cfg_fn = lambda: {}
         self.facts = None
         self.findings = []
@@ -190,7 +197,7 @@ class ColorPanel(QWidget):
 
     # ---------------------------------------------------------------- #
     def reload_choices(self):
-        """Druckbedingungen neu einlesen (nach Papiere/Standardprofile)."""
+        """Read the printing conditions anew (after papers/standard profiles)."""
         self._loading = True
         try:
             saved = load_choice()
@@ -208,9 +215,11 @@ class ColorPanel(QWidget):
             self._loading = False
 
     def choice(self):
+        """The printing condition that is currently selected, or None."""
         return next((c for c in getattr(self, "choices", []) if c["key"] == self.cmb.currentData()), None)
 
     def target(self) -> colorcheck.Target:
+        """The selected printing condition as a :class:`colorcheck.Target`, with intent and ink limit."""
         t = colorcheck.target_from_choice(self.choice(), self.cfg_fn(), self.cmb_intent.currentData() or "")
         t.tac_limit = self.spn_tac.value()
         return t
@@ -229,11 +238,13 @@ class ColorPanel(QWidget):
             self.start()
 
     def focus_choice(self):
+        """Put the focus on the printing condition and open its list."""
         self.cmb.setFocus()
         self.cmb.showPopup()
 
     # ---------------------------------------------------------------- #
     def start(self):
+        """Start the colour check for the current document in the background."""
         if self.data_fn is None:
             return
         try:
@@ -252,7 +263,7 @@ class ColorPanel(QWidget):
         self.btn_check.setEnabled(False)
         w = _Worker(data, t, self.cfg_fn())
         w.done.connect(lambda f, res, err, gen=gen, t=t: self._done(gen, t, f, res, err))
-        self._threads.add(w)  # Verweis halten, bis der Thread wirklich fertig ist
+        self._threads.add(w)  # keep a reference until the thread has really finished
         w.finished.connect(lambda w=w: self._threads.discard(w))
         self._worker = w
         w.start()

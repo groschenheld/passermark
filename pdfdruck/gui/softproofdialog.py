@@ -31,6 +31,7 @@ from .common import fill_combo
 
 
 def load_saved() -> dict:
+    """The stored soft proof selection."""
     from .. import l10n
 
     st = l10n.load_settings().get("softproof")
@@ -38,6 +39,7 @@ def load_saved() -> dict:
 
 
 def save(d: dict):
+    """Store the soft proof selection in the user settings."""
     from .. import l10n
 
     st = l10n.load_settings()
@@ -50,7 +52,7 @@ def save(d: dict):
 
 
 def build_spec(cfg: dict, saved: dict):
-    """Gespeicherte Auswahl -> spec für proof.proofed_render (None, wenn die Druckbedingung fehlt)."""
+    """Stored selection -> spec for proof.proofed_render (None if the printing condition is missing)."""
     ch = next((c for c in colorlab.proof_choices(cfg) if c["key"] == saved.get("key")), None)
     if ch is None:
         return None
@@ -69,7 +71,9 @@ def build_spec(cfg: dict, saved: dict):
 
 
 class SoftproofDialog(QDialog):
-    changed = Signal(object)  # spec oder None
+    """Dialog for setting up the soft proof of the page view."""
+
+    changed = Signal(object)  # spec or None
 
     def __init__(self, parent, cfg: dict):
         super().__init__(parent)
@@ -158,6 +162,7 @@ class SoftproofDialog(QDialog):
         self._update()
 
     def current(self) -> dict:
+        """The selection as entered in the dialog."""
         warn = next(k for k, rb in self.rb.items() if rb.isChecked())
         return {
             "key": self.cmb.currentData() or "",
@@ -211,4 +216,5 @@ class SoftproofDialog(QDialog):
 
 
 def describe(spec) -> str:
+    """Short text describing a soft proof spec."""
     return proof.describe_spec(spec)

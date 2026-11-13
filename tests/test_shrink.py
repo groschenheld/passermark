@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Dateigröße: Aufschlüsselung, verlustfreie Maßnahmen (Druckbild pixelgleich), jede einzeln schaltbar,
-optionales Herunterrechnen, Befund in der Prüfung, Auftrag „shrink“."""
+"""File size: breakdown, lossless measures (printed image pixel-identical), each switchable separately,
+optional downsampling, finding in the check, job "shrink".
+"""
 
 import io
 import os
@@ -25,8 +26,9 @@ def _photo(w, h, c):
 
 
 def _pdf() -> bytes:
-    """16-Bit-RGB unkomprimiert (~760 dpi), Graubild doppelt gespeichert, ZIP+JPEG-CMYK (~1000 dpi),
-    RGB mit Soft-Maske, Illustrator-Bearbeitungsdaten, Vorschaubild."""
+    """16-bit RGB uncompressed (~760 dpi), grey image stored twice, ZIP+JPEG CMYK (~1000 dpi),
+    RGB with a soft mask, Illustrator editing data, thumbnail.
+    """
     import pikepdf
     from PIL import Image
 
@@ -124,7 +126,7 @@ def test_lossless_is_pixel_identical():
 
 
 def test_each_measure_switchable():
-    """Alles aus: nur neu geschrieben, Bearbeitungsdaten/Vorschau/Duplikate bleiben."""
+    """Everything off: only rewritten, editing data/thumbnail/duplicates stay."""
     off = shrink.ShrinkOptions(rewrite=False, unreferenced=False, dedupe=False, private=False, thumbs=False, pack=False)
     out, _ = shrink.shrink(_pdf(), off)
     rep = shrink.analyze(out)
@@ -173,7 +175,9 @@ def test_preflight_finding_and_job():
 
 
 def test_same_profile_per_page_deduped():
-    """Dasselbe ICC-Profil je Seite neu eingebettet, [/ICCBased …] direkt im Farbraum (Fall schritt2-test.pdf)."""
+    """The same ICC profile embedded anew per page, [/ICCBased …] directly in the colour space (case
+    schritt2-test.pdf).
+    """
     import numpy as np
     import pikepdf
     from PIL import ImageCms
@@ -222,8 +226,9 @@ def _render_all(data):
 
 
 def test_zip_photos_to_jpeg():
-    """Fotos als ZIP (RGB, CMYK, Grau) -> JPEG mit treuen Farben; Grafik mit wenigen Farben bleibt ZIP;
-    Häkchen aus -> nichts wird JPEG."""
+    """Photos as ZIP (RGB, CMYK, grey) -> JPEG with faithful colours; a graphic with few colours stays ZIP;
+    switch off -> nothing becomes JPEG.
+    """
     import numpy as np
     import pikepdf
 
@@ -284,12 +289,12 @@ def test_too_big_warning():
     rep = shrink.SizeReport(size=60 * shrink.MB, pages=1, area_m2=shrink.A4_M2, parts={"images": 55 * shrink.MB})
     iss = shrink.issues(rep)
     assert iss and iss[0][0] == "warning" and "60 MB" in iss[0][1] and "Bilder" in iss[0][1]
-    rep.area_m2 = shrink.A4_M2 * 8  # A0: 7,5 MB je A4 – unauffällig
+    rep.area_m2 = shrink.A4_M2 * 8  # A0: 7.5 MB per A4 – inconspicuous
     assert not [i for i in shrink.issues(rep) if i[0] == "warning"]
 
 
 def test_ascii85_wrapped_jpeg():
-    """JPEG hinter ASCII85 (ReportLab): wird erkannt, heruntergerechnet und ausgepackt."""
+    """JPEG behind ASCII85 (ReportLab): recognised, downsampled and unpacked."""
     import base64
     import io as _io
     import pikepdf
@@ -299,7 +304,7 @@ def test_ascii85_wrapped_jpeg():
     Image.new("RGB", (2000, 1500), (120, 60, 30)).save(buf, "JPEG", quality=90)
     jpg = buf.getvalue()
     pdf = pikepdf.new()
-    pdf.add_blank_page(page_size=(144, 108))  # 2 × 1,5 Zoll -> 1000 dpi
+    pdf.add_blank_page(page_size=(144, 108))  # 2 × 1.5 inch -> 1000 dpi
     img = pikepdf.Stream(pdf, base64.a85encode(jpg) + b"~>")
     img.Type, img.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
     img.Width, img.Height, img.BitsPerComponent = 2000, 1500, 8

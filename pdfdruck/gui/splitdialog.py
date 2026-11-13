@@ -29,6 +29,8 @@ from .common import fill_combo, no_enter_default
 
 
 class SplitDialog(QDialog):
+    """Dialog "Seiten teilen" with a preview of the cut lines."""
+
     def __init__(
         self,
         parent,
@@ -89,7 +91,7 @@ class SplitDialog(QDialog):
             items.append(("selected", tr("ausgewählte Seiten ({0})").format(len(self.selected))))
         items.append(("range", tr("Seitenbereich …")))
         if which == "selected" and len(self.selected) <= 1:
-            which = "current"  # eine Seite markiert = diese Seite
+            which = "current"  # one page selected = this page
         fill_combo(self.cmb_which, items, which if which in [k for k, _ in items] else "all")
         f.addRow(tr("Welche Seiten:"), self.cmb_which)
         self.ed_range = QLineEdit()
@@ -130,6 +132,7 @@ class SplitDialog(QDialog):
 
     # -------------------------------------------------------------- #
     def settings(self) -> split.SplitSettings:
+        """The settings as entered in the dialog."""
         mode = self.cmb_mode.currentData()
         return split.SplitSettings(
             mode=mode if mode in split.MODES else "halves_v",
@@ -141,7 +144,7 @@ class SplitDialog(QDialog):
         )
 
     def pages(self):
-        """0-basierte Seiten oder None (= alle)."""
+        """0-based pages or None (= all)."""
         w = self.cmb_which.currentData()
         if w == "current":
             return [self.page]

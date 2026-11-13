@@ -19,7 +19,7 @@ class Stub(metaclass=_Meta):
     def __getattr__(self, n):
         if n.startswith("__") and n.endswith("__"):
             raise AttributeError(n)
-        # eigene Klassen (nicht Qt): unbekannte Python-Namen (_privat, snake_case) sind echte Fehler
+        # own classes (not Qt): unknown Python names (_private, snake_case) are real errors
         if (
             type(self).__module__.split(".")[0] != "PySide6"
             and not (n.endswith("_") and not n.startswith("_"))

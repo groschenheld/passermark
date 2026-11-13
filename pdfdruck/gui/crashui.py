@@ -17,6 +17,7 @@ _showing = {"on": False}
 
 
 def open_log_dir():
+    """Open the folder with the error logs in the file manager."""
     d = crashlog.log_dir()
     os.makedirs(d, exist_ok=True)
     QDesktopServices.openUrl(QUrl.fromLocalFile(d))

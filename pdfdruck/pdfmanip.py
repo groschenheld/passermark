@@ -39,6 +39,7 @@ FORMATS = {  # display order; mm, portrait – standard sizes from the shared ta
 
 
 def target_pt(s: _cmyk.ManipSettings) -> tuple[float, float]:
+    """Target size of the crop in pt as ``(width, height)``."""
     if s.crop_size in FORMATS:
         w, h = FORMATS[s.crop_size]
     else:
@@ -95,7 +96,7 @@ def trim_box_for(box, rotation, s):
     l, b, r, t = box
     lmm, tmm, rmm, bmm = s.trim_l_mm, s.trim_t_mm, s.trim_r_mm, s.trim_b_mm
     rot = rotation % 360
-    if rot == 90:  # Anzeige 90° im Uhrzeigersinn gedreht
+    if rot == 90:  # display rotated 90° clockwise
         lmm, tmm, rmm, bmm = tmm, rmm, bmm, lmm
     elif rot == 180:
         lmm, tmm, rmm, bmm = rmm, bmm, lmm, tmm
@@ -141,7 +142,7 @@ def _white_bbox(pg, dpi=72, tol=12):
         + mask[2:, 2:]
     )
     m = np.zeros_like(mask)
-    m[1:-1, 1:-1] = n >= 3  # Einzelpixel = Rauschen, raus
+    m[1:-1, 1:-1] = n >= 3  # single pixels = noise, out
     if not m.any():
         return None
     ys, xs = np.where(m)
@@ -256,7 +257,7 @@ def fill_doc(doc, s: _cmyk.ManipSettings):
     from .layout import flattened
     from .objects import normalized
 
-    flat = flattened(doc)  # Formularwerte/Kommentare mitnehmen
+    flat = flattened(doc)  # take form values/comments along
     try:
         norm = normalized(flat)  # unrotated, from (0,0): visible page = page
     finally:
@@ -287,6 +288,7 @@ def fill_doc(doc, s: _cmyk.ManipSettings):
 
 
 def crop_doc(doc, s: _cmyk.ManipSettings):
+    """Crop all pages of ``doc`` as described by ``s`` (target size, trim box or white space)."""
     import pypdfium2 as pdfium
 
     if s.crop_size == WHITEOUT_MODE:

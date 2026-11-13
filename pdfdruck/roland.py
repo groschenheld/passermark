@@ -26,6 +26,7 @@ NAME = re.compile(r"roland|camm|\bgs2?-?24\b|\bgr2?-?\d|\bgx-?\d|stika|versa|tru
 
 
 def is_roland(*texts) -> bool:
+    """Whether any of the texts (model, name) denotes a Roland device."""
     return any(t and NAME.search(str(t)) for t in texts)
 
 
@@ -46,6 +47,7 @@ def _ask(host: str, data: bytes, port: int = PORT, timeout: float = 3.0) -> byte
 
 
 def parse_hardclip(raw: bytes) -> dict | None:
+    """Parse the answer to the query OH (hard clip limits) into the cutting area; None if unusable."""
     nums = [int(x) for x in re.findall(rb"-?\d+", raw or b"")[:4]]
     if len(nums) < 4:
         return None
@@ -92,5 +94,6 @@ def rect_paths(rects_mm: list) -> list:
 
 
 def send(host: str, data: bytes, port: int = PORT, timeout: float = 10.0) -> None:
+    """Send raw data to the device (port 9100)."""
     with socket.create_connection((host, port), timeout=timeout) as s:
         s.sendall(data)

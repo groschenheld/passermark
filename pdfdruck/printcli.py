@@ -53,14 +53,16 @@ _SYNONYMS = {
 
 @dataclass
 class PrintSettings:
+    """Settings of the workflow step ``print``: printer, options by role, layout, colour profile."""
+
     printer: str = ""  # empty = default printer (admin setting or system)
     paper: str = ""  # paper size (driver value or name, e.g. "A3", "SRA3") · "auto" = from the PDF
     tray: str = ""  # tray/source
-    media: str = ""  # Medientyp
+    media: str = ""  # media type
     duplex: str = ""  # none | long | short – or driver value/name
     color: str = ""  # color | gray – or driver value/name
     quality: str = ""
-    output_bin: str = ""  # Ausgabefach
+    output_bin: str = ""  # output bin
     finishing: dict = field(default_factory=dict)  # {"staple": …, "punch": …, "fold": …, "saddle": …, …}
     options: dict = field(default_factory=dict)  # raw driver options: {"keyword": "value"}
     finisher_preset: str = ""  # finisher preset from the administration (options + Windows vendor dialog)
@@ -106,6 +108,7 @@ def match_choice(opt: printers.Option, wanted: str, role: str = "") -> str:
 
 
 def finisher_presets(cfg: dict, printer: str) -> list:
+    """Finisher presets the admin stored for ``printer``."""
     return list(cfg.get("printers", {}).get(printer, {}).get("presets", []) or [])
 
 
@@ -338,6 +341,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
 # queries for other programs
 # --------------------------------------------------------------------------- #
 def printers_info() -> list:
+    """All printers with name, description and state for ``passermark-cli printers``."""
     out = []
     for p in printers.list_printers():
         out.append(
@@ -356,6 +360,7 @@ def printers_info() -> list:
 
 
 def caps_info(name: str) -> dict:
+    """Capabilities of a printer (options by role, paper sizes, trays, borderless) for ``passermark-cli caps``."""
     from . import layout
     from .session import Session
     from . import config

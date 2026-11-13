@@ -12,21 +12,21 @@ MM = 72 / 25.4
 
 
 def test_snap():
-    assert m.snap(100, 3) == (100.0, 0.0) or abs(m.snap(100, 3)[1]) < 1e-9  # fast waagrecht -> waagrecht
+    assert m.snap(100, 3) == (100.0, 0.0) or abs(m.snap(100, 3)[1]) < 1e-9  # almost horizontal -> horizontal
     x, y = m.snap(4, -90)
-    assert abs(x) < 1e-9 and y < 0  # fast senkrecht -> senkrecht
+    assert abs(x) < 1e-9 and y < 0  # almost vertical -> vertical
     x, y = m.snap(50, 47)
-    assert abs(x - y) < 1e-9  # fast diagonal -> 45°
-    x, y = m.snap(100, 40)  # 21,8° -> noch waagrecht
+    assert abs(x - y) < 1e-9  # almost diagonal -> 45°
+    x, y = m.snap(100, 40)  # 21.8° -> still horizontal
     assert abs(y) < 1e-9
-    x, y = m.snap(100, 43)  # 23,3° -> schon 45°
+    x, y = m.snap(100, 43)  # 23.3° -> already 45°
     assert abs(x - y) < 1e-9
     assert m.snap(10, 7, enabled=False) == (10, 7)
 
 
 def test_measure_lengths_and_axes():
     zoom = 2.0
-    M0 = (zoom, 0.0, 0.0, -zoom)  # keine Drehung: Seiten-y nach oben = Bildschirm-y nach unten
+    M0 = (zoom, 0.0, 0.0, -zoom)  # no rotation: page y up = screen y down
     r = m.measure((0, 0), (100 * MM, 0), M0)
     assert (
         abs(r.length_mm - 100) < 1e-6 and abs(r.dx_mm - 100) < 1e-6 and abs(r.dy_mm) < 1e-6 and abs(r.angle_deg) < 1e-6
@@ -37,11 +37,9 @@ def test_measure_lengths_and_axes():
         and abs(r.dy_mm - 40) < 1e-6
         and abs(r.angle_deg - math.degrees(math.atan2(40, 30))) < 1e-6
     )
-    M90 = (0.0, zoom, zoom, 0.0)  # Ansicht 90° gedreht: Seiten-x zeigt nach unten
+    M90 = (0.0, zoom, zoom, 0.0)  # view rotated by 90°: page x points down
     r = m.measure((0, 0), (100 * MM, 0), M90)
-    assert (
-        abs(r.length_mm - 100) < 1e-6 and abs(r.dx_mm) < 1e-6 and abs(r.dy_mm + 100) < 1e-6
-    )  # am Bildschirm senkrecht
+    assert abs(r.length_mm - 100) < 1e-6 and abs(r.dx_mm) < 1e-6 and abs(r.dy_mm + 100) < 1e-6  # vertical on screen
 
 
 def test_ruler_steps():

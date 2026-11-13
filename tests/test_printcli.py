@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Drucken ohne Oberfläche: Optionen über Rollen/Namen auflösen, Ablauf-Schritt "print" mit einem
-nachgebauten Drucker (kein CUPS nötig) – was beim Drucker ankommt, wird geprüft."""
+"""Printing without the interface: resolve options via roles/names, workflow step "print" with an
+imitated printer (no CUPS needed) – what arrives at the printer is checked.
+"""
 
 import io
 import json
@@ -57,7 +58,7 @@ def fake_caps(name="Canon"):
 
 
 class FakePrinter:
-    """printers.* ersetzen: ein Drucker "Canon", Aufträge werden nur mitgeschrieben."""
+    """Replace printers.*: one printer "Canon", jobs are only recorded."""
 
     def __enter__(self):
         self.sent = []
@@ -99,18 +100,18 @@ def test_match_choice():
     assert caps.roles["staple"] == "StapleLocation" and caps.roles["punch"] == "CNPunch"
     m = printcli.match_choice
     assert m(caps.options["PageSize"], "A3") == "A3"
-    assert m(caps.options["PageSize"], "sra3 320x450mm") == "SRA3"  # Anzeigename
+    assert m(caps.options["PageSize"], "sra3 320x450mm") == "SRA3"  # display name
     assert m(caps.options["InputSlot"], "Fach 2") == "Cas2"
     assert m(caps.options["Duplex"], "long", "duplex") == "DuplexNoTumble"
     assert m(caps.options["Duplex"], "short", "duplex") == "DuplexTumble"
     assert m(caps.options["Duplex"], "none", "duplex") == "None"
     assert m(caps.options["ColorModel"], "gray", "color") == "Gray"
-    assert m(caps.options["StapleLocation"], "links oben") == "TopLeft"  # eindeutiger Teil
+    assert m(caps.options["StapleLocation"], "links oben") == "TopLeft"  # unambiguous part
     try:
         m(caps.options["InputSlot"], "Fach 9")
         assert False
     except ValueError as e:
-        assert "Cas1" in str(e)  # Auswahl wird genannt
+        assert "Cas1" in str(e)  # the selection is named
 
 
 def test_resolve_problems():
@@ -151,7 +152,7 @@ def test_print_and_dry_run():
         o = job["opts"]
         assert o["PageSize"] == "A3" and o["Duplex"] == "DuplexTumble" and o["ColorModel"] == "Gray"
         assert o["copies"] == "3" and o["collate"] == "false" and o["StapleLocation"] == "TopLeft"
-        assert job["pages"] == 2  # 3 Seiten, 2 pro Blatt
+        assert job["pages"] == 2  # 3 pages, 2 per sheet
         w, h = job["size"]
         assert abs(w / MM - 297) < 1 and abs(h / MM - 420) < 1
         try:
@@ -181,14 +182,14 @@ def test_workflow_print_step():
         ],
     }
     with FakePrinter() as fp:
-        plan = workflow.prepare(wf, TMP)  # keine Ausgabe nötig: es wird nur gedruckt
+        plan = workflow.prepare(wf, TMP)  # no output needed: it is only printed
         assert plan.output == "" and plan.steps[0].job == "print"
         r = workflow.run(plan)
         assert r["output"] is None and r["steps"][0]["info"]["job_id"] == 4711
         o = fp.sent[0]["opts"]
         assert o["InputSlot"] == "Cas2" and o["Duplex"] == "DuplexTumble"
-        assert fp.sent[0]["pages"] == 4  # 8 Seiten A5 als Broschüre -> 4 Seiten A4
-        # Drucken mitten im Ablauf: danach geht es mit demselben PDF weiter, Ergebnis wird gespeichert
+        assert fp.sent[0]["pages"] == 4  # 8 pages A5 as a booklet -> 4 pages A4
+        # printing in the middle of a workflow: afterwards it continues with the same PDF, the result is saved
         out = os.path.join(TMP, "danach.pdf")
         wf2 = dict(
             wf,
@@ -200,7 +201,7 @@ def test_workflow_print_step():
         )
         r = workflow.run(workflow.prepare(wf2, TMP))
         assert os.path.isfile(out) and r["pages"] == 4 and len(fp.sent) == 2
-    # Fehler im Ablauf werden schon beim Prüfen gemeldet
+    # errors in the workflow are already reported when checking
     bad = dict(wf, steps=[{"job": "print", "preset": "x", "settings": {"papier": "A4", "layout": {"nupp": 2}}}])
     try:
         workflow.prepare(bad, TMP)
@@ -209,7 +210,7 @@ def test_workflow_print_step():
         where = {w for w, _ in e.problems}
         assert {"steps[0].preset", "steps[0].settings.papier", "steps[0].settings.layout.nupp"} <= where, where
     try:
-        workflow.prepare(dict(wf, steps=[{"job": "shrink"}]), TMP)  # ohne Druck: Ausgabe Pflicht
+        workflow.prepare(dict(wf, steps=[{"job": "shrink"}]), TMP)  # without printing: output required
         assert False
     except workflow.WorkflowError as e:
         assert any(w == "output" for w, _ in e.problems)
@@ -228,13 +229,13 @@ def test_finisher_presets_and_availability():
     s = printcli.PrintSettings(finisher_preset="Broschüre geheftet", duplex="short")
     vals, probs = printcli.resolve(caps, caps.defaults(), s, presets)
     assert not probs and vals["StapleLocation"] == "DualLeft" and vals["__devmode__"] == "QUJD"
-    assert vals["Duplex"] == "DuplexTumble"  # einzelne Angaben zusätzlich
+    assert vals["Duplex"] == "DuplexTumble"  # individual entries in addition
     s2 = printcli.PrintSettings(finisher_preset="Broschüre geheftet", finishing={"staple": "TopLeft"})
     vals, _ = printcli.resolve(caps, caps.defaults(), s2, presets)
-    assert vals["StapleLocation"] == "TopLeft"  # einzelne Angabe schlägt Vorlage
+    assert vals["StapleLocation"] == "TopLeft"  # an individual entry beats the preset
     _, probs = printcli.resolve(caps, caps.defaults(), printcli.PrintSettings(finisher_preset="gibts"), presets)
     assert probs and "Broschüre geheftet" in probs[0][1]
-    # nicht installierter Finisher laut Treiber (PPD-Einschränkung): wird abgelehnt
+    # finisher not installed according to the driver (PPD constraint): rejected
     caps._ppd = object()
     caps.conflicts = lambda values: ["CNPunch"] if values.get("CNPunch") == "4Holes" else []
     _, probs = printcli.resolve(caps, caps.defaults(), printcli.PrintSettings(finishing={"punch": "4-fach"}))
@@ -262,7 +263,7 @@ def test_print_with_preset_and_caps_info():
             info = printcli.print_pdf(src, printcli.PrintSettings(finisher_preset="Heft", paper="A4"))
             o = fp.sent[0]["opts"]
             assert o["StapleLocation"] == "DualLeft" and o["InputSlot"] == "Cas2" and info["finisher_preset"] == "Heft"
-            assert fp.sent[0]["pages"] == 4  # Vorlage "booklet" -> Broschüre
+            assert fp.sent[0]["pages"] == 4  # preset "booklet" -> booklet
             d = printcli.caps_info("Canon")
             assert d["finisher_presets"][0]["name"] == "Heft" and d["roles"]["staple"] == "StapleLocation"
             st = next(x for x in d["options"] if x["keyword"] == "StapleLocation")
@@ -273,12 +274,12 @@ def test_print_with_preset_and_caps_info():
 
 
 def test_paper_auto():
-    """ "paper": "auto": Papier nach der PDF – Größe = Seite, Broschüre = zwei Seiten nebeneinander (1.15)."""
+    """ "paper": "auto": paper from the PDF – size = page, booklet = two pages side by side."""
     with FakePrinter() as fp:
         info = printcli.print_pdf(doc(2, (297, 420)), printcli.PrintSettings(paper="auto", layout={"handling": "size"}))
         assert info["paper"] == "A3" and fp.sent[-1]["opts"]["PageSize"] == "A3" and not info["notes"], info
         info = printcli.print_pdf(doc(2, (420, 297)), printcli.PrintSettings(paper="AUTO", layout={"handling": "size"}))
-        assert info["paper"] == "A3"  # quer geht auch
+        assert info["paper"] == "A3"  # landscape works too
         info = printcli.print_pdf(
             doc(8, (148, 210)), printcli.PrintSettings(paper="auto", layout={"handling": "booklet"})
         )
@@ -296,7 +297,7 @@ def test_paper_auto():
                 assert False, lay
             except ValueError as e:
                 assert want in str(e), e
-        # gemischte Formate: erste Seite zählt, Hinweis landet im Ablauf-Ergebnis
+        # mixed sizes: the first page counts, the note ends up in the workflow result
         from reportlab.pdfgen import canvas
 
         p = os.path.join(TMP, "gemischt.pdf")
@@ -320,8 +321,9 @@ def test_paper_auto():
 
 
 def test_step2_printed_like_saved():
-    """Mehrfachnutzen mit Schritt 2 direkt drucken: beim Drucker kommen die Schritt-2-Bögen an, Papier =
-    Zielformat (früher nur die Schritt-1-Bögen auf dem Montageblatt) – 1.16."""
+    """Print step and repeat with step 2 directly: the step 2 sheets arrive at the printer, paper =
+    target size (not just the step 1 sheets on the imposition sheet).
+    """
     src = doc(1, (85, 55))
     lay = {
         "step_repeat": True,
@@ -337,7 +339,7 @@ def test_step2_printed_like_saved():
 
     seen, orig = [], _L.impose_step2
 
-    def spy(src_doc, sheet, plans1, s, **kw):  # Schritt 1 muss aufs Montageblatt A4 gehen
+    def spy(src_doc, sheet, plans1, s, **kw):  # step 1 must go onto the imposition sheet A4
         seen.append((round(sheet.width / MM), round(sheet.height / MM), len(plans1[0].placements)))
         return orig(src_doc, sheet, plans1, s, **kw)
 
@@ -355,12 +357,12 @@ def test_step2_printed_like_saved():
         w, h = sent["size"]
         assert sorted((round(w / MM), round(h / MM))) == [297, 420], (w / MM, h / MM)
         assert info["sheet_mm"] in ([297.0, 420.0], [420.0, 297.0]) and sent["pages"] == 1
-        # Zielformat mit eigenen Maßen: passendes Format des Treibers (320 × 450 -> SRA3)
+        # target size with custom measures: matching size of the driver (320 × 450 -> SRA3)
         info = printcli.print_pdf(
             src, printcli.PrintSettings(paper="A4", layout=dict(lay, sr2_format="custom", sr2_w_mm=320, sr2_h_mm=450))
         )
         assert fp.sent[-1]["opts"]["PageSize"] == "SRA3"
-        try:  # gibt es beim Drucker nicht -> klare Meldung
+        try:  # does not exist on the printer -> clear message
             printcli.print_pdf(
                 src,
                 printcli.PrintSettings(paper="A4", layout=dict(lay, sr2_format="custom", sr2_w_mm=500, sr2_h_mm=700)),
@@ -368,7 +370,7 @@ def test_step2_printed_like_saved():
             assert False
         except ValueError as e:
             assert "Schritt 2" in str(e) and "500 × 700" in str(e), e
-    # gedruckt == gespeichert: dieselben Bögen wie „Als PDF speichern“
+    # printed == saved: the same sheets as "Als PDF speichern"
     import pypdfium2 as pdfium
     from pdfdruck import layout, printjob
     from pdfdruck.session import Session
@@ -389,7 +391,7 @@ def test_step2_printed_like_saved():
 
 
 def test_cli_run_print_only():
-    """passermark-cli run mit nur einem Druckschritt (keine Ausgabedatei): Meldung statt Absturz (1.14.2)."""
+    """passermark-cli run with only a print step (no output file): a message instead of a crash."""
     import contextlib
     from pdfdruck import cli
 

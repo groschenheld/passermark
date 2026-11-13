@@ -133,7 +133,7 @@ def _pages_str(pages) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Fakten
+# facts
 # --------------------------------------------------------------------------- #
 def facts(data: bytes, target: Target | None = None, tac: bool = True, tac_pages: int = 12, cancel=None) -> Facts:
     """What the document contains (pikepdf, may run in the background; Ghostscript only for the ink coverage)."""
@@ -358,7 +358,7 @@ def source_profile_for(oi: str, cfg: dict | None = None) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Befunde
+# findings
 # --------------------------------------------------------------------------- #
 def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
     """Findings with a recommendation – worst first."""

@@ -18,8 +18,9 @@ from . import theme
 
 
 class CollapsibleSection(QWidget):
-    """Einklappbare Gruppe: die Titelzeile bleibt immer sichtbar, der Inhalt nur bei Bedarf.
-    Einheitlicher Abschnitts-Stil (fett, Akzentfarbe) – Druckdialog und VDP-Dialog."""
+    """Collapsible group: the title row always stays visible, the content only when needed.
+    Uniform section style (bold, accent colour) – print dialog and VDP dialog.
+    """
 
     def __init__(self, title: str, parent=None, expanded: bool = False):
         super().__init__(parent)
@@ -45,18 +46,19 @@ class CollapsibleSection(QWidget):
         self.btn.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
 
 
-# Render-Limit: Riesen-/fehlerhafte Seiten blockieren die Ansicht nicht mehr.
-# Höchstens 8192 px je Kante bzw. 40 Megapixel rendern, dann weich hochskalieren.
+# Render limit: huge/faulty pages no longer block the view.
+# Render at most 8192 px per edge or 40 megapixels, then scale up smoothly.
 MAX_RENDER_EDGE = 8192
 MAX_RENDER_PIXELS = 40_000_000
 
 
 def render_pixmap(page, scale: float, rotation: int = 0, dpr: float = 1.0) -> QPixmap:
-    """Rendert eine pdfium-Seite als QPixmap (BGRX -> QImage.Format.Format_RGB32).
+    """Render a pdfium page as a QPixmap (BGRX -> QImage.Format.Format_RGB32).
 
-    Größenlimit: Seiten, die im Zoom gigapiselig würden (oder kaputte Massangaben
-    haben), werden höchstens 8192 px je Kante bzw. 40 Megapixel gerendert und
-    anschließend weich auf die Zielgröße hochskaliert – das Zoomen bleibt flüssig."""
+    Size limit: pages that would become gigapixel-sized when zoomed (or have broken
+    measures) are rendered at most 8192 px per edge or 40 megapixels and
+    then scaled up smoothly to the target size – zooming stays fluid.
+    """
     rot = rotation % 360
     w, h = page.get_size()
     if rot % 180:
@@ -72,7 +74,7 @@ def render_pixmap(page, scale: float, rotation: int = 0, dpr: float = 1.0) -> QP
     fmt = QImage.Format.Format_RGB32 if bmp.n_channels == 4 else QImage.Format.Format_BGR888
     img = QImage(bytes(bmp.buffer), bmp.width, bmp.height, bmp.stride, fmt).copy()
     bmp.close()
-    if lim < 1.0:  # Renderlimit erreicht: weich hochskalieren
+    if lim < 1.0:  # render limit reached: scale up smoothly
         img = img.scaled(
             max(1, round(w * sc)),
             max(1, round(h * sc)),
@@ -117,11 +119,11 @@ def fit_width(root):
 
     for sp in root.findChildren(QAbstractSpinBox):
         # apply the value only on Enter/field change/arrow keys – not after every typed digit
-        # (sonst entstehen beim Tippen kurz Zwischenwerte wie „1 mm“ -> zehntausende Nutzen)
+        # (otherwise intermediate values such as "1 mm" appear briefly while typing -> tens of thousands of copies)
         sp.setKeyboardTracking(False)
     for sa in root.findChildren(QAbstractScrollArea):
         if sa.metaObject().className() == "QScrollArea":
-            # nichts abschneiden: wird das Fenster schmaler als der Inhalt, gibt es eine waagrechte Leiste
+            # cut nothing off: if the window gets narrower than the content there is a horizontal scroll bar
             sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
 
@@ -131,8 +133,9 @@ def guard_wheel(root):
 
 
 def window_modal_dialogs():
-    """QDialog.exec() sperrt sonst das ganze Programm (alle Fenster). Mit Elternfenster nur noch dieses Fenster –
-    in anderen Passermark-Fenstern kann man weiterarbeiten (Druckdialog offen lassen, anderes Dokument ansehen)."""
+    """QDialog.exec() otherwise blocks the whole program (all windows). With a parent window only that window –
+    work can continue in other Passermark windows (leave the print dialog open, look at another document).
+    """
     from PySide6.QtCore import Qt as _Qt
     from PySide6.QtWidgets import QDialog
 
@@ -146,13 +149,13 @@ def window_modal_dialogs():
                 self.setWindowModality(_Qt.WindowModality.WindowModal)
         except Exception:
             pass
-        try:  # eigene Fenster: Knopfreihen umbrechen, Formulare umbrechen
+        try:  # own windows: wrap rows of buttons, wrap forms
             if type(self).__module__.startswith("pdfdruck") and not getattr(self, "_pm_responsive", False):
                 self._pm_responsive = True
                 responsive(self)
                 scr = (self.parentWidget() or self).screen().availableGeometry()
                 if self.minimumSizeHint().height() > scr.height() - 60:
-                    scroll_body(self)  # höher als der Bildschirm: Inhalt scrollt, Knöpfe bleiben
+                    scroll_body(self)  # taller than the screen: the content scrolls, the buttons stay
         except Exception:
             pass
         try:  # never larger than the screen (small notebooks)
@@ -169,8 +172,9 @@ def window_modal_dialogs():
 
 
 def split_panels(root, left, right, right_width: int = 420):
-    """Vorschau links, Einstellungen rechts – mit verschiebbarem Teiler; rechts scrollbar (senkrecht und waagrecht),
-    damit bei kleinem Fenster nichts abgeschnitten wird. left/right: Layout oder Widget."""
+    """Preview on the left, settings on the right – with a movable splitter; scrollable on the right (vertically
+    and horizontally) so that nothing is cut off in a small window. left/right: layout or widget.
+    """
     from PySide6.QtWidgets import QFrame, QLayout, QScrollArea, QSplitter, QWidget
 
     def as_widget(x):
@@ -209,15 +213,16 @@ def no_enter_default(dialog):
 
 
 # --------------------------------------------------------------------------- #
-# Responsive (1.18.14): Knopfreihen brechen um, statt das Fenster/Panel breiter zu machen
+# responsive: rows of buttons wrap instead of widening the window/panel
 # --------------------------------------------------------------------------- #
 from PySide6.QtCore import QPoint, QRect, QSize  # noqa: E402
 from PySide6.QtWidgets import QLayout  # noqa: E402
 
 
 class FlowLayout(QLayout):
-    """Reihe, die bei wenig Platz in die nächste Zeile umbricht (wie Text). Kennt heightForWidth, damit
-    Scrollbereiche und Docks die richtige Höhe bekommen."""
+    """Row that wraps to the next line when space is short (like text). Knows heightForWidth so that
+    scroll areas and docks get the right height.
+    """
 
     def __init__(self, parent=None, hspacing: int = 6, vspacing: int = 6):
         super().__init__(parent)
@@ -295,7 +300,7 @@ class FlowLayout(QLayout):
 
 
 def flow_buttons(root, minimum: int = 3):
-    """Waagrechte Reihen, die nur aus Knöpfen bestehen (ab `minimum`), in FlowLayouts umbauen."""
+    """Convert horizontal rows that consist only of buttons (from `minimum`) into FlowLayouts."""
     from PySide6.QtWidgets import QAbstractButton, QBoxLayout, QHBoxLayout
 
     for lay in list(root.findChildren(QHBoxLayout)):
@@ -330,8 +335,9 @@ def flow_buttons(root, minimum: int = 3):
 
 
 def responsive(root):
-    """Alles, was ein Fenster oder Panel schmal werden lässt: Formulare umbrechen, Auswahllisten und lange Texte
-    dürfen schmaler werden, Knopfreihen brechen um."""
+    """Everything that lets a window or panel become narrow: wrap forms, combo boxes and long texts
+    may get narrower, rows of buttons wrap.
+    """
     from PySide6.QtWidgets import QLabel, QSizePolicy
 
     fit_width(root)
@@ -343,15 +349,16 @@ def responsive(root):
 
 
 def scroll_body(dlg) -> bool:
-    """Inhalt eines Fensters in einen Scrollbereich legen, die Knopfleiste unten (OK/Abbrechen) bleibt stehen.
-    Für Fenster, die auf kleinen Bildschirmen höher als der Platz sind. -> umgebaut?"""
+    """Put the content of a window into a scroll area; the button bar at the bottom (OK/Cancel) stays.
+    For windows that are taller than the available space on small screens. -> rebuilt?
+    """
     from PySide6.QtWidgets import QBoxLayout, QDialogButtonBox, QFrame, QScrollArea, QVBoxLayout, QWidget
 
     top = dlg.layout()
     if not isinstance(top, QBoxLayout) or top.count() == 0:
         return False
     if any(isinstance(top.itemAt(i).widget(), QScrollArea) for i in range(top.count())):
-        return False  # hat schon einen
+        return False  # already has one
     last = top.itemAt(top.count() - 1).widget()
     n = top.count() - (1 if isinstance(last, QDialogButtonBox) else 0)
     inner = QWidget()

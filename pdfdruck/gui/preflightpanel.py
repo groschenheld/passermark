@@ -65,6 +65,8 @@ KIND_TEXT = {
 
 
 class _Worker(QThread):
+    """Runs a function in a background thread and reports result or error."""
+
     done = Signal(object, str)
 
     def __init__(self, fn, *args):
@@ -81,17 +83,17 @@ class _Worker(QThread):
 class PreflightPanel(QWidget):
     """Show the check result and repair. Signals: open result, jump to page, recheck."""
 
-    result_ready = Signal(bytes, str, list)  # PDF-Bytes, Namenszusatz, Hinweise
+    result_ready = Signal(bytes, str, list)  # PDF bytes, name suffix, notes
     goto_page = Signal(int)
-    goto_spot = Signal(int, object)  # Seite (1-basiert), Bereich (x0, y0, x1, y1) pt oder None
-    job_requested = Signal(str, object, str, str)  # Art, Einstellungen, Namenszusatz, Titel (eigener Prozess)
+    goto_spot = Signal(int, object)  # page (1-based), area (x0, y0, x1, y1) pt or None
+    job_requested = Signal(str, object, str, str)  # kind, settings, name suffix, title (own process)
     recheck = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rep: preflight.Report | None = None
-        self.data_fn = None  # liefert die aktuellen Dokument-Bytes
-        self.file_fn = None  # Datei wie auf der Platte (Größe/Verkleinern), sonst data_fn
+        self.data_fn = None  # returns the current document bytes
+        self.file_fn = None  # file as on disk (size/shrink), otherwise data_fn
         self._job_data = None
         self.font_map: dict[str, str] = {}
         self._worker = None
@@ -111,7 +113,7 @@ class PreflightPanel(QWidget):
 
         self.tabs = QTabWidget()
         v.addWidget(self.tabs, 1)
-        # Befunde
+        # findings
         w = QWidget()
         lv = QVBoxLayout(w)
         self.tree = QTreeWidget()
@@ -154,7 +156,7 @@ class PreflightPanel(QWidget):
         self.btn_hdr.hide()
         lv.addWidget(self.btn_hdr)
         self.tabs.addTab(w, tr("Befunde"))
-        # Schriften
+        # fonts
         w = QWidget()
         lv = QVBoxLayout(w)
         self.tbl_fonts = QTableWidget(0, 4)
@@ -185,7 +187,7 @@ class PreflightPanel(QWidget):
         row.addWidget(b2)
         lv.addLayout(row)
         self.tabs.addTab(w, tr("Schriften"))
-        # Ebenen
+        # layers
         w = QWidget()
         lv = QVBoxLayout(w)
         self.tbl_layers = QTableWidget(0, 4)
@@ -210,7 +212,7 @@ class PreflightPanel(QWidget):
         for b in (b1, b2, b3):
             lv.addWidget(b)
         self.tabs.addTab(w, tr("Ebenen"))
-        # Transparenz
+        # transparency
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lbl_trans = QLabel()
@@ -233,7 +235,7 @@ class PreflightPanel(QWidget):
         b.clicked.connect(self._flatten_softmask)
         lv.addWidget(b)
         self.tabs.addTab(w, tr("Transparenz"))
-        # Bilder & Farben
+        # images & colours
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lbl_colors = QLabel()
@@ -268,8 +270,8 @@ class PreflightPanel(QWidget):
             lambda r, _c: self.goto_page.emit(int(self.tbl_images.item(r, 0).data(Qt.ItemDataRole.UserRole) or 1))
         )
         lv.addWidget(self.tbl_images, 1)
-        self.tabs.addTab(w, tr("Bilder & Farben").replace("&", "&&"))  # & sonst Tastenkürzel
-        # Dateigröße
+        self.tabs.addTab(w, tr("Bilder & Farben").replace("&", "&&"))  # & would otherwise be a keyboard shortcut
+        # file size
         w = QWidget()
         lv = QVBoxLayout(w)
         self.lbl_size = QLabel()
@@ -285,12 +287,15 @@ class PreflightPanel(QWidget):
 
     # ------------------------------------------------------------------ #
     def set_busy(self, text=None):
+        """Show that the check is running."""
         self.lbl_sum.setText(text or tr("Prüfe …"))
 
     def set_error(self, msg):
+        """Show that the check failed."""
         self.lbl_sum.setText("⚠ " + msg.splitlines()[0])
 
     def set_report(self, rep: preflight.Report):
+        """Show the findings of a finished check."""
         self.rep = rep
         c = rep.counts()
         if not rep.issues:
@@ -312,7 +317,7 @@ class PreflightPanel(QWidget):
             )
             it.setForeground(0, QBrush(QColor(col[i.severity])))
             it.setData(0, Qt.ItemDataRole.UserRole, spots)
-            it.setData(1, Qt.ItemDataRole.UserRole, 0)  # aktuelle Fundstelle (für ◀ ▶)
+            it.setData(1, Qt.ItemDataRole.UserRole, 0)  # current location (for ◀ ▶)
             it.setToolTip(1, i.message)
             self.tree.addTopLevelItem(it)
             if len(spots) > 1 or (spots and (spots[0].box is not None or spots[0].label)):
@@ -324,7 +329,7 @@ class PreflightPanel(QWidget):
                     it.addChild(ch)
         self.tree.resizeColumnToContents(0)
         self.btn_hdr.setVisible(bool(getattr(rep, "hdr", None)))
-        # Schriften
+        # fonts
         st = {
             "ok": tr("eingebettet"),
             "std14": tr("Standard, nicht eingebettet"),
@@ -354,7 +359,7 @@ class PreflightPanel(QWidget):
                     self.font_map[f.name] = f.suggestion
             else:
                 self.tbl_fonts.setItem(r, 3, QTableWidgetItem("–"))
-        # Ebenen
+        # layers
         self.tbl_layers.setRowCount(0)
         for L in rep.layers:
             r = self.tbl_layers.rowCount()
@@ -379,7 +384,7 @@ class PreflightPanel(QWidget):
             self.tbl_layers.setItem(r, 3, QTableWidgetItem(", ".join(note)))
         if not rep.layers:
             self.tbl_layers.setRowCount(0)
-        # Transparenz
+        # transparency
         if rep.transparency:
             lines = []
             for p, kinds in sorted(rep.transparency.items())[:60]:
@@ -396,7 +401,7 @@ class PreflightPanel(QWidget):
             self.lbl_size.setText("")
 
     def shrink(self):
-        """Dialog mit Aufschlüsselung und Häkchen; läuft als eigener Prozess (große Dateien)."""
+        """Dialog with breakdown and switches; runs as its own process (large files)."""
         from .shrinkdialog import ShrinkDialog
 
         fn = self.file_fn or self.data_fn
@@ -415,11 +420,11 @@ class PreflightPanel(QWidget):
             self._job_data = None
 
     def take_job_data(self):
-        """Für den Auftrag: genau die Bytes, die der Dialog analysiert hat."""
+        """For the job: exactly the bytes that the dialog analysed."""
         return self._job_data
 
     def _fill_colors(self, rep):
-        """Reiter „Bilder & Farben“: Farbräume je Seite, Ausgabeprofil, Seitenlimits und Bildtabelle."""
+        """Tab "Bilder & Farben": colour spaces per page, output profile, page limits and image table."""
         from .. import imagecheck as ic
 
         cr = getattr(rep, "colors", None)
@@ -490,12 +495,12 @@ class PreflightPanel(QWidget):
 
     # ------------------------------------------------------------------ #
     def _issue_clicked(self, it, _col):
-        """Befund: zur (aktuellen) Fundstelle springen; Fundstelle (Unterpunkt): genau dorthin."""
+        """Finding: jump to the (current) location; location (sub-item): exactly there."""
         spots = it.data(0, Qt.ItemDataRole.UserRole) or []
         if not spots:
             return
         parent = it.parent()
-        if parent is not None:  # Unterpunkt: als aktuelle Fundstelle des Befunds merken
+        if parent is not None:  # sub-item: remember as the current location of the finding
             parent.setData(1, Qt.ItemDataRole.UserRole, int(it.data(1, Qt.ItemDataRole.UserRole) or 0))
             self._go(spots[0])
         else:
@@ -554,7 +559,7 @@ class PreflightPanel(QWidget):
         self._run(lambda d: preflight.set_layer_states(d, st), tr("_Ebenen"), [tr("Ebenen-Zustand übernommen.")])
 
     def _ask_basis(self, states) -> str | None:
-        """Unterscheiden sich Ansicht und Druck, fragen, welcher Zustand festgeschrieben wird."""
+        """If view and print differ, ask which state is made permanent."""
         diff = [
             self.tbl_layers.item(r, 0).text()
             for r in range(self.tbl_layers.rowCount())
@@ -772,7 +777,7 @@ class PreflightPanel(QWidget):
         )
 
     def _flatten_softmask(self):
-        """Läuft als eigener Prozess (pdfium rendert – nicht im Hintergrund-Thread der Oberfläche)."""
+        """Runs as its own process (pdfium renders – not in a background thread of the interface)."""
         from ..core import PreflightFixSettings
 
         self.job_requested.emit(

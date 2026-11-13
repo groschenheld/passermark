@@ -29,7 +29,7 @@ def test_detect():
     a = proof.adjustments(caps(), {"Brightness": "25", "Ink": "COLOR"})
     assert a["brightness"] == 1.0 and not a["gray"]
     assert proof.adjustments(caps(), {"Ink": "MONO"})["gray"]
-    assert not proof.adjustments(caps(), {})["labels"]  # alles Standard -> nichts simulieren
+    assert not proof.adjustments(caps(), {})["labels"]  # all default -> simulate nothing
 
 
 def test_apply():
@@ -60,7 +60,7 @@ def test_paper_white_stays_white():
         assert out.getpixel((0, 0)) == (255, 255, 255), (a, out.getpixel((0, 0)))
         assert out.getpixel((1, 0)) == (0, 0, 0), a
     assert proof.apply(img, {"brightness": -1.0}).getpixel((2, 0))[0] < 128  # midtones darker
-    assert proof.apply(img, {"contrast": -1.0}).getpixel((3, 0))[0] < 200  # weniger Kontrast
+    assert proof.apply(img, {"contrast": -1.0}).getpixel((3, 0))[0] < 200  # less contrast
 
 
 if __name__ == "__main__":

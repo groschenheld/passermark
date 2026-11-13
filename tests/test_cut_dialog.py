@@ -31,9 +31,9 @@ def run(shape, single=True):
 shapes = {sh: run(sh) for sh in ("contour", "rect", "heart")}
 assert len(ran) == 4 and ran[1:] == ["contour", "rect", "heart"], ran      # once on open + 3 shapes
 assert shapes["contour"] != shapes["rect"] != shapes["heart"], "Vorschau ändert sich nicht mit der Form"
-assert len(shapes["contour"]) == 3, len(shapes["contour"])                 # Kontur: je Aufkleber
+assert len(shapes["contour"]) == 3, len(shapes["contour"])                 # contour: per sticker
 assert len(shapes["rect"]) == 1 and len(shapes["heart"]) == 1, (len(shapes["rect"]), len(shapes["heart"]))
-assert len(run("rect", single=False)) == 3                                 # Option: eine Form je Objekt
+assert len(run("rect", single=False)) == 3                                 # option: one shape per object
 # handles: corner = uniform, side = width only, move handle = offset; fields get mm values
 run("rect")
 class P:
@@ -69,7 +69,7 @@ assert abs(sx - 2) < 1e-6 and abs(sy - 2) < 1e-6 and dx == 0 and dy == 0, (sx, s
 sx, sy, dx, dy = drag("sx1", 2, 1)
 assert abs(sx - 2) < 1e-6 and sy == 1.0, (sx, sy)
 sx, sy, dx, dy = drag("move", 30, -20)
-assert sx == sy == 1.0 and abs(dx - 30) < 1e-6 and abs(dy - 20) < 1e-6, (dx, dy)   # Bildschirm-y nach unten = Seite nach oben
+assert sx == sy == 1.0 and abs(dx - 30) < 1e-6 and abs(dy - 20) < 1e-6, (dx, dy)   # screen y down = page up
 # applied to the fields (mm)
 class Spin:
     def __init__(s, v=0.0): s.v = v
@@ -90,7 +90,7 @@ dlg._preview()
 bb = dlg.canvas.shape_box
 assert abs((bb[2] - bb[0]) / MM - 100) < 0.6 and abs((bb[3] - bb[1]) / MM - 40) < 0.6, bb
 run("contour")
-assert dlg.canvas.shape_box is None                                        # Kontur: keine Griffe
+assert dlg.canvas.shape_box is None                                        # contour: no handles
 dlg.done(0)
 print("CUT-DIALOG-OK")
 """

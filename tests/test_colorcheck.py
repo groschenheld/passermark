@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Farbe (1.17): eigene Materialien, Standardprofile, Farbprüfung mit Empfehlungen, Ausgabe für die Druckerei
-(Auftrag „press“) – ohne Qt. Ghostscript wird genutzt, wenn vorhanden; sonst die Wege ohne Umwandlung."""
+"""Colour: own materials, standard profiles, colour check with recommendations, output for the print shop
+(job "press") – without Qt. Ghostscript is used if present; otherwise the paths without conversion.
+"""
 
 import io
 import json
@@ -102,12 +103,12 @@ def test_user_materials_roundtrip_and_merge():
     allm = colorlab.all_materials(cfg)
     assert [(m["id"], m["scope"]) for m in allm] == [("admin1", "admin"), ("u_natur", "user"), ("u_x", "user")]
     assert colorlab.material_by_id(cfg, "u_natur")["name"] == "Natur 120 g"
-    # Profil als Pfad: Softproof-Auswahl, CMYK-Umwandlung
+    # profile as a path: soft proof selection, CMYK conversion
     assert colorlab.resolve_profile(cfg, f)["file"] == f and colorlab.resolve_profile(cfg, "/gibt/es/nicht") is None
     ch = [c for c in colorlab.proof_choices(cfg) if c["material"] == "u_natur"]
     assert ch and ch[0]["icc"] == f and ch[0]["white"] == [93, 0.5, 4] and "Eigenes Material" in ch[0]["label"]
     assert colorlab.cmyk_profile_of(cfg, got[0]) == f
-    # Druckdialog: nur Profile der Verwaltung -> eigenes Material mit Pfad erscheint dort nicht
+    # print dialog: only profiles of the administration -> an own material with a path does not appear there
     assert colorlab.profile_for(cfg, got[0], "epson") == f
     assert colorlab.all_materials(dict(cfg, _no_user_materials=True)) == [dict(cfg["materials"][0], scope="admin")]
     usercolor.save_materials([])
@@ -116,7 +117,7 @@ def test_user_materials_roundtrip_and_merge():
 def test_import_icc_and_profile_dirs():
     f = cmyk_profile()
     p = usercolor.import_icc(f)
-    assert os.path.dirname(p) == usercolor.icc_dir() and usercolor.import_icc(f) == p  # nicht doppelt
+    assert os.path.dirname(p) == usercolor.icc_dir() and usercolor.import_icc(f) == p  # not twice
     assert usercolor.icc_dir() in cmyk.system_profile_dirs()
     assert os.path.realpath(p) in {os.path.realpath(c.path) for c in cmyk.find_profiles(None)}
     try:
@@ -149,7 +150,7 @@ def test_standard_profiles_catalogue_and_download():
         os.path.basename(path) == "PSOcoated_v3.icc"
         and usercolor.standard_installed(usercolor.standard_by_key("PSOcoated_v3")) == path
     )
-    # nicht installierte Standards als Vorschlag (nach Oberfläche)
+    # standards that are not installed as a suggestion (by surface)
     cands = colorlab.standard_candidates()
     assert "PSOcoated_v3" not in {c["std"] for c in cands} and "PSOuncoated_v3_FOGRA52" in {c["std"] for c in cands}
     res = colorlab.suggest({"surface": "uncoated", "white": None}, cands, limit=3)
@@ -190,23 +191,23 @@ def test_facts_and_findings():
     assert {"rgb", "oi_missing", "spots", "cmyk_unknown"} <= set(keys), keys
     rgb = next(x for x in res if x.key == "rgb")
     assert rgb.action == "convert" and rgb.params["cmyk_mode"] == "rgb_only" and rgb.params["rgb_ask"]
-    assert rgb.spots[0].box == (50.0, 50.0, 150.0, 150.0)  # Fundstelle: das Bild
+    assert rgb.spots[0].box == (50.0, 50.0, 150.0, 150.0)  # location: the image
     assert next(x for x in res if x.key == "oi_missing").action == "embed_oi"
     if f.tac["max"] > t.limit:
         tac = next(x for x in res if x.key == "tac")
         assert tac.params["cmyk_mode"] == "all" and tac.params["source"] == t.icc
     assert colorcheck.SEV_ORDER[res[0].severity] <= colorcheck.SEV_ORDER[res[-1].severity]
     assert colorcheck.summary(f)[0][1] == "1"
-    # Datei für FOGRA52 angelegt, Ziel FOGRA39 -> neu separieren
+    # file created for FOGRA52, target FOGRA39 -> separate anew
     f2 = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.2, 0.2, 0.2, 0.2), oi="PSO Uncoated v3 (FOGRA52)"), t)
     res2 = colorcheck.check(f2, t, {})
     oo = next(x for x in res2 if x.key == "oi_other")
     assert oo.params["cmyk_mode"] == "all"
-    # passt alles -> „Bereit“
+    # everything fits -> "Bereit"
     f3 = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.2, 0.2, 0.2, 0.2), oi="Coated FOGRA39"), t)
     res3 = colorcheck.check(f3, t, {})
     assert {"oi_ok", "ready"} <= {x.key for x in res3} and not [x for x in res3 if x.severity in ("error", "warning")]
-    # keine Druckbedingung
+    # no printing condition
     assert colorcheck.check(f3, colorcheck.Target(), {})[0].key == "no_target"
 
 
@@ -216,7 +217,7 @@ def test_paper_findings():
     f = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.1, 0, 0, 0)), t)
     keys = {x.key for x in colorcheck.check(f, t, {})}
     assert {"paper_unmeasured", "surface"} <= keys
-    t.white = [88.0, 2.0, 12.0]  # gelbliches Papier
+    t.white = [88.0, 2.0, 12.0]  # yellowish paper
     res = colorcheck.check(f, t, {})
     assert next(x for x in res if x.key == "paper").action == "get_profiles"
 
@@ -246,7 +247,7 @@ def test_press_without_conversion_package():
         oi = pdf.Root.OutputIntents[0]
         assert str(oi.OutputConditionIdentifier) == t.name and oi.DestOutputProfile.N == 4
         im = pdf.pages[0].Resources.XObject.Im0
-        assert im.ColorSpace[0] == pikepdf.Name.ICCBased  # RGB als sRGB gekennzeichnet
+        assert im.ColorSpace[0] == pikepdf.Name.ICCBased  # RGB marked as sRGB
         assert "/DefaultRGB" in pdf.pages[0].Resources.ColorSpace
     with zipfile.ZipFile(r["package"]) as z:
         names = z.namelist()

@@ -47,13 +47,13 @@ ORDERS = {
 
 
 # --------------------------------------------------------------------------- #
-# Datenklassen
+# dataclasses
 # --------------------------------------------------------------------------- #
 @dataclass
 class Sheet:
     """A physical sheet: size in points and, if known, the printable area of the device."""
 
-    width: float  # physisch, Punkte
+    width: float  # physical, points
     height: float
     imageable: tuple[float, float, float, float] | None = None  # llx,lly,urx,ury
 
@@ -105,7 +105,7 @@ class LayoutSettings:
     booklet_blanks: str = "end"  # end | before_back (the back of the cover stays the last page)
     booklet_blank_text: str = ""  # note about added blank pages (blank = completely empty)
     booklet_fold_marks: bool = False
-    booklet_reg_marks: bool = False  # Passermarken
+    booklet_reg_marks: bool = False  # register marks
     booklet_collation_marks: bool = False  # collation marks on the spine (check the signature order)
     # poster / oversize
     poster_mode: str = "scale"  # scale | sheets | target
@@ -116,11 +116,11 @@ class LayoutSettings:
     poster_target_w_mm: float = 420.0
     poster_target_h_mm: float = 594.0
     poster_overlap_mm: float = 10.0
-    poster_marks: bool = True  # Schnitt-/Klebelinien
+    poster_marks: bool = True  # cut/glue lines
     poster_labels: bool = True  # label per tile
     poster_large_only: bool = False
-    # Weitere Optionen
-    mirror_h: bool = False  # horizontal spiegeln (Transferdruck)
+    # further options
+    mirror_h: bool = False  # mirror horizontally (transfer printing)
     mirror_v: bool = False
     step_repeat: bool = False  # one page several times per sheet (step and repeat)
     sr_mode: str = "auto"  # auto (as many as fit) | grid
@@ -143,7 +143,7 @@ class LayoutSettings:
     sr2_h_mm: float = 450.0  # target size, height in mm
     sr2_cols: int = 0  # step 2: grid (columns × rows); 0 × 0 = automatically as many as fit
     sr2_rows: int = 0
-    crop_marks: bool = False  # Schnittmarken
+    crop_marks: bool = False  # crop marks
     bleed_mm: float = 0.0  # bleed area/bleed by mirroring the edges
 
     @classmethod
@@ -230,7 +230,7 @@ class SheetPlan:
 
 
 # --------------------------------------------------------------------------- #
-# Seitenauswahl
+# page selection
 # --------------------------------------------------------------------------- #
 def parse_ranges(text: str, count: int) -> list[int]:
     """'1-3, 5, 8-' -> 0-based indexes. Raises ValueError for nonsense."""
@@ -271,7 +271,7 @@ def select_pages(
 
 
 # --------------------------------------------------------------------------- #
-# Geometrie
+# geometry
 # --------------------------------------------------------------------------- #
 def _logical(sheet: Sheet, landscape: bool):
     """Logical sheet size and printable area (x,y,w,h)."""
@@ -279,7 +279,7 @@ def _logical(sheet: Sheet, landscape: bool):
     l, b, r, t = sheet.imageable or (0.0, 0.0, W, H)
     if not landscape:
         return W, H, (l, b, r - l, t - b)
-    # physisch (X,Y) -> logisch (x,y) = (Y, W - X)
+    # physical (X,Y) -> logical (x,y) = (Y, W - X)
     return H, W, (b, W - r, t - b, r - l)
 
 
@@ -644,7 +644,7 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
     if not pages:
         return []
     pw0, ph0 = sizes[pages[0]]
-    land = ph0 >= pw0  # Hochformatseiten -> Querbogen, Falz senkrecht
+    land = ph0 >= pw0  # portrait pages -> landscape sheet, fold vertical
     LW, LH, area, printable = _area(sheet, land, s.use_margins)
     if s.booklet_fold_marks or s.booklet_reg_marks:
         # keep the margin free for the marks (fold marks 5 mm, registration marks at 4 mm) – only where missing
@@ -684,7 +684,7 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
             sp = SheetPlan(land, label=lab, duplex_short=(s.booklet_sides == "both"))
             for slot, idx in enumerate(faces[side]):
                 cx, cy, cw, ch = cells[slot]
-                if idx is None:  # Leerseite
+                if idx is None:  # blank page
                     if s.booklet_blank_text.strip():
                         sp.marks.append(
                             (
@@ -1355,7 +1355,7 @@ def _plan(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
 
 
 # --------------------------------------------------------------------------- #
-# Affine Matrizen (a b c d e f) – x' = a x + c y + e ; y' = b x + d y + f
+# affine matrices (a b c d e f) – x' = a x + c y + e ; y' = b x + d y + f
 # --------------------------------------------------------------------------- #
 def _mul(m1, m2):
     """Apply m1 first, then m2."""
@@ -1385,7 +1385,7 @@ def _rot90ccw(h0):
 
 
 def _log2phys(sheet: Sheet, landscape: bool):
-    # logisch (x,y) -> physisch (W - y, x)
+    # logical (x,y) -> physical (W - y, x)
     return (0, 1, -1, 0, sheet.width, 0) if landscape else (1, 0, 0, 1, 0, 0)
 
 
@@ -1400,7 +1400,7 @@ def placement_matrix(pl: Placement, src_size) -> tuple:
 
 
 # --------------------------------------------------------------------------- #
-# PDF erzeugen
+# create the PDF
 # --------------------------------------------------------------------------- #
 def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = None, borders: bool = False):
     """Create a new pypdfium2 document. `src` is a pdfium.PdfDocument."""

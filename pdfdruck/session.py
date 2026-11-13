@@ -22,8 +22,8 @@ class Session:
         self.cfg = cfg
         self.printer: str | None = cfg.get("default_printer") or None
         self.layout = LayoutSettings.from_dict(cfg.get("layout"))
-        self.values: dict[str, dict[str, str]] = {}  # drucker -> Optionen
-        self.color: dict[str, tuple[str, str]] = {}  # drucker -> (profil-id, intent)
+        self.values: dict[str, dict[str, str]] = {}  # printer -> options
+        self.color: dict[str, tuple[str, str]] = {}  # printer -> (profile id, intent)
         self.material: dict[str, str] = {}  # printer -> material id (print dialog)
         self.caps: dict[str, printers.PrinterCaps] = {}
         from .cmyk import ManipSettings
@@ -39,7 +39,7 @@ class Session:
         if reload or name not in self.caps:
             self.caps[name] = printers.pdf_caps() if name == printers.PDF_TARGET else printers.load_caps(name)
             try:
-                printers.apply_custom_sizes(self.caps[name])  # Sonderformate des Benutzers
+                printers.apply_custom_sizes(self.caps[name])  # the user's custom sizes
             except Exception:
                 pass
         return self.caps[name]
@@ -62,7 +62,7 @@ class Session:
                     vals[k] = v
             pc = self.cfg.get("printers", {}).get(name, {})
             if caps.backend == "win" and pc.get("devmode"):
-                vals["__devmode__"] = pc["devmode"]  # Herstellereinstellungen (Finisher …)
+                vals["__devmode__"] = pc["devmode"]  # vendor settings (finisher …)
             self.values[name] = vals
         return self.values[name]
 

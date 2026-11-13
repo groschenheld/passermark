@@ -61,6 +61,7 @@ DENSITY = re.compile(
 
 
 def materials_file() -> str:
+    """File that holds the user's print materials."""
     from .usercolor import user_dir
 
     return os.path.join(user_dir(), "print_materials.json")
@@ -90,6 +91,7 @@ def _clean(m: dict) -> dict | None:
 
 
 def new_id(name: str, existing) -> str:
+    """Derive an unused material id from the name."""
     base = "m_" + (re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:40] or "material")
     ids = {e.get("id") for e in existing or []}
     i, cand = 1, base
@@ -100,6 +102,7 @@ def new_id(name: str, existing) -> str:
 
 
 def load() -> list:
+    """All print materials of the user (an empty list if there are none or the file is unreadable)."""
     try:
         with open(materials_file(), encoding="utf-8") as f:
             d = json.load(f)
@@ -138,6 +141,7 @@ def save(mats: list) -> None:
 
 
 def for_printer(printer: str, category: str | None = None) -> list:
+    """Materials for ``printer`` (including those for all printers), optionally of one category only."""
     return [
         m
         for m in load()
@@ -158,6 +162,7 @@ def find(ref: str, printer: str = "") -> dict | None:
 
 
 def default_for(printer: str, category: str) -> str:
+    """Id of the default material of ``printer`` in ``category`` (empty if none is set)."""
     from . import l10n
 
     d = (l10n.load_settings().get(DEFAULTS_KEY) or {}).get(printer) or {}
@@ -166,6 +171,7 @@ def default_for(printer: str, category: str) -> str:
 
 
 def set_default(printer: str, category: str, mid: str) -> None:
+    """Store the default material of ``printer`` in ``category``."""
     from . import l10n
 
     st = l10n.load_settings()

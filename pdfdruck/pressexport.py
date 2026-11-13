@@ -35,9 +35,11 @@ RGB_CHOICES = ("ask", "convert", "keep")
 
 @dataclass
 class PressSettings:
+    """Settings of the job ``press``: output for a print shop (target profile, conversion, package)."""
+
     target: str = ""  # CMYK profile of the printing condition (.icc) – required
     intent: str = "relative"  # perceptual | relative | saturation | absolute
-    bpc: bool = True  # Tiefenkompensierung
+    bpc: bool = True  # black point compensation
     cmyk_mode: str = "auto"  # auto | rgb_only | all | none
     source: str = ""  # source profile for existing CMYK with "all" ("" = from the file's output intent)
     rgb: str = "ask"  # convert | keep | ask
@@ -177,6 +179,7 @@ def _md5(path: str) -> str:
 
 
 def report_text(src_name: str, t, s: PressSettings, p: dict, before, after, findings_after) -> str:
+    """Text report for the print shop: printing condition, what was converted, findings before and after."""
     from . import __version__, colorlab, config
 
     lines = [
@@ -326,7 +329,7 @@ def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=
         step(5, "")
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
-    skip = {"rgb"} if p["tag_rgb"] else set()  # RGB bewusst weitergegeben
+    skip = {"rgb"} if p["tag_rgb"] else set()  # RGB passed on deliberately
     notes = list(p["notes"]) + [x.title for x in findings if x.severity in ("error", "warning") and x.key not in skip]
     if pkg:
         notes.append(tr("Paket: {0}").format(pkg))

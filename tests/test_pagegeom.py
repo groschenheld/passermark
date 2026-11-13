@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Seite <-> Bildschirm ohne Seite zu laden (pagegeom) muss exakt wie pdfium rechnen – alle Kombinationen aus
-/Rotate, verschobener CropBox (∩ MediaBox), geerbten Werten und Ansichtsdrehung."""
+"""Page <-> screen without loading the page (pagegeom) must compute exactly like pdfium – all combinations of
+/Rotate, shifted CropBox (∩ MediaBox), inherited values and view rotation.
+"""
 
 import ctypes
 import io
@@ -32,7 +33,7 @@ def _pdf() -> bytes:
         if crop:
             p.CropBox = crop
     pdf.pages[-1].obj.TrimBox = [30, 40, 570, 800]
-    del pdf.pages[-1].obj["/MediaBox"]  # geerbt über /Parent
+    del pdf.pages[-1].obj["/MediaBox"]  # inherited via /Parent
     pdf.Root.Pages.MediaBox = [0, 0, 600, 850]
     buf = io.BytesIO()
     pdf.save(buf)

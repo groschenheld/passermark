@@ -35,7 +35,7 @@ from . import theme
 
 
 def install_help() -> str:
-    """Hinweis, wenn ArgyllCMS fehlt (Rich Text mit Link)."""
+    """Hint if ArgyllCMS is missing (rich text with a link)."""
     link = f'<a style="color:{theme.ACCENT}" href="https://www.argyllcms.com/">argyllcms.com</a>'
     if _platform.IS_WIN:
         how = tr(
@@ -61,12 +61,14 @@ def install_help() -> str:
 
 
 class MeasureDialog(QDialog):
+    """Dialog for determining the paper white of a material (device, file or by hand)."""
+
     def __init__(self, parent, material_name: str = "", start=None):
         super().__init__(parent)
         self.setWindowTitle(
             tr("Papierweiß bestimmen – {0}").format(material_name) if material_name else tr("Papierweiß bestimmen")
         )
-        self.values: list = []  # [(Lab, Herkunft)]
+        self.values: list = []  # [(Lab, origin)]
         self.source = ""
         self.proc = None
         self.buf = ""
@@ -83,7 +85,7 @@ class MeasureDialog(QDialog):
         intro.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(intro)
 
-        # Messgerät
+        # measuring device
         box = QGroupBox(tr("Messgerät (ArgyllCMS spotread)"))
         bv = QVBoxLayout(box)
         self.exe = colorlab.spotread()
@@ -145,7 +147,7 @@ class MeasureDialog(QDialog):
             w.setEnabled(bool(self.exe))
         v.addWidget(box)
 
-        # Datei / Hand
+        # file / by hand
         box = QGroupBox(tr("Ohne Gerät"))
         bh = QHBoxLayout(box)
         b = QPushButton(tr("Messdatei laden …"))
@@ -166,7 +168,7 @@ class MeasureDialog(QDialog):
         bh.addWidget(b)
         v.addWidget(box)
 
-        # Messwerte
+        # measurements
         self.lst = QListWidget()
         self.lst.setMaximumHeight(130)
         v.addWidget(self.lst)
@@ -188,9 +190,11 @@ class MeasureDialog(QDialog):
 
     # ---------------------------------------------------------------- #
     def result_lab(self):
+        """Mean of all measurements as Lab, or None."""
         return colorlab.mean_lab([lab for lab, _ in self.values])
 
     def result_source(self) -> str:
+        """Where the measurements came from, as short text."""
         srcs = sorted({s for _, s in self.values})
         return "; ".join(srcs)[:200]
 
@@ -250,7 +254,7 @@ class MeasureDialog(QDialog):
 
     # ---------------- spotread ---------------- #
     def _find(self):
-        """spotread -? listet die Anschlüsse – angeschlossene Messgeräte stehen mit Namen darin."""
+        """spotread -? lists the ports – connected measuring devices appear there by name."""
         if self.proc is not None or not self.exe:
             return
         p = QProcess(self)

@@ -92,7 +92,7 @@ def test_schema_and_settings_check():
         v = jsonschema.Draft202012Validator(sch)
         assert not list(v.iter_errors(GOOD))
         assert list(v.iter_errors(bad))
-        for job in workflow.step_jobs():  # Standardwerte passen zum eigenen Schema
+        for job in workflow.step_jobs():  # the defaults match their own schema
             cls = workflow.step_settings_class(job)
             d = core.settings_to_dict(cls())
             assert not list(
@@ -152,7 +152,7 @@ def test_check_reports_all_problems():
     } <= where, where
     p = write_wf("gut.json", GOOD)
     r = run("check", p, "--json")
-    assert r.returncode == 2 and "kunde" in r.stdout  # Variable fehlt
+    assert r.returncode == 2 and "kunde" in r.stdout  # variable missing
     r = run("check", p, "--var", "kunde=Muster", "--json")
     d = json.loads(r.stdout)
     assert r.returncode == 0 and d["ok"] and d["output"].endswith(os.path.join("out", "karten-Muster.pdf"))
@@ -179,7 +179,7 @@ def test_run_events_and_result():
     w, h = d.get_page_size(0)
     assert abs(w / MM - 320) < 1 and abs(h / MM - 450) < 1  # SRA3
     d.close()
-    # --in und Ausgabe relativ zum aktuellen Ordner (nicht zum Ordner des Ablaufs)
+    # --in and output relative to the current folder (not to the folder of the workflow)
     sub = os.path.join(TMP, "anderswo")
     os.makedirs(sub, exist_ok=True)
     import shutil
@@ -195,9 +195,9 @@ def test_run_events_and_result():
     )
     assert r.returncode == 0, r.stdout + r.stderr
     assert os.path.isfile(os.path.join(sub, "rel.pdf"))
-    r = run(p.replace(".json", "") + ".json", "x.pdf")  # Ablauf als Auftrag angegeben -> Hinweis
+    r = run(p.replace(".json", "") + ".json", "x.pdf")  # workflow given as a job -> note
     assert r.returncode == 2 and "passermark-cli run" in r.stderr
-    # Ausgabe als Argument, Eingabe überschrieben, Text-Ausgabe
+    # output as an argument, input overridden, text output
     out = os.path.join(TMP, "anders.pdf")
     r = run("run", p, out, "--in", cards(), "--var", "kunde=X")
     assert r.returncode == 0 and os.path.isfile(out) and out in r.stdout
@@ -284,8 +284,9 @@ def test_inspect_password():
 
 
 def test_workflow_folders_by_name():
-    """Abläufe in den Ablauf-Ordnern beim Namen aufrufen; eigene vor gemeinsamen (Admin) vor denen für alle;
-    alte Ordner „ablaeufe“ (bis 1.14) werden zu „workflows“ umbenannt."""
+    """Call workflows in the workflow folders by name; the user's own before shared (admin) before those for everyone;
+    old folders "ablaeufe" are renamed to "workflows".
+    """
     import shutil
 
     home, sysd = os.path.join(TMP, "cfg"), os.path.join(TMP, "etc")
@@ -320,9 +321,9 @@ def test_workflow_folders_by_name():
     r = cli("workflows", "--json")
     d = {w["name"].lower(): w for w in json.loads(r.stdout)}
     assert r.returncode == 0 and set(d) == {"karten", "team", "broschuere a4", "kaputt"}, r.stdout + r.stderr
-    assert d["karten"]["source"] == "user" and d["karten"]["description"] == "meins"  # eigener schlägt alle anderen
+    assert d["karten"]["source"] == "user" and d["karten"]["description"] == "meins"  # the user's own beats all others
     assert d["team"]["source"] == "shared"
-    assert os.path.isdir(user_dir) and not os.path.exists(old_user) and not os.path.exists(old_sys)  # umbenannt
+    assert os.path.isdir(user_dir) and not os.path.exists(old_user) and not os.path.exists(old_sys)  # renamed
     assert d["broschuere a4"]["jobs"] == ["impose"] and d["kaputt"]["error"]
     shutil.copy(cards(), os.path.join(TMP, "k.pdf"))
     r = cli("run", "Karten", "aus.pdf", "--in", "k.pdf", "--json")
@@ -345,7 +346,7 @@ def test_workflow_folders_by_name():
 
 
 def test_old_and_new_folder_both_read():
-    """„workflows“ schon von Hand angelegt UND noch ein alter „ablaeufe“: beide werden gelesen, der neue zuerst."""
+    """ "workflows" already created by hand AND still an old "ablaeufe": both are read, the new one first."""
     home, sysd = os.path.join(TMP, "cfg2"), os.path.join(TMP, "etc2")
     env = dict(ENV, XDG_CONFIG_HOME=home, PDFDRUCK_CONFIG_DIR=sysd)
     new, old = os.path.join(home, "passermark", "workflows"), os.path.join(home, "passermark", "ablaeufe")
@@ -365,7 +366,7 @@ def test_old_and_new_folder_both_read():
     )
     d = {w["name"]: w for w in json.loads(r.stdout)}
     assert d["Gleich"]["description"] == "neu" and d["Alt"]["description"] == "nur alt", d
-    assert os.path.isdir(old)  # nichts umbenannt oder überschrieben
+    assert os.path.isdir(old)  # nothing renamed or overwritten
 
 
 if __name__ == "__main__":

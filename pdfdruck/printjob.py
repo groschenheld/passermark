@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Passermark â Copyright (C) 2026 Hias
+# Passermark – Copyright (C) 2026 Hias
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
@@ -17,6 +17,7 @@ from .l10n import tr
 
 
 def make_plans(sizes, pages, sheet, settings: layout.LayoutSettings, reverse: bool = False, trims=None, bleeds=None):
+    """Plan the sheets for a print job; for booklets ``reverse`` reverses the order of the sheets."""
     plans = layout.plan(sizes, pages, sheet, settings, trims, bleeds)
     if settings.handling == "booklet" and reverse:  # for booklets, reverse the sheets
         step = 2 if settings.booklet_sides == "both" else 1
@@ -114,6 +115,7 @@ def step2_values(caps: printers.PrinterCaps, values: dict, settings: layout.Layo
 
 
 def default_printer(session) -> str | None:
+    """Printer to use when none is chosen: the session's, otherwise the configured or system default."""
     if session.printer:
         return session.printer
     try:

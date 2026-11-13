@@ -45,11 +45,13 @@ def display_matrix(info: dict, width: float, height: float, view_rotation: int =
 
 
 def to_device(m, x: float, y: float):
+    """Map a page point to device pixels with matrix ``m``."""
     a, b, c, d, e, f = m
     return a * x + c * y + e, b * x + d * y + f
 
 
 def to_page(m, dx: float, dy: float):
+    """Map device pixels back to a page point with matrix ``m``; None if the matrix cannot be inverted."""
     a, b, c, d, e, f = m
     det = a * d - b * c
     if abs(det) < 1e-12:

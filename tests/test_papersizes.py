@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Papierformate (1.15.1): Maße immer zuerst vom Drucker – PaperDimension, sonst der PostScript-Code der PPD,
-sonst Name/Anzeigetext, sonst die eine gemeinsame Tabelle. Fall aus der Praxis: Epson-PPD mit selbst
-eingetragenem SRA4 ohne *PaperDimension (früher: „Maße unbekannt – A4 angenommen“), Komma statt Punkt."""
+"""Paper sizes: measures always from the printer first – PaperDimension, otherwise the PostScript code of the PPD,
+otherwise name/display text, otherwise the one shared table. Real-world case: Epson PPD with a hand-entered
+SRA4 without *PaperDimension, comma instead of point.
+"""
 
 import os
 import re
@@ -46,7 +47,7 @@ PPD = r"""*PPD-Adobe: "4.3"
 
 
 class _FakePPD:
-    """So viel von pycups.PPD, wie _caps_from_ppd braucht – aus dem PPD-Text."""
+    """As much of pycups.PPD as _caps_from_ppd needs – from the PPD text."""
 
     def __init__(self, path):
         text = open(path, encoding="latin-1").read()
@@ -84,15 +85,15 @@ def mm(caps, v):
 def test_sources_and_sizes():
     caps = caps_from(PPD)
     assert mm(caps, "A4") == (210.0, 296.9) and caps.size_source["A4"] == "driver"
-    assert mm(caps, "SRA4") == (225.0, 320.0) and caps.size_source["SRA4"] == "code"  # der Praxisfall
+    assert mm(caps, "SRA4") == (225.0, 320.0) and caps.size_source["SRA4"] == "code"  # the real-world case
     assert mm(caps, "SRA3") == (320.0, 450.0) and caps.size_source["SRA3"] == "code"
     assert mm(caps, "8K") == (270.0, 390.0) and caps.size_source["8K"] == "text"
     assert mm(caps, "4X7") == (101.6, 180.6) and caps.size_source["4X7"] == "text"  # <2E> = "."
     assert mm(caps, "ISOB4") == (250.0, 353.0) and caps.size_source["ISOB4"] == "table"
     assert "RAETSEL" not in caps.page_sizes
-    # Komma statt Punkt: gemeint ist es trotzdem – Maße übernommen, Fehler gemeldet
+    # comma instead of point: it is still meant – measures taken over, error reported
     assert mm(caps, "KOMMA") == (224.6, 319.5) and caps.size_problems["KOMMA"]
-    # bedruckbarer Bereich: vom Treiber, randlos = ganzes Blatt, sonst die Ränder der anderen Formate
+    # printable area: from the driver, borderless = whole sheet, otherwise the margins of the other sizes
     assert caps.imageable["A4"] == (8.4, 8.4, 586.8, 833.28)
     assert caps.imageable["TA4"] == (0.0, 0.0, 595.2, 841.68)
     l, b, r, t = caps.imageable["SRA4"]
@@ -103,17 +104,17 @@ def test_dialog_notes():
     caps = caps_from(PPD)
     ps = "PageSize"
     assert printers.size_note(caps, {ps: "A4"}) == ""
-    assert printers.size_note(caps, {ps: "SRA4"}) == ""  # exakt aus der PPD – kein Grund zur Warnung
+    assert printers.size_note(caps, {ps: "SRA4"}) == ""  # exactly from the PPD – no reason for a warning
     n = printers.size_note(caps, {ps: "KOMMA"}, "Komma")
     assert "Komma statt Punkt" in n and '*PaperDimension KOMMA/KOMMA: "636.75 905.6"' in n, n
     n = printers.size_note(caps, {ps: "ISOB4"}, "B4 (ISO)")
     assert "eingebauten Formattabelle" in n and '*PaperDimension ISOB4/ISOB4: "708.66 1000.63"' in n, n
     n = printers.size_note(caps, {ps: "RAETSEL"}, "Irgendwas")
     assert "unbekannt – A4 angenommen" in n and "*PaperDimension RAETSEL/RAETSEL" in n, n
-    # „Als PDF speichern“ mit „Wie Dokument“: keine Warnung
+    # "Als PDF speichern" with "Wie Dokument": no warning
     pdf = printers.pdf_caps()
     assert printers.size_note(pdf, {ps: printers.PDF_DOC_SIZE}) == ""
-    assert printers.size_note(pdf, {ps: "SRA4"}) == ""  # neu in der Liste
+    assert printers.size_note(pdf, {ps: "SRA4"}) == ""  # new in the list
 
 
 def test_one_table_and_names():
@@ -137,7 +138,7 @@ def test_one_table_and_names():
     assert bl and round(w / MM) == 210
     w, h, bl = printers.std_size("Custom.85x55mm")
     assert (round(w / MM), round(h / MM), bl) == (85, 55, False)
-    assert printers.std_size("Custom.300x400")[:2] == (300.0, 400.0)  # CUPS ohne Einheit: pt
+    assert printers.std_size("Custom.300x400")[:2] == (300.0, 400.0)  # CUPS without a unit: pt
     assert papersizes.size_from_text("10 x 15 cm (4 x 6 in)") == (100 * MM, 150 * MM)
 
 

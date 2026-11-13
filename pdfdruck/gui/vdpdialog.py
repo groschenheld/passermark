@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-# Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
-# License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
-# Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+# License, version 3 or (at your option) any later version.
+# It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview
 of any record. The result is produced in the background (job "vdp") and opens as a tab."""
 
@@ -40,6 +40,7 @@ from .common import CollapsibleSection, fill_combo, fit_width, no_enter_default,
 
 
 def kind_text(k: str) -> str:
+    """Display name of a field kind."""
     return {"text": tr("Text"), "qr": tr("QR-Code"), "code128": "Code 128", "ean13": "EAN-13", "image": tr("Bild")}.get(
         k, k
     )
@@ -50,10 +51,10 @@ IMAGE_COLS = ("bild", "foto", "photo", "image", "img", "logo", "datei", "pfad", 
 
 
 class VdpCanvas(QWidget):
-    """Seitenvorschau mit Feldkästen; Klick wählt ein Feld, Ziehen verschiebt es."""
+    """Page preview with field boxes; a click selects a field, dragging moves it."""
 
     picked = Signal(int)
-    moved = Signal(int, float, float)  # Feld, x_mm, y_mm
+    moved = Signal(int, float, float)  # field, x_mm, y_mm
 
     def __init__(self):
         super().__init__()
@@ -62,9 +63,9 @@ class VdpCanvas(QWidget):
         self.page_mm = (210.0, 297.0)
         self.fields = []
         self.sel = -1
-        self.vis = None  # sichtbare Feldindizes (Fenster der aktuellen Seite) oder None = alle
-        self.trim = None  # Innenrahmen/Endformat (links, oben, rechts, unten) in mm – None = keiner
-        self.bleed = 0.0  # Anschnitt/Überfüller außen um den Innenrahmen, in mm
+        self.vis = None  # visible field indexes (window of the current page) or None = all
+        self.trim = None  # inner frame/trim size (left, top, right, bottom) in mm – None = none
+        self.bleed = 0.0  # bleed outside around the inner frame, in mm
         self._drag = None
 
     def _geom(self):
@@ -88,10 +89,10 @@ class VdpCanvas(QWidget):
         if self.trim is not None:
             l, t, r, b = self.trim
             p.setBrush(Qt.BrushStyle.NoBrush)
-            pen = QPen(QColor("#2e9e4f"), 1)  # Innenrahmen: Endformat/Innenabstand
+            pen = QPen(QColor("#2e9e4f"), 1)  # inner frame: trim size/inner distance
             p.setPen(pen)
             p.drawRect(QRectF(ox + l * s, oy + t * s, max(1.0, W - l - r) * s, max(1.0, H - t - b) * s))
-            if self.bleed > 0:  # außen: Anschnitt/Überfüller
+            if self.bleed > 0:  # outside: bleed
                 pen = QPen(QColor("#e04040"), 1)
                 pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen)
@@ -105,7 +106,7 @@ class VdpCanvas(QWidget):
                 )
         for i, f in enumerate(self.fields):
             if self.vis is not None and i not in self.vis:
-                continue  # Feld gehört zu einem Fenster, das diese Seite nicht abdeckt
+                continue  # the field belongs to a window that does not cover this page
             col = QColor(theme.ACCENT if i == self.sel else "#ec008c")
             pen = QPen(col, 2 if i == self.sel else 1)
             pen.setStyle(Qt.PenStyle.SolidLine if i == self.sel else Qt.PenStyle.DashLine)
@@ -152,6 +153,8 @@ class VdpCanvas(QWidget):
 
 
 class VdpDialog(QDialog):
+    """Dialog "Variable Daten": fields, data source, numbering, output and a live preview."""
+
     def __init__(self, parent, doc, current: int = 0):
         super().__init__(parent)
         self.setWindowTitle(tr("Variable Daten – Passermark"))
@@ -161,11 +164,11 @@ class VdpDialog(QDialog):
         self.s = vdp.VdpSettings(fields=[], numbering=vdp.Numbering())
         self.fields: list[vdp.VdpField] = []
         self.cols: list[str] = []
-        self._sample: dict = {}  # erster Datensatz der CSV (für Zuordnung/Vorschau)
-        self._guess = "text"  # erkannte Art der CSV (datakinds.guess_kind)
-        self._csv = ""  # gewählte CSV (vollständiger Pfad) – Quelle für die Einstellungen
-        self._trims = None  # Endformat je Seite (layout.page_trims), lazily
-        self._doc_bleeds = []  # Anschnitt je Seite (layout.page_doc_bleeds), lazily
+        self._sample: dict = {}  # first record of the CSV (for mapping/preview)
+        self._guess = "text"  # detected kind of the CSV (datakinds.guess_kind)
+        self._csv = ""  # chosen CSV (full path) – source for the settings
+        self._trims = None  # trim size per page (layout.page_trims), lazily
+        self._doc_bleeds = []  # bleed per page (layout.page_doc_bleeds), lazily
         self.job = None
         self._loading = False
 
@@ -195,7 +198,7 @@ class VdpDialog(QDialog):
         self.lbl_info.setWordWrap(True)
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         left.addWidget(self.lbl_info)
-        # links: Vorschau – kommt unten mit den Einstellungen in einen verschiebbaren Teiler
+        # left: preview – goes into a movable splitter with the settings further down
 
         right = QVBoxLayout()
         from .presetbar import PresetBar
@@ -227,7 +230,7 @@ class VdpDialog(QDialog):
         intro.body_layout.addWidget(intro_lbl)
         right.addWidget(intro)
 
-        # ---------------- 1. Felder ----------------
+        # ---------------- 1. fields ----------------
         g = CollapsibleSection(tr("1. Felder auf der Seite"), expanded=True)
         right.addWidget(g)
         v = g.body_layout
@@ -241,8 +244,8 @@ class VdpDialog(QDialog):
             register=True,
         )
         self.windows: list[vdp.VdpWindow] = [vdp.VdpWindow()]
-        self.win = 0  # aktives Fenster
-        self._win_pending = False  # „Seitenbereich …“ gewählt, aber noch nichts getippt
+        self.win = 0  # active window
+        self._win_pending = False  # "Seitenbereich …" chosen but nothing typed yet
         row_w = QHBoxLayout()
         self.cmb_win = QComboBox()
         self.cmb_win.currentIndexChanged.connect(self._win_changed)
@@ -511,7 +514,7 @@ class VdpDialog(QDialog):
             ),
             self.chk_ph,
         )
-        # ---------------- 2. Daten ----------------
+        # ---------------- 2. data ----------------
         g = CollapsibleSection(tr("2. Woher kommen die Daten?"), expanded=True)
         right.addWidget(g)
         v = g.body_layout
@@ -630,7 +633,7 @@ class VdpDialog(QDialog):
             ),
             row_o,
         )
-        # ---------------- 3. Nummerierung ----------------
+        # ---------------- 3. numbering ----------------
         g = CollapsibleSection(tr("3. Nummerierung – was {{nr}} ergibt"), expanded=True)
         right.addWidget(g)
         v = g.body_layout
@@ -699,7 +702,7 @@ class VdpDialog(QDialog):
         )
         v.addWidget(self.lbl_cont)
 
-        # ---------------- 4. Ausgabe ----------------
+        # ---------------- 4. output ----------------
         g = CollapsibleSection(tr("4. Ausgabe"), expanded=True)
         right.addWidget(g)
         v = g.body_layout
@@ -747,7 +750,7 @@ class VdpDialog(QDialog):
         fit_width(wrap)
         no_enter_default(self)
 
-        # Änderungen -> Vorschau (verzögert)
+        # changes -> preview (delayed)
         self._timer = QTimer(self, singleShot=True, interval=350, timeout=self._refresh)
         for w_ in (self.ed_content, self.ed_records, self.ed_prefix, self.ed_suffix, self.ed_winpages, self.ed_cont):
             w_.textChanged.connect(self._field_changed)
@@ -778,7 +781,7 @@ class VdpDialog(QDialog):
 
     # -------------------------------------------------------------- #
     def _toggle_help(self, on: bool):
-        """Checkbox „Hilfetexte anzeigen“: alle Erklärungen ein-/ausblenden."""
+        """Checkbox "Hilfetexte anzeigen": show/hide all explanations."""
         for lab in self._helps:
             lab.setVisible(on)
 
@@ -787,14 +790,15 @@ class VdpDialog(QDialog):
         lab.setWordWrap(True)
         lab.setStyleSheet(f"color: {theme.MUTED};")
         layout.addWidget(lab)
-        if register:  # nur die Feld-Erklärungen hängen am Umschalter
+        if register:  # only the field explanations depend on the switch
             lab.setVisible(self.chk_help.isChecked())
             self._helps.append(lab)
         return lab
 
     def _field(self, layout, title, text, widget):
-        """Überschrift, Erklärung (immer als Tooltip; sichtbar nur mit „Hilfetexte anzeigen“),
-        darunter das Eingabeelement."""
+        """Heading, explanation (always as a tooltip; visible only with "Hilfetexte anzeigen"),
+        below it the input element.
+        """
         box = QVBoxLayout()
         box.setSpacing(2)
         if title:
@@ -802,11 +806,11 @@ class VdpDialog(QDialog):
             box.addWidget(t)
         w = widget if isinstance(widget, QWidget) else None
         if text:
-            if w is None:  # Layout -> in ein Widget wickeln (Tooltip braucht eines)
+            if w is None:  # layout -> wrap in a widget (a tooltip needs one)
                 w = QWidget()
                 w.setLayout(widget)
             tip = w.toolTip()
-            tip = tip if isinstance(tip, str) else ""  # Qt-Ersatz in den Tests liefert kein str
+            tip = tip if isinstance(tip, str) else ""  # the Qt stand-in in the tests does not return a str
             w.setToolTip(text if not tip else tip + "\n\n" + text)
             self._help(box, text, register=True)
         if w is not None:
@@ -822,7 +826,7 @@ class VdpDialog(QDialog):
         self._remember(None)
 
     def _remember(self, s):
-        """Letzte Einstellungen nur für diese Programmsitzung merken (nach einem Neustart frisch)."""
+        """Remember the last settings only for this program session (fresh after a restart)."""
         sess = getattr(getattr(self.parent(), "ctl", None), "session", None)
         if sess is not None:
             sess.vdp_last = copy.deepcopy(s) if s is not None else None
@@ -831,9 +835,10 @@ class VdpDialog(QDialog):
         return self.lst.currentRow()
 
     def _update_vis(self):
-        """Sichtbare Felder der aktuellen Vorschauseite – gleiche Logik wie beim Druck:
-        „alle Seiten“ (Grundschicht) zeigt überall; unter den Seiten-Angaben gewinnt der
-        festgelegte Bereich vor ungerade/gerade, bei Gleichrang das erste Fenster."""
+        """Visible fields of the current preview page – same logic as when printing:
+        "all pages" (base layer) shows everywhere; among the page entries the
+        fixed range wins over odd/even, at equal rank the first window.
+        """
         npages = max(1, len(self.doc))
         wins = []
         for w in self.windows:
@@ -878,7 +883,7 @@ class VdpDialog(QDialog):
             "image": ("{{Bild}}", 40, 30),
         }
         content, w, h = defaults[kind]
-        if kind == "image":  # Spalte mit Bildpfaden erraten (Foto, Bild, Logo …)
+        if kind == "image":  # guess the column with image paths (Foto, Bild, Logo …)
             col = next((c for c in self.cols if c.strip().lower() in IMAGE_COLS), None) or next(
                 (c for c in self.cols if any(k in c.lower() for k in IMAGE_COLS)), None
             )
@@ -913,9 +918,9 @@ class VdpDialog(QDialog):
             self._select(self.lst.currentRow())
             self._timer.start()
 
-    # ---------------- Fenster (Seitengruppen) ----------------
+    # ---------------- windows (page groups) ----------------
     def _order_changed(self, *_):
-        """„Seiten je Datensatz“ nur bei „Ohne Duplikate“ nötig."""
+        """ "Seiten je Datensatz" is only needed with "Ohne Duplikate"."""
         self.spn_ppr.setEnabled((self.cmb_order.currentData() or "") == "each")
         self._field_changed()
 
@@ -934,7 +939,7 @@ class VdpDialog(QDialog):
         return out
 
     def _win_refresh(self):
-        """Fenster-Zeile nachführen; die Feldliste zeigt die Fenster-Kennung mit an."""
+        """Update the window row; the field list shows the window identifier as well."""
         self.cmb_win.blockSignals(True)
         self.cmb_win.clear()
         self.cmb_win.addItems(self._win_titles())
@@ -943,7 +948,7 @@ class VdpDialog(QDialog):
         self.btn_win_del.setEnabled(len(self.windows) > 1)
         w = self.windows[self.win]
         p = (w.pages or "").strip()
-        if not self._win_pending:  # nicht zurücksetzen, während der Nutzer den Bereich eintippt
+        if not self._win_pending:  # do not reset while the user is typing the range
             self.cmb_winpages.blockSignals(True)
             self.cmb_winpages.setCurrentIndex(
                 max(0, self.cmb_winpages.findData("bereich" if p and p not in ("ungerade", "gerade") else p))
@@ -984,8 +989,8 @@ class VdpDialog(QDialog):
         mode = self.cmb_winpages.currentData() or ""
         txt = self.ed_winpages.text().strip()
         if mode == "bereich":
-            self._win_pending = not txt  # noch nichts getippt → Combo bleibt auf „Seitenbereich …“
-            w.pages = txt  # leer = offen (gilt solange als „alle Seiten“)
+            self._win_pending = not txt  # nothing typed yet → the combo stays on "Seitenbereich …"
+            w.pages = txt  # empty = open (counts as "all pages" for now)
         else:
             self._win_pending = False
             w.pages = mode
@@ -993,7 +998,7 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _fill_fieldwin(self, cur: int = -1):
-        """Combo „Fenster des gewählten Feldes“ nachführen; cur = Fensterindex, der markiert sein soll."""
+        """Update the combo "window of the chosen field"; cur = window index that should be selected."""
         self.cmb_fieldwin.blockSignals(True)
         self.cmb_fieldwin.clear()
         for wi, t in enumerate(self._win_titles()):
@@ -1004,7 +1009,7 @@ class VdpDialog(QDialog):
         self.cmb_fieldwin.blockSignals(False)
 
     def _fieldwin_changed(self, *_):
-        """Gewähltes Feld in ein anderes Fenster umziehen."""
+        """Move the chosen field to another window."""
         if self._loading:
             return
         i = self._sel()
@@ -1019,14 +1024,14 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _field_of(self, i) -> int:
-        # Fensterindex des Feldes i – liegt das Feld in keinem Fenster (Sonderfall), gehört es zu Fenster 1
+        # window index of field i – if the field is in no window (special case), it belongs to window 1
         for wi, w in enumerate(self.windows):
             if any(x is self.fields[i] for x in (w.fields or [])):
                 return wi
         return 0
 
     def _assign_to_window(self, i: int):
-        # Feld i in das aktive Fenster legen (aus allen anderen Fenstern heraus)
+        # put field i into the active window (out of all other windows)
         f = self.fields[i]
         for w in self.windows:
             w.fields = [x for x in (w.fields or []) if x is not f]
@@ -1119,7 +1124,7 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _qr_widgets(self, f):
-        """QR-Art nur bei QR-Feldern; mit Art kommt der Inhalt aus den Spalten (Inhaltszeile gesperrt)."""
+        """QR kind only for QR fields; with a kind the content comes from the columns (content row locked)."""
         qr = f.kind == "qr"
         self.cmb_qrtype.setEnabled(qr)
         self.chk_quiet.setEnabled(f.kind in ("qr", "code128"))
@@ -1134,7 +1139,7 @@ class VdpDialog(QDialog):
             self.lbl_qrcols.setText("")
 
     def _map_columns(self):
-        """Spalten der CSV den Angaben des QR-Codes zuordnen (eigene Wahl landet im Feld bzw. Preset)."""
+        """Map the columns of the CSV to the entries of the QR code (the user's choice goes into the field or preset)."""
         i = self._sel()
         if (
             not (0 <= i < len(self.fields))
@@ -1153,6 +1158,7 @@ class VdpDialog(QDialog):
             self.set_qr_map(i, dlg.result_mapping())
 
     def set_qr_map(self, i: int, mapping: dict):
+        """Store the column mapping of QR field ``i``."""
         if 0 <= i < len(self.fields):
             self.fields[i].qr_map = dict(mapping or {})
             self._qr_widgets(self.fields[i])
@@ -1172,7 +1178,7 @@ class VdpDialog(QDialog):
             self._timer.start()
 
     def _open_data(self):
-        """Datentabelle anlegen/bearbeiten; „verwenden“ übernimmt sie samt passendem Feld."""
+        """Create/edit a data table; "verwenden" takes it over together with a matching field."""
         from .datadialog import DataDialog
 
         cur = self._csv
@@ -1182,7 +1188,7 @@ class VdpDialog(QDialog):
             self.use_data(dlg.path, dlg.kind)
 
     def use_data(self, path: str, kind: str):
-        """Tabelle als Datenquelle übernehmen und – falls noch keines da ist – das passende Feld anlegen."""
+        """Take the table over as the data source and – if there is none yet – create the matching field."""
         from .datadialog import field_for
 
         self.ed_csv.setText(path)
@@ -1196,7 +1202,7 @@ class VdpDialog(QDialog):
             for f in self.fields
         )
         if not have:
-            # das unberührte Startfeld ({{nr}}-Text) ersetzen
+            # replace the untouched start field ({{nr}} text)
             if len(self.fields) == 1 and self.fields[0].kind == "text" and self.fields[0].content == "{{nr}}":
                 self.fields = []
                 for w_ in self.windows:
@@ -1209,7 +1215,7 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _insert(self, text):
-        """Platzhalter einfügen; steht im Feld nur das voreingestellte {{nr}}, wird es ersetzt."""
+        """Insert a placeholder; if the field contains only the preset {{nr}}, it is replaced."""
         cur = self.ed_content.text()
         if isinstance(cur, str) and cur.strip() == "{{nr}}" and text != "{{nr}}":
             self.ed_content.setText(text)
@@ -1308,7 +1314,7 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _use_guess(self):
-        """Passendes Feld für die erkannte Art anlegen (z. B. QR-Code mit Art Visitenkarte)."""
+        """Create a matching field for the detected kind (e.g. QR code with kind business card)."""
         if self._csv and self._guess != "text":
             self.use_data(self._csv, self._guess)
 
@@ -1317,9 +1323,10 @@ class VdpDialog(QDialog):
         return w / vdp.MM, h / vdp.MM
 
     def _update_boxes(self, *_):
-        """Innenrahmen (grün) und Anschnitt (rot) der aktuellen Seite in der Vorschau nachführen.
-        Deklariert die Vorlage ein Endformat (TrimBox), gilt es samt Anschnitt (BleedBox);
-        sonst zeigt der eingestellte Abstand einen quadratischen Hilfsrahmen."""
+        """Update the inner frame (green) and bleed (red) of the current page in the preview.
+        If the template declares a trim size (TrimBox), it applies together with the bleed (BleedBox);
+        otherwise the set distance shows a square helper frame.
+        """
         if self._trims is None:
             try:
                 from ..layout import page_trims, page_doc_bleeds
@@ -1331,7 +1338,7 @@ class VdpDialog(QDialog):
         t = self._trims[self.page] if self.page < len(self._trims) else None
         b = self._doc_bleeds[self.page] if self.page < len(self._doc_bleeds) else 0.0
         if t:
-            tm = (t[0] / vdp.MM, t[3] / vdp.MM, t[2] / vdp.MM, t[1] / vdp.MM)  # links, oben, rechts, unten
+            tm = (t[0] / vdp.MM, t[3] / vdp.MM, t[2] / vdp.MM, t[1] / vdp.MM)  # left, top, right, bottom
             self.spn_inner.setEnabled(False)
             self.canvas.bleed = b / vdp.MM
         else:
@@ -1408,7 +1415,7 @@ class VdpDialog(QDialog):
             self.chk_log.setChecked(bool(s.log_path))
         finally:
             self._loading = False
-        # Fenster übernehmen bzw. aus dem alten Format (Feld-pages) migrieren
+        # take over the windows or migrate from the old format (field pages)
         wins = vdp._windows(s)
         if wins and any((w.fields or []) for w in wins):
             self.windows = []
@@ -1428,7 +1435,7 @@ class VdpDialog(QDialog):
         self._timer.start()
 
     def _refresh(self, *_):
-        """Vorschau: aktuelle Seite mit dem gewählten Datensatz, echt erzeugt (wie beim Druck)."""
+        """Preview: current page with the chosen record, really generated (as when printing)."""
         key = self.ed_cont.text().strip()
         if key:
             nxt = vdp.counter_state().get(key)
@@ -1478,7 +1485,7 @@ class VdpDialog(QDialog):
         self.canvas.update()
 
     def _check_data(self, ask: bool = False, s=None) -> bool:
-        """Datenprüfung zeigen. ask: vor dem Erzeugen – True = weitermachen."""
+        """Show the data check. ask: before generating – True = continue."""
         s = s or self._settings()
         try:
             res = vdp.check(copy.deepcopy(s))
@@ -1547,7 +1554,7 @@ class VdpDialog(QDialog):
 
 
 class VariablesDialog(QDialog):
-    """Alle Variablen mit Erklärung und Beispielwert; Doppelklick fügt in das gewählte Feld ein (bleibt offen)."""
+    """All variables with explanation and example value; a double click inserts into the chosen field (stays open)."""
 
     chosen = Signal(str)
 

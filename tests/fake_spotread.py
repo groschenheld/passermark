@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Nachgestelltes ArgyllCMS spotread für die Tests: Kalibrier-Aufforderung, Mess-Aufforderung, Ergebnis.
-Liest je Aufforderung ein Zeichen von stdin (wie spotread); 'q' bricht ab."""
+"""Imitation of ArgyllCMS spotread for the tests: calibration prompt, measurement prompt, result.
+Reads one character from stdin per prompt (like spotread); 'q' aborts.
+"""
 
 import os
 import sys

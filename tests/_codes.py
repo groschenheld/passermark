@@ -84,7 +84,7 @@ def _runs(row):
 
 
 def read_code128(img) -> str:
-    """Code 128 aus der mittleren Zeile eines Ausschnitts lesen; '' wenn nicht lesbar."""
+    """Read Code 128 from the middle row of a crop; '' if not readable."""
     tab = _table()
     h = img.shape[0]
     for frac in (0.5, 0.4, 0.6, 0.3):

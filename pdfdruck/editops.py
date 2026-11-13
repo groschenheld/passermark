@@ -75,14 +75,17 @@ def delete_objects(data, page, objs):
 
 
 def remove_lines(data, page, lines):
+    """Operation: remove text rows from the page content."""
     return editing.remove_lines_ops(data, page, lines), []
 
 
 def recolor(data, page, color, lines, objs, fill, stroke):
+    """Operation: recolour the chosen text rows and objects."""
     return editing.recolor(data, page, color, lines=lines, objs=objs, fill=fill, stroke=stroke), []
 
 
 def edit_line(data, page, line, text, font, size):
+    """Operation: change text, font or size of one text row."""
     return editing.edit_line_bytes(data, page, line, text, font, size)
 
 

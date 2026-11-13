@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Bilder & Farben in der Prüfung: Farbraum mit ICC-Profilname, effektive Auflösung je Platzierung
-(auch im Formular, auch dasselbe Bild mehrfach), Empfehlung für die maximale Größe."""
+"""Images & colours in the check: colour space with ICC profile name, effective resolution per placement
+(also in a form, also the same image several times), recommendation for the maximum size.
+"""
 
 import io
 import os
@@ -21,8 +22,9 @@ def _srgb_icc() -> bytes:
 
 
 def _pdf() -> bytes:
-    """Seite 1: RGB-Bild (600×600 px, ICC) mit 50,8 mm = 300 dpi und dasselbe Bild über ein Formular
-    auf 203,2 mm = 75 dpi; CMYK-Bild; Text in einer Sonderfarbe; RGB-Vektor."""
+    """Page 1: RGB image (600×600 px, ICC) at 50.8 mm = 300 dpi and the same image via a form
+    at 203.2 mm = 75 dpi; CMYK image; text in a spot colour; RGB vector.
+    """
     import pikepdf
 
     pdf = pikepdf.new()
@@ -90,7 +92,7 @@ def _pdf() -> bytes:
 
 
 def test_icc_name():
-    assert imagecheck.icc_name(_srgb_icc())  # nicht leer
+    assert imagecheck.icc_name(_srgb_icc())  # not empty
     assert imagecheck.icc_name(b"kaputt") == ""
 
 
@@ -125,7 +127,7 @@ def test_issues_and_report():
 
 
 def test_good_file_quiet():
-    """Ein Bild in CMYK mit 300 dpi und keine RGB-Inhalte: keine Bild-Befunde."""
+    """One image in CMYK at 300 dpi and no RGB content: no image findings."""
     import pikepdf
 
     pdf = pikepdf.new()

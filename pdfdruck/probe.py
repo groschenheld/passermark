@@ -140,7 +140,7 @@ def run(host: str, printer: str = "", community: str = "", timeout: float = 2.0,
         vendor = str(sn.get("sysObjectID") or "")
         parts = vendor.split(".")
         if vendor.startswith("1.3.6.1.4.1.") and len(parts) > 6:
-            base = ".".join(parts[:7])  # 1.3.6.1.4.1.<Hersteller>
+            base = ".".join(parts[:7])  # 1.3.6.1.4.1.<vendor>
             step(f"SNMP {base} …")
             try:
                 sn["vendor_tree"] = {"base": base, "values": [[o, _jsonable(v)] for o, v in c.walk(base, VENDOR_LIMIT)]}
@@ -233,11 +233,13 @@ def text(rep: dict) -> str:
 
 
 def save(rep: dict, path: str) -> None:
+    """Write a device check report as JSON."""
     with open(path, "w", encoding="utf-8") as f:
         json.dump(rep, f, ensure_ascii=False, indent=1)
 
 
 def default_name(rep: dict) -> str:
+    """Suggested file name for a device check report."""
     import re
 
     stem = re.sub(r"[^\w.\-]+", "_", rep.get("printer") or rep.get("host") or "geraet")[:40]

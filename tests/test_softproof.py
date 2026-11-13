@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Softproof der Seitenansicht (1.16): Papierweiß/Schwarz, gemessenes Papierweiß, Farbumfang- und
-Farbauftrag-Warnung, CMYK-Weg über die Separation (Ausschnitt/Drehung wie pdfium), Render-Prozess."""
+"""Soft proof of the page view: paper white/black, measured paper white, gamut and
+ink coverage warning, CMYK path via the separation (section/rotation like pdfium), render process.
+"""
 
 import os
 import sys
@@ -19,7 +20,7 @@ TMP = tempfile.mkdtemp(prefix="pm-proof-")
 
 
 def cmyk_profile():
-    """Ein CMYK-Druckprofil zum Testen: FOGRA39 aus TeX Live, sonst ein eigenes aus LittleCMS (Pillow)."""
+    """A CMYK print profile for testing: FOGRA39 from TeX Live, otherwise one made with LittleCMS (Pillow)."""
     for p in (
         "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/FOGRA39L_coated.icc",
         "/usr/share/color/icc/ghostscript/default_cmyk.icc",
@@ -47,14 +48,14 @@ def test_variants():
     base = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK"}))
     black = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "black": True}))
     paper = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "paper": True}))
-    assert base[0] == (255, 255, 255) and sum(base[1]) < 30  # relativ + BPC: Papier weiß, Schwarz tief
-    assert black[0] == (255, 255, 255) and sum(black[1]) > sum(base[1]) + 30  # Schwarz der Druckfarbe
-    assert sum(paper[0]) < 3 * 252  # Papier nicht mehr reinweiß
-    # gemessenes Weiß = Profilweiß -> wie absolut farbmetrisch (±2)
+    assert base[0] == (255, 255, 255) and sum(base[1]) < 30  # relative + BPC: paper white, black deep
+    assert black[0] == (255, 255, 255) and sum(black[1]) > sum(base[1]) + 30  # black of the ink
+    assert sum(paper[0]) < 3 * 252  # paper no longer pure white
+    # measured white = profile white -> like absolute colorimetric (±2)
     pw = colorlab.profile_white(f)
     same = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "paper": True, "white": list(pw)}))
     assert all(abs(a - b) <= 3 for p, q in zip(same, paper) for a, b in zip(p, q)), (same, paper)
-    # gelbliches Papier: Weiß wird gelblich (blau sinkt), alle Farben im selben Verhältnis
+    # yellowish paper: white becomes yellowish (blue drops), all colours in the same ratio
     yel = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "paper": True, "white": [92, 1, 8]}))
     assert yel[0][2] < yel[0][0] - 10 and yel[3][2] < paper[3][2], yel
 
@@ -63,10 +64,10 @@ def test_warnings():
     f = cmyk_profile()
     src = img((0, 255, 0), (0, 0, 0), (128, 128, 128), (255, 255, 255))
     g = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "warn": "gamut"}))
-    assert g[0] == proof.GAMUT_COLOR  # sattes RGB-Grün: nicht druckbar
+    assert g[0] == proof.GAMUT_COLOR  # saturated RGB green: not printable
     assert g[1] != proof.GAMUT_COLOR and g[2] != proof.GAMUT_COLOR and g[3] == (255, 255, 255)
     t = px(proof.softproof_rgb(img((0, 0, 0), (255, 255, 255)), {"icc": f, "space": "CMYK", "warn": "tac", "tac": 250}))
-    assert t[0] == proof.TAC_COLOR and t[1] == (255, 255, 255)  # Tiefschwarz: Farbauftrag über 250 %
+    assert t[0] == proof.TAC_COLOR and t[1] == (255, 255, 255)  # deep black: ink coverage above 250 %
 
 
 def test_spec_key_and_text():
@@ -87,7 +88,7 @@ def _page_pdf(path, w=200, h=100):
 
 
 def test_separation_route(monkeypatch=None):
-    """CMYK-Weg (Ghostscript nachgestellt): Ausschnitt und Drehung passen pixelgenau zur ganzen Seite."""
+    """CMYK path (Ghostscript imitated): section and rotation match the whole page pixel for pixel."""
     import pypdfium2 as pdfium
     from pdfdruck import cmyk, platform as _pl
 
@@ -100,8 +101,8 @@ def test_separation_route(monkeypatch=None):
         k = dpi / 72.0
         W, H = round(200 * k), round(100 * k)
         a = np.zeros((H, W, 4), np.uint8)
-        a[:, : W // 4, 0] = 255  # links Cyan
-        a[:, -W // 4 :, 1] = 255  # rechts Magenta
+        a[:, : W // 4, 0] = 255  # cyan on the left
+        a[:, -W // 4 :, 1] = 255  # magenta on the right
         if device == "tiff32nc":
             Image.fromarray(a, "CMYK").save(out, "TIFF")
         else:
@@ -118,17 +119,17 @@ def test_separation_route(monkeypatch=None):
         full = proof.proofed_render(pg, 2.0, 0, None, spec, path, 0)
         assert full.size == (400, 200), full.size
         assert full.getpixel((10, 100))[0] < 100 and full.getpixel((390, 100))[1] < 100  # Cyan / Magenta
-        part = proof.proofed_render(pg, 2.0, 0, (20, 10, 100, 40), spec, path, 0)  # links, unten, rechts, oben
+        part = proof.proofed_render(pg, 2.0, 0, (20, 10, 100, 40), spec, path, 0)  # left, bottom, right, top
         assert part.size == (160, 100), part.size
         assert np.abs(np.asarray(part, int) - np.asarray(full, int)[80:180, 40:200]).mean() < 2
         rot = proof.proofed_render(pg, 2.0, 90, None, spec, path, 0)
-        assert rot.size == (200, 400) and rot.getpixel((100, 10))[0] < 100  # gedreht: Cyan oben
+        assert rot.size == (200, 400) and rot.getpixel((100, 10))[0] < 100  # rotated: cyan at the top
         assert "-dUseCropBox" in calls[0][2] and any(a.startswith("-sOutputICCProfile=") for a in calls[0][2])
         n = len(calls)
         proof.proofed_render(pg, 2.0, 0, None, spec, path, 0)
-        assert len(calls) == n  # zwischengespeichert
+        assert len(calls) == n  # cached
         big = proof.proofed_render(pg, 8.0, 0, (0, 0, 150, 50), spec, path, 0)
-        assert calls[-1][1] == proof.PROOF_MAX_DPI and big.size == (400, 400), big.size  # höchstens 300 dpi
+        assert calls[-1][1] == proof.PROOF_MAX_DPI and big.size == (400, 400), big.size  # at most 300 dpi
         pg.close()
         doc.close()
     finally:
@@ -152,9 +153,9 @@ def test_render_server_proof():
         assert h["ok"] and h["fmt"] == "bgrx", h
         pr = _arr(h, d)
         assert pr.shape == plain.shape
-        assert pr[50, 100].sum() < plain[50, 100].sum() - 6  # Papierweiß: weiße Mitte wird dunkler
+        assert pr[50, 100].sum() < plain[50, 100].sum() - 6  # paper white: the white centre gets darker
         h, d = s(op="render", id=4, doc="x", page=0, scale=1.0, proof=dict(spec, icc="/gibts/nicht.icc"))
-        assert h["ok"]  # kaputtes Profil: ohne Softproof, kein Absturz
+        assert h["ok"]  # broken profile: without soft proof, no crash
     finally:
         s.close()
 

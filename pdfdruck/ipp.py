@@ -42,6 +42,8 @@ WANTED = [
 
 @dataclass
 class TrayState:
+    """What one tray or roll holds according to the device: size, media, fill level."""
+
     source: str  # z. B. tray-1, tray-2, by-pass-tray, main
     size_mm: tuple | None = None  # (width, height) in mm
     size_name: str = ""  # PWG name, if reported (iso_a4_210x297mm)
@@ -56,11 +58,14 @@ class TrayState:
 
     @property
     def empty(self) -> bool:
+        """Whether the device reports the tray as empty."""
         return self.level == 0
 
 
 @dataclass
 class DeviceStatus:
+    """Answer of a device to an IPP query: its trays, model and an error text if the query failed."""
+
     trays: dict = field(default_factory=dict)  # source -> TrayState
     model: str = ""
     error: str = ""
@@ -68,7 +73,7 @@ class DeviceStatus:
 
 
 # --------------------------------------------------------------------------- #
-# Kodieren
+# encode
 # --------------------------------------------------------------------------- #
 def _attr(tag: int, name: str, value: bytes) -> bytes:
     n = name.encode()
@@ -76,6 +81,7 @@ def _attr(tag: int, name: str, value: bytes) -> bytes:
 
 
 def build_request(uri: str, attrs=WANTED, request_id: int = 1) -> bytes:
+    """Build an IPP Get-Printer-Attributes request for ``uri``."""
     out = struct.pack(">BBHI", 2, 0, 0x000B, request_id)  # IPP 2.0, Get-Printer-Attributes
     out += bytes([T_OPERATION])
     out += _attr(T_CHARSET, "attributes-charset", b"utf-8")
@@ -87,7 +93,7 @@ def build_request(uri: str, attrs=WANTED, request_id: int = 1) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Dekodieren (inkl. Collections)
+# decode (incl. collections)
 # --------------------------------------------------------------------------- #
 def _value(tag: int, raw: bytes):
     if tag in (T_INTEGER, T_ENUM) and len(raw) == 4:
@@ -116,7 +122,7 @@ def parse_response(data: bytes) -> tuple[int, dict]:
         raise ValueError(tr("IPP-Antwort zu kurz"))
     status = struct.unpack(">H", data[2:4])[0]
     pos, attrs = 8, {}
-    stack = []  # offene Collections: (dict, aktueller Membername)
+    stack = []  # open collections: (dict, current member name)
     last_name = None
 
     def store(name, val):
@@ -131,7 +137,7 @@ def parse_response(data: bytes) -> tuple[int, dict]:
         pos += 1
         if tag == T_END:
             break
-        if tag < 0x10:  # Gruppenbeginn
+        if tag < 0x10:  # start of a group
             continue
         nlen = struct.unpack(">H", data[pos : pos + 2])[0]
         name = data[pos + 2 : pos + 2 + nlen].decode("utf-8", "replace")
@@ -181,6 +187,7 @@ def _first(d: dict, key, default=None):
 
 
 def interpret(attrs: dict) -> DeviceStatus:
+    """Turn the attributes of an IPP response into a :class:`DeviceStatus`."""
     st = DeviceStatus(model=str(_first(attrs, "printer-make-and-model", "")))
     for col in attrs.get("media-col-ready", []):
         if not isinstance(col, dict):
@@ -276,6 +283,7 @@ _DIM_MM = {"micrometers": 0.001, "tenthousandthsofinches": 0.00254}
 
 
 def is_roll_name(name: str) -> bool:
+    """Whether a tray name denotes a roll."""
     return bool(name) and bool(_ROLL.search(name))
 
 
@@ -305,7 +313,7 @@ def _match_source(name: str, sources: list[str]) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Abfragen
+# queries
 # --------------------------------------------------------------------------- #
 def host_from_device_uri(uri: str) -> str:
     """lpd://192.168.1.20/print, ipp://drucker.local:631/…, socket://…, dnssd://Name._ipp._tcp.local/… -> host."""
@@ -315,7 +323,7 @@ def host_from_device_uri(uri: str) -> str:
     host = urllib.request.unquote(m.group(1))
     if "._ipp" in host or "._pdl-datastream" in host or "._printer" in host:
         return ""  # DNS-SD service name – the admin has to enter the host
-    ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)  # Windows-Anschluss „10.0.0.5-HPGL2“
+    ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)  # Windows port "10.0.0.5-HPGL2"
     if ip:
         return ip.group(1)
     if host.upper().startswith("WSD-"):

@@ -15,8 +15,9 @@ from . import theme
 
 
 def hdr_options(parent, infos: list, names: str, default_dpi: float = 96.0, reject_text: str = "") -> dict | None:
-    """Größe und „Karte einrechnen“ wählen. -> {"size", "merge"} oder None (abgelehnt/abgebrochen).
-    infos: Angaben wie images.hdr_aux_info (die erste bestimmt die angezeigten Maße)."""
+    """Choose the size and "apply the map". -> {"size", "merge"} or None (declined/cancelled).
+    infos: details like images.hdr_aux_info (the first one determines the measures shown).
+    """
     info = infos[0]
     dlg = QDialog(parent)
     dlg.setWindowTitle(tr("HDR-Foto erkannt"))
@@ -52,7 +53,7 @@ def hdr_options(parent, infos: list, names: str, default_dpi: float = 96.0, reje
     )
     v.addWidget(chk)
     if any(i.get("aux_mode") != "L" for i in infos):
-        chk.hide()  # farbiges Zusatzbild (z. B. 3D-Kamera): keine Helligkeitskarte
+        chk.hide()  # coloured extra image (e.g. 3D camera): not a gain map
     note = QLabel(
         tr("Die Bildschärfe steckt im Foto – die Karte hat nur die halbe Auflösung und keine zusätzlichen Details.")
     )

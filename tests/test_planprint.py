@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Plandruck: zwei Außenlinien erkennen (äußere verschwindet), Inhalt + 5 mm, Rollenwahl (kürzeste Länge,
-gedreht erlaubt), Laufmeter einfach/gesamt, Reihenfolge (unsortiert, sortiert, nach Rolle), Druckseite mit
-Überfüller/Marken, Haarlinien, Druck an einen nachgebauten Plotter, Protokoll mit Laufmetern,
-Kommandozeile und Ablauf-Schritt „plan“."""
+"""Plan printing: detect two outer lines (the outer one disappears), content + 5 mm, roll choice (shortest length,
+rotation allowed), run length single/total, order (uncollated, collated, by roll), print page with
+bleed/marks, hairlines, printing to an imitated plotter, log with run lengths,
+command line and workflow step "plan".
+"""
 
 import csv
 import json
@@ -58,13 +59,13 @@ def test_detect_frame_margin_page():
     a = pp.detect(d, 0)
     x0, y0, x1, y1 = (v / MM for v in a.rect)
     assert a.kind == "frame", a
-    # äußere Linie (0,13 mm bei 10 mm) liegt außerhalb: Kante knapp innerhalb der Linie
+    # the outer line (0.13 mm at 10 mm) lies outside: edge just inside the line
     assert 10.05 < x0 < 10.4 and 10.05 < y0 < 10.4 and 609.6 < x1 < 609.95 and 859.6 < y1 < 859.95, (x0, y0, x1, y1)
     d1 = pdfium.PdfDocument(plan_pdf("f1.pdf", 620, 870, frames=1))
     a1 = pp.detect(d1, 0)
     assert a1.kind == "margin" and near(a1.rect[0] / MM, 10 - 5, 0.8) and near(a1.w_mm, 600 + 10, 1.5)
     a1f = pp.detect(d1, 0, "frame")
-    assert a1f.kind == "margin" and a1f.note  # ausdrücklich Rahmen, aber nur einer da
+    assert a1f.kind == "margin" and a1f.note  # explicitly a frame, but only one is there
     am = pp.detect(d, 0, "margin", 3)
     assert am.kind == "margin" and near(am.w_mm, 606, 1.5)
     an = pp.detect(d, 0, "none")
@@ -92,27 +93,27 @@ def test_rotated_page():
 
 
 def test_choose_roll():
-    # A1 hoch 594 × 841: quer auf 841 (Länge 594) statt hoch auf 594 (Länge 841)
+    # A1 portrait 594 × 841: sideways on 841 (length 594) instead of upright on 594 (length 841)
     f = pp.choose(594, 841, R)
     assert f.width_mm == 841 and f.along == 594 and f.rotated
-    # A1 quer angeliefert: ohne Drehung auf 841
+    # A1 supplied in landscape: without rotation on 841
     f = pp.choose(841, 594, R)
     assert f.width_mm == 841 and not f.rotated and f.along == 594
-    # wie angeliefert: keine Drehung
+    # as supplied: no rotation
     f = pp.choose(594, 841, R, "keep")
     assert f.width_mm == 594 and f.along == 841 and not f.rotated
-    # kurze Seite quer
+    # short side across
     f = pp.choose(841, 594, R, "short")
     assert f.width_mm == 594 and f.along == 841 and f.rotated
-    # gleiche Länge -> schmalere Rolle (A2 quer: 594 breit auf 594 oder 841)
+    # same length -> narrower roll (A2 landscape: 594 wide on 594 or 841)
     f = pp.choose(594, 420, R)
     assert f.width_mm == 594 and f.along == 420
-    # passt nirgends
+    # fits nowhere
     assert pp.choose(1000, 1200, R) is None
-    # leere Rolle wird übersprungen
+    # an empty roll is skipped
     e = [rolls.Roll(594, empty=True), rolls.Roll(914)]
     assert pp.choose(594, 841, e).width_mm == 914
-    # Planpapier: nur Rollen mit 75/80 g (unbekannte Grammatur zählt mit)
+    # plan paper: only rolls with 75/80 g (unknown grammage counts too)
     w = [rolls.Roll(594, weight=80), rolls.Roll(841, weight=180), rolls.Roll(914)]
     ok, note = pp.eligible(w, [75, 80])
     assert [r.width_mm for r in ok] == [594, 914] and not note
@@ -132,16 +133,16 @@ def test_lengths_and_order():
     assert near(by[594]["single_m"], (420 * 2 + 297) / 1000, 0.001) and by[594]["plans"] == 3
     assert near(by[594]["total_m"], 2 * (420 * 2 + 297) / 1000, 0.001)
     assert near(by[841]["single_m"], 0.594, 0.001) and near(by[914]["single_m"], 1.2, 0.001)
-    # unsortiert (Standard): jeder Plan alle Exemplare hintereinander
+    # uncollated (default): every plan with all copies in a row
     order = pp.job_order(items, 3, False, "list")
     assert [(it.page, n) for it, n in order] == [(0, 3), (1, 6), (2, 3), (3, 3)]
-    # sortiert: Satz für Satz
+    # collated: set by set
     order = pp.job_order(items, 2, True, "list")
     assert [(it.page, n) for it, n in order] == [(0, 1), (1, 2), (2, 1), (3, 1)] * 2
-    # nach Rollenbreite: 594 zuerst (in Listenreihenfolge), dann 841, dann 914
+    # by roll width: 594 first (in list order), then 841, then 914
     order = pp.job_order(items, 1, False, "roll")
     assert [it.page for it, _n in order] == [1, 3, 0, 2]
-    # Restlänge reicht nicht
+    # the remaining length is not enough
     short = [rolls.Roll(594, remaining_m=0.5), rolls.Roll(841), rolls.Roll(914)]
     pp.place(items, short, pp.PlanSettings())
     assert pp.run_lengths(items, short, 2)[0]["short"]
@@ -161,14 +162,14 @@ def test_make_page_rotated_bleed_marks():
         img = out[0].render(scale=0.2).to_pil().convert("RGB")
         px = img.getpixel((int(img.width / 2), int(pp.extra_mm(s) * MM * 0.2 - 3 * MM * 0.2 / 2)))
         if mode == "color":
-            assert px[0] > 200 and px[1] < 80, px  # roter Überfüller
+            assert px[0] > 200 and px[1] < 80, px  # red bleed
         out.close()
-    # ohne Zusätze: genau der Druckbereich, ungedreht auf 841 wenn quer
+    # without additions: exactly the print area, unrotated on 841 if landscape
     s = pp.PlanSettings(rotate="keep")
     f = pp.choose(a.w_mm, a.h_mm, R + [rolls.Roll(1067)], "keep")
     out = pp.make_page(d, 0, a, f, s)
     assert near(out.get_page_size(0)[0] / MM, a.w_mm, 0.05)
-    # die äußere Linie ist weg: Rand der Druckseite weiß, innerer Rahmen bleibt schwarz
+    # the outer line is gone: edge of the print page white, the inner frame stays black
     img = out[0].render(scale=2, grayscale=True).to_pil()
     W_, H_ = img.size
     assert min(img.getpixel((x, H_ // 2)) for x in range(0, 6)) > 240
@@ -179,7 +180,7 @@ def test_hairlines_count_and_fix():
     d = pdfium.PdfDocument(plan_pdf("thin.pdf", 420, 297, thin=True))
     n = pp.hairlines(d, 0)
     assert n == 10, n
-    assert pp.hairlines(d, 0, scale_pct=250) == 0  # vergrößert reicht es
+    assert pp.hairlines(d, 0, scale_pct=250) == 0  # enlarged it is enough
     fixed, k = pp.fix_hairlines(d, [0])
     assert k == 10 and pp.hairlines(fixed, 0) == 0
     from pdfdruck import preflight
@@ -248,14 +249,14 @@ def test_print_jobs_and_log():
         sess = Session(dict(config.BUILTIN, print_log={"force": True, "dir": logdir}))
         s = pp.PlanSettings(printer="Plotter", copies=3, color="gray", live_rolls=False, copies_mode="count")
         info = pp.plan_files([src], s, session=sess)
-    assert len(fp.sent) == 2, fp.sent  # Anzahl ans Gerät: ein Auftrag je Plan, 3 Kopien
+    assert len(fp.sent) == 2, fp.sent  # count to the device: one job per plan, 3 copies
     o = fp.sent[0]["opts"]
     assert o["copies"] == "3" and o["InputSlot"] == "Roll3" and o["ColorModel"] == "Gray"
     assert o["PageSize"].startswith("Custom.") and o["print-scaling"] == "none"
     w, h = fp.sent[0]["size"]
-    assert near(w, 914, 0.5) and near(h, 599.7, 0.5)  # gedreht, Druckseite rollenbreit (Schnitt je Seite, 1.18.5)
+    assert near(w, 914, 0.5) and near(h, 599.7, 0.5)  # rotated, print page at roll width (cut per page)
     assert near(info["lengths"][0]["single_m"], 1.199, 0.003) and near(info["total_m"], 3.598, 0.01)
-    # Protokoll: Laufmeter je Auftrag, CSV-Spalten, Nachdruck-Ablauf mit Schritt „plan“
+    # log: run length per job, CSV columns, reprint workflow with step "plan"
     with open(os.path.join(logdir, printlog.CSV_NAME), encoding="utf-8-sig") as f:
         rows = list(csv.DictReader(f, delimiter=";"))
     assert len(rows) == 2 and rows[0]["roll_mm"] == "914" and abs(float(rows[0]["run_m"]) - 1.799) < 0.01
@@ -263,12 +264,12 @@ def test_print_jobs_and_log():
     rec = json.load(open(logs[0], encoding="utf-8"))
     st = rec["workflow"]["steps"][-1]
     assert st["job"] == "plan" and st["settings"]["copies"] == 3 and st["settings"]["rolls"][0]["width_mm"] == 914
-    # sortiert: Satz für Satz -> 6 Aufträge zu je 1
+    # collated: set by set -> 6 jobs of 1 each
     with FakePlotter() as fp:
         sess = Session(config.BUILTIN)
         pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, collate=True, live_rolls=False), session=sess)
     assert len(fp.sent) == 6 and all(x["opts"]["copies"] == "1" for x in fp.sent)
-    # Standard seit 1.18.7: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1)
+    # default: one job per plan, one sheet per copy (copies = 1)
     with FakePlotter() as fp:
         pp.plan_files(
             [src], pp.PlanSettings(printer="Plotter", copies=3, live_rolls=False), session=Session(config.BUILTIN)
@@ -286,7 +287,7 @@ def test_csv_upgrade():
         f.write("time;user;host;source;file;pages;printer;paper;tray;copies;job_id;result;log\r\nx;y\r\n")
     printlog._upgrade_csv(p)
     head = open(p, encoding="utf-8-sig").readline()
-    assert head.strip().endswith(";roll_mm;run_m;order;item"), head  # 1.18.9: Bestellbezug
+    assert head.strip().endswith(";roll_mm;run_m;order;item"), head  # order reference
 
 
 def _cli(*args):
@@ -323,8 +324,9 @@ def test_cli_plan_dry_run_and_workflow():
 
 
 def test_media_of_loaded_roll():
-    """Gerät meldet das Medium der Rolle: genau dieses wird verlangt – auch wenn das Material (Import, von Hand)
-    einen anderen Medientyp nennt. Sonst wartet z. B. die ColorWave auf ein Medium, das nicht geladen ist."""
+    """The device reports the roll's media: exactly that is requested – even if the material (import, by hand)
+    names another media type. Otherwise e.g. the ColorWave waits for a media that is not loaded.
+    """
     from pdfdruck import config, printmat
     from pdfdruck.session import Session
 
@@ -349,7 +351,7 @@ def test_media_of_loaded_roll():
             session=Session(config.BUILTIN),
         )
     assert fp.sent and all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]
-    # Gerät meldet ein Medium, das keinem Medientyp des Treibers entspricht: nichts Bestimmtes verlangen
+    # the device reports a media that matches no media type of the driver: request nothing specific
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180, media="IJM 123 Matt Coated")])
     with FakePlotter() as fp:
         info = pp.plan_files(
@@ -362,10 +364,12 @@ def test_media_of_loaded_roll():
             pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
             session=Session(config.BUILTIN),
         )
-    assert all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]  # Vorgabe statt Photo
-    j = info["jobs"][0]  # Probelauf zeigt, was ans Gerät ginge
+    assert all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [
+        x["opts"] for x in fp.sent
+    ]  # default instead of Photo
+    j = info["jobs"][0]  # the dry run shows what would go to the device
     assert j["options"]["MediaType"] == "Plain" and j["roll_media"] == "IJM 123 Matt Coated", j
-    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])  # Medium unbekannt: Material zählt
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])  # media unknown: the material counts
     with FakePlotter() as fp:
         pp.plan_files(
             [src],
@@ -377,7 +381,7 @@ def test_media_of_loaded_roll():
 
 
 def test_history():
-    """Verlauf: Datei wird mitgesichert (Original darf weg sein), neueste zuerst, höchstens MAX_ENTRIES, aufräumen."""
+    """History: the file is saved along (the original may be gone), newest first, at most MAX_ENTRIES, clean-up."""
     import shutil
     from pdfdruck import planhistory
 
@@ -393,7 +397,7 @@ def test_history():
         1.26,
         1,
     )
-    os.remove(tmp)  # Original weg: die Sicherung zählt
+    os.remove(tmp)  # original gone: the saved copy counts
     p = planhistory.file_of(e, e["items"][0])
     assert p and os.path.isfile(p) and p.startswith(planhistory.history_dir())
     assert "hist_copy.pdf" in planhistory.label(e) and "Plotter" in planhistory.label(e)
@@ -410,8 +414,9 @@ def test_history():
 
 
 def test_quality_mode():
-    """Plan = Produktionsdruck (niedrigste Treiberqualität), Poster = Qualitätsdruck (höchste); umschaltbar;
-    Material derselben Kategorie mit eigener Qualität und Optionen von Hand haben Vorrang."""
+    """Plan = production print (lowest driver quality), poster = quality print (highest); switchable;
+    a material of the same category with its own quality and options set by hand take precedence.
+    """
     from pdfdruck import config, printmat
     from pdfdruck.session import Session
 
@@ -428,8 +433,8 @@ def test_quality_mode():
         [("PLAIN_DRAFT", "Entwurf"), ("PLAIN_HIGH", "Fein"), ("PHOTO_HIGH", "Foto fein"), ("PHOTO_NORMAL", "Foto")],
         "PLAIN_DRAFT",
     )
-    assert printers.quality_choice(ep, "quality", "PLAIN_DRAFT") == "PLAIN_HIGH"  # beim Medium bleiben
-    assert printers.quality_choice(q("X", [("A", "Modus A"), ("B", "Modus B")]), "quality") == ""  # unklar: nichts
+    assert printers.quality_choice(ep, "quality", "PLAIN_DRAFT") == "PLAIN_HIGH"  # stay with the media
+    assert printers.quality_choice(q("X", [("A", "Modus A"), ("B", "Modus B")]), "quality") == ""  # unclear: nothing
     caps = plotter_caps()
     caps.options["CNQualityMode"] = Option(
         "CNQualityMode",
@@ -438,7 +443,7 @@ def test_quality_mode():
         [Choice("Std", "Standard"), Choice("Fast", "Schnell"), Choice("Best", "Beste Qualität")],
         "Std",
     )
-    printers._assign_roles(caps)  # erkannt über den Text „Druckqualität“
+    printers._assign_roles(caps)  # recognised via the text "Druckqualität"
     assert caps.roles.get("quality") == "CNQualityMode"
     assert pp.quality_mode_of(pp.PlanSettings()) == "production"
     assert pp.quality_mode_of(pp.PlanSettings(kind="poster")) == "quality"
@@ -453,8 +458,8 @@ def test_quality_mode():
     assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "plan", "quality": "Std"}) == {}
     assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "quality", "quality": "Best"}) == {
         "CNQualityMode": "Fast"
-    }  # Qualitätsmaterial im Produktionsdruck
-    # Ende zu Ende: was wirklich an den Drucker geht
+    }  # quality material in production print
+    # end to end: what really goes to the printer
     printmat.save([])
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 80)])
     src = plan_pdf("qmode.pdf", 420, 594)

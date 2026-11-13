@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Anleitung zur Kommandozeile: liegt im Paket, Tabellen sind konsistent, Fallbeispiele laufen wirklich."""
+"""Manual for the command line: it is in the package, the tables are consistent, the examples really run."""
 
 import ast
 import os
@@ -74,23 +74,23 @@ def _prepare_inputs(tmp, examples):
     c.save()
     runnable = []
     wfs = _workflows()
-    for name, text in wfs.items():  # Ablauf-Beispiele aus dem Handbuch als Dateien
+    for name, text in wfs.items():  # workflow examples from the manual as files
         open(os.path.join(tmp, name), "w", encoding="utf-8").write(text)
-    user_dir = os.path.join(tmp, "passermark", "workflows")  # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
+    user_dir = os.path.join(tmp, "passermark", "workflows")  # XDG_CONFIG_HOME=tmp -> own workflow folder
     os.makedirs(user_dir, exist_ok=True)
     open(os.path.join(user_dir, "Visitenkarten.json"), "w", encoding="utf-8").write(wfs["visitenkarten.json"])
     for cmd in examples:
         args = shlex.split(cmd)[1:]
-        if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:  # Vorlage / Platzhalter-Pfad
+        if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:  # template / placeholder path
             continue
-        if args[0] in ("printers", "caps", "serve"):  # echter Drucker / Watcher: eigene Tests
+        if args[0] in ("printers", "caps", "serve"):  # real printer / watcher: tests of their own
             continue
         if args[0] in API_NO_INPUT:
             runnable.append((cmd, args))
             continue
         if args[0] in ("run", "check"):
             wf = args[1] if args[1].endswith(".json") else "visitenkarten.json"
-            if '"print"' in wfs.get(wf, ""):  # druckt – ohne Drucker nicht ausführbar
+            if '"print"' in wfs.get(wf, ""):  # prints – cannot be run without a printer
                 continue
             src = os.path.join(tmp, args[args.index("--in") + 1])
             if not os.path.exists(src):
@@ -116,11 +116,11 @@ def _prepare_inputs(tmp, examples):
 
 
 API_NO_INPUT = ("version", "schema", "workflows")
-QUIET_OK = ("run", "check")  # Schnittstellen-Befehle mit --quiet
+QUIET_OK = ("run", "check")  # interface commands with --quiet
 
 
 def _workflows():
-    """Die Ablauf-Beispiele (WORKFLOWS) aus dem Handbuch-Generator."""
+    """The workflow examples (WORKFLOWS) from the manual generator."""
     tree = ast.parse(open(GEN, encoding="utf-8").read())
     for n in tree.body:
         if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "WORKFLOWS":
@@ -129,7 +129,7 @@ def _workflows():
 
 
 def test_workflow_examples_valid():
-    """Die gezeigten Abläufe sind gültig (auch der Druck-Ablauf – geprüft wird ohne Drucker)."""
+    """The workflows shown are valid (also the print workflow – checked without a printer)."""
     import json
     from pdfdruck import workflow
 
@@ -149,7 +149,7 @@ def _watch_example():
 
 
 def test_watch_example_runs():
-    """Das Watcher-Beispiel ist gültig und verarbeitet eine Datei (der Druck-Ordner bleibt leer)."""
+    """The watcher example is valid and processes a file (the print folder stays empty)."""
 
     tmp = tempfile.mkdtemp(prefix="pm-howto-watch-")
     open(os.path.join(tmp, "watch.json"), "w", encoding="utf-8").write(_watch_example())
@@ -162,7 +162,7 @@ def test_watch_example_runs():
     c = canvas.Canvas(
         os.path.join(tmp, "eingang", "visitenkarten", "karten.pdf"), pagesize=(91 * 72 / 25.4, 61 * 72 / 25.4)
     )
-    for _ in range(2):  # Vorder- und Rückseite (Ablauf: pages 1-2)
+    for _ in range(2):  # front and back (workflow: pages 1-2)
         c.drawString(20, 20, "Karte")
         c.showPage()
     c.save()
@@ -173,7 +173,7 @@ def test_watch_example_runs():
         if ln.strip().startswith("passermark-cli serve")
     ]
     assert len(cmds) == 3, cmds
-    for cmd in cmds[:2]:  # --check, --once (der dritte läuft dauerhaft)
+    for cmd in cmds[:2]:  # --check, --once (the third runs permanently)
         r = subprocess.run(
             [sys.executable, "-m", "pdfdruck.cli", *shlex.split(cmd)[1:]],
             cwd=tmp,

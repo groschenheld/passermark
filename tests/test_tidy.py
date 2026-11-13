@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Lesbare JSONs (1.15.1): Presets enthalten nur, was vom Standard abweicht (Programm-Einstellung „alle“
-möglich); passermark-cli tidy kürzt bestehende Presets und Abläufe, ohne dass sich etwas ändert."""
+"""Readable JSON: presets contain only what differs from the default (program setting "all"
+possible); passermark-cli tidy shortens existing presets and workflows without changing anything.
+"""
 
 import json
 import os
@@ -32,7 +33,7 @@ def test_presets_only_differences():
     p = presets.save("impose", "Heft A3", s)
     d = json.load(open(p, encoding="utf-8"))
     assert d == {"job": "impose", "settings": {"handling": "booklet", "sheet": "A3", "booklet_fold_marks": True}}, d
-    assert presets.load("impose", "Heft A3") == s  # lädt wieder genau dasselbe
+    assert presets.load("impose", "Heft A3") == s  # loads exactly the same again
     c = cutcontour.CutSettings(shape="rect", bleed_mm=3.0)
     c.detect.tolerance = 40
     p = presets.save("cutcontour", "Rechteck", c)
@@ -41,8 +42,8 @@ def test_presets_only_differences():
     assert presets.load("cutcontour", "Rechteck") == c
     v = vdp.VdpSettings(fields=[dict(content="Nr. {{nr}}")], count=50)
     d = json.load(open(presets.save("vdp", "Tickets", v), encoding="utf-8"))["settings"]
-    assert d["count"] == 50 and len(d["fields"]) == 1  # Listen bleiben ganz
-    # Einstellung „alle Einstellungen speichern“
+    assert d["count"] == 50 and len(d["fields"]) == 1  # lists stay whole
+    # setting "save all settings"
     l10n.save_settings(dict(l10n.load_settings(), presets_full=True))
     try:
         d = json.load(open(presets.save("impose", "Heft A3", s), encoding="utf-8"))["settings"]
@@ -65,7 +66,7 @@ def test_tidy_preset_and_workflow():
         "version": 1,
         "steps": [
             {"job": "impose", "settings": core.settings_to_dict(layout.ImposeSettings(sheet="SRA3", step_repeat=True))},
-            {"job": "impose", "preset": "Heft A3", "settings": {"sheet": "A4"}},  # A4 = Standard, überschreibt Preset
+            {"job": "impose", "preset": "Heft A3", "settings": {"sheet": "A4"}},  # A4 = default, overrides the preset
             {
                 "job": "print",
                 "settings": {
@@ -84,13 +85,13 @@ def test_tidy_preset_and_workflow():
     r = cli("tidy", p, "--print")
     d = json.loads(r.stdout)
     assert d["steps"][0]["settings"] == {"sheet": "SRA3", "step_repeat": True}, d
-    assert d["steps"][1]["settings"] == {"sheet": "A4"}  # mit Preset: unverändert
+    assert d["steps"][1]["settings"] == {"sheet": "A4"}  # with preset: unchanged
     assert d["steps"][2]["settings"] == {
         "printer": "Canon",
         "paper": "A3",
         "auto_tray": False,
         "layout": {"handling": "size", "mode": "fit"},
-    }, d  # layout bleibt ganz
+    }, d  # layout stays whole
     assert json.load(open(p)) == wf  # --print schreibt nichts
     r = cli("tidy", p, "--full")
     assert r.returncode == 2 and "nur für Presets" in r.stderr

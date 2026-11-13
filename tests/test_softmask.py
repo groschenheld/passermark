@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Transparente Verläufe (Soft-Maske im Muster, wie Chrome/Canva sie exportieren):
-Erkennung in der Prüfung, Reparatur in deckende Bilder, Nachweis per RIP-Simulation."""
+"""Transparent gradients (soft mask in the pattern, as Chrome/Canva export them):
+detection in the check, repair into opaque images, proof by RIP simulation.
+"""
 
 import io
 import os
@@ -13,8 +14,9 @@ from pdfdruck import preflight, softmask
 
 
 def _chrome_like_pdf(in_form: bool = False) -> bytes:
-    """Rotes Bild, darüber ein schwarzer Verlauf, der über eine Soft-Maske von durchsichtig (links)
-    nach deckend (rechts) läuft, darüber Text. Ohne Soft-Maske: alles schwarz."""
+    """Red image, above it a black gradient that runs via a soft mask from transparent (left)
+    to opaque (right), text on top. Without the soft mask: everything black.
+    """
     import pikepdf
 
     pdf = pikepdf.new()
@@ -70,7 +72,7 @@ def _chrome_like_pdf(in_form: bool = False) -> bytes:
     res = pikepdf.Dictionary(
         XObject=pikepdf.Dictionary(Im1=img), Pattern=pikepdf.Dictionary(P1=pat), Font=pikepdf.Dictionary(F1=font)
     )
-    if in_form:  # wie Chrome: alles in einem Formular mit Transparenzgruppe
+    if in_form:  # like Chrome: everything in one form with a transparency group
         form = pikepdf.Stream(
             pdf,
             body,

@@ -46,7 +46,7 @@ class VdpField:
     size_pt: float = 12.0
     color: str = "#000000"
     align: str = "left"  # left | center | right
-    rotate: int = 0  # 0 | 90 | 180 | 270 (gegen den Uhrzeigersinn)
+    rotate: int = 0  # 0 | 90 | 180 | 270 (counterclockwise)
     pages: str = ""  # only on these pages of the template, e.g. "1", "1,3-4", "ungerade", "gerade",
     # "ungerade 1-50" (empty = all)
     qr_type: str = "text"  # QR: text = content as entered; vcard, wifi, email, url, phone, sms, event, geo =
@@ -141,7 +141,7 @@ def format_number(n: int, nb: Numbering) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Datenquelle
+# data source
 # --------------------------------------------------------------------------- #
 def read_csv(path: str, delimiter: str = "", encoding: str = "") -> tuple[list[str], list[dict]]:
     """Read a CSV file and return ``(column names, rows as dicts)``; delimiter and encoding are detected if empty."""
@@ -357,7 +357,7 @@ def fill(template: str, rec: dict) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Zeichnen (reportlab, Vektor)
+# drawing (reportlab, vector)
 # --------------------------------------------------------------------------- #
 _TTF = {}
 
@@ -409,7 +409,7 @@ def _color(c: str):
         return black
 
 
-# --- Bildfelder ---------------------------------------------------------------------------------------------------
+# --- image fields -------------------------------------------------------------------------------------------------
 
 
 def image_base(s) -> str:
@@ -464,7 +464,7 @@ class Images:
         self.page = 0
         self.used = {}  # output page -> {name: path}
 
-    # Lesen
+    # reading
     def info(self, path: str) -> dict:
         """Size/kind of an image; raises ValueError if it cannot be read."""
         got = self._info.get(path)
@@ -481,7 +481,7 @@ class Images:
 
                 with Image.open(path) as im:
                     w, h = im.size
-                    if (im.getexif() or {}).get(0x0112, 1) in (5, 6, 7, 8):  # Handyfoto hochkant
+                    if (im.getexif() or {}).get(0x0112, 1) in (5, 6, 7, 8):  # phone photo in portrait
                         w, h = h, w
                 got = {"size": (float(w), float(h)), "px": (w, h), "pdf": False}
             if got["size"][0] <= 0 or got["size"][1] <= 0:
@@ -558,7 +558,7 @@ class Images:
             self._readers.popitem(last=False)
         return r
 
-    # Zeichnen
+    # drawing
     @staticmethod
     def placement(size: tuple, w: float, h: float, fit: str, align: str) -> tuple:
         """Place an image of natural size ``size`` into a box w×h -> (x, y, width, height) inside the box."""
@@ -715,7 +715,7 @@ def draw_field(cv, f: VdpField, value: str, page_h: float, images: Images | None
         kind = {"qr": "QR", "code128": "Code128", "ean13": "EAN13"}[f.kind]
         kw = {}
         if f.kind == "qr":
-            kw = {"barBorder": 4 if getattr(f, "quiet", True) else 0}  # Norm: 4 Module Ruhezone rundum
+            kw = {"barBorder": 4 if getattr(f, "quiet", True) else 0}  # standard: quiet zone of 4 modules all round
             side = min(w, h)
             d = createBarcodeDrawing("QR", value=value, width=side, height=side, barFillColor=col, **kw)
             renderPDF.draw(d, cv, (w - side) / 2, (h - side) / 2)

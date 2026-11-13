@@ -33,7 +33,7 @@ ROTATE_MODES = ("auto", "keep", "short", "long")
 BLEED_MODES = ("mirror", "blank", "color")
 ORDERS = ("list", "roll")
 ALIGNS = ("center", "left", "right")  # position across the roll
-TOL_MM = 0.5  # Toleranz Rollenbreite
+TOL_MM = 0.5  # tolerance of the roll width
 
 
 @dataclass
@@ -50,14 +50,14 @@ class PlanSettings:
     bleed_mm: float = 0.0  # bleed all round
     bleed_mode: str = "mirror"  # mirror (gespiegelt) | blank (Leerraum) | color (Einzelfarbe)
     bleed_color: str = "#ffffff"
-    crop_marks: bool = False  # Schnittmarken
+    crop_marks: bool = False  # crop marks
     copies: int = 1  # copies (sets)
     collate: bool = False  # collated: set by set – default: each plan n times in a row
     order: str = "list"  # list (order of the list) | roll (by roll width, narrow first)
-    weights: list = field(default_factory=lambda: list(PLAN_WEIGHTS))  # Planpapier g/m² (Rollenauswahl)
+    weights: list = field(default_factory=lambda: list(PLAN_WEIGHTS))  # plan paper g/m² (roll selection)
     rolls: list = field(default_factory=list)  # rolls entered by hand [594, 841, …] or [{"width_mm": …, "slot": …}]
     live_rolls: bool = True  # read the rolls from the device
-    fix_hairlines: bool = False  # Haarlinien anheben
+    fix_hairlines: bool = False  # raise hairlines
     hairline_mm: float = 0.1
     options: dict = field(default_factory=dict)  # raw driver options
     profile: str = "admin"  # colour profile as for printing: admin | none | profile id
@@ -73,8 +73,8 @@ class PlanSettings:
     max_page_m: float = 10.0  # no longer used (every row is its own page)
     overwidth: str = "none"  # wider than every roll: none (skip) | crop (cut off) | tile (strips)
     overlap_mm: float = 20.0  # overlap of the strips
-    fold_marks: bool = False  # Faltmarken nach DIN 824 (vereinfacht)
-    hem_mm: float = 0.0  # Saum-/Tunnelzugabe
+    fold_marks: bool = False  # fold marks to DIN 824 (simplified)
+    hem_mm: float = 0.0  # hem/pole pocket allowance
     hem_sides: str = "lrtb"  # sides with a hem: l r t b (as the page stands)
     grommet_spacing_mm: float = 0.0  # eyelets: maximum spacing (0 = no eyelet marks)
     grommet_inset_mm: float = 20.0  # eyelets: centre measured from the trim edge
@@ -438,7 +438,7 @@ class Fit:
     """How one print area fits on one roll: size across and along the roll and whether it is rotated."""
 
     roll: int  # index in the list of rolls
-    width_mm: float  # Rollenbreite
+    width_mm: float  # roll width
     across: float  # across the roll (mm)
     along: float  # length on the roll (mm)
     rotated: bool  # rotated by 90° relative to the page
@@ -581,7 +581,7 @@ def job_order(items: list, copies: int, collate: bool, order: str, rolls: list |
 
 
 # --------------------------------------------------------------------------- #
-# Haarlinien
+# hairlines
 # --------------------------------------------------------------------------- #
 def _walk_paths(container, count_fn, get_fn, matrix, out: list, depth: int = 0):
     import ctypes
@@ -1082,7 +1082,7 @@ def lengths(items: list, rolls: list, s: PlanSettings) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Zeichnen
+# drawing
 # --------------------------------------------------------------------------- #
 def _hex_rgb(c: str) -> tuple:
     c = str(c or "#ffffff").lstrip("#")
@@ -1250,7 +1250,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
             (CX1 + o_, CY1, CX1 + o_ + L, CY1),
         ):
             _line(page, xa, ya, xb, yb, m)
-    if s.printcut_marks:  # Winkel an den Ecken (Sensor-Passermarken)
+    if s.printcut_marks:  # angles at the corners (sensor register marks)
         o_, L, w_ = max(bl, bb, br, bt) + 2.0 * MM, 5.0 * MM, 1.0 * MM
         for cx_, cy_, sx, sy in ((CX0, CY0, -1, -1), (CX1, CY0, 1, -1), (CX0, CY1, -1, 1), (CX1, CY1, 1, 1)):
             ax, ay = cx_ + sx * o_, cy_ + sy * o_
@@ -1262,7 +1262,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
         ("b", (l, b, l + cw, b)),
         ("t", (l, b + ch, l + cw, b + ch)),
     ):
-        if hem[k]:  # Falzlinie des Saums: gestrichelt im Saum
+        if hem[k]:  # fold line of the hem: dashed inside the hem
             dx, dy = {"l": (-1, 0), "r": (1, 0), "b": (0, -1), "t": (0, 1)}[k]
             e = 1.0 * MM
             _line(page, xa + dx * e, ya + dy * e, xb + dx * e, yb + dy * e, m, 0.3, 120, (3.0, 3.0))

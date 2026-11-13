@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Render-Prozess der Seitenansicht (passermark-cli render-server): Öffnen, ganze Seite, Ausschnitt (auch
-gedreht, pixelgleich zum Ausschnitt der ganzen Seite), Fehler ohne Absturz, Datei bleibt frei."""
+"""Render process of the page view (passermark-cli render-server): open, whole page, section (also
+rotated, pixel-identical to the section of the whole page), errors without a crash, the file stays free.
+"""
 
 import json
 import os
@@ -76,7 +77,7 @@ def test_render_server():
         assert h["ok"] and h["pages"] == 1
         pi = pickle.loads(info)
         assert pi[0]["crop"] == (0.0, 0.0, 300.0, 200.0) and pi[0]["rotate"] == 0
-        os.replace(path, path + ".alt")  # Datei ist frei (im Speicher) – Speichern darüber geht
+        os.replace(path, path + ".alt")  # the file is free (in memory) – saving over it works
         for rot in (0, 90):
             h, data = s(op="render", id=2, doc="x", page=0, scale=2.0, rotation=rot)
             assert h["ok"] and h["fmt"] == "bgrx", h
@@ -96,11 +97,11 @@ def test_render_server():
             assert part.shape[:2] == (y1 - y0, x1 - x0), part.shape
             assert np.abs(part - full[y0:y1, x0:x1]).mean() < 1.0, rot
         h, _ = s(op="render", id=4, doc="x", page=5, scale=1.0)
-        assert not h["ok"] and h["error"]  # Fehler zurück, Server läuft weiter
+        assert not h["ok"] and h["error"]  # error returned, the server keeps running
         h, _ = s(op="render", id=5, doc="gibtsnicht", page=0, scale=1.0)
         assert not h["ok"]
         h, data = s(op="chars", id=7, doc="x", page=0)
-        assert h["ok"] and pickle.loads(data) == []  # kein Text auf der Seite
+        assert h["ok"] and pickle.loads(data) == []  # no text on the page
         h, data = s(op="lists", id=8, doc="x", page=0, kind="objects")
         objs, total = pickle.loads(data)
         assert total == 2 and {o.kind for o in objs} == {"image", "path"}
@@ -117,8 +118,9 @@ def test_render_server():
 
 
 def test_sheet_preview_call():
-    """Druckvorschau im Prozess = Montage im Programm; bei mehrfach verwendeten Seiten (Step & Repeat) über
-    das einmal gerenderte Seitenbild – sieht gleich aus. Endformat/Anschnitt aus den Seitendaten = pdfium."""
+    """Print preview in the process = imposition in the program; for pages used several times (step & repeat) via
+    the page image rendered once – looks the same. Trim size/bleed from the page data = pdfium.
+    """
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium

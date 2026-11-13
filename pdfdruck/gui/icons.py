@@ -91,6 +91,7 @@ _cache: dict[str, QIcon] = {}
 
 
 def icon(name: str) -> QIcon:
+    """The line icon ``name`` as a QIcon in several sizes (cached)."""
     if name not in _cache:
         ic = QIcon()
         for size in (16, 20, 24, 32, 48):

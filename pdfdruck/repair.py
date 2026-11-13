@@ -42,6 +42,8 @@ class PasswordRequired(Exception):
 
 @dataclass
 class Result:
+    """Result of a repair: files, page counts, sizes and notes."""
+
     src: str
     dst: str
     pages_in: int
@@ -52,15 +54,18 @@ class Result:
 
     @property
     def ok(self) -> bool:
+        """Whether the output has the same number of pages as the input (and at least one)."""
         return self.pages_out == self.pages_in and self.pages_out > 0
 
 
 def default_output(src: str, mode: str) -> str:
+    """Suggested output path for repairing ``src`` in ``mode``."""
     base, _ = os.path.splitext(src)
     return base + SUFFIX.get(mode, "_neu") + ".pdf"
 
 
 def needs_password(path: str) -> bool:
+    """Whether the PDF can only be opened with a password."""
     import pikepdf
 
     try:
@@ -227,7 +232,7 @@ def process(
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError(tr("Ziel darf nicht die Quelldatei sein."))
     notes = []
-    pages_in = _pages(src, password)  # wirft PasswordRequired
+    pages_in = _pages(src, password)  # raises PasswordRequired
     tmp = tempfile.mkdtemp(prefix="passermark-rep-")
     try:
         # 1) always repair and decrypt the structure first -> clean intermediate state
@@ -236,7 +241,7 @@ def process(
             _pike_save(src, clean, password, None)
         except PasswordRequired:
             raise
-        except Exception as e:  # extrem kaputt: Ghostscript direkt versuchen
+        except Exception as e:  # badly broken: try Ghostscript directly
             notes.append(tr("Strukturreparatur nicht möglich ({0}) – Neuaufbau direkt.").format(e.__class__.__name__))
             clean = src
         if mode == "repair":

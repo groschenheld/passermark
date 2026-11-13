@@ -317,10 +317,12 @@ def localize_driver(text: str) -> str:
 
 
 def is_finishing(keyword: str, text: str) -> bool:
+    """Whether a driver option looks like a finishing option (stapling, punching, folding …)."""
     return bool(FINISH_RX.search(f"{keyword} {text}"))
 
 
 def option_text(keyword: str, text: str) -> str:
+    """Display text for a driver option in the interface language."""
     de = OPTION_DE.get(_norm(text)) or OPTION_DE.get(_norm(keyword))
     if de:
         return localize_driver(text) if (current() == "en" and text) else tr(de)
@@ -330,6 +332,7 @@ def option_text(keyword: str, text: str) -> str:
 
 
 def choice_text(keyword: str, value: str, text: str, option_label: str = "") -> str:
+    """Display text for one choice of a driver option in the interface language."""
     if (is_finishing(keyword, option_label) or FINISH_RX.search(text or "")) and not CHOICE_DE.get(
         _norm(text or value)
     ):

@@ -45,7 +45,7 @@ def test_detect_cards_vector():
     assert len(boxes) == 10, len(boxes)
     for b in boxes:
         assert abs(b.w / MM - 85) < 0.6 and abs(b.h / MM - 55) < 0.6, (b.w / MM, b.h / MM)
-    # Lesereihenfolge: erste Karte oben links
+    # reading order: first card at the top left
     assert boxes[0].x0 < boxes[1].x0 and boxes[0].y1 > boxes[2].y1
 
 
@@ -62,7 +62,7 @@ def test_separate_pages():
 
 def test_rotated_page():
     n = objects.normalized(card_sheet("/tmp/_cards_rot.pdf", rotate=True))
-    assert round(n.get_page_size(0)[0] / MM) == 297  # Drehung eingerechnet
+    assert round(n.get_page_size(0)[0] / MM) == 297  # rotation applied
     boxes = objects.detect(n[0], objects.DetectSettings())
     assert len(boxes) == 10 and abs(boxes[0].w / MM - 55) < 0.6
 
@@ -82,13 +82,13 @@ def test_gap_merges_parts():
 
 
 def test_raster_scan():
-    """Scan: graues Papier mit Rauschen, zwei Fotos -> Farbmodus."""
+    """Scan: grey paper with noise, two photos -> colour mode."""
     import numpy as np
     import img2pdf
     from PIL import Image
 
     rng = np.random.default_rng(1)
-    a = (235 + rng.integers(-6, 6, (1169, 827, 3))).astype(np.uint8)  # A4 @100 dpi, Papiergrau + Rauschen
+    a = (235 + rng.integers(-6, 6, (1169, 827, 3))).astype(np.uint8)  # A4 @100 dpi, paper grey + noise
     a[100:400, 80:500] = (180, 40, 30)
     a[600:1000, 300:700] = (20, 120, 60)
     Image.fromarray(a).save("/tmp/_scan.png", dpi=(100, 100))
@@ -123,12 +123,12 @@ def test_full_page_motif_is_one_object():
 def test_margin_applied_at_output():
     """The margin is applied on output (also when changed later, also for custom frames)."""
     n = objects.normalized(card_sheet())
-    boxes = objects.detect(n[0], objects.DetectSettings())  # ohne Rand erkannt
+    boxes = objects.detect(n[0], objects.DetectSettings())  # detected without a margin
     out = objects.separate(n, {0: boxes[:2] + [objects.Box(10 * MM, 10 * MM, 50 * MM, 40 * MM)]}, margin_mm=-3)
     w, h = (v / MM for v in out.get_page_size(0))
     assert abs(w - 79) < 0.6 and abs(h - 49) < 0.6, (w, h)  # 85×55 -> 79×49
     w, h = (v / MM for v in out.get_page_size(2))
-    assert abs(w - 34) < 0.1 and abs(h - 24) < 0.1  # eigener Rahmen 40×30 -> 34×24
+    assert abs(w - 34) < 0.1 and abs(h - 24) < 0.1  # own frame 40×30 -> 34×24
 
 
 if __name__ == "__main__":

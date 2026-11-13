@@ -80,7 +80,7 @@ def test_cancel_leaves_no_file():
 def test_error_leaves_no_file():
     src, dst = stickers_file(), os.path.join(TMP, "fehler.pdf")
     try:
-        core.run_job("separate", src, dst, {"detect": {"min_size_mm": 5000}})  # findet nichts
+        core.run_job("separate", src, dst, {"detect": {"min_size_mm": 5000}})  # finds nothing
         assert False
     except ValueError:
         pass
@@ -116,11 +116,11 @@ def test_manip_crop_job():
     w, h = pdfium.PdfDocument(dst).get_page_size(0)
     assert abs(w - 419.5) < 1.5 and abs(h - 595.3) < 1.5, (w, h)
     try:
-        core.run_job("manip", src, dst, {})  # nichts aktiviert
+        core.run_job("manip", src, dst, {})  # nothing activated
         assert False
     except ValueError:
         pass
-    # crop_mode (für Abläufe): trim / whiteout ohne die internen Sonderwerte in crop_size
+    # crop_mode (for workflows): trim / whiteout without the internal special values in crop_size
     r = core.run_job("manip", src, dst, {"crop": True, "crop_mode": "trim", "trim_l_mm": 10, "trim_r_mm": 10})
     w, h = pdfium.PdfDocument(dst).get_page_size(0)
     assert abs(w - (595.3 - 20 * 72 / 25.4)) < 1.5 and abs(h - 841.9) < 1.5, (w, h)

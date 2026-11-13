@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-"""Lizenzen von Drittanbietern: tools/third_party_licenses.py sammelt alles, was Installer und
-AppImage mitliefern (Python-Pakete, Qt-LGPL-Hinweis, Ghostscript-AGPL-Hinweis, Lizenztexte)."""
+"""Third-party licences: tools/third_party_licenses.py collects everything that the installer and
+AppImage ship (Python packages, Qt LGPL notice, Ghostscript AGPL notice, licence texts).
+"""
 
 import os
 import subprocess
@@ -65,7 +66,7 @@ def test_without_ghostscript_no_gs_notice():
 
 
 def test_fallback_for_packages_without_licence_file():
-    """PySide6/shiboken6-Wheels und Debians python3-lxml/python3-cups haben keine Lizenzdatei im dist-info."""
+    """PySide6/shiboken6 wheels and Debian's python3-lxml/python3-cups have no licence file in the dist-info."""
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import third_party_licenses as t
 
