@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Auftrag an die laufende Instanz weiterreichen – ohne Qt, ganz am Anfang des Programmstarts.
+"""Hand a request to the running instance – without Qt, at the very start of the program.
 
 Explorer startet bei einer Mehrfachauswahl („Als ein PDF zusammenführen“ auf 110 Pläne) pro Datei einen eigenen
 Prozess. Bisher lud jeder davon erst die ganze Oberfläche, bevor er seine Datei weitergab – die Dateien kamen

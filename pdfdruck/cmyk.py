@@ -52,6 +52,8 @@ ECI_URL = "https://www.eci.org/doku.php?id=en:downloads"
 
 @dataclass
 class CmykProfile:
+    """An available CMYK ICC profile: display name, file path and where it comes from."""
+
     name: str
     path: str
     origin: str  # admin | system
@@ -59,6 +61,8 @@ class CmykProfile:
 
 @dataclass
 class ManipSettings:
+    """Settings of the job ``manip``: CMYK conversion and/or cropping to a target size."""
+
     cmyk: bool = False
     cmyk_mode: str = "rgb_only"  # rgb_only | all | gray
     target: str = ""  # Pfad Zielprofil (CMYK)
@@ -83,6 +87,7 @@ class ManipSettings:
 
     @classmethod
     def from_dict(cls, d):
+        """Create settings from a dict; unknown keys are ignored."""
         s = cls()
         for k, v in (d or {}).items():
             if hasattr(s, k):
@@ -90,10 +95,12 @@ class ManipSettings:
         return s
 
     def to_dict(self):
+        """Plain dict of all fields."""
         return dict(self.__dict__)
 
     @property
     def active(self) -> bool:
+        """Whether the settings would change the document at all."""
         return (self.cmyk and (bool(self.target) or self.cmyk_mode == "gray")) or self.crop
 
 
@@ -173,6 +180,7 @@ def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
 
 
 def ghostscript() -> str | None:
+    """Path of the Ghostscript program, or None if it is not installed."""
     return _platform.ghostscript()
 
 
@@ -180,6 +188,7 @@ def ghostscript() -> str | None:
 # Ghostscript arguments (shared by conversion and preview -> identical result)
 # --------------------------------------------------------------------------- #
 def color_args(s: ManipSettings) -> list[str]:
+    """Ghostscript arguments for the colour conversion described by ``s``."""
     if s.cmyk_mode == "gray":
         return ["-sColorConversionStrategy=Gray", "-sProcessColorModel=DeviceGray"]
     if not s.target:
@@ -213,6 +222,7 @@ def _run(cmd, timeout=1800):
 
 
 def convert_pdf(src: str, dst: str, s: ManipSettings):
+    """Convert the colours of ``src`` with Ghostscript and write the result to ``dst``."""
     gs = ghostscript()
     if not gs:
         raise RuntimeError(tr("Für die CMYK-Umwandlung wird Ghostscript benötigt."))
@@ -296,6 +306,8 @@ def _render(gs, src, page, dpi, device, extra, out):
 
 @dataclass
 class Preview:
+    """Before/after images of one page for the conversion preview, plus the real CMYK separation."""
+
     before: object  # PIL RGB
     after: object  # PIL RGB (Softproof)
     cmyk: object = None  # PIL CMYK (echte Separationswerte) bzw. None bei Graustufen
@@ -306,6 +318,7 @@ class Preview:
 def render_preview(
     src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False, white_lab=None
 ) -> Preview:
+    """Render one page before and after the conversion for the preview (soft proof of the result)."""
     from PIL import Image
 
     gs = ghostscript()

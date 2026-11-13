@@ -243,12 +243,16 @@ IPP_FINISHINGS = {
 
 @dataclass
 class Choice:
+    """One selectable value of a driver option: the driver's value and the text shown to the user."""
+
     value: str
     text: str
 
 
 @dataclass
 class Option:
+    """One driver option (PPD keyword or IPP attribute) with its choices and default."""
+
     keyword: str
     text: str
     group: str
@@ -259,6 +263,8 @@ class Option:
 
 @dataclass
 class PrinterInfo:
+    """A printer as listed by the system: name, description, location, model, state."""
+
     name: str
     info: str
     location: str
@@ -270,11 +276,14 @@ class PrinterInfo:
 
     @property
     def state_text(self) -> str:
+        """Printer state as translated text."""
         return tr({3: "Bereit", 4: "Druckt", 5: "Angehalten"}.get(self.state, "Unbekannt"))
 
 
 @dataclass
 class PrinterCaps:
+    """Capabilities of one printer: all driver options, paper sizes and which option serves which role."""
+
     name: str
     backend: str  # "ppd" | "ipp"
     options: dict[str, Option] = field(default_factory=dict)
@@ -291,6 +300,7 @@ class PrinterCaps:
 
     # ------------------------------------------------------------------ #
     def defaults(self) -> dict[str, str]:
+        """Default value of every option (installable hardware options excluded)."""
         return {k: o.default for k, o in self.options.items() if not o.installable}
 
     def sheet_for(self, values: dict[str, str]):
@@ -428,6 +438,7 @@ class PrinterCaps:
         )
 
     def is_borderless(self, values: dict) -> bool:
+        """Whether ``values`` select borderless printing (by paper variant, driver option or IPP margins)."""
         pkey = self.roles.get("pagesize")
         if pkey and values.get(pkey) in set(self.borderless_sizes().values()):
             return True
@@ -554,6 +565,7 @@ PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA4", "SRA3", "S
 
 
 def pdf_target_info() -> PrinterInfo:
+    """The pseudo printer "Save as PDF"."""
     return PrinterInfo(
         name=PDF_TARGET,
         info=tr("Als PDF speichern (Farben unverändert)"),
@@ -594,6 +606,7 @@ def custom_value(w_mm: float, h_mm: float) -> str:
 
 
 def parse_custom(val) -> tuple[float, float] | None:
+    """Parse a custom size value ``Custom.WxHmm`` into ``(width, height)`` in mm; None if it is not one."""
     m = re.fullmatch(r"Custom\.([0-9.]+)x([0-9.]+)mm", str(val or ""))
     if not m:
         return None
@@ -620,6 +633,7 @@ def load_custom_sizes() -> list[dict]:
 
 
 def save_custom_sizes(sizes: list[dict]) -> None:
+    """Store the user's custom paper sizes."""
     from . import l10n
 
     st = l10n.load_settings()
@@ -672,6 +686,7 @@ def _conn():
 
 
 def list_printers() -> list[PrinterInfo]:
+    """All printers known to CUPS, sorted by name."""
     c = _conn()
     default = c.getDefault()
     out = []
@@ -692,6 +707,7 @@ def list_printers() -> list[PrinterInfo]:
 
 
 def load_caps(name: str) -> PrinterCaps:
+    """Read the capabilities of printer ``name`` from its PPD, or over IPP if it has none (driverless)."""
     c = _conn()
     try:
         ppd_file = c.getPPD(name)

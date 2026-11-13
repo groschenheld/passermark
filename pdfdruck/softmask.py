@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Transparente Verläufe (Soft-Maske) gezielt in deckende Bilder umwandeln – ohne Ghostscript.
+"""Convert transparent gradients (soft masks) into opaque images where needed – without Ghostscript.
 
 Hintergrund: Browser (Chrome/Skia, auch Canva-Exporte) legen CSS-Verläufe mit Transparenz als
 Muster an, in dem ein Verlauf über eine Soft-Maske (Luminosity) halbtransparent wird. Die

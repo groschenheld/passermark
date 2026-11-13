@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Farbpipette (1.18.14): kleines Werkzeugfenster neben der Seite.
+"""Colour pipette: small tool window next to the page.
 
 Klick auf die Seite -> definierte Farbe (RGB/CMYK/Grau/Sonderfarbe/Bildpixel), Farbauftrag im Druck je Kanal und
 gesamt (mit dem Profil der Druckbedingung), Bildschirmfarbe. Die Farbe lässt sich als CMYK oder RGB übernehmen –

@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Ruckler-Protokoll: merkt, wenn die Oberfläche hängt, und schreibt mit, was das Hauptfenster gerade tut.
+"""Stall log: notices when the interface hangs and records what the main window is doing at that moment.
 
 Ein Herzschlag im Hauptfenster (alle 100 ms) und ein Wächter-Thread. Bleibt der Herzschlag länger als
 THRESHOLD aus, schaut der Wächter alle 50 ms nach, in welcher Funktion das Hauptfenster steckt. Nach dem

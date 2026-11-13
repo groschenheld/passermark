@@ -29,10 +29,12 @@ from .gui.common import Session
 
 
 def server_name() -> str:
+    """Name of the local socket of the running instance (one per user)."""
     return f"passermark-{_platform.user_id()}"
 
 
 def notify(title: str, body: str, error: bool = False):
+    """Show a desktop notification (used when printing without a window)."""
     _platform.notify(title, body, error)
 
 
@@ -51,6 +53,11 @@ def send_to_running(cmd: str, files: list[str], timeout_ms: int = 400) -> bool:
 
 
 class Controller(QObject):
+    """Program-wide state: admin configuration, print session, all open windows and the single-instance server.
+
+    There is exactly one controller per process. Windows and dialogs reach shared state through it.
+    """
+
     def __init__(self):
         super().__init__()
         self.cfg = config.load()
@@ -118,6 +125,9 @@ class Controller(QObject):
     # cache for manipulation results (emptied on exit)
     # ---------------------------------------------------------------- #
     def cache_dir(self) -> str:
+        """Return the folder for temporary documents (created on first use; leftovers older than two days are
+        removed).
+        """
         if not hasattr(self, "_cache"):
             import time
 
@@ -135,6 +145,7 @@ class Controller(QObject):
         return self._cache
 
     def cache_file(self, name: str) -> str:
+        """Return a new, unused path in the cache folder for ``name``; the file is removed when the program ends."""
         import re
 
         d = self.cache_dir()
@@ -165,6 +176,7 @@ class Controller(QObject):
 
     @property
     def image_dpi(self) -> float:
+        """Resolution assumed for images that carry no DPI value (admin setting)."""
         return float(self.cfg.get("image_default_dpi", 96))
 
     # ---------------------------------------------------------------- #
@@ -221,6 +233,11 @@ class Controller(QObject):
     BATCH_MS = 700
 
     def queue_request(self, cmd: str, files: list[str]):
+        """Handle a request from the command line or from a second program start.
+
+        ``cmd`` is one of open, print, merge, repair, plan, poster. Requests arriving in quick succession (several
+        files selected in the file manager) are collected and handled together.
+        """
         cmd = cmd if cmd in ("print", "merge", "repair", "open", "plan", "poster") else "open"
         if cmd in ("plan", "poster"):
             self.plan_window(cmd, files=files)  # eigenes Fenster; schon offen: Dateien dort dazu
@@ -264,6 +281,7 @@ class Controller(QObject):
 
     @staticmethod
     def plan_windows() -> list:
+        """Return the open plan and poster windows."""
         from .gui.plandialog import open_windows
 
         return open_windows()
@@ -271,11 +289,13 @@ class Controller(QObject):
     # ---------------------------------------------------------------- #
     @staticmethod
     def tabs_enabled() -> bool:
+        """Whether documents open as tabs (user setting) instead of separate windows."""
         from . import l10n
 
         return bool(l10n.load_settings().get("open_in_tabs", True))
 
     def new_host(self):
+        """Create a new top-level window frame that holds document tabs."""
         from .gui.tabhost import TabHost
 
         h = TabHost(self)
@@ -304,6 +324,7 @@ class Controller(QObject):
         return w
 
     def show_window(self, w):
+        """Bring a document window to the front (selects its tab if it lives in a tab host)."""
         host = getattr(w, "_host", None)
         if host is not None:
             host.show_tab(w)
@@ -373,6 +394,7 @@ class Controller(QObject):
             self.merge_into_window(dlg.paths())
 
     def merge_into_window(self, paths: list[str], window=None):
+        """Merge ``paths`` into one document and show it in ``window`` (default: the current target window)."""
         from .gui.viewer import merge_files
 
         w = window or self._target_window()
@@ -398,6 +420,7 @@ class Controller(QObject):
             w.statusBar().setToolTip("\n".join(conv))
 
     def repair_paths(self, paths: list[str]):
+        """Open the repair dialog for the given files."""
         from .gui.repairdialog import RepairDialog
 
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p)]
@@ -408,6 +431,10 @@ class Controller(QObject):
         dlg.exec()
 
     def print_paths(self, paths: list[str]) -> bool:
+        """Print files with the default settings and no dialog; asks for a password where needed.
+
+        Returns True if at least one file was sent.
+        """
         ok, errors = [], []
         for p in paths:
             password = None

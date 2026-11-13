@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Seitenoperationen am geöffneten Dokument (pdfium), ohne Oberfläche."""
+"""Page operations on the open document (pdfium), no user interface."""
 
 from __future__ import annotations
 

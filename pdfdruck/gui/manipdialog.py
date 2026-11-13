@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Dokument-Manipulation: Bedienfeld (Reiter im Druckdialog + eigener Dialog) und Farbvorschau."""
+"""Document manipulation: control panel (tab in the print dialog + its own dialog) and colour preview."""
 
 from __future__ import annotations
 

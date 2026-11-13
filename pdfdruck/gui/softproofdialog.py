@@ -3,8 +3,8 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Softproof der Seitenansicht einrichten: Druckbedingung (Material oder Profil), Intent, Papierweiß, Schwarz,
-Warnungen. Änderungen wirken sofort; die Einstellung wird für das nächste Mal gemerkt."""
+"""Set up the soft proof of the page view: printing condition (material or profile), intent, paper white,
+black, warnings. Changes take effect immediately; the setting is remembered for next time."""
 
 from __future__ import annotations
 

@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Datei verkleinern: Aufschlüsselung der Dateigröße und jede Maßnahme einzeln an/aus."""
+"""Reduce file size: breakdown of the file size and every measure on/off separately."""
 
 from __future__ import annotations
 

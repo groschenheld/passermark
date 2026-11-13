@@ -3,9 +3,9 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Bilder und Farben prüfen: Farbraum (RGB/CMYK/Grau/Sonderfarbe) mit ICC-Profilname,
-effektive Auflösung jedes platzierten Bildes (auch in Formularen, auch mehrfach verwendet) und
-die daraus folgende maximale Druckgröße. Nur pikepdf – darf im Hintergrund laufen.
+"""Check images and colours: colour space (RGB/CMYK/grey/spot) with the ICC profile name,
+the effective resolution of every placed image (also inside forms, also when used several times) and
+the resulting maximum print size. pikepdf only – may run in the background.
 
 Effektive Auflösung = Pixel / platzierte Größe auf der Seite (über die Transformationsmatrix),
 also das, was beim Druck in Originalgröße tatsächlich ankommt.

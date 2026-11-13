@@ -23,6 +23,8 @@ LIVE_CACHE_S = 20
 
 @dataclass
 class Tray:
+    """One paper tray as configured by the admin: driver slot, paper size, grammage, media."""
+
     slot: str  # Treiberwert der Lade (InputSlot / Windows-Fach-ID)
     size: str  # Treiberwert des Formats (PageSize / Windows-Papier-ID)
     weight: int = 0  # g/m², 0 = nicht angegeben
@@ -31,6 +33,7 @@ class Tray:
 
     @classmethod
     def from_dict(cls, d: dict) -> Tray:
+        """Create a tray from a dict of the admin configuration."""
         return cls(
             str(d.get("slot", "")),
             str(d.get("size", "")),
@@ -40,21 +43,26 @@ class Tray:
         )
 
     def to_dict(self) -> dict:
+        """Plain dict for the admin configuration."""
         return {"slot": self.slot, "size": self.size, "weight": self.weight, "media": self.media, "ipp": self.ipp}
 
 
 @dataclass
 class Pick:
+    """Result of the automatic tray selection: the tray (or None) and a note for the user."""
+
     tray: Tray | None
     note: str = ""
     warn: bool = False
 
 
 def trays_of(pc: dict) -> list[Tray]:
+    """Trays configured for a printer (``pc`` is the printer's part of the admin configuration)."""
     return [Tray.from_dict(d) for d in (pc or {}).get("trays", []) if d.get("slot") and d.get("size")]
 
 
 def weights_of(pc: dict, size: str | None = None) -> list[int]:
+    """Grammages available in the trays of a printer, optionally only for one paper size."""
     return sorted({t.weight for t in trays_of(pc) if t.weight and (size is None or t.size == size)})
 
 
@@ -100,6 +108,7 @@ _cache: dict = {}
 
 
 def live_status(host: str, force: bool = False):
+    """Ask the printer at ``host`` over IPP what is loaded (cached briefly); None without a host."""
     from . import ipp
 
     if not host:

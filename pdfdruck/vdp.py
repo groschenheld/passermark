@@ -3,7 +3,7 @@
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Variable Daten: Felder (Text, Nummer, QR-Code, Code 128, EAN-13, Bild) auf die Seiten legen – je Datensatz eine Kopie.
+"""Variable data: place fields (text, number, QR code, Code 128, EAN-13, image) on the pages – one copy per record.
 
 Datensätze kommen aus einer CSV-Datei (Zeile = Kopie) oder aus einer reinen Nummerierung (Anzahl). Inhalte sind
 Vorlagen mit Platzhaltern: {{Spaltenname}}, {{nr}} (Nummer samt Format/Prüfziffer), {{i}} (laufende Nummer ab 1).
@@ -34,6 +34,8 @@ MAX_RECORDS = 100000
 
 @dataclass
 class VdpField:
+    """One variable field on the page: kind (text, QR, Code 128, EAN-13, image), content template, position, look."""
+
     kind: str = "text"  # text | qr | code128 | ean13 | image
     content: str = "{{nr}}"  # Vorlage mit Platzhaltern
     x_mm: float = 10.0  # linke obere Ecke des Feldes, ab links oben auf der Seite
@@ -58,6 +60,8 @@ class VdpField:
 
 @dataclass
 class Numbering:
+    """Settings of the running number: start, step, padding, prefix/suffix, check digit."""
+
     start: int = 1
     step: int = 1
     digits: int = 0  # mit Nullen auffüllen (0 = nicht)
@@ -69,12 +73,16 @@ class Numbering:
 
 @dataclass
 class VdpWindow:
+    """A group of fields that applies to a set of pages ("all", "odd", "1,3-5" …)."""
+
     pages: str = ""  # Seitengruppe des Fensters: "" = alle | "ungerade" | "gerade" | "1,3-5" | "ungerade 1-50" …
     fields: list = field(default_factory=list)  # Felder dieses Fensters (VdpField bzw. dicts)
 
 
 @dataclass
 class VdpSettings:
+    """Settings of the job ``vdp``: fields, data source (CSV), numbering and how records map to pages."""
+
     fields: list = field(default_factory=list)  # Liste von VdpField bzw. dicts
     csv_path: str = ""  # Datenquelle; leer = nur Nummerierung
     delimiter: str = ""  # leer = automatisch (; , Tab)
@@ -99,6 +107,7 @@ class VdpSettings:
 # Prüfziffern
 # --------------------------------------------------------------------------- #
 def check_digit(digits: str, method: str) -> str:
+    """Check digit for ``digits`` by ``method`` (luhn, mod11, ean); empty string for method "none"."""
     d = [int(c) for c in digits if c.isdigit()]
     if method == "none" or not d:
         return ""
@@ -122,6 +131,7 @@ def check_digit(digits: str, method: str) -> str:
 
 
 def format_number(n: int, nb: Numbering) -> str:
+    """Format the running number ``n``: zero padding, prefix, check digit and suffix."""
     core = str(abs(n)).zfill(nb.digits) if nb.digits > 0 else str(abs(n))
     if n < 0:
         core = "-" + core
@@ -132,6 +142,7 @@ def format_number(n: int, nb: Numbering) -> str:
 # Datenquelle
 # --------------------------------------------------------------------------- #
 def read_csv(path: str, delimiter: str = "", encoding: str = "") -> tuple[list[str], list[dict]]:
+    """Read a CSV file and return ``(column names, rows as dicts)``; delimiter and encoding are detected if empty."""
     if not isinstance(path, str) or not os.path.isfile(path):
         raise FileNotFoundError(tr("Datei nicht gefunden: {0}").format(path))
     with open(path, "rb") as f:
@@ -164,6 +175,7 @@ def _ranges(text: str, n: int) -> list[int]:
 
 
 def counter_state() -> dict:
+    """The stored counters (last used numbers) from the user settings."""
     from . import l10n
 
     return dict(l10n.load_settings().get("vdp_counters", {}) or {})
@@ -554,6 +566,7 @@ class Images:
         return dx, (h - dh) / 2, dw, dh
 
     def draw(self, cv, path: str, w: float, h: float, fit: str = "contain", align: str = "center"):
+        """Draw the image or PDF at ``path`` into a box of ``w`` × ``h`` points (contain, cover or stretch)."""
         inf = self.info(path)
         dx, dy, dw, dh = self.placement(inf["size"], w, h, fit, align)
         cv.saveState()
@@ -597,6 +610,7 @@ class Images:
         return min(inf["px"][0] / (dw / 72.0), inf["px"][1] / (dh / 72.0))
 
     def close(self):
+        """Close the PDF files that were opened for image fields."""
         for _n, pdf, _f, _b in self._forms.values():
             try:
                 pdf.close()
@@ -1059,6 +1073,7 @@ BLOCKING = ("invalid", "missing", "unreadable")  # diese Fehler brechen das Erze
 
 
 def check_blocking(res: dict) -> bool:
+    """Whether a data check result contains findings that should stop the job."""
     c = res.get("counts") or {}
     return any(c.get(k) for k in BLOCKING)
 

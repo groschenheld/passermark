@@ -51,6 +51,8 @@ ORDERS = {
 # --------------------------------------------------------------------------- #
 @dataclass
 class Sheet:
+    """A physical sheet: size in points and, if known, the printable area of the device."""
+
     width: float  # physisch, Punkte
     height: float
     imageable: tuple[float, float, float, float] | None = None  # llx,lly,urx,ury
@@ -66,6 +68,8 @@ class Sheet:
 
 @dataclass
 class LayoutSettings:
+    """Everything the print dialog offers for placing pages on a sheet (scaling, N-up, booklet, poster, marks)."""
+
     mode: str = "fit"  # fit | actual | shrink | custom
     custom_percent: float = 100.0
     custom_by: str = "percent"  # percent | short | long  (custom: percent or edge measure)
@@ -144,6 +148,7 @@ class LayoutSettings:
 
     @classmethod
     def from_dict(cls, d: dict | None) -> LayoutSettings:
+        """Create settings from a dict; unknown keys are ignored and values are cast to the field's type."""
         s = cls()
         d = d or {}
         for k, v in d.items():
@@ -154,10 +159,12 @@ class LayoutSettings:
         return s
 
     def to_dict(self) -> dict:
+        """Plain dict of all fields."""
         return dict(self.__dict__)
 
     @property
     def is_nup(self) -> bool:
+        """Whether more than one page is placed on a sheet."""
         return self.handling == "multiple" and (
             self.nup > 1 or (self.cols > 0 and self.rows > 0 and self.cols * self.rows > 1)
         )
@@ -172,6 +179,7 @@ class ImposeSettings(LayoutSettings):
     sheet_h_mm: float = 0.0
 
     def sheet_obj(self) -> Sheet:
+        """Return the target sheet as a :class:`Sheet` (named size or custom measures)."""
         if self.sheet.lower() == "custom":
             if self.sheet_w_mm <= 0 or self.sheet_h_mm <= 0:
                 raise ValueError(tr("Bogenformat „custom“: sheet_w_mm und sheet_h_mm angeben"))
@@ -188,6 +196,8 @@ class ImposeSettings(LayoutSettings):
 
 @dataclass
 class Placement:
+    """One source page on a sheet: rotation, scale, position and optional clip."""
+
     src: int  # Quellseiten-Index (0-basiert)
     rot: int  # 0 or 90 (additional, counterclockwise)
     scale: float
@@ -207,6 +217,8 @@ class Placement:
 
 @dataclass
 class SheetPlan:
+    """One output sheet: orientation, the placements on it, marks and warnings."""
+
     landscape: bool
     placements: list[Placement] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -247,6 +259,7 @@ def parse_ranges(text: str, count: int) -> list[int]:
 def select_pages(
     count: int, ranges: str = "", subset: str = "all", reverse: bool = False, current: int | None = None
 ) -> list[int]:
+    """Return the 0-based page indexes to print from a range string, the odd/even subset and the order."""
     pages = [current] if current is not None else parse_ranges(ranges, count)
     if subset == "odd":
         pages = [p for p in pages if (p + 1) % 2 == 1]
@@ -380,6 +393,7 @@ def global_scale(s: LayoutSettings, pw: float, ph: float, base: float) -> float:
 
 
 def plan_single(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
+    """Plan one page per sheet (fit, actual size, shrink or custom scale)."""
     plans = []
     for p in pages:
         pw, ph = sizes[p]
@@ -416,6 +430,7 @@ def plan_single(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
 
 
 def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
+    """Plan several pages per sheet in a grid, including step and repeat."""
     if not pages:
         return []
     land, cols, rows = _pick_grid(sizes[pages[0]], sheet, s)
@@ -625,6 +640,7 @@ def _reg_mark(marks, x, y, r=2.5 * MM):
 
 
 def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
+    """Plan a booklet: page pairs in imposition order, with creep and optional fold and register marks."""
     if not pages:
         return []
     pw0, ph0 = sizes[pages[0]]
@@ -777,6 +793,7 @@ def _poster_geometry(pw, ph, sheet: Sheet, s: LayoutSettings, land: bool):
 
 
 def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
+    """Plan a page that is tiled over several sheets, with overlap and cut marks."""
     plans = []
     for p in pages:
         pw, ph = sizes[p]
@@ -1368,6 +1385,7 @@ def _log2phys(sheet: Sheet, landscape: bool):
 
 
 def placement_matrix(pl: Placement, src_size) -> tuple:
+    """PDF transformation matrix ``(a, b, c, d, e, f)`` that puts a source page at its placement."""
     w0, h0 = src_size
     m = (1, 0, 0, 1, 0, 0)
     if pl.rot == 90:
@@ -1490,6 +1508,7 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
 
 
 def impose_with(src, sheet: Sheet, plans, settings: LayoutSettings, only=None):
+    """Run :func:`impose` with the border option taken from ``settings``."""
     return impose(src, sheet, plans, only, borders=settings.borders and settings.is_nup)
 
 
@@ -1674,6 +1693,8 @@ def trim_info(doc, i: int):
 
 
 def page_trims_one(doc, i: int):
+    """Like :func:`page_trims`, but for the single page ``i`` only."""
+
     class _One:
         def __len__(self):
             return 1
@@ -1725,6 +1746,7 @@ def flattened(doc):
 
 
 def build_pdf(src, sheet: Sheet, pages: list[int], settings: LayoutSettings, path: str):
+    """Plan and impose ``pages`` of ``src`` onto ``sheet`` and save the result to ``path``; returns the sheet plans."""
     sizes = [src.get_page_size(i) for i in range(len(src))]
     plans = plan(sizes, pages, sheet, settings, page_trims(src), page_doc_bleeds(src))
     doc = impose_with(src, sheet, plans, settings)

@@ -33,6 +33,8 @@ SHAPES = ["contour", "rect", "rounded", "circle", "oval", "hexagon", "octagon", 
 
 @dataclass
 class CutSettings:
+    """Settings of the job ``cutcontour``: shape, offset, bleed and detection parameters."""
+
     dpi: int = 200
     shape: str = "contour"
     fit: str = "motif"  # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
@@ -61,6 +63,8 @@ class CutSettings:
 
 @dataclass
 class CutObject:
+    """One detected object: its cut paths and the generated bleed image."""
+
     paths: list  # [(Punkte [(x, y)…] in pt, glatt: bool)]
     bleed_rgba: object = None  # numpy (h, w, 4)
     bleed_box: tuple | None = None  # (x0, y0, x1, y1) pt
@@ -73,6 +77,8 @@ class CutObject:
 
 @dataclass
 class CutResult:
+    """Result for one page: the cut objects, the page size and the knock-out mask."""
+
     objects: list  # [CutObject]
     page_size: tuple = (0, 0)
     knockout: object = None  # bool-Maske (Seite, dpi) – sichtbarer Teil des Originals (Hintergrund ausgestanzt)
@@ -80,6 +86,7 @@ class CutResult:
 
     @property
     def paths(self):  # all cut paths (for preview/counting)
+        """All cut paths of the page (for preview and counting)."""
         return [p for o in self.objects for p in o.paths]
 
 
@@ -192,6 +199,7 @@ def bezier_ops(poly) -> str:
 
 
 def line_ops(poly) -> str:
+    """PDF path operators for a closed polygon."""
     out = [f"{poly[0][0]:.3f} {poly[0][1]:.3f} m"] + [f"{x:.3f} {y:.3f} l" for x, y in poly[1:]] + ["h"]
     return "\n".join(out)
 
@@ -367,6 +375,7 @@ class WorkerPool:
         self._ex = None
 
     def get(self):
+        """Return the process pool, creating it on first use."""
         if self._ex is None:
             import multiprocessing as mp
             from concurrent.futures import ProcessPoolExecutor
@@ -376,6 +385,7 @@ class WorkerPool:
         return self._ex
 
     def close(self):
+        """Shut the process pool down."""
         if self._ex is not None:
             self._ex.shutdown(wait=True, cancel_futures=True)
             self._ex = None

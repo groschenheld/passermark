@@ -27,6 +27,8 @@ SETTINGS_KEY = "plan_rolls"  # Benutzereinstellung: {Drucker: [Rolle, …]}
 
 @dataclass
 class Roll:
+    """One roll loaded in a large-format printer: width, driver slot, name, grammage, media, remaining length."""
+
     width_mm: float
     slot: str = ""  # Treiberwert der Zufuhr ("" = Gerät wählt selbst)
     name: str = ""  # Anzeige („Rolle 1“)
@@ -39,6 +41,7 @@ class Roll:
 
     @classmethod
     def from_dict(cls, d: dict) -> Roll:
+        """Create a roll from a dict (tolerates missing or empty values)."""
         rem = d.get("remaining_m")
         return cls(
             float(d.get("width_mm", 0) or 0),
@@ -53,9 +56,11 @@ class Roll:
         )
 
     def to_dict(self) -> dict:
+        """Plain dict of all fields."""
         return asdict(self)
 
     def label(self) -> str:
+        """Display text: width plus grammage, media and remaining length where known."""
         parts = [tr("{0} mm").format(_mm(self.width_mm))]
         if self.weight:
             parts.append(f"{self.weight} g")
@@ -79,6 +84,8 @@ def _mm(v: float) -> str:
 
 @dataclass
 class RollState:
+    """The rolls of a printer together with where the information came from (ipp, snmp, manual, none)."""
+
     rolls: list
     origin: str = "manual"  # ipp | snmp | manual | none
     error: str = ""
@@ -90,6 +97,7 @@ class RollState:
 # Gerät abfragen
 # --------------------------------------------------------------------------- #
 def from_ipp(status) -> list:
+    """Convert the trays of an IPP status into rolls (only trays that are rolls with a known width)."""
     out = []
     for src, t in status.trays.items():
         if not t.roll or not t.width_mm:
@@ -111,6 +119,7 @@ def from_ipp(status) -> list:
 
 
 def from_snmp(rows: list) -> list:
+    """Convert rows of the SNMP input table into rolls (only rolls with a known width)."""
     out = []
     for r in rows:
         if not r.get("roll") or not r.get("width_mm"):
@@ -201,6 +210,7 @@ _ROLLWORD = re.compile(r"roll|rolle", re.I)
 
 
 def roll_choices(caps) -> list:
+    """Choices of the driver's paper source option that denote a roll."""
     key = caps.roles.get("source") if caps else None
     if not key or key not in caps.options:
         return []
@@ -241,6 +251,7 @@ def slot_for(caps, device: str, index: int = 0) -> str:
 # Von Hand eingetragene Rollen (Benutzereinstellung)
 # --------------------------------------------------------------------------- #
 def manual(printer: str) -> list:
+    """Rolls the user entered by hand for ``printer``."""
     from . import l10n
 
     d = (l10n.load_settings().get(SETTINGS_KEY) or {}).get(printer) or []
@@ -257,6 +268,7 @@ def manual(printer: str) -> list:
 
 
 def save_manual(printer: str, rolls: list) -> None:
+    """Store the rolls entered by hand for ``printer`` in the user settings."""
     from . import l10n
 
     st = l10n.load_settings()
@@ -287,6 +299,7 @@ def parse_widths(text: str) -> list:
 # Alles zusammen
 # --------------------------------------------------------------------------- #
 def model_of(printer: str) -> str:
+    """Model and description of ``printer`` as one string (empty if unknown)."""
     try:
         from . import printers
 
@@ -320,12 +333,14 @@ HOSTS_KEY = "plan_hosts"  # Benutzereinstellung: {Drucker: Geräteadresse}
 
 
 def user_host(printer: str) -> str:
+    """Network address the user entered for ``printer`` (empty if none)."""
     from . import l10n
 
     return str((l10n.load_settings().get(HOSTS_KEY) or {}).get(printer) or "").strip()
 
 
 def set_user_host(printer: str, host: str) -> None:
+    """Store or clear the network address of ``printer``."""
     from . import l10n
 
     st = l10n.load_settings()

@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Dunkles Design mit gelbem Akzent („Konsole“, aber sachlich) + globaler Mausrad-Schutz."""
+"""Dark theme with a yellow accent + global mouse wheel guard."""
 
 from __future__ import annotations
 

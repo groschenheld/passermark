@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Drucken ohne Oberfläche (Ablauf-Schritt "print", passermark-cli printers / caps).
+"""Printing without a user interface (workflow step "print", passermark-cli printers / caps).
 
 Gedruckt wird über denselben Weg wie aus dem Druckdialog (printjob.submit_document): Nutzen/Broschüre/Poster,
 Farbprofil des Druckers aus der Admin-Einstellung, automatische Fachwahl, Windows-Herstellereinstellungen.

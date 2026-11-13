@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Betriebssystem-Unterschiede an einer Stelle: Pfade, Benutzerkennung, Benachrichtigungen, Programme."""
+"""Operating system differences in one place: paths, user id, notifications, programs."""
 
 from __future__ import annotations
 

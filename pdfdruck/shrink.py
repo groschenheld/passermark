@@ -3,8 +3,8 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Dateigröße: zeigen, wofür der Platz draufgeht, und gezielt verkleinern – jede Maßnahme einzeln
-schaltbar. Ohne Ghostscript (pikepdf + Pillow + numpy).
+"""File size: show what takes up the space and reduce it selectively – every measure can be switched
+separately. Without Ghostscript (pikepdf + Pillow + numpy).
 
 Verlustfrei (das Druckbild bleibt gleich):
   rewrite      neu schreiben: alte Speicherstände (inkrementelles Speichern) fallen weg, Objekte in

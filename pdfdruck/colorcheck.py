@@ -46,6 +46,7 @@ class Target:
 
     @property
     def limit(self) -> int:
+        """Total ink limit in percent: the explicit one, otherwise the usual limit for the profile."""
         if self.tac_limit:
             return int(self.tac_limit)
         from . import usercolor
@@ -54,6 +55,7 @@ class Target:
 
 
 def target_from_choice(choice: dict | None, cfg: dict | None = None, intent: str = "") -> Target:
+    """Build the printing condition from a choice of the condition combo (material or profile)."""
     if not choice:
         return Target()
     from . import colorlab
@@ -72,6 +74,7 @@ def target_from_choice(choice: dict | None, cfg: dict | None = None, intent: str
 
 
 def target_from_file(icc: str, intent: str = "relative") -> Target:
+    """Build the printing condition from an ICC profile file."""
     from . import colorlab
 
     return Target(icc=icc, name=colorlab.profile_desc(icc), space=colorlab.profile_space(icc), intent=intent)
@@ -79,6 +82,10 @@ def target_from_file(icc: str, intent: str = "relative") -> Target:
 
 @dataclass
 class Facts:
+    """What the document contains in terms of colour: colour spaces per page, spot colours, output intent, ink
+    coverage.
+    """
+
     pages: int = 0
     page_colors: dict = field(default_factory=dict)  # Seite (1-basiert) -> {"RGB", "CMYK", …}
     rgb_pages: list = field(default_factory=list)
@@ -96,15 +103,19 @@ class Facts:
 
     @property
     def has_cmyk(self) -> bool:
+        """Whether any page uses CMYK."""
         return bool(self.cmyk_pages)
 
     @property
     def has_rgb(self) -> bool:
+        """Whether any page uses RGB."""
         return bool(self.rgb_pages)
 
 
 @dataclass
 class Finding:
+    """One finding of the colour check with severity, explanation, locations and an optional fix."""
+
     key: str
     severity: str  # error | warning | info | ok
     title: str

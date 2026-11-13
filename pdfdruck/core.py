@@ -33,6 +33,8 @@ class Cancelled(Exception):
 
 @dataclass
 class JobResult:
+    """Result of a job: the output path plus figures and hints for the user."""
+
     output: str
     info: dict = field(default_factory=dict)  # z. B. {"pages": 3, "cuts": 12}
     notes: list = field(default_factory=list)  # hints for the user
@@ -42,10 +44,16 @@ class JobResult:
 # settings <-> dict/JSON (nested too, unknown keys are ignored)
 # --------------------------------------------------------------------------- #
 def settings_to_dict(obj) -> dict:
+    """Convert a settings dataclass (including nested ones) to a plain dict for JSON."""
     return dataclasses.asdict(obj)
 
 
 def settings_from_dict(cls, data: dict | None):
+    """Build the settings dataclass ``cls`` from a dict.
+
+    Unknown keys are ignored and missing ones keep their default, so presets written by older or newer
+    versions still load. Nested settings dataclasses are converted recursively.
+    """
     if data is None:
         return cls()
     if dataclasses.is_dataclass(data) and isinstance(data, cls):
@@ -109,6 +117,7 @@ def save_settings(path: str, kind: str, settings, full: bool | None = None) -> N
 
 
 def load_settings(path: str) -> tuple[str, dict]:
+    """Read a preset file and return ``(job, settings dict)``; raises ValueError if it is not a preset."""
     with open(path, encoding="utf-8") as f:
         d = json.load(f)
     if not isinstance(d, dict) or not isinstance(d.get("job"), str):
@@ -128,6 +137,8 @@ def load_settings(path: str) -> tuple[str, dict]:
 # --------------------------------------------------------------------------- #
 @dataclass
 class SeparateSettings:
+    """Settings of the job ``separate``: split a page into its objects, one page per object."""
+
     detect: DetectSettings = field(default_factory=DetectSettings)
     margin_mm: float = 0.0
     boxes: dict | None = None  # {Seite: [[x0, y0, x1, y1], …]} in pt; None = automatisch erkennen
@@ -135,6 +146,8 @@ class SeparateSettings:
 
 @dataclass
 class RepairSettings:
+    """Settings of the job ``repair``: repair, optimise, set or remove a password."""
+
     mode: str = "print"  # siehe repair.MODES
     password: str = ""
     new_password: str = ""
@@ -143,6 +156,8 @@ class RepairSettings:
 
 @dataclass
 class PreflightFixSettings:
+    """Settings of the job ``preflight_fix``: one targeted repair from the document check."""
+
     fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency | flatten_softmask
     font_map: dict = field(default_factory=dict)  # embed_fonts: {Schriftname: Pfad}
     dpi: int = 300  # flatten_transparency, flatten_softmask
@@ -485,6 +500,7 @@ JOBS = {
 
 
 def settings_class(kind: str):
+    """Return the settings dataclass of the job ``kind``; raises ValueError for an unknown job."""
     if kind not in JOBS:
         raise ValueError(tr("Unbekannter Auftrag: {0}").format(kind))
     return JOBS[kind][0]()

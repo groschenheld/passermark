@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Farbpipette (1.18.14): was liegt an einer Stelle der Seite?
+"""Colour pipette: what is at a given point of the page?
 
 - **Definiert**: Farbe des obersten Objekts an der Stelle, so wie sie im PDF steht – RGB, CMYK, Grau, Lab,
   Sonderfarbe (Separation/DeviceN mit Tonwert) oder der Pixelwert eines Bildes.

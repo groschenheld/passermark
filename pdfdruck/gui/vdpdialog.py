@@ -3,8 +3,8 @@
 # Dieses Programm ist freie Software: Sie können es unter den Bedingungen der GNU General Public
 # License, Version 3 oder (nach Ihrer Wahl) jeder späteren Version, weitergeben und/oder ändern.
 # Es wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Siehe die Datei LICENSE.
-"""Dialog „Variable Daten“: Felder anlegen und mit der Maus platzieren, CSV-Datenquelle, Nummerierung, Vorschau
-eines beliebigen Datensatzes. Erzeugt wird im Hintergrund (Auftrag „vdp“), das Ergebnis öffnet sich als Reiter."""
+"""Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview
+of any record. The result is produced in the background (job "vdp") and opens as a tab."""
 
 from __future__ import annotations
 

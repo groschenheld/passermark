@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Gerät prüfen: was ein Drucker/Plotter über das Netz verrät – roh, zum Weitergeben und Auswerten. No Qt.
+"""Device check: what a printer/plotter reveals over the network – raw, to pass on and evaluate. No Qt.
 
 Adresse (aus Anschluss/Einstellung), offene Ports (IPP 631, HTTPS 443, HTTP 80, RAW 9100, LPD 515, FTP 21),
 IPP (alle Attribute inkl. media-col-database, finishings-col-database), SNMP v2c/v1 (sysDescr, sysObjectID,

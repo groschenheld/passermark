@@ -42,6 +42,8 @@ _font_data_keep = []  # geladene Schriftdaten am Leben halten
 # --------------------------------------------------------------------------- #
 @dataclass
 class TextLine:
+    """A row of text on a page: the page objects it consists of, its text, font, size and bounding box."""
+
     index: int
     objs: list  # Objektnummern in der Seite (Reihenfolge)
     text: str
@@ -325,6 +327,7 @@ def _merge_arc_lines(lines: list[TextLine], rots: dict) -> None:
 
 
 def line_at(lines: list[TextLine], x: float, y: float, tol: float = 2.0) -> TextLine | None:
+    """Return the text row at point ``(x, y)``; the smallest one if several overlap, None if there is none."""
     hits = [L for L in lines if L.bbox[0] - tol <= x <= L.bbox[2] + tol and L.bbox[1] - tol <= y <= L.bbox[3] + tol]
     return min(hits, key=lambda L: (L.bbox[2] - L.bbox[0]) * (L.bbox[3] - L.bbox[1])) if hits else None
 
@@ -434,6 +437,7 @@ def transform_object(
 
 
 def delete_object(doc, page_index: int, obj: PageObject):
+    """Remove one object from the page (pdfium)."""
     import pypdfium2.raw as r
 
     page = doc[page_index]
@@ -465,6 +469,7 @@ def transform_objects(
 
 
 def delete_objects(doc, page_index: int, objs: list):
+    """Remove several objects from the page (pdfium)."""
     import pypdfium2.raw as r
 
     page = doc[page_index]
@@ -496,6 +501,7 @@ def transform_lines_bulk(
 
 
 def delete_lines(doc, page_index: int, lines: list):
+    """Remove several text rows from the page (pdfium)."""
     import pypdfium2.raw as r
 
     page = doc[page_index]
@@ -1532,6 +1538,7 @@ def edit_line_bytes(
 
 
 def delete_line(doc, page_index: int, line: TextLine):
+    """Remove one text row from the page (pdfium)."""
     import pypdfium2.raw as r
 
     page = doc[page_index]
@@ -1637,6 +1644,7 @@ def layers_at(lm: LayerMap, x: float, y: float, tol_pt: float = 3.0) -> list[str
 
 
 def set_visible(data: bytes, key: str, visible: bool) -> bytes:
+    """Return the PDF with layer ``key`` switched on or off (screen and print)."""
     rep = preflight.analyze(data, deep_layers=False)
     st = {L.key: (L.view_on, L.view_on if L.print_on is None else L.print_on) for L in rep.layers}
     st[key] = (visible, visible)

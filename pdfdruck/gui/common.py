@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, Version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Gemeinsame GUI-Hilfen und der (nur im RAM gehaltene) Sitzungszustand."""
+"""Shared GUI helpers and the session state (kept in memory only)."""
 
 from __future__ import annotations
 

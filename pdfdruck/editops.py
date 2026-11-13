@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Bearbeiten-Modus: die Änderungen als benannte Operationen (ohne Oberfläche).
+"""Edit mode: the changes as named operations (no user interface).
 
 Damit laufen sie im Analyse-Prozess (renderproc „edit“): Laden, Ändern, Speichern und die Sicherheitsprüfung
 einer großen Datei blockieren das Fenster nicht mehr. Jede Operation: (Daten, Seite, …) -> (neue Daten | None,

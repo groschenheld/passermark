@@ -26,6 +26,8 @@ from .l10n import tr
 
 @dataclass
 class Col:
+    """One column of a data kind: CSV column name, hint, whether it is required, example value."""
+
     key: str  # Spaltenname in der CSV (= Platzhalter {{key}})
     hint: str = ""  # short explanation (header tooltip, manual)
     required: bool = False
@@ -34,6 +36,8 @@ class Col:
 
 @dataclass
 class Kind:
+    """A data kind for variable data (business card, WLAN, EAN …): its columns and how the code content is built."""
+
     id: str
     title: str
     field_kind: str  # passendes Feld in Variable Daten: qr | code128 | ean13 | text
@@ -192,10 +196,12 @@ QR_TYPES = ("text", "vcard", "wifi", "email", "url", "phone", "sms", "event", "g
 
 
 def kinds() -> dict:
+    """All data kinds by id."""
     return _kinds()
 
 
 def get(kind_id: str) -> Kind:
+    """Return the data kind ``kind_id``; raises ValueError if it is unknown."""
     k = _kinds().get(kind_id)
     if k is None:
         raise ValueError(tr("Unbekannte Datenart: {0}").format(kind_id))
@@ -203,6 +209,7 @@ def get(kind_id: str) -> Kind:
 
 
 def qr_type_text(t: str) -> str:
+    """Display name of a QR content type."""
     if t in ("", "text"):
         return tr("Inhalt wie eingegeben")
     return get(t).title.replace(tr("QR – "), "")
@@ -440,6 +447,7 @@ def _norm(s: str) -> str:
 
 
 def synonyms(kind_id: str, key: str) -> list:
+    """Column names that are accepted for ``key`` when mapping a CSV automatically."""
     return [key] + SYNONYMS.get(f"{kind_id}:{key}", SYNONYMS.get(key, []))
 
 
@@ -744,10 +752,12 @@ def validate(kind_id: str, cols: list, rows: list, mapping: dict | None = None) 
 # Tabellen
 # --------------------------------------------------------------------------- #
 def columns(kind_id: str) -> list:
+    """Column names of the data kind, in order."""
     return [c.key for c in get(kind_id).cols]
 
 
 def example_row(kind_id: str) -> dict:
+    """An example record for the data kind (column name → example value)."""
     return {c.key: c.example for c in get(kind_id).cols}
 
 

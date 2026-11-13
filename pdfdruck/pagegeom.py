@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Seite <-> Bildschirm ohne die Seite zu laden: pdfiums CPDF_Page::GetDisplayMatrix nachgebaut.
+"""Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix.
 
 Für die Seitenansicht: Mauskoordinaten, Rahmen, Auswahl – bisher hat dafür jede Seite im Programm geladen
 werden müssen (bei Vektor-lastigen Seiten bis über eine Sekunde). Gebraucht werden nur CropBox (∩ MediaBox)

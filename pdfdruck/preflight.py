@@ -79,6 +79,8 @@ class Spot:
 
 @dataclass
 class Issue:
+    """One finding of the document check: severity, category, message and where it occurs."""
+
     severity: str  # error | warning | info
     category: str  # font | layer | transparency | text | image
     message: str
@@ -88,6 +90,8 @@ class Issue:
 
 @dataclass
 class FontInfo:
+    """A font used in the document: name, type, whether it is embedded and on which pages it is used."""
+
     key: str
     name: str  # without subset prefix
     raw: str
@@ -104,6 +108,7 @@ class FontInfo:
 
     @property
     def status(self) -> str:
+        """Status key of the font: ok (embedded), type3, std14 (one of the 14 standard fonts) or missing."""
         if self.subtype == "Type3":
             return "type3"
         if self.embedded:
@@ -115,6 +120,8 @@ class FontInfo:
 
 @dataclass
 class LayerInfo:
+    """A layer (optional content group) with its visibility on screen and in print."""
+
     key: str
     name: str
     view_on: bool
@@ -126,6 +133,8 @@ class LayerInfo:
 
 @dataclass
 class Report:
+    """Result of the document check: fonts, layers, findings and facts about the pages."""
+
     pages: int = 0
     fonts: list = field(default_factory=list)
     layers: list = field(default_factory=list)
@@ -148,6 +157,7 @@ class Report:
     _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
+        """Number of findings per severity."""
         c = {"error": 0, "warning": 0, "info": 0}
         for i in self.issues:
             c[i.severity] += 1
@@ -1313,6 +1323,7 @@ def current_visible(pdf, use_print=True) -> set:
 
 
 def has_layers(data: bytes) -> bool:
+    """Whether the PDF defines layers (optional content)."""
     import pikepdf
 
     with pikepdf.open(io.BytesIO(data)) as pdf:
@@ -1438,6 +1449,7 @@ def _norm(name: str) -> tuple[str, bool, bool]:
 
 
 def font_dirs() -> list[str]:
+    """Folders that are searched for font files on this system."""
     home = os.path.expanduser("~")
     if _platform.IS_WIN:
         win = os.environ.get("WINDIR", r"C:\Windows")
@@ -1456,6 +1468,7 @@ def font_dirs() -> list[str]:
 
 
 def user_font_dir() -> str:
+    """Folder for fonts downloaded by Passermark for the current user."""
     if _platform.IS_WIN:
         base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
         return os.path.join(base, "Passermark", "fonts")
@@ -1502,6 +1515,7 @@ def _scan_files(family: str, bold: bool, italic: bool) -> str:
 
 
 def find_font_file(family: str, bold=False, italic=False) -> str:
+    """Path of an installed font file for ``family`` in the given style, or an empty string."""
     return _fc_match(family, bold, italic) or _scan_files(family, bold, italic)
 
 
@@ -1573,6 +1587,8 @@ def similar_fonts(family: str, n: int = 6) -> list[str]:
 
 
 class FontNotFound(RuntimeError):
+    """Raised when a font cannot be downloaded; carries similar family names as suggestions."""
+
     def __init__(self, family, suggestions):
         self.family, self.suggestions = family, suggestions
         msg = tr("Schrift „{0}“ gibt es auf fontsource.org nicht (dort liegen nur freie Schriften).").format(family)

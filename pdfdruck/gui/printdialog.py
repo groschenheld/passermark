@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Eigener Druckdialog (Acrobat-Layout): Einstellungen links, Live-Vorschau rechts."""
+"""Own print dialog (Acrobat layout): settings on the left, live preview on the right."""
 
 from __future__ import annotations
 

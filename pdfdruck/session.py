@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Druck-Sitzung (Drucker, Optionen, Farbprofil, Layout) – ohne Qt, für Programm und Kommandozeile."""
+"""Print session (printers, options, colour profile, layout) – no Qt, for the program and the command line."""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ class Session:
         self.reverse = False
 
     def caps_for(self, name: str, reload: bool = False) -> printers.PrinterCaps:
+        """Return the capabilities of printer ``name`` (cached; ``reload`` reads the driver again)."""
         if reload or name not in self.caps:
             self.caps[name] = printers.pdf_caps() if name == printers.PDF_TARGET else printers.load_caps(name)
             try:
@@ -44,11 +45,13 @@ class Session:
         return self.caps[name]
 
     def refresh_custom_sizes(self):
+        """Apply the user's custom paper sizes to all cached printers."""
         sizes = printers.load_custom_sizes()
         for c in self.caps.values():
             printers.apply_custom_sizes(c, sizes)
 
     def values_for(self, name: str) -> dict[str, str]:
+        """Return the current option values of printer ``name``: driver defaults overlaid with the admin defaults."""
         if name not in self.values:
             caps = self.caps_for(name)
             vals = caps.defaults()
@@ -64,6 +67,7 @@ class Session:
         return self.values[name]
 
     def color_for(self, name: str) -> tuple[str, str]:
+        """Return ``(colour profile, rendering intent)`` configured for printer ``name``."""
         if name not in self.color:
             pc = self.cfg.get("printers", {}).get(name, {})
             self.color[name] = (pc.get("color_profile", ""), pc.get("intent", "relative"))

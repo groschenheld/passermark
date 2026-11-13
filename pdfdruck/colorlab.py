@@ -33,6 +33,7 @@ SURFACES = ("", "coated", "uncoated", "matte", "glossy", "silk", "recycled", "sp
 
 
 def surface_label(s: str) -> str:
+    """Translated name of a paper surface key (coated, uncoated, matte …)."""
     return {
         "": tr("unbekannt"),
         "coated": tr("gestrichen"),
@@ -57,11 +58,13 @@ def _fi(t):
 
 
 def xyz_to_lab(xyz, white=D50):
+    """Convert CIE XYZ to CIE L*a*b* relative to ``white`` (default D50)."""
     fx, fy, fz = (_f(xyz[i] / white[i]) for i in range(3))
     return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
 
 
 def lab_to_xyz(lab, white=D50):
+    """Convert CIE L*a*b* to CIE XYZ relative to ``white`` (default D50)."""
     L, a, b = lab
     fy = (L + 16) / 116
     fx, fz = fy + a / 500, fy - b / 200
@@ -110,10 +113,12 @@ def delta_e(lab1, lab2) -> float:
 
 
 def fmt_lab(lab) -> str:
+    """Format a Lab value for display; a dash if there is none."""
     return "L {0:.1f}  a {1:+.1f}  b {2:+.1f}".format(*lab) if lab else "–"
 
 
 def mean_lab(labs):
+    """Average of several Lab measurements, or None if there are none."""
     labs = [tuple(x) for x in labs if x]
     if not labs:
         return None
@@ -127,12 +132,14 @@ _WHITE_CACHE: dict = {}
 
 
 def profile_space(path: str) -> str:
+    """Colour space of an ICC profile file (e.g. CMYK, RGB, GRAY)."""
     from .colorconv import icc_colorspace
 
     return icc_colorspace(path)
 
 
 def profile_desc(path: str) -> str:
+    """Description stored in an ICC profile; falls back to the file name."""
     try:
         from PIL import ImageCms
 
@@ -413,6 +420,7 @@ def spotread_state(text: str) -> str:
 # Materialien
 # --------------------------------------------------------------------------- #
 def new_material(mid: str, name: str) -> dict:
+    """Return a new, empty material record with the given id and name."""
     return {
         "id": mid,
         "name": name,
@@ -441,6 +449,7 @@ def all_materials(cfg: dict) -> list:
 
 
 def material_by_id(cfg: dict, mid: str):
+    """Find a material (admin or user) by its id; None if there is no such material."""
     return next((m for m in all_materials(cfg) if m.get("id") == mid), None) if mid else None
 
 
@@ -521,6 +530,7 @@ def candidates(cfg: dict, extra_cmyk: bool = True) -> list:
 
 
 def verdict(de) -> str:
+    """Plain-language rating of a ΔE between measured paper white and a profile's paper white."""
     if de is None:
         return tr("Papierweiß unbekannt")
     if de <= 2:

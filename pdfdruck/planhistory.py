@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Verlauf für Plan- und Posterdruck (1.18.17): jeder Druck mit Dateien, Mengen, Abweichungen je Plan,
-Einstellungen und Drucker – zum Wiederöffnen mit genau diesen Einstellungen.
+"""History of plan and poster printing: every print with its files, quantities, per-plan overrides,
+settings and printer – to reopen it with exactly these settings.
 
 Die Dateien werden mitgesichert (Kundendateien liegen oft im Hotfolder und sind später weg; bearbeitete Dokumente
 gibt es nur im Speicher). Ablage: <Statusordner>/plan_history/<id>/entry.json + Dateien. „Aufräumen“ löscht.

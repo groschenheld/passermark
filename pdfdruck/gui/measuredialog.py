@@ -3,9 +3,9 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Papierweiß eines Materials bestimmen: mit dem Messgerät (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki,
-i1Studio …), aus einer Messdatei (CGATS aus i1Profiler/ArgyllCMS, spotread-Protokoll) oder per Hand.
-Mehrere Messungen werden gemittelt (Papier an verschiedenen Stellen messen)."""
+"""Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro,
+ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand.
+Several measurements are averaged (measure the paper in different places)."""
 
 from __future__ import annotations
 

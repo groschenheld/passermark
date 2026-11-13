@@ -38,6 +38,8 @@ TOL_MM = 0.5  # Toleranz Rollenbreite
 
 @dataclass
 class PlanSettings:
+    """All settings of a plan or poster print job (dialog, command line and the workflow job ``plan``)."""
+
     printer: str = ""  # leer = Standarddrucker
     color: str = ""  # color | gray | "" (wie im Treiber)
     media: str = ""  # Medientyp im Treiber ("" = wie eingestellt)
@@ -144,6 +146,7 @@ def factor(area, s) -> float:
 
 
 def scale_text(s) -> str:
+    """Human-readable description of the scaling in ``s`` (percentage, or length of the short/long edge)."""
     mode = getattr(s, "scale_mode", "pct")
     if mode == "short" and s.scale_mm > 0:
         return tr("kurze Kante {0} mm").format(mm_text(s.scale_mm))
@@ -208,19 +211,24 @@ def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
 # --------------------------------------------------------------------------- #
 @dataclass
 class Area:
+    """The part of a page that is printed: its rectangle and how it was found (frame, margin, page, empty)."""
+
     rect: tuple  # (x0, y0, x1, y1) in pt, Koordinaten der angezeigten Seite (darf darüber hinaus)
     kind: str  # frame | margin | page | empty
     note: str = ""
 
     @property
     def w_mm(self) -> float:
+        """Width of the area in mm."""
         return (self.rect[2] - self.rect[0]) / MM
 
     @property
     def h_mm(self) -> float:
+        """Height of the area in mm."""
         return (self.rect[3] - self.rect[1]) / MM
 
     def to_dict(self) -> dict:
+        """Plain dict for JSON output."""
         return {
             "rect_pt": [round(v, 2) for v in self.rect],
             "kind": self.kind,
@@ -426,6 +434,8 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
 # --------------------------------------------------------------------------- #
 @dataclass
 class Fit:
+    """How one print area fits on one roll: size across and along the roll and whether it is rotated."""
+
     roll: int  # Index in der Rollenliste
     width_mm: float  # Rollenbreite
     across: float  # quer zur Rolle (mm)
@@ -453,6 +463,7 @@ def extra_mm(s: PlanSettings) -> float:
 
 
 def finished_size(area: Area, s: PlanSettings) -> tuple:
+    """Size ``(width, height)`` in mm of the printed piece: the scaled print area plus the margins."""
     f = factor(area, s)
     l, b, r, t = margins_mm(s)
     return area.w_mm * f + l + r, area.h_mm * f + b + t
@@ -497,6 +508,8 @@ def eligible(rolls: list, weights) -> tuple:
 
 @dataclass
 class Item:
+    """One page to print: document, page, quantity, detected print area and per-plan overrides."""
+
     page: int  # Seite im Dokument
     qty: int = 1  # Menge je Satz
     area: Area | None = None
@@ -510,6 +523,7 @@ class Item:
 
     @property
     def label(self) -> str:
+        """Display text: file name and page number."""
         return f"{os.path.basename(self.source) or tr('Dokument')} · " + tr("S. {0}").format(self.page + 1)
 
 
@@ -693,6 +707,7 @@ class Piece:
 
     @property
     def label(self) -> str:
+        """Display text of the piece; for a page split over several strips the strip number is added."""
         t = self.item.label
         if self.tiles > 1:
             t += " · " + tr("Bahn {0}/{1}").format(self.tile + 1, self.tiles)
@@ -712,6 +727,7 @@ class Run:
 
     @property
     def label(self) -> str:
+        """Display text of the run: the first piece, plus the number of further pieces."""
         if not self.pieces:
             return ""
         first = self.pieces[0][0].label
@@ -805,6 +821,7 @@ DEV_PREFIX = "dev:"  # Material, wie es der Drucker meldet: "dev:<g/m²>:<Medien
 
 
 def device_material_id(roll) -> str:
+    """Identifier of a material that is reported by the device (not in the materials list)."""
     return f"{DEV_PREFIX}{int(roll.weight or 0)}:{roll.media or roll.name}"
 
 
@@ -848,6 +865,7 @@ def _dev_mat(mid: str) -> dict:
 
 
 def material_of(s: PlanSettings):
+    """Return the material selected in ``s`` as a dict, or None if none is selected or it no longer exists."""
     if not s.material:
         return None
     if s.material.startswith(DEV_PREFIX):
@@ -1433,6 +1451,7 @@ FOLDERS_KEY = "plan_hotfolders"  # Benutzereinstellung: [{"name", "dir"}]
 
 
 def hotfolders() -> list:
+    """Output folders configured by the user as ``[{"name": …, "dir": …}]``."""
     from . import l10n
 
     out = []
@@ -1443,6 +1462,7 @@ def hotfolders() -> list:
 
 
 def save_hotfolders(lst: list) -> None:
+    """Store the list of output folders in the user settings (incomplete entries are dropped)."""
     from . import l10n
 
     st = l10n.load_settings()
@@ -1451,10 +1471,12 @@ def save_hotfolders(lst: list) -> None:
 
 
 def is_folder(printer: str) -> bool:
+    """Whether ``printer`` names an output folder instead of a printer."""
     return str(printer or "").startswith(FOLDER_PREFIX)
 
 
 def folder_dir(printer: str) -> str:
+    """Directory of the output folder ``printer``; raises ValueError if it is not configured."""
     name = printer[len(FOLDER_PREFIX) :]
     for e in hotfolders():
         if e["name"] == name:
@@ -1494,6 +1516,7 @@ def rolls_for(session, printer: str, s: PlanSettings) -> tuple:
 
 
 def analyze(doc, pages: list, s: PlanSettings, rolls: list, source: str = "", qty: int = 1) -> list:
+    """Create one :class:`Item` per page: detect the print area and find hairlines."""
     items = []
     for p in pages:
         it = Item(p, qty, None, source=source, doc=doc, ov=clean_ov((s.overrides or {}).get(str(p + 1))))
@@ -1531,6 +1554,7 @@ def _place_on(items: list, rolls: list, use: list, s: PlanSettings):
 
 
 def values_for(session, printer: str, caps, s: PlanSettings) -> dict:
+    """Driver option values for a plan job: session defaults, then the material, then the settings in ``s``."""
     from .printcli import PrintSettings, resolve
 
     mat = material_of(s) or {}
@@ -1706,6 +1730,7 @@ def submit_run(
 
 
 def log_record(caps, printer, run: Run, roll, s: PlanSettings, vals: dict, session, jid, err) -> dict:
+    """Build the print log record for one run (successful or failed)."""
     from . import printlog
 
     first = run.pieces[0][0].item
@@ -1771,6 +1796,7 @@ def log_record(caps, printer, run: Run, roll, s: PlanSettings, vals: dict, sessi
 
 
 def compact(s: PlanSettings) -> dict:
+    """Settings as a dict with only the values that differ from the defaults (``printer`` is always kept)."""
     d = dataclasses.asdict(s)
     base = dataclasses.asdict(PlanSettings())
     return {k: v for k, v in d.items() if v != base.get(k) or k == "printer"}
@@ -1836,6 +1862,7 @@ def _try_values(session, printer, caps, s):
 
 
 def summary(printer: str, items: list, rolls: list, s: PlanSettings) -> dict:
+    """Overview of a job for the dialog and ``--json``: run length per roll and which plans are clipped or split."""
     lens = lengths(items, rolls, s)
     use, _n = eligible_for(rolls, s)
     clipped, tiled = [], []

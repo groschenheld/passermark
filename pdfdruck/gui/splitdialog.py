@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Dialog „Seiten teilen“: halbieren oder Raster, welche Seiten, Reihenfolge – mit Vorschau der Schnittlinien."""
+"""Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines."""
 
 from __future__ import annotations
 

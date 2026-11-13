@@ -93,15 +93,19 @@ def apply_sets(settings: dict, sets: list[str]) -> dict:
 
 
 class _Reporter:
+    """Progress output of the command line: JSON events on stdout or a progress bar on stderr."""
+
     def __init__(self, json_mode: bool, quiet: bool):
         self.json, self.quiet = json_mode, quiet
         self.last = ""
 
     def emit(self, **ev):
+        """Write one JSON event line to stdout."""
         sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")  # reines ASCII: egal welche Konsolen-Codepage
         sys.stdout.flush()
 
     def progress(self, done, total, text=""):
+        """Report progress as a JSON event or as a progress bar."""
         if self.json:
             self.emit(event="progress", done=done, total=total, text=text)
         elif not self.quiet:
@@ -113,6 +117,7 @@ class _Reporter:
             self.last = line
 
     def finish_line(self):
+        """End the progress bar line, if one was drawn."""
         if not self.json and not self.quiet and self.last:
             sys.stderr.write("\n")
             sys.stderr.flush()
@@ -178,6 +183,7 @@ def _data_cmd(a) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the single-job form ``passermark-cli <job> in.pdf out.pdf``."""
     from .l10n import tr
 
     p = argparse.ArgumentParser(
@@ -228,6 +234,7 @@ def _safe_streams():
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point of ``passermark-cli``; returns the process exit code."""
     import faulthandler
 
     faulthandler.enable()  # hard crash -> output to stderr (ends up in the GUI log)
@@ -809,6 +816,7 @@ def _vars(items) -> dict:
 
 
 def api_main(cmd: str, argv: list[str]) -> int:
+    """Run one of the API commands (version, schema, check, run, inspect, printers, caps, plan …)."""
     from . import __version__, core, workflow
     from .l10n import tr
 

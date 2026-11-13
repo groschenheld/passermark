@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Eigene, einfarbige Linien-Icons (24×24, als SVG gezeichnet) – sachlich, zum dunklen Theme passend."""
+"""Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme."""
 
 from __future__ import annotations
 

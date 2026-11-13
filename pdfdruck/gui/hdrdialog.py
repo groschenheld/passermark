@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Rückfrage bei HDR-Fotos (Foto + graue Helligkeitskarte): beim Öffnen und in der Prüfung."""
+"""Question for HDR photos (photo + grey gain map): when opening and in the document check."""
 
 from __future__ import annotations
 

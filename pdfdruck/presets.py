@@ -26,16 +26,19 @@ _BAD = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
 def root_dir() -> str:
+    """Folder that holds the user's presets (one subfolder per job)."""
     from .l10n import _settings_file
 
     return os.path.join(os.path.dirname(_settings_file()), "presets")
 
 
 def settings_class(kind: str):
+    """Return the settings dataclass of the job ``kind``."""
     return core.settings_class(kind)  # unbekannter Auftrag -> ValueError
 
 
 def job_dir(kind: str) -> str:
+    """Folder with the presets of job ``kind`` (migrates the folder name used before 1.7)."""
     settings_class(kind)
     d = os.path.join(root_dir(), kind)
     if kind == PRINT:  # 1.7: Druck-Presets lagen unter „druck“
@@ -62,10 +65,12 @@ def clean_name(name: str) -> str:
 
 
 def path_for(kind: str, name: str) -> str:
+    """File path of the preset ``name`` of job ``kind``."""
     return os.path.join(job_dir(kind), (name if name == LAST else clean_name(name)) + ".json")
 
 
 def list_presets(kind: str) -> list[str]:
+    """Names of the saved presets of job ``kind``, sorted without regard to case."""
     d = job_dir(kind)
     try:
         names = [f[:-5] for f in os.listdir(d) if f.endswith(".json") and not f.startswith(".")]
@@ -75,6 +80,7 @@ def list_presets(kind: str) -> list[str]:
 
 
 def save(kind: str, name: str, settings) -> str:
+    """Save ``settings`` as preset ``name`` (written atomically) and return the file path."""
     p = path_for(kind, name)
     os.makedirs(os.path.dirname(p), exist_ok=True)
     tmp = p + ".tmp"
@@ -95,6 +101,7 @@ def load(kind: str, name: str):
 
 
 def delete(kind: str, name: str) -> None:
+    """Delete a preset; a missing file is not an error."""
     try:
         os.remove(path_for(kind, name))
     except FileNotFoundError:
@@ -102,6 +109,7 @@ def delete(kind: str, name: str) -> None:
 
 
 def save_last(kind: str, settings) -> None:
+    """Remember ``settings`` as the last used ones of job ``kind`` (best effort)."""
     try:
         save(kind, LAST, settings)
     except OSError:
@@ -109,6 +117,7 @@ def save_last(kind: str, settings) -> None:
 
 
 def load_last(kind: str):
+    """Return the last used settings of job ``kind``, or None if there are none or they cannot be read."""
     try:
         return load(kind, LAST)
     except (OSError, ValueError, KeyError, TypeError):
