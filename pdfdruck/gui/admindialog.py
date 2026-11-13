@@ -135,6 +135,15 @@ class AdminDialog(QDialog):
     def _tab_general(self):
         w = QWidget()
         f = QFormLayout(w)
+        self._general_basics(f)
+        self._general_workflow_folders(f)
+        self._general_shared_folder(f)
+        self._general_print_log(f)
+        self._general_layout_defaults(f)
+        return w
+
+    def _general_basics(self, f):
+        """Default printer, image resolution, office converter, language."""
         self.cmb_default = QComboBox()
         fill_combo(
             self.cmb_default,
@@ -167,7 +176,9 @@ class AdminDialog(QDialog):
             tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben")
         )
         f.addRow(tr("Standardsprache:"), self.cmb_lang)
-        # further workflow folders for everyone (passermark-cli run <name>), e.g. a network share
+
+    def _general_workflow_folders(self, f):
+        """Further workflow folders for everyone, e.g. a network share."""
         self.lst_wfdirs = QListWidget()
         self.lst_wfdirs.setMaximumHeight(90)
         for d in self.cfg.get("workflow_dirs") or []:
@@ -194,7 +205,9 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
-        # shared print folder for Passermark and the add-on programs (watcher, Passerlink, PassCount …)
+
+    def _general_shared_folder(self, f):
+        """Shared print folder for Passermark and the add-on programs (watcher, Passerlink, PassCount …)."""
         from .. import shared
 
         sbox = QVBoxLayout()
@@ -218,7 +231,9 @@ class AdminDialog(QDialog):
         sbox.addLayout(srow)
         f.addRow(tr("Gemeinsamer Druckordner:"), sbox)
         self._shared_text()
-        # print log for everyone
+
+    def _general_print_log(self, f):
+        """Print log for everyone, plus the note on the available office converters."""
         pl = self.cfg.get("print_log") or {}
         self.chk_plog = QCheckBox(tr("Jeden Druckauftrag protokollieren – für alle Benutzer"))
         self.chk_plog.setChecked(bool(pl.get("force", False)))
@@ -241,6 +256,8 @@ class AdminDialog(QDialog):
         self.spn_plkeep.setSuffix(tr(" Tage"))
         self.spn_plkeep.setValue(int(pl.get("keep_days", 0) or 0))
         f.addRow(tr("Protokolle aufheben:"), self.spn_plkeep)
+        from .. import convert
+
         lbl = QLabel(
             convert.describe_available()
             + tr(
@@ -252,6 +269,8 @@ class AdminDialog(QDialog):
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow("", lbl)
 
+    def _general_layout_defaults(self, f):
+        """Defaults of the print dialog: page handling, scaling, pages per sheet, poster."""
         L = self.cfg["layout"]
         self.l_handling = QComboBox()
         fill_combo(
@@ -358,7 +377,6 @@ class AdminDialog(QDialog):
             c.setChecked(bool(L.get(k, True)))
             self.l_checks[k] = c
             f.addRow("", c)
-        return w
 
     def _wfdir_add(self):
         d = QFileDialog.getExistingDirectory(self, tr("Ablauf-Ordner wählen"))

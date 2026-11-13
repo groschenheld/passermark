@@ -360,14 +360,27 @@ def source_profile_for(oi: str, cfg: dict | None = None) -> str:
 # --------------------------------------------------------------------------- #
 # findings
 # --------------------------------------------------------------------------- #
-def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
-    """Findings with a recommendation – worst first."""
-    from . import colorlab
+@dataclass
+class _Case:
+    """What all rules of the colour check need to know about file and target together."""
+
+    cmyk_target: bool  # the target is a CMYK printing condition
+    oi: str  # name of the first output intent of the file ("" = none)
+    oi_other: bool  # the file was made for a different printing condition than the target
+    convert_all: dict | None  # parameters for "separate everything anew", None = not needed
+    cfg: dict | None
+
+
+def _page_spots(pages) -> list:
+    """One location per page, sorted and without duplicates."""
     from .preflight import Spot
 
-    out: list[Finding] = []
-    pagespots = lambda pages: [Spot(p) for p in sorted(set(pages))]  # noqa: E731
+    return [Spot(p) for p in sorted(set(pages))]
 
+
+def _check_target(f: Facts, t: Target, c: _Case) -> list:
+    """No printing condition chosen, or a printer profile instead of a CMYK condition."""
+    out: list[Finding] = []
     if not t.icc:
         out.append(
             Finding(
@@ -382,8 +395,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 action_label=tr("Druckbedingung wählen …"),
             )
         )
-    cmyk_target = t.space == "CMYK"
-    if t.icc and not cmyk_target:
+    if t.icc and not c.cmyk_target:
         out.append(
             Finding(
                 "rgb_target",
@@ -395,25 +407,25 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 ),
             )
         )
+    return out
 
-    ois = [o for o in f.output_intents if o]
-    oi = ois[0] if ois else ""
-    oi_other = bool(cmyk_target and oi and not same_condition(oi, t.icc))
-    convert_all = None
-    if oi_other and f.has_cmyk:
-        src = source_profile_for(oi, cfg)
-        convert_all = {"cmyk_mode": "all", "source": src}
+
+def _check_other_condition(f: Facts, t: Target, c: _Case) -> list:
+    """The file is separated for a different printing condition."""
+    out: list[Finding] = []
+    if c.oi_other and f.has_cmyk:
+        src = c.convert_all["source"]
         txt = tr(
             "Die Datei ist für „{0}“ separiert, gedruckt wird auf „{1}“. Die CMYK-Werte passen nicht zum Papier – "
             "Farben werden zu dunkel/zu bunt oder zu flau."
-        ).format(oi, t.name)
+        ).format(c.oi, t.name)
         txt += " " + (
-            tr("Empfehlung: alles neu separieren ({0} → {1}).").format(oi, t.name)
+            tr("Empfehlung: alles neu separieren ({0} → {1}).").format(c.oi, t.name)
             if src
             else tr(
                 "Empfehlung: alles neu separieren. Das Profil „{0}“ ist nicht installiert – „Standardprofile "
                 "holen …“, sonst rechnet Ghostscript mit seinem Standard-CMYK."
-            ).format(oi)
+            ).format(c.oi)
         )
         out.append(
             Finding(
@@ -421,14 +433,21 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 "warning",
                 tr("Datei für eine andere Druckbedingung angelegt"),
                 txt,
-                pagespots(f.cmyk_pages),
+                _page_spots(f.cmyk_pages),
                 "convert",
-                dict(convert_all, target=t.icc),
+                dict(c.convert_all, target=t.icc),
                 tr("Neu separieren …"),
             )
         )
+    return out
 
-    if cmyk_target and f.has_rgb:
+
+def _check_rgb(f: Facts, t: Target, c: _Case) -> list:
+    """RGB content that the print shop would have to convert."""
+    from .preflight import Spot
+
+    out: list[Finding] = []
+    if c.cmyk_target and f.has_rgb:
         n, tagged = len(f.rgb_images), f.rgb_tagged
         parts = []
         if n:
@@ -444,7 +463,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 "kräftiges RGB-Grün/-Blau wird im Druck flauer."
             )
         )
-        if convert_all is None:
+        if c.convert_all is None:
             txt += " " + tr(
                 "Empfehlung: nach „{0}“ umwandeln – vorhandenes CMYK bleibt unverändert. Alternativ RGB mit "
                 "Profil weitergeben (PDF/X-4 erlaubt das), dann rechnet die Druckerei."
@@ -461,11 +480,16 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 txt,
                 spots,
                 "convert",
-                dict(convert_all or {"cmyk_mode": "rgb_only", "source": ""}, target=t.icc, rgb_ask=True),
+                dict(c.convert_all or {"cmyk_mode": "rgb_only", "source": ""}, target=t.icc, rgb_ask=True),
                 tr("Umwandeln …"),
             )
         )
+    return out
 
+
+def _check_lab(f: Facts, t: Target, c: _Case) -> list:
+    """Lab colours."""
+    out: list[Finding] = []
     if f.lab_pages:
         out.append(
             Finding(
@@ -473,13 +497,18 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                 "info",
                 tr("Lab-Farben auf Seite {0}").format(_pages_str(f.lab_pages)),
                 tr("Geräteunabhängige Farben – werden bei der Umwandlung mit dem Zielprofil gerechnet."),
-                pagespots(f.lab_pages),
+                _page_spots(f.lab_pages),
             )
         )
+    return out
 
-    if cmyk_target:
-        if not oi:
-            if f.has_cmyk and convert_all is None:
+
+def _check_output_intent(f: Facts, t: Target, c: _Case) -> list:
+    """Output intent missing, matching, or to be replaced."""
+    out: list[Finding] = []
+    if c.cmyk_target:
+        if not c.oi:
+            if f.has_cmyk and c.convert_all is None:
                 out.append(
                     Finding(
                         "cmyk_unknown",
@@ -490,7 +519,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                             "„{0}“ an – stimmt das nicht, über „Neu separieren“ das richtige Quellprofil "
                             "wählen."
                         ).format(t.name),
-                        pagespots(f.cmyk_pages),
+                        _page_spots(f.cmyk_pages),
                     )
                 )
             out.append(
@@ -509,14 +538,14 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     tr("Einbetten"),
                 )
             )
-        elif not oi_other:
-            out.append(Finding("oi_ok", "ok", tr("Output Intent „{0}“ passt zum Ziel").format(oi)))
+        elif not c.oi_other:
+            out.append(Finding("oi_ok", "ok", tr("Output Intent „{0}“ passt zum Ziel").format(c.oi)))
         elif not f.has_cmyk:
             out.append(
                 Finding(
                     "oi_replace",
                     "info",
-                    tr("Output Intent „{0}“ wird ersetzt").format(oi),
+                    tr("Output Intent „{0}“ wird ersetzt").format(c.oi),
                     tr(
                         "Die Datei enthält kein CMYK – bei der Umwandlung wird „{0}“ als Output Intent eingetragen."
                     ).format(t.name),
@@ -526,8 +555,13 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     tr("Einbetten"),
                 )
             )
+    return out
 
-    if cmyk_target and f.tac:
+
+def _check_ink_coverage(f: Facts, t: Target, c: _Case) -> list:
+    """Total ink coverage against the limit of the target."""
+    out: list[Finding] = []
+    if c.cmyk_target and f.tac:
         tc = f.tac
         lim = tc["limit"]
         est = tc["method"] != "gs"
@@ -551,9 +585,10 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
             )
             txt += " " + tr("Empfehlung: mit dem Zielprofil neu separieren – das Profil begrenzt den Farbauftrag.")
             params = dict(
-                convert_all or {"cmyk_mode": "all", "source": source_profile_for(oi, cfg) if oi else ""}, target=t.icc
+                c.convert_all or {"cmyk_mode": "all", "source": source_profile_for(c.oi, c.cfg) if c.oi else ""},
+                target=t.icc,
             )
-            if not params.get("source") and not oi_other:
+            if not params.get("source") and not c.oi_other:
                 params["source"] = t.icc  # CMYK is already for the target – only limit
             out.append(
                 Finding(
@@ -561,7 +596,7 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     sev,
                     tr("Farbauftrag zu hoch ({0} % > {1} %)").format(tc["max"], lim),
                     txt,
-                    pagespots(over or [tc["page"]]),
+                    _page_spots(over or [tc["page"]]),
                     "convert",
                     params,
                     tr("Neu separieren …"),
@@ -576,7 +611,12 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     how.strip() + part,
                 )
             )
+    return out
 
+
+def _check_spot_colours(f: Facts, t: Target, c: _Case) -> list:
+    """Spot colours that need to be agreed with the print shop."""
+    out: list[Finding] = []
     if f.spots:
         names = sorted(f.spots)
         pages = sorted({p for v in f.spots.values() for p in v})
@@ -590,10 +630,17 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     "CMYK nachgebildet – bei Schmuckfarben (Pantone, HKS) oft sichtbar anders. Schnitt-/"
                     "Stanzlinien (CutContour, Stanze) bleiben, wie sie sind."
                 ),
-                pagespots(pages),
+                _page_spots(pages),
             )
         )
+    return out
 
+
+def _check_paper(f: Facts, t: Target, c: _Case) -> list:
+    """Paper white and surface of the material against the profile."""
+    from . import colorlab
+
+    out: list[Finding] = []
     if t.icc and t.material:
         pw = colorlab.profile_white(t.icc)
         if t.white and pw:
@@ -651,7 +698,12 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     tr("Passende Profile …"),
                 )
             )
+    return out
 
+
+def _check_transparency(f: Facts, t: Target, c: _Case) -> list:
+    """Transparency (allowed in PDF/X-4, not in X-1a/X-3)."""
+    out: list[Finding] = []
     if f.transparency:
         out.append(
             Finding(
@@ -662,13 +714,18 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     "PDF/X-4 erlaubt Transparenz, die meisten Druckereien verarbeiten sie direkt. Verlangt die "
                     "Druckerei PDF/X-1a oder X-3: in der Dokumentprüfung reduzieren."
                 ),
-                pagespots(f.transparency),
+                _page_spots(f.transparency),
                 "preflight",
                 {},
                 tr("Dokumentprüfung …"),
             )
         )
+    return out
 
+
+def _check_fonts(f: Facts, t: Target, c: _Case) -> list:
+    """Fonts that are not embedded."""
+    out: list[Finding] = []
     if f.fonts_missing:
         names = [n for n, _ in f.fonts_missing]
         pages = sorted({p for _, ps in f.fonts_missing for p in ps})
@@ -681,12 +738,43 @@ def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
                     "Die Druckerei hat diese Schriften nicht – Text kann anders aussehen oder fehlen. In der Dokumentprüfung "
                     "einbetten oder in Pfade wandeln."
                 ),
-                pagespots(pages),
+                _page_spots(pages),
                 "preflight",
                 {},
                 tr("Dokumentprüfung …"),
             )
         )
+    return out
+
+
+_RULES = (
+    _check_target,
+    _check_other_condition,
+    _check_rgb,
+    _check_lab,
+    _check_output_intent,
+    _check_ink_coverage,
+    _check_spot_colours,
+    _check_paper,
+    _check_transparency,
+    _check_fonts,
+)
+
+
+def check(f: Facts, t: Target, cfg: dict | None = None) -> list:
+    """Findings with a recommendation – worst first."""
+    cmyk_target = t.space == "CMYK"
+    ois = [o for o in f.output_intents if o]
+    oi = ois[0] if ois else ""
+    oi_other = bool(cmyk_target and oi and not same_condition(oi, t.icc))
+    convert_all = None
+    if oi_other and f.has_cmyk:
+        convert_all = {"cmyk_mode": "all", "source": source_profile_for(oi, cfg)}
+    c = _Case(cmyk_target, oi, oi_other, convert_all, cfg)
+
+    out: list[Finding] = []
+    for rule in _RULES:
+        out += rule(f, t, c)
 
     if t.icc and not any(x.severity in ("error", "warning") for x in out):
         out.append(

@@ -598,6 +598,55 @@ class CutContourDialog(QDialog):
         self.count = 0
 
         root = QHBoxLayout(self)
+        left = self._build_preview_column()
+        # the preview goes into a movable splitter with the settings further down
+
+        right = QVBoxLayout()
+        from .presetbar import PresetBar
+
+        self.presetbar = PresetBar(self, "cutcontour", self._settings, self._load_settings)
+        right.addWidget(self.presetbar)
+        self._build_line_group(right)
+
+        ds = self.s.detect
+        g2, self.w = _detect_group(self, ds, with_gap=True, with_margin=False)
+        right.addWidget(g2)
+
+        g3 = self._build_output_group()
+        self._connect_preview()
+        right.addWidget(g3)
+        self._build_bottom(right)
+        wrap = QWidget()
+        wrap.setLayout(right)
+        split_panels(root, left, wrap, 420)
+        fit_width(wrap)
+        from .. import presets
+
+        last = presets.load_last("cutcontour")
+        if last is not None:  # most recently used settings – the offset belongs to the old artwork
+            last.shift_x_mm = last.shift_y_mm = 0.0
+            try:
+                self._load_settings(last, preview=False)
+            except Exception:
+                pass
+        self._sync()
+        self._preview()
+
+    @staticmethod
+    def _mm_spin(val, lo, hi, tip=""):
+        """Spin box for a length in millimetres with one decimal."""
+        sp = QDoubleSpinBox()
+        sp.setRange(lo, hi)
+        sp.setDecimals(1)
+        sp.setSingleStep(0.5)
+        sp.setSuffix(" mm")
+        sp.setValue(val)
+        if tip:
+            sp.setToolTip(tip)
+        return sp
+
+    def _build_preview_column(self):
+        """Left column: page preview with page selector and status line."""
         left = QVBoxLayout()
         self.canvas = PageCanvas(editable=False)
         left.addWidget(self.canvas, 1)
@@ -614,13 +663,10 @@ class CutContourDialog(QDialog):
         self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
         nav.addWidget(self.lbl_info)
         left.addLayout(nav)
-        # left: preview – goes into a movable splitter with the settings further down
+        return left
 
-        right = QVBoxLayout()
-        from .presetbar import PresetBar
-
-        self.presetbar = PresetBar(self, "cutcontour", self._settings, self._load_settings)
-        right.addWidget(self.presetbar)
+    def _build_line_group(self, right):
+        """Group "Schnittlinie": shape, size, offset, smoothing, bleed."""
         g = QGroupBox(tr("Schnittlinie"))
         f = QFormLayout(g)
         self.cmb_shape = QComboBox()
@@ -647,28 +693,17 @@ class CutContourDialog(QDialog):
         )
         f.addRow("", self.cmb_single)
 
-        def dspin(val, lo, hi, tip=""):
-            sp = QDoubleSpinBox()
-            sp.setRange(lo, hi)
-            sp.setDecimals(1)
-            sp.setSingleStep(0.5)
-            sp.setSuffix(" mm")
-            sp.setValue(val)
-            if tip:
-                sp.setToolTip(tip)
-            return sp
-
-        self.spn_off = dspin(
+        self.spn_off = self._mm_spin(
             self.s.offset_mm,
             -30,
             30,
             tr("Abstand der Schnittlinie vom Motivrand: + nach außen (weißer Rand), − nach innen"),
         )
         f.addRow(tr("Abstand zum Motiv:"), self.spn_off)
-        self.spn_corner = dspin(self.s.corner_mm, 0, 200)
+        self.spn_corner = self._mm_spin(self.s.corner_mm, 0, 200)
         f.addRow(tr("Eckenradius:"), self.spn_corner)
         row = QHBoxLayout()
-        self.spn_fw, self.spn_fh = dspin(0, 0, 2000), dspin(0, 0, 2000)
+        self.spn_fw, self.spn_fh = self._mm_spin(0, 0, 2000), self._mm_spin(0, 0, 2000)
         self.spn_fw.valueChanged.connect(lambda v: self.cmb_shape.currentData() == "circle" and self.spn_fh.setValue(v))
         for sp in (self.spn_fw, self.spn_fh):
             sp.setSpecialValueText(tr("auto"))
@@ -688,7 +723,10 @@ class CutContourDialog(QDialog):
         row.addWidget(self.btn_size0)
         f.addRow(tr("Größe (B × H):"), row)
         row = QHBoxLayout()
-        self.spn_sx, self.spn_sy = dspin(self.s.shift_x_mm, -2000, 2000), dspin(self.s.shift_y_mm, -2000, 2000)
+        self.spn_sx, self.spn_sy = (
+            self._mm_spin(self.s.shift_x_mm, -2000, 2000),
+            self._mm_spin(self.s.shift_y_mm, -2000, 2000),
+        )
         for sp, tip in (
             (self.spn_sx, tr("Versatz waagrecht (+ rechts)")),
             (self.spn_sy, tr("Versatz senkrecht (+ oben)")),
@@ -701,14 +739,14 @@ class CutContourDialog(QDialog):
         self.btn_shift0.clicked.connect(lambda: (self.spn_sx.setValue(0), self.spn_sy.setValue(0)))
         row.addWidget(self.btn_shift0)
         f.addRow(tr("Versatz (X / Y):"), row)
-        self.spn_smooth = dspin(
+        self.spn_smooth = self._mm_spin(
             self.s.smooth_mm,
             0,
             20,
             tr("Buchten und Lücken schmaler als das Doppelte werden überbrückt, Ecken gerundet – nötig zum Entgittern"),
         )
         f.addRow(tr("Glättung:"), self.spn_smooth)
-        self.spn_bleed = dspin(
+        self.spn_bleed = self._mm_spin(
             self.s.bleed_mm, 0, 10, tr("So weit wird das Motiv über die Schnittlinie hinaus verlängert")
         )
         row_b = QHBoxLayout()
@@ -752,10 +790,8 @@ class CutContourDialog(QDialog):
         f.addRow(self.chk_seams)
         right.addWidget(g)
 
-        ds = self.s.detect
-        g2, self.w = _detect_group(self, ds, with_gap=True, with_margin=False)
-        right.addWidget(g2)
-
+    def _build_output_group(self):
+        """Group "Ausgabe": sheet or single pages, spot colour, stroke, accuracy, margin."""
         g3 = QGroupBox(tr("Ausgabe"))
         f3 = QFormLayout(g3)
         self.cmb_out = QComboBox()
@@ -777,8 +813,14 @@ class CutContourDialog(QDialog):
         fill_combo(self.cmb_dpi, [(150, "150 dpi"), (200, "200 dpi"), (300, "300 dpi"), (400, "400 dpi")], self.s.dpi)
         self.cmb_dpi.setToolTip(tr("Rechenauflösung für Kontur und Überfüller (höher = genauer, langsamer)"))
         f3.addRow(tr("Genauigkeit:"), self.cmb_dpi)
-        self.spn_margin = dspin(self.s.margin_mm, 0, 50, tr("Rand um Überfüller und Schnitt auf den Einzelseiten"))
+        self.spn_margin = self._mm_spin(
+            self.s.margin_mm, 0, 50, tr("Rand um Überfüller und Schnitt auf den Einzelseiten")
+        )
         f3.addRow(tr("Seitenrand:"), self.spn_margin)
+        return g3
+
+    def _connect_preview(self):
+        """Wire the settings to the dependent fields and to the delayed automatic preview."""
         self.cmb_shape.currentIndexChanged.connect(self._sync)
         self.cmb_bcol.currentIndexChanged.connect(self._sync)
         self.chk_bleed.toggled.connect(self._sync)
@@ -819,7 +861,9 @@ class CutContourDialog(QDialog):
                         sig.connect(self._pv_timer.start)
                     except Exception:
                         pass
-        right.addWidget(g3)
+
+    def _build_bottom(self, right):
+        """Manual preview button, note, "all pages" and the dialog buttons."""
         b = QPushButton(tr("Vorschau aktualisieren"))
         b.clicked.connect(self._preview)
         right.addWidget(b)
@@ -843,21 +887,6 @@ class CutContourDialog(QDialog):
         bb.accepted.connect(self._apply)
         bb.rejected.connect(self.reject)
         right.addWidget(bb)
-        wrap = QWidget()
-        wrap.setLayout(right)
-        split_panels(root, left, wrap, 420)
-        fit_width(wrap)
-        from .. import presets
-
-        last = presets.load_last("cutcontour")
-        if last is not None:  # most recently used settings – the offset belongs to the old artwork
-            last.shift_x_mm = last.shift_y_mm = 0.0
-            try:
-                self._load_settings(last, preview=False)
-            except Exception:
-                pass
-        self._sync()
-        self._preview()
 
     def _load_settings(self, s, preview=True):
         """Set the fields from settings (preset, last used)."""
