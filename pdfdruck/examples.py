@@ -9,6 +9,7 @@ The examples live in the program package (pdfdruck/docs/beispiele/vdp) – often
 copies them to a folder of the user and registers the presets with the full CSV path in the preset folder, so
 they are available in the GUI preset bar and on the command line by name.
 """
+
 from __future__ import annotations
 
 import os
@@ -39,6 +40,7 @@ def install(target: str | None = None, presets_too: bool = True) -> str:
     """Beispiele nach <target>/vdp kopieren (vorhandene Dateien werden ersetzt) und – wenn presets_too – als
     Presets „Beispiel 1 …“ eintragen. Liefert den Ordner mit den Beispielen."""
     from . import core, presets
+
     if not os.path.isdir(VDP_DIR):
         raise FileNotFoundError(VDP_DIR)
     dest = os.path.join(os.path.abspath(target or default_target()), "vdp")
@@ -51,7 +53,7 @@ def install(target: str | None = None, presets_too: bool = True) -> str:
         p = os.path.join(dest, "presets", stem + ".json")
         kind, data = core.load_settings(p)
         if data.get("csv_path") and not os.path.isabs(data["csv_path"]):
-            data["csv_path"] = os.path.join(dest, data["csv_path"])     # full path: works from anywhere
+            data["csv_path"] = os.path.join(dest, data["csv_path"])  # full path: works from anywhere
         core.save_settings(p, kind, data)
         if presets_too:
             presets.save(kind, name, core.settings_from_dict(presets.settings_class(kind), data))

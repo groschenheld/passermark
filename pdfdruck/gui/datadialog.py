@@ -12,6 +12,7 @@ the table together with a matching field.
 
 The data lives in self.cols / self.rows (list of dicts); the table is just the view.
 """
+
 from __future__ import annotations
 
 import io
@@ -19,10 +20,28 @@ import os
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QKeySequence, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                               QFormLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QMessageBox,
-                               QPlainTextEdit, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import datakinds, vdp
 from ..l10n import tr
@@ -40,7 +59,7 @@ class DataDialog(QDialog):
         self.rows: list[dict] = []
         self.path = ""
         self.dirty = False
-        self.use = False                 # True: "Use for variable data" checked
+        self.use = False  # True: "Use for variable data" checked
         self._sync = False
 
         root = QHBoxLayout(self)
@@ -51,10 +70,12 @@ class DataDialog(QDialog):
         self.cmb_kind.currentIndexChanged.connect(self._kind_changed)
         top.addWidget(QLabel(tr("Art:")))
         top.addWidget(self.cmb_kind, 1)
-        for text, fn, tip in ((tr("Neu"), self._new, tr("Leere Tabelle mit den Spalten dieser Art")),
-                              (tr("CSV öffnen …"), self._open, tr("Vorhandene Tabelle laden (CSV)")),
-                              (tr("Speichern"), self._save, tr("Als CSV speichern")),
-                              (tr("Speichern unter …"), self._save_as, "")):
+        for text, fn, tip in (
+            (tr("Neu"), self._new, tr("Leere Tabelle mit den Spalten dieser Art")),
+            (tr("CSV öffnen …"), self._open, tr("Vorhandene Tabelle laden (CSV)")),
+            (tr("Speichern"), self._save, tr("Als CSV speichern")),
+            (tr("Speichern unter …"), self._save_as, ""),
+        ):
             b = QPushButton(text)
             if tip:
                 b.setToolTip(tip)
@@ -76,22 +97,25 @@ class DataDialog(QDialog):
 
         row = QHBoxLayout()
         for text, fn, tip in (
-                (tr("+ Zeile"), self.add_row, tr("Leere Zeile anhängen")),
-                (tr("Zeile duplizieren"), self._dup, tr("Gewählte Zeile kopieren – praktisch, wenn sich nur wenig "
-                                                         "ändert")),
-                (tr("Zeilen löschen"), self._del, tr("Gewählte Zeilen löschen")),
-                (tr("Beispielzeile"), self._example, tr("Eine ausgefüllte Zeile als Muster anhängen")),
-                (tr("Spalte füllen …"), self._fill, tr("Eine Spalte mit einer Nummernreihe füllen, z. B. T0001, "
-                                                         "T0002 …")),
-                (tr("Spalte hinzufügen …"), self._add_col, tr("Eigene Spalte, z. B. für einen Text auf der Karte"))):
+            (tr("+ Zeile"), self.add_row, tr("Leere Zeile anhängen")),
+            (tr("Zeile duplizieren"), self._dup, tr("Gewählte Zeile kopieren – praktisch, wenn sich nur wenig ändert")),
+            (tr("Zeilen löschen"), self._del, tr("Gewählte Zeilen löschen")),
+            (tr("Beispielzeile"), self._example, tr("Eine ausgefüllte Zeile als Muster anhängen")),
+            (tr("Spalte füllen …"), self._fill, tr("Eine Spalte mit einer Nummernreihe füllen, z. B. T0001, T0002 …")),
+            (tr("Spalte hinzufügen …"), self._add_col, tr("Eigene Spalte, z. B. für einen Text auf der Karte")),
+        ):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
             row.addWidget(b)
         row.addStretch()
         left.addLayout(row)
-        tip = QLabel(tr("Tipp: Zellen aus Excel/LibreOffice kopieren und hier mit Strg+V einfügen – auch mehrere "
-                        "Zeilen und Spalten auf einmal. Entf leert die gewählten Zellen."))
+        tip = QLabel(
+            tr(
+                "Tipp: Zellen aus Excel/LibreOffice kopieren und hier mit Strg+V einfügen – auch mehrere "
+                "Zeilen und Spalten auf einmal. Entf leert die gewählten Zellen."
+            )
+        )
         tip.setWordWrap(True)
         tip.setStyleSheet(f"color: {theme.MUTED};")
         left.addWidget(tip)
@@ -116,8 +140,9 @@ class DataDialog(QDialog):
         right.addWidget(self.lbl_count)
         bb = QDialogButtonBox()
         self.btn_use = bb.addButton(tr("In Variable Daten verwenden"), QDialogButtonBox.ButtonRole.AcceptRole)
-        self.btn_use.setToolTip(tr("Speichert die Tabelle und übernimmt sie als Datenquelle – das passende Feld wird "
-                                   "angelegt"))
+        self.btn_use.setToolTip(
+            tr("Speichert die Tabelle und übernimmt sie als Datenquelle – das passende Feld wird angelegt")
+        )
         bb.addButton(tr("Schließen"), QDialogButtonBox.ButtonRole.RejectRole)
         bb.accepted.connect(self._use)
         bb.rejected.connect(self.reject)
@@ -149,8 +174,9 @@ class DataDialog(QDialog):
             for r in self.rows:
                 for c in add:
                     r.setdefault(c, "")
-        self.lbl_help.setText(k.help + "  " + tr("Pflichtspalten sind mit * markiert; Erklärung beim Zeigen auf die "
-                                                 "Spaltenüberschrift."))
+        self.lbl_help.setText(
+            k.help + "  " + tr("Pflichtspalten sind mit * markiert; Erklärung beim Zeigen auf die Spaltenüberschrift.")
+        )
         self._render()
 
     def add_row(self, values: dict | None = None):
@@ -236,8 +262,9 @@ class DataDialog(QDialog):
 
     # -------------------------------------------------------------- Ansicht
     def _title(self):
-        self.setWindowTitle(tr("Daten erfassen – Passermark") + (f" – {os.path.basename(self.path)}" if self.path
-                                                                 else ""))
+        self.setWindowTitle(
+            tr("Daten erfassen – Passermark") + (f" – {os.path.basename(self.path)}" if self.path else "")
+        )
 
     def _render(self):
         self._sync = True
@@ -306,7 +333,7 @@ class DataDialog(QDialog):
         self.txt_value.setPlainText(value)
         try:
             self.lbl_qr.setPixmap(self._code_pixmap(value))
-        except Exception as e:                            # noqa: BLE001 – the preview must never get in the way
+        except Exception as e:  # noqa: BLE001 – the preview must never get in the way
             self.txt_value.setPlainText(value + "\n\n⚠ " + str(e))
 
     def content_of(self, rec: dict) -> str:
@@ -316,6 +343,7 @@ class DataDialog(QDialog):
         """The code of the selected row as an image (the way it will be printed)."""
         import pypdfium2 as pdfium
         from reportlab.pdfgen import canvas
+
         fk = datakinds.get(self.kind).field_kind
         if fk == "text":
             return QPixmap()
@@ -337,6 +365,7 @@ class DataDialog(QDialog):
         """Strg+V / Strg+C / Entf in der Tabelle."""
         try:
             from PySide6.QtCore import QEvent
+
             if obj is self.tbl and ev.type() == QEvent.Type.KeyPress:
                 if ev.matches(QKeySequence.StandardKey.Paste):
                     self.paste_text(QApplication.clipboard().text(), self.tbl.currentRow(), self.tbl.currentColumn())
@@ -344,12 +373,14 @@ class DataDialog(QDialog):
                 if ev.matches(QKeySequence.StandardKey.Copy):
                     self._copy()
                     return True
-                if ev.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace) and not self.tbl.state() == \
-                        QAbstractItemView.State.EditingState:
+                if (
+                    ev.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace)
+                    and not self.tbl.state() == QAbstractItemView.State.EditingState
+                ):
                     for it in self.tbl.selectedItems():
                         it.setText("")
                     return True
-        except Exception:                                 # noqa: BLE001
+        except Exception:  # noqa: BLE001
             pass
         return super().eventFilter(obj, ev)
 
@@ -360,8 +391,9 @@ class DataDialog(QDialog):
         r = rng[0]
         lines = []
         for i in range(r.topRow(), r.bottomRow() + 1):
-            lines.append("\t".join(str(self.rows[i].get(self.cols[j], "")) for j in range(r.leftColumn(),
-                                                                                       r.rightColumn() + 1)))
+            lines.append(
+                "\t".join(str(self.rows[i].get(self.cols[j], "")) for j in range(r.leftColumn(), r.rightColumn() + 1))
+            )
         QApplication.clipboard().setText("\n".join(lines))
 
     def _selected_rows(self) -> list:
@@ -376,8 +408,9 @@ class DataDialog(QDialog):
     def _ask_discard(self) -> bool:
         if not self.dirty or not self.data_rows():
             return True
-        r = QMessageBox.question(self, tr("Daten erfassen"), tr("Die Tabelle ist nicht gespeichert. Trotzdem "
-                                                               "verwerfen?"))
+        r = QMessageBox.question(
+            self, tr("Daten erfassen"), tr("Die Tabelle ist nicht gespeichert. Trotzdem verwerfen?")
+        )
         return r == QMessageBox.StandardButton.Yes
 
     def _new(self):
@@ -390,12 +423,13 @@ class DataDialog(QDialog):
     def _open(self):
         if not self._ask_discard():
             return
-        p, _ = QFileDialog.getOpenFileName(self, tr("CSV-Datei wählen"), os.path.dirname(self.path),
-                                           tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)"))
+        p, _ = QFileDialog.getOpenFileName(
+            self, tr("CSV-Datei wählen"), os.path.dirname(self.path), tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)")
+        )
         if p:
             try:
                 self.load(p)
-            except Exception as e:                        # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 QMessageBox.warning(self, tr("CSV"), str(e))
 
     def _save(self) -> bool:
@@ -409,8 +443,9 @@ class DataDialog(QDialog):
             return False
 
     def _save_as(self) -> bool:
-        name = self.path or os.path.join(os.path.expanduser("~"), {"vcard": "visitenkarten", "wifi": "wlan"}.get(
-            self.kind, "daten") + ".csv")
+        name = self.path or os.path.join(
+            os.path.expanduser("~"), {"vcard": "visitenkarten", "wifi": "wlan"}.get(self.kind, "daten") + ".csv"
+        )
         p, _ = QFileDialog.getSaveFileName(self, tr("Tabelle speichern"), name, tr("CSV (*.csv)"))
         if not p or not isinstance(p, str):
             return False
@@ -438,8 +473,14 @@ class DataDialog(QDialog):
             QMessageBox.information(self, tr("Spalte hinzufügen"), tr("Name leer, schon vorhanden oder mit { }."))
 
     def _fill(self):
-        dlg = _FillDialog(self, self.cols, self.cols[self.tbl.currentColumn()] if 0 <= self.tbl.currentColumn()
-                          < len(self.cols) else (self.cols[0] if self.cols else ""), len(self.rows))
+        dlg = _FillDialog(
+            self,
+            self.cols,
+            self.cols[self.tbl.currentColumn()]
+            if 0 <= self.tbl.currentColumn() < len(self.cols)
+            else (self.cols[0] if self.cols else ""),
+            len(self.rows),
+        )
         if dlg.exec():
             self.fill_column(*dlg.values())
 
@@ -449,9 +490,15 @@ class DataDialog(QDialog):
             return
         probs = self.problems()
         if probs:
-            r = QMessageBox.question(self, tr("Daten erfassen"), tr("{0} Problem(e) in der Tabelle – trotzdem "
-                                                                   "verwenden? Betroffene Datensätze ergeben beim "
-                                                                   "Erzeugen einen Fehler.").format(len(probs)))
+            r = QMessageBox.question(
+                self,
+                tr("Daten erfassen"),
+                tr(
+                    "{0} Problem(e) in der Tabelle – trotzdem "
+                    "verwenden? Betroffene Datensätze ergeben beim "
+                    "Erzeugen einen Fehler."
+                ).format(len(probs)),
+            )
             if r != QMessageBox.StandardButton.Yes:
                 return
         if (self.dirty or not self.path) and not self._save():
@@ -475,7 +522,7 @@ class _FillDialog(QDialog):
         self.cmb = QComboBox()
         fill_combo(self.cmb, [(c, c) for c in cols], current)
         self.spn_start, self.spn_step, self.spn_digits = QSpinBox(), QSpinBox(), QSpinBox()
-        self.spn_start.setRange(-10 ** 9, 10 ** 9)
+        self.spn_start.setRange(-(10**9), 10**9)
         self.spn_start.setValue(1)
         self.spn_step.setRange(-1000, 1000)
         self.spn_step.setValue(1)
@@ -487,12 +534,23 @@ class _FillDialog(QDialog):
         self.spn_count = QSpinBox()
         self.spn_count.setRange(0, vdp.MAX_RECORDS)
         self.spn_count.setValue(rows)
-        for lab, w in ((tr("Spalte"), self.cmb), (tr("Anzahl Zeilen"), self.spn_count), (tr("erste Nummer"), self.spn_start),
-                       (tr("Schrittweite"), self.spn_step), (tr("Stellen (mit Nullen)"), self.spn_digits),
-                       (tr("Text davor"), self.ed_pre), (tr("Text danach"), self.ed_suf), (tr("Füllen"), self.cmb_mode)):
+        for lab, w in (
+            (tr("Spalte"), self.cmb),
+            (tr("Anzahl Zeilen"), self.spn_count),
+            (tr("erste Nummer"), self.spn_start),
+            (tr("Schrittweite"), self.spn_step),
+            (tr("Stellen (mit Nullen)"), self.spn_digits),
+            (tr("Text davor"), self.ed_pre),
+            (tr("Text danach"), self.ed_suf),
+            (tr("Füllen"), self.cmb_mode),
+        ):
             f.addRow(lab + ":", w)
-        hint = QLabel(tr("Beispiel: Text davor T, Stellen 4 → T0001, T0002 … Ist die Anzahl größer als die Tabelle, "
-                         "werden Zeilen angehängt – z. B. 100 für 100 Tickets."))
+        hint = QLabel(
+            tr(
+                "Beispiel: Text davor T, Stellen 4 → T0001, T0002 … Ist die Anzahl größer als die Tabelle, "
+                "werden Zeilen angehängt – z. B. 100 für 100 Tickets."
+            )
+        )
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(hint)
@@ -502,8 +560,16 @@ class _FillDialog(QDialog):
         f.addRow(bb)
 
     def values(self):
-        return (self.cmb.currentData(), self.spn_start.value(), self.spn_step.value(), self.spn_digits.value(),
-                self.ed_pre.text(), self.ed_suf.text(), bool(self.cmb_mode.currentData()), self.spn_count.value())
+        return (
+            self.cmb.currentData(),
+            self.spn_start.value(),
+            self.spn_step.value(),
+            self.spn_digits.value(),
+            self.ed_pre.text(),
+            self.ed_suf.text(),
+            bool(self.cmb_mode.currentData()),
+            self.spn_count.value(),
+        )
 
 
 def field_for(kind: str, page_w_mm: float, page_h_mm: float) -> vdp.VdpField:

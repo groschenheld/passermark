@@ -4,8 +4,9 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Farbe → Für Druckerei ausgeben … – assistant in four steps:
-    1 printing condition   2 check and plan (RGB: always asked)   3 save (optionally as package)   4 result + report
-    The work is done by pressexport.run (same as the job "press" on the command line)."""
+1 printing condition   2 check and plan (RGB: always asked)   3 save (optionally as package)   4 result + report
+The work is done by pressexport.run (same as the job "press" on the command line)."""
+
 from __future__ import annotations
 
 import os
@@ -13,9 +14,27 @@ import tempfile
 
 from PySide6.QtCore import Qt, QThread, QUrl, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
-                               QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QRadioButton, QSpinBox,
-                               QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QRadioButton,
+    QSpinBox,
+    QStackedWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import colorcheck, colorlab, config, pressexport
 from ..l10n import tr
@@ -36,9 +55,10 @@ class _Run(QThread):
 
     def run(self):
         import traceback
+
         try:
             self.done.emit(self.fn(self), "")
-        except Exception as e:                                 # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.done.emit(None, f"{e}\n\n{traceback.format_exc()}")
 
 
@@ -55,8 +75,9 @@ def _findings_tree(tree: QTreeWidget, findings):
 class PressDialog(QDialog):
     open_result = Signal(str)
 
-    def __init__(self, parent, data_fn, cfg: dict, default_out: str, choice_key: str = "", intent: str = "",
-                 tac: int = 0):
+    def __init__(
+        self, parent, data_fn, cfg: dict, default_out: str, choice_key: str = "", intent: str = "", tac: int = 0
+    ):
         super().__init__(parent)
         self.setWindowTitle(tr("Für Druckerei ausgeben – Passermark"))
         self.data_fn, self.cfg = data_fn, cfg
@@ -76,9 +97,13 @@ class PressDialog(QDialog):
         # 1 Druckbedingung
         w = QWidget()
         f = QFormLayout(w)
-        t = QLabel(tr("Auf welcher Druckbedingung druckt die Druckerei? Steht meist im Datenblatt („Output Intent“, "
-                      "„Druckbedingung“, FOGRA-Nummer). Ohne Angabe: gestrichenes Papier PSO Coated v3, "
-                      "ungestrichenes PSO Uncoated v3."))
+        t = QLabel(
+            tr(
+                "Auf welcher Druckbedingung druckt die Druckerei? Steht meist im Datenblatt („Output Intent“, "
+                "„Druckbedingung“, FOGRA-Nummer). Ohne Angabe: gestrichenes Papier PSO Coated v3, "
+                "ungestrichenes PSO Uncoated v3."
+            )
+        )
         t.setWordWrap(True)
         f.addRow(t)
         self.cmb = QComboBox()
@@ -89,11 +114,15 @@ class PressDialog(QDialog):
         f.addRow("", b)
         self.cmb_intent = QComboBox()
         fill_combo(self.cmb_intent, list(config.INTENTS.items()), intent or "relative")
-        self.cmb_intent.setToolTip(tr("Relativ farbmetrisch passt fast immer; Wahrnehmungsorientiert für sehr bunte Fotos"))
+        self.cmb_intent.setToolTip(
+            tr("Relativ farbmetrisch passt fast immer; Wahrnehmungsorientiert für sehr bunte Fotos")
+        )
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         self.chk_bpc = QCheckBox(tr("Tiefenkompensierung (BPC)"))
         self.chk_bpc.setChecked(True)
-        self.chk_bpc.setToolTip(tr("Hält dunkle Bildstellen durchgezeichnet – an lassen, außer die Druckerei will es anders"))
+        self.chk_bpc.setToolTip(
+            tr("Hält dunkle Bildstellen durchgezeichnet – an lassen, außer die Druckerei will es anders")
+        )
         f.addRow("", self.chk_bpc)
         self.spn_tac = QSpinBox()
         self.spn_tac.setRange(0, 400)
@@ -120,8 +149,12 @@ class PressDialog(QDialog):
         rv.addWidget(q)
         self.grp_rgb = QButtonGroup(self)
         self.rb_convert = QRadioButton()
-        self.rb_keep = QRadioButton(tr("RGB mit Profil weitergeben – die Druckerei rechnet um (PDF/X-4 erlaubt das; "
-                                       "RGB ohne Profil wird als sRGB gekennzeichnet)"))
+        self.rb_keep = QRadioButton(
+            tr(
+                "RGB mit Profil weitergeben – die Druckerei rechnet um (PDF/X-4 erlaubt das; "
+                "RGB ohne Profil wird als sRGB gekennzeichnet)"
+            )
+        )
         for rb in (self.rb_convert, self.rb_keep):
             self.grp_rgb.addButton(rb)
             rv.addWidget(rb)
@@ -129,10 +162,16 @@ class PressDialog(QDialog):
         h = QHBoxLayout()
         h.addWidget(QLabel(tr("Methode:")))
         self.cmb_mode = QComboBox()
-        fill_combo(self.cmb_mode, [("auto", tr("Automatisch (Empfehlung der Prüfung)")),
-                                   ("rgb_only", tr("Nur RGB/Grau umwandeln, CMYK bleibt")),
-                                   ("all", tr("Alles neu separieren")),
-                                   ("none", tr("Keine Umwandlung, nur Output Intent"))], "auto")
+        fill_combo(
+            self.cmb_mode,
+            [
+                ("auto", tr("Automatisch (Empfehlung der Prüfung)")),
+                ("rgb_only", tr("Nur RGB/Grau umwandeln, CMYK bleibt")),
+                ("all", tr("Alles neu separieren")),
+                ("none", tr("Keine Umwandlung, nur Output Intent")),
+            ],
+            "auto",
+        )
         h.addWidget(self.cmb_mode, 1)
         lv.addLayout(h)
         self.lbl_plan = QLabel()
@@ -154,8 +193,9 @@ class PressDialog(QDialog):
         h.addWidget(b)
         f.addRow(tr("Speichern als:"), h)
         self.chk_pkg = QCheckBox(tr("Paket für die Druckerei (Zip: PDF, verwendete Profile, kurzer Bericht)"))
-        self.chk_pkg.setToolTip(tr("Hilft bei Rückfragen: die Druckerei sieht, mit welchem Profil und Intent "
-                                   "umgewandelt wurde"))
+        self.chk_pkg.setToolTip(
+            tr("Hilft bei Rückfragen: die Druckerei sieht, mit welchem Profil und Intent umgewandelt wurde")
+        )
         f.addRow("", self.chk_pkg)
         t = QLabel(tr("Das Profil wird immer als Output Intent eingebettet – die Druckerei sieht die Druckbedingung."))
         t.setWordWrap(True)
@@ -213,11 +253,16 @@ class PressDialog(QDialog):
     def _fill_choices(self, key=""):
         self.choices = [c for c in colorlab.proof_choices(self.cfg) if c["space"] == "CMYK"]
         cur = self.cmb.currentData() or key
-        fill_combo(self.cmb, [(c["key"], c["label"]) for c in self.choices] or [("", tr("Kein CMYK-Profil – bitte "
-                                                                                      "Standardprofile holen"))], cur)
+        fill_combo(
+            self.cmb,
+            [(c["key"], c["label"]) for c in self.choices]
+            or [("", tr("Kein CMYK-Profil – bitte Standardprofile holen"))],
+            cur,
+        )
 
     def _standards(self):
         from .materialsdialog import StandardProfilesDialog
+
         dlg = StandardProfilesDialog(self)
         dlg.exec()
         if dlg.fetched:
@@ -238,16 +283,28 @@ class PressDialog(QDialog):
     def _settings(self) -> pressexport.PressSettings:
         t = self._target()
         rgb = "convert" if self.rb_convert.isChecked() else "keep" if self.rb_keep.isChecked() else "ask"
-        return pressexport.PressSettings(target=t.icc, intent=t.intent, bpc=self.chk_bpc.isChecked(),
-                                         cmyk_mode=self.cmb_mode.currentData() or "auto", rgb=rgb,
-                                         tac_limit=self.spn_tac.value(), material=t.material_id,
-                                         package=self.chk_pkg.isChecked())
+        return pressexport.PressSettings(
+            target=t.icc,
+            intent=t.intent,
+            bpc=self.chk_bpc.isChecked(),
+            cmyk_mode=self.cmb_mode.currentData() or "auto",
+            rgb=rgb,
+            tac_limit=self.spn_tac.value(),
+            material=t.material_id,
+            package=self.chk_pkg.isChecked(),
+        )
 
     def _go(self, i: int):
         i = max(0, min(3, i))
         self.stack.setCurrentIndex(i)
-        self.lbl_step.setText([tr("1 / 4 · Druckbedingung"), tr("2 / 4 · Prüfen und Vorgehen"),
-                               tr("3 / 4 · Speichern"), tr("4 / 4 · Ergebnis")][i])
+        self.lbl_step.setText(
+            [
+                tr("1 / 4 · Druckbedingung"),
+                tr("2 / 4 · Prüfen und Vorgehen"),
+                tr("3 / 4 · Speichern"),
+                tr("4 / 4 · Ergebnis"),
+            ][i]
+        )
         self.btn_back.setEnabled(0 < i < 3 and self._run is None)
         self.btn_next.setVisible(i < 3)
         self.btn_next.setText(tr("Ausgeben") if i == 2 else tr("Weiter >"))
@@ -278,7 +335,7 @@ class PressDialog(QDialog):
             data = self.data_fn()
             with open(self.src, "wb") as fh:
                 fh.write(data)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             QMessageBox.critical(self, tr("Fehler"), str(e))
             return
         t = self._target()
@@ -286,9 +343,10 @@ class PressDialog(QDialog):
         self._go(1)
         self.lbl_check.setText("… " + tr("Prüfe"))
         self.btn_next.setEnabled(False)
-        self.rb_convert.setText(tr("RGB nach „{0}“ umwandeln (empfohlen, wenn die Druckerei nichts anderes "
-                                   "sagt)").format(t.name))
-        for rb in (self.rb_convert, self.rb_keep):          # immer fragen: keine Vorauswahl
+        self.rb_convert.setText(
+            tr("RGB nach „{0}“ umwandeln (empfohlen, wenn die Druckerei nichts anderes sagt)").format(t.name)
+        )
+        for rb in (self.rb_convert, self.rb_keep):  # immer fragen: keine Vorauswahl
             self.grp_rgb.setExclusive(False)
             rb.setChecked(False)
             self.grp_rgb.setExclusive(True)
@@ -303,8 +361,11 @@ class PressDialog(QDialog):
         self.facts, self.t = f, t
         self.btn_next.setEnabled(True)
         bad = sum(1 for x in findings if x.severity in ("error", "warning"))
-        self.lbl_check.setText(tr("Prüfung gegen „{0}“: {1} Punkt(e) zu klären.").format(t.name, bad) if bad
-                               else tr("Prüfung gegen „{0}“: nichts Kritisches.").format(t.name))
+        self.lbl_check.setText(
+            tr("Prüfung gegen „{0}“: {1} Punkt(e) zu klären.").format(t.name, bad)
+            if bad
+            else tr("Prüfung gegen „{0}“: nichts Kritisches.").format(t.name)
+        )
         _findings_tree(self.tree_before, findings)
         self.box_rgb.setVisible(f.has_rgb)
         self._update_plan()
@@ -315,7 +376,7 @@ class PressDialog(QDialog):
             return
         s = self._settings()
         if self.facts.has_rgb and s.rgb == "ask":
-            s.rgb = "convert"                                   # nur für die Vorschau des Plans
+            s.rgb = "convert"  # nur für die Vorschau des Plans
             pending = True
         else:
             pending = False
@@ -324,19 +385,25 @@ class PressDialog(QDialog):
         except ValueError as e:
             self.lbl_plan.setText(str(e))
             return
-        what = {"rgb_only": tr("RGB/Grau wird nach „{0}“ umgewandelt, vorhandenes CMYK bleibt."),
-                "all": tr("Alles wird neu separiert (→ „{0}“)."),
-                "none": tr("Keine Farbumwandlung.")}[p["mode"]].format(self.t.name)
+        what = {
+            "rgb_only": tr("RGB/Grau wird nach „{0}“ umgewandelt, vorhandenes CMYK bleibt."),
+            "all": tr("Alles wird neu separiert (→ „{0}“)."),
+            "none": tr("Keine Farbumwandlung."),
+        }[p["mode"]].format(self.t.name)
         lines = [what, tr("Output Intent „{0}“ wird eingebettet.").format(self.t.name)]
         if p["mode"] == "all":
-            lines.append(tr("Quellprofil für vorhandenes CMYK: {0}").format(
-                os.path.basename(p["source"]) if p["source"] else tr("Ghostscript-Standard")))
+            lines.append(
+                tr("Quellprofil für vorhandenes CMYK: {0}").format(
+                    os.path.basename(p["source"]) if p["source"] else tr("Ghostscript-Standard")
+                )
+            )
         if p["tag_rgb"]:
             lines.append(tr("RGB bleibt, RGB ohne Profil wird als sRGB gekennzeichnet."))
         lines += p["notes"] + ([p["tac_note"]] if p.get("tac_note") else [])
         if pending:
             lines.insert(0, tr("(Vorschau unter der Annahme „umwandeln“ – bitte oben entscheiden.)"))
         from .. import cmyk
+
         if p["mode"] in ("rgb_only", "all") and not cmyk.ghostscript():
             lines.append(tr("Achtung: Für die Umwandlung wird Ghostscript gebraucht – nicht gefunden."))
         self.lbl_plan.setText("\n".join(lines))
@@ -356,9 +423,13 @@ class PressDialog(QDialog):
                 return
         if os.path.abspath(out) == os.path.abspath(self.src):
             return
-        if os.path.exists(out) and QMessageBox.question(
-                self, tr("Speichern"), tr("„{0}“ gibt es schon – ersetzen?").format(os.path.basename(out))) \
-                != QMessageBox.StandardButton.Yes:
+        if (
+            os.path.exists(out)
+            and QMessageBox.question(
+                self, tr("Speichern"), tr("„{0}“ gibt es schon – ersetzen?").format(os.path.basename(out))
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         self.out_path = out
         s = self._settings()
@@ -403,7 +474,7 @@ class PressDialog(QDialog):
             ok(res)
 
         th.done.connect(done)
-        self._threads.add(th)                      # Verweis halten, bis der Thread wirklich fertig ist
+        self._threads.add(th)  # Verweis halten, bis der Thread wirklich fertig ist
         th.finished.connect(lambda th=th: self._threads.discard(th))
         th.start()
 
@@ -411,5 +482,6 @@ class PressDialog(QDialog):
         for th in list(self._threads):
             th.wait(30000)
         import shutil
+
         shutil.rmtree(self.tmp, ignore_errors=True)
         super().done(r)

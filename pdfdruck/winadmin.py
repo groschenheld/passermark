@@ -11,6 +11,7 @@ The elevated process validates EVERYTHING with the same rules as on Linux (cfgva
 writes atomically to %ProgramData%\\Passermark (only administrators may write there – set by
 the installer) and puts the result in <file>.result.
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -77,6 +78,7 @@ def apply(bundle_path: str) -> int:
             raise ValueError(tr("printer_defaults ungültig"))
         if defaults:
             from . import printers_win
+
             known = {p.name for p in printers_win.list_printers()}
             for q, dm in defaults:
                 if q not in known:
@@ -92,12 +94,14 @@ def apply(bundle_path: str) -> int:
                     os.unlink(p)
         if defaults:
             from . import printers_win
+
             for q, dm in defaults:
                 printers_win.set_printer_default(q, dm)
                 result["printer_defaults"] += 1
         if cfg is not None:
-            _atomic_write(os.path.join(_cfg_dir(), "defaults.json"),
-                          json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8"))
+            _atomic_write(
+                os.path.join(_cfg_dir(), "defaults.json"), json.dumps(cfg, indent=2, ensure_ascii=False).encode("utf-8")
+            )
         result["ok"] = True
         code = 0
     except Exception as e:
@@ -130,11 +134,16 @@ def run_elevated(bundle: dict) -> tuple[int, str, dict]:
         cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     try:
         try:
-            info = shell.ShellExecuteEx(fMask=shellcon.SEE_MASK_NOCLOSEPROCESS, lpVerb="runas",
-                                        lpFile=exe, lpParameters=params, lpDirectory=cwd,
-                                        nShow=win32con.SW_HIDE)
+            info = shell.ShellExecuteEx(
+                fMask=shellcon.SEE_MASK_NOCLOSEPROCESS,
+                lpVerb="runas",
+                lpFile=exe,
+                lpParameters=params,
+                lpDirectory=cwd,
+                nShow=win32con.SW_HIDE,
+            )
         except pywintypes.error as e:
-            if getattr(e, "winerror", 0) == 1223:          # Benutzer hat UAC abgelehnt
+            if getattr(e, "winerror", 0) == 1223:  # Benutzer hat UAC abgelehnt
                 return 126, "Abgebrochen", {}
             raise
         h = info["hProcess"]

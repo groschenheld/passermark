@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Jobs from the UI (Qt stub, but real background processes): result, cancel, error."""
-import os, subprocess, sys
+
+import os
+import subprocess
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import os, sys, tempfile, threading, time, types
 from pdfdruck.gui import viewer, objectsdialog as od
 viewer.PageView._dpi_scale = lambda self: 1.0      # Qt-Ersatz: kein Bildschirm -> feste Werte
@@ -85,12 +88,16 @@ sd.w = {"margin": types.SimpleNamespace(value=lambda: 2.0)}; sd.accept = lambda:
 sd._apply()
 assert sd.job == ("separate", {"margin_mm": 2.0, "boxes": {"0": [[0, 0, 100, 100]]}}, [0]), sd.job
 print("JOBS-GUI-OK")
-'''
+"""
 
 
 def test_jobs_from_gui():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               HOME="/tmp/_smoke_home", PASSERMARK_LANG="de")
+    env = dict(
+        os.environ,
+        PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
+        HOME="/tmp/_smoke_home",
+        PASSERMARK_LANG="de",
+    )
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, env=env, timeout=900)
     print(r.stdout)
@@ -98,4 +105,5 @@ def test_jobs_from_gui():
 
 
 if __name__ == "__main__":
-    test_jobs_from_gui(); print("ok test_jobs_from_gui")
+    test_jobs_from_gui()
+    print("ok test_jobs_from_gui")

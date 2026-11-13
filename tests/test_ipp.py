@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-import os, struct, sys
+import os
+import struct
+import sys
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
+
+_os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import ipp
 
@@ -36,11 +39,17 @@ def fake_response():
     r += media_col(True, "tray-1", 21000, 29700, 80, "stationery")
     r += media_col(False, "tray-2", 21000, 29700, 80, "stationery")
     r += media_col(False, "tray-3", 29700, 42000, 120, "stationery-heavyweight")
-    r += a(ipp.T_KEYWORD, "media-source-supported", "by-pass-tray") + a(ipp.T_KEYWORD, "", "tray-1") \
-        + a(ipp.T_KEYWORD, "", "tray-2") + a(ipp.T_KEYWORD, "", "tray-3")
-    r += a(ipp.T_OCTET, "printer-input-tray", "type=sheetFeedManual;level=-2;maxcapacity=100;name=Bypass;") \
-        + a(ipp.T_OCTET, "", "type=sheetFeedAutoRemovableTray;level=0;maxcapacity=550;name=Tray 1;") \
+    r += (
+        a(ipp.T_KEYWORD, "media-source-supported", "by-pass-tray")
+        + a(ipp.T_KEYWORD, "", "tray-1")
+        + a(ipp.T_KEYWORD, "", "tray-2")
+        + a(ipp.T_KEYWORD, "", "tray-3")
+    )
+    r += (
+        a(ipp.T_OCTET, "printer-input-tray", "type=sheetFeedManual;level=-2;maxcapacity=100;name=Bypass;")
+        + a(ipp.T_OCTET, "", "type=sheetFeedAutoRemovableTray;level=0;maxcapacity=550;name=Tray 1;")
         + a(ipp.T_OCTET, "", "type=sheetFeedAutoRemovableTray;level=275;maxcapacity=550;name=Tray 2;")
+    )
     return r + bytes([ipp.T_END])
 
 
@@ -67,4 +76,6 @@ def test_host():
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

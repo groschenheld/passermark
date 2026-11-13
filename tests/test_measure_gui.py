@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Messen in der Seitenansicht ohne Bildschirm (Qt-Ersatz): Klick 1/2, Umschalt-Einrasten, Anzeige, Esc."""
-import os, subprocess, sys
+
+import os
+import subprocess
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import sys, types
 from pdfdruck.gui import viewer
 viewer.PageView._dpi_scale = lambda self: 1.0
@@ -63,12 +66,17 @@ assert w.view.meas is None and out[-1] == ""
 w._measure_mode(False)
 assert w.view.imode == "text"
 print("MEASURE-GUI-OK")
-'''
+"""
 
 
 def test_measure_in_view():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               HOME="/tmp/_smoke_home", PASSERMARK_LANG="de", PDFTOOLKIT_LANG="de")
+    env = dict(
+        os.environ,
+        PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
+        HOME="/tmp/_smoke_home",
+        PASSERMARK_LANG="de",
+        PDFTOOLKIT_LANG="de",
+    )
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, env=env, timeout=300)
     print(r.stdout)
@@ -76,4 +84,5 @@ def test_measure_in_view():
 
 
 if __name__ == "__main__":
-    test_measure_in_view(); print("ok test_measure_in_view")
+    test_measure_in_view()
+    print("ok test_measure_in_view")

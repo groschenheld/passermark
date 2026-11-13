@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Render-Prozess der Seitenansicht (passermark-cli render-server): Öffnen, ganze Seite, Ausschnitt (auch
-    gedreht, pixelgleich zum Ausschnitt der ganzen Seite), Fehler ohne Absturz, Datei bleibt frei."""
+gedreht, pixelgleich zum Ausschnitt der ganzen Seite), Fehler ohne Absturz, Datei bleibt frei."""
+
 import json
 import os
 import pickle
 import subprocess
 import sys
 import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck.jobproc import cli_command
 
@@ -15,12 +17,21 @@ from pdfdruck.jobproc import cli_command
 def _pdf(path):
     import numpy as np
     import pikepdf
+
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(300, 200))
     y, x = np.mgrid[0:200, 0:300]
     a = np.stack([x % 256, y % 256, (x + y) % 256], 2).astype("uint8")
-    img = pikepdf.Stream(pdf, a.tobytes(), Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image, Width=300,
-                         Height=200, ColorSpace=pikepdf.Name.DeviceRGB, BitsPerComponent=8)
+    img = pikepdf.Stream(
+        pdf,
+        a.tobytes(),
+        Type=pikepdf.Name.XObject,
+        Subtype=pikepdf.Name.Image,
+        Width=300,
+        Height=200,
+        ColorSpace=pikepdf.Name.DeviceRGB,
+        BitsPerComponent=8,
+    )
     pdf.pages[0].obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im=img))
     pdf.pages[0].obj.Contents = pikepdf.Stream(pdf, b"q 300 0 0 200 0 0 cm /Im Do Q 1 0 0 rg 20 20 40 40 re f")
     pdf.save(path)
@@ -29,8 +40,9 @@ def _pdf(path):
 class Server:
     def __init__(self):
         cmd, env = cli_command()
-        self.p = subprocess.Popen(cmd + ["render-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  env=dict(os.environ, **env))
+        self.p = subprocess.Popen(
+            cmd + ["render-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=dict(os.environ, **env)
+        )
 
     def __call__(self, **req):
         self.p.stdin.write(json.dumps(req).encode() + b"\n")
@@ -47,12 +59,14 @@ class Server:
 
 def _arr(head, data):
     import numpy as np
+
     a = np.frombuffer(data, np.uint8).reshape(head["h"], head["stride"])
-    return a[:, :head["w"] * 4].reshape(head["h"], head["w"], 4)[:, :, :3].astype(int)
+    return a[:, : head["w"] * 4].reshape(head["h"], head["w"], 4)[:, :, :3].astype(int)
 
 
 def test_render_server():
     import numpy as np
+
     d = tempfile.mkdtemp()
     path = os.path.join(d, "a.pdf")
     _pdf(path)
@@ -62,24 +76,31 @@ def test_render_server():
         assert h["ok"] and h["pages"] == 1
         pi = pickle.loads(info)
         assert pi[0]["crop"] == (0.0, 0.0, 300.0, 200.0) and pi[0]["rotate"] == 0
-        os.replace(path, path + ".alt")                  # Datei ist frei (im Speicher) – Speichern darüber geht
+        os.replace(path, path + ".alt")  # Datei ist frei (im Speicher) – Speichern darüber geht
         for rot in (0, 90):
             h, data = s(op="render", id=2, doc="x", page=0, scale=2.0, rotation=rot)
             assert h["ok"] and h["fmt"] == "bgrx", h
             full = _arr(h, data)
             H, W = full.shape[:2]
             x0, y0, x1, y1 = 30, 20, 130, 90
-            h2, d2 = s(op="render", id=3, doc="x", page=0, scale=2.0, rotation=rot,
-                       crop=[x0 / 2, (H - y1) / 2, (W - x1) / 2, y0 / 2])
+            h2, d2 = s(
+                op="render",
+                id=3,
+                doc="x",
+                page=0,
+                scale=2.0,
+                rotation=rot,
+                crop=[x0 / 2, (H - y1) / 2, (W - x1) / 2, y0 / 2],
+            )
             part = _arr(h2, d2)
             assert part.shape[:2] == (y1 - y0, x1 - x0), part.shape
             assert np.abs(part - full[y0:y1, x0:x1]).mean() < 1.0, rot
         h, _ = s(op="render", id=4, doc="x", page=5, scale=1.0)
-        assert not h["ok"] and h["error"]                 # Fehler zurück, Server läuft weiter
+        assert not h["ok"] and h["error"]  # Fehler zurück, Server läuft weiter
         h, _ = s(op="render", id=5, doc="gibtsnicht", page=0, scale=1.0)
         assert not h["ok"]
         h, data = s(op="chars", id=7, doc="x", page=0)
-        assert h["ok"] and pickle.loads(data) == []        # kein Text auf der Seite
+        assert h["ok"] and pickle.loads(data) == []  # kein Text auf der Seite
         h, data = s(op="lists", id=8, doc="x", page=0, kind="objects")
         objs, total = pickle.loads(data)
         assert total == 2 and {o.kind for o in objs} == {"image", "path"}
@@ -97,11 +118,12 @@ def test_render_server():
 
 def test_sheet_preview_call():
     """Druckvorschau im Prozess = Montage im Programm; bei mehrfach verwendeten Seiten (Step & Repeat) über
-        das einmal gerenderte Seitenbild – sieht gleich aus. Endformat/Anschnitt aus den Seitendaten = pdfium."""
+    das einmal gerenderte Seitenbild – sieht gleich aus. Endformat/Anschnitt aus den Seitendaten = pdfium."""
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
     from pdfdruck import layout, printjob, renderproc
+
     d = tempfile.mkdtemp()
     path = os.path.join(d, "a.pdf")
     _pdf(path)
@@ -116,10 +138,12 @@ def test_sheet_preview_call():
     sheet = layout.Sheet(595.0, 842.0)
     for kw in (dict(), dict(step_repeat=True, crop_marks=True, bleed_mm=3)):
         s = layout.LayoutSettings(**kw)
-        plans = printjob.make_plans([doc.get_page_size(0)], [0], sheet, s, False, layout.page_trims(doc),
-                                    layout.page_doc_bleeds(doc))
-        (w, h, data), = renderproc._call_sheet(path, True, "sheet", sheet, plans, s, only=[0], scale=0.5,
-                                               rotations=[0])
+        plans = printjob.make_plans(
+            [doc.get_page_size(0)], [0], sheet, s, False, layout.page_trims(doc), layout.page_doc_bleeds(doc)
+        )
+        ((w, h, data),) = renderproc._call_sheet(
+            path, True, "sheet", sheet, plans, s, only=[0], scale=0.5, rotations=[0]
+        )
         out = layout.impose_with(doc, sheet, plans, s, only=[0])
         ref = np.asarray(out[0].render(scale=0.5).to_pil().convert("RGB")).astype(int)
         out.close()

@@ -1,9 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Anleitung zur Kommandozeile: liegt im Paket, Tabellen sind konsistent, Fallbeispiele laufen wirklich."""
-import ast, os, shlex, subprocess, sys, tempfile
+
+import ast
+import os
+import shlex
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, ROOT); sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 GEN = os.path.join(ROOT, "docs", "make_cli_howto.py")
 PDF = os.path.join(ROOT, "pdfdruck", "docs", "passermark-cli-anleitung.pdf")
@@ -12,6 +20,7 @@ PDF = os.path.join(ROOT, "pdfdruck", "docs", "passermark-cli-anleitung.pdf")
 def test_pdf_in_package():
     import pypdfium2 as pdfium
     import pdfdruck
+
     assert os.path.isfile(PDF)
     assert os.path.join(os.path.dirname(pdfdruck.__file__), "docs", "passermark-cli-anleitung.pdf") == PDF
     d = pdfium.PdfDocument(PDF)
@@ -51,25 +60,28 @@ def _examples():
 
 def _prepare_inputs(tmp, examples):
     """Create an input file for each example (name as in the manual); list of runnable examples."""
-    import test_cutcontour as tc, test_preflight as tp
+    import test_cutcontour as tc
+    import test_preflight as tp
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
+
     tc.stickers().save(os.path.join(tmp, "bogen.pdf"))
     c = canvas.Canvas(os.path.join(tmp, "logo.pdf"), pagesize=(150 * mm, 100 * mm))
     c.setFillColorRGB(0.8, 0.1, 0.1)
     for x in (30, 60, 90):
         c.rect(x * mm, 40 * mm, 22 * mm, 22 * mm, fill=1, stroke=0)
-    c.showPage(); c.save()
+    c.showPage()
+    c.save()
     runnable = []
     wfs = _workflows()
-    for name, text in wfs.items():                  # Ablauf-Beispiele aus dem Handbuch als Dateien
+    for name, text in wfs.items():  # Ablauf-Beispiele aus dem Handbuch als Dateien
         open(os.path.join(tmp, name), "w", encoding="utf-8").write(text)
-    user_dir = os.path.join(tmp, "passermark", "workflows")     # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
+    user_dir = os.path.join(tmp, "passermark", "workflows")  # XDG_CONFIG_HOME=tmp -> eigener Ablauf-Ordner
     os.makedirs(user_dir, exist_ok=True)
     open(os.path.join(user_dir, "Visitenkarten.json"), "w", encoding="utf-8").write(wfs["visitenkarten.json"])
     for cmd in examples:
         args = shlex.split(cmd)[1:]
-        if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:   # Vorlage / Platzhalter-Pfad
+        if args[0] in ("settings", "list", "presets") or ">" in args or "/pfad/" in cmd:  # Vorlage / Platzhalter-Pfad
             continue
         if args[0] in ("printers", "caps", "serve"):  # echter Drucker / Watcher: eigene Tests
             continue
@@ -78,7 +90,7 @@ def _prepare_inputs(tmp, examples):
             continue
         if args[0] in ("run", "check"):
             wf = args[1] if args[1].endswith(".json") else "visitenkarten.json"
-            if '"print"' in wfs.get(wf, ""):         # druckt – ohne Drucker nicht ausführbar
+            if '"print"' in wfs.get(wf, ""):  # druckt – ohne Drucker nicht ausführbar
                 continue
             src = os.path.join(tmp, args[args.index("--in") + 1])
             if not os.path.exists(src):
@@ -88,19 +100,23 @@ def _prepare_inputs(tmp, examples):
         src = os.path.join(tmp, args[1])
         if args[0] == "split" and not os.path.exists(src) and args[1] != "bogen.pdf":
             import test_split
-            test_split._booklet(src)                 # booklet with double pages
-        if not os.path.exists(src):                  # motif jobs: sheet, otherwise problem PDF (layers, form)
-            data = (open(os.path.join(tmp, "bogen.pdf"), "rb").read() if args[0] in ("cutcontour", "separate")
-                    else tp.problem_pdf())
+
+            test_split._booklet(src)  # booklet with double pages
+        if not os.path.exists(src):  # motif jobs: sheet, otherwise problem PDF (layers, form)
+            data = (
+                open(os.path.join(tmp, "bogen.pdf"), "rb").read()
+                if args[0] in ("cutcontour", "separate")
+                else tp.problem_pdf()
+            )
             open(src, "wb").write(data)
-        if "--pages" in args:                        # restrict page selection to the existing page
+        if "--pages" in args:  # restrict page selection to the existing page
             args[args.index("--pages") + 1] = "1"
         runnable.append((cmd, args))
     return runnable
 
 
 API_NO_INPUT = ("version", "schema", "workflows")
-QUIET_OK = ("run", "check")                         # Schnittstellen-Befehle mit --quiet
+QUIET_OK = ("run", "check")  # Schnittstellen-Befehle mit --quiet
 
 
 def _workflows():
@@ -116,6 +132,7 @@ def test_workflow_examples_valid():
     """Die gezeigten Abläufe sind gültig (auch der Druck-Ablauf – geprüft wird ohne Drucker)."""
     import json
     from pdfdruck import workflow
+
     tmp = tempfile.mkdtemp(prefix="pm-howto-wf-")
     for name, text in _workflows().items():
         data = json.loads(text)
@@ -133,7 +150,7 @@ def _watch_example():
 
 def test_watch_example_runs():
     """Das Watcher-Beispiel ist gültig und verarbeitet eine Datei (der Druck-Ordner bleibt leer)."""
-    import json
+
     tmp = tempfile.mkdtemp(prefix="pm-howto-watch-")
     open(os.path.join(tmp, "watch.json"), "w", encoding="utf-8").write(_watch_example())
     for name, text in _workflows().items():
@@ -141,17 +158,30 @@ def test_watch_example_runs():
     for d in ("visitenkarten", "drucken"):
         os.makedirs(os.path.join(tmp, "eingang", d))
     from reportlab.pdfgen import canvas
-    c = canvas.Canvas(os.path.join(tmp, "eingang", "visitenkarten", "karten.pdf"), pagesize=(91 * 72 / 25.4, 61 * 72 / 25.4))
-    for _ in range(2):                                # Vorder- und Rückseite (Ablauf: pages 1-2)
-        c.drawString(20, 20, "Karte"); c.showPage()
+
+    c = canvas.Canvas(
+        os.path.join(tmp, "eingang", "visitenkarten", "karten.pdf"), pagesize=(91 * 72 / 25.4, 61 * 72 / 25.4)
+    )
+    for _ in range(2):  # Vorder- und Rückseite (Ablauf: pages 1-2)
+        c.drawString(20, 20, "Karte")
+        c.showPage()
     c.save()
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
-    cmds = [ln.strip() for ln in "\n".join(e for e in _examples_raw() if "serve" in e).splitlines()
-            if ln.strip().startswith("passermark-cli serve")]
+    cmds = [
+        ln.strip()
+        for ln in "\n".join(e for e in _examples_raw() if "serve" in e).splitlines()
+        if ln.strip().startswith("passermark-cli serve")
+    ]
     assert len(cmds) == 3, cmds
-    for cmd in cmds[:2]:                              # --check, --once (der dritte läuft dauerhaft)
-        r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *shlex.split(cmd)[1:]], cwd=tmp, env=env,
-                           capture_output=True, text=True, timeout=600)
+    for cmd in cmds[:2]:  # --check, --once (der dritte läuft dauerhaft)
+        r = subprocess.run(
+            [sys.executable, "-m", "pdfdruck.cli", *shlex.split(cmd)[1:]],
+            cwd=tmp,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
         assert r.returncode == 0, cmd + "\n" + r.stdout + r.stderr
     assert os.listdir(os.path.join(tmp, "eingang", "visitenkarten", "output")) == ["karten.pdf"]
     assert os.listdir(os.path.join(tmp, "eingang", "visitenkarten", "processed")) == ["karten.pdf"]
@@ -184,32 +214,55 @@ def test_every_example_has_input():
 def test_examples_run():
     """Really run every example; those needing Ghostscript only if it is present (GitHub build)."""
     from pdfdruck import platform as pl
+
     tmp = tempfile.mkdtemp(prefix="pm-howto-")
     runnable = _prepare_inputs(tmp, _examples())
     gs = bool(pl.ghostscript())
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
-    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour, vdp; "
-                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded')); "
-                    "presets.save('vdp', 'Tickets', vdp.VdpSettings(fields=[dict(content='Nr. {{nr}}')])); "
-                    "presets.save('vdp', 'Namensschilder', vdp.VdpSettings(fields=[dict(content='{{Name}}'), "
-                    "dict(kind='qr', content='{{Name}}', y_mm=30, w_mm=25, h_mm=25)])); "
-                    "presets.save('vdp', 'Visitenkarte', vdp.VdpSettings(fields=[dict(content='{{Vorname}}'), "
-                    "dict(kind='qr', qr_type='vcard', y_mm=30, w_mm=35, h_mm=35)]))"],
-                   cwd=tmp, env=env, check=True)
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from pdfdruck import presets, cutcontour, vdp; "
+            "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded')); "
+            "presets.save('vdp', 'Tickets', vdp.VdpSettings(fields=[dict(content='Nr. {{nr}}')])); "
+            "presets.save('vdp', 'Namensschilder', vdp.VdpSettings(fields=[dict(content='{{Name}}'), "
+            "dict(kind='qr', content='{{Name}}', y_mm=30, w_mm=25, h_mm=25)])); "
+            "presets.save('vdp', 'Visitenkarte', vdp.VdpSettings(fields=[dict(content='{{Vorname}}'), "
+            "dict(kind='qr', qr_type='vcard', y_mm=30, w_mm=35, h_mm=35)]))",
+        ],
+        cwd=tmp,
+        env=env,
+        check=True,
+    )
     open(os.path.join(tmp, "gaeste.csv"), "w", encoding="utf-8").write("Name;Firma\nAnna;A\nBéla;B\n")
-    subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
-                   stdout=open(os.path.join(tmp, "sticker.json"), "w"))
+    subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"],
+        cwd=tmp,
+        env=env,
+        check=True,
+        stdout=open(os.path.join(tmp, "sticker.json"), "w"),
+    )
     ran = 0
     for cmd, args in runnable:
-        needs_gs = args[0] == "repair" or "cmyk=true" in cmd or any(f in cmd for f in ("embed_fonts", "outline_text",
-                                                                                     "flatten_transparency"))
+        needs_gs = (
+            args[0] == "repair"
+            or "cmyk=true" in cmd
+            or any(f in cmd for f in ("embed_fonts", "outline_text", "flatten_transparency"))
+        )
         if needs_gs and not gs:
             continue
         quiet = ["--quiet"] if (args[0] not in API_NO_INPUT + ("inspect", "tidy") or args[0] in QUIET_OK) else []
         if args[0] in QUIET_OK and "--json" in args:
             quiet = []
-        r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args, *quiet], cwd=tmp, env=env,
-                           capture_output=True, text=True, timeout=600)
+        r = subprocess.run(
+            [sys.executable, "-m", "pdfdruck.cli", *args, *quiet],
+            cwd=tmp,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
         assert r.returncode == 0, f"{cmd}\n{r.stderr}"
         ran += 1
     assert ran >= 12, ran
@@ -218,23 +271,38 @@ def test_examples_run():
 def test_bash_loop_verbatim():
     """Run the folder example (Linux) literally from the manual in a bash shell."""
     import shutil
+
     if not shutil.which("bash"):
         return
     import test_cutcontour as tc
+
     src = open(GEN, encoding="utf-8").read()
     start = src.index("mkdir -p fertig\nfor f in eingang/*.pdf; do")
-    Q = "'" * 3
-    snippet = ast.literal_eval(src[src.rindex(Q, 0, start):src.index(Q, start) + 3])
+    Q = '"' * 3
+    snippet = ast.literal_eval(src[src.rindex(Q, 0, start) : src.index(Q, start) + 3])
     tmp = tempfile.mkdtemp(prefix="pm-loop-")
     os.makedirs(os.path.join(tmp, "eingang"))
     tc.stickers().save(os.path.join(tmp, "eingang", "a.pdf"))
     tc.stickers().save(os.path.join(tmp, "eingang", "b.pdf"))
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", XDG_CONFIG_HOME=tmp, APPDATA=tmp)
-    subprocess.run([sys.executable, "-c", "from pdfdruck import presets, cutcontour; "
-                    "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded'))"],
-                   cwd=tmp, env=env, check=True)
-    subprocess.run([sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"], cwd=tmp, env=env, check=True,
-                   stdout=open(os.path.join(tmp, "sticker.json"), "w"))
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from pdfdruck import presets, cutcontour; "
+            "presets.save('cutcontour', 'Sticker rund', cutcontour.CutSettings(shape='rounded'))",
+        ],
+        cwd=tmp,
+        env=env,
+        check=True,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "settings", "cutcontour"],
+        cwd=tmp,
+        env=env,
+        check=True,
+        stdout=open(os.path.join(tmp, "sticker.json"), "w"),
+    )
     script = f'passermark-cli() {{ "{sys.executable}" -m pdfdruck.cli "$@"; }}\n' + snippet
     r = subprocess.run(["bash", "-c", script], cwd=tmp, env=env, capture_output=True, text=True, timeout=600)
     assert r.returncode == 0 and "FEHLER" not in r.stdout, r.stdout + r.stderr
@@ -243,4 +311,6 @@ def test_bash_loop_verbatim():
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

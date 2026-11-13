@@ -19,6 +19,7 @@ Writes into OUTDIR:
 
 Only the standard library is used. Missing pieces produce a warning, never a failed build.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,8 +32,18 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # build tools that are NOT shipped
-BUILD_ONLY = {"pyinstaller", "pyinstaller-hooks-contrib", "pip", "setuptools", "wheel", "altgraph", "macholib",
-              "pefile", "pywin32-ctypes", "packaging"}
+BUILD_ONLY = {
+    "pyinstaller",
+    "pyinstaller-hooks-contrib",
+    "pip",
+    "setuptools",
+    "wheel",
+    "altgraph",
+    "macholib",
+    "pefile",
+    "pywin32-ctypes",
+    "packaging",
+}
 ALWAYS = ["PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6"]
 LICENSE_RE = re.compile(r"^(licen[cs]e|copying|notice|authors|copyright)", re.I)
 
@@ -69,6 +80,7 @@ def _marker_ok(req: str) -> bool:
         return False
     try:
         from packaging.markers import Marker
+
         return Marker(marker).evaluate()
     except Exception:
         return True
@@ -128,8 +140,9 @@ def copy_license_files(dist, dest: str) -> list[str]:
         parts = str(f).replace("\\", "/").split("/")
         in_meta = parts[0].endswith((".dist-info", ".egg-info"))
         name = parts[-1]
-        wanted = (in_meta and ("licenses" in parts[1:-1] or LICENSE_RE.match(name))) or \
-                 (not in_meta and LICENSE_RE.match(name) and len(parts) <= 3)
+        wanted = (in_meta and ("licenses" in parts[1:-1] or LICENSE_RE.match(name))) or (
+            not in_meta and LICENSE_RE.match(name) and len(parts) <= 3
+        )
         if not wanted or name.endswith((".py", ".pyc")):
             continue
         src = str(dist.locate_file(f))
@@ -214,11 +227,10 @@ def dpkg_packages(dirs: list[str]) -> dict:
                     names.add(fn)
     pkgs: dict = {}
     names = sorted(names)
-    for i in range(0, len(names), 200):                  # wenige dpkg-Aufrufe statt einem je Datei
-        chunk = names[i:i + 200]
+    for i in range(0, len(names), 200):  # wenige dpkg-Aufrufe statt einem je Datei
+        chunk = names[i : i + 200]
         try:
-            r = subprocess.run(["dpkg", "-S", *["*/" + n for n in chunk]], capture_output=True, text=True,
-                               timeout=120)
+            r = subprocess.run(["dpkg", "-S", *["*/" + n for n in chunk]], capture_output=True, text=True, timeout=120)
         except Exception:
             continue
         for line in r.stdout.splitlines():
@@ -229,7 +241,7 @@ def dpkg_packages(dirs: list[str]) -> dict:
             if fn not in chunk:
                 continue
             for pkg in left.split(","):
-                pkg = pkg.strip().split(":")[0]           # Architektur-Zusatz (:amd64) weg
+                pkg = pkg.strip().split(":")[0]  # Architektur-Zusatz (:amd64) weg
                 if pkg:
                     pkgs.setdefault(pkg, set()).add(fn)
                     break
@@ -298,8 +310,12 @@ def main(argv=None) -> int:
     ap.add_argument("--gs-version", default="")
     ap.add_argument("--gs-source-note", default="", help="extra line(s) for the Ghostscript notice")
     ap.add_argument("--agpl", default="", help="file with the full AGPL-3.0 text (e.g. Debian's ghostscript copyright)")
-    ap.add_argument("--deb-packages", nargs="*", default=[],
-                    help="further Debian packages shipped as files (e.g. ghostscript resources, fonts-urw-base35)")
+    ap.add_argument(
+        "--deb-packages",
+        nargs="*",
+        default=[],
+        help="further Debian packages shipped as files (e.g. ghostscript resources, fonts-urw-base35)",
+    )
     ap.add_argument("--scan-libs", nargs="*", default=[], help="folders with bundled system libraries (dpkg lookup)")
     a = ap.parse_args(argv)
 
@@ -307,14 +323,23 @@ def main(argv=None) -> int:
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(os.path.join(out, "texts"))
-    lines = ["Passermark – third-party components / Komponenten von Drittanbietern", "=" * 68, "",
-             "Passermark itself: GNU General Public License v3 or later (LICENSE, texts/GPL-3.0.txt).",
-             "Below: everything that is shipped with the program, with its licence and where its licence",
-             "files are in this folder. / Unten: alles, was mit dem Programm mitgeliefert wird.", ""]
+    lines = [
+        "Passermark – third-party components / Komponenten von Drittanbietern",
+        "=" * 68,
+        "",
+        "Passermark itself: GNU General Public License v3 or later (LICENSE, texts/GPL-3.0.txt).",
+        "Below: everything that is shipped with the program, with its licence and where its licence",
+        "files are in this folder. / Unten: alles, was mit dem Programm mitgeliefert wird.",
+        "",
+    ]
 
     # licence texts from the repository
-    for src, dst in (("LICENSE", "GPL-3.0.txt"), ("licenses/LGPL-3.0.txt", "LGPL-3.0.txt"),
-                     ("licenses/MPL-2.0.txt", "MPL-2.0.txt"), ("licenses/GPL-2.0.txt", "GPL-2.0.txt")):
+    for src, dst in (
+        ("LICENSE", "GPL-3.0.txt"),
+        ("licenses/LGPL-3.0.txt", "LGPL-3.0.txt"),
+        ("licenses/MPL-2.0.txt", "MPL-2.0.txt"),
+        ("licenses/GPL-2.0.txt", "GPL-2.0.txt"),
+    ):
         p = os.path.join(ROOT, src)
         if os.path.isfile(p):
             shutil.copyfile(p, os.path.join(out, "texts", dst))
@@ -329,17 +354,21 @@ def main(argv=None) -> int:
 
     # Python runtime
     py_lic = None
-    for cand in (os.path.join(sys.base_prefix, "LICENSE.txt"),
-                 os.path.join(sys.base_prefix, "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}", "LICENSE.txt"),
-                 f"/usr/lib/python{sys.version_info[0]}.{sys.version_info[1]}/LICENSE.txt",
-                 f"/usr/share/doc/python{sys.version_info[0]}.{sys.version_info[1]}/copyright"):
+    for cand in (
+        os.path.join(sys.base_prefix, "LICENSE.txt"),
+        os.path.join(sys.base_prefix, "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}", "LICENSE.txt"),
+        f"/usr/lib/python{sys.version_info[0]}.{sys.version_info[1]}/LICENSE.txt",
+        f"/usr/share/doc/python{sys.version_info[0]}.{sys.version_info[1]}/copyright",
+    ):
         if os.path.isfile(cand):
             py_lic = cand
             break
     lines += ["Python runtime", "-" * 14, ""]
     if py_lic:
         shutil.copyfile(py_lic, os.path.join(out, "texts", "Python-LICENSE.txt"))
-        lines.append(f"  Python {sys.version.split()[0]}  ·  PSF-2.0  ·  https://www.python.org  ·  texts/Python-LICENSE.txt")
+        lines.append(
+            f"  Python {sys.version.split()[0]}  ·  PSF-2.0  ·  https://www.python.org  ·  texts/Python-LICENSE.txt"
+        )
     else:
         lines.append(f"  Python {sys.version.split()[0]}  ·  PSF-2.0  ·  https://docs.python.org/3/license.html")
         warn("Python licence file not found")
@@ -392,10 +421,14 @@ def main(argv=None) -> int:
     if a.gs_version:
         extra = (a.gs_source_note.strip() + "\n") if a.gs_source_note.strip() else ""
         with open(os.path.join(out, "GHOSTSCRIPT-NOTICE.txt"), "w", encoding="utf-8") as f:
-            f.write(GS_NOTICE.format(ver=a.gs_version, tag=a.gs_version.replace(".", ""), agpl=agpl_rel,
-                                     extra=extra))
-        lines += ["Ghostscript", "-" * 11, "",
-                  f"  Ghostscript {a.gs_version}  ·  AGPL-3.0  ·  GHOSTSCRIPT-NOTICE.txt, {agpl_rel}", ""]
+            f.write(GS_NOTICE.format(ver=a.gs_version, tag=a.gs_version.replace(".", ""), agpl=agpl_rel, extra=extra))
+        lines += [
+            "Ghostscript",
+            "-" * 11,
+            "",
+            f"  Ghostscript {a.gs_version}  ·  AGPL-3.0  ·  GHOSTSCRIPT-NOTICE.txt, {agpl_rel}",
+            "",
+        ]
 
     # system libraries (AppImage)
     if a.scan_libs or a.deb_packages:

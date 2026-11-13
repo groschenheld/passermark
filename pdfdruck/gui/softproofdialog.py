@@ -4,12 +4,24 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Softproof der Seitenansicht einrichten: Druckbedingung (Material oder Profil), Intent, Papierweiß, Schwarz,
-    Warnungen. Änderungen wirken sofort; die Einstellung wird für das nächste Mal gemerkt."""
+Warnungen. Änderungen wirken sofort; die Einstellung wird für das nächste Mal gemerkt."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
-                               QLabel, QRadioButton, QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QRadioButton,
+    QSpinBox,
+    QVBoxLayout,
+)
 
 from .. import colorlab, config, proof
 from .. import platform as _platform
@@ -20,12 +32,14 @@ from .common import fill_combo
 
 def load_saved() -> dict:
     from .. import l10n
+
     st = l10n.load_settings().get("softproof")
     return st if isinstance(st, dict) else {}
 
 
 def save(d: dict):
     from .. import l10n
+
     st = l10n.load_settings()
     if st.get("softproof") != d:
         st["softproof"] = d
@@ -40,15 +54,22 @@ def build_spec(cfg: dict, saved: dict):
     ch = next((c for c in colorlab.proof_choices(cfg) if c["key"] == saved.get("key")), None)
     if ch is None:
         return None
-    return {"icc": ch["icc"], "space": ch["space"], "name": ch["name"],
-            "intent": saved.get("intent") or ch.get("intent") or "relative", "bpc": bool(saved.get("bpc", True)),
-            "paper": bool(saved.get("paper", False)), "black": bool(saved.get("black", False)),
-            "white": ch["white"] if saved.get("measured", True) else None,
-            "warn": saved.get("warn", "none"), "tac": int(saved.get("tac", 300))}
+    return {
+        "icc": ch["icc"],
+        "space": ch["space"],
+        "name": ch["name"],
+        "intent": saved.get("intent") or ch.get("intent") or "relative",
+        "bpc": bool(saved.get("bpc", True)),
+        "paper": bool(saved.get("paper", False)),
+        "black": bool(saved.get("black", False)),
+        "white": ch["white"] if saved.get("measured", True) else None,
+        "warn": saved.get("warn", "none"),
+        "tac": int(saved.get("tac", 300)),
+    }
 
 
 class SoftproofDialog(QDialog):
-    changed = Signal(object)            # spec oder None
+    changed = Signal(object)  # spec oder None
 
     def __init__(self, parent, cfg: dict):
         super().__init__(parent)
@@ -60,26 +81,35 @@ class SoftproofDialog(QDialog):
         f = QFormLayout()
         v.addLayout(f)
         self.cmb = QComboBox()
-        fill_combo(self.cmb, [(c["key"], c["label"]) for c in self.choices] or [("", tr("Keine Profile vorhanden"))],
-                   saved.get("key") or (self.choices[0]["key"] if self.choices else ""))
+        fill_combo(
+            self.cmb,
+            [(c["key"], c["label"]) for c in self.choices] or [("", tr("Keine Profile vorhanden"))],
+            saved.get("key") or (self.choices[0]["key"] if self.choices else ""),
+        )
         f.addRow(tr("Druckbedingung:"), self.cmb)
         self.cmb_intent = QComboBox()
-        fill_combo(self.cmb_intent, [("", tr("wie beim Material / Relativ farbmetrisch"))] +
-                   list(config.INTENTS.items()), saved.get("intent", ""))
+        fill_combo(
+            self.cmb_intent,
+            [("", tr("wie beim Material / Relativ farbmetrisch"))] + list(config.INTENTS.items()),
+            saved.get("intent", ""),
+        )
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         self.chk_bpc = QCheckBox(tr("Tiefenkompensierung (BPC)"))
         self.chk_bpc.setToolTip(tr("Hält dunkle Bildstellen durchgezeichnet – meist an lassen"))
         self.chk_bpc.setChecked(bool(saved.get("bpc", True)))
         f.addRow("", self.chk_bpc)
         self.chk_paper = QCheckBox(tr("Papierfarbe simulieren"))
-        self.chk_paper.setToolTip(tr("Zeigt Weiß als Papierweiß (gelblich, grau …) – so wirkt der Druck neben dem Papier"))
+        self.chk_paper.setToolTip(
+            tr("Zeigt Weiß als Papierweiß (gelblich, grau …) – so wirkt der Druck neben dem Papier")
+        )
         self.chk_paper.setChecked(bool(saved.get("paper", False)))
         self.chk_black = QCheckBox(tr("Schwarze Druckfarbe simulieren"))
         self.chk_black.setToolTip(tr("Zeigt das tiefste Schwarz, das der Druck schafft – meist ein dunkles Grau"))
         self.chk_black.setChecked(bool(saved.get("black", False)))
         self.chk_measured = QCheckBox(tr("Gemessenes Papierweiß des Materials verwenden"))
-        self.chk_measured.setToolTip(tr("Statt des Papierweiß aus dem Profil das gemessene des Materials (Farbe → Papiere "
-                                        "und Messungen)"))
+        self.chk_measured.setToolTip(
+            tr("Statt des Papierweiß aus dem Profil das gemessene des Materials (Farbe → Papiere und Messungen)")
+        )
         self.chk_measured.setChecked(bool(saved.get("measured", True)))
         f.addRow(tr("Anzeigen:"), self.chk_paper)
         f.addRow("", self.chk_black)
@@ -87,8 +117,11 @@ class SoftproofDialog(QDialog):
         h = QHBoxLayout()
         self.grp = QButtonGroup(self)
         self.rb = {}
-        tips = {"none": "", "gamut": tr("Markiert Farben, die auf diesem Papier nicht druckbar sind (werden flauer)"),
-                "tac": tr("Markiert Stellen mit mehr Farbe als erlaubt (C+M+Y+K)")}
+        tips = {
+            "none": "",
+            "gamut": tr("Markiert Farben, die auf diesem Papier nicht druckbar sind (werden flauer)"),
+            "tac": tr("Markiert Stellen mit mehr Farbe als erlaubt (C+M+Y+K)"),
+        }
         for k, t in (("none", tr("keine")), ("gamut", tr("Farbumfang")), ("tac", tr("Farbauftrag über"))):
             rb = QRadioButton(t)
             rb.setToolTip(tips[k])
@@ -126,10 +159,16 @@ class SoftproofDialog(QDialog):
 
     def current(self) -> dict:
         warn = next(k for k, rb in self.rb.items() if rb.isChecked())
-        return {"key": self.cmb.currentData() or "", "intent": self.cmb_intent.currentData() or "",
-                "bpc": self.chk_bpc.isChecked(), "paper": self.chk_paper.isChecked(),
-                "black": self.chk_black.isChecked(), "measured": self.chk_measured.isChecked(),
-                "warn": warn, "tac": self.spn_tac.value()}
+        return {
+            "key": self.cmb.currentData() or "",
+            "intent": self.cmb_intent.currentData() or "",
+            "bpc": self.chk_bpc.isChecked(),
+            "paper": self.chk_paper.isChecked(),
+            "black": self.chk_black.isChecked(),
+            "measured": self.chk_measured.isChecked(),
+            "warn": warn,
+            "tac": self.spn_tac.value(),
+        }
 
     def _choice(self):
         return next((c for c in self.choices if c["key"] == self.cmb.currentData()), None)
@@ -146,15 +185,22 @@ class SoftproofDialog(QDialog):
             notes.append(tr("Papierweiß des Profils: {0}").format(colorlab.fmt_lab(pw)))
             if ch["white"]:
                 de = colorlab.delta_e(ch["white"], pw) if pw else None
-                notes.append(tr("gemessen: {0}").format(colorlab.fmt_lab(ch["white"]))
-                             + (tr(" (ΔE {0:.1f})").format(de) if de is not None else ""))
+                notes.append(
+                    tr("gemessen: {0}").format(colorlab.fmt_lab(ch["white"]))
+                    + (tr(" (ΔE {0:.1f})").format(de) if de is not None else "")
+                )
             if ch["space"] == "CMYK":
-                notes.append(tr("Echte Separation mit Ghostscript – vorhandenes CMYK bleibt, RGB/Grau wird umgerechnet.")
-                             if _platform.ghostscript() else
-                             tr("Ohne Ghostscript angenähert: CMYK-Inhalte werden über das Bildschirmbild umgerechnet."))
+                notes.append(
+                    tr("Echte Separation mit Ghostscript – vorhandenes CMYK bleibt, RGB/Grau wird umgerechnet.")
+                    if _platform.ghostscript()
+                    else tr("Ohne Ghostscript angenähert: CMYK-Inhalte werden über das Bildschirmbild umgerechnet.")
+                )
             else:
-                notes.append(tr("{0}-Druckerprofil: die Seite wird so umgerechnet, wie der Druck sie umrechnet.")
-                             .format(ch["space"]))
+                notes.append(
+                    tr("{0}-Druckerprofil: die Seite wird so umgerechnet, wie der Druck sie umrechnet.").format(
+                        ch["space"]
+                    )
+                )
         self.lbl.setText("\n".join(notes))
 
     def _emit(self, *_):

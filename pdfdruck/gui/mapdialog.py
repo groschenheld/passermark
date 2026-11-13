@@ -4,13 +4,22 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dialog "Map columns": which column of your CSV provides which piece of a QR code with a kind
-    (business card, WLAN …). Pre-filled with the automatic mapping; your choice ends up in the field (qr_map) and thus
-    in the preset. The CSV itself stays unchanged.
+(business card, WLAN …). Pre-filled with the automatic mapping; your choice ends up in the field (qr_map) and thus
+in the preset. The CSV itself stays unchanged.
 """
+
 from __future__ import annotations
 
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QPlainTextEdit,
-                               QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QLabel,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from .. import datakinds
 from ..l10n import tr
@@ -28,9 +37,13 @@ class MapDialog(QDialog):
         k = datakinds.get(kind)
         self.setWindowTitle(tr("Spalten zuordnen – {0}").format(k.title))
         v = QVBoxLayout(self)
-        intro = QLabel(tr("Links steht, was der Code braucht, rechts die Spalte deiner Tabelle, aus der es kommt. "
-                          "„automatisch“ = von Passermark erkannt (auch englische Namen und Exporte aus Outlook, "
-                          "Google, Thunderbird). Die Tabelle selbst wird nicht verändert."))
+        intro = QLabel(
+            tr(
+                "Links steht, was der Code braucht, rechts die Spalte deiner Tabelle, aus der es kommt. "
+                "„automatisch“ = von Passermark erkannt (auch englische Namen und Exporte aus Outlook, "
+                "Google, Thunderbird). Die Tabelle selbst wird nicht verändert."
+            )
+        )
         intro.setWordWrap(True)
         intro.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(intro)
@@ -40,8 +53,10 @@ class MapDialog(QDialog):
         for c in k.cols:
             cb = QComboBox()
             found = auto.get(c.key) or ""
-            items = [("", tr("automatisch: {0}").format(found) if found else tr("automatisch: – nicht gefunden –")),
-                     (datakinds.NONE, tr("– leer lassen –"))] + [(col, col) for col in self.cols]
+            items = [
+                ("", tr("automatisch: {0}").format(found) if found else tr("automatisch: – nicht gefunden –")),
+                (datakinds.NONE, tr("– leer lassen –")),
+            ] + [(col, col) for col in self.cols]
             fill_combo(cb, items, self.mapping.get(c.key, ""))
             cb.setToolTip(c.hint)
             cb.currentIndexChanged.connect(lambda _i, key=c.key, w=cb: self.set_choice(key, w.currentData()))
@@ -99,7 +114,8 @@ def summary(kind: str, cols: list, mapping: dict | None) -> str:
     k = datakinds.get(kind)
     if not cols:
         return tr("Inhalt kommt aus den Spalten: {0}").format(
-            ", ".join(c.key + ("*" if c.required else "") for c in k.cols))
+            ", ".join(c.key + ("*" if c.required else "") for c in k.cols)
+        )
     m = datakinds.resolve_map(kind, cols, mapping)
     got = [f"{c.key} ← {m[c.key]}" if m[c.key] != c.key else c.key for c in k.cols if m.get(c.key)]
     miss = [c.key + "*" for c in k.cols if c.required and not m.get(c.key)]

@@ -16,6 +16,7 @@ clip box – vectorial, images at original resolution (nothing is recomputed).
 Coordinates: pages are first "normalized" (page rotation applied vectorially), then
 x to the right, y up, origin bottom left, unit pt.
 """
+
 from __future__ import annotations
 
 import io
@@ -29,11 +30,11 @@ MM = 72.0 / 25.4
 @dataclass
 class DetectSettings:
     dpi: int = 150
-    mode: str = "auto"            # auto | transparent | color
-    tolerance: int = 28           # 0–255 Abstand zur Hintergrundfarbe
-    min_size_mm: float = 5.0      # kleinere Objekte (Staub, Schmutz) ignorieren
-    gap_mm: float = 1.0           # parts lying closer together belong together
-    margin_mm: float = 0.0        # Rand um jedes Objekt (negativ = nach innen)
+    mode: str = "auto"  # auto | transparent | color
+    tolerance: int = 28  # 0–255 Abstand zur Hintergrundfarbe
+    min_size_mm: float = 5.0  # kleinere Objekte (Staub, Schmutz) ignorieren
+    gap_mm: float = 1.0  # parts lying closer together belong together
+    margin_mm: float = 0.0  # Rand um jedes Objekt (negativ = nach innen)
 
 
 @dataclass
@@ -41,7 +42,7 @@ class Box:
     x0: float
     y0: float
     x1: float
-    y1: float                     # pt, normalisierte Seite (y nach oben)
+    y1: float  # pt, normalisierte Seite (y nach oben)
 
     @property
     def w(self):
@@ -56,6 +57,7 @@ class Box:
 def normalized(doc):
     """Kopie, in der jede Seite ungedreht ist und bei (0,0) beginnt (Drehung/CropBox eingerechnet)."""
     import pypdfium2 as pdfium
+
     out = pdfium.PdfDocument.new()
     for i in range(len(doc)):
         w, h = doc.get_page_size(i)
@@ -74,6 +76,7 @@ def normalized(doc):
 def render_rgba(page, dpi: int):
     """Page without a background as an RGBA numpy array (height, width, 4)."""
     import numpy as np
+
     bmp = page.render(scale=dpi / 72.0, fill_color=(255, 255, 255, 0), may_draw_forms=True, draw_annots=True)
     arr = bmp.to_numpy().copy()
     mode = bmp.mode
@@ -88,6 +91,7 @@ def render_rgba(page, dpi: int):
 def motif_mask(rgba, s: DetectSettings):
     """(Maske bool, verwendeter Modus)."""
     import numpy as np
+
     alpha = rgba[:, :, 3]
     mode = s.mode
     if mode == "auto":
@@ -113,6 +117,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
     """Objekte einer (normalisierten) Seite finden. Reihenfolge: zeilenweise von oben links."""
     import numpy as np
     from scipy import ndimage as ndi
+
     W, H = page.get_size()
     rgba = render_rgba(page, s.dpi)
     mask, _mode = motif_mask(rgba, s)
@@ -139,7 +144,7 @@ def detect(page, s: DetectSettings) -> list[Box]:
         x0p, x1p = xs.start + cols[0], xs.start + cols[-1] + 1
         if (x1p - x0p) < minpx or (y1p - y0p) < minpx:
             continue
-        m = s.margin_mm * MM                      # negativ = nach innen beschneiden
+        m = s.margin_mm * MM  # negativ = nach innen beschneiden
         b = Box(max(0.0, x0p / px - m), max(0.0, H - y1p / px - m), min(W, x1p / px + m), min(H, H - y0p / px + m))
         if b.w > 1 and b.h > 1:
             boxes.append(b)
@@ -152,7 +157,7 @@ def reading_order(boxes: list[Box]) -> list[Box]:
     out = []
     while rest:
         top = rest[0]
-        row = [b for b in rest if b.y1 > top.y1 - top.h / 2]       # overlaps the upper half -> same row
+        row = [b for b in rest if b.y1 > top.y1 - top.h / 2]  # overlaps the upper half -> same row
         row.sort(key=lambda b: b.x0)
         out += row
         rest = [b for b in rest if b not in row]
@@ -168,6 +173,7 @@ def with_margin(b: Box, margin_mm: float, page_w: float, page_h: float) -> Box:
 def separate(norm_doc, boxes_by_page: dict[int, list[Box]], margin_mm: float = 0.0):
     """Neues Dokument: jedes Objekt eine Seite (Reihenfolge: Seiten, darin Lesereihenfolge)."""
     import pypdfium2 as pdfium
+
     out = pdfium.PdfDocument.new()
     for pi in sorted(boxes_by_page):
         pw, ph = norm_doc.get_page_size(pi)

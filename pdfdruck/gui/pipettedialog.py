@@ -5,11 +5,21 @@ Klick auf die Seite -> definierte Farbe (RGB/CMYK/Grau/Sonderfarbe/Bildpixel), F
 gesamt (mit dem Profil der Druckbedingung), Bildschirmfarbe. Die Farbe lässt sich als CMYK oder RGB übernehmen –
 sie steht dann in „Farbe …“ beim Bearbeiten bereit.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout, QFrame, QHBoxLayout, QLabel,
-                               QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from .. import colorcheck, colorlab, pipette
 from ..l10n import tr
@@ -28,12 +38,12 @@ class _Worker(QThread):
         data, page, x, y, target, password = self.args
         try:
             self.done.emit(pipette.sample(data, page, x, y, target, password), "")
-        except Exception as e:                                 # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.done.emit(None, str(e))
 
 
 class PipetteDialog(QDialog):
-    picked = Signal(str, object)          # ("cmyk" | "rgb", Werte 0..1)
+    picked = Signal(str, object)  # ("cmyk" | "rgb", Werte 0..1)
     closed = Signal()
 
     def __init__(self, win):
@@ -48,8 +58,12 @@ class PipetteDialog(QDialog):
         v = QVBoxLayout(self)
         f = QFormLayout()
         self.cmb = QComboBox()
-        self.cmb.setToolTip(tr("Druckbedingung (Material oder CMYK-Profil): damit wird der Farbauftrag gerechnet – "
-                               "wie bei Farbprüfung und Softproof"))
+        self.cmb.setToolTip(
+            tr(
+                "Druckbedingung (Material oder CMYK-Profil): damit wird der Farbauftrag gerechnet – "
+                "wie bei Farbprüfung und Softproof"
+            )
+        )
         f.addRow(tr("Druckbedingung:"), self.cmb)
         v.addLayout(f)
         top = QHBoxLayout()
@@ -69,7 +83,7 @@ class PipetteDialog(QDialog):
         self.lbl_screen = QLabel("–")
         for lb in (self.lbl_obj, self.lbl_def, self.lbl_ink, self.lbl_total, self.lbl_screen):
             lb.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            lb.setWordWrap(lb not in (self.lbl_ink, self.lbl_def))   # Werte nie umbrechen/abschneiden
+            lb.setWordWrap(lb not in (self.lbl_ink, self.lbl_def))  # Werte nie umbrechen/abschneiden
         self.lbl_ink.setFont(theme.mono_font(10))
         self.lbl_def.setFont(theme.mono_font(10))
         g.addRow(tr("Objekt:"), self.lbl_obj)
@@ -84,8 +98,12 @@ class PipetteDialog(QDialog):
         v.addWidget(self.lbl_note)
         row = QHBoxLayout()
         self.btn_cmyk = QPushButton(tr("Als CMYK übernehmen"))
-        self.btn_cmyk.setToolTip(tr("CMYK-Werte merken – definiertes CMYK bzw. bei RGB der Farbauftrag im Druck. "
-                                    "Steht danach bei Bearbeiten → „Farbe …“ bereit."))
+        self.btn_cmyk.setToolTip(
+            tr(
+                "CMYK-Werte merken – definiertes CMYK bzw. bei RGB der Farbauftrag im Druck. "
+                "Steht danach bei Bearbeiten → „Farbe …“ bereit."
+            )
+        )
         self.btn_cmyk.clicked.connect(lambda: self._take("cmyk"))
         self.btn_rgb = QPushButton(tr("Als RGB übernehmen"))
         self.btn_rgb.setToolTip(tr("RGB-Werte merken – definiertes RGB bzw. die angezeigte Farbe"))
@@ -100,22 +118,25 @@ class PipetteDialog(QDialog):
         self._load_choices()
         self.cmb.currentIndexChanged.connect(self._choice_changed)
         from .common import responsive
+
         responsive(self)
         self.resize(420, 0)
 
     # ------------------------------------------------------------------ #
     def _load_choices(self):
         from .colorpanel import load_choice
+
         cfg = self._cfg()
         try:
             self.choices = [c for c in colorlab.proof_choices(cfg) if c.get("space") == "CMYK"]
-        except Exception:                                      # noqa: BLE001
+        except Exception:  # noqa: BLE001
             self.choices = []
         saved = load_choice()
         keys = [c["key"] for c in self.choices]
         cur = saved.get("key", "") if saved.get("key", "") in keys else (keys[0] if keys else "")
-        fill_combo(self.cmb, [("", tr("– ohne (nur Werte im PDF) –"))] + [(c["key"], c["label"]) for c in self.choices],
-                   cur)
+        fill_combo(
+            self.cmb, [("", tr("– ohne (nur Werte im PDF) –"))] + [(c["key"], c["label"]) for c in self.choices], cur
+        )
 
     def _cfg(self) -> dict:
         sess = getattr(self.win, "session", None)
@@ -123,6 +144,7 @@ class PipetteDialog(QDialog):
 
     def _target(self):
         from .colorpanel import load_choice
+
         ch = next((c for c in self.choices if c["key"] == self.cmb.currentData()), None)
         if ch is None:
             return None
@@ -143,13 +165,17 @@ class PipetteDialog(QDialog):
             return
         try:
             data = self.win._doc_bytes()
-        except Exception as e:                                 # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.lbl_note.setText(str(e))
             return
-        pw = ""                                      # _doc_bytes ist schon entschlüsselt
+        pw = ""  # _doc_bytes ist schon entschlüsselt
         from .. import l10n, measure as ms
-        self.lbl_where.setText(tr("Seite {0} · x {1} mm, y {2} mm – messe …").format(
-            page + 1, ms.fmt(x / 72 * 25.4, l10n.current()), ms.fmt(y / 72 * 25.4, l10n.current())))
+
+        self.lbl_where.setText(
+            tr("Seite {0} · x {1} mm, y {2} mm – messe …").format(
+                page + 1, ms.fmt(x / 72 * 25.4, l10n.current()), ms.fmt(y / 72 * 25.4, l10n.current())
+            )
+        )
         self._worker = _Worker(data, page, x, y, self._target(), pw)
         self._worker.done.connect(self._done)
         self._worker.start()
@@ -167,13 +193,23 @@ class PipetteDialog(QDialog):
 
     def _show(self, s):
         from .. import l10n, measure as ms
+
         lang = l10n.current()
-        self.lbl_where.setText(tr("Seite {0} · x {1} mm, y {2} mm").format(
-            s.page + 1, ms.fmt(s.x / 72 * 25.4, lang), ms.fmt(s.y / 72 * 25.4, lang)))
+        self.lbl_where.setText(
+            tr("Seite {0} · x {1} mm, y {2} mm").format(
+                s.page + 1, ms.fmt(s.x / 72 * 25.4, lang), ms.fmt(s.y / 72 * 25.4, lang)
+            )
+        )
         if s.screen:
             self.swatch.setStyleSheet("background: #%02x%02x%02x;" % tuple(s.screen))
-        kinds = {"text": tr("Text"), "path": tr("Vektorfläche"), "image": tr("Bild"), "shading": tr("Verlauf"),
-                 "form": tr("Gruppe"), "": tr("nichts – Papier")}
+        kinds = {
+            "text": tr("Text"),
+            "path": tr("Vektorfläche"),
+            "image": tr("Bild"),
+            "shading": tr("Verlauf"),
+            "form": tr("Gruppe"),
+            "": tr("nichts – Papier"),
+        }
         obj = kinds.get(s.kind, s.kind)
         if s.kind == "path" and s.paint == "stroke":
             obj = tr("Vektorlinie (Kontur)")
@@ -206,18 +242,27 @@ class PipetteDialog(QDialog):
             self.lbl_screen.setText("RGB {0} / {1} / {2} · #{0:02X}{1:02X}{2:02X}".format(*s.screen))
         notes = list(s.notes)
         if s.ink is not None and s.space in ("RGB", "Gray", "Lab") and s.kind:
-            notes.insert(0, tr("{0} im PDF – beim Druck mit dieser Druckbedingung wird daraus der Farbauftrag oben.")
-                         .format({"RGB": "RGB", "Gray": tr("Grau"), "Lab": "Lab"}[s.space]))
+            notes.insert(
+                0,
+                tr("{0} im PDF – beim Druck mit dieser Druckbedingung wird daraus der Farbauftrag oben.").format(
+                    {"RGB": "RGB", "Gray": tr("Grau"), "Lab": "Lab"}[s.space]
+                ),
+            )
         if s.ink is not None and s.space in ("Separation", "DeviceN"):
-            notes.insert(0, tr("Sonderfarbe: „Im Druck“ zeigt den CMYK-Ersatz – auf einer Maschine mit dieser "
-                               "Sonderfarbe wird sie als eigene Farbe gedruckt."))
+            notes.insert(
+                0,
+                tr(
+                    "Sonderfarbe: „Im Druck“ zeigt den CMYK-Ersatz – auf einer Maschine mit dieser "
+                    "Sonderfarbe wird sie als eigene Farbe gedruckt."
+                ),
+            )
         if s.space == "Gray" and s.ink and (s.ink[0] + s.ink[1] + s.ink[2]) > 3:
             notes.append(tr("Grau wird hier vierfarbig aufgebaut – für reines Schwarz CMYK 0/0/0/K verwenden."))
         self.lbl_note.setText("\n".join(notes))
         self.btn_cmyk.setEnabled(s.as_cmyk() is not None)
         self.btn_rgb.setEnabled(s.as_rgb() is not None)
         self.btn_copy.setEnabled(True)
-        self.adjustSize()                          # Fenster wächst mit (Hinweise, lange Profilnamen)
+        self.adjustSize()  # Fenster wächst mit (Hinweise, lange Profilnamen)
 
     def _take(self, kind: str):
         s = self.sample
@@ -237,11 +282,17 @@ class PipetteDialog(QDialog):
         s = self.sample
         if s is None:
             return
-        lines = [tr("Seite {0}, x {1:.1f} mm, y {2:.1f} mm").format(s.page + 1, s.x / 72 * 25.4, s.y / 72 * 25.4),
-                 self.lbl_obj.text(), tr("Im PDF: {0}").format(self.lbl_def.text())]
+        lines = [
+            tr("Seite {0}, x {1:.1f} mm, y {2:.1f} mm").format(s.page + 1, s.x / 72 * 25.4, s.y / 72 * 25.4),
+            self.lbl_obj.text(),
+            tr("Im PDF: {0}").format(self.lbl_def.text()),
+        ]
         if s.ink is not None:
-            lines.append(tr("Im Druck ({0}): C {1:.0f} % M {2:.0f} % Y {3:.0f} % K {4:.0f} % = {5:.0f} %").format(
-                s.profile, *s.ink, s.ink_total))
+            lines.append(
+                tr("Im Druck ({0}): C {1:.0f} % M {2:.0f} % Y {3:.0f} % K {4:.0f} % = {5:.0f} %").format(
+                    s.profile, *s.ink, s.ink_total
+                )
+            )
         lines.append(tr("Bildschirm: {0}").format(self.lbl_screen.text()))
         QApplication.clipboard().setText("\n".join(lines))
 

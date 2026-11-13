@@ -10,6 +10,7 @@ die daraus folgende maximale Druckgröße. Nur pikepdf – darf im Hintergrund l
 Effektive Auflösung = Pixel / platzierte Größe auf der Seite (über die Transformationsmatrix),
 also das, was beim Druck in Originalgröße tatsächlich ankommt.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,24 +18,24 @@ from dataclasses import dataclass, field
 from .l10n import tr
 
 MM = 72.0 / 25.4
-GOOD_DPI, OK_DPI = 300, 150              # Nahbetrachtung / Plakat, Großformat
-GOOD_DPI_1BIT, OK_DPI_1BIT = 600, 300    # Strichbilder (1 Bit)
-MIN_PLACED_MM = 2.0                      # winzige Platzierungen (Punkte, Linien) nicht bewerten
+GOOD_DPI, OK_DPI = 300, 150  # Nahbetrachtung / Plakat, Großformat
+GOOD_DPI_1BIT, OK_DPI_1BIT = 600, 300  # Strichbilder (1 Bit)
+MIN_PLACED_MM = 2.0  # winzige Platzierungen (Punkte, Linien) nicht bewerten
 
 
 @dataclass
 class ImageUse:
-    page: int                  # 1-basiert
+    page: int  # 1-basiert
     name: str
-    px: tuple                  # (Breite, Höhe) in Pixeln
-    placed_mm: tuple           # (Breite, Höhe) auf der Seite
-    dpi: float                 # effektiv (kleinere Richtung)
-    space: str                 # "RGB" | "CMYK" | "Grau" | "Sonderfarbe …" | …
-    profile: str = ""          # ICC-Profilname (falls eingebettet)
+    px: tuple  # (Breite, Höhe) in Pixeln
+    placed_mm: tuple  # (Breite, Höhe) auf der Seite
+    dpi: float  # effektiv (kleinere Richtung)
+    space: str  # "RGB" | "CMYK" | "Grau" | "Sonderfarbe …" | …
+    profile: str = ""  # ICC-Profilname (falls eingebettet)
     bits: int = 8
-    codec: str = ""            # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
-    mask: bool = False         # 1-Bit-Maske (Strich)
-    key: tuple | None = None   # Objektnummer des Bildes (None = eingebettet/inline)
+    codec: str = ""  # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
+    mask: bool = False  # 1-Bit-Maske (Strich)
+    key: tuple | None = None  # Objektnummer des Bildes (None = eingebettet/inline)
     bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, Seitenkoordinaten – wo es auf der Seite liegt
 
     def max_mm(self, dpi: float) -> tuple:
@@ -58,11 +59,11 @@ class ImageUse:
 
 @dataclass
 class ColorReport:
-    images: list = field(default_factory=list)            # [ImageUse]
-    page_colors: dict = field(default_factory=dict)       # Seite -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
-    page_size_mm: dict = field(default_factory=dict)      # Seite -> (b, h)
-    output_intent: str = ""                               # Profilname des Output-Intents (PDF/X)
-    spots: dict = field(default_factory=dict)             # Seite -> {Sonderfarbenname}
+    images: list = field(default_factory=list)  # [ImageUse]
+    page_colors: dict = field(default_factory=dict)  # Seite -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
+    page_size_mm: dict = field(default_factory=dict)  # Seite -> (b, h)
+    output_intent: str = ""  # Profilname des Output-Intents (PDF/X)
+    spots: dict = field(default_factory=dict)  # Seite -> {Sonderfarbenname}
     truncated: bool = False
 
 
@@ -75,18 +76,18 @@ def icc_name(data: bytes) -> str:
         n = int.from_bytes(data[128:132], "big")
         for k in range(min(n, 200)):
             e = 132 + 12 * k
-            sig = data[e:e + 4]
-            off = int.from_bytes(data[e + 4:e + 8], "big")
+            sig = data[e : e + 4]
+            off = int.from_bytes(data[e + 4 : e + 8], "big")
             if sig != b"desc":
                 continue
-            typ = data[off:off + 4]
+            typ = data[off : off + 4]
             if typ == b"desc":
-                cnt = int.from_bytes(data[off + 8:off + 12], "big")
-                return data[off + 12:off + 12 + max(0, cnt - 1)].decode("latin-1").strip("\x00 ").strip()
+                cnt = int.from_bytes(data[off + 8 : off + 12], "big")
+                return data[off + 12 : off + 12 + max(0, cnt - 1)].decode("latin-1").strip("\x00 ").strip()
             if typ == b"mluc":
-                rlen = int.from_bytes(data[off + 20:off + 24], "big")
-                roff = int.from_bytes(data[off + 24:off + 28], "big")
-                return data[off + roff:off + roff + rlen].decode("utf-16-be", "replace").strip("\x00 ").strip()
+                rlen = int.from_bytes(data[off + 20 : off + 24], "big")
+                roff = int.from_bytes(data[off + 24 : off + 28], "big")
+                return data[off + roff : off + roff + rlen].decode("utf-16-be", "replace").strip("\x00 ").strip()
     except Exception:
         pass
     return ""
@@ -105,18 +106,26 @@ def _icc_of(stream) -> str:
 def describe_space(cs, res=None, depth=0) -> tuple[str, str]:
     """PDF-Farbraum -> (Art, ICC-Profilname). Art: RGB, CMYK, Grau, Lab, Sonderfarbe „X“, DeviceN (…), Muster."""
     import pikepdf
+
     if cs is None or depth > 4:
         return "", ""
     if isinstance(cs, pikepdf.Name):
         n = str(cs)
-        base = {"/DeviceRGB": "RGB", "/DeviceCMYK": "CMYK", "/DeviceGray": "Grau", "/RGB": "RGB",
-                "/CMYK": "CMYK", "/G": "Grau", "/Pattern": "Muster"}.get(n)
+        base = {
+            "/DeviceRGB": "RGB",
+            "/DeviceCMYK": "CMYK",
+            "/DeviceGray": "Grau",
+            "/RGB": "RGB",
+            "/CMYK": "CMYK",
+            "/G": "Grau",
+            "/Pattern": "Muster",
+        }.get(n)
         if base:
             return base, ""
         named = (res.get("/ColorSpace") or {}).get(n) if res is not None else None
         return describe_space(named, res, depth + 1) if named is not None else ("", "")
     if isinstance(cs, pikepdf.Array) and len(cs) == 1:
-        return describe_space(cs[0], res, depth + 1)     # [/DeviceCMYK] u. Ä.
+        return describe_space(cs[0], res, depth + 1)  # [/DeviceCMYK] u. Ä.
     if isinstance(cs, pikepdf.Array) and len(cs):
         kind = str(cs[0])
         if kind == "/ICCBased":
@@ -152,7 +161,7 @@ def describe_space(cs, res=None, depth=0) -> tuple[str, str]:
 
 
 _BASE = {"RGB", "CMYK", "Grau", "Lab"}
-SPOT_NAMES: dict = {}                    # Anzeige-Bezeichnung -> Sonderfarbennamen
+SPOT_NAMES: dict = {}  # Anzeige-Bezeichnung -> Sonderfarbennamen
 
 
 def space_label(s: str) -> str:
@@ -160,24 +169,39 @@ def space_label(s: str) -> str:
     if s in _BASE:
         return {"RGB": tr("RGB"), "CMYK": tr("CMYK"), "Grau": tr("Grau"), "Lab": tr("Lab")}[s]
     if s.startswith(tr("Indiziert")) and "(" in s:
-        inner = s[s.index("(") + 1:s.rindex(")")]
+        inner = s[s.index("(") + 1 : s.rindex(")")]
         return f"{tr('Indiziert')} ({space_label(inner)})"
     return s
 
 
 def _codec(img) -> str:
     import pikepdf
+
     f = img.get("/Filter")
     fl = [str(x) for x in f] if isinstance(f, pikepdf.Array) else ([str(f)] if f is not None else [])
-    names = {"/DCTDecode": "JPEG", "/DCT": "JPEG", "/FlateDecode": "ZIP", "/Fl": "ZIP", "/JPXDecode": "JPEG 2000",
-             "/CCITTFaxDecode": "CCITT", "/JBIG2Decode": "JBIG2", "/RunLengthDecode": "RLE", "/LZWDecode": "LZW"}
+    names = {
+        "/DCTDecode": "JPEG",
+        "/DCT": "JPEG",
+        "/FlateDecode": "ZIP",
+        "/Fl": "ZIP",
+        "/JPXDecode": "JPEG 2000",
+        "/CCITTFaxDecode": "CCITT",
+        "/JBIG2Decode": "JBIG2",
+        "/RunLengthDecode": "RLE",
+        "/LZWDecode": "LZW",
+    }
     return " + ".join(names.get(x, x.lstrip("/")) for x in fl) or tr("unkomprimiert")
 
 
 def _mul(a, b):
-    return (a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3],
-            a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
-            a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5])
+    return (
+        a[0] * b[0] + a[1] * b[2],
+        a[0] * b[1] + a[1] * b[3],
+        a[2] * b[0] + a[3] * b[2],
+        a[2] * b[1] + a[3] * b[3],
+        a[4] * b[0] + a[5] * b[2] + b[4],
+        a[4] * b[1] + a[5] * b[3] + b[5],
+    )
 
 
 def _nums(ins):
@@ -197,6 +221,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
     """pikepdf-Dokument -> ColorReport."""
     import math
     import pikepdf
+
     rep = ColorReport()
     try:
         for oi in pdf.Root.get("/OutputIntents") or []:
@@ -224,7 +249,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
             return
         if not w or not h:
             return
-        pw = math.hypot(ctm[0], ctm[1]) / MM          # Bild-Einheitsquadrat -> Seite
+        pw = math.hypot(ctm[0], ctm[1]) / MM  # Bild-Einheitsquadrat -> Seite
         ph = math.hypot(ctm[2], ctm[3]) / MM
         if pw <= 0 or ph <= 0:
             return
@@ -241,11 +266,14 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
             key = img.objgen if img.objgen != (0, 0) else None
         except Exception:
             key = None
-        pts = [(ctm[4] + ctm[0] * u + ctm[2] * v, ctm[5] + ctm[1] * u + ctm[3] * v) for u, v in
-               ((0, 0), (1, 0), (0, 1), (1, 1))]
+        pts = [
+            (ctm[4] + ctm[0] * u + ctm[2] * v, ctm[5] + ctm[1] * u + ctm[3] * v)
+            for u, v in ((0, 0), (1, 0), (0, 1), (1, 1))
+        ]
         bbox = (min(x for x, _ in pts), min(y for _, y in pts), max(x for x, _ in pts), max(y for _, y in pts))
-        rep.images.append(ImageUse(pno, name, (w, h), (pw, ph), dpi, space, prof, bits, _codec(img), is_mask, key,
-                                   bbox))
+        rep.images.append(
+            ImageUse(pno, name, (w, h), (pw, ph), dpi, space, prof, bits, _codec(img), is_mask, key, bbox)
+        )
         if not is_mask:
             add_color(pno, space)
 
@@ -284,7 +312,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                     image_use(pno, nm, x, ctm, res)
                 elif sub == pikepdf.Name.Form:
                     og = x.objgen
-                    if og in seen_forms:                  # Rekursion verhindern
+                    if og in seen_forms:  # Rekursion verhindern
                         continue
                     m = tuple(float(v) for v in x.get("/Matrix", [1, 0, 0, 1, 0, 0]))
                     try:
@@ -311,8 +339,14 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                 while node is not None and res is None:
                     res = node.get("/Resources")
                     node = node.get("/Parent")
-            walk(pno, pikepdf.parse_content_stream(page), res or pikepdf.Dictionary(),
-                 (1.0, 0.0, 0.0, 1.0, 0.0, 0.0), 0, frozenset())
+            walk(
+                pno,
+                pikepdf.parse_content_stream(page),
+                res or pikepdf.Dictionary(),
+                (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                0,
+                frozenset(),
+            )
         except Exception:
             continue
     return rep

@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Datei → Eigenschaften (echtes Qt, ohne Bildschirm): Speicherort, Dokument, Seiten, Schriften, Prüfung –
-    für eine gespeicherte Datei und für ein nur im Speicher vorhandenes Dokument (Zusammenführen)."""
-import io, os, subprocess, sys, tempfile
+für eine gespeicherte Datei und für ein nur im Speicher vorhandenes Dokument (Zusammenführen)."""
+
+import os
+import subprocess
+import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import io, os, sys, time
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 from PySide6.QtWidgets import QApplication, QLabel, QTableWidget, QMessageBox
@@ -62,7 +66,7 @@ assert "Arbeitsspeicher" in f and p in f, f
 assert dlg.info["pages"] == 6
 dlg.done(0)
 print("OK")
-'''
+"""
 
 
 def test_properties_dialog():
@@ -72,8 +76,14 @@ def test_properties_dialog():
         print("   (übersprungen: kein Qt)")
         return
     d = tempfile.mkdtemp(prefix="pm-props-")
-    env = dict(os.environ, PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""), PASSERMARK_LANG="de",
-               PASSERMARK_RENDER="local", HOME=d, XDG_CONFIG_HOME=os.path.join(d, "cfg"))
+    env = dict(
+        os.environ,
+        PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
+        PASSERMARK_LANG="de",
+        PASSERMARK_RENDER="local",
+        HOME=d,
+        XDG_CONFIG_HOME=os.path.join(d, "cfg"),
+    )
     r = subprocess.run([sys.executable, "-c", SCRIPT, d], capture_output=True, text=True, env=env, timeout=300)
     assert r.returncode == 0 and "OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 

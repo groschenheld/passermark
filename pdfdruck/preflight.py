@@ -18,6 +18,7 @@ Repairs:
   embed fonts (with replacements), text to paths, reduce transparency (Ghostscript),
   transparent gradients (soft mask in patterns) to opaque images (softmask.py, without Ghostscript)
 """
+
 from __future__ import annotations
 
 import io
@@ -32,9 +33,22 @@ from dataclasses import dataclass, field
 from . import platform as _platform
 from .l10n import tr
 
-STANDARD14 = {"Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique", "Helvetica", "Helvetica-Bold",
-              "Helvetica-Oblique", "Helvetica-BoldOblique", "Times-Roman", "Times-Bold", "Times-Italic",
-              "Times-BoldItalic", "Symbol", "ZapfDingbats"}
+STANDARD14 = {
+    "Courier",
+    "Courier-Bold",
+    "Courier-Oblique",
+    "Courier-BoldOblique",
+    "Helvetica",
+    "Helvetica-Bold",
+    "Helvetica-Oblique",
+    "Helvetica-BoldOblique",
+    "Times-Roman",
+    "Times-Bold",
+    "Times-Italic",
+    "Times-BoldItalic",
+    "Symbol",
+    "ZapfDingbats",
+}
 
 # Metrisch kompatible freie Ersatzschriften (gleiche Zeichenbreiten -> Text verrutscht nicht)
 METRIC = [
@@ -57,24 +71,25 @@ SEV_ORDER = {"error": 0, "warning": 1, "info": 2}
 @dataclass
 class Spot:
     """Eine Fundstelle: Seite (1-basiert), optional der Bereich auf der Seite (pt, Seitenkoordinaten)."""
+
     page: int
     box: tuple | None = None
-    label: str = ""            # was genau dort ist („72 dpi, 400 × 300 px“, Schriftname …)
+    label: str = ""  # was genau dort ist („72 dpi, 400 × 300 px“, Schriftname …)
 
 
 @dataclass
 class Issue:
-    severity: str              # error | warning | info
-    category: str              # font | layer | transparency | text | image
+    severity: str  # error | warning | info
+    category: str  # font | layer | transparency | text | image
     message: str
     pages: list = field(default_factory=list)
-    spots: list = field(default_factory=list)   # [Spot] – wo genau (leer: nur die Seiten)
+    spots: list = field(default_factory=list)  # [Spot] – wo genau (leer: nur die Seiten)
 
 
 @dataclass
 class FontInfo:
     key: str
-    name: str                  # without subset prefix
+    name: str  # without subset prefix
     raw: str
     subtype: str
     embedded: bool
@@ -84,7 +99,7 @@ class FontInfo:
     cid: bool
     standard14: bool
     pages: set = field(default_factory=set)
-    suggestion: str = ""       # Pfad der Ersatzschrift
+    suggestion: str = ""  # Pfad der Ersatzschrift
     suggestion_name: str = ""
 
     @property
@@ -103,7 +118,7 @@ class LayerInfo:
     key: str
     name: str
     view_on: bool
-    print_on: bool | None      # None = keine eigene Druck-Einstellung (folgt der Ansicht)
+    print_on: bool | None  # None = keine eigene Druck-Einstellung (folgt der Ansicht)
     locked: bool = False
     pages: set = field(default_factory=set)
     outside_pct: float | None = None
@@ -114,22 +129,22 @@ class Report:
     pages: int = 0
     fonts: list = field(default_factory=list)
     layers: list = field(default_factory=list)
-    transparency: dict = field(default_factory=dict)   # Seite -> {Art}
-    garbled: dict = field(default_factory=dict)        # Seite -> Anzahl
-    hdr: list = field(default_factory=list)            # HDR-Foto: [{"main": i, "aux": j, …}] (0-basiert)
-    colors: object = None                              # imagecheck.ColorReport: Bilder (dpi, Farbraum), Farben
-    size: object = None                                # shrink.SizeReport: wofür der Platz draufgeht
+    transparency: dict = field(default_factory=dict)  # Seite -> {Art}
+    garbled: dict = field(default_factory=dict)  # Seite -> Anzahl
+    hdr: list = field(default_factory=list)  # HDR-Foto: [{"main": i, "aux": j, …}] (0-basiert)
+    colors: object = None  # imagecheck.ColorReport: Bilder (dpi, Farbraum), Farben
+    size: object = None  # shrink.SizeReport: wofür der Platz draufgeht
     issues: list = field(default_factory=list)
-    boxes: dict = field(default_factory=dict)          # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
-    located: dict = field(default_factory=dict)        # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
-    hairlines: dict = field(default_factory=dict)      # Seite -> Anzahl Linien dünner als HAIRLINE_MM
+    boxes: dict = field(default_factory=dict)  # Seite -> MediaBox (x0, y0, x1, y1) – für „wo auf der Seite“
+    located: dict = field(default_factory=dict)  # ("font", Name) / ("transparency",) -> {Seite: [Bereich]}
+    hairlines: dict = field(default_factory=dict)  # Seite -> Anzahl Linien dünner als HAIRLINE_MM
     # 1.18.2
-    geometry: dict = field(default_factory=dict)       # Seite -> {media, crop, trim, bleed (pt, None = fehlt), rotate, uu}
-    security: dict = field(default_factory=dict)       # {encrypted, print, print_high}
-    pdfx: dict = field(default_factory=dict)           # {version, intent, missing_trim: [Seiten]}
-    forms: dict = field(default_factory=dict)          # {fields, widgets: [(Seite, Rect, druckt)], need_ap}
-    blank: list = field(default_factory=list)          # leere Seiten (1-basiert)
-    edge_ink: dict = field(default_factory=dict)       # Seite -> {Seite der Box: Beschnitt mm} – Inhalt bis zum Rand
+    geometry: dict = field(default_factory=dict)  # Seite -> {media, crop, trim, bleed (pt, None = fehlt), rotate, uu}
+    security: dict = field(default_factory=dict)  # {encrypted, print, print_high}
+    pdfx: dict = field(default_factory=dict)  # {version, intent, missing_trim: [Seiten]}
+    forms: dict = field(default_factory=dict)  # {fields, widgets: [(Seite, Rect, druckt)], need_ap}
+    blank: list = field(default_factory=list)  # leere Seiten (1-basiert)
+    edge_ink: dict = field(default_factory=dict)  # Seite -> {Seite der Box: Beschnitt mm} – Inhalt bis zum Rand
     _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
@@ -154,6 +169,7 @@ def _key(obj) -> str:
 
 def _resources(page):
     import pikepdf
+
     node = page.obj
     while node is not None:
         if "/Resources" in node:
@@ -180,6 +196,7 @@ def _pages_str(pages) -> str:
 def _walk_resources(res, page_no, visit, seen):
     """Ressourcen inkl. Form-XObjects (verschachtelt) besuchen."""
     import pikepdf
+
     if res is None:
         return
     rk = _key(res)
@@ -202,9 +219,10 @@ def _walk_resources(res, page_no, visit, seen):
 # --------------------------------------------------------------------------- #
 def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
     """Check the document. pdfium_parts=False: only the parts without pdfium (for background threads – pdfium is not
-        thread-safe); complete the rest afterwards in the main thread with finish().
+    thread-safe); complete the rest afterwards in the main thread with finish().
     """
     import pikepdf
+
     rep = Report()
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -240,6 +258,7 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                 # drucken ihn als schwarze Fläche – darunterliegende Bilder verschwinden
                 try:
                     from .softmask import pattern_has_softmask
+
                     if pattern_has_softmask(pat):
                         trans.setdefault(pno, set()).add("pattern_smask")
                 except Exception:
@@ -281,12 +300,17 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
                 trans.setdefault(i, set()).add("group")
         rep.fonts = sorted(fonts.values(), key=lambda f: (f.status == "ok", f.name.lower()))
         for f in rep.fonts:
-            if f.status in ("missing", "std14") and f.encoding != "private" and not (f.cid and f.encoding.startswith("Identity")):
+            if (
+                f.status in ("missing", "std14")
+                and f.encoding != "private"
+                and not (f.cid and f.encoding.startswith("Identity"))
+            ):
                 f.suggestion, f.suggestion_name = suggest_font(f.name)
         flagged = [p for p, k in trans.items() if "pattern_smask" in k]
-        if flagged:                     # nur melden, wo wirklich damit gemalt wird (nach Reparatur: nicht mehr)
+        if flagged:  # nur melden, wo wirklich damit gemalt wird (nach Reparatur: nicht mehr)
             try:
                 from .softmask import scan
+
                 painted = {t.page + 1 for t in scan(pdf).targets}
                 for p in flagged:
                     if p not in painted:
@@ -306,11 +330,13 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
             rep.hdr = []
         try:
             from . import imagecheck
+
             rep.colors = imagecheck.analyze(pdf)
         except Exception:
             rep.colors = None
         try:
             from . import shrink
+
             rep.size = shrink.analyze(data, pdf, rep.colors)
         except Exception:
             rep.size = None
@@ -351,7 +377,7 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
 # Seitengeometrie, Rechte, PDF/X, Formulare, leere Seiten (1.18.2)
 # --------------------------------------------------------------------------- #
 BOX_TOL_MM = 0.5
-BLEED_MIN_MM = 2.0            # darunter: prüfen, ob Inhalt bis an den Endformat-Rand geht
+BLEED_MIN_MM = 2.0  # darunter: prüfen, ob Inhalt bis an den Endformat-Rand geht
 INHERITABLE = ("/MediaBox", "/CropBox", "/Rotate")
 
 
@@ -389,8 +415,15 @@ def _page_geometry(obj) -> dict:
         uu = float(obj.get("/UserUnit") or 1.0)
     except Exception:
         uu = 1.0
-    return {"media": media, "crop": _box(_inh(obj, "/CropBox")), "trim": _box(obj.get("/TrimBox")),
-            "bleed": _box(obj.get("/BleedBox")), "art": _box(obj.get("/ArtBox")), "rotate": rot, "uu": uu}
+    return {
+        "media": media,
+        "crop": _box(_inh(obj, "/CropBox")),
+        "trim": _box(obj.get("/TrimBox")),
+        "bleed": _box(obj.get("/BleedBox")),
+        "art": _box(obj.get("/ArtBox")),
+        "rotate": rot,
+        "uu": uu,
+    }
 
 
 def _isect(a, b):
@@ -422,8 +455,12 @@ def bleed_mm(g: dict) -> dict:
     if not g.get("trim"):
         return {}
     _c, bl, tr_ = effective(g)
-    return {"l": (tr_[0] - bl[0]) / MM_PT, "b": (tr_[1] - bl[1]) / MM_PT,
-            "r": (bl[2] - tr_[2]) / MM_PT, "t": (bl[3] - tr_[3]) / MM_PT}
+    return {
+        "l": (tr_[0] - bl[0]) / MM_PT,
+        "b": (tr_[1] - bl[1]) / MM_PT,
+        "r": (bl[2] - tr_[2]) / MM_PT,
+        "t": (bl[3] - tr_[3]) / MM_PT,
+    }
 
 
 def _content_len(obj) -> int:
@@ -438,7 +475,7 @@ def _content_len(obj) -> int:
         except Exception:
             n += 100000
     if obj.get("/Annots"):
-        n += 100000            # Anmerkungen/Formulare: nicht als leer werten
+        n += 100000  # Anmerkungen/Formulare: nicht als leer werten
     return n
 
 
@@ -457,6 +494,7 @@ def _page_forms(obj, pno: int, rep: Report):
 
 def _doc_checks(pdf, rep: Report):
     import pikepdf
+
     sec = {"encrypted": bool(pdf.is_encrypted), "print": True, "print_high": True}
     try:
         if pdf.is_encrypted:
@@ -487,8 +525,12 @@ def _doc_checks(pdf, rep: Report):
                 break
     except Exception:
         pass
-    rep.pdfx = {"version": ver, "intent": intent, "no_profile": noprof,
-                "missing_trim": [p for p, g in sorted(rep.geometry.items()) if not g["trim"] and not g["art"]]}
+    rep.pdfx = {
+        "version": ver,
+        "intent": intent,
+        "no_profile": noprof,
+        "missing_trim": [p for p, g in sorted(rep.geometry.items()) if not g["trim"] and not g["art"]],
+    }
     try:
         af = pdf.Root.get("/AcroForm")
         rep.forms["fields"] = len(af.get("/Fields") or []) if af is not None else 0
@@ -499,11 +541,15 @@ def _doc_checks(pdf, rep: Report):
 
 def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: int = 50):
     """pdfium: leere Seiten (nur Kandidaten mit wenig Inhalt) und Inhalt bis an den Endformat-Rand bei zu wenig
-        Beschnitt."""
+    Beschnitt."""
     import pypdfium2 as pdfium
     from .planprint import _render_gray
-    edge = [p for p, g in sorted(rep.geometry.items())
-            if g["rotate"] == 0 and any(v < BLEED_MIN_MM - 0.05 for v in bleed_mm(g).values())][:max_bleed]
+
+    edge = [
+        p
+        for p, g in sorted(rep.geometry.items())
+        if g["rotate"] == 0 and any(v < BLEED_MIN_MM - 0.05 for v in bleed_mm(g).values())
+    ][:max_bleed]
     todo = sorted(set(rep._blank_candidates[:max_pages]) | set(edge))
     if not todo:
         return
@@ -515,24 +561,27 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
             pg = doc[p - 1]
             try:
                 if p in rep._blank_candidates:
-                    a = _render_gray(pg, 0.6 / MM_PT)          # ~0,6 px/mm
+                    a = _render_gray(pg, 0.6 / MM_PT)  # ~0,6 px/mm
                     if a.size and int(a.min()) >= 250:
                         rep.blank.append(p)
                         continue
                 if p in edge:
                     g = rep.geometry[p]
                     crop, _bl, trim = effective(g)
-                    sc = 2.0 / MM_PT                          # 2 px/mm
+                    sc = 2.0 / MM_PT  # 2 px/mm
                     a = _render_gray(pg, sc)
                     H, W = a.shape[:2]
 
                     def px(X, Y):
                         return int(round((X - crop[0]) * sc)), int(round((crop[3] - Y) * sc))
+
                     band = 1.5 * MM_PT
-                    sides = {"l": (trim[0], trim[1], trim[0] + band, trim[3]),
-                             "r": (trim[2] - band, trim[1], trim[2], trim[3]),
-                             "b": (trim[0], trim[1], trim[2], trim[1] + band),
-                             "t": (trim[0], trim[3] - band, trim[2], trim[3])}
+                    sides = {
+                        "l": (trim[0], trim[1], trim[0] + band, trim[3]),
+                        "r": (trim[2] - band, trim[1], trim[2], trim[3]),
+                        "b": (trim[0], trim[1], trim[2], trim[1] + band),
+                        "t": (trim[0], trim[3] - band, trim[2], trim[3]),
+                    }
                     hit = {}
                     for k, v in bleed_mm(g).items():
                         if v >= BLEED_MIN_MM - 0.05:
@@ -542,7 +591,7 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
                         x0, x1 = max(0, min(x0, x1)), min(W, max(x0, x1, min(x0, x1) + 1))
                         y0, y1 = max(0, min(y0, y1)), min(H, max(y0, y1, min(y0, y1) + 1))
                         reg = a[y0:y1, x0:x1]
-                        if reg.size and (reg < 235).mean() > 0.2:   # ein Fünftel des Randstreifens bedruckt
+                        if reg.size and (reg < 235).mean() > 0.2:  # ein Fünftel des Randstreifens bedruckt
                             hit[k] = round(max(0.0, v), 1)
                     if hit:
                         rep.edge_ink[p] = hit
@@ -578,7 +627,8 @@ def _geometry_issues(rep: Report) -> list:
                 crop[p] = tr("Sichtbarer Bereich (CropBox) ragt über die Seite (MediaBox) hinaus")
             elif _differs(g["crop"], g["media"]):
                 crop[p] = tr("Sichtbarer Bereich (CropBox) {0} kleiner als die Seite (MediaBox) {1}").format(
-                    _fmt_box(g["crop"]), _fmt_box(g["media"]))
+                    _fmt_box(g["crop"]), _fmt_box(g["media"])
+                )
         c, bl, tr_ = effective(g)
         if g["trim"] and not _inside(g["trim"], c):
             trim_out[p] = tr("Endformat (TrimBox) liegt außerhalb des sichtbaren Bereichs")
@@ -587,49 +637,96 @@ def _geometry_issues(rep: Report) -> list:
         if g["rotate"]:
             rot[p] = g["rotate"]
     for v, pg in _group(uu):
-        out.append(Issue("error", "geometry", tr("Seitenmaße mit Faktor (UserUnit {0}) – viele Drucker und RIPs "
-                                                 "ignorieren ihn und drucken im falschen Format.").format(v), pg))
+        out.append(
+            Issue(
+                "error",
+                "geometry",
+                tr(
+                    "Seitenmaße mit Faktor (UserUnit {0}) – viele Drucker und RIPs "
+                    "ignorieren ihn und drucken im falschen Format."
+                ).format(v),
+                pg,
+            )
+        )
     for t, pg in _group(crop):
-        out.append(Issue("warning", "geometry", t + tr(" – manche Drucker/Plotter drucken die ganze MediaBox: "
-                                                       "Inhalt verschoben oder weißer Rand. Abhilfe: Seiten auf "
-                                                       "den sichtbaren Bereich zuschneiden."), pg))
+        out.append(
+            Issue(
+                "warning",
+                "geometry",
+                t
+                + tr(
+                    " – manche Drucker/Plotter drucken die ganze MediaBox: "
+                    "Inhalt verschoben oder weißer Rand. Abhilfe: Seiten auf "
+                    "den sichtbaren Bereich zuschneiden."
+                ),
+                pg,
+            )
+        )
     for t, pg in _group(trim_out) + _group(bleed_out):
         out.append(Issue("warning", "geometry", t + tr(" – widersprüchliche Seitenrahmen."), pg))
     for v, pg in _group(rot):
-        out.append(Issue("info", "geometry", tr("Seite um {0}° gedreht (/Rotate) – bei Duplex und Plotter auf die "
-                                                "Ausrichtung achten.").format(v), pg))
+        out.append(
+            Issue(
+                "info",
+                "geometry",
+                tr("Seite um {0}° gedreht (/Rotate) – bei Duplex und Plotter auf die Ausrichtung achten.").format(v),
+                pg,
+            )
+        )
     sizes = {}
     for p, g in rep.geometry.items():
         t = effective(g)[2]
         w, h = sorted((round((t[2] - t[0]) / MM_PT), round((t[3] - t[1]) / MM_PT)))
         sizes.setdefault((w, h), []).append(p)
     if len(sizes) > 1:
-        parts = [tr("{0} × {1} mm ({2} S.)").format(w, h, len(pg)) for (w, h), pg in
-                 sorted(sizes.items(), key=lambda kv: -len(kv[1]))]
+        parts = [
+            tr("{0} × {1} mm ({2} S.)").format(w, h, len(pg))
+            for (w, h), pg in sorted(sizes.items(), key=lambda kv: -len(kv[1]))
+        ]
         main = max(sizes.values(), key=len)
         other = sorted(p for pg in sizes.values() if pg is not main for p in pg)
-        out.append(Issue("info", "geometry",
-                         tr("Unterschiedliche Seitenformate: {0} – wichtig für Nutzen, Broschüre und Step & Repeat.")
-                         .format(", ".join(parts[:6]) + (" …" if len(parts) > 6 else "")), other))
+        out.append(
+            Issue(
+                "info",
+                "geometry",
+                tr("Unterschiedliche Seitenformate: {0} – wichtig für Nutzen, Broschüre und Step & Repeat.").format(
+                    ", ".join(parts[:6]) + (" …" if len(parts) > 6 else "")
+                ),
+                other,
+            )
+        )
     for hit, pg in _group({p: tuple(sorted(h.items())) for p, h in rep.edge_ink.items()}):
         txt = ", ".join(tr("{0} {1} mm").format(tr(SIDE_TEXT[k]), f"{v:.1f}".replace(".", ",")) for k, v in hit)
-        out.append(Issue("warning", "geometry", tr("Inhalt geht bis an den Endformat-Rand, aber zu wenig Beschnitt "
-                                                   "({0}; empfohlen 3 mm) – beim Schneiden blitzt weißer Rand. "
-                                                   "Abhilfe: Überfüller/Beschnitt ergänzen.").format(txt), pg))
+        out.append(
+            Issue(
+                "warning",
+                "geometry",
+                tr(
+                    "Inhalt geht bis an den Endformat-Rand, aber zu wenig Beschnitt "
+                    "({0}; empfohlen 3 mm) – beim Schneiden blitzt weißer Rand. "
+                    "Abhilfe: Überfüller/Beschnitt ergänzen."
+                ).format(txt),
+                pg,
+            )
+        )
     return out
 
 
 def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) -> list:
     """Format gegen Gerät: passt jede Seite (sichtbarer Bereich inkl. Anschnitt) 1:1 auf ein Papierformat des
-        Druckers bzw. auf eine seiner Rollen? Kategorie „device“. Ohne Drucker/Formate: []."""
+    Druckers bzw. auf eine seiner Rollen? Kategorie „device“. Ohne Drucker/Formate: []."""
     if caps is None or not rep.geometry:
         return []
     key = caps.roles.get("pagesize")
     texts = {c.value: c.text for c in (caps.options[key].choices if key and key in caps.options else [])}
     custom = any(str(v).lower().startswith("custom") for v in texts) or any(
-        str(t).lower().startswith(("custom", "benutzer", "sonder")) for t in texts.values())
-    papers = [(w / MM_PT, h / MM_PT, texts.get(n, n)) for n, (w, h) in (caps.page_sizes or {}).items()
-              if w > 1 and h > 1 and not str(n).lower().startswith("custom")]
+        str(t).lower().startswith(("custom", "benutzer", "sonder")) for t in texts.values()
+    )
+    papers = [
+        (w / MM_PT, h / MM_PT, texts.get(n, n))
+        for n, (w, h) in (caps.page_sizes or {}).items()
+        if w > 1 and h > 1 and not str(n).lower().startswith("custom")
+    ]
     widths = [float(r.width_mm) for r in (rolls or []) if not getattr(r, "empty", False) and r.width_mm]
     if not papers and not widths:
         return []
@@ -638,7 +735,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
     for p, g in sorted(rep.geometry.items()):
         c = effective(g)[0]
         w, h = (c[2] - c[0]) / MM_PT, (c[3] - c[1]) / MM_PT
-        if widths:                                     # Rollendrucker: kurze Seite quer zur Rolle
+        if widths:  # Rollendrucker: kurze Seite quer zur Rolle
             ok = min(w, h) <= max(widths) + tol
         else:
             ok = any((w <= pw + tol and h <= ph + tol) or (w <= ph + tol and h <= pw + tol) for pw, ph, _n in papers)
@@ -648,20 +745,43 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
     for (w, h), pages in bad.items():
         size = tr("{0} × {1} mm").format(w, h)
         if widths:
-            out.append(Issue("warning", "device", tr("{0} ist breiter als jede Rolle von {1} (breiteste {2} mm) – "
-                                                     "wird abgeschnitten oder in Bahnen geteilt.").format(
-                size, printer, f"{max(widths):g}"), pages))
+            out.append(
+                Issue(
+                    "warning",
+                    "device",
+                    tr(
+                        "{0} ist breiter als jede Rolle von {1} (breiteste {2} mm) – "
+                        "wird abgeschnitten oder in Bahnen geteilt."
+                    ).format(size, printer, f"{max(widths):g}"),
+                    pages,
+                )
+            )
             continue
         big = max(papers, key=lambda x: x[0] * x[1])
         bigtxt = f"{big[2]} ({round(min(big[0], big[1]))} × {round(max(big[0], big[1]))} mm)"
         if custom:
-            out.append(Issue("info", "device", tr("{0} ist größer als jedes Standardformat von {1} (größtes: {2}) – "
-                                                  "geht nur als Sonderformat, falls das Gerät es kann.").format(
-                size, printer, bigtxt), pages))
+            out.append(
+                Issue(
+                    "info",
+                    "device",
+                    tr(
+                        "{0} ist größer als jedes Standardformat von {1} (größtes: {2}) – "
+                        "geht nur als Sonderformat, falls das Gerät es kann."
+                    ).format(size, printer, bigtxt),
+                    pages,
+                )
+            )
         else:
-            out.append(Issue("warning", "device", tr("{0} passt auf kein Papierformat von {1} (größtes: {2}) – "
-                                                     "wird verkleinert oder abgeschnitten.").format(
-                size, printer, bigtxt), pages))
+            out.append(
+                Issue(
+                    "warning",
+                    "device",
+                    tr(
+                        "{0} passt auf kein Papierformat von {1} (größtes: {2}) – wird verkleinert oder abgeschnitten."
+                    ).format(size, printer, bigtxt),
+                    pages,
+                )
+            )
     return out
 
 
@@ -677,7 +797,7 @@ def add_device_issues(rep: Report, caps, printer: str, rolls: list | None = None
     rep.issues = sorted(rep.issues + extra, key=lambda i: (SEV_ORDER[i.severity], i.category))
     try:
         rep._device_for = printer
-    except Exception:                                   # noqa: BLE001
+    except Exception:  # noqa: BLE001
         pass
     return rep
 
@@ -689,21 +809,49 @@ def _doc_issues(rep: Report) -> list:
         if not sec.get("print", True):
             out.append(Issue("error", "security", tr("Dokument ist geschützt: Drucken ist nicht erlaubt.")))
         elif not sec.get("print_high", True):
-            out.append(Issue("warning", "security", tr("Dokument ist geschützt: nur Drucken in niedriger Auflösung "
-                                                       "erlaubt – manche Programme drucken dann gerastert/unscharf.")))
+            out.append(
+                Issue(
+                    "warning",
+                    "security",
+                    tr(
+                        "Dokument ist geschützt: nur Drucken in niedriger Auflösung "
+                        "erlaubt – manche Programme drucken dann gerastert/unscharf."
+                    ),
+                )
+            )
         else:
             out.append(Issue("info", "security", tr("Dokument ist verschlüsselt (Rechte-Passwort) – Drucken erlaubt.")))
     px = rep.pdfx or {}
     if px.get("version"):
         if not px.get("intent"):
-            out.append(Issue("warning", "pdfx", tr("Datei gibt sich als {0} aus, hat aber keinen PDF/X-Output-Intent "
-                                                   "– die Angabe stimmt nicht.").format(px["version"])))
+            out.append(
+                Issue(
+                    "warning",
+                    "pdfx",
+                    tr(
+                        "Datei gibt sich als {0} aus, hat aber keinen PDF/X-Output-Intent – die Angabe stimmt nicht."
+                    ).format(px["version"]),
+                )
+            )
         elif px.get("no_profile"):
-            out.append(Issue("warning", "pdfx", tr("{0}: Output-Intent „{1}“ ohne eingebettetes Profil.")
-                             .format(px["version"], px["intent"])))
+            out.append(
+                Issue(
+                    "warning",
+                    "pdfx",
+                    tr("{0}: Output-Intent „{1}“ ohne eingebettetes Profil.").format(px["version"], px["intent"]),
+                )
+            )
         if px.get("missing_trim"):
-            out.append(Issue("warning", "pdfx", tr("{0} verlangt ein Endformat (TrimBox) – fehlt auf {1} Seite(n).")
-                             .format(px["version"], len(px["missing_trim"])), px["missing_trim"]))
+            out.append(
+                Issue(
+                    "warning",
+                    "pdfx",
+                    tr("{0} verlangt ein Endformat (TrimBox) – fehlt auf {1} Seite(n).").format(
+                        px["version"], len(px["missing_trim"])
+                    ),
+                    px["missing_trim"],
+                )
+            )
     fm = rep.forms or {}
     w = fm.get("widgets") or []
     if w or fm.get("fields"):
@@ -711,12 +859,23 @@ def _doc_issues(rep: Report) -> list:
         no = [(p, r) for p, r, pr in w if not pr]
         msg = tr("{0} Formularfeld(er)").format(len(w) or fm.get("fields", 0))
         if no:
-            msg += tr(", davon {0} werden nicht gedruckt (ausgeblendet, Druck aus oder ohne Darstellung)").format(len(no))
+            msg += tr(", davon {0} werden nicht gedruckt (ausgeblendet, Druck aus oder ohne Darstellung)").format(
+                len(no)
+            )
         if fm.get("need_ap"):
-            msg += tr(" – die Darstellung erzeugt erst das Programm: Passermark druckt die Werte mit, andere "
-                      "Programme/RIPs ggf. nicht oder anders")
-        out.append(Issue("warning" if no else "info", "form", msg + ".", pages,
-                         [Spot(p, r, tr("nicht gedruckt")) for p, r in no if r] or []))
+            msg += tr(
+                " – die Darstellung erzeugt erst das Programm: Passermark druckt die Werte mit, andere "
+                "Programme/RIPs ggf. nicht oder anders"
+            )
+        out.append(
+            Issue(
+                "warning" if no else "info",
+                "form",
+                msg + ".",
+                pages,
+                [Spot(p, r, tr("nicht gedruckt")) for p, r in no if r] or [],
+            )
+        )
     if rep.blank:
         out.append(Issue("info", "page", tr("{0} leere Seite(n).").format(len(rep.blank)), list(rep.blank)))
     return out
@@ -724,6 +883,7 @@ def _doc_issues(rep: Report) -> list:
 
 def _font_info(f, k) -> FontInfo:
     import pikepdf
+
     raw = str(f.get("/BaseFont", "/?"))[1:]
     subset = bool(re.match(r"^[A-Z]{6}\+", raw))
     name = raw.split("+", 1)[1] if subset else raw
@@ -738,24 +898,39 @@ def _font_info(f, k) -> FontInfo:
             desc = None
     else:
         desc = f.get("/FontDescriptor")
-    embedded = subtype == "Type3" or (desc is not None and any(k in desc for k in ("/FontFile", "/FontFile2", "/FontFile3")))
+    embedded = subtype == "Type3" or (
+        desc is not None and any(k in desc for k in ("/FontFile", "/FontFile2", "/FontFile3"))
+    )
     enc = f.get("/Encoding")
     encoding = str(enc)[1:] if isinstance(enc, pikepdf.Name) else ("custom" if enc is not None else "")
     if isinstance(enc, pikepdf.Dictionary):
         # eigene Glyphennamen (g01, glyph12, cid45 …) -> Zeichenbedeutung nur in der Originalschrift
         names = [str(x) for x in (enc.get("/Differences") or []) if isinstance(x, pikepdf.Name)]
-        if names and sum(bool(re.match(r"^/(g|glyph|cid|G|uni)?[0-9A-Fa-f]{1,5}$", n)) for n in names) > 0.5 * len(names):
+        if names and sum(bool(re.match(r"^/(g|glyph|cid|G|uni)?[0-9A-Fa-f]{1,5}$", n)) for n in names) > 0.5 * len(
+            names
+        ):
             encoding = "private"
-    return FontInfo(k, name, raw, subtype, embedded, subset, "/ToUnicode" in f, encoding, cid,
-                    name in STANDARD14 and subtype == "Type1")
+    return FontInfo(
+        k,
+        name,
+        raw,
+        subtype,
+        embedded,
+        subset,
+        "/ToUnicode" in f,
+        encoding,
+        cid,
+        name in STANDARD14 and subtype == "Type1",
+    )
 
 
 def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000) -> dict:
     """Wo genau? Text-Objekte je nicht eingebetteter/auffälliger Schrift und Objekte mit Transparenz – Bereiche je
-        Seite (pdfium, Seitenkoordinaten). Nur für Schriften, zu denen es einen Befund gibt."""
+    Seite (pdfium, Seitenkoordinaten). Nur für Schriften, zu denen es einen Befund gibt."""
     import ctypes
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
+
     want = {f.name for f in rep.fonts if f.status in ("missing", "std14", "type3") or not f.tounicode}
     tpages = set(rep.transparency)
     if not want and not tpages:
@@ -773,17 +948,19 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
             pg = doc[p - 1]
             try:
                 n = min(r.FPDFPage_CountObjects(pg.raw), max_objs)
-                n_text = sum(1 for k in range(n) if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(pg.raw, k))
-                             == r.FPDF_PAGEOBJ_TEXT)
+                n_text = sum(
+                    1 for k in range(n) if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(pg.raw, k)) == r.FPDF_PAGEOBJ_TEXT
+                )
                 seq = order.get(p) or []
-                use_seq = len(seq) == n_text                 # je Textobjekt die Schrift laut Inhaltsstrom
+                use_seq = len(seq) == n_text  # je Textobjekt die Schrift laut Inhaltsstrom
                 ti = -1
                 for k in range(n):
                     obj = r.FPDFPage_GetObject(pg.raw, k)
                     typ = r.FPDFPageObj_GetType(obj)
                     l, b, rr, t = (ctypes.c_float() for _ in range(4))
-                    if not r.FPDFPageObj_GetBounds(obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr),
-                                                   ctypes.byref(t)):
+                    if not r.FPDFPageObj_GetBounds(
+                        obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t)
+                    ):
                         continue
                     box = (l.value, b.value, rr.value, t.value)
                     if has_tr is not None and p in tpages and has_tr(obj):
@@ -793,7 +970,7 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
                     if typ == r.FPDF_PAGEOBJ_TEXT and want:
                         if use_seq:
                             name = seq[ti]
-                        else:                              # pdfium nennt bei Ersatzschriften oft den Ersatz
+                        else:  # pdfium nennt bei Ersatzschriften oft den Ersatz
                             if get_name is None:
                                 continue
                             font = r.FPDFTextObj_GetFont(obj)
@@ -815,8 +992,9 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
 
 def _text_fonts_in_order(data: bytes) -> dict:
     """Seite -> [Schriftname je Text-Ausgabe (Tj, TJ, ', ")] in der Reihenfolge des Inhaltsstroms der Seite
-        (ohne Formulare) – so viele, wie pdfium Textobjekte direkt auf der Seite hat."""
+    (ohne Formulare) – so viele, wie pdfium Textobjekte direkt auf der Seite hat."""
     import pikepdf
+
     out = {}
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -878,6 +1056,7 @@ MM_PT = 72 / 25.4
 def _garbled(data: bytes) -> dict:
     """Pages with characters without a valid Unicode mapping (replacement characters, private use area, control characters)."""
     import pypdfium2 as pdfium
+
     out = {}
     doc = pdfium.PdfDocument(data)
     try:
@@ -889,8 +1068,9 @@ def _garbled(data: bytes) -> dict:
             finally:
                 tp.close()
                 pg.close()
-            bad = sum(1 for ch in t if ch == "\ufffd" or "\ue000" <= ch <= "\uf8ff"
-                      or (ord(ch) < 32 and ch not in "\r\n\t"))
+            bad = sum(
+                1 for ch in t if ch == "\ufffd" or "\ue000" <= ch <= "\uf8ff" or (ord(ch) < 32 and ch not in "\r\n\t")
+            )
             if bad >= 3 and bad > 0.02 * max(1, len(t)):
                 out[i + 1] = bad
     finally:
@@ -907,6 +1087,7 @@ def _ocp(pdf):
 
 def _layers(pdf) -> list[LayerInfo]:
     import pikepdf
+
     ocp = _ocp(pdf)
     if ocp is None:
         return []
@@ -938,6 +1119,7 @@ def _layers(pdf) -> list[LayerInfo]:
 
 def _ocgs_of(oc) -> list:
     import pikepdf
+
     if oc is None:
         return []
     if oc.get("/Type") == pikepdf.Name.OCMD:
@@ -950,6 +1132,7 @@ def _ocgs_of(oc) -> list:
 
 def _oc_keys_in_stream(obj, props, res, seen) -> set:
     import pikepdf
+
     keys = set()
     try:
         ops = pikepdf.parse_content_stream(obj)
@@ -980,9 +1163,9 @@ def _oc_keys_in_stream(obj, props, res, seen) -> set:
 
 def _layers_outside(data: bytes, layers: list[LayerInfo], max_layers=40, max_pages=6):
     """Per layer: how much of its content lies outside the page? (Rendered individually, page enlarged.)"""
-    import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
+
     for L in layers[:max_layers]:
         if not L.pages:
             continue
@@ -1033,6 +1216,7 @@ def _layers_outside(data: bytes, layers: list[LayerInfo], max_layers=40, max_pag
 
 def _visible(oc, visible: set) -> bool:
     import pikepdf
+
     if oc is None:
         return True
     if oc.get("/Type") == pikepdf.Name.OCMD:
@@ -1048,6 +1232,7 @@ def _visible(oc, visible: set) -> bool:
 def _rewrite(pdf, obj, props, res, visible, strip, done):
     """Inhaltsstrom filtern: unsichtbare OC-Inhalte entfernen; bei strip auch die OC-Marker entfernen."""
     import pikepdf
+
     ok = _key(obj)
     if ok in done:
         return
@@ -1101,6 +1286,7 @@ def _rewrite(pdf, obj, props, res, visible, strip, done):
 
 def _apply_visibility(pdf, visible: set, strip: bool):
     import pikepdf
+
     done = set()
     for page in pdf.pages:
         res = _resources(page)
@@ -1128,15 +1314,17 @@ def current_visible(pdf, use_print=True) -> set:
 
 def has_layers(data: bytes) -> bool:
     import pikepdf
+
     with pikepdf.open(io.BytesIO(data)) as pdf:
         return _ocp(pdf) is not None
 
 
 def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
     """Pin the visible state: remove hidden layer content, dissolve the layers.
-        Afterwards every printer/viewer prints exactly what is visible.
+    Afterwards every printer/viewer prints exactly what is visible.
     """
     import pikepdf
+
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         if _ocp(pdf) is None:
@@ -1154,6 +1342,7 @@ def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
 def remove_layers(data: bytes, keys: set) -> bytes:
     """Remove layers including their content; the remaining layers are preserved."""
     import pikepdf
+
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         ocp = _ocp(pdf)
@@ -1174,6 +1363,7 @@ def remove_layers(data: bytes, keys: set) -> bytes:
                 else:
                     out.append(it)
             return out
+
         ocp.OCGs = clean(ocp.OCGs)
         d = ocp.get("/D")
         if d is not None:
@@ -1192,6 +1382,7 @@ def remove_layers(data: bytes, keys: set) -> bytes:
 def set_layer_states(data: bytes, states: dict) -> bytes:
     """states: {key: (view on, print on)} -> set the default state in the document (layers stay)."""
     import pikepdf
+
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         ocp = _ocp(pdf)
@@ -1214,10 +1405,16 @@ def set_layer_states(data: bytes, states: dict) -> bytes:
         d.BaseState = pikepdf.Name.ON
         d.ON, d.OFF = on, off
         # Druck-Zustand automatisch anwenden (Viewer, die Usage auswerten)
-        d.AS = pikepdf.Array([pikepdf.Dictionary(Event=pikepdf.Name.Print, Category=pikepdf.Array([pikepdf.Name.Print]),
-                                                 OCGs=pikepdf.Array(printers)),
-                              pikepdf.Dictionary(Event=pikepdf.Name.View, Category=pikepdf.Array([pikepdf.Name.View]),
-                                                 OCGs=pikepdf.Array(printers))])
+        d.AS = pikepdf.Array(
+            [
+                pikepdf.Dictionary(
+                    Event=pikepdf.Name.Print, Category=pikepdf.Array([pikepdf.Name.Print]), OCGs=pikepdf.Array(printers)
+                ),
+                pikepdf.Dictionary(
+                    Event=pikepdf.Name.View, Category=pikepdf.Array([pikepdf.Name.View]), OCGs=pikepdf.Array(printers)
+                ),
+            ]
+        )
         out = io.BytesIO()
         pdf.save(out)
         return out.getvalue()
@@ -1244,10 +1441,18 @@ def font_dirs() -> list[str]:
     home = os.path.expanduser("~")
     if _platform.IS_WIN:
         win = os.environ.get("WINDIR", r"C:\Windows")
-        return [os.path.join(win, "Fonts"), os.path.join(os.environ.get("LOCALAPPDATA", home), "Microsoft", "Windows", "Fonts"),
-                user_font_dir()]
-    return ["/usr/share/fonts", "/usr/local/share/fonts", os.path.join(home, ".local", "share", "fonts"),
-            os.path.join(home, ".fonts"), user_font_dir()]
+        return [
+            os.path.join(win, "Fonts"),
+            os.path.join(os.environ.get("LOCALAPPDATA", home), "Microsoft", "Windows", "Fonts"),
+            user_font_dir(),
+        ]
+    return [
+        "/usr/share/fonts",
+        "/usr/local/share/fonts",
+        os.path.join(home, ".local", "share", "fonts"),
+        os.path.join(home, ".fonts"),
+        user_font_dir(),
+    ]
 
 
 def user_font_dir() -> str:
@@ -1288,7 +1493,7 @@ def _scan_files(family: str, bold: bool, italic: bool) -> str:
                 base = re.sub(r"[^a-z0-9]", "", fn.lower().rsplit(".", 1)[0])
                 if not base.startswith(want):
                     continue
-                rest = base[len(want):]
+                rest = base[len(want) :]
                 b, i = "bold" in rest, ("italic" in rest or "oblique" in rest)
                 score = (b == bold) * 2 + (i == italic) * 2 - len(rest) / 100
                 if score > score_best:
@@ -1344,7 +1549,8 @@ def free_alternative(name: str) -> str:
 
 
 def _get_json(url):
-    import urllib.request                        # erst bei Bedarf: lädt SSL – kostete beim ersten Fenster spürbar Zeit
+    import urllib.request  # erst bei Bedarf: lädt SSL – kostete beim ersten Fenster spürbar Zeit
+
     req = urllib.request.Request(url, headers={"User-Agent": "Passermark"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -1353,6 +1559,7 @@ def _get_json(url):
 def similar_fonts(family: str, n: int = 6) -> list[str]:
     """Similarly named free fonts on fontsource.org (for "Did you mean …?")."""
     import difflib
+
     try:
         lst = _get_json(FONTSOURCE)
     except Exception:
@@ -1376,10 +1583,11 @@ class FontNotFound(RuntimeError):
 
 def download_font(family: str, progress=None) -> tuple[list[str], str]:
     """Fetch a free font (OFL/Apache) from fontsource.org -> (file paths, family actually loaded).
-        Commercial names (Arial, Calibri …) are redirected to their free twin.
+    Commercial names (Arial, Calibri …) are redirected to their free twin.
     """
     import urllib.error
     import urllib.request
+
     used = free_alternative(family) or family.strip()
     fid = re.sub(r"[^a-z0-9]+", "-", used.lower()).strip("-")
     cdn = "https://cdn.jsdelivr.net/fontsource/fonts/{0}@latest/latin-{1}-{2}.ttf"
@@ -1395,8 +1603,13 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
         api_err = e
     if meta is None:
         # API nicht erreichbar: direkt vom fontsource-CDN (gleiche Dateien)
-        meta = {"family": used, "variants": {w: {st: {"latin": {"url": {"ttf": cdn.format(fid, w, st)}}}
-                                                 for st in ("normal", "italic")} for w in ("400", "700")}}
+        meta = {
+            "family": used,
+            "variants": {
+                w: {st: {"latin": {"url": {"ttf": cdn.format(fid, w, st)}}} for st in ("normal", "italic")}
+                for w in ("400", "700")
+            },
+        }
     variants = meta.get("variants") or {}
     out_dir = user_font_dir()
     os.makedirs(out_dir, exist_ok=True)
@@ -1413,11 +1626,12 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
             fn = f"{fid}-{weight}-{style}.ttf"
             dst = os.path.join(out_dir, fn)
             try:
-                with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "Passermark"}),
-                                            timeout=30) as r:
+                with urllib.request.urlopen(
+                    urllib.request.Request(u, headers={"User-Agent": "Passermark"}), timeout=30
+                ) as r:
                     data = r.read()
             except Exception:
-                continue                      # Schnitt nicht vorhanden (z. B. keine Kursive)
+                continue  # Schnitt nicht vorhanden (z. B. keine Kursive)
             with open(dst, "wb") as f:
                 f.write(data)
             paths.append(dst)
@@ -1441,9 +1655,22 @@ def _gs(args: list, src: bytes) -> bytes:
         i, o = os.path.join(tmp, "in.pdf"), os.path.join(tmp, "out.pdf")
         with open(i, "wb") as f:
             f.write(src)
-        cmd = [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=pdfwrite", "-dAutoRotatePages=/None",
-               "-dDownsampleColorImages=false", "-dDownsampleGrayImages=false", "-dDownsampleMonoImages=false",
-               *[a.replace("{TMP}", tmp) for a in args], "-o", o, i]
+        cmd = [
+            gs,
+            "-q",
+            "-dNOPAUSE",
+            "-dBATCH",
+            "-dSAFER",
+            "-sDEVICE=pdfwrite",
+            "-dAutoRotatePages=/None",
+            "-dDownsampleColorImages=false",
+            "-dDownsampleGrayImages=false",
+            "-dDownsampleMonoImages=false",
+            *[a.replace("{TMP}", tmp) for a in args],
+            "-o",
+            o,
+            i,
+        ]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, **_platform.hidden_subprocess_kwargs())
         if r.returncode != 0 or not os.path.exists(o):
             raise RuntimeError(tr("Ghostscript-Fehler:\n") + (r.stderr or r.stdout or "")[-1500:])
@@ -1469,8 +1696,7 @@ def embed_fonts(data: bytes, mapping: dict) -> bytes:
                     f.write(f"/{name} {_ps_str(path)} ;\n")
                     dirs.add(os.path.dirname(path))
         permits = [f"--permit-file-read={d.rstrip(os.sep)}{os.sep}" for d in dirs | {tmp}]
-        args = ["-dCompatibilityLevel=1.7", "-dEmbedAllFonts=true", "-dSubsetFonts=true",
-                f"-sFONTMAP={fm}", *permits]
+        args = ["-dCompatibilityLevel=1.7", "-dEmbedAllFonts=true", "-dSubsetFonts=true", f"-sFONTMAP={fm}", *permits]
         if dirs:
             args.append("-sFONTPATH=" + os.pathsep.join(sorted(dirs)))
         return _gs(args, data)
@@ -1495,19 +1721,23 @@ def _mm(t) -> str:
     return f"{t[0]:.0f} × {t[1]:.0f} mm"
 
 
-def _img_spot(u) -> "Spot":
-    return Spot(u.page, getattr(u, "bbox", None),
-                tr("{0:.0f} dpi, {1} × {2} px, {3}").format(u.dpi, u.px[0], u.px[1], u.space or "?"))
+def _img_spot(u) -> Spot:
+    return Spot(
+        u.page,
+        getattr(u, "bbox", None),
+        tr("{0:.0f} dpi, {1} × {2} px, {3}").format(u.dpi, u.px[0], u.px[1], u.space or "?"),
+    )
 
 
 def _image_issues(rep: Report) -> list:
     from . import imagecheck as ic
+
     cr = rep.colors
     if cr is None:
         return []
     out = []
     by_page: dict = {}
-    hdr_aux = {h["aux"] + 1 for h in (rep.hdr or [])}     # graue HDR-Zusatzseite: eigener Befund
+    hdr_aux = {h["aux"] + 1 for h in (rep.hdr or [])}  # graue HDR-Zusatzseite: eigener Befund
     for u in cr.images:
         if (u.mask and u.rating == "tiny") or u.page in hdr_aux:
             continue
@@ -1520,33 +1750,62 @@ def _image_issues(rep: Report) -> list:
         lim = limits.get(p)
         a, b = worst.max_mm(worst.good), worst.max_mm(worst.ok)
         txt = tr("Empfehlung: dieses Bild bei {0} dpi max. {1}, bei {2} dpi max. {3}.").format(
-            worst.good, _mm(a), worst.ok, _mm(b))
+            worst.good, _mm(a), worst.ok, _mm(b)
+        )
         if lim and p in cr.page_size_mm and lim[1] < 0.995:
             ps = cr.page_size_mm[p]
-            txt += " " + tr("Ganze Seite höchstens {0:.0f} % ({1}) bei {2} dpi bzw. {3:.0f} % ({4}) bei {5} dpi.").format(
-                lim[1] * 100, _mm((ps[0] * lim[1], ps[1] * lim[1])), ic.GOOD_DPI,
-                min(lim[2], 9.99) * 100, _mm((ps[0] * min(lim[2], 9.99), ps[1] * min(lim[2], 9.99))), ic.OK_DPI)
+            txt += " " + tr(
+                "Ganze Seite höchstens {0:.0f} % ({1}) bei {2} dpi bzw. {3:.0f} % ({4}) bei {5} dpi."
+            ).format(
+                lim[1] * 100,
+                _mm((ps[0] * lim[1], ps[1] * lim[1])),
+                ic.GOOD_DPI,
+                min(lim[2], 9.99) * 100,
+                _mm((ps[0] * min(lim[2], 9.99), ps[1] * min(lim[2], 9.99))),
+                ic.OK_DPI,
+            )
         return txt
 
     for pages, sev, kind in ((low_pages, "warning", "low"), (ok_pages, "info", "ok")):
-        if len(pages) > 8:                               # viele Seiten: eine Sammelmeldung
+        if len(pages) > 8:  # viele Seiten: eine Sammelmeldung
             worst = min((u for p in pages for u in by_page[p] if u.rating == kind), key=lambda u: u.dpi)
-            msg = (tr("Bilder unter {0} dpi auf {1} Seiten – niedrigste {2:.0f} dpi (Seite {3}).")
-                   if kind == "low" else
-                   tr("Bilder mit {0}–{1} dpi auf {2} Seiten – gut für Plakat/Großformat, für Nahbetrachtung knapp."))
-            out.append(Issue(sev, "image", msg.format(worst.ok, len(pages), worst.dpi, worst.page) if kind == "low"
-                             else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)), pages,
-                             [_img_spot(u) for p in pages for u in by_page[p] if u.rating == kind]))
+            msg = (
+                tr("Bilder unter {0} dpi auf {1} Seiten – niedrigste {2:.0f} dpi (Seite {3}).")
+                if kind == "low"
+                else tr("Bilder mit {0}–{1} dpi auf {2} Seiten – gut für Plakat/Großformat, für Nahbetrachtung knapp.")
+            )
+            out.append(
+                Issue(
+                    sev,
+                    "image",
+                    msg.format(worst.ok, len(pages), worst.dpi, worst.page)
+                    if kind == "low"
+                    else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)),
+                    pages,
+                    [_img_spot(u) for p in pages for u in by_page[p] if u.rating == kind],
+                )
+            )
             continue
         for p in pages:
             us = [u for u in by_page[p] if u.rating == kind]
             worst = min(us, key=lambda u: u.dpi)
-            head = (tr("Seite {0}: {1} Bild(er) unter {2} dpi – niedrigste {3:.0f} dpi ({4} × {5} px auf {6}).")
-                    if kind == "low" else
-                    tr("Seite {0}: {1} Bild(er) mit {3:.0f}–{2} dpi ({4} × {5} px auf {6}) – gut für Plakat/"
-                       "Großformat, für Nahbetrachtung knapp."))
-            msg = head.format(p, len(us), worst.ok if kind == "low" else worst.good - 1, worst.dpi,
-                              worst.px[0], worst.px[1], _mm(worst.placed_mm))
+            head = (
+                tr("Seite {0}: {1} Bild(er) unter {2} dpi – niedrigste {3:.0f} dpi ({4} × {5} px auf {6}).")
+                if kind == "low"
+                else tr(
+                    "Seite {0}: {1} Bild(er) mit {3:.0f}–{2} dpi ({4} × {5} px auf {6}) – gut für Plakat/"
+                    "Großformat, für Nahbetrachtung knapp."
+                )
+            )
+            msg = head.format(
+                p,
+                len(us),
+                worst.ok if kind == "low" else worst.good - 1,
+                worst.dpi,
+                worst.px[0],
+                worst.px[1],
+                _mm(worst.placed_mm),
+            )
             out.append(Issue(sev, "image", msg + " " + advice(p, worst), [p], [_img_spot(u) for u in us]))
     rgb = sorted(p for p, c in cr.page_colors.items() if "RGB" in c)
     if rgb:
@@ -1554,14 +1813,30 @@ def _image_issues(rep: Report) -> list:
         spots = [_img_spot(u) for u in cr.images if u.space == "RGB" and u.page in rgb]
         with_img = {sp.page for sp in spots}
         spots += [Spot(p, None, tr("RGB-Farben (Text/Grafik)")) for p in rgb if p not in with_img]
-        out.append(Issue("info", "image", tr("RGB-Inhalte auf {0} Seite(n) ({1} Bildplatzierung(en) in RGB) – für "
-                                             "Offset/Digitaldruck nach CMYK umwandeln (Druckaufbereitung → CMYK); "
-                                             "Plotter/Großformat drucken RGB meist direkt.").format(len(rgb), n_img), rgb,
-                         sorted(spots, key=lambda sp: sp.page)))
+        out.append(
+            Issue(
+                "info",
+                "image",
+                tr(
+                    "RGB-Inhalte auf {0} Seite(n) ({1} Bildplatzierung(en) in RGB) – für "
+                    "Offset/Digitaldruck nach CMYK umwandeln (Druckaufbereitung → CMYK); "
+                    "Plotter/Großformat drucken RGB meist direkt."
+                ).format(len(rgb), n_img),
+                rgb,
+                sorted(spots, key=lambda sp: sp.page),
+            )
+        )
     names = sorted({n for ns in cr.spots.values() for n in ns})
     if names:
-        out.append(Issue("info", "image", tr("Sonderfarben: {0}.").format(", ".join(names)), sorted(cr.spots),
-                         [Spot(p, None, ", ".join(sorted(cr.spots[p]))) for p in sorted(cr.spots)]))
+        out.append(
+            Issue(
+                "info",
+                "image",
+                tr("Sonderfarben: {0}.").format(", ".join(names)),
+                sorted(cr.spots),
+                [Spot(p, None, ", ".join(sorted(cr.spots[p]))) for p in sorted(cr.spots)],
+            )
+        )
     return out
 
 
@@ -1575,6 +1850,7 @@ def colors_text(rep: Report) -> list:
         lines.append(tr("Ausgabeprofil (Output Intent): {0}").format(cr.output_intent))
     for p in sorted(cr.page_colors):
         from .imagecheck import space_label
+
         lines.append(tr("Seite {0}: {1}").format(p, ", ".join(sorted(space_label(c) for c in cr.page_colors[p]))))
     return lines
 
@@ -1585,6 +1861,7 @@ def colors_text(rep: Report) -> list:
 def _single_image(page):
     """Seite, die nur aus einem Bild besteht (wie beim Öffnen eines Fotos) -> (Name, Bild) oder None."""
     import pikepdf
+
     try:
         ops = list(pikepdf.parse_content_stream(page))
     except Exception:
@@ -1601,6 +1878,7 @@ def _single_image(page):
 
 def _components(img) -> int:
     import pikepdf
+
     cs = img.get("/ColorSpace")
     if cs == pikepdf.Name.DeviceGray:
         return 1
@@ -1618,7 +1896,7 @@ def _components(img) -> int:
 
 def hdr_aux_pages(pdf) -> list:
     """Paare (Foto, graue Helligkeitskarte) aufeinanderfolgender Bildseiten – so öffnet img2pdf HDR-Fotos
-        vom Handy, wenn nicht repariert wurde. Gleiches Seitenverhältnis, Karte grau und nicht größer."""
+    vom Handy, wenn nicht repariert wurde. Gleiches Seitenverhältnis, Karte grau und nicht größer."""
     out, pages = [], list(pdf.pages)
     i = 0
     while i + 1 < len(pages):
@@ -1629,12 +1907,28 @@ def hdr_aux_pages(pdf) -> list:
                 aw, ah, bw, bh = int(ia.Width), int(ia.Height), int(ib.Width), int(ib.Height)
             except Exception:
                 aw = ah = bw = bh = 0
-            if (aw and bw and _components(ia) >= 3 and _components(ib) == 1 and bw <= aw and bh <= ah
-                    and abs(aw / ah - bw / bh) <= 0.02 * aw / ah):
+            if (
+                aw
+                and bw
+                and _components(ia) >= 3
+                and _components(ib) == 1
+                and bw <= aw
+                and bh <= ah
+                and abs(aw / ah - bw / bh) <= 0.02 * aw / ah
+            ):
                 pa, pb = [float(v) for v in pages[i].mediabox], [float(v) for v in pages[i + 1].mediabox]
-                out.append({"main": i, "aux": i + 1, "main_px": (aw, ah), "aux_px": (bw, bh),
-                            "main_dpi": aw / ((pa[2] - pa[0]) / 72.0), "aux_dpi": bw / ((pb[2] - pb[0]) / 72.0),
-                            "aux_mode": "L", "kind": tr("HDR-Foto")})
+                out.append(
+                    {
+                        "main": i,
+                        "aux": i + 1,
+                        "main_px": (aw, ah),
+                        "aux_px": (bw, bh),
+                        "main_dpi": aw / ((pa[2] - pa[0]) / 72.0),
+                        "aux_dpi": bw / ((pb[2] - pb[0]) / 72.0),
+                        "aux_mode": "L",
+                        "kind": tr("HDR-Foto"),
+                    }
+                )
                 i += 2
                 continue
         i += 1
@@ -1643,8 +1937,9 @@ def hdr_aux_pages(pdf) -> list:
 
 def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes:
     """HDR-Zusatzseiten entfernen. size: "aux" = Fotoseite bekommt die Größe der Zusatzseite,
-        "main" = Größe bleibt. merge: Helligkeitskarte ins Foto einrechnen (neues JPEG)."""
+    "main" = Größe bleibt. merge: Helligkeitskarte ins Foto einrechnen (neues JPEG)."""
     import pikepdf
+
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         pairs = hdr_aux_pages(pdf)
@@ -1653,6 +1948,7 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
             nm, img = _single_image(mp)
             if merge:
                 from . import images
+
                 _an, aux = _single_image(ap)
                 base = pikepdf.PdfImage(img).as_pil_image()
                 gm = pikepdf.PdfImage(aux).as_pil_image()
@@ -1685,11 +1981,12 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
 # --------------------------------------------------------------------------- #
 # Befunde
 # --------------------------------------------------------------------------- #
-HAIRLINE_MM = 0.1              # dünnere Linien sind auf Plottern/Laser kaum oder gar nicht zu sehen
+HAIRLINE_MM = 0.1  # dünnere Linien sind auf Plottern/Laser kaum oder gar nicht zu sehen
 
 
 def _mm_num(v: float) -> str:
     from .planprint import mm_text
+
     return mm_text(v)
 
 
@@ -1697,6 +1994,7 @@ def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
     """Haarlinien je Seite (Anzahl + Bereiche in rep.located[("line",)])."""
     import pypdfium2 as pdfium
     from .planprint import hairline_boxes
+
     doc = pdfium.PdfDocument(data)
     try:
         rep.hairlines = {}
@@ -1734,71 +2032,184 @@ def _issues_raw(rep: Report) -> list[Issue]:
         n0 = len(out)
         if f.status == "missing":
             if f.encoding == "private":
-                out.append(Issue("error", "font", tr("Schrift „{0}“ ist nicht eingebettet und verwendet eigene Zeichennamen – "
-                                                     "ohne die Originalschrift nicht reparierbar (Text fehlt oder wird "
-                                                     "zu Fremdzeichen).").format(f.name), pg))
+                out.append(
+                    Issue(
+                        "error",
+                        "font",
+                        tr(
+                            "Schrift „{0}“ ist nicht eingebettet und verwendet eigene Zeichennamen – "
+                            "ohne die Originalschrift nicht reparierbar (Text fehlt oder wird "
+                            "zu Fremdzeichen)."
+                        ).format(f.name),
+                        pg,
+                    )
+                )
             elif f.cid and f.encoding.startswith("Identity"):
-                out.append(Issue("error", "font", tr("Schrift „{0}“ ist nicht eingebettet (CID, Identity) – ohne die "
-                                                     "Originalschrift nicht reparierbar.").format(f.name), pg))
+                out.append(
+                    Issue(
+                        "error",
+                        "font",
+                        tr(
+                            "Schrift „{0}“ ist nicht eingebettet (CID, Identity) – ohne die "
+                            "Originalschrift nicht reparierbar."
+                        ).format(f.name),
+                        pg,
+                    )
+                )
             else:
-                hint = tr(" Ersatz: {0}.").format(f.suggestion_name) if f.suggestion_name else tr(" Kein Ersatz gefunden.")
-                out.append(Issue("error", "font", tr("Schrift „{0}“ ist nicht eingebettet – Darstellung kann abweichen.")
-                                 .format(f.name) + hint, pg))
+                hint = (
+                    tr(" Ersatz: {0}.").format(f.suggestion_name) if f.suggestion_name else tr(" Kein Ersatz gefunden.")
+                )
+                out.append(
+                    Issue(
+                        "error",
+                        "font",
+                        tr("Schrift „{0}“ ist nicht eingebettet – Darstellung kann abweichen.").format(f.name) + hint,
+                        pg,
+                    )
+                )
         elif f.status == "std14":
-            out.append(Issue("info", "font", tr("Standardschrift „{0}“ nicht eingebettet (wird meist korrekt ersetzt).")
-                             .format(f.name), pg))
+            out.append(
+                Issue(
+                    "info",
+                    "font",
+                    tr("Standardschrift „{0}“ nicht eingebettet (wird meist korrekt ersetzt).").format(f.name),
+                    pg,
+                )
+            )
         elif f.status == "type3":
-            out.append(Issue("info", "font", tr("Type3-Schrift „{0}“ (oft aus CAD) – Text ggf. nicht durchsuchbar.")
-                             .format(f.name), pg))
-        if not f.tounicode and f.status != "std14" and f.encoding not in ("WinAnsiEncoding", "MacRomanEncoding",
-                                                                            "StandardEncoding"):
-            out.append(Issue("info", "font", tr("Schrift „{0}“ ohne Unicode-Zuordnung – Kopieren/Suchen kann falsche "
-                                                "Zeichen liefern.").format(f.name), pg))
+            out.append(
+                Issue(
+                    "info",
+                    "font",
+                    tr("Type3-Schrift „{0}“ (oft aus CAD) – Text ggf. nicht durchsuchbar.").format(f.name),
+                    pg,
+                )
+            )
+        if (
+            not f.tounicode
+            and f.status != "std14"
+            and f.encoding not in ("WinAnsiEncoding", "MacRomanEncoding", "StandardEncoding")
+        ):
+            out.append(
+                Issue(
+                    "info",
+                    "font",
+                    tr("Schrift „{0}“ ohne Unicode-Zuordnung – Kopieren/Suchen kann falsche Zeichen liefern.").format(
+                        f.name
+                    ),
+                    pg,
+                )
+            )
         for i in out[n0:]:
             i.spots = _located_spots(rep, ("font", f.name), pg, f.name)
     for p, n in sorted(rep.garbled.items()):
-        out.append(Issue("warning", "text", tr("Seite {0}: {1} Zeichen ohne gültige Zuordnung (seltsame Zeichen).")
-                         .format(p, n), [p]))
+        out.append(
+            Issue(
+                "warning",
+                "text",
+                tr("Seite {0}: {1} Zeichen ohne gültige Zuordnung (seltsame Zeichen).").format(p, n),
+                [p],
+            )
+        )
     hidden = [L for L in rep.layers if not L.view_on or L.print_on is False]
     if hidden:
-        out.append(Issue("warning", "layer", tr("{0} ausgeblendete Ebene(n) – viele Drucker/RIPs ignorieren das und "
-                                                "drucken sie trotzdem. Empfehlung: „Sichtbaren Zustand festschreiben“.")
-                         .format(len(hidden)), sorted(set().union(*[L.pages for L in hidden]))))
+        out.append(
+            Issue(
+                "warning",
+                "layer",
+                tr(
+                    "{0} ausgeblendete Ebene(n) – viele Drucker/RIPs ignorieren das und "
+                    "drucken sie trotzdem. Empfehlung: „Sichtbaren Zustand festschreiben“."
+                ).format(len(hidden)),
+                sorted(set().union(*[L.pages for L in hidden])),
+            )
+        )
     for L in rep.layers:
         if L.print_on is not None and L.print_on != L.view_on:
-            out.append(Issue("warning", "layer", tr("Ebene „{0}“: Ansicht {1}, Druck {2}.").format(
-                L.name, tr("an") if L.view_on else tr("aus"), tr("an") if L.print_on else tr("aus")), sorted(L.pages)))
+            out.append(
+                Issue(
+                    "warning",
+                    "layer",
+                    tr("Ebene „{0}“: Ansicht {1}, Druck {2}.").format(
+                        L.name, tr("an") if L.view_on else tr("aus"), tr("an") if L.print_on else tr("aus")
+                    ),
+                    sorted(L.pages),
+                )
+            )
         if L.outside_pct is not None and L.outside_pct > 25:
-            out.append(Issue("warning", "layer", tr("Ebene „{0}“: {1:.0f} % des Inhalts liegen außerhalb der Seite "
-                                                    "(verrutscht?).").format(L.name, L.outside_pct), sorted(L.pages)))
+            out.append(
+                Issue(
+                    "warning",
+                    "layer",
+                    tr("Ebene „{0}“: {1:.0f} % des Inhalts liegen außerhalb der Seite (verrutscht?).").format(
+                        L.name, L.outside_pct
+                    ),
+                    sorted(L.pages),
+                )
+            )
     if rep.hairlines:
         pg = sorted(rep.hairlines)
-        out.append(Issue("warning", "line", tr("{0} Linie(n) dünner als {1} mm auf {2} Seite(n) – auf Plottern und "
-                                               "Laserdruckern kaum oder gar nicht sichtbar. Beim Plandruck lassen sie "
-                                               "sich mit „Haarlinien anheben“ verstärken.").format(
-            sum(rep.hairlines.values()), _mm_num(HAIRLINE_MM), len(pg)), pg,
-            _located_spots(rep, ("line",), pg)))
+        out.append(
+            Issue(
+                "warning",
+                "line",
+                tr(
+                    "{0} Linie(n) dünner als {1} mm auf {2} Seite(n) – auf Plottern und "
+                    "Laserdruckern kaum oder gar nicht sichtbar. Beim Plandruck lassen sie "
+                    "sich mit „Haarlinien anheben“ verstärken."
+                ).format(sum(rep.hairlines.values()), _mm_num(HAIRLINE_MM), len(pg)),
+                pg,
+                _located_spots(rep, ("line",), pg),
+            )
+        )
     out += _image_issues(rep)
     if rep.size is not None:
         from . import shrink
+
         out += [Issue(sev, "size", msg, []) for sev, msg in shrink.issues(rep.size)]
     for h in rep.hdr:
-        out.append(Issue("warning", "image", tr("Seite {0}: graues Zusatzbild eines HDR-Fotos (Helligkeitskarte zu Seite "
-                                                "{1}) – wird in anderer Größe mitgedruckt, am Plotter mit falschen "
-                                                "Farben. Reparatur: „HDR-Zusatzseiten entfernen“.")
-                         .format(h["aux"] + 1, h["main"] + 1), [h["aux"] + 1]))
+        out.append(
+            Issue(
+                "warning",
+                "image",
+                tr(
+                    "Seite {0}: graues Zusatzbild eines HDR-Fotos (Helligkeitskarte zu Seite "
+                    "{1}) – wird in anderer Größe mitgedruckt, am Plotter mit falschen "
+                    "Farben. Reparatur: „HDR-Zusatzseiten entfernen“."
+                ).format(h["aux"] + 1, h["main"] + 1),
+                [h["aux"] + 1],
+            )
+        )
     grad = sorted(p for p, k in rep.transparency.items() if "pattern_smask" in k)
     if grad:
-        out.append(Issue("warning", "transparency", tr("Transparente Verläufe (Soft-Maske im Muster) auf {0} Seite(n) – "
-                                                       "manche RIPs/Plotter drucken sie als schwarze Fläche und decken "
-                                                       "darunterliegende Bilder ab. Reparatur: „Transparente Verläufe in "
-                                                       "Bilder umwandeln“.").format(len(grad)), grad,
-                         _located_spots(rep, ("transparency",), grad)))
+        out.append(
+            Issue(
+                "warning",
+                "transparency",
+                tr(
+                    "Transparente Verläufe (Soft-Maske im Muster) auf {0} Seite(n) – "
+                    "manche RIPs/Plotter drucken sie als schwarze Fläche und decken "
+                    "darunterliegende Bilder ab. Reparatur: „Transparente Verläufe in "
+                    "Bilder umwandeln“."
+                ).format(len(grad)),
+                grad,
+                _located_spots(rep, ("transparency",), grad),
+            )
+        )
     risky = {p for p, k in rep.transparency.items() if k & {"smask", "blend", "group"} and "pattern_smask" not in k}
     if risky:
-        out.append(Issue("info", "transparency", tr("Transparenzen auf {0} Seite(n) – auf älteren Druckern/RIPs ggf. "
-                                                    "„Transparenzen reduzieren“.").format(len(risky)), sorted(risky),
-                         _located_spots(rep, ("transparency",), risky)))
+        out.append(
+            Issue(
+                "info",
+                "transparency",
+                tr(
+                    "Transparenzen auf {0} Seite(n) – auf älteren Druckern/RIPs ggf. „Transparenzen reduzieren“."
+                ).format(len(risky)),
+                sorted(risky),
+                _located_spots(rep, ("transparency",), risky),
+            )
+        )
     op = {p for p, k in rep.transparency.items() if "overprint" in k}
     if op:
         out.append(Issue("info", "transparency", tr("Überdrucken auf {0} Seite(n).").format(len(op)), sorted(op)))
@@ -1811,12 +2222,17 @@ def report_text(rep: Report, title: str = "") -> str:
     """Bericht als Text (zum Speichern/Weitergeben)."""
     lines = [tr("Passermark – Prüfbericht") + (f": {title}" if title else ""), ""]
     c = rep.counts()
-    lines.append(tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e) · {3} Seiten").format(
-        c["error"], c["warning"], c["info"], rep.pages))
+    lines.append(
+        tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e) · {3} Seiten").format(
+            c["error"], c["warning"], c["info"], rep.pages
+        )
+    )
     lines.append("")
     sev = {"error": tr("FEHLER"), "warning": tr("WARNUNG"), "info": tr("HINWEIS")}
     for i in rep.issues:
-        lines.append(f"[{sev[i.severity]}] {i.message}" + (tr("  (Seiten {0})").format(_pages_str(i.pages)) if i.pages else ""))
+        lines.append(
+            f"[{sev[i.severity]}] {i.message}" + (tr("  (Seiten {0})").format(_pages_str(i.pages)) if i.pages else "")
+        )
         located = [sp for sp in i.spots if sp.box is not None or sp.label]
         for sp in located[:12]:
             lines.append("    · " + where_text(rep, sp))
@@ -1824,37 +2240,61 @@ def report_text(rep: Report, title: str = "") -> str:
             lines.append("    · " + tr("… und {0} weitere").format(len(located) - 12))
     lines += ["", tr("Schriften:")]
     for f in rep.fonts:
-        st = {"ok": tr("eingebettet"), "std14": tr("Standard, nicht eingebettet"), "missing": tr("NICHT eingebettet"),
-              "type3": "Type3"}[f.status]
-        lines.append(f"  {f.name}  ·  {f.subtype}  ·  {st}" + (tr("  ·  Teilmenge") if f.subset else "")
-                     + (f"  ·  → {f.suggestion_name}" if f.suggestion_name else ""))
+        st = {
+            "ok": tr("eingebettet"),
+            "std14": tr("Standard, nicht eingebettet"),
+            "missing": tr("NICHT eingebettet"),
+            "type3": "Type3",
+        }[f.status]
+        lines.append(
+            f"  {f.name}  ·  {f.subtype}  ·  {st}"
+            + (tr("  ·  Teilmenge") if f.subset else "")
+            + (f"  ·  → {f.suggestion_name}" if f.suggestion_name else "")
+        )
     if rep.colors is not None and (rep.colors.images or rep.colors.page_colors):
         lines += ["", tr("Farben:")] + ["  " + x for x in colors_text(rep)]
         if rep.colors.images:
             lines += ["", tr("Bilder (Seite · Pixel · platziert · Auflösung · Farbraum · max. bei 300 / 150 dpi):")]
             for u in rep.colors.images:
                 from .imagecheck import space_label
-                lines.append(f"  {u.page} · {u.px[0]}×{u.px[1]} px · {_mm(u.placed_mm)} · {u.dpi:.0f} dpi · {space_label(u.space)}"
-                             + (f" ({u.profile})" if u.profile else "")
-                             + f" · {_mm(u.max_mm(u.good))} / {_mm(u.max_mm(u.ok))}")
+
+                lines.append(
+                    f"  {u.page} · {u.px[0]}×{u.px[1]} px · {_mm(u.placed_mm)} · {u.dpi:.0f} dpi · {space_label(u.space)}"
+                    + (f" ({u.profile})" if u.profile else "")
+                    + f" · {_mm(u.max_mm(u.good))} / {_mm(u.max_mm(u.ok))}"
+                )
     if rep.size is not None:
         from . import shrink
+
         lines += ["", tr("Dateigröße:")] + ["  " + x for x in shrink.summary_lines(rep.size, top=8)]
     if rep.geometry:
         lines += ["", tr("Seitenrahmen (erste Seite):")]
         g = rep.geometry[min(rep.geometry)]
-        for k, lab in (("media", "MediaBox"), ("crop", "CropBox"), ("bleed", "BleedBox"), ("trim", "TrimBox"),
-                       ("art", "ArtBox")):
+        for k, lab in (
+            ("media", "MediaBox"),
+            ("crop", "CropBox"),
+            ("bleed", "BleedBox"),
+            ("trim", "TrimBox"),
+            ("art", "ArtBox"),
+        ):
             if g[k]:
                 lines.append(f"  {lab}: {_fmt_box(g[k])}")
         b = bleed_mm(g)
         if b:
-            lines.append("  " + tr("Beschnitt:") + " " + ", ".join(
-                f"{tr(SIDE_TEXT[k])} {v:.1f} mm".replace(".", ",") for k, v in b.items()))
+            lines.append(
+                "  "
+                + tr("Beschnitt:")
+                + " "
+                + ", ".join(f"{tr(SIDE_TEXT[k])} {v:.1f} mm".replace(".", ",") for k, v in b.items())
+            )
     if rep.layers:
         lines += ["", tr("Ebenen:")]
         for L in rep.layers:
-            lines.append(f"  {L.name}  ·  " + tr("Ansicht {0}, Druck {1}").format(
-                tr("an") if L.view_on else tr("aus"),
-                tr("wie Ansicht") if L.print_on is None else (tr("an") if L.print_on else tr("aus"))))
+            lines.append(
+                f"  {L.name}  ·  "
+                + tr("Ansicht {0}, Druck {1}").format(
+                    tr("an") if L.view_on else tr("aus"),
+                    tr("wie Ansicht") if L.print_on is None else (tr("an") if L.print_on else tr("aus")),
+                )
+            )
     return "\n".join(lines) + "\n"

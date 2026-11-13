@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Eigene, einfarbige Linien-Icons (24×24, als SVG gezeichnet) – sachlich, zum dunklen Theme passend."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QByteArray, QRectF, Qt
@@ -38,7 +39,7 @@ _SHAPES = {
     "actual": '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M8 9.5l2-1.5v8M14 9.5l2-1.5v8"/>',
     "history": '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3.5 4v4h4"/><path d="M12 7.5V12l3 2"/>',
     "pipette": '<path d="M15 4.5a2.1 2.1 0 0 1 3 0l1.5 1.5a2.1 2.1 0 0 1 0 3L17 11.5 12.5 7z"/>'
-               '<path d="M11 8.5l4.5 4.5M13.5 10l-8 8H3.5v-2l8-8"/>',
+    '<path d="M11 8.5l4.5 4.5M13.5 10l-8 8H3.5v-2l8-8"/>',
     "measure": '<path d="M4 20L20 4"/><path d="M4 16v4h4M20 8V4h-4"/><path d="M9 13l2 2M12 10l2 2"/>',
     "cut": '<circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8.3 15.7L18 4M15.7 15.7L6 4"/>',
     "cmyk": '<circle cx="9" cy="9" r="4.5"/><circle cx="15" cy="9" r="4.5"/><circle cx="12" cy="14.5" r="4.5"/>',
@@ -61,16 +62,18 @@ _SHAPES = {
     "move_down": '<rect x="6" y="3" width="12" height="12" rx="1"/><path d="M12 21v-3.5M9.5 19l2.5 2.5 2.5-2.5"/>',
     "info": '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v6"/><path d="M12 7.6v.4"/>',
     "roll": '<ellipse cx="7" cy="8.5" rx="3.5" ry="4.5"/><ellipse cx="7" cy="8.5" rx="1.2" ry="1.6"/>'
-            '<path d="M7 4h10.5c1.9 0 3.5 2 3.5 4.5S19.4 13 17.5 13H10"/><path d="M10 13v7.5h10V13"/>',
+    '<path d="M7 4h10.5c1.9 0 3.5 2 3.5 4.5S19.4 13 17.5 13H10"/><path d="M10 13v7.5h10V13"/>',
     "plan": '<rect x="3" y="5" width="18" height="14" rx="0.5"/><rect x="5.2" y="7.2" width="13.6" height="9.6"/>'
-            '<path d="M12.5 13.3h6.3M12.5 13.3v3.5"/>',
+    '<path d="M12.5 13.3h6.3M12.5 13.3v3.5"/>',
 }
 
 
 def _svg(name: str, color: str) -> bytes:
     body = _SHAPES[name].replace("{bg}", theme.PANEL)
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" '
-            f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{body}</svg>').encode()
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+        f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
+    ).encode()
 
 
 def _pixmap(name: str, color: str, size: int) -> QPixmap:

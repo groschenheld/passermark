@@ -5,15 +5,16 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Conditions in workflows ("if", "choose") – checked against the CURRENT PDF of the workflow. No Qt.
 
-    {"pages": {">=": 8}, "format": "A5"}                    several entries = all must hold
-    {"any": [{"format": "A4"}, {"format": "A5"}]}            any / all / not
-    {"filename": {"matches": "*_sw.pdf"}}                    matches = pattern (* ?), case-insensitive
-    {"var.kunde": {"in": ["Muster", "Huber"]}}              variables from --var / the watcher's "vars"
+{"pages": {">=": 8}, "format": "A5"}                    several entries = all must hold
+{"any": [{"format": "A4"}, {"format": "A5"}]}            any / all / not
+{"filename": {"matches": "*_sw.pdf"}}                    matches = pattern (* ?), case-insensitive
+{"var.kunde": {"in": ["Muster", "Huber"]}}              variables from --var / the watcher's "vars"
 
-    Operators: a plain value means "equal"; otherwise {"==" | "!=" | ">" | ">=" | "<" | "<=" | "in" | "matches": …}.
-    Texts are compared case-insensitively. Values are only computed when a condition needs them – the check facts
-    (errors, rgb, fonts_missing …) run the document check once per file.
+Operators: a plain value means "equal"; otherwise {"==" | "!=" | ">" | ">=" | "<" | "<=" | "in" | "matches": …}.
+Texts are compared case-insensitively. Values are only computed when a condition needs them – the check facts
+(errors, rgb, fonts_missing …) run the document check once per file.
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -47,8 +48,18 @@ FACTS = {
     "output_intent": ("str", "output intent (e.g. 'Coated FOGRA39'; '' = none)"),
     "layers": ("int", "number of layers"),
 }
-CHECK_FACTS = {"errors", "warnings", "infos", "rgb", "spot_colors", "spot_names", "fonts_missing", "transparency",
-               "blank_pages", "print_allowed"}
+CHECK_FACTS = {
+    "errors",
+    "warnings",
+    "infos",
+    "rgb",
+    "spot_colors",
+    "spot_names",
+    "fonts_missing",
+    "transparency",
+    "blank_pages",
+    "print_allowed",
+}
 OPS = ("==", "!=", ">", ">=", "<", "<=", "in", "matches")
 LOGIC = ("all", "any", "not")
 VAR_PREFIX = "var."
@@ -58,7 +69,7 @@ def validate(cond, where: str = "if") -> list:
     """Problems [(where, message)] of a condition – unknown values, operators or types."""
     probs = []
     if not isinstance(cond, dict) or not cond:
-        return [(where, tr("Bedingung als Objekt erwartet, z. B. {\"pages\": {\">=\": 8}}"))]
+        return [(where, tr('Bedingung als Objekt erwartet, z. B. {"pages": {">=": 8}}'))]
     for k, v in cond.items():
         w = f"{where}.{k}"
         if k in ("all", "any"):
@@ -84,10 +95,16 @@ def validate(cond, where: str = "if") -> list:
                 elif op == "in" and not isinstance(val, list):
                     probs.append((f"{w}.in", tr("Liste erwartet")))
                 elif op in (">", ">=", "<", "<=") and (typ not in ("int", "float") or not _is_num(val)):
-                    probs.append((f"{w}.{op}", tr("Zahl erwartet") if typ in ("int", "float")
-                                  else tr("„{0}“ geht nur bei Zahlen").format(op)))
+                    probs.append(
+                        (
+                            f"{w}.{op}",
+                            tr("Zahl erwartet")
+                            if typ in ("int", "float")
+                            else tr("„{0}“ geht nur bei Zahlen").format(op),
+                        )
+                    )
                 elif op == "matches" and not isinstance(val, str):
-                    probs.append((f"{w}.matches", tr("Muster als Text erwartet, z. B. \"*_sw.pdf\"")))
+                    probs.append((f"{w}.matches", tr('Muster als Text erwartet, z. B. "*_sw.pdf"')))
         elif typ in ("int", "float") and not _is_num(v):
             probs.append((w, tr("Zahl erwartet")))
         elif typ == "bool" and not isinstance(v, bool):
@@ -106,13 +123,17 @@ def _norm(v):
 def _cmp(actual, op: str, want) -> bool:
     if op == "in":
         return _norm(actual) in [_norm(x) for x in want] or (
-            isinstance(actual, list) and any(_norm(a) in [_norm(x) for x in want] for a in actual))
+            isinstance(actual, list) and any(_norm(a) in [_norm(x) for x in want] for a in actual)
+        )
     if op == "matches":
         items = actual if isinstance(actual, list) else [actual]
         return any(fnmatch.fnmatchcase(str(a).casefold(), str(want).casefold()) for a in items)
     if op in ("==", "!="):
-        eq = (_norm(want) in [_norm(a) for a in actual]) if isinstance(actual, list) and not isinstance(want, list) \
+        eq = (
+            (_norm(want) in [_norm(a) for a in actual])
+            if isinstance(actual, list) and not isinstance(want, list)
             else _norm(actual) == _norm(want)
+        )
         if _is_num(actual) and _is_num(want):
             eq = abs(float(actual) - float(want)) < 1e-6
         return eq if op == "==" else not eq
@@ -168,7 +189,7 @@ class Facts:
 
     def get(self, key: str):
         if key.startswith(VAR_PREFIX):
-            return self.vars.get(key[len(VAR_PREFIX):], "")
+            return self.vars.get(key[len(VAR_PREFIX) :], "")
         if key == "filename":
             return self.filename
         if key in CHECK_FACTS:
@@ -181,17 +202,22 @@ class Facts:
     def basic(self) -> dict:
         if self._basic is None:
             from . import docinfo
+
             d = docinfo.inspect(self.path)
             pl = d["page_list"]
             p0 = pl[0] if pl else {}
             w, h = p0.get("width_mm") or 0.0, p0.get("height_mm") or 0.0
             trim = p0.get("trim_mm")
             self._basic = {
-                "pages": d["pages"], "width_mm": w, "height_mm": h,
-                "format": _format_name(*(trim or (w, h))), "page_format": _format_name(w, h),
+                "pages": d["pages"],
+                "width_mm": w,
+                "height_mm": h,
+                "format": _format_name(*(trim or (w, h))),
+                "page_format": _format_name(w, h),
                 "orientation": p0.get("orientation", ""),
                 "mixed_sizes": len(d["formats_mm"]) > 1,
-                "trim": bool(trim), "bleed_mm": float(p0.get("bleed_mm") or 0.0),
+                "trim": bool(trim),
+                "bleed_mm": float(p0.get("bleed_mm") or 0.0),
                 "size_mb": round(d["size_bytes"] / 1048576, 3),
                 "output_intent": ", ".join(d["details"].get("output_intents") or []),
                 "layers": int(d["details"].get("layers") or 0),
@@ -201,15 +227,19 @@ class Facts:
     def check(self) -> dict:
         if self._check is None:
             from . import preflight
+
             with open(self.path, "rb") as f:
                 rep = preflight.analyze(f.read(), deep_layers=False, pdfium_parts=True)
             c = rep.counts()
             cr = rep.colors
             spots = sorted({n for ns in (cr.spots.values() if cr else []) for n in ns})
             self._check = {
-                "errors": c["error"], "warnings": c["warning"], "infos": c["info"],
+                "errors": c["error"],
+                "warnings": c["warning"],
+                "infos": c["info"],
                 "rgb": bool(cr and any("RGB" in v for v in cr.page_colors.values())),
-                "spot_colors": bool(spots), "spot_names": spots,
+                "spot_colors": bool(spots),
+                "spot_names": spots,
                 "fonts_missing": any(f.status == "missing" for f in rep.fonts),
                 "transparency": bool(rep.transparency),
                 "blank_pages": len(rep.blank),
@@ -220,6 +250,7 @@ class Facts:
 
 def _format_name(w_mm: float, h_mm: float, tol: float = 2.0) -> str:
     from .papersizes import UI_FORMATS
+
     lo, hi = sorted((w_mm, h_mm))
     for name, (a, b) in UI_FORMATS.items():
         if abs(lo - a) <= tol and abs(hi - b) <= tol:

@@ -1,8 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Prüfung (1.16): jeder Befund sagt, wo er ist (Seite, Bereich, was genau) – Klick springt hin und markiert.
-    Teil 1 ohne Oberfläche (Fundstellen), Teil 2 mit echtem Qt (Klick in der Liste, ◀ ▶, Markierung)."""
-import io, os, subprocess, sys, tempfile
+Teil 1 ohne Oberfläche (Fundstellen), Teil 2 mit echtem Qt (Klick in der Liste, ◀ ▶, Markierung)."""
+
+import io
+import os
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
@@ -12,11 +18,11 @@ os.environ.setdefault("PASSERMARK_LANG", "de")
 
 def sample_pdf() -> bytes:
     """3 Seiten: S. 1 Text in nicht eingebetteter Arial (oben links), S. 2 ein 40 × 20 mm-Bild mit 50 dpi unten rechts
-        in RGB, S. 3 dasselbe Bild nochmal oben in der Mitte."""
+    in RGB, S. 3 dasselbe Bild nochmal oben in der Mitte."""
     from PIL import Image
     from reportlab.lib.utils import ImageReader
     from reportlab.pdfgen import canvas
-    import test_preflight as tp
+
     MM = 72 / 25.4
     img = Image.new("RGB", (79, 39), (200, 30, 30))
     b = io.BytesIO()
@@ -29,8 +35,9 @@ def sample_pdf() -> bytes:
     c.showPage()
     c.save()
     import pikepdf
+
     pdf = pikepdf.open(io.BytesIO(b.getvalue()))
-    for pg in pdf.pages[:1]:                      # Helvetica -> nicht eingebettete Arial (wie test_preflight)
+    for pg in pdf.pages[:1]:  # Helvetica -> nicht eingebettete Arial (wie test_preflight)
         for _n, f in (pg.Resources.get("/Font") or {}).items():
             f.BaseFont = pikepdf.Name("/ArialMT")
     out = io.BytesIO()
@@ -40,11 +47,13 @@ def sample_pdf() -> bytes:
 
 def test_spots_without_gui():
     from pdfdruck import preflight
+
     rep = preflight.analyze(sample_pdf(), True, True)
     font = next(i for i in rep.issues if "ArialMT" in i.message)
     sp = font.spots[0]
-    assert sp.page == 1 and sp.box is not None and "oben links" in preflight.where_text(rep, sp), \
-        preflight.where_text(rep, sp)
+    assert sp.page == 1 and sp.box is not None and "oben links" in preflight.where_text(rep, sp), preflight.where_text(
+        rep, sp
+    )
     imgs = [i for i in rep.issues if i.category == "image" and "dpi" in i.message]
     where = [preflight.where_text(rep, s) for i in imgs for s in i.spots]
     assert any(w.startswith("Seite 2 – unten rechts, 40 × 20 mm") for w in where), where
@@ -56,12 +65,13 @@ def test_spots_without_gui():
     txt = preflight.report_text(rep)
     assert "· Seite 2 – unten rechts" in txt
     from pdfdruck import docinfo
+
     d = docinfo._check(sample_pdf())
     spots = [s for i in d["issues"] for s in i["spots"]]
     assert any(s["box_pt"] and s["where"].startswith("Seite 2") for s in spots)
 
 
-GUI = r'''
+GUI = r"""
 import os, sys, time
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, sys.argv[2])
@@ -96,7 +106,7 @@ w.repaint(); app.processEvents()                               # Zeichnen der Ma
 view._clear_spot()
 assert view.pf_mark is None
 print("OK")
-'''
+"""
 
 
 def test_click_jumps_and_marks():
@@ -106,8 +116,14 @@ def test_click_jumps_and_marks():
         print("   (übersprungen: kein Qt)")
         return
     d = tempfile.mkdtemp(prefix="pm-pfspots-")
-    env = dict(os.environ, PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""), PASSERMARK_LANG="de",
-               PASSERMARK_RENDER="local", HOME=d, XDG_CONFIG_HOME=os.path.join(d, "cfg"))
+    env = dict(
+        os.environ,
+        PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
+        PASSERMARK_LANG="de",
+        PASSERMARK_RENDER="local",
+        HOME=d,
+        XDG_CONFIG_HOME=os.path.join(d, "cfg"),
+    )
     r = subprocess.run([sys.executable, "-c", GUI, d, HERE], capture_output=True, text=True, env=env, timeout=300)
     assert r.returncode == 0 and "OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 

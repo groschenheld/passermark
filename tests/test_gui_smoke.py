@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Startup test without a screen: Qt is replaced by a stub (tests/_qtstub) that accepts all calls.
 Finds Python errors at program start, window construction and in menu/mouse functions."""
-import os, subprocess, sys
+
+import os
+import subprocess
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SAMPLE = os.path.join(HERE, "sample.pdf")
 
-SCRIPT = r'''
+SCRIPT = r"""
 import sys, types
 from pdfdruck.gui import viewer
 viewer.PageView._dpi_scale = lambda self: 1.0
@@ -142,17 +145,24 @@ pw_ = {d.kind: d for d in plandialog.open_windows()}
 assert set(pw_) == {"plan", "poster"} and pw_["plan"].items, pw_
 plandialog._WINDOWS.clear()
 print("SMOKE-OK")
-'''
+"""
 
 
 def test_start_and_basic_actions():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               HOME="/tmp/_smoke_home", PASSERMARK_LANG="en", PDFTOOLKIT_LANG="en", PDFTOOLBOX_LANG="en",
-               PASSERMARK_RENDER="local")     # Qt-Attrappe hat keine Ereignisschleife: alles im Programm
+    env = dict(
+        os.environ,
+        PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
+        HOME="/tmp/_smoke_home",
+        PASSERMARK_LANG="en",
+        PDFTOOLKIT_LANG="en",
+        PDFTOOLBOX_LANG="en",
+        PASSERMARK_RENDER="local",
+    )  # Qt-Attrappe hat keine Ereignisschleife: alles im Programm
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT, SAMPLE], capture_output=True, text=True, env=env, timeout=300)
     assert "SMOKE-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 
 
 if __name__ == "__main__":
-    test_start_and_basic_actions(); print("ok test_start_and_basic_actions")
+    test_start_and_basic_actions()
+    print("ok test_start_and_basic_actions")

@@ -11,6 +11,7 @@ Order: 1. IPP (media-col-ready / printer-input-tray – Canon ColorWave/PlotWave
 The device address comes from the admin setting (tray_host) or from the printer's device URI.
 No Qt.
 """
+
 from __future__ import annotations
 
 import re
@@ -21,28 +22,35 @@ from dataclasses import asdict, dataclass, field
 from .l10n import tr
 
 CACHE_S = 20
-SETTINGS_KEY = "plan_rolls"           # Benutzereinstellung: {Drucker: [Rolle, …]}
+SETTINGS_KEY = "plan_rolls"  # Benutzereinstellung: {Drucker: [Rolle, …]}
 
 
 @dataclass
 class Roll:
     width_mm: float
-    slot: str = ""              # Treiberwert der Zufuhr ("" = Gerät wählt selbst)
-    name: str = ""              # Anzeige („Rolle 1“)
-    weight: int = 0             # g/m², 0 = unbekannt
-    media: str = ""             # Medienname/-typ laut Gerät oder Eingabe
+    slot: str = ""  # Treiberwert der Zufuhr ("" = Gerät wählt selbst)
+    name: str = ""  # Anzeige („Rolle 1“)
+    weight: int = 0  # g/m², 0 = unbekannt
+    media: str = ""  # Medienname/-typ laut Gerät oder Eingabe
     remaining_m: float | None = None
-    origin: str = "manual"      # ipp | snmp | manual
-    device: str = ""            # Name der Zufuhr am Gerät (IPP media-source / MIB)
+    origin: str = "manual"  # ipp | snmp | manual
+    device: str = ""  # Name der Zufuhr am Gerät (IPP media-source / MIB)
     empty: bool = False
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Roll":
+    def from_dict(cls, d: dict) -> Roll:
         rem = d.get("remaining_m")
-        return cls(float(d.get("width_mm", 0) or 0), str(d.get("slot", "") or ""), str(d.get("name", "") or ""),
-                   int(d.get("weight", 0) or 0), str(d.get("media", "") or ""),
-                   None if rem in (None, "") else float(rem), str(d.get("origin", "manual") or "manual"),
-                   str(d.get("device", "") or ""), bool(d.get("empty", False)))
+        return cls(
+            float(d.get("width_mm", 0) or 0),
+            str(d.get("slot", "") or ""),
+            str(d.get("name", "") or ""),
+            int(d.get("weight", 0) or 0),
+            str(d.get("media", "") or ""),
+            None if rem in (None, "") else float(rem),
+            str(d.get("origin", "manual") or "manual"),
+            str(d.get("device", "") or ""),
+            bool(d.get("empty", False)),
+        )
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -61,6 +69,7 @@ class Roll:
 
 def _num(v: float, digits: int) -> str:
     from . import l10n, measure
+
     return measure.fmt(float(v), l10n.current(), digits)
 
 
@@ -71,10 +80,10 @@ def _mm(v: float) -> str:
 @dataclass
 class RollState:
     rolls: list
-    origin: str = "manual"      # ipp | snmp | manual | none
+    origin: str = "manual"  # ipp | snmp | manual | none
     error: str = ""
     host: str = ""
-    catalog: list = field(default_factory=list)   # am Gerät angelegte Medien (auch nicht geladene), nur IPP
+    catalog: list = field(default_factory=list)  # am Gerät angelegte Medien (auch nicht geladene), nur IPP
 
 
 # --------------------------------------------------------------------------- #
@@ -85,8 +94,19 @@ def from_ipp(status) -> list:
     for src, t in status.trays.items():
         if not t.roll or not t.width_mm:
             continue
-        out.append(Roll(float(t.width_mm), "", t.name or _pretty(src), int(t.weight or 0),
-                        t.media_name or t.media_type, t.remaining_m, "ipp", src, t.empty))
+        out.append(
+            Roll(
+                float(t.width_mm),
+                "",
+                t.name or _pretty(src),
+                int(t.weight or 0),
+                t.media_name or t.media_type,
+                t.remaining_m,
+                "ipp",
+                src,
+                t.empty,
+            )
+        )
     return out
 
 
@@ -95,9 +115,19 @@ def from_snmp(rows: list) -> list:
     for r in rows:
         if not r.get("roll") or not r.get("width_mm"):
             continue
-        out.append(Roll(float(r["width_mm"]), "", r.get("name") or r.get("description") or "",
-                        int(r.get("weight") or 0), r.get("media_name") or r.get("media_type") or "",
-                        r.get("remaining_m"), "snmp", r.get("name") or r.get("index", ""), bool(r.get("empty"))))
+        out.append(
+            Roll(
+                float(r["width_mm"]),
+                "",
+                r.get("name") or r.get("description") or "",
+                int(r.get("weight") or 0),
+                r.get("media_name") or r.get("media_type") or "",
+                r.get("remaining_m"),
+                "snmp",
+                r.get("name") or r.get("index", ""),
+                bool(r.get("empty")),
+            )
+        )
     return out
 
 
@@ -118,6 +148,7 @@ _cache: dict = {}
 def community_for(host: str) -> str:
     """SNMP-Community: Benutzereinstellung „snmp_community“ ({Adresse: Community}), sonst „public“."""
     from . import l10n
+
     d = l10n.load_settings().get("snmp_community") or {}
     return str(d.get(host) or d.get("*") or "public") if isinstance(d, dict) else "public"
 
@@ -130,6 +161,7 @@ def query(host: str, force: bool = False, community: str = "") -> RollState:
     if hit and not force and time.time() - hit[0] < CACHE_S:
         return hit[1]
     from . import ipp
+
     errors = []
     st = ipp.query(host, timeout=3.0)
     if st.error:
@@ -143,6 +175,7 @@ def query(host: str, force: bool = False, community: str = "") -> RollState:
         errors.append(tr("IPP: keine Rollen gemeldet"))
     try:
         from . import snmp
+
         rl = from_snmp(snmp.input_table(host, community or community_for(host)))
         if rl:
             res = RollState(rl, "snmp", "", host)
@@ -182,14 +215,23 @@ def slot_for(caps, device: str, index: int = 0) -> str:
     real = [c for c in cands if not re.search(r"auto", f"{c.value} {c.text}", re.I)] or cands
     s = device or ""
     m = re.search(r"(\d+)", s)
-    n = m.group(1) if m else ("1" if re.search(r"main|haupt|upper|oben", s, re.I) else
-                              "2" if re.search(r"alt|lower|unten", s, re.I) else None)
+    n = (
+        m.group(1)
+        if m
+        else (
+            "1"
+            if re.search(r"main|haupt|upper|oben", s, re.I)
+            else "2"
+            if re.search(r"alt|lower|unten", s, re.I)
+            else None
+        )
+    )
     if n:
         for c in real:
             if re.search(rf"(?<!\d){n}(?!\d)", f"{c.value} {c.text}"):
                 return c.value
         if n == "1" and len(real) == 1:
-            return real[0].value                       # nur „Rollenpapier“
+            return real[0].value  # nur „Rollenpapier“
     if index < len(real):
         return real[index].value
     return ""
@@ -200,6 +242,7 @@ def slot_for(caps, device: str, index: int = 0) -> str:
 # --------------------------------------------------------------------------- #
 def manual(printer: str) -> list:
     from . import l10n
+
     d = (l10n.load_settings().get(SETTINGS_KEY) or {}).get(printer) or []
     out = []
     for e in d:
@@ -215,10 +258,14 @@ def manual(printer: str) -> list:
 
 def save_manual(printer: str, rolls: list) -> None:
     from . import l10n
+
     st = l10n.load_settings()
     allr = dict(st.get(SETTINGS_KEY) or {})
-    allr[printer] = [{"width_mm": r.width_mm, "slot": r.slot, "name": r.name, "weight": r.weight, "media": r.media}
-                     for r in rolls if r.width_mm > 0]
+    allr[printer] = [
+        {"width_mm": r.width_mm, "slot": r.slot, "name": r.name, "weight": r.weight, "media": r.media}
+        for r in rolls
+        if r.width_mm > 0
+    ]
     st[SETTINGS_KEY] = allr
     l10n.save_settings(st)
 
@@ -242,6 +289,7 @@ def parse_widths(text: str) -> list:
 def model_of(printer: str) -> str:
     try:
         from . import printers
+
         for p in printers.list_printers():
             if p.name == printer:
                 return f"{p.model} {p.info}"
@@ -253,26 +301,33 @@ def model_of(printer: str) -> str:
 def query_roland(host: str) -> RollState:
     """Schneideplotter von Roland: eingelegte Materialbreite über „OH“ (Port 9100)."""
     from . import roland
+
     try:
         d = roland.query(host)
     except OSError as e:
         return RollState([], "none", str(e), host)
     if not d.get("width_mm"):
         return RollState([], "none", tr("Roland: keine Breite gemeldet"), host)
-    return RollState([Roll(float(d["width_mm"]), name=tr("Eingelegtes Material"), origin="roland",
-                           device="roland")], "roland", "", host)
+    return RollState(
+        [Roll(float(d["width_mm"]), name=tr("Eingelegtes Material"), origin="roland", device="roland")],
+        "roland",
+        "",
+        host,
+    )
 
 
-HOSTS_KEY = "plan_hosts"              # Benutzereinstellung: {Drucker: Geräteadresse}
+HOSTS_KEY = "plan_hosts"  # Benutzereinstellung: {Drucker: Geräteadresse}
 
 
 def user_host(printer: str) -> str:
     from . import l10n
+
     return str((l10n.load_settings().get(HOSTS_KEY) or {}).get(printer) or "").strip()
 
 
 def set_user_host(printer: str, host: str) -> None:
     from . import l10n
+
     st = l10n.load_settings()
     d = dict(st.get(HOSTS_KEY) or {})
     if host.strip():
@@ -285,7 +340,7 @@ def set_user_host(printer: str, host: str) -> None:
 
 def host_for(session, printer: str) -> str:
     """Geräteadresse: eigene Angabe (Rollen-Fenster) > Verwaltung (tray_host) > aus dem Anschluss/der Warteschlange.
-        Windows: „10.30.4.73-HPGL2“, Standard-TCP/IP-Anschluss (Registry), WSD-Anschluss (WSD-Geräteliste)."""
+    Windows: „10.30.4.73-HPGL2“, Standard-TCP/IP-Anschluss (Registry), WSD-Anschluss (WSD-Geräteliste)."""
     host = user_host(printer)
     if host:
         return host
@@ -295,11 +350,13 @@ def host_for(session, printer: str) -> str:
         return host
     try:
         from . import ipp, printers
+
         for p in printers.list_printers():
             if p.name != printer:
                 continue
             if sys.platform == "win32":
                 from .printers_win import port_host
+
                 return port_host(p.uri, p.name)
             return ipp.host_from_device_uri(p.uri)
     except Exception:
@@ -317,13 +374,19 @@ def for_printer(session, printer: str, live: bool = True, force: bool = False) -
     st = RollState([], "none")
     if live:
         from . import roland
+
         host = host_for(session, printer)
         if host and roland.is_roland(printer, model_of(printer)):
-            q = query_roland(host)                  # nie „OH“ an einen normalen Drucker schicken (druckt Text)
+            q = query_roland(host)  # nie „OH“ an einen normalen Drucker schicken (druckt Text)
         else:
             q = query(host, force=force)
-        st = RollState([Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host,  # Cache bleibt
-                       list(getattr(q, "catalog", []) or []))
+        st = RollState(
+            [Roll.from_dict(r.to_dict()) for r in q.rolls],
+            q.origin,
+            q.error,
+            q.host,  # Cache bleibt
+            list(getattr(q, "catalog", []) or []),
+        )
     if not st.rolls:
         mr = manual(printer)
         if mr:

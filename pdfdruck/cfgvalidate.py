@@ -8,6 +8,7 @@ Windows helper (UAC). Raises ValueError for anything that is not exactly as expe
 
 Deliberately without dependencies beyond the standard library.
 """
+
 from __future__ import annotations
 
 import base64
@@ -16,30 +17,64 @@ import re
 
 RX_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 RX_QUEUE_UNIX = re.compile(r"^[A-Za-z0-9_.@-]{1,127}$")
-RX_QUEUE_WIN = re.compile(r'^[^\x00-\x1f"<>|*?]{1,220}$')       # Windows: Leerzeichen, \\server\drucker …
+RX_QUEUE_WIN = re.compile(r'^[^\x00-\x1f"<>|*?]{1,220}$')  # Windows: Leerzeichen, \\server\drucker …
 RX_KEY = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 RX_VAL = re.compile(r"^[A-Za-z0-9_.,:+/@ -]{0,128}$")
 RX_NAME = re.compile(r"^[^\x00-\x1f]{1,64}$")
 MAX_DEVMODE = 96 * 1024
 
-LAYOUT = {"mode": ("fit", "actual", "shrink", "custom"),
-          "order": ("horizontal", "horizontal_rev", "vertical", "vertical_rev"),
-          "tile_mode": ("fit", "actual", "custom"),
-          "orientation": ("auto", "portrait", "landscape"),
-          "handling": ("size", "multiple", "booklet", "poster"),
-          "booklet_sides": ("both", "front", "back"), "booklet_binding": ("left", "right"),
-          "poster_mode": ("scale", "sheets", "target"),
-          "poster_target": ("A0", "A1", "A2", "A3", "A4", "B1", "B2", "B3", "custom"),
-          "sr_mode": ("auto", "grid"), "sr_orientation": ("auto", "portrait", "landscape"),
-          "sr_rotate": ("auto", "0", "90"), "sr_join": ("edge", "bleed", "gap"),
-          "custom_by": ("percent", "short", "long"), "sr_by": ("percent", "short", "long")}
-NUMS = {"custom_percent": (1, 1000), "custom_mm": (1, 5000), "sr_mm": (1, 5000), "nup": (1, 64), "cols": (0, 16), "rows": (0, 16),
-        "tile_percent": (1, 1000), "gap_mm": (0, 50), "booklet_gutter_mm": (0, 50),
-        "poster_percent": (1, 5000), "poster_cols": (1, 20), "poster_rows": (1, 20),
-        "poster_target_w_mm": (10, 5000), "poster_target_h_mm": (10, 5000), "poster_overlap_mm": (0, 50),
-        "sr_cols": (1, 50), "sr_rows": (1, 50), "sr_gap_mm": (0, 50), "sr_percent": (1, 1000), "bleed_mm": (0, 20)}
-BOOLS = ("borders", "autorotate", "center", "use_margins", "poster_marks", "poster_labels",
-         "poster_large_only", "mirror_h", "mirror_v", "step_repeat", "crop_marks")
+LAYOUT = {
+    "mode": ("fit", "actual", "shrink", "custom"),
+    "order": ("horizontal", "horizontal_rev", "vertical", "vertical_rev"),
+    "tile_mode": ("fit", "actual", "custom"),
+    "orientation": ("auto", "portrait", "landscape"),
+    "handling": ("size", "multiple", "booklet", "poster"),
+    "booklet_sides": ("both", "front", "back"),
+    "booklet_binding": ("left", "right"),
+    "poster_mode": ("scale", "sheets", "target"),
+    "poster_target": ("A0", "A1", "A2", "A3", "A4", "B1", "B2", "B3", "custom"),
+    "sr_mode": ("auto", "grid"),
+    "sr_orientation": ("auto", "portrait", "landscape"),
+    "sr_rotate": ("auto", "0", "90"),
+    "sr_join": ("edge", "bleed", "gap"),
+    "custom_by": ("percent", "short", "long"),
+    "sr_by": ("percent", "short", "long"),
+}
+NUMS = {
+    "custom_percent": (1, 1000),
+    "custom_mm": (1, 5000),
+    "sr_mm": (1, 5000),
+    "nup": (1, 64),
+    "cols": (0, 16),
+    "rows": (0, 16),
+    "tile_percent": (1, 1000),
+    "gap_mm": (0, 50),
+    "booklet_gutter_mm": (0, 50),
+    "poster_percent": (1, 5000),
+    "poster_cols": (1, 20),
+    "poster_rows": (1, 20),
+    "poster_target_w_mm": (10, 5000),
+    "poster_target_h_mm": (10, 5000),
+    "poster_overlap_mm": (0, 50),
+    "sr_cols": (1, 50),
+    "sr_rows": (1, 50),
+    "sr_gap_mm": (0, 50),
+    "sr_percent": (1, 1000),
+    "bleed_mm": (0, 20),
+}
+BOOLS = (
+    "borders",
+    "autorotate",
+    "center",
+    "use_margins",
+    "poster_marks",
+    "poster_labels",
+    "poster_large_only",
+    "mirror_h",
+    "mirror_v",
+    "step_repeat",
+    "crop_marks",
+)
 STRS = {"booklet_sheets": re.compile(r"^[0-9 ,;-]{0,64}$")}
 INTENTS = ("perceptual", "relative", "saturation", "absolute")
 CONVERTERS = ("auto", "libreoffice", "onlyoffice", "eurooffice", "msoffice")
@@ -61,6 +96,7 @@ def check_dirs(dirs, windows: bool):
     """Weitere Ablauf-Ordner: absolute Pfade (Windows auch \\\\server\\freigabe), höchstens 20."""
     import ntpath
     import posixpath
+
     if not isinstance(dirs, list) or len(dirs) > 20:
         raise ValueError("workflow_dirs: Liste mit höchstens 20 Ordnern erwartet")
     for d in dirs:
@@ -113,8 +149,13 @@ def check_materials(mats, profile_ids: set, windows: bool):
             raise ValueError(f"Material {m['id']}: Oberfläche ungültig")
         wh = m.get("white")
         if wh is not None:
-            if (not isinstance(wh, list) or len(wh) != 3 or not all(_num(x) for x in wh)
-                    or not 0 <= wh[0] <= 100 or not all(-128 <= x <= 128 for x in wh[1:])):
+            if (
+                not isinstance(wh, list)
+                or len(wh) != 3
+                or not all(_num(x) for x in wh)
+                or not 0 <= wh[0] <= 100
+                or not all(-128 <= x <= 128 for x in wh[1:])
+            ):
                 raise ValueError(f"Material {m['id']}: Papierweiß (Lab) ungültig")
         for k, lim in (("white_source", 200), ("notes", 2000)):
             t = m.get(k, "")
@@ -135,9 +176,20 @@ def check_materials(mats, profile_ids: set, windows: bool):
 def validate(cfg, icc_dir: str, windows: bool = False):
     if not isinstance(cfg, dict):
         raise ValueError("Konfiguration muss ein Objekt sein")
-    allowed = {"version", "default_printer", "layout", "printers", "color_profiles",
-               "allow_user_profile_choice", "image_default_dpi", "office_converter", "language",
-               "workflow_dirs", "print_log", "materials"}
+    allowed = {
+        "version",
+        "default_printer",
+        "layout",
+        "printers",
+        "color_profiles",
+        "allow_user_profile_choice",
+        "image_default_dpi",
+        "office_converter",
+        "language",
+        "workflow_dirs",
+        "print_log",
+        "materials",
+    }
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
@@ -202,8 +254,17 @@ def validate(cfg, icc_dir: str, windows: bool = False):
     for q, pc in printers.items():
         if not _queue_ok(q, windows) or not isinstance(pc, dict):
             raise ValueError(f"Drucker {q!r} ungültig")
-        unknown = set(pc) - {"options", "color_profile", "intent", "devmode", "presets",
-                             "trays", "tray_auto", "tray_live", "tray_host"}
+        unknown = set(pc) - {
+            "options",
+            "color_profile",
+            "intent",
+            "devmode",
+            "presets",
+            "trays",
+            "tray_auto",
+            "tray_live",
+            "tray_host",
+        }
         if unknown:
             raise ValueError(f"Drucker {q}: unbekannte Schlüssel {sorted(unknown)}")
         check_opts(pc.get("options", {}), f"Drucker {q}")
@@ -219,8 +280,15 @@ def validate(cfg, icc_dir: str, windows: bool = False):
         for t in trays:
             if not isinstance(t, dict) or set(t) - {"slot", "size", "weight", "media", "ipp"}:
                 raise ValueError(f"Drucker {q}: Fachzeile ungültig")
-            check_opts({"slot": t.get("slot", ""), "size": t.get("size", ""), "media": t.get("media", ""),
-                        "ipp": t.get("ipp", "")}, f"Drucker {q}, Fach")
+            check_opts(
+                {
+                    "slot": t.get("slot", ""),
+                    "size": t.get("size", ""),
+                    "media": t.get("media", ""),
+                    "ipp": t.get("ipp", ""),
+                },
+                f"Drucker {q}, Fach",
+            )
             w = t.get("weight", 0)
             if not isinstance(w, int) or isinstance(w, bool) or not 0 <= w <= 2000:
                 raise ValueError(f"Drucker {q}: Grammatur ungültig")

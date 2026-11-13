@@ -10,14 +10,13 @@ send their job via QLocalSocket to the running instance. That way, right-click
 printing uses the session settings made in the print dialog – until the last
 window is closed. If nothing is running, printing uses the admin defaults.
 """
+
 from __future__ import annotations
 
 from .l10n import tr
 
 import json
 import os
-import shutil
-import subprocess
 import sys
 
 from PySide6.QtCore import QObject, QTimer
@@ -57,28 +56,30 @@ class Controller(QObject):
         self.cfg = config.load()
         self.session = Session(self.cfg)
         self.windows = []
-        self.hosts = []                   # Fensterrahmen (je einer mit einem oder mehreren Reitern)
+        self.hosts = []  # Fensterrahmen (je einer mit einem oder mehreren Reitern)
         self.server: QLocalServer | None = None
-        self.view_single = True       # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
+        self.view_single = True  # Einzelseite mit Springen als Standard (Ansicht umschaltbar)
         self._start_stallwatch()
         self._ensure_sendto()
 
     @staticmethod
     def _ensure_sendto():
         """Windows: „Senden an → Passermark – zusammenführen“ für den angemeldeten Benutzer (einmalig).
-            Übergibt alle markierten Dateien auf einmal an EINEN Prozess – für große Mengen (110 Pläne) viel
-            schneller als das Kontextmenü, bei dem Explorer je Datei einen Prozess startet."""
+        Übergibt alle markierten Dateien auf einmal an EINEN Prozess – für große Mengen (110 Pläne) viel
+        schneller als das Kontextmenü, bei dem Explorer je Datei einen Prozess startet."""
         if os.name != "nt" or not getattr(sys, "frozen", False):
             return
         try:
             from . import l10n
+
             st = l10n.load_settings()
             if st.get("sendto_created"):
-                return                           # schon angelegt (oder bewusst gelöscht) – nicht wieder
+                return  # schon angelegt (oder bewusst gelöscht) – nicht wieder
             folder = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "SendTo")
             if not os.path.isdir(folder):
                 return
             import win32com.client
+
             lnk = os.path.join(folder, tr("Passermark – zusammenführen") + ".lnk")
             sc = win32com.client.Dispatch("WScript.Shell").CreateShortCut(lnk)
             sc.TargetPath = sys.executable
@@ -95,7 +96,8 @@ class Controller(QObject):
         """Ruckler-Protokoll (ruckler.txt im Ordner der Fehlerprotokolle): Hänger der Oberfläche mit Ursache."""
         try:
             from . import crashlog
-            if not crashlog.enabled():               # Fehlerprotokolle abgeschaltet: auch keine Ruckler-Meldungen
+
+            if not crashlog.enabled():  # Fehlerprotokolle abgeschaltet: auch keine Ruckler-Meldungen
                 self._stallwatch = None
                 return
             from .gui.renderclient import RenderService
@@ -106,6 +108,7 @@ class Controller(QObject):
                 # diesem Thread, der Render-Prozess bekommt nie Aufträge – Seiten blieben weiß)
                 svc = RenderService._instances.get("render")
                 return "Vorschau im Programm" if svc is not None and not svc.ok else ""
+
             self._stallwatch = StallWatch(os.path.join(crashlog.log_dir(), "ruckler.txt"), ctx).start(self)
         except Exception:
             self._stallwatch = None
@@ -117,10 +120,11 @@ class Controller(QObject):
     def cache_dir(self) -> str:
         if not hasattr(self, "_cache"):
             import time
+
             self._cache = os.path.join(_platform.user_cache_dir(), "dokumente")
             os.makedirs(self._cache, exist_ok=True)
             self._cache_files = []
-            for f in os.listdir(self._cache):          # leftovers from earlier sessions (older than 2 days)
+            for f in os.listdir(self._cache):  # leftovers from earlier sessions (older than 2 days)
                 p = os.path.join(self._cache, f)
                 try:
                     if time.time() - os.path.getmtime(p) > 2 * 86400:
@@ -132,6 +136,7 @@ class Controller(QObject):
 
     def cache_file(self, name: str) -> str:
         import re
+
         d = self.cache_dir()
         base, ext = os.path.splitext(re.sub(r'[\\/:*?"<>|]+', "_", name) or "Dokument.pdf")
         path, i = os.path.join(d, base + ext), 2
@@ -222,7 +227,7 @@ class Controller(QObject):
             return
         dlg = getattr(self, "_merge_dlg", None)
         if cmd == "merge" and dlg is not None:
-            dlg.add_paths(files)                 # Zusammenführen-Dialog ist schon offen: dort dazu (kein zweiter)
+            dlg.add_paths(files)  # Zusammenführen-Dialog ist schon offen: dort dazu (kein zweiter)
             return
         if not hasattr(self, "_pending"):
             self._pending = {}
@@ -231,7 +236,7 @@ class Controller(QObject):
         for f in files:
             if f not in lst:
                 lst.append(f)
-        self._batch.start()                     # each new file extends the collection window
+        self._batch.start()  # each new file extends the collection window
 
     def _flush(self):
         pending, self._pending = self._pending, {}
@@ -248,36 +253,41 @@ class Controller(QObject):
             else:
                 self.open_paths(files)
         if not self.windows and not self.plan_windows():
-            QApplication.instance().quit()     # nichts mehr offen (reiner Druck/Reparatur/abgebrochen): fertig
+            QApplication.instance().quit()  # nichts mehr offen (reiner Druck/Reparatur/abgebrochen): fertig
 
     # ---------------------------------------------------------------- #
     def plan_window(self, kind: str = "plan", entry: dict | None = None, files=None):
         """Plan-/Posterdruck als eigenes Fenster – bleibt offen, wenn die Dokumentfenster geschlossen werden."""
         from .gui.plandialog import open_window
+
         return open_window(self.session, self, kind, entry, [os.path.abspath(f) for f in files or []])
 
     @staticmethod
     def plan_windows() -> list:
         from .gui.plandialog import open_windows
+
         return open_windows()
 
     # ---------------------------------------------------------------- #
     @staticmethod
     def tabs_enabled() -> bool:
         from . import l10n
+
         return bool(l10n.load_settings().get("open_in_tabs", True))
 
     def new_host(self):
         from .gui.tabhost import TabHost
+
         h = TabHost(self)
         self.hosts.append(h)
         return h
 
     def new_window(self, tab_of=None):
         """New document window. tab_of = window it originates from: then as a tab next to it
-                (setting "Open inside the program as a tab"). Otherwise a standalone window.
+        (setting "Open inside the program as a tab"). Otherwise a standalone window.
         """
         from .gui.viewer import MainWindow
+
         w = MainWindow(self)
         self.windows.append(w)
         w.destroyed.connect(lambda *_: self.windows.remove(w) if w in self.windows else None)
@@ -306,36 +316,37 @@ class Controller(QObject):
     def blocked(w) -> bool:
         """Ist das Fenster (bzw. sein Rahmen mit allen Reitern) gerade durch einen offenen Dialog gesperrt?"""
         from PySide6.QtWidgets import QDialog
+
         top = getattr(w, "_host", None) or w
         try:
             return any(d.isVisible() and d.isModal() for d in top.findChildren(QDialog))
-        except Exception:                        # noqa: BLE001 – im Zweifel nicht gesperrt
+        except Exception:  # noqa: BLE001 – im Zweifel nicht gesperrt
             return False
 
     def _target_window(self, tab_of=None):
-        if tab_of is None:                       # from outside (double-click, "Open with"): use an empty window –
-            for w in self.windows:               # aber nicht in einem Rahmen, in dem gerade ein Werkzeug offen ist
+        if tab_of is None:  # from outside (double-click, "Open with"): use an empty window –
+            for w in self.windows:  # aber nicht in einem Rahmen, in dem gerade ein Werkzeug offen ist
                 if w.doc is None and not self.blocked(w):
                     return w
             return self.new_window()
-        if self.blocked(tab_of):                 # result/open from a locked window: its own window
+        if self.blocked(tab_of):  # result/open from a locked window: its own window
             return self.new_window()
         if getattr(tab_of, "doc", 1) is None and tab_of in self.windows:
-            return tab_of                        # leeres Fenster selbst nutzen (kein unsichtbarer leerer Reiter)
+            return tab_of  # leeres Fenster selbst nutzen (kein unsichtbarer leerer Reiter)
         return self.new_window(tab_of)
 
     def open_paths(self, paths: list[str], tab_of=None):
         """Open files. tab_of = window inside the program (Open button, drag & drop, result) -> as a tab;
-                otherwise (program start, double-click in the file manager) standalone windows.
+        otherwise (program start, double-click in the file manager) standalone windows.
         """
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p)]
         imgs = [p for p in paths if images.is_image(p)]
         rest = [p for p in paths if not images.is_image(p)]
         last = None
-        if imgs:   # mehrere Bilder auf einmal -> ein Dokument
+        if imgs:  # mehrere Bilder auf einmal -> ein Dokument
             last = self._target_window(tab_of)
             last.open_images(imgs)
-        for p in rest:   # PDF direkt, Office wird umgewandelt
+        for p in rest:  # PDF direkt, Office wird umgewandelt
             last = self._target_window(tab_of)
             last.open_any(p)
         if not self.windows:
@@ -344,9 +355,10 @@ class Controller(QObject):
 
     def merge_paths(self, paths: list[str]):
         """Right-click "Merge into one PDF": check the order, then merge. Dateien, die noch nachkommen
-            (Explorer startet je Datei einen Prozess), landen im selben, schon offenen Dialog."""
+        (Explorer startet je Datei einen Prozess), landen im selben, schon offenen Dialog."""
         from . import convert
         from .gui.viewer import MergeDialog
+
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p) and convert.is_supported(p)]
         if not paths:
             return
@@ -362,6 +374,7 @@ class Controller(QObject):
 
     def merge_into_window(self, paths: list[str], window=None):
         from .gui.viewer import merge_files
+
         w = window or self._target_window()
         doc, notes = merge_files(w, self, paths)
         if doc is None:
@@ -375,7 +388,9 @@ class Controller(QObject):
         self.show_window(w)
         conv = [n for n in notes if "umgewandelt" in n]
         skip = [n for n in notes if tr("übersprungen") in n]
-        msg = tr("{0} Datei(en), {1} Seiten zusammengeführt – noch nicht gespeichert.").format(len(paths) - len(skip), len(doc))
+        msg = tr("{0} Datei(en), {1} Seiten zusammengeführt – noch nicht gespeichert.").format(
+            len(paths) - len(skip), len(doc)
+        )
         if skip:
             msg += "  " + "; ".join(skip)
         w.statusBar().showMessage(msg, 15000)
@@ -384,6 +399,7 @@ class Controller(QObject):
 
     def repair_paths(self, paths: list[str]):
         from .gui.repairdialog import RepairDialog
+
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p)]
         if not paths:
             return
@@ -403,10 +419,15 @@ class Controller(QObject):
                 except Exception as e:
                     if "password" in str(e).lower():
                         from PySide6.QtWidgets import QInputDialog, QLineEdit
+
                         password, accepted = QInputDialog.getText(
-                            self.windows[-1] if self.windows else None, tr("Passwortgeschützt"),
-                            tr("{0}Passwort für „{1}“:").format(tr('Falsches Passwort. ') if password else '', os.path.basename(p)),
-                            QLineEdit.EchoMode.Password)
+                            self.windows[-1] if self.windows else None,
+                            tr("Passwortgeschützt"),
+                            tr("{0}Passwort für „{1}“:").format(
+                                tr("Falsches Passwort. ") if password else "", os.path.basename(p)
+                            ),
+                            QLineEdit.EchoMode.Password,
+                        )
                         if accepted:
                             continue
                         errors.append(tr("{0}: passwortgeschützt – übersprungen").format(os.path.basename(p)))

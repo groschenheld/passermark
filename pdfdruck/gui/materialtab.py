@@ -4,21 +4,40 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Materials (papers): name, weight, surface, measured paper white, the fitting profile per printer – with
-    suggestions (ΔE of the paper white, surface, printer).
+suggestions (ΔE of the paper white, surface, printer).
 
-    Two homes, same tab:
-    * AdminHost – Verwaltung → Standardeinstellungen → Materialien (for everybody, saved with admin rights)
-    * UserHost  – Farbe → Papiere und Messungen (own materials, no admin rights, saved right away)"""
+Two homes, same tab:
+* AdminHost – Verwaltung → Standardeinstellungen → Materialien (for everybody, saved with admin rights)
+* UserHost  – Farbe → Papiere und Messungen (own materials, no admin rights, saved right away)"""
+
 from __future__ import annotations
 
 import os
 import re
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
-                               QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox,
-                               QPlainTextEdit, QPushButton, QSpinBox, QTableWidget, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QTableWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import colorlab, config
 from ..l10n import tr
@@ -30,6 +49,7 @@ NONE = ""
 
 class AdminHost:
     """Materialien der Verwaltung (AdminDialog: cfg, plist, new_icc, import_profile_file)."""
+
     user_mode = False
 
     def __init__(self, admin):
@@ -48,9 +68,10 @@ class AdminHost:
         return [(p["id"], p.get("name") or p["id"]) for p in self.cfg.get("color_profiles", [])]
 
     def candidates(self) -> list:
-        view = dict(self.cfg)                         # neu importierte Profile liegen noch bei der Quelle
-        view["color_profiles"] = [dict(p, file=self.a.new_icc.get(p["id"], p.get("file", "")))
-                                  for p in self.cfg.get("color_profiles", [])]
+        view = dict(self.cfg)  # neu importierte Profile liegen noch bei der Quelle
+        view["color_profiles"] = [
+            dict(p, file=self.a.new_icc.get(p["id"], p.get("file", ""))) for p in self.cfg.get("color_profiles", [])
+        ]
         return colorlab.candidates(view)
 
     def take(self, cand: dict) -> str:
@@ -66,15 +87,17 @@ class AdminHost:
         return mid
 
     def changed(self):
-        pass                                          # gespeichert wird mit „Speichern“ des Admin-Dialogs
+        pass  # gespeichert wird mit „Speichern“ des Admin-Dialogs
 
 
 class UserHost:
     """Eigene Materialien (usercolor.py) – Profile: die der Verwaltung (ID) oder eine ICC-Datei (Pfad)."""
+
     user_mode = True
 
     def __init__(self, parent, cfg: dict):
         from .. import usercolor
+
         self.parent = parent
         self.cfg = dict(cfg or {}, _no_user_materials=True)
         self._mats = usercolor.load_materials()
@@ -87,14 +110,18 @@ class UserHost:
     def printers(self) -> list:
         try:
             from .. import printers
+
             return [p.name for p in printers.list_printers()]
         except Exception:
             return []
 
     def profile_items(self) -> list:
         """Verwaltung (ID) + installierte Profile (Pfad) + bereits zugeordnete Dateien."""
-        items = [(p["id"], tr("Verwaltung: {0}").format(p.get("name") or p["id"]))
-                 for p in self.cfg.get("color_profiles", []) if p.get("file") and os.path.isfile(p["file"])]
+        items = [
+            (p["id"], tr("Verwaltung: {0}").format(p.get("name") or p["id"]))
+            for p in self.cfg.get("color_profiles", [])
+            if p.get("file") and os.path.isfile(p["file"])
+        ]
         seen = set()
         for c in colorlab.candidates(self.cfg):
             if not c["admin"]:
@@ -115,10 +142,12 @@ class UserHost:
 
     def new_id(self, name: str) -> str:
         from .. import usercolor
+
         return usercolor.new_id(name, {m["id"] for m in self._mats})
 
     def changed(self):
         from .. import usercolor
+
         try:
             usercolor.save_materials(self._mats)
             self.error = ""
@@ -135,8 +164,12 @@ class MaterialTab(QWidget):
         self._loading = False
         outer = QVBoxLayout(self)
         if not self.host.user_mode:
-            note = QLabel(tr("Diese Papiere gelten für alle Benutzer. Eigene Papiere messen geht ohne Adminrechte "
-                             "unter Farbe → Papiere und Messungen."))
+            note = QLabel(
+                tr(
+                    "Diese Papiere gelten für alle Benutzer. Eigene Papiere messen geht ohne Adminrechte "
+                    "unter Farbe → Papiere und Messungen."
+                )
+            )
             note.setWordWrap(True)
             note.setStyleSheet(f"color: {theme.MUTED};")
             outer.addWidget(note)
@@ -144,23 +177,33 @@ class MaterialTab(QWidget):
         outer.addLayout(h, 1)
         left = QVBoxLayout()
         self.btn_measure_new = QPushButton(tr("Papier messen …"))
-        self.btn_measure_new.setToolTip(tr("Neues Papier anlegen und gleich das Papierweiß bestimmen – mit Messgerät "
-                                           "(X-Rite, über ArgyllCMS), aus einer Messdatei oder von Hand"))
+        self.btn_measure_new.setToolTip(
+            tr(
+                "Neues Papier anlegen und gleich das Papierweiß bestimmen – mit Messgerät "
+                "(X-Rite, über ArgyllCMS), aus einer Messdatei oder von Hand"
+            )
+        )
         self.btn_measure_new.clicked.connect(self._new_and_measure)
         left.addWidget(self.btn_measure_new)
         self.lst = QListWidget()
         self.lst.setToolTip(tr("Registrierte Papiere – L = gemessene Helligkeit des Papierweiß"))
         left.addWidget(self.lst, 1)
-        self.lbl_empty = QLabel(tr("Noch kein Papier angelegt.\n\n1. „Neu …“ (oder „Papier messen …“) und einen Namen "
-                                   "vergeben, z. B. „Munken Pure 120 g“.\n2. Oberfläche wählen.\n3. Papierweiß messen "
-                                   "oder eingeben.\n4. Unter „Vorschläge“ das passende Profil übernehmen."))
+        self.lbl_empty = QLabel(
+            tr(
+                "Noch kein Papier angelegt.\n\n1. „Neu …“ (oder „Papier messen …“) und einen Namen "
+                "vergeben, z. B. „Munken Pure 120 g“.\n2. Oberfläche wählen.\n3. Papierweiß messen "
+                "oder eingeben.\n4. Unter „Vorschläge“ das passende Profil übernehmen."
+            )
+        )
         self.lbl_empty.setWordWrap(True)
         self.lbl_empty.setStyleSheet(f"color: {theme.ACCENT};")
         left.addWidget(self.lbl_empty)
         row = QHBoxLayout()
-        for text, fn, tip in ((tr("Neu …"), self._new, tr("Neues Papier anlegen")),
-                              (tr("Kopie"), self._copy, tr("Gewähltes Papier kopieren (z. B. andere Grammatur)")),
-                              (tr("Entfernen"), self._delete, tr("Gewähltes Papier entfernen"))):
+        for text, fn, tip in (
+            (tr("Neu …"), self._new, tr("Neues Papier anlegen")),
+            (tr("Kopie"), self._copy, tr("Gewähltes Papier kopieren (z. B. andere Grammatur)")),
+            (tr("Entfernen"), self._delete, tr("Gewähltes Papier entfernen")),
+        ):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -180,8 +223,12 @@ class MaterialTab(QWidget):
         self.spn_weight.setSpecialValueText(tr("–"))
         f.addRow(tr("Grammatur:"), self.spn_weight)
         self.cmb_surface = QComboBox()
-        self.cmb_surface.setToolTip(tr("Gestrichen (glatt, Bilderdruck) oder ungestrichen (Offset-/Naturpapier) – "
-                                       "entscheidet, welche Profile in Frage kommen"))
+        self.cmb_surface.setToolTip(
+            tr(
+                "Gestrichen (glatt, Bilderdruck) oder ungestrichen (Offset-/Naturpapier) – "
+                "entscheidet, welche Profile in Frage kommen"
+            )
+        )
         fill_combo(self.cmb_surface, [(s, colorlab.surface_label(s)) for s in colorlab.SURFACES], "")
         f.addRow(tr("Oberfläche:"), self.cmb_surface)
         wr = QHBoxLayout()
@@ -202,8 +249,12 @@ class MaterialTab(QWidget):
         self.lbl_src.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow("", self.lbl_src)
         self.cmb_intent = QComboBox()
-        self.cmb_intent.setToolTip(tr("Wie Farben außerhalb des Druckbaren behandelt werden – „Relativ farbmetrisch“ "
-                                      "passt fast immer, „Wahrnehmungsorientiert“ für Fotos mit sehr bunten Farben"))
+        self.cmb_intent.setToolTip(
+            tr(
+                "Wie Farben außerhalb des Druckbaren behandelt werden – „Relativ farbmetrisch“ "
+                "passt fast immer, „Wahrnehmungsorientiert“ für Fotos mit sehr bunten Farben"
+            )
+        )
         fill_combo(self.cmb_intent, [("", tr("wie beim Profil"))] + list(config.INTENTS.items()), "")
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
         self.ed_notes = QPlainTextEdit()
@@ -213,8 +264,12 @@ class MaterialTab(QWidget):
 
         self.tbl = QTableWidget(0, 2)
         self.tbl.setHorizontalHeaderLabels([tr("Drucker"), tr("Profil")])
-        self.tbl.setToolTip(tr("Welches Profil gilt, wenn dieses Papier auf dem Drucker liegt. „Alle Drucker“ ist die "
-                               "Druckbedingung für Softproof, CMYK-Umwandlung und die Druckerei."))
+        self.tbl.setToolTip(
+            tr(
+                "Welches Profil gilt, wenn dieses Papier auf dem Drucker liegt. „Alle Drucker“ ist die "
+                "Druckbedingung für Softproof, CMYK-Umwandlung und die Druckerei."
+            )
+        )
         self.tbl.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.tbl.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tbl.verticalHeader().setVisible(False)
@@ -223,8 +278,12 @@ class MaterialTab(QWidget):
         right.addWidget(self.box)
 
         sbox = QGroupBox(tr("Vorschläge"))
-        sbox.setToolTip(tr("Profile nach Ähnlichkeit des Papierweiß (ΔE: unter 2 kaum, über 4 deutlich sichtbar), "
-                           "gleicher Oberfläche und Drucker – beste zuerst"))
+        sbox.setToolTip(
+            tr(
+                "Profile nach Ähnlichkeit des Papierweiß (ΔE: unter 2 kaum, über 4 deutlich sichtbar), "
+                "gleicher Oberfläche und Drucker – beste zuerst"
+            )
+        )
         sv = QVBoxLayout(sbox)
         r = QHBoxLayout()
         r.addWidget(QLabel(tr("für:")))
@@ -307,15 +366,20 @@ class MaterialTab(QWidget):
                 return
             self.ed_name.setText(m.get("name", ""))
             self.spn_weight.setValue(int(m.get("weight") or 0))
-            fill_combo(self.cmb_surface, [(s, colorlab.surface_label(s)) for s in colorlab.SURFACES],
-                       m.get("surface", ""))
-            fill_combo(self.cmb_intent, [("", tr("wie beim Profil"))] + list(config.INTENTS.items()),
-                       m.get("intent", ""))
+            fill_combo(
+                self.cmb_surface, [(s, colorlab.surface_label(s)) for s in colorlab.SURFACES], m.get("surface", "")
+            )
+            fill_combo(
+                self.cmb_intent, [("", tr("wie beim Profil"))] + list(config.INTENTS.items()), m.get("intent", "")
+            )
             self.ed_notes.setPlainText(m.get("notes", ""))
             self._show_white(m)
             rows = [("*", tr("Alle Drucker"))] + [(q, q) for q in self._printers()]
-            rows += [(q, q + tr(" (nicht installiert)")) for q in (m.get("profiles") or {})
-                     if q != "*" and q not in self._printers()]
+            rows += [
+                (q, q + tr(" (nicht installiert)"))
+                for q in (m.get("profiles") or {})
+                if q != "*" and q not in self._printers()
+            ]
             profs = [(NONE, "–")] + self._profiles()
             self.tbl.setRowCount(len(rows))
             for i, (q, label) in enumerate(rows):
@@ -340,8 +404,11 @@ class MaterialTab(QWidget):
     def _show_white(self, m):
         w = m.get("white")
         self.lbl_white.setText(colorlab.fmt_lab(w) if w else tr("nicht gemessen"))
-        self.lbl_src.setText(m.get("white_source", "") if w else tr(
-            "Ohne gemessenes Papierweiß gibt es nur Vorschläge nach Oberfläche und Drucker."))
+        self.lbl_src.setText(
+            m.get("white_source", "")
+            if w
+            else tr("Ohne gemessenes Papierweiß gibt es nur Vorschläge nach Oberfläche und Drucker.")
+        )
 
     def _store(self, *_):
         if self._loading:
@@ -414,6 +481,7 @@ class MaterialTab(QWidget):
         if m is None:
             return
         import copy
+
         n = copy.deepcopy(m)
         n["name"] = (m.get("name") or m["id"])[:56] + tr(" (Kopie)")
         n["id"] = self._new_id(n["name"])
@@ -425,8 +493,12 @@ class MaterialTab(QWidget):
         m = self.cur()
         if m is None:
             return
-        if QMessageBox.question(self, tr("Material entfernen"), tr("„{0}“ entfernen?").format(m.get("name") or m["id"])) \
-                != QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(
+                self, tr("Material entfernen"), tr("„{0}“ entfernen?").format(m.get("name") or m["id"])
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         self.mats.remove(m)
         self.host.changed()
@@ -434,6 +506,7 @@ class MaterialTab(QWidget):
 
     def _measure(self):
         from .measuredialog import MeasureDialog
+
         m = self.cur()
         if m is None:
             return
@@ -480,8 +553,9 @@ class MaterialTab(QWidget):
         res = colorlab.suggest(m, self.candidates(), "" if q == "*" else q, limit=8)
         for r in res:
             prefix = "" if r["admin"] else (tr("Standard: ") if r.get("std") else tr("System: "))
-            it = QTreeWidgetItem([prefix + r["name"], "–" if r["de"] is None else f"{r['de']:.1f}", r["verdict"],
-                                  r["why"]])
+            it = QTreeWidgetItem(
+                [prefix + r["name"], "–" if r["de"] is None else f"{r['de']:.1f}", r["verdict"], r["why"]]
+            )
             it.setData(0, Qt.ItemDataRole.UserRole, r)
             it.setToolTip(0, r["file"] or tr("Wird beim Übernehmen von registry.color.org geholt"))
             it.setToolTip(3, r["why"])
@@ -497,14 +571,20 @@ class MaterialTab(QWidget):
 
     def _fetch_standard(self, key: str) -> str:
         from .. import usercolor
+
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             return usercolor.download_standard(key)
-        except Exception as e:                                  # noqa: BLE001 – Netz, Proxy, Antwort
-            QMessageBox.warning(self, tr("Standardprofil"), tr(
-                "Konnte das Profil nicht holen: {0}\n\nOhne Internet: die Datei {1}.icc von registry.color.org auf "
-                "einem anderen Rechner laden und unter „Profil je Drucker“ bzw. im Admin unter Farbprofile "
-                "einbinden.").format(e, key))
+        except Exception as e:  # noqa: BLE001 – Netz, Proxy, Antwort
+            QMessageBox.warning(
+                self,
+                tr("Standardprofil"),
+                tr(
+                    "Konnte das Profil nicht holen: {0}\n\nOhne Internet: die Datei {1}.icc von registry.color.org auf "
+                    "einem anderen Rechner laden und unter „Profil je Drucker“ bzw. im Admin unter Farbprofile "
+                    "einbinden."
+                ).format(e, key),
+            )
             return ""
         finally:
             QApplication.restoreOverrideCursor()
@@ -521,6 +601,7 @@ class MaterialTab(QWidget):
                 return
             r["file"] = path
             from .. import colorlab as _cl
+
             r["name"] = _cl.profile_desc(path)
         ref = self.host.take(r)
         if not ref:

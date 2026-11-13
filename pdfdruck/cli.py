@@ -36,6 +36,7 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
 
 Return value: 0 = ok, 1 = error, 2 = wrong invocation / invalid workflow, 130 = cancelled (Ctrl+C).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -97,7 +98,7 @@ class _Reporter:
         self.last = ""
 
     def emit(self, **ev):
-        sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")    # reines ASCII: egal welche Konsolen-Codepage
+        sys.stdout.write(json.dumps(ev, ensure_ascii=True) + "\n")  # reines ASCII: egal welche Konsolen-Codepage
         sys.stdout.flush()
 
     def progress(self, done, total, text=""):
@@ -119,7 +120,7 @@ class _Reporter:
 
 def _rebase_paths(settings: dict, base: str) -> None:
     """Relative file references in the preset (e.g. csv_path) are relative to the preset file if it does not
-        exist in the current folder – so bundled presets work from anywhere.
+    exist in the current folder – so bundled presets work from anywhere.
     """
     for key in ("csv_path",):
         v = settings.get(key)
@@ -134,6 +135,7 @@ def _data_cmd(a) -> int:
     """Data tables for variable data: show kinds, write an empty template, validate a table."""
     from . import datakinds, vdp
     from .l10n import tr
+
     if a.job == "datenarten":
         for kid in datakinds.IDS:
             k = datakinds.get(kid)
@@ -149,6 +151,7 @@ def _data_cmd(a) -> int:
             print(a.output)
         else:
             import csv as _csv
+
             w = _csv.writer(sys.stdout, delimiter=";", lineterminator="\n")
             w.writerow(cols)
             ex = datakinds.example_row(a.input)
@@ -167,7 +170,7 @@ def _data_cmd(a) -> int:
         return EXIT_ERROR
     print(tr("{0}: {1} Datensätze, Art {2}").format(a.input, len(rows), kind))
     for r, col, msg in probs:
-        where = tr("Zeile {0}").format(r + 2) if r >= 0 else tr("Tabelle")      # +2: header line, counted from 1
+        where = tr("Zeile {0}").format(r + 2) if r >= 0 else tr("Tabelle")  # +2: header line, counted from 1
         print(f"  {where}{' · ' + col if col else ''}: {msg}")
     if not probs:
         print("  " + tr("Alles in Ordnung"))
@@ -176,20 +179,40 @@ def _data_cmd(a) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     from .l10n import tr
-    p = argparse.ArgumentParser(prog="passermark-cli", description=tr("Passermark – Aufträge ohne Oberfläche"),
-                                epilog=tr("Abläufe und Schnittstelle für andere Programme: version, schema, check, run, "
-                                          "inspect – z. B. passermark-cli run --help")
-                                + " · printers, caps, workflows")
-    p.add_argument("job", help=tr("Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele, datenarten, datenvorlage, "
-                           "datencheck"))
+
+    p = argparse.ArgumentParser(
+        prog="passermark-cli",
+        description=tr("Passermark – Aufträge ohne Oberfläche"),
+        epilog=tr(
+            "Abläufe und Schnittstelle für andere Programme: version, schema, check, run, "
+            "inspect – z. B. passermark-cli run --help"
+        )
+        + " · printers, caps, workflows",
+    )
+    p.add_argument(
+        "job",
+        help=tr(
+            "Auftrag (z. B. cutcontour) oder: list, settings, presets, beispiele, datenarten, datenvorlage, datencheck"
+        ),
+    )
     p.add_argument("input", nargs="?", help=tr("Eingabe-PDF (bei 'settings': Auftrag)"))
     p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF"))
     p.add_argument("--preset", help=tr("Einstellungen: JSON-Datei oder Name eines im Programm gespeicherten Presets"))
-    p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
-                   help=tr("einzelne Einstellung, auch verschachtelt (detect.tolerance=40); mehrfach möglich"))
+    p.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar=tr("SCHLÜSSEL=WERT"),
+        help=tr("einzelne Einstellung, auch verschachtelt (detect.tolerance=40); mehrfach möglich"),
+    )
     p.add_argument("--pages", help=tr("nur diese Seiten, z. B. 1,3-5"))
-    p.add_argument("--json-progress", "--json", dest="json_progress", action="store_true",
-                   help=tr("Fortschritt und Ergebnis als JSON-Zeilen"))
+    p.add_argument(
+        "--json-progress",
+        "--json",
+        dest="json_progress",
+        action="store_true",
+        help=tr("Fortschritt und Ergebnis als JSON-Zeilen"),
+    )
     p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     return p
 
@@ -206,17 +229,20 @@ def _safe_streams():
 
 def main(argv: list[str] | None = None) -> int:
     import faulthandler
-    faulthandler.enable()                   # hard crash -> output to stderr (ends up in the GUI log)
+
+    faulthandler.enable()  # hard crash -> output to stderr (ends up in the GUI log)
     if argv is None:
         argv = sys.argv[1:]
-    if argv[:1] == ["render-server"]:       # intern: Render-Prozess der Seitenansicht (kein Auftrag)
+    if argv[:1] == ["render-server"]:  # intern: Render-Prozess der Seitenansicht (kein Auftrag)
         from .renderproc import main as render_main
+
         return render_main()
     _safe_streams()
     if argv[:1] and argv[0] in API_COMMANDS:
         return api_main(argv[0], argv[1:])
     from . import core
     from .l10n import tr
+
     parser = build_parser()
     try:
         a = parser.parse_args(argv)
@@ -244,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.job == "beispiele":
         from . import examples
+
         try:
             d = examples.install(a.input)
         except OSError as e:
@@ -251,12 +278,16 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_ERROR
         print(d)
         print("  " + tr("Presets: {0}").format(", ".join(n for _, n in examples.EXAMPLES)))
-        print("  passermark-cli vdp \"{0}\" aus.pdf --preset \"{1}\"".format(
-            os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]))
+        print(
+            '  passermark-cli vdp "{0}" aus.pdf --preset "{1}"'.format(
+                os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]
+            )
+        )
         return EXIT_OK
 
     if a.job == "presets":
         from . import presets
+
         kinds = [a.input] if a.input else list(core.JOBS)
         for kind in kinds:
             try:
@@ -272,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def fail(msg, code, raw=None):
         rep.finish_line()
-        if a.json_progress:                     # for programs without an "Error:" prefix (the window is already titled that way)
+        if a.json_progress:  # for programs without an "Error:" prefix (the window is already titled that way)
             rep.emit(event="cancelled" if code == EXIT_CANCELLED else "error", message=raw or msg)
         else:
             print(msg, file=sys.stderr)
@@ -280,8 +311,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if a.job not in core.JOBS:
         if a.job.lower().endswith(".json"):
-            return fail(tr("„{0}“ ist kein Auftrag. Ablauf ausführen mit: passermark-cli run {0} --in <datei.pdf>")
-                        .format(a.job), EXIT_USAGE)
+            return fail(
+                tr("„{0}“ ist kein Auftrag. Ablauf ausführen mit: passermark-cli run {0} --in <datei.pdf>").format(
+                    a.job
+                ),
+                EXIT_USAGE,
+            )
         return fail(tr("Unbekannter Auftrag: {0}").format(a.job) + " (passermark-cli list)", EXIT_USAGE)
     if not a.input or not a.output:
         return fail(tr("Eingabe und Ausgabe angeben:") + " passermark-cli <job> <input.pdf> <output.pdf>", EXIT_USAGE)
@@ -291,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = {}
         if a.preset:
             from . import presets
+
             ppath = presets.resolve(a.job, a.preset)
             kind, settings = core.load_settings(ppath)
             if kind != a.job:
@@ -306,19 +342,27 @@ def main(argv: list[str] | None = None) -> int:
 
     def on_term(_sig, _frm):
         stop["flag"] = True
+
     try:
         signal.signal(signal.SIGTERM, on_term)
     except (ValueError, AttributeError, OSError):
         pass
     try:
-        r = core.run_job(a.job, a.input, a.output, settings, {"pages": pages} if pages else None,
-                         progress=rep.progress, cancel=lambda: stop["flag"])
+        r = core.run_job(
+            a.job,
+            a.input,
+            a.output,
+            settings,
+            {"pages": pages} if pages else None,
+            progress=rep.progress,
+            cancel=lambda: stop["flag"],
+        )
     except (core.Cancelled, KeyboardInterrupt):
         for p in (a.output + ".part", a.output + ".part.pdf"):
             if os.path.exists(p):
                 os.remove(p)
         return fail(tr("Abgebrochen."), EXIT_CANCELLED)
-    except Exception as e:                                  # noqa: BLE001 – jede Ursache melden
+    except Exception as e:  # noqa: BLE001 – jede Ursache melden
         return fail(tr("Fehler: {0}").format(e), EXIT_ERROR, raw=str(e))
     rep.finish_line()
     if a.json_progress:
@@ -334,12 +378,29 @@ def main(argv: list[str] | None = None) -> int:
 # --------------------------------------------------------------------------- #
 # interface for other programs: version, schema, check, run, inspect
 # --------------------------------------------------------------------------- #
-API_COMMANDS = ("version", "schema", "check", "run", "inspect", "printers", "caps", "workflows", "serve", "tidy",
-                "reprint", "plan", "rolls", "probe", "shared-folder", "materials")
+API_COMMANDS = (
+    "version",
+    "schema",
+    "check",
+    "run",
+    "inspect",
+    "printers",
+    "caps",
+    "workflows",
+    "serve",
+    "tidy",
+    "reprint",
+    "plan",
+    "rolls",
+    "probe",
+    "shared-folder",
+    "materials",
+)
 
 
 def _api_parser(cmd: str) -> argparse.ArgumentParser:
     from .l10n import tr
+
     p = argparse.ArgumentParser(prog=f"passermark-cli {cmd}")
     if cmd == "schema":
         p.add_argument("job", nargs="?", help=tr("nur die Einstellungen dieses Auftrags"))
@@ -349,17 +410,34 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
             p.add_argument("output", nargs="?", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
         else:
             p.add_argument("--out", dest="output", help=tr("Ausgabe-PDF (statt der im Ablauf)"))
-        p.add_argument("--in", dest="inputs", action="append", default=[], metavar=tr("DATEI"),
-                       help=tr("Eingabedatei (statt der im Ablauf); mehrfach = zusammenführen"))
-        p.add_argument("--var", action="append", default=[], metavar=tr("NAME=WERT"),
-                       help=tr("Variable ${NAME} im Ablauf setzen; mehrfach möglich"))
+        p.add_argument(
+            "--in",
+            dest="inputs",
+            action="append",
+            default=[],
+            metavar=tr("DATEI"),
+            help=tr("Eingabedatei (statt der im Ablauf); mehrfach = zusammenführen"),
+        )
+        p.add_argument(
+            "--var",
+            action="append",
+            default=[],
+            metavar=tr("NAME=WERT"),
+            help=tr("Variable ${NAME} im Ablauf setzen; mehrfach möglich"),
+        )
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "workflows":
         p.add_argument("--dirs", action="store_true", help=tr("nur die Ablauf-Ordner anzeigen"))
     elif cmd == "reprint":
         p.add_argument("log", help=tr("Druckprotokoll (JSON aus dem Protokoll-Ordner)"))
-        p.add_argument("--in", dest="inputs", action="append", default=[], metavar=tr("DATEI"),
-                       help=tr("andere Eingabedatei statt der protokollierten"))
+        p.add_argument(
+            "--in",
+            dest="inputs",
+            action="append",
+            default=[],
+            metavar=tr("DATEI"),
+            help=tr("andere Eingabedatei statt der protokollierten"),
+        )
         p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur anzeigen, was gedruckt würde"))
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "tidy":
@@ -374,21 +452,31 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--init", action="store_true", help=tr("Vorlage watch.json anlegen (überschreibt nie)"))
         p.add_argument("--system", action="store_true", help=tr("mit --init: die für alle Benutzer (Administrator)"))
         p.add_argument("--quiet", action="store_true", help=tr("nur Fehler ausgeben"))
-        p.add_argument("--log", metavar=tr("DATEI"), help=tr("Meldungen zusätzlich an diese Datei anhängen "
-                                                            "(z. B. als Windows-Aufgabe ohne Konsole)"))
+        p.add_argument(
+            "--log",
+            metavar=tr("DATEI"),
+            help=tr("Meldungen zusätzlich an diese Datei anhängen (z. B. als Windows-Aufgabe ohne Konsole)"),
+        )
     elif cmd == "caps":
         p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
     elif cmd == "rolls":
         p.add_argument("printer", help=tr("Druckername (wie bei passermark-cli printers)"))
         p.add_argument("--host", help=tr("Geräteadresse (statt der eingestellten bzw. aus der Warteschlange)"))
     elif cmd == "materials":
-        p.add_argument("action", choices=["list", "import"], help=tr("list = anzeigen, import = aus CSV/JSON übernehmen"))
+        p.add_argument(
+            "action", choices=["list", "import"], help=tr("list = anzeigen, import = aus CSV/JSON übernehmen")
+        )
         p.add_argument("file", nargs="?", default="", help=tr("bei import: CSV- oder JSON-Datei"))
         p.add_argument("--printer", default="", help=tr("nur für diesen Drucker (leer = alle Drucker)"))
         p.add_argument("--dry-run", action="store_true", help=tr("nur anzeigen, was übernommen würde"))
     elif cmd == "shared-folder":
-        p.add_argument("--user", action="append", default=[], metavar=tr("NAME"),
-                       help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"))
+        p.add_argument(
+            "--user",
+            action="append",
+            default=[],
+            metavar=tr("NAME"),
+            help=tr("Benutzer in die Gruppe passermark aufnehmen (mehrfach möglich; Standard: du selbst)"),
+        )
         p.add_argument("--status", action="store_true", help=tr("nur anzeigen, nichts einrichten"))
     elif cmd == "probe":
         p.add_argument("target", help=tr("Druckername oder Geräteadresse (IP)"))
@@ -396,42 +484,85 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
         p.add_argument("--community", default="", help=tr("SNMP-Community (Standard: public)"))
         p.add_argument("--out", metavar=tr("DATEI"), help=tr("vollständigen Bericht als JSON speichern"))
     elif cmd == "plan":
-        p.add_argument("files", nargs="+", metavar=tr("DATEI"), help=tr("Pläne (PDF, jede Seite ein Plan; oder Bilder)"))
+        p.add_argument(
+            "files", nargs="+", metavar=tr("DATEI"), help=tr("Pläne (PDF, jede Seite ein Plan; oder Bilder)")
+        )
         p.add_argument("--printer", default="", help=tr("Drucker (leer = Standarddrucker)"))
-        p.add_argument("--kind", default="plan", choices=["plan", "poster"],
-                       help=tr("plan = Produktionsdruck, poster = Qualitätsdruck (nebeneinander, Überbreite "
-                               "abschneiden)"))
+        p.add_argument(
+            "--kind",
+            default="plan",
+            choices=["plan", "poster"],
+            help=tr("plan = Produktionsdruck, poster = Qualitätsdruck (nebeneinander, Überbreite abschneiden)"),
+        )
         p.add_argument("--material", default="", help=tr("Druckmaterial (Name oder ID aus dem Programm)"))
-        p.add_argument("--plt", metavar=tr("DATEI"),
-                       help=tr("zusätzlich Schneidedatei (HP-GL/CAMM-GL) mit den Schnittkanten eines Satzes"))
-        p.add_argument("--rolls", default="", metavar="594,841,914",
-                       help=tr("Rollenbreiten in mm (statt der vom Gerät gemeldeten)"))
+        p.add_argument(
+            "--plt",
+            metavar=tr("DATEI"),
+            help=tr("zusätzlich Schneidedatei (HP-GL/CAMM-GL) mit den Schnittkanten eines Satzes"),
+        )
+        p.add_argument(
+            "--rolls",
+            default="",
+            metavar="594,841,914",
+            help=tr("Rollenbreiten in mm (statt der vom Gerät gemeldeten)"),
+        )
         p.add_argument("--copies", type=int, default=1, help=tr("Exemplare"))
         p.add_argument("--collate", action="store_true", help=tr("sortiert (Satz für Satz) statt jeder Plan n-mal"))
-        p.add_argument("--by-roll", action="store_true", help=tr("nach Rollenbreite drucken statt in Listenreihenfolge"))
+        p.add_argument(
+            "--by-roll", action="store_true", help=tr("nach Rollenbreite drucken statt in Listenreihenfolge")
+        )
         p.add_argument("--color", default="", help=tr("color | gray (leer = wie im Treiber)"))
-        p.add_argument("--frame", default="auto", choices=["auto", "frame", "margin", "none"],
-                       help=tr("Druckbereich: auto, frame (zwei Außenlinien), margin (Inhalt + Rand), none (Seite)"))
+        p.add_argument(
+            "--frame",
+            default="auto",
+            choices=["auto", "frame", "margin", "none"],
+            help=tr("Druckbereich: auto, frame (zwei Außenlinien), margin (Inhalt + Rand), none (Seite)"),
+        )
         p.add_argument("--margin", type=float, default=5.0, help=tr("Rand in mm ohne zwei Außenlinien"))
-        p.add_argument("--rotate", default="auto", choices=["auto", "keep", "short", "long"],
-                       help=tr("auto = kürzeste Länge auf der Rolle"))
-        p.add_argument("--roll", default="", metavar=tr("ROLLE"),
-                       help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"))
-        p.add_argument("--align", default="", choices=["", "center", "left", "right"],
-                       help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"))
-        p.add_argument("--copies-mode", default="", choices=["", "sheets", "jobs", "count"],
-                       help=tr("Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
-                               "ein Auftrag; count = Kopienzahl"))
+        p.add_argument(
+            "--rotate",
+            default="auto",
+            choices=["auto", "keep", "short", "long"],
+            help=tr("auto = kürzeste Länge auf der Rolle"),
+        )
+        p.add_argument(
+            "--roll",
+            default="",
+            metavar=tr("ROLLE"),
+            help=tr("feste Rolle: Zufuhr im Treiber, Name am Gerät oder Breite (leer = automatisch)"),
+        )
+        p.add_argument(
+            "--align",
+            default="",
+            choices=["", "center", "left", "right"],
+            help=tr("Lage auf der Rolle: center, left/right = am Rand (Standard: Plan left, Poster center)"),
+        )
+        p.add_argument(
+            "--copies-mode",
+            default="",
+            choices=["", "sheets", "jobs", "count"],
+            help=tr(
+                "Exemplare: sheets = ein Auftrag, je Exemplar ein Blatt (Standard); jobs = je Exemplar "
+                "ein Auftrag; count = Kopienzahl"
+            ),
+        )
         p.add_argument("--no-split", action="store_true", help=tr("wie --copies-mode count"))
         p.add_argument("--pages", default="", help=tr("Seiten, z. B. 1,3-5 (nur bei einer Datei)"))
-        p.add_argument("--set", action="append", default=[], metavar=tr("SCHLÜSSEL=WERT"),
-                       help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"))
+        p.add_argument(
+            "--set",
+            action="append",
+            default=[],
+            metavar=tr("SCHLÜSSEL=WERT"),
+            help=tr("weitere Plan-Einstellung (passermark-cli schema plan)"),
+        )
         p.add_argument("--dry-run", action="store_true", help=tr("nichts senden – nur Laufmeter und Rollen anzeigen"))
         p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
     elif cmd == "inspect":
         p.add_argument("file", help=tr("PDF (oder Bild/Office-Datei)"))
         p.add_argument("--check", action="store_true", help=tr("zusätzlich prüfen (Schriften, Ebenen, Bilder …)"))
-        p.add_argument("--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen"))
+        p.add_argument(
+            "--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen")
+        )
         p.add_argument("--password", help=tr("Passwort"))
     p.add_argument("--json", action="store_true", help=tr("Ausgabe als JSON"))
     return p
@@ -439,24 +570,27 @@ def _api_parser(cmd: str) -> argparse.ArgumentParser:
 
 def tidy_data(data: dict, full: bool = False) -> dict:
     """Preset ({"job", "settings"}) oder Ablauf ({"passermark": "workflow"}) auf das Nötige kürzen: nur, was vom
-        Standard abweicht. Unverändert bleiben Schritte mit "preset" (dort kann ein Standardwert das Preset
-        absichtlich überschreiben) und "layout" im Druckschritt (fehlende Werte kommen dort aus der
-        Admin-Einstellung). full=True: Preset mit allen Einstellungen (nur für Presets)."""
+    Standard abweicht. Unverändert bleiben Schritte mit "preset" (dort kann ein Standardwert das Preset
+    absichtlich überschreiben) und "layout" im Druckschritt (fehlende Werte kommen dort aus der
+    Admin-Einstellung). full=True: Preset mit allen Einstellungen (nur für Presets)."""
     import copy
     from . import core, workflow
     from .l10n import tr
+
     data = copy.deepcopy(data)
     if isinstance(data.get("job"), str) and isinstance(data.get("settings", {}), dict):
         cls = core.settings_class(data["job"])
         s = data.get("settings") or {}
-        data["settings"] = (core.settings_to_dict(core.settings_from_dict(cls, s)) if full
-                            else core.compact_settings(cls, s))
+        data["settings"] = (
+            core.settings_to_dict(core.settings_from_dict(cls, s)) if full else core.compact_settings(cls, s)
+        )
         return data
     if data.get("passermark") != workflow.KIND:
         raise ValueError(tr("Weder Preset noch Ablauf."))
     if full:
         raise ValueError(tr("--full gibt es nur für Presets – im Ablauf steht immer nur, was abweicht."))
-    def flat(steps):                                  # auch Schritte in Verzweigungen („choose“)
+
+    def flat(steps):  # auch Schritte in Verzweigungen („choose“)
         for st in steps or []:
             if isinstance(st, dict) and isinstance(st.get(workflow.CHOOSE), list):
                 for br in st[workflow.CHOOSE]:
@@ -464,14 +598,19 @@ def tidy_data(data: dict, full: bool = False) -> dict:
                         yield from flat(br.get("steps") or br.get("else"))
             else:
                 yield st
+
     for st in flat(data.get("steps")):
-        if not isinstance(st, dict) or "preset" in st or not isinstance(st.get("settings"), dict) \
-                or st.get("job") in workflow.FLOW:
+        if (
+            not isinstance(st, dict)
+            or "preset" in st
+            or not isinstance(st.get("settings"), dict)
+            or st.get("job") in workflow.FLOW
+        ):
             continue
         cls = workflow.step_settings_class(st.get("job", ""))
         sett = core.compact_settings(cls, st["settings"])
         if st.get("job") == workflow.PRINT and "layout" in st["settings"]:
-            sett["layout"] = st["settings"]["layout"]    # Druck: fehlende Werte kommen aus der Admin-Einstellung,
+            sett["layout"] = st["settings"]["layout"]  # Druck: fehlende Werte kommen aus der Admin-Einstellung,
             #                                              nicht vom Programmstandard – darum ganz lassen
         if sett:
             st["settings"] = sett
@@ -483,6 +622,7 @@ def tidy_data(data: dict, full: bool = False) -> dict:
 def _tidy(a, rep, fail) -> int:
     from . import workflow
     from .l10n import tr
+
     try:
         with open(a.file, encoding="utf-8") as f:
             data = json.load(f)
@@ -496,6 +636,7 @@ def _tidy(a, rep, fail) -> int:
 
     def count(d):
         return sum(count(v) if isinstance(v, dict) else 1 for v in d.values())
+
     before, after = count(data), count(new)
     text = json.dumps(new, ensure_ascii=False, indent=2) + "\n"
     if a.show:
@@ -518,6 +659,7 @@ def _serve(a, rep, fail) -> int:
     import time
     from . import core, watch, workflow
     from .l10n import tr
+
     if a.init:
         try:
             path, new, made = watch.init_config(a.system)
@@ -539,20 +681,34 @@ def _serve(a, rep, fail) -> int:
     except FileNotFoundError as e:
         return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
     except watch.WatchError as e:
-        return fail(workflow.E_INVALID, tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(e.problems)),
-                    EXIT_USAGE, problems=[{"where": w, "message": m} for w, m in e.problems])
+        return fail(
+            workflow.E_INVALID,
+            tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(e.problems)),
+            EXIT_USAGE,
+            problems=[{"where": w, "message": m} for w, m in e.problems],
+        )
     if a.check:
         probs = watch.check(cfg)
         if probs:
-            return fail(workflow.E_INVALID, tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(probs)),
-                        EXIT_USAGE, problems=[{"where": w, "message": m} for w, m in probs])
+            return fail(
+                workflow.E_INVALID,
+                tr("Watcher-Einstellung ungültig ({0} Problem(e))").format(len(probs)),
+                EXIT_USAGE,
+                problems=[{"where": w, "message": m} for w, m in probs],
+            )
         from . import shared
+
         homes = [f for f in cfg["folders"] if shared.in_home(f["in"])]
         if a.json:
-            rep.emit(event="ok", config=path, folders=[{"name": f["name"], "in": f["in"], "workflow": f["workflow"],
-                                                        "in_home": shared.in_home(f["in"])}
-                                                       for f in cfg["folders"]],
-                     notes=[shared.home_hint()] if homes else [])
+            rep.emit(
+                event="ok",
+                config=path,
+                folders=[
+                    {"name": f["name"], "in": f["in"], "workflow": f["workflow"], "in_home": shared.in_home(f["in"])}
+                    for f in cfg["folders"]
+                ],
+                notes=[shared.home_hint()] if homes else [],
+            )
         else:
             print(tr("Watcher-Einstellung in Ordnung: {0} Ordner").format(len(cfg["folders"])))
             for f in cfg["folders"]:
@@ -564,6 +720,7 @@ def _serve(a, rep, fail) -> int:
 
     def on_term(_sig, _frm):
         stop["flag"] = True
+
     try:
         signal.signal(signal.SIGTERM, on_term)
     except (ValueError, AttributeError, OSError):
@@ -591,7 +748,7 @@ def _serve(a, rep, fail) -> int:
             return
         try:
             print(line, file=sys.stderr if err else sys.stdout, flush=True)
-        except (OSError, ValueError, AttributeError):        # Windows-Aufgabe ohne Konsole
+        except (OSError, ValueError, AttributeError):  # Windows-Aufgabe ohne Konsole
             pass
 
     def events(ev):
@@ -608,13 +765,15 @@ def _serve(a, rep, fail) -> int:
             if ev["recovered"]:
                 say(tr("{0} unterbrochene Datei(en) zurück in den Eingang gelegt").format(ev["recovered"]))
         elif e == "file":
-            say("{0}: {1} → {2}".format(ev["folder"], os.path.basename(ev["file"]),
-                                            os.path.basename(ev["workflow"])))
+            say("{0}: {1} → {2}".format(ev["folder"], os.path.basename(ev["file"]), os.path.basename(ev["workflow"])))
         elif e == "file_done":
             parts = []
             for pr in ev["prints"]:
-                parts.append(tr("Probelauf auf {0}").format(pr["printer"]) if pr["dry_run"] else
-                             tr("gedruckt auf {0} (Auftrag {1})").format(pr["printer"], pr["job_id"]))
+                parts.append(
+                    tr("Probelauf auf {0}").format(pr["printer"])
+                    if pr["dry_run"]
+                    else tr("gedruckt auf {0} (Auftrag {1})").format(pr["printer"], pr["job_id"])
+                )
             if ev["output"]:
                 parts.append(ev["output"])
             say("  " + tr("fertig in {0} s").format(ev["seconds"]) + (": " + ", ".join(parts) if parts else ""))
@@ -624,6 +783,7 @@ def _serve(a, rep, fail) -> int:
             say("  " + tr("Fehler: {0}").format(ev["message"]) + "  → " + ev["moved_to"], err=True)
             for pr in ev["problems"]:
                 say(f"    {pr['where'] or '–'}: {pr['message']}", err=True)
+
     w = watch.Watcher(cfg, events, cancel=lambda: stop["flag"])
     try:
         counts = w.run(once=a.once)
@@ -651,6 +811,7 @@ def _vars(items) -> dict:
 def api_main(cmd: str, argv: list[str]) -> int:
     from . import __version__, core, workflow
     from .l10n import tr
+
     try:
         a = _api_parser(cmd).parse_args(argv)
     except SystemExit as e:
@@ -669,14 +830,25 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "version":
         from . import conditions
-        d = {"passermark": __version__, "api": workflow.API, "workflow_version": workflow.VERSION,
-             "jobs": workflow.step_jobs(), "flow": [workflow.CHOOSE, *workflow.FLOW],
-             "conditions": {"facts": {k: {"type": t, "description": desc} for k, (t, desc) in
-                                      conditions.FACTS.items()},
-                            "operators": list(conditions.OPS), "logic": list(conditions.LOGIC),
-                            "variables": conditions.VAR_PREFIX + "NAME"}}
-        print(json.dumps(d, ensure_ascii=False) if a.json else
-              f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})")
+
+        d = {
+            "passermark": __version__,
+            "api": workflow.API,
+            "workflow_version": workflow.VERSION,
+            "jobs": workflow.step_jobs(),
+            "flow": [workflow.CHOOSE, *workflow.FLOW],
+            "conditions": {
+                "facts": {k: {"type": t, "description": desc} for k, (t, desc) in conditions.FACTS.items()},
+                "operators": list(conditions.OPS),
+                "logic": list(conditions.LOGIC),
+                "variables": conditions.VAR_PREFIX + "NAME",
+            },
+        }
+        print(
+            json.dumps(d, ensure_ascii=False)
+            if a.json
+            else f"Passermark {__version__} (API {workflow.API}, {tr('Ablauf-Format')} {workflow.VERSION})"
+        )
         return EXIT_OK
 
     if cmd == "schema":
@@ -692,9 +864,10 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd in ("printers", "caps"):
         from . import printcli
+
         try:
             d = printcli.printers_info() if cmd == "printers" else printcli.caps_info(a.printer)
-        except Exception as e:                                  # noqa: BLE001 – z. B. CUPS nicht erreichbar
+        except Exception as e:  # noqa: BLE001 – z. B. CUPS nicht erreichbar
             return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
@@ -706,23 +879,37 @@ def api_main(cmd: str, argv: list[str]) -> int:
             for role, key in d["roles"].items():
                 o = next((x for x in d["options"] if x["keyword"] == key), None)
                 if o:
-                    print(f"  {role} = {key}: " + ", ".join(c["value"] for c in o["choices"][:12])
-                          + (" …" if len(o["choices"]) > 12 else ""))
+                    print(
+                        f"  {role} = {key}: "
+                        + ", ".join(c["value"] for c in o["choices"][:12])
+                        + (" …" if len(o["choices"]) > 12 else "")
+                    )
             fin = [o for o in d["options"] if o.get("finishing")]
             if fin:
                 print("  " + tr("Endverarbeitung:"))
                 for o in fin:
-                    ch = [c["value"] + ("" if c.get("available", True) else " (" + tr("nicht installiert") + ")")
-                          for c in o["choices"]]
+                    ch = [
+                        c["value"] + ("" if c.get("available", True) else " (" + tr("nicht installiert") + ")")
+                        for c in o["choices"]
+                    ]
                     print(f"    {o['keyword']} ({o['text']}): " + ", ".join(ch))
             if d["installed_hardware"]:
-                print("  " + tr("Installierte Hardware:") + " " + ", ".join(
-                    f"{k}={v}" for k, v in d["installed_hardware"].items()))
+                print(
+                    "  "
+                    + tr("Installierte Hardware:")
+                    + " "
+                    + ", ".join(f"{k}={v}" for k, v in d["installed_hardware"].items())
+                )
             if d["finisher_presets"]:
                 print("  " + tr("Finisher-Vorlagen:") + " " + ", ".join(p["name"] for p in d["finisher_presets"]))
             if d["driver_dialog"]:
-                print("  " + tr("Herstellerfunktionen (Windows): in der Verwaltung als Finisher-Vorlage über den "
-                                "Herstellerdialog anlegen, im Ablauf mit finisher_preset wählen."))
+                print(
+                    "  "
+                    + tr(
+                        "Herstellerfunktionen (Windows): in der Verwaltung als Finisher-Vorlage über den "
+                        "Herstellerdialog anlegen, im Ablauf mit finisher_preset wählen."
+                    )
+                )
             print("  " + tr("{0} Treiberoptionen insgesamt (--json zeigt alle)").format(len(d["options"])))
         return EXIT_OK
 
@@ -730,21 +917,29 @@ def api_main(cmd: str, argv: list[str]) -> int:
         from . import rolls as rl
         from .session import Session
         from . import config
+
         try:
             sess = Session(config.load())
             if a.host:
                 q = rl.query(a.host, force=True)
-                st = rl.RollState([rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host,
-                                  list(q.catalog))
+                st = rl.RollState(
+                    [rl.Roll.from_dict(r.to_dict()) for r in q.rolls], q.origin, q.error, q.host, list(q.catalog)
+                )
                 caps = sess.caps_for(a.printer)
                 for i, r in enumerate(st.rolls):
                     r.slot = r.slot or rl.slot_for(caps, r.device or r.name, i)
             else:
                 st = rl.for_printer(sess, a.printer, live=True, force=True)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             return fail(workflow.E_FAILED, tr("Drucker nicht abfragbar: {0}").format(e), EXIT_ERROR)
-        d = {"printer": a.printer, "host": st.host, "origin": st.origin, "error": st.error,
-             "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls], "catalog": list(st.catalog)}
+        d = {
+            "printer": a.printer,
+            "host": st.host,
+            "origin": st.origin,
+            "error": st.error,
+            "rolls": [dict(r.to_dict(), label=r.label()) for r in st.rolls],
+            "catalog": list(st.catalog),
+        }
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
         else:
@@ -754,9 +949,16 @@ def api_main(cmd: str, argv: list[str]) -> int:
             loaded = {(r.media or r.name).lower() for r in st.rolls}
             more = [c for c in st.catalog if c["name"].lower() not in loaded]
             if more:
-                print("  " + tr("Am Gerät angelegt, nicht geladen:") + " "
-                      + ", ".join(c["name"] + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g"
-                                               not in c["name"] else "") for c in more))
+                print(
+                    "  "
+                    + tr("Am Gerät angelegt, nicht geladen:")
+                    + " "
+                    + ", ".join(
+                        c["name"]
+                        + (f" ({c['weight']} g)" if c["weight"] and f"{c['weight']} g" not in c["name"] else "")
+                        for c in more
+                    )
+                )
             if not st.rolls:
                 print("  " + tr("Keine Rollen bekannt") + (f" – {st.error}" if st.error else ""))
         return EXIT_OK
@@ -766,6 +968,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "materials":
         from . import printmat
+
         if a.action == "import":
             if not a.file:
                 return fail(workflow.E_USAGE, tr("Datei angeben: passermark-cli materials import DATEI"), EXIT_USAGE)
@@ -781,8 +984,11 @@ def api_main(cmd: str, argv: list[str]) -> int:
             if a.json:
                 rep.emit(event="done", found=len(new), added=n, dry_run=a.dry_run, materials=new)
             else:
-                print(tr("{0} gefunden, {1} neu{2}").format(len(new), n, tr(" (Probelauf – nichts gespeichert)")
-                                                           if a.dry_run else ""))
+                print(
+                    tr("{0} gefunden, {1} neu{2}").format(
+                        len(new), n, tr(" (Probelauf – nichts gespeichert)") if a.dry_run else ""
+                    )
+                )
                 for m in new:
                     print(f"  {m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}")
             return EXIT_OK
@@ -791,14 +997,17 @@ def api_main(cmd: str, argv: list[str]) -> int:
             print(json.dumps({"materials": mats}, ensure_ascii=False))
         else:
             for m in mats:
-                print(f"{m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}  ·  {m.get('color_mode', 'convert')}"
-                      f"  ·  {m.get('source', 'hand')} {m.get('updated', '')}"
-                      + ("" if m.get("checked", True) else "  ·  " + tr("ungeprüft"))
-                      + (f"  ·  {m['printer']}" if m["printer"] else ""))
+                print(
+                    f"{m['name']}  ·  {m['weight'] or '–'} g  ·  {m['category']}  ·  {m.get('color_mode', 'convert')}"
+                    f"  ·  {m.get('source', 'hand')} {m.get('updated', '')}"
+                    + ("" if m.get("checked", True) else "  ·  " + tr("ungeprüft"))
+                    + (f"  ·  {m['printer']}" if m["printer"] else "")
+                )
         return EXIT_OK
 
     if cmd == "shared-folder":
         from . import shared
+
         if not a.status:
             code, out = shared.setup(a.user)
             if code != 0:
@@ -817,10 +1026,14 @@ def api_main(cmd: str, argv: list[str]) -> int:
         from . import probe, rolls as rl
         from .session import Session
         from . import config
+
         host, printer = a.host or "", ""
         if not host:
-            if _re.fullmatch(r"[\w.\-]+", a.target) and ("." in a.target or ":" in a.target) \
-                    and not _is_printer(a.target):
+            if (
+                _re.fullmatch(r"[\w.\-]+", a.target)
+                and ("." in a.target or ":" in a.target)
+                and not _is_printer(a.target)
+            ):
                 host = a.target
             else:
                 printer = a.target
@@ -840,11 +1053,12 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     if cmd == "inspect":
         from . import docinfo
+
         try:
             d = docinfo.inspect(a.file, a.password, a.check, printer=a.printer)
         except FileNotFoundError as e:
             return fail(workflow.E_NOT_FOUND, str(e), EXIT_ERROR)
-        except Exception as e:                                  # noqa: BLE001 – jede Ursache melden
+        except Exception as e:  # noqa: BLE001 – jede Ursache melden
             return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
         print(json.dumps(d, ensure_ascii=False) if a.json else docinfo.text_summary(d))
         return EXIT_OK
@@ -856,8 +1070,11 @@ def api_main(cmd: str, argv: list[str]) -> int:
                 print(json.dumps(d, ensure_ascii=False))
             else:
                 for x in d:
-                    print(f"{x['source']:<7} " + x["folder"]
-                          + ("" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")"))
+                    print(
+                        f"{x['source']:<7} "
+                        + x["folder"]
+                        + ("" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")")
+                    )
             return EXIT_OK
         d = workflow.list_workflows()
         if a.json:
@@ -866,9 +1083,11 @@ def api_main(cmd: str, argv: list[str]) -> int:
             if not d:
                 print(tr("Keine Abläufe in den Ablauf-Ordnern (passermark-cli workflows --dirs)."))
             for w in d:
-                print(f"{w['name']}\t" + (tr("Fehler: {0}").format(w["error"]) if w["error"] else
-                                         " → ".join(j or "?" for j in w["jobs"]))
-                      + (f"\t{w['description']}" if w["description"] else ""))
+                print(
+                    f"{w['name']}\t"
+                    + (tr("Fehler: {0}").format(w["error"]) if w["error"] else " → ".join(j or "?" for j in w["jobs"]))
+                    + (f"\t{w['description']}" if w["description"] else "")
+                )
         return EXIT_OK
 
     if cmd == "serve":
@@ -879,8 +1098,9 @@ def api_main(cmd: str, argv: list[str]) -> int:
     # check / run / reprint
     notes0 = []
     try:
-        if cmd == "reprint":                   # Druckprotokoll: der gespeicherte Ablauf, genau wie damals
+        if cmd == "reprint":  # Druckprotokoll: der gespeicherte Ablauf, genau wie damals
             from . import printlog
+
             rec = printlog.load(a.log)
             data = rec["workflow"]
             a.workflow, a.output, a.var = os.path.abspath(a.log), None, []
@@ -891,8 +1111,9 @@ def api_main(cmd: str, argv: list[str]) -> int:
             old = rec["job"].get("file")
             if not a.inputs and old and rec["job"].get("file_sha256") and not rec["job"].get("files"):
                 if not os.path.isfile(old):
-                    raise FileNotFoundError(tr("Protokollierte Datei nicht mehr da: {0} – mit --in angeben.")
-                                            .format(old))
+                    raise FileNotFoundError(
+                        tr("Protokollierte Datei nicht mehr da: {0} – mit --in angeben.").format(old)
+                    )
                 if printlog._sha256(old) != rec["job"]["file_sha256"]:
                     notes0.append(tr("Die Datei wurde seit dem Druck verändert: {0}").format(old))
         else:
@@ -905,14 +1126,23 @@ def api_main(cmd: str, argv: list[str]) -> int:
     except FileNotFoundError as e:
         return fail(workflow.E_NOT_FOUND, str(e), EXIT_USAGE)
     except workflow.WorkflowError as e:
-        return fail(workflow.E_INVALID, tr("Ablauf ungültig ({0} Problem(e))").format(len(e.problems)), EXIT_USAGE,
-                    problems=[{"where": w, "message": m} for w, m in e.problems])
+        return fail(
+            workflow.E_INVALID,
+            tr("Ablauf ungültig ({0} Problem(e))").format(len(e.problems)),
+            EXIT_USAGE,
+            problems=[{"where": w, "message": m} for w, m in e.problems],
+        )
     except (OSError, ValueError) as e:
         return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
 
     if cmd == "check":
-        d = {"ok": True, "name": plan.name, "inputs": plan.inputs, "output": plan.output,
-             "steps": [st.to_dict() for st in plan.steps]}
+        d = {
+            "ok": True,
+            "name": plan.name,
+            "inputs": plan.inputs,
+            "output": plan.output,
+            "steps": [st.to_dict() for st in plan.steps],
+        }
         if a.json:
             print(json.dumps(d, ensure_ascii=False))
         else:
@@ -924,8 +1154,14 @@ def api_main(cmd: str, argv: list[str]) -> int:
                     if st.job == workflow.CHOOSE:
                         print(f"{indent}{n} {tr('Verzweigung')}")
                         for c, sub in st.branches or []:
-                            print(f"{indent}   " + (tr("wenn {0}").format(json.dumps(c, ensure_ascii=False))
-                                                    if c is not None else tr("sonst")))
+                            print(
+                                f"{indent}   "
+                                + (
+                                    tr("wenn {0}").format(json.dumps(c, ensure_ascii=False))
+                                    if c is not None
+                                    else tr("sonst")
+                                )
+                            )
                             show(sub, indent + "      ", n)
                         continue
                     extra = f" – {st.name}" if st.name != st.job else ""
@@ -934,6 +1170,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
                     if st.cond is not None:
                         extra += "  " + tr("(nur wenn {0})").format(json.dumps(st.cond, ensure_ascii=False))
                     print(f"{indent}{n} {st.job}{extra}")
+
             show(plan.steps, "  ", "")
             print("  " + ", ".join(plan.inputs) + " → " + (plan.output or tr("(nur drucken)")))
         return EXIT_OK
@@ -942,6 +1179,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
 
     def on_term(_sig, _frm):
         stop["flag"] = True
+
     try:
         signal.signal(signal.SIGTERM, on_term)
     except (ValueError, AttributeError, OSError):
@@ -963,13 +1201,21 @@ def api_main(cmd: str, argv: list[str]) -> int:
             if ev["event"] == "step_skipped":
                 print("  " + tr("übersprungen: {0} ({1}) – Bedingung nicht erfüllt").format(ev["job"], ev["where"]))
             elif ev["event"] == "branch":
-                print("  " + (tr("Verzweigung {0}: Zweig „sonst“").format(ev["where"]) if ev["branch"] == "else" else
-                              tr("Verzweigung {0}: Zweig {1}").format(ev["where"], ev["taken"] + 1)
-                              if ev["taken"] is not None else tr("Verzweigung {0}: kein Zweig passt").format(ev["where"])))
+                print(
+                    "  "
+                    + (
+                        tr("Verzweigung {0}: Zweig „sonst“").format(ev["where"])
+                        if ev["branch"] == "else"
+                        else tr("Verzweigung {0}: Zweig {1}").format(ev["where"], ev["taken"] + 1)
+                        if ev["taken"] is not None
+                        else tr("Verzweigung {0}: kein Zweig passt").format(ev["where"])
+                    )
+                )
             else:
                 print("  " + tr("Beendet: {0}").format(ev["message"]))
         elif ev["event"] == "progress":
             rep.progress(ev["done"], ev["total"], f"{cur['step']}/{cur['n']} {cur['job']}  {ev.get('text', '')}")
+
     if a.json:
         rep.emit(event="start", api=workflow.API, version=__version__, steps=len(plan.steps), output=plan.output)
     try:
@@ -977,15 +1223,15 @@ def api_main(cmd: str, argv: list[str]) -> int:
         r["notes"] = notes0 + list(r.get("notes") or [])
     except (core.Cancelled, KeyboardInterrupt):
         return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED, step=cur["step"])
-    except workflow.Rejected as e:                              # „fail“-Schritt
+    except workflow.Rejected as e:  # „fail“-Schritt
         return fail(workflow.E_REJECTED, str(e), EXIT_ERROR, step=cur["step"])
-    except Exception as e:                                      # noqa: BLE001 – jede Ursache melden
+    except Exception as e:  # noqa: BLE001 – jede Ursache melden
         return fail(workflow.E_FAILED, str(e), EXIT_ERROR, step=cur["step"], job=cur["job"])
     rep.finish_line()
     if a.json:
         rep.emit(event="done", **r)
     elif not a.quiet:
-        for s in r["steps"]:                                    # Druckschritte: wohin und welcher Auftrag
+        for s in r["steps"]:  # Druckschritte: wohin und welcher Auftrag
             if s["job"] == workflow.PLAN:
                 print(plan_text(s["info"] or {}))
                 continue
@@ -993,11 +1239,17 @@ def api_main(cmd: str, argv: list[str]) -> int:
                 continue
             i = s["info"] or {}
             if i.get("dry_run"):
-                print(tr("Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm").format(
-                    i.get("printer"), i.get("pages"), *(i.get("sheet_mm") or [0, 0])))
+                print(
+                    tr("Probelauf – nichts gesendet: {0}, {1} Seite(n), Bogen {2:g} × {3:g} mm").format(
+                        i.get("printer"), i.get("pages"), *(i.get("sheet_mm") or [0, 0])
+                    )
+                )
             else:
-                print(tr("Gedruckt auf {0}: {1} Seite(n), Auftrag {2}").format(
-                    i.get("printer"), i.get("pages"), i.get("job_id") if i.get("job_id") is not None else "–"))
+                print(
+                    tr("Gedruckt auf {0}: {1} Seite(n), Auftrag {2}").format(
+                        i.get("printer"), i.get("pages"), i.get("job_id") if i.get("job_id") is not None else "–"
+                    )
+                )
         if r["output"]:
             print(r["output"] + ("  (" + tr("{0} Seite(n)").format(r["pages"]) + ")" if r["pages"] is not None else ""))
         for n in r["notes"]:
@@ -1008,6 +1260,7 @@ def api_main(cmd: str, argv: list[str]) -> int:
 def _is_printer(name: str) -> bool:
     try:
         from . import printers
+
         return any(p.name == name for p in printers.list_printers())
     except Exception:
         return False
@@ -1017,19 +1270,29 @@ def plan_text(i: dict) -> str:
     """Laufmeter je Rolle als Text: „594 mm: 5,20 m · ×2 = 10,40 m“."""
     from .l10n import tr
     from .planprint import mm_text, num
+
     lines = []
-    head = (tr("Probelauf – nichts gesendet") if i.get("dry_run") else
-            tr("Gedruckt auf {0}: {1} Auftrag/Aufträge").format(i.get("printer"), len(i.get("jobs") or [])))
+    head = (
+        tr("Probelauf – nichts gesendet")
+        if i.get("dry_run")
+        else tr("Gedruckt auf {0}: {1} Auftrag/Aufträge").format(i.get("printer"), len(i.get("jobs") or []))
+    )
     lines.append(head)
     if "cut_options" in i:
         co = i.get("cut_options") or {}
-        lines.append("  " + (tr("Abschnitt nach jeder Seite: {0}").format(", ".join(f"{k}={v}" for k, v in co.items()))
-                             if co else tr("Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät")))
+        lines.append(
+            "  "
+            + (
+                tr("Abschnitt nach jeder Seite: {0}").format(", ".join(f"{k}={v}" for k, v in co.items()))
+                if co
+                else tr("Abschnitt: Drucker bietet keine Schneid-Option – Einstellung am Gerät")
+            )
+        )
     cp = int(i.get("copies") or 1)
     for d in i.get("lengths") or []:
         t = "  " + tr("{0} mm: {1} m").format(mm_text(d["width_mm"]), num(d["single_m"]))
         if cp > 1:
-            t += " · ×{0} = ".format(cp) + tr("{0} m").format(num(d["total_m"]))
+            t += f" · ×{cp} = " + tr("{0} m").format(num(d["total_m"]))
         t += "  (" + tr("{0} Plan/Pläne").format(d["plans"]) + ")"
         if d.get("short"):
             t += "  " + tr("– reicht laut Gerät nicht!")
@@ -1037,7 +1300,7 @@ def plan_text(i: dict) -> str:
     if len(i.get("lengths") or []) > 1:
         t = "  " + tr("Gesamt: {0} m").format(num(i.get("single_m", 0)))
         if cp > 1:
-            t += " · ×{0} = ".format(cp) + tr("{0} m").format(num(i.get("total_m", 0)))
+            t += f" · ×{cp} = " + tr("{0} m").format(num(i.get("total_m", 0)))
         lines.append(t)
     return "\n".join(lines)
 
@@ -1046,12 +1309,23 @@ def _plan_cmd(a, rep, fail) -> int:
     from . import core, planprint, rolls as rl, workflow
     from .planprint import mm_text
     from .l10n import tr
+
     try:
         sett = dict(planprint.defaults_for(a.kind))
-        sett.update({"printer": a.printer, "copies": max(1, a.copies), "collate": a.collate,
-                     "order": "roll" if a.by_roll else "list", "color": a.color, "margin_mm": a.margin,
-                     "rotate": a.rotate, "dry_run": a.dry_run, "material": a.material,
-                     "roll_pick": a.roll})
+        sett.update(
+            {
+                "printer": a.printer,
+                "copies": max(1, a.copies),
+                "collate": a.collate,
+                "order": "roll" if a.by_roll else "list",
+                "color": a.color,
+                "margin_mm": a.margin,
+                "rotate": a.rotate,
+                "dry_run": a.dry_run,
+                "material": a.material,
+                "roll_pick": a.roll,
+            }
+        )
         if a.no_split or a.copies_mode:
             sett["copies_mode"] = "count" if a.no_split else a.copies_mode
         if a.align:
@@ -1071,9 +1345,14 @@ def _plan_cmd(a, rep, fail) -> int:
     except (OSError, ValueError, KeyError) as e:
         return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
     try:
-        info = planprint.plan_files([os.path.abspath(f) for f in a.files], s, pages, progress=rep.progress,
-                                    plt=os.path.abspath(a.plt) if a.plt else "")
-    except Exception as e:                                      # noqa: BLE001 – jede Ursache melden
+        info = planprint.plan_files(
+            [os.path.abspath(f) for f in a.files],
+            s,
+            pages,
+            progress=rep.progress,
+            plt=os.path.abspath(a.plt) if a.plt else "",
+        )
+    except Exception as e:  # noqa: BLE001 – jede Ursache melden
         return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
     rep.finish_line()
     if a.json:
@@ -1083,12 +1362,21 @@ def _plan_cmd(a, rep, fail) -> int:
         for p in info.get("plans") or []:
             if p.get("length_mm") is None:
                 continue
-            print("    " + tr("{0}: {1} × {2} mm → Rolle {3} mm{4}").format(
-                p["plan"], mm_text(p["size_mm"][0]), mm_text(p["size_mm"][1]), mm_text(p["roll_mm"]),
-                tr(", gedreht") if p.get("rotated") else ""))
+            print(
+                "    "
+                + tr("{0}: {1} × {2} mm → Rolle {3} mm{4}").format(
+                    p["plan"],
+                    mm_text(p["size_mm"][0]),
+                    mm_text(p["size_mm"][1]),
+                    mm_text(p["roll_mm"]),
+                    tr(", gedreht") if p.get("rotated") else "",
+                )
+            )
         if info.get("cut_file"):
-            print("  " + tr("Schneidedatei: {0} ({1} Schnitt(e))").format(info["cut_file"]["path"],
-                                                                         info["cut_file"]["cuts"]))
+            print(
+                "  "
+                + tr("Schneidedatei: {0} ({1} Schnitt(e))").format(info["cut_file"]["path"], info["cut_file"]["cuts"])
+            )
         for n in info.get("notes") or []:
             print("  " + tr("Hinweis: {0}").format(n))
     return EXIT_OK
@@ -1096,5 +1384,6 @@ def _plan_cmd(a, rep, fail) -> int:
 
 if __name__ == "__main__":
     import multiprocessing
+
     multiprocessing.freeze_support()
     sys.exit(main())

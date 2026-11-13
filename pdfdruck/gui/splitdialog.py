@@ -4,12 +4,23 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dialog „Seiten teilen“: halbieren oder Raster, welche Seiten, Reihenfolge – mit Vorschau der Schnittlinien."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QSpinBox,
+    QVBoxLayout,
+)
 
 from .. import core, split
 from ..l10n import tr
@@ -18,8 +29,15 @@ from .common import fill_combo, no_enter_default
 
 
 class SplitDialog(QDialog):
-    def __init__(self, parent, doc, current: int = 0, selected=None, preset: split.SplitSettings | None = None,
-                 which: str = "all"):
+    def __init__(
+        self,
+        parent,
+        doc,
+        current: int = 0,
+        selected=None,
+        preset: split.SplitSettings | None = None,
+        which: str = "all",
+    ):
         super().__init__(parent)
         self.setWindowTitle(tr("Seiten teilen – Passermark"))
         self.doc = doc
@@ -33,17 +51,27 @@ class SplitDialog(QDialog):
         self.lbl_prev.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(self.lbl_prev, 1)
         right = QVBoxLayout()
-        intro = QLabel(tr("Jedes Stück wird eine eigene Seite – verlustfrei, der Inhalt wird nicht verändert. Typisch: "
-                          "eine Broschüre wurde als Doppelseiten exportiert → „Senkrecht halbieren“ + „nur "
-                          "Doppelseiten“. Das Ergebnis öffnet sich als neuer Reiter."))
+        intro = QLabel(
+            tr(
+                "Jedes Stück wird eine eigene Seite – verlustfrei, der Inhalt wird nicht verändert. Typisch: "
+                "eine Broschüre wurde als Doppelseiten exportiert → „Senkrecht halbieren“ + „nur "
+                "Doppelseiten“. Das Ergebnis öffnet sich als neuer Reiter."
+            )
+        )
         intro.setWordWrap(True)
         intro.setStyleSheet(f"color: {theme.MUTED};")
         right.addWidget(intro)
         f = QFormLayout()
         self.cmb_mode = QComboBox()
-        fill_combo(self.cmb_mode, [("halves_v", tr("Senkrecht halbieren (links | rechts)")),
-                                   ("halves_h", tr("Waagrecht halbieren (oben / unten)")),
-                                   ("grid", tr("Raster (Spalten × Zeilen)"))], s.mode)
+        fill_combo(
+            self.cmb_mode,
+            [
+                ("halves_v", tr("Senkrecht halbieren (links | rechts)")),
+                ("halves_h", tr("Waagrecht halbieren (oben / unten)")),
+                ("grid", tr("Raster (Spalten × Zeilen)")),
+            ],
+            s.mode,
+        )
         f.addRow(tr("Teilen:"), self.cmb_mode)
         row = QHBoxLayout()
         self.spn_cols, self.spn_rows = QSpinBox(), QSpinBox()
@@ -61,7 +89,7 @@ class SplitDialog(QDialog):
             items.append(("selected", tr("ausgewählte Seiten ({0})").format(len(self.selected))))
         items.append(("range", tr("Seitenbereich …")))
         if which == "selected" and len(self.selected) <= 1:
-            which = "current"                      # eine Seite markiert = diese Seite
+            which = "current"  # eine Seite markiert = diese Seite
         fill_combo(self.cmb_which, items, which if which in [k for k, _ in items] else "all")
         f.addRow(tr("Welche Seiten:"), self.cmb_which)
         self.ed_range = QLineEdit()
@@ -103,9 +131,14 @@ class SplitDialog(QDialog):
     # -------------------------------------------------------------- #
     def settings(self) -> split.SplitSettings:
         mode = self.cmb_mode.currentData()
-        return split.SplitSettings(mode=mode if mode in split.MODES else "halves_v", cols=int(self.spn_cols.value()),
-                                   rows=int(self.spn_rows.value()), only_spreads=bool(self.chk_spreads.isChecked()),
-                                   rtl=bool(self.chk_rtl.isChecked()), use_trim=bool(self.chk_trim.isChecked()))
+        return split.SplitSettings(
+            mode=mode if mode in split.MODES else "halves_v",
+            cols=int(self.spn_cols.value()),
+            rows=int(self.spn_rows.value()),
+            only_spreads=bool(self.chk_spreads.isChecked()),
+            rtl=bool(self.chk_rtl.isChecked()),
+            use_trim=bool(self.chk_trim.isChecked()),
+        )
 
     def pages(self):
         """0-basierte Seiten oder None (= alle)."""
@@ -116,6 +149,7 @@ class SplitDialog(QDialog):
             return list(self.selected)
         if w == "range":
             from ..layout import parse_ranges
+
             t = self.ed_range.text()
             return parse_ranges(t if isinstance(t, str) else "", len(self.doc))
         return None
@@ -134,11 +168,16 @@ class SplitDialog(QDialog):
             if s.only_spreads:
                 sp = split.spreads(sizes, cols, rows)
                 n = len(sp if pages is None else sp & set(pages))
-            self.lbl_info.setText(tr("{0} Seite(n) werden geteilt → je {1} Stück.").format(n, cols * rows)
-                                  if n else tr("Keine passende Seite – bei „nur Doppelseiten“ müssen manche Seiten "
-                                               "doppelt so breit sein wie die übrigen."))
+            self.lbl_info.setText(
+                tr("{0} Seite(n) werden geteilt → je {1} Stück.").format(n, cols * rows)
+                if n
+                else tr(
+                    "Keine passende Seite – bei „nur Doppelseiten“ müssen manche Seiten "
+                    "doppelt so breit sein wie die übrigen."
+                )
+            )
             self._preview(cols, rows, s.rtl)
-        except Exception as e:                            # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.lbl_info.setText("⚠ " + str(e))
 
     def _preview(self, cols, rows, rtl):
@@ -150,8 +189,7 @@ class SplitDialog(QDialog):
         finally:
             pg.close()
         data = img.tobytes("raw", "RGB")
-        pix = QPixmap.fromImage(QImage(data, img.width, img.height, 3 * img.width,
-                                       QImage.Format.Format_RGB888).copy())
+        pix = QPixmap.fromImage(QImage(data, img.width, img.height, 3 * img.width, QImage.Format.Format_RGB888).copy())
         p = QPainter(pix)
         p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
         W, H = img.width, img.height
@@ -162,7 +200,7 @@ class SplitDialog(QDialog):
         p.setPen(QColor(theme.ERROR))
         k = 1
         for r in range(rows):
-            for c in (range(cols - 1, -1, -1) if rtl else range(cols)):
+            for c in range(cols - 1, -1, -1) if rtl else range(cols):
                 p.drawText(QPointF(W * c / cols + 6, H * r / rows + 18), str(k))
                 k += 1
         p.end()

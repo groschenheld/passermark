@@ -11,12 +11,12 @@ uses a vendor driver (UFR II, PS). Evaluated:
   * printer-input-tray  – trays with fill level (PWG 5100.13): empty / not empty
   * rolls (plotters)    – loaded width, grammage, media and the remaining length if the device reports it
 """
+
 from __future__ import annotations
 
 from .l10n import tr
 
 import re
-import socket
 import ssl
 import struct
 import urllib.request
@@ -27,26 +27,32 @@ T_OPERATION, T_PRINTER, T_END = 0x01, 0x04, 0x03
 T_INTEGER, T_BOOLEAN, T_ENUM = 0x21, 0x22, 0x23
 T_OCTET, T_DATETIME, T_RESOLUTION, T_RANGE = 0x30, 0x31, 0x32, 0x33
 T_BEGCOL, T_TEXTLANG, T_NAMELANG, T_ENDCOL = 0x34, 0x35, 0x36, 0x37
-T_TEXT, T_NAME, T_KEYWORD, T_URI, T_CHARSET, T_LANG, T_MIME, T_MEMBER = \
-    0x41, 0x42, 0x44, 0x45, 0x47, 0x48, 0x49, 0x4A
+T_TEXT, T_NAME, T_KEYWORD, T_URI, T_CHARSET, T_LANG, T_MIME, T_MEMBER = 0x41, 0x42, 0x44, 0x45, 0x47, 0x48, 0x49, 0x4A
 
-WANTED = ["media-col-ready", "media-ready", "printer-input-tray", "media-source-supported",
-          "printer-make-and-model", "printer-state", "media-col-database"]
+WANTED = [
+    "media-col-ready",
+    "media-ready",
+    "printer-input-tray",
+    "media-source-supported",
+    "printer-make-and-model",
+    "printer-state",
+    "media-col-database",
+]
 
 
 @dataclass
 class TrayState:
-    source: str                 # z. B. tray-1, tray-2, by-pass-tray, main
-    size_mm: tuple | None = None    # (width, height) in mm
-    size_name: str = ""         # PWG-Name, falls gemeldet (iso_a4_210x297mm)
-    weight: int | None = None   # g/m²
-    media_type: str = ""        # stationery, cardstock …
-    level: int | None = None    # fill level in %; 0 = empty; None = unknown
-    name: str = ""              # display name of the device (e.g. "Cassette 1")
-    roll: bool = False          # Rolle (Plotter): Breite in width_mm, Länge offen
-    width_mm: float | None = None   # Rollenbreite (bei Rollen; bei Blättern die Breite aus size_mm)
-    remaining_m: float | None = None    # Restlänge der Rolle in m (nur wenn das Gerät sie meldet)
-    media_name: str = ""        # Medienname laut Gerät (media-info / media-key)
+    source: str  # z. B. tray-1, tray-2, by-pass-tray, main
+    size_mm: tuple | None = None  # (width, height) in mm
+    size_name: str = ""  # PWG-Name, falls gemeldet (iso_a4_210x297mm)
+    weight: int | None = None  # g/m²
+    media_type: str = ""  # stationery, cardstock …
+    level: int | None = None  # fill level in %; 0 = empty; None = unknown
+    name: str = ""  # display name of the device (e.g. "Cassette 1")
+    roll: bool = False  # Rolle (Plotter): Breite in width_mm, Länge offen
+    width_mm: float | None = None  # Rollenbreite (bei Rollen; bei Blättern die Breite aus size_mm)
+    remaining_m: float | None = None  # Restlänge der Rolle in m (nur wenn das Gerät sie meldet)
+    media_name: str = ""  # Medienname laut Gerät (media-info / media-key)
 
     @property
     def empty(self) -> bool:
@@ -55,7 +61,7 @@ class TrayState:
 
 @dataclass
 class DeviceStatus:
-    trays: dict = field(default_factory=dict)   # source -> TrayState
+    trays: dict = field(default_factory=dict)  # source -> TrayState
     model: str = ""
     error: str = ""
     catalog: list = field(default_factory=list)  # am Gerät angelegte Medien (media-col-database): [{name, weight, …}]
@@ -70,7 +76,7 @@ def _attr(tag: int, name: str, value: bytes) -> bytes:
 
 
 def build_request(uri: str, attrs=WANTED, request_id: int = 1) -> bytes:
-    out = struct.pack(">BBHI", 2, 0, 0x000B, request_id)        # IPP 2.0, Get-Printer-Attributes
+    out = struct.pack(">BBHI", 2, 0, 0x000B, request_id)  # IPP 2.0, Get-Printer-Attributes
     out += bytes([T_OPERATION])
     out += _attr(T_CHARSET, "attributes-charset", b"utf-8")
     out += _attr(T_LANG, "attributes-natural-language", b"de")
@@ -94,8 +100,8 @@ def _value(tag: int, raw: bytes):
         return struct.unpack(">iib", raw)
     if tag in (T_TEXTLANG, T_NAMELANG) and len(raw) >= 4:
         ll = struct.unpack(">H", raw[:2])[0]
-        tl = struct.unpack(">H", raw[2 + ll:4 + ll])[0]
-        return raw[4 + ll:4 + ll + tl].decode("utf-8", "replace")
+        tl = struct.unpack(">H", raw[2 + ll : 4 + ll])[0]
+        return raw[4 + ll : 4 + ll + tl].decode("utf-8", "replace")
     if tag == T_OCTET:
         return raw
     try:
@@ -110,7 +116,7 @@ def parse_response(data: bytes) -> tuple[int, dict]:
         raise ValueError(tr("IPP-Antwort zu kurz"))
     status = struct.unpack(">H", data[2:4])[0]
     pos, attrs = 8, {}
-    stack = []                 # offene Collections: (dict, aktueller Membername)
+    stack = []  # offene Collections: (dict, aktueller Membername)
     last_name = None
 
     def store(name, val):
@@ -125,17 +131,17 @@ def parse_response(data: bytes) -> tuple[int, dict]:
         pos += 1
         if tag == T_END:
             break
-        if tag < 0x10:          # Gruppenbeginn
+        if tag < 0x10:  # Gruppenbeginn
             continue
-        nlen = struct.unpack(">H", data[pos:pos + 2])[0]
-        name = data[pos + 2:pos + 2 + nlen].decode("utf-8", "replace")
+        nlen = struct.unpack(">H", data[pos : pos + 2])[0]
+        name = data[pos + 2 : pos + 2 + nlen].decode("utf-8", "replace")
         pos += 2 + nlen
-        vlen = struct.unpack(">H", data[pos:pos + 2])[0]
-        raw = data[pos + 2:pos + 2 + vlen]
+        vlen = struct.unpack(">H", data[pos : pos + 2])[0]
+        raw = data[pos + 2 : pos + 2 + vlen]
         pos += 2 + vlen
         if tag == T_BEGCOL:
             col = {}
-            if stack and not name:            # Member in Collection
+            if stack and not name:  # Member in Collection
                 parent, member = stack[-1]
                 parent.setdefault(member, []).append(col)
             else:
@@ -188,7 +194,7 @@ def interpret(attrs: dict) -> DeviceStatus:
             x, y = _first(size, "x-dimension"), _first(size, "y-dimension")
             if isinstance(x, int) and isinstance(y, int) and y > 0:
                 t.size_mm = (x / 100.0, y / 100.0)
-            elif isinstance(x, int) and x > 0:          # Rolle: y fehlt, ist 0 oder ein Bereich (min, max)
+            elif isinstance(x, int) and x > 0:  # Rolle: y fehlt, ist 0 oder ein Bereich (min, max)
                 t.roll = True
                 t.width_mm = x / 100.0
         if is_roll_name(src) or is_roll_name(str(_first(col, "media-size-name", "") or "")):
@@ -221,14 +227,14 @@ def interpret(attrs: dict) -> DeviceStatus:
             t.roll = True
             if t.width_mm is None:
                 t.width_mm = to_mm(kv.get("mediaxfeed"), kv.get("dimunit", ""))
-            unit = kv.get("unit", "").lower()           # Kapazität in Längeneinheiten -> Restlänge
+            unit = kv.get("unit", "").lower()  # Kapazität in Längeneinheiten -> Restlänge
             if lvl >= 0 and unit in LENGTH_M:
                 t.remaining_m = round(lvl * LENGTH_M[unit], 2)
         if lvl == 0:
             t.level = 0
         elif lvl > 0:
             t.level = round(lvl * 100 / mx) if mx > 0 else lvl
-    for t in st.trays.values():                     # Rolle mit Format statt Breite (manche Geräte)
+    for t in st.trays.values():  # Rolle mit Format statt Breite (manche Geräte)
         if t.roll and t.width_mm is None and t.size_mm:
             t.width_mm = t.size_mm[0]
         if t.roll:
@@ -308,12 +314,12 @@ def host_from_device_uri(uri: str) -> str:
         return ""
     host = urllib.request.unquote(m.group(1))
     if "._ipp" in host or "._pdl-datastream" in host or "._printer" in host:
-        return ""                       # DNS-SD-Dienstname – Host muss der Admin eintragen
-    ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)   # Windows-Anschluss „10.0.0.5-HPGL2“
+        return ""  # DNS-SD-Dienstname – Host muss der Admin eintragen
+    ip = re.fullmatch(r"(?:IP_)?(\d{1,3}(?:\.\d{1,3}){3})(?:[-_].*)?", host)  # Windows-Anschluss „10.0.0.5-HPGL2“
     if ip:
         return ip.group(1)
     if host.upper().startswith("WSD-"):
-        return ""                       # WSD-Anschluss: Adresse muss anders ermittelt werden
+        return ""  # WSD-Anschluss: Adresse muss anders ermittelt werden
     return host
 
 
@@ -326,17 +332,18 @@ def query(host: str, timeout: float = 4.0) -> DeviceStatus:
         uri = f"{'ipps' if scheme == 'https' else 'ipp'}://{host}:{port}/ipp/print"
         url = f"{scheme}://{host}:{port}/ipp/print"
         try:
-            req = urllib.request.Request(url, data=build_request(uri), method="POST",
-                                         headers={"Content-Type": "application/ipp"})
+            req = urllib.request.Request(
+                url, data=build_request(uri), method="POST", headers={"Content-Type": "application/ipp"}
+            )
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE          # Drucker im LAN haben selbstsignierte Zertifikate
+            ctx.verify_mode = ssl.CERT_NONE  # Drucker im LAN haben selbstsignierte Zertifikate
             with urllib.request.urlopen(req, timeout=timeout, context=ctx if scheme == "https" else None) as r:
                 status, attrs = parse_response(r.read())
             if status >= 0x0400:
                 errors.append(tr("{0}: IPP-Status 0x{1:04x}").format(url, status))
                 continue
             return interpret(attrs)
-        except (OSError, ValueError, socket.timeout) as e:
+        except (TimeoutError, OSError, ValueError) as e:
             errors.append(f"{url}: {e}")
     return DeviceStatus(error="; ".join(errors[-2:]))

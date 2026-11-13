@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Plandruck-Fenster ohne Bildschirm (Qt-Attrappe aus tests/_qtstub): Pläne erkennen, Rollen von Hand, Laufmeter,
-    Druck an einen nachgebauten Plotter, Einstellungen merken, Rollen-Fenster."""
-import os, subprocess, sys
+Druck an einen nachgebauten Plotter, Einstellungen merken, Rollen-Fenster."""
+
+import os
+import subprocess
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import os, sys, tempfile
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-plangui-")
 from PySide6 import QtWidgets as W
@@ -168,12 +171,13 @@ with T.FakePlotter() as fp:
     P.ProbeDialog(None, probe.run("", "CW"))._save
 assert planhistory.clear() >= 1 and planhistory.entries() == []
 print("PLAN-GUI-OK")
-'''
+"""
 
 
 def test_plan_dialog():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               PASSERMARK_LANG="de")
+    env = dict(
+        os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]), PASSERMARK_LANG="de"
+    )
     r = subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, env=env, timeout=600)
     assert "PLAN-GUI-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-4000:]
 

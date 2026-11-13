@@ -9,6 +9,7 @@ There is no central profile server – manufacturers and paper companies offer p
 download pages (mostly as ZIP) or inside the Windows/Mac driver package. Therefore:
 open the sources -> download a file -> import here (file, ZIP, .exe/.dmg/.cab or a direct link).
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -23,43 +24,65 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 
-MAX_DOWNLOAD = 400 << 20          # driver packages can be large
+MAX_DOWNLOAD = 400 << 20  # driver packages can be large
 ICC_EXT = (".icc", ".icm")
 
 # Bezugsquellen (Stand 10/2026). "match": Teilstrings im Druckermodell (klein), leer = immer zeigen.
 SOURCES = [
-    {"name": "Epson-Treiberpaket (Windows/Mac) – enthält die Epson-Papierprofile",
-     "url": "https://www.epson.eu/", "match": ["epson"],
-     "hint": "Auf der Epson-Supportseite deines Modells den Windows-Treiber (.exe) laden und hier "
-             "über „Datei / ZIP / Treiberpaket…“ importieren – die .icc/.icm werden herausgesucht."},
-    {"name": "Red River Paper – Profile für Epson-EcoTank mit 502-Tinte (inkl. ET-15000)",
-     "url": "https://www.redrivercatalog.com/profiles/inkjet-printer-color-icc-profiles-red-river-paper.html",
-     "match": ["epson"], "hint": "Für Red-River-Papiere; als Annäherung auch für ähnliche Oberflächen."},
-    {"name": "Marrutt – generische Profile (u. a. ET-4850/ET-15000)",
-     "url": "https://marrutt.com/help-support/icc-profiles/icc-profiles-epson-et2850/",
-     "match": ["epson"], "hint": "Kostenlos, für Marrutt-Papiere."},
-    {"name": "Hahnemühle Download-Center (Fine-Art-Papiere, ZIP je Drucker/Papier)",
-     "url": "https://www.hahnemuehle.com/de/digital-fineart/icc-profile/download-center.html",
-     "match": [], "hint": "Drucker + Papier wählen, ZIP laden, hier importieren."},
-    {"name": "farbenwerk – Profile für Fotopapiere (Deutschland)",
-     "url": "https://www.farbenwerk.com/en/pages/icc-profile-downloads",
-     "match": [], "hint": "ZIP-Pakete für verschiedene Druckermodelle."},
+    {
+        "name": "Epson-Treiberpaket (Windows/Mac) – enthält die Epson-Papierprofile",
+        "url": "https://www.epson.eu/",
+        "match": ["epson"],
+        "hint": "Auf der Epson-Supportseite deines Modells den Windows-Treiber (.exe) laden und hier "
+        "über „Datei / ZIP / Treiberpaket…“ importieren – die .icc/.icm werden herausgesucht.",
+    },
+    {
+        "name": "Red River Paper – Profile für Epson-EcoTank mit 502-Tinte (inkl. ET-15000)",
+        "url": "https://www.redrivercatalog.com/profiles/inkjet-printer-color-icc-profiles-red-river-paper.html",
+        "match": ["epson"],
+        "hint": "Für Red-River-Papiere; als Annäherung auch für ähnliche Oberflächen.",
+    },
+    {
+        "name": "Marrutt – generische Profile (u. a. ET-4850/ET-15000)",
+        "url": "https://marrutt.com/help-support/icc-profiles/icc-profiles-epson-et2850/",
+        "match": ["epson"],
+        "hint": "Kostenlos, für Marrutt-Papiere.",
+    },
+    {
+        "name": "Hahnemühle Download-Center (Fine-Art-Papiere, ZIP je Drucker/Papier)",
+        "url": "https://www.hahnemuehle.com/de/digital-fineart/icc-profile/download-center.html",
+        "match": [],
+        "hint": "Drucker + Papier wählen, ZIP laden, hier importieren.",
+    },
+    {
+        "name": "farbenwerk – Profile für Fotopapiere (Deutschland)",
+        "url": "https://www.farbenwerk.com/en/pages/icc-profile-downloads",
+        "match": [],
+        "hint": "ZIP-Pakete für verschiedene Druckermodelle.",
+    },
 ]
 
 
 @dataclass
 class IccInfo:
     path: str
-    name: str            # Dateiname
-    desc: str            # Beschreibung aus dem Profil
-    space: str           # RGB | CMYK | Gray | …
-    klass: str           # prtr (Drucker) | mntr | scnr | spac | …
-    ok_output: bool      # als Druckerausgabeprofil verwendbar?
+    name: str  # Dateiname
+    desc: str  # Beschreibung aus dem Profil
+    space: str  # RGB | CMYK | Gray | …
+    klass: str  # prtr (Drucker) | mntr | scnr | spac | …
+    ok_output: bool  # als Druckerausgabeprofil verwendbar?
 
     @property
     def klass_text(self):
-        return {"prtr": "Drucker", "mntr": "Monitor", "scnr": "Scanner/Kamera", "spac": "Farbraum",
-                "link": "Geräteverknüpfung", "abst": "abstrakt", "nmcl": "Sonderfarben"}.get(self.klass, self.klass)
+        return {
+            "prtr": "Drucker",
+            "mntr": "Monitor",
+            "scnr": "Scanner/Kamera",
+            "spac": "Farbraum",
+            "link": "Geräteverknüpfung",
+            "abst": "abstrakt",
+            "nmcl": "Sonderfarben",
+        }.get(self.klass, self.klass)
 
 
 def sources_for(model: str) -> list[dict]:
@@ -80,12 +103,19 @@ def icc_info(path: str) -> IccInfo | None:
     desc = ""
     try:
         from PIL import ImageCms
+
         desc = (ImageCms.getProfileDescription(ImageCms.getOpenProfile(path)) or "").strip()
     except Exception:
         pass
     name = os.path.basename(path)
-    return IccInfo(path, name, desc or os.path.splitext(name)[0], space, klass,
-                   ok_output=(klass == "prtr" and space in ("RGB", "CMYK", "Gray")))
+    return IccInfo(
+        path,
+        name,
+        desc or os.path.splitext(name)[0],
+        space,
+        klass,
+        ok_output=(klass == "prtr" and space in ("RGB", "CMYK", "Gray")),
+    )
 
 
 def download(url: str, dest_dir: str, progress=None) -> str:
@@ -95,8 +125,12 @@ def download(url: str, dest_dir: str, progress=None) -> str:
     with urllib.request.urlopen(req, timeout=60) as r:
         ctype = r.headers.get("Content-Type", "")
         if "text/html" in ctype:
-            raise ValueError(tr("Der Link führt zu einer Webseite, nicht zu einer Datei. Bitte die Seite im "
-                             "Browser öffnen, dort die Datei laden und dann aus der Datei importieren."))
+            raise ValueError(
+                tr(
+                    "Der Link führt zu einer Webseite, nicht zu einer Datei. Bitte die Seite im "
+                    "Browser öffnen, dort die Datei laden und dann aus der Datei importieren."
+                )
+            )
         name = os.path.basename(urllib.parse.urlparse(r.geturl()).path) or "download.bin"
         cd = r.headers.get("Content-Disposition", "")
         m = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)', cd)
@@ -127,12 +161,14 @@ def _safe_zip_extract(zf: zipfile.ZipFile, dest: str) -> list[str]:
             continue
         if low.endswith(ICC_EXT):
             import uuid
+
             target = os.path.join(dest, uuid.uuid4().hex[:8] + "_" + re.sub(r"[^\w.\-]+", "_", os.path.basename(nm)))
             with zf.open(info) as src, open(target, "wb") as dst:
                 shutil.copyfileobj(src, dst)
             out.append(target)
-        elif low.endswith(".zip") and info.file_size < MAX_DOWNLOAD:     # ZIP im ZIP
+        elif low.endswith(".zip") and info.file_size < MAX_DOWNLOAD:  # ZIP im ZIP
             import io
+
             with zf.open(info) as src:
                 try:
                     out += _safe_zip_extract(zipfile.ZipFile(io.BytesIO(src.read())), dest)
@@ -143,9 +179,12 @@ def _safe_zip_extract(zf: zipfile.ZipFile, dest: str) -> list[str]:
 
 def _seven_zip(path: str, dest: str) -> list[str]:
     from . import platform as _platform
+
     sz = _platform.seven_zip()
     if not sz:
-        raise RuntimeError(tr("Zum Entpacken von Treiberpaketen wird 7-Zip benötigt (Linux: p7zip-full, Windows: 7-zip.org)."))
+        raise RuntimeError(
+            tr("Zum Entpacken von Treiberpaketen wird 7-Zip benötigt (Linux: p7zip-full, Windows: 7-zip.org).")
+        )
     work = tempfile.mkdtemp(prefix="icc7z-", dir=dest)
     subprocess.run([sz, "x", "-y", f"-o{work}", path], capture_output=True, timeout=600)
     found = []
@@ -155,9 +194,12 @@ def _seven_zip(path: str, dest: str) -> list[str]:
             low = f.lower()
             if low.endswith(ICC_EXT):
                 found.append(p)
-            elif low.endswith((".cab", ".zip", ".7z", ".exe", ".msi", ".pkg", ".dmg")) and root.count(os.sep) < work.count(os.sep) + 6:
+            elif (
+                low.endswith((".cab", ".zip", ".7z", ".exe", ".msi", ".pkg", ".dmg"))
+                and root.count(os.sep) < work.count(os.sep) + 6
+            ):
                 try:
-                    found += _seven_zip(p, dest)        # verschachtelte Pakete (Treiber-Setups)
+                    found += _seven_zip(p, dest)  # verschachtelte Pakete (Treiber-Setups)
                 except RuntimeError:
                     pass
     return found
@@ -176,6 +218,7 @@ def extract_icc(path: str, dest: str) -> list[IccInfo]:
         files = _seven_zip(path, dest)
     seen, out = set(), []
     import hashlib
+
     for f in files:
         info = icc_info(f)
         if not info:

@@ -4,14 +4,29 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Papierweiß eines Materials bestimmen: mit dem Messgerät (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki,
-    i1Studio …), aus einer Messdatei (CGATS aus i1Profiler/ArgyllCMS, spotread-Protokoll) oder per Hand.
-    Mehrere Messungen werden gemittelt (Papier an verschiedenen Stellen messen)."""
+i1Studio …), aus einer Messdatei (CGATS aus i1Profiler/ArgyllCMS, spotread-Protokoll) oder per Hand.
+Mehrere Messungen werden gemittelt (Papier an verschiedenen Stellen messen)."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QProcess, Qt
-from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-                               QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton,
-                               QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+)
 
 from .. import colorlab
 from .. import platform as _platform
@@ -21,33 +36,49 @@ from . import theme
 
 def install_help() -> str:
     """Hinweis, wenn ArgyllCMS fehlt (Rich Text mit Link)."""
-    link = '<a style="color:{0}" href="https://www.argyllcms.com/">argyllcms.com</a>'.format(theme.ACCENT)
+    link = f'<a style="color:{theme.ACCENT}" href="https://www.argyllcms.com/">argyllcms.com</a>'
     if _platform.IS_WIN:
-        how = tr("Windows: ArgyllCMS von {0} laden, entpacken (z. B. nach C:\\Argyll) und den Gerätetreiber laut "
-                 "Anleitung installieren. Passermark findet spotread dort von selbst.").format(link)
+        how = tr(
+            "Windows: ArgyllCMS von {0} laden, entpacken (z. B. nach C:\\Argyll) und den Gerätetreiber laut "
+            "Anleitung installieren. Passermark findet spotread dort von selbst."
+        ).format(link)
     else:
-        how = tr("Linux: Paket installieren – Debian/Ubuntu <tt>sudo apt install argyll</tt>, Fedora "
-                 "<tt>sudo dnf install argyllcms</tt>, Arch <tt>sudo pacman -S argyllcms</tt>. Danach das Messgerät "
-                 "neu anstecken. Mehr auf {0}.").format(link)
-    return (tr("<b>ArgyllCMS (spotread) nicht gefunden.</b> Damit spricht Passermark das Messgerät an (X-Rite i1Pro, "
-               "i1Studio, ColorMunki …).") + "<br>" + how + "<br>" +
-            tr("Bis dahin: Messdatei laden oder Werte eingeben."))
+        how = tr(
+            "Linux: Paket installieren – Debian/Ubuntu <tt>sudo apt install argyll</tt>, Fedora "
+            "<tt>sudo dnf install argyllcms</tt>, Arch <tt>sudo pacman -S argyllcms</tt>. Danach das Messgerät "
+            "neu anstecken. Mehr auf {0}."
+        ).format(link)
+    return (
+        tr(
+            "<b>ArgyllCMS (spotread) nicht gefunden.</b> Damit spricht Passermark das Messgerät an (X-Rite i1Pro, "
+            "i1Studio, ColorMunki …)."
+        )
+        + "<br>"
+        + how
+        + "<br>"
+        + tr("Bis dahin: Messdatei laden oder Werte eingeben.")
+    )
 
 
 class MeasureDialog(QDialog):
     def __init__(self, parent, material_name: str = "", start=None):
         super().__init__(parent)
-        self.setWindowTitle(tr("Papierweiß bestimmen – {0}").format(material_name) if material_name
-                            else tr("Papierweiß bestimmen"))
-        self.values: list = []           # [(Lab, Herkunft)]
+        self.setWindowTitle(
+            tr("Papierweiß bestimmen – {0}").format(material_name) if material_name else tr("Papierweiß bestimmen")
+        )
+        self.values: list = []  # [(Lab, Herkunft)]
         self.source = ""
         self.proc = None
         self.buf = ""
         v = QVBoxLayout(self)
 
-        intro = QLabel(tr("Papierweiß = die Farbe des unbedruckten Papiers (Lab-Wert). Daran erkennt Passermark, welches "
-                          "Profil zum Papier passt, und der Softproof zeigt das echte Papier. Mehrere Messungen an "
-                          "verschiedenen Stellen werden gemittelt."))
+        intro = QLabel(
+            tr(
+                "Papierweiß = die Farbe des unbedruckten Papiers (Lab-Wert). Daran erkennt Passermark, welches "
+                "Profil zum Papier passt, und der Softproof zeigt das echte Papier. Mehrere Messungen an "
+                "verschiedenen Stellen werden gemittelt."
+            )
+        )
         intro.setWordWrap(True)
         intro.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(intro)
@@ -76,11 +107,17 @@ class MeasureDialog(QDialog):
         h.addWidget(self.chk_nocal)
         h.addStretch()
         self.btn_measure = QPushButton(tr("Messen"))
-        self.btn_measure.setToolTip(tr("Startet spotread: zuerst kalibrieren (Gerät auf die Kalibrierstellung), dann "
-                                       "aufs Papier setzen – das Programm sagt jeweils, was zu tun ist"))
+        self.btn_measure.setToolTip(
+            tr(
+                "Startet spotread: zuerst kalibrieren (Gerät auf die Kalibrierstellung), dann "
+                "aufs Papier setzen – das Programm sagt jeweils, was zu tun ist"
+            )
+        )
         self.btn_measure.clicked.connect(self._start)
         self.btn_next = QPushButton(tr("Weiter"))
-        self.btn_next.setToolTip(tr("Gerät liegt richtig – Kalibrierung bzw. Messung auslösen (wie die Taste am Gerät)"))
+        self.btn_next.setToolTip(
+            tr("Gerät liegt richtig – Kalibrierung bzw. Messung auslösen (wie die Taste am Gerät)")
+        )
         self.btn_next.setEnabled(False)
         self.btn_next.clicked.connect(self._key)
         self.btn_stop = QPushButton(tr("Abbrechen"))
@@ -90,8 +127,12 @@ class MeasureDialog(QDialog):
         for b in (self.btn_measure, self.btn_next, self.btn_stop):
             h.addWidget(b)
         bv.addLayout(h)
-        self.lbl_state = QLabel(tr("Gerät anschließen, dann „Messen“. Das Papier auf eine weiße Unterlage oder "
-                                   "mehrere Blätter desselben Papiers legen."))
+        self.lbl_state = QLabel(
+            tr(
+                "Gerät anschließen, dann „Messen“. Das Papier auf eine weiße Unterlage oder "
+                "mehrere Blätter desselben Papiers legen."
+            )
+        )
         self.lbl_state.setWordWrap(True)
         self.lbl_state.setStyleSheet(f"color: {theme.ACCENT};")
         bv.addWidget(self.lbl_state)
@@ -108,8 +149,12 @@ class MeasureDialog(QDialog):
         box = QGroupBox(tr("Ohne Gerät"))
         bh = QHBoxLayout(box)
         b = QPushButton(tr("Messdatei laden …"))
-        b.setToolTip(tr("CGATS (i1Profiler, ArgyllCMS .ti3, ColorPort …) oder spotread-Protokoll – das Feld ohne "
-                        "Farbe wird als Papierweiß genommen"))
+        b.setToolTip(
+            tr(
+                "CGATS (i1Profiler, ArgyllCMS .ti3, ColorPort …) oder spotread-Protokoll – das Feld ohne "
+                "Farbe wird als Papierweiß genommen"
+            )
+        )
         b.clicked.connect(self._load_file)
         bh.addWidget(b)
         self.ed_lab = QLineEdit()
@@ -186,8 +231,9 @@ class MeasureDialog(QDialog):
         self.ed_lab.clear()
 
     def _load_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, tr("Messdatei"), "", tr(
-            "Messdaten (*.txt *.ti3 *.cgats *.it8 *.csv *.log);;Alle Dateien (*)"))
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr("Messdatei"), "", tr("Messdaten (*.txt *.ti3 *.cgats *.it8 *.csv *.log);;Alle Dateien (*)")
+        )
         if not path:
             return
         try:
@@ -199,6 +245,7 @@ class MeasureDialog(QDialog):
             QMessageBox.warning(self, tr("Messdatei"), tr("Keine Lab- oder XYZ-Messwerte in der Datei gefunden."))
             return
         import os
+
         self._add(lab, f"{os.path.basename(path)}: {why}")
 
     # ---------------- spotread ---------------- #
@@ -218,12 +265,17 @@ class MeasureDialog(QDialog):
         inst = [(n, d) for n, d in ports if colorlab.is_instrument(d)]
         if inst:
             self.spn_port.setValue(inst[0][0])
-            self.lbl_state.setText(tr("Messgerät gefunden: {0} (Anschluss {1}). Jetzt „Messen“.").format(
-                inst[0][1], inst[0][0]))
+            self.lbl_state.setText(
+                tr("Messgerät gefunden: {0} (Anschluss {1}). Jetzt „Messen“.").format(inst[0][1], inst[0][0])
+            )
         else:
-            self.lbl_state.setText(tr("Kein Messgerät erkannt. Angesteckt? Unter Windows braucht ArgyllCMS einen eigenen "
-                                      "Treiber (siehe argyllcms.com → Installation), unter Linux die udev-Regel aus dem "
-                                      "Paket argyll."))
+            self.lbl_state.setText(
+                tr(
+                    "Kein Messgerät erkannt. Angesteckt? Unter Windows braucht ArgyllCMS einen eigenen "
+                    "Treiber (siehe argyllcms.com → Installation), unter Linux die udev-Regel aus dem "
+                    "Paket argyll."
+                )
+            )
         self.log.appendPlainText("$ spotread -?\n" + "\n".join(f"{n} = {d}" for n, d in ports))
 
     def _start(self):
@@ -259,7 +311,9 @@ class MeasureDialog(QDialog):
                 self.lbl_state.setText(tr("Gemessen. Für einen Mittelwert an einer anderen Stelle nochmal „Messen“."))
             self.btn_next.setEnabled(False)
         elif st == "calibrate":
-            self.lbl_state.setText(tr("Kalibrieren: Gerät auf die Kalibrierstellung/weiße Kachel setzen, dann „Weiter“."))
+            self.lbl_state.setText(
+                tr("Kalibrieren: Gerät auf die Kalibrierstellung/weiße Kachel setzen, dann „Weiter“.")
+            )
             self.btn_next.setEnabled(True)
         elif st == "measure":
             self.lbl_state.setText(tr("Messen: Gerät flach aufs Papier setzen, dann „Weiter“."))

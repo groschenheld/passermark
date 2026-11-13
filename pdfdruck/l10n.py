@@ -11,6 +11,7 @@ the German text stays. Placeholders: tr("Page {0} of {1}").format(a, b).
 Language: user setting (File → Settings) > admin default > system language > English.
 Standard library only – also importable by the admin helper.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -33,12 +34,12 @@ def _settings_file() -> str:
     return os.path.join(base, "passermark", "settings.json")
 
 
-_settings_cache: tuple | None = None      # (Pfad, Stand der Datei, Inhalt)
+_settings_cache: tuple | None = None  # (Pfad, Stand der Datei, Inhalt)
 
 
 def load_settings() -> dict:
     """Benutzereinstellungen. Gelesen wird nur, wenn sich die Datei geändert hat – beim Aufbau eines Fensters wird
-        das Dutzende Male abgefragt; auf Windows (Virenscanner, servergespeichertes Profil) kostete jedes Öffnen Zeit."""
+    das Dutzende Male abgefragt; auf Windows (Virenscanner, servergespeichertes Profil) kostete jedes Öffnen Zeit."""
     global _settings_cache
     p = _settings_file()
     try:
@@ -48,7 +49,7 @@ def load_settings() -> dict:
         return {}
     c = _settings_cache
     if c is not None and c[0] == p and c[1] == stamp:
-        return json.loads(c[2])                  # frische Kopie: Aufrufer ändern das Ergebnis und speichern es
+        return json.loads(c[2])  # frische Kopie: Aufrufer ändern das Ergebnis und speichern es
     try:
         with open(p, encoding="utf-8") as f:
             text = f.read()
@@ -75,6 +76,7 @@ def save_settings(d: dict):
 def _admin_default() -> str:
     try:
         from . import platform as _platform
+
         with open(os.path.join(_platform.config_dir(), "defaults.json"), encoding="utf-8") as f:
             return str(json.load(f).get("language", "") or "")
     except Exception:
@@ -86,6 +88,7 @@ def system_language() -> str:
     if sys.platform == "win32":
         try:
             import ctypes
+
             cands.insert(0, locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage(), ""))
         except Exception:
             pass

@@ -16,6 +16,7 @@ cmyk_mode   auto      what colorcheck recommends: RGB -> target (existing CMYK s
 rgb         convert | keep (pass RGB on with ICC profile – untagged RGB gets sRGB) | ask (default: a file with
             RGB content is refused – the program asks, the command line must say what it wants)
 """
+
 from __future__ import annotations
 
 import datetime
@@ -34,20 +35,21 @@ RGB_CHOICES = ("ask", "convert", "keep")
 
 @dataclass
 class PressSettings:
-    target: str = ""            # CMYK-Profil der Druckbedingung (.icc) – Pflicht
-    intent: str = "relative"    # perceptual | relative | saturation | absolute
-    bpc: bool = True            # Tiefenkompensierung
-    cmyk_mode: str = "auto"     # auto | rgb_only | all | none
-    source: str = ""            # Quellprofil für vorhandenes CMYK bei „all“ ("" = aus dem Output Intent der Datei)
-    rgb: str = "ask"            # convert | keep | ask
-    gray_to_k: bool = True      # Grau/Schwarz nur mit K
-    tac_limit: int = 0          # Richtwert Farbauftrag in % (0 = aus dem Profil)
-    material: str = ""          # Material-ID (Papierweiß/Name für den Bericht)
-    package: bool = False       # zusätzlich <Ausgabe>_Druckerei.zip: PDF, ICC-Profile, Bericht
+    target: str = ""  # CMYK-Profil der Druckbedingung (.icc) – Pflicht
+    intent: str = "relative"  # perceptual | relative | saturation | absolute
+    bpc: bool = True  # Tiefenkompensierung
+    cmyk_mode: str = "auto"  # auto | rgb_only | all | none
+    source: str = ""  # Quellprofil für vorhandenes CMYK bei „all“ ("" = aus dem Output Intent der Datei)
+    rgb: str = "ask"  # convert | keep | ask
+    gray_to_k: bool = True  # Grau/Schwarz nur mit K
+    tac_limit: int = 0  # Richtwert Farbauftrag in % (0 = aus dem Profil)
+    material: str = ""  # Material-ID (Papierweiß/Name für den Bericht)
+    package: bool = False  # zusätzlich <Ausgabe>_Druckerei.zip: PDF, ICC-Profile, Bericht
 
 
 def _target(s: PressSettings, cfg: dict | None):
     from . import colorcheck, colorlab, colorconv
+
     if not s.target:
         raise ValueError(tr("Keine Druckbedingung: target = Pfad zum CMYK-Profil (.icc) angeben."))
     if not os.path.isfile(s.target):
@@ -72,6 +74,7 @@ def _target(s: PressSettings, cfg: dict | None):
 def plan(f, t, s: PressSettings, cfg: dict | None = None) -> dict:
     """What will be done: {"mode", "source", "tag_rgb", "notes": [...]} – also shown by the assistant beforehand."""
     from . import colorcheck
+
     notes = []
     oi = next((o for o in f.output_intents if o), "")
     other = bool(oi and f.has_cmyk and not colorcheck.same_condition(oi, t.icc))
@@ -87,11 +90,18 @@ def plan(f, t, s: PressSettings, cfg: dict | None = None) -> dict:
     if mode == "all" and not source:
         source = colorcheck.source_profile_for(oi, cfg) if other else t.icc
         if other and not source:
-            notes.append(tr("Quellprofil „{0}“ nicht installiert – vorhandenes CMYK wird als Ghostscript-Standard "
-                            "angenommen.").format(oi))
+            notes.append(
+                tr(
+                    "Quellprofil „{0}“ nicht installiert – vorhandenes CMYK wird als Ghostscript-Standard angenommen."
+                ).format(oi)
+            )
     if f.has_rgb and s.rgb == "ask":
-        raise ValueError(tr("Die Datei enthält RGB. Bitte entscheiden: rgb=convert (nach „{0}“ umwandeln) oder "
-                            "rgb=keep (RGB mit Profil weitergeben, die Druckerei rechnet um).").format(t.name))
+        raise ValueError(
+            tr(
+                "Die Datei enthält RGB. Bitte entscheiden: rgb=convert (nach „{0}“ umwandeln) oder "
+                "rgb=keep (RGB mit Profil weitergeben, die Druckerei rechnet um)."
+            ).format(t.name)
+        )
     tag_rgb = False
     if f.has_rgb and s.rgb == "keep":
         if mode == "rgb_only":
@@ -101,21 +111,27 @@ def plan(f, t, s: PressSettings, cfg: dict | None = None) -> dict:
         else:
             notes.append(tr("RGB wird mit umgewandelt – beim Neu-Separieren rechnet Ghostscript alle Farben."))
     if mode == "rgb_only" and over and not f.has_cmyk:
-        pass                                                   # RGB -> Ziel: das Profil begrenzt den Farbauftrag
+        pass  # RGB -> Ziel: das Profil begrenzt den Farbauftrag
     elif mode in ("rgb_only", "none") and over:
-        tac_note = (tr("Farbauftrag {0} % über dem Richtwert {1} % bleibt – mit cmyk_mode=all neu separieren.").format(
-            f.tac["max"], f.tac["limit"]))
-        return {"mode": mode, "source": source if mode == "all" else "", "tag_rgb": tag_rgb, "notes": notes,
-                "tac_note": tac_note}
-    return {"mode": mode, "source": source if mode == "all" else "", "tag_rgb": tag_rgb, "notes": notes,
-            "tac_note": ""}
+        tac_note = tr("Farbauftrag {0} % über dem Richtwert {1} % bleibt – mit cmyk_mode=all neu separieren.").format(
+            f.tac["max"], f.tac["limit"]
+        )
+        return {
+            "mode": mode,
+            "source": source if mode == "all" else "",
+            "tag_rgb": tag_rgb,
+            "notes": notes,
+            "tac_note": tac_note,
+        }
+    return {"mode": mode, "source": source if mode == "all" else "", "tag_rgb": tag_rgb, "notes": notes, "tac_note": ""}
 
 
 def tag_rgb_srgb(pdf) -> int:
     """RGB ohne Profil als sRGB kennzeichnen (Bilder: ICCBased statt DeviceRGB, Seiten/Formulare: DefaultRGB).
-        -> Anzahl geänderter Stellen."""
+    -> Anzahl geänderter Stellen."""
     import pikepdf
     from PIL import ImageCms
+
     prof = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
     st = pikepdf.Stream(pdf, prof)
     st["/N"] = 3
@@ -161,35 +177,67 @@ def _md5(path: str) -> str:
 
 def report_text(src_name: str, t, s: PressSettings, p: dict, before, after, findings_after) -> str:
     from . import __version__, colorlab, config
-    lines = [tr("Passermark {0} – Bericht für die Druckerei").format(__version__),
-             tr("Erstellt: {0}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
-             tr("Datei: {0}").format(src_name), ""]
+
+    lines = [
+        tr("Passermark {0} – Bericht für die Druckerei").format(__version__),
+        tr("Erstellt: {0}").format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M")),
+        tr("Datei: {0}").format(src_name),
+        "",
+    ]
     lines.append(tr("Druckbedingung (Output Intent): {0}").format(t.name))
     lines.append(tr("Profil: {0}  (MD5 {1})").format(os.path.basename(t.icc), _md5(t.icc)))
-    lines.append(tr("Render-Intent: {0}, Tiefenkompensierung: {1}").format(
-        tr(config.INTENTS.get(t.intent, t.intent)), tr("ja") if s.bpc else tr("nein")))
-    mode_txt = {"rgb_only": tr("RGB/Grau → CMYK, vorhandenes CMYK unverändert"),
-                "all": tr("alles neu separiert"), "none": tr("keine Farbumwandlung")}[p["mode"]]
+    lines.append(
+        tr("Render-Intent: {0}, Tiefenkompensierung: {1}").format(
+            tr(config.INTENTS.get(t.intent, t.intent)), tr("ja") if s.bpc else tr("nein")
+        )
+    )
+    mode_txt = {
+        "rgb_only": tr("RGB/Grau → CMYK, vorhandenes CMYK unverändert"),
+        "all": tr("alles neu separiert"),
+        "none": tr("keine Farbumwandlung"),
+    }[p["mode"]]
     lines.append(tr("Umwandlung: {0}").format(mode_txt))
     if p["mode"] == "all":
-        lines.append(tr("Quellprofil für vorhandenes CMYK: {0}").format(
-            os.path.basename(p["source"]) if p["source"] else tr("Ghostscript-Standard")))
+        lines.append(
+            tr("Quellprofil für vorhandenes CMYK: {0}").format(
+                os.path.basename(p["source"]) if p["source"] else tr("Ghostscript-Standard")
+            )
+        )
     if p["tag_rgb"]:
         lines.append(tr("RGB weitergegeben, RGB ohne Profil als sRGB gekennzeichnet"))
     if t.material:
         lines.append(tr("Material: {0}").format(t.material))
         pw = colorlab.profile_white(t.icc)
         if t.white:
-            lines.append(tr("Papierweiß gemessen: {0}").format(colorlab.fmt_lab(t.white))
-                         + (tr("  (Profil {0}, ΔE {1:.1f})").format(colorlab.fmt_lab(pw), colorlab.delta_e(t.white, pw))
-                            if pw else ""))
+            lines.append(
+                tr("Papierweiß gemessen: {0}").format(colorlab.fmt_lab(t.white))
+                + (
+                    tr("  (Profil {0}, ΔE {1:.1f})").format(colorlab.fmt_lab(pw), colorlab.delta_e(t.white, pw))
+                    if pw
+                    else ""
+                )
+            )
     lines.append("")
     for label, f in ((tr("Vorher"), before), (tr("Nachher"), after)):
         tac = f"{f.tac['max']} %" if f.tac else "–"
-        lines.append(tr("{0}: Farbräume {1}; Output Intent {2}; Farbauftrag max. {3}").format(
-            label, ", ".join(k for k, pages in (("RGB", f.rgb_pages), ("CMYK", f.cmyk_pages), (tr("Grau"), f.gray_pages),
-                                                ("Lab", f.lab_pages)) if pages) or "–",
-            ", ".join(f.output_intents) or tr("keiner"), tac))
+        lines.append(
+            tr("{0}: Farbräume {1}; Output Intent {2}; Farbauftrag max. {3}").format(
+                label,
+                ", ".join(
+                    k
+                    for k, pages in (
+                        ("RGB", f.rgb_pages),
+                        ("CMYK", f.cmyk_pages),
+                        (tr("Grau"), f.gray_pages),
+                        ("Lab", f.lab_pages),
+                    )
+                    if pages
+                )
+                or "–",
+                ", ".join(f.output_intents) or tr("keiner"),
+                tac,
+            )
+        )
     if after.spots:
         lines.append(tr("Sonderfarben: {0}").format(", ".join(sorted(after.spots))))
     lines.append("")
@@ -213,10 +261,12 @@ def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=
             progress(i, 5, text)
         if cancel is not None and cancel():
             from .core import Cancelled
+
             raise Cancelled(tr("Abgebrochen."))
 
     if cfg is None:
         from . import config
+
         cfg = config.load()
     t = _target(s, cfg)
     with open(src, "rb") as fh:
@@ -229,9 +279,16 @@ def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=
         work = os.path.join(tmpdir, "work.pdf")
         if p["mode"] in ("rgb_only", "all"):
             step(1, tr("Wandle Farben um …"))
-            ms = cmyk.ManipSettings(cmyk=True, cmyk_mode=p["mode"], target=t.icc, source=p["source"],
-                                    intent=t.intent or "relative", bpc=bool(s.bpc), gray_to_k=bool(s.gray_to_k),
-                                    output_intent=False)
+            ms = cmyk.ManipSettings(
+                cmyk=True,
+                cmyk_mode=p["mode"],
+                target=t.icc,
+                source=p["source"],
+                intent=t.intent or "relative",
+                bpc=bool(s.bpc),
+                gray_to_k=bool(s.gray_to_k),
+                output_intent=False,
+            )
             cmyk.convert_pdf(src, work, ms)
         else:
             shutil.copyfile(src, work)
@@ -251,6 +308,7 @@ def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=
         findings = colorcheck.check(after, t, cfg)
         report = report_text(os.path.basename(src), t, s, p, before, after, findings)
         from .core import _write_atomic
+
         _write_atomic(dst, out)
         pkg = ""
         if s.package:
@@ -267,11 +325,16 @@ def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=
         step(5, "")
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
-    skip = {"rgb"} if p["tag_rgb"] else set()                  # RGB bewusst weitergegeben
+    skip = {"rgb"} if p["tag_rgb"] else set()  # RGB bewusst weitergegeben
     notes = list(p["notes"]) + [x.title for x in findings if x.severity in ("error", "warning") and x.key not in skip]
     if pkg:
         notes.append(tr("Paket: {0}").format(pkg))
-    info = {"mode": p["mode"], "target": t.name, "output_intent": t.name,
-            "tac_before": before.tac["max"] if before.tac else None,
-            "tac_after": after.tac["max"] if after.tac else None, "package": pkg}
+    info = {
+        "mode": p["mode"],
+        "target": t.name,
+        "output_intent": t.name,
+        "tac_before": before.tac["max"] if before.tac else None,
+        "tac_after": after.tac["max"] if after.tac else None,
+        "package": pkg,
+    }
     return {"info": info, "notes": notes, "report": report, "findings": findings, "package": pkg, "plan": p}

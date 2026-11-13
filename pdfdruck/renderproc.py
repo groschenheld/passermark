@@ -23,6 +23,7 @@ Protocol (stdin/stdout, binary-safe):
 The same program runs twice: one process renders pages, a second one does the slow analysis (check,
 verification after editing) – so neither blocks the other and the GUI never waits for either.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,13 +32,13 @@ import pickle
 import sys
 from collections import OrderedDict
 
-KEEP_PAGES = 4          # offene Seiten je Dokument: pdfium behält dekodierte Bilder, solange die Seite offen ist
+KEEP_PAGES = 4  # offene Seiten je Dokument: pdfium behält dekodierte Bilder, solange die Seite offen ist
 
 
 def page_info(data: bytes) -> list:
     """Je Seite die Rahmen wie pdfium sie sieht, ohne Seiten zu laden (pikepdf, nur Wörterbücher):
-        {"crop": (x0, y0, x1, y1) = CropBox ∩ MediaBox, "rotate": 0..3, "trim": … | None, "bleed": … | None}.
-        Werte werden wie bei pdfium über /Parent geerbt."""
+    {"crop": (x0, y0, x1, y1) = CropBox ∩ MediaBox, "rotate": 0..3, "trim": … | None, "bleed": … | None}.
+    Werte werden wie bei pdfium über /Parent geerbt."""
     import io
     import pikepdf
 
@@ -56,6 +57,7 @@ def page_info(data: bytes) -> list:
             return (min(a[0], a[2]), min(a[1], a[3]), max(a[0], a[2]), max(a[1], a[3])) if len(a) == 4 else None
         except Exception:
             return None
+
     out = []
     with pikepdf.open(io.BytesIO(data)) as pdf:
         for pg in pdf.pages:
@@ -73,9 +75,9 @@ def page_info(data: bytes) -> list:
             except Exception:
                 rot = 0
             trim, bleed = box(attr(o, "/TrimBox")), box(attr(o, "/BleedBox"))
-            raw = {"trim_raw": trim, "art": box(attr(o, "/ArtBox"))}      # für die Statuszeile (wie page_trims)
+            raw = {"trim_raw": trim, "art": box(attr(o, "/ArtBox"))}  # für die Statuszeile (wie page_trims)
             if trim is not None and all(abs(trim[k] - crop[k]) < 0.5 for k in range(4)):
-                trim = None                              # Endformat = Seite: kein Anschnitt
+                trim = None  # Endformat = Seite: kein Anschnitt
             if trim is None:
                 bleed = None
             out.append(dict(raw, crop=crop, rotate=(rot // 90) % 4, trim=trim, bleed=bleed))
@@ -84,6 +86,7 @@ def page_info(data: bytes) -> list:
 
 def _call_preflight(path: str, deep_layers: bool = True):
     from . import preflight
+
     with open(path, "rb") as f:
         data = f.read()
     return preflight.analyze(data, deep_layers, pdfium_parts=True)
@@ -91,6 +94,7 @@ def _call_preflight(path: str, deep_layers: bool = True):
 
 def _call_verify(before: str, after: str, page: int, boxes: list):
     from . import editing
+
     with open(before, "rb") as f:
         a = f.read()
     with open(after, "rb") as f:
@@ -101,6 +105,7 @@ def _call_verify(before: str, after: str, page: int, boxes: list):
 def _call_edit(before: str, out: str, page: int, op: str, kwargs: dict, boxes: list):
     """Bearbeiten-Modus: Änderung + Sicherheitsprüfung; das Ergebnis landet in out (nur wenn übernommen)."""
     from . import editops
+
     with open(before, "rb") as f:
         data = f.read()
     res = editops.apply_and_verify(data, page, op, kwargs, boxes)
@@ -112,13 +117,14 @@ def _call_edit(before: str, out: str, page: int, op: str, kwargs: dict, boxes: l
     return res
 
 
-_SHEET_SRC: OrderedDict = OrderedDict()      # (Pfad, flach) -> (Stempel, Dokument) – Druckvorschau
+_SHEET_SRC: OrderedDict = OrderedDict()  # (Pfad, flach) -> (Stempel, Dokument) – Druckvorschau
 
 
 def _sheet_source(path: str, flatten: bool):
     """Quelle der Druckvorschau, je Datei einmal geladen (und Formulare/Kommentare eingebrannt)."""
     import pypdfium2 as pdfium
     from . import layout
+
     st = os.stat(path)
     key, stamp = (path, bool(flatten)), (st.st_mtime_ns, st.st_size)
     hit = _SHEET_SRC.get(key)
@@ -158,25 +164,41 @@ def _rgb(page, scale: float, rotation: int, proof_args=None):
         bmp.close()
     if proof_args:
         from . import proof
+
         img = proof.apply(img, *proof_args).convert("RGB")
     return img.width, img.height, img.tobytes("raw", "RGB")
 
 
-def _call_sheet(path: str, flatten: bool, mode: str, sheet, plans, settings, only=None, scale: float = 1.0,
-                rotations=None, proof_args=None, plans1=None, plans2=None, sheet1=None, limit: int = 400):
+def _call_sheet(
+    path: str,
+    flatten: bool,
+    mode: str,
+    sheet,
+    plans,
+    settings,
+    only=None,
+    scale: float = 1.0,
+    rotations=None,
+    proof_args=None,
+    plans1=None,
+    plans2=None,
+    sheet1=None,
+    limit: int = 400,
+):
     """Druckvorschau: Bogen montieren und rendern (wie die Ausgabe, nur im eigenen Prozess).
-        mode "sheet": impose_with, only = Bogennummern (Vorder- und ggf. Rückseite)
-        mode "step2": impose_step2 (Schritt 2), only = [Bogen]
-        mode "overview": alle Bögen (bis limit) als kleine Bilder, scale gilt für alle.
-        -> Liste von (Breite, Höhe, RGB-Bytes)."""
+    mode "sheet": impose_with, only = Bogennummern (Vorder- und ggf. Rückseite)
+    mode "step2": impose_step2 (Schritt 2), only = [Bogen]
+    mode "overview": alle Bögen (bis limit) als kleine Bilder, scale gilt für alle.
+    -> Liste von (Breite, Höhe, RGB-Bytes)."""
     from . import layout
+
     src = _sheet_source(path, flatten)
     sub = None
     if mode == "sheet" and plans:
         try:
             sub = _raster_source(src, plans, only if only is not None else range(min(len(plans), limit)), scale)
         except Exception:
-            sub = None                                  # dann direkt (wie die Ausgabe)
+            sub = None  # dann direkt (wie die Ausgabe)
         if sub is not None:
             src = sub
     if mode == "step2":
@@ -202,10 +224,11 @@ def _call_sheet(path: str, flatten: bool, mode: str, sheet, plans, settings, onl
 
 def _raster_source(src, plans, sheets, scale: float):
     """Nur für die Vorschau: kommt eine Seite mehrfach auf die Bögen (Nutzen, Step & Repeat), wird sie einmal
-        in Vorschau-Auflösung gerendert und das Bild montiert – statt die Seite für jeden Nutzen neu zu
-        zeichnen (große Fotos, CAD-Pläne: jeder Nutzen dekodierte alles neu). Die Montage selbst (Lage,
-        Anschnitt, Spiegelung, Marken) bleibt genau dieselbe. None = nicht nötig (jede Seite nur einmal)."""
+    in Vorschau-Auflösung gerendert und das Bild montiert – statt die Seite für jeden Nutzen neu zu
+    zeichnen (große Fotos, CAD-Pläne: jeder Nutzen dekodierte alles neu). Die Montage selbst (Lage,
+    Anschnitt, Spiegelung, Marken) bleibt genau dieselbe. None = nicht nötig (jede Seite nur einmal)."""
     import pypdfium2 as pdfium
+
     need: dict = {}
     count: dict = {}
     for idx in sheets:
@@ -250,17 +273,25 @@ def _call_sheet_release():
 def _call_inspect(path: str, password: str | None = None):
     """Eigenschaften-Fenster: alle Dokumentangaben samt Prüfung (wie passermark-cli inspect --check)."""
     from . import docinfo
+
     return docinfo.inspect(path, password, check=True)
 
 
-CALLS = {"inspect": _call_inspect, "preflight": _call_preflight, "verify": _call_verify, "edit": _call_edit,
-         "sheet": _call_sheet, "sheet_release": _call_sheet_release}
+CALLS = {
+    "inspect": _call_inspect,
+    "preflight": _call_preflight,
+    "verify": _call_verify,
+    "edit": _call_edit,
+    "sheet": _call_sheet,
+    "sheet_release": _call_sheet_release,
+}
 
 
 def serve(inp, out) -> int:
     import pypdfium2 as pdfium
+
     docs: dict = {}
-    paths: dict = {}                                        # Dokument -> (Pfad, Passwort) für den Softproof
+    paths: dict = {}  # Dokument -> (Pfad, Passwort) für den Softproof
     pages: OrderedDict = OrderedDict()
 
     def send(head: dict, payload: bytes = b""):
@@ -307,7 +338,7 @@ def serve(inp, out) -> int:
             req = json.loads(line)
         except ValueError:
             continue
-        if req.get("n"):                                    # Argumente als Pickle hinter der Zeile
+        if req.get("n"):  # Argumente als Pickle hinter der Zeile
             raw = inp.read(int(req["n"]))
             try:
                 req["args"] = pickle.loads(raw)
@@ -319,14 +350,14 @@ def serve(inp, out) -> int:
         try:
             if op == "open":
                 close_doc(key)
-                with open(req["path"], "rb") as f:         # in den Speicher: Datei bleibt frei (Windows:
-                    data = f.read()                          # Speichern über die offene Datei, Zwischendatei löschen)
+                with open(req["path"], "rb") as f:  # in den Speicher: Datei bleibt frei (Windows:
+                    data = f.read()  # Speichern über die offene Datei, Zwischendatei löschen)
                 docs[key] = pdfium.PdfDocument(data, password=req.get("password") or None)
                 paths[key] = (req["path"], req.get("password") or None)
                 try:
                     info = page_info(data)
                 except Exception:
-                    info = None                              # z. B. verschlüsselt: Ansicht nimmt pdfium
+                    info = None  # z. B. verschlüsselt: Ansicht nimmt pdfium
                 send({"id": rid, "ok": True, "pages": len(docs[key]), "fmt": "pickle"}, pickle.dumps(info))
             elif op == "chars":
                 pg = page_of(key, int(req["page"]))
@@ -339,11 +370,12 @@ def serve(inp, out) -> int:
                 send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(boxes))
             elif op == "lists":
                 from . import editing
+
                 page = int(req["page"])
                 if req.get("kind") == "text":
                     res = editing.text_lines(docs[key], page, include_undecodable=True)
                 else:
-                    res = editing.limit_objects(editing.page_objects(docs[key], page))   # (Auswahl, Gesamtzahl)
+                    res = editing.limit_objects(editing.page_objects(docs[key], page))  # (Auswahl, Gesamtzahl)
                 send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(res))
             elif op == "call":
                 result = CALLS[req["fn"]](**(req.get("args") or {}))
@@ -356,23 +388,56 @@ def serve(inp, out) -> int:
                 crop = tuple(float(c) for c in req["crop"]) if req.get("crop") else (0, 0, 0, 0)
                 if req.get("proof"):
                     from . import proof
+
                     path, pw = paths.get(key, (None, None))
-                    img = proof.proofed_render(pg, float(req["scale"]), int(req.get("rotation", 0)), crop, req["proof"],
-                                               path, int(req["page"]), pw)
-                    send({"id": rid, "ok": True, "w": img.width, "h": img.height, "stride": img.width * 4,
-                          "fmt": "bgrx"}, img.tobytes("raw", "BGRX"))
+                    img = proof.proofed_render(
+                        pg,
+                        float(req["scale"]),
+                        int(req.get("rotation", 0)),
+                        crop,
+                        req["proof"],
+                        path,
+                        int(req["page"]),
+                        pw,
+                    )
+                    send(
+                        {
+                            "id": rid,
+                            "ok": True,
+                            "w": img.width,
+                            "h": img.height,
+                            "stride": img.width * 4,
+                            "fmt": "bgrx",
+                        },
+                        img.tobytes("raw", "BGRX"),
+                    )
                     continue
-                bmp = pg.render(scale=float(req["scale"]), rotation=int(req.get("rotation", 0)) % 360, crop=crop,
-                                prefer_bgrx=True, may_draw_forms=True, draw_annots=True)
+                bmp = pg.render(
+                    scale=float(req["scale"]),
+                    rotation=int(req.get("rotation", 0)) % 360,
+                    crop=crop,
+                    prefer_bgrx=True,
+                    may_draw_forms=True,
+                    draw_annots=True,
+                )
                 try:
                     data = bytes(bmp.buffer)
-                    send({"id": rid, "ok": True, "w": bmp.width, "h": bmp.height, "stride": bmp.stride,
-                          "fmt": "bgrx" if bmp.n_channels == 4 else "bgr"}, data)
+                    send(
+                        {
+                            "id": rid,
+                            "ok": True,
+                            "w": bmp.width,
+                            "h": bmp.height,
+                            "stride": bmp.stride,
+                            "fmt": "bgrx" if bmp.n_channels == 4 else "bgr",
+                        },
+                        data,
+                    )
                 finally:
                     bmp.close()
             else:
                 send({"id": rid, "ok": False, "error": f"unknown op {op!r}"})
-        except Exception as e:                       # Fehler zurückmelden, Server läuft weiter
+        except Exception as e:  # Fehler zurückmelden, Server läuft weiter
             send({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})
     for key in list(docs):
         close_doc(key)
@@ -381,7 +446,7 @@ def serve(inp, out) -> int:
 
 def main() -> int:
     """Entry point (passermark-cli render-server). Stray prints must not end up in the binary stream:
-        stdout is taken over for the protocol, everything else goes to stderr."""
+    stdout is taken over for the protocol, everything else goes to stderr."""
     out = os.fdopen(os.dup(sys.stdout.fileno()), "wb")
     try:
         os.dup2(sys.stderr.fileno(), sys.stdout.fileno())

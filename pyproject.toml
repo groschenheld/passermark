@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Code style and static checks for Passermark. Packaging is done by install.sh, the AppImage script and the
+# Windows build – this file only configures the tools.
+#
+#   ruff format            format the code (the one accepted style – do not hand-align)
+#   ruff check             static checks; `ruff check --fix` repairs what is safe to repair
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    "pdfdruck/lang",        # translation tables: generated/appended by script, one entry per line
+    "build", "dist", ".venv",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = false
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes (unused/undefined names), B: likely bugs, UP: outdated syntax for py310,
+# SIM: needless complexity
+select = ["E", "W", "F", "B", "UP", "SIM"]
+ignore = [
+    "E501",     # line length is the formatter's job (long strings may exceed it)
+    "E731",     # small lambdas bound to a name are used for Qt callbacks
+    "SIM105",   # try/except/pass vs. contextlib.suppress: tracked separately (error-handling cleanup)
+    "SIM108",   # ternary instead of if/else – readability call, not enforced
+    "B008",     # Qt default arguments such as QModelIndex()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "E731", "B", "SIM"]     # tests set up sys.path before importing
+"docs/*" = ["E402"]
+"tools/*" = ["E402"]

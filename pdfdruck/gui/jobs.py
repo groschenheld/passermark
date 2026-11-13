@@ -8,6 +8,7 @@
 The computation runs as a separate process (jobproc.JobProcess). A reader thread only forwards its text
 messages as Qt signals – it never touches pdfium.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import QThread, Signal
@@ -30,7 +31,7 @@ class JobReader(QThread):
                 if ev.get("event") == "progress":
                     self.progress.emit(int(ev.get("done", 0)), int(ev.get("total", 0)), str(ev.get("text", "")))
             res = self.job.wait()
-        except Exception as e:                       # noqa: BLE001 – jede Ursache melden
+        except Exception as e:  # noqa: BLE001 – jede Ursache melden
             res = {"event": "error", "message": str(e)}
         self.finished_job.emit(res)
 
@@ -46,7 +47,7 @@ class JobWidget(QWidget):
         self.lbl = QLabel(title)
         self.bar = QProgressBar()
         self.bar.setFixedWidth(140)
-        self.bar.setRange(0, 0)                      # unbestimmt, bis die erste Meldung kommt
+        self.bar.setRange(0, 0)  # unbestimmt, bis die erste Meldung kommt
         self.bar.setTextVisible(True)
         self.btn = QToolButton()
         self.btn.setText("✕")

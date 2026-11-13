@@ -14,6 +14,7 @@ Reparatur: Jeder betroffene Mal-Befehl wird samt allem, was darunter liegt, als 
 gerendert (Kopie der Seite, die genau nach diesem Befehl endet) und ersetzt nur diesen Befehl.
 Alles, was danach gezeichnet wird (Text, Logos, Linien), bleibt Vektor.
 """
+
 from __future__ import annotations
 
 import io
@@ -28,9 +29,14 @@ I6 = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
 
 def _mul(a, b):
     """a·b (PDF-Matrizen, Zeilenvektor-Konvention: erst a, dann b)."""
-    return (a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3],
-            a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3],
-            a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5])
+    return (
+        a[0] * b[0] + a[1] * b[2],
+        a[0] * b[1] + a[1] * b[3],
+        a[2] * b[0] + a[3] * b[2],
+        a[2] * b[1] + a[3] * b[3],
+        a[4] * b[0] + a[5] * b[2] + b[4],
+        a[4] * b[1] + a[5] * b[3] + b[5],
+    )
 
 
 def _inv(m):
@@ -59,6 +65,7 @@ def _nums(ins):
 def _has_smask_gs(res, seen=None) -> bool:
     """Steckt in diesen Ressourcen (oder darin verschachtelten Mustern/Formularen) eine Soft-Maske?"""
     import pikepdf
+
     if res is None:
         return False
     seen = seen if seen is not None else set()
@@ -80,7 +87,7 @@ def _has_smask_gs(res, seen=None) -> bool:
                     continue
                 if _has_smask_gs(x.get("/Resources"), seen):
                     return True
-                eg = x.get("/ExtGState")              # Shading-Muster mit eigenem Grafikzustand
+                eg = x.get("/ExtGState")  # Shading-Muster mit eigenem Grafikzustand
                 if eg is not None and eg.get("/SMask") is not None and str(eg.get("/SMask")) != "/None":
                     return True
             except Exception:
@@ -101,25 +108,26 @@ def pattern_has_softmask(pat) -> bool:
 
 @dataclass
 class Target:
-    page: int                         # Seitenindex (0-basiert)
-    chain: list                       # [(Stromschlüssel, Index des Do)] von der Seite bis zum Formular
-    stream: tuple                     # ("page", i) | ("obj", objgen)
-    start: int                        # erster Pfad-Befehl
-    end: int                          # Mal-Befehl (f / sh …)
-    ctm: tuple                        # CTM beim Malen (Nutzer- -> Seitenraum)
-    bbox: tuple                       # Seitenraum (x0, y0, x1, y1)
-    kind: str = "pattern"             # pattern | shading
+    page: int  # Seitenindex (0-basiert)
+    chain: list  # [(Stromschlüssel, Index des Do)] von der Seite bis zum Formular
+    stream: tuple  # ("page", i) | ("obj", objgen)
+    start: int  # erster Pfad-Befehl
+    end: int  # Mal-Befehl (f / sh …)
+    ctm: tuple  # CTM beim Malen (Nutzer- -> Seitenraum)
+    bbox: tuple  # Seitenraum (x0, y0, x1, y1)
+    kind: str = "pattern"  # pattern | shading
 
 
 @dataclass
 class Scan:
     targets: list = field(default_factory=list)
-    skipped: int = 0                  # in mehrfach verwendeten Formularen (nicht sicher ersetzbar)
+    skipped: int = 0  # in mehrfach verwendeten Formularen (nicht sicher ersetzbar)
     form_uses: dict = field(default_factory=dict)
 
 
 def _stream_ops(pdf, page, key):
     import pikepdf
+
     if key[0] == "page":
         return list(pikepdf.parse_content_stream(page))
     return list(pikepdf.parse_content_stream(pdf.get_object(key[1])))
@@ -128,6 +136,7 @@ def _stream_ops(pdf, page, key):
 def scan(pdf) -> Scan:
     """Alle Mal-Befehle, die einen Verlauf mit Soft-Maske zeichnen (pikepdf-Dokument)."""
     import pikepdf
+
     out = Scan()
 
     def walk(pi, page, key, ops, res, ctm, chain, depth):
@@ -188,8 +197,9 @@ def scan(pdf) -> Scan:
             elif op == "sh" and st["smask"]:
                 # Verlauf über die ganze Clipfläche: Größe unbekannt -> als Seitenfläche behandeln
                 mb = [float(v) for v in page.mediabox]
-                out.targets.append(Target(pi, list(chain), key, idx, idx, st["ctm"],
-                                          (mb[0], mb[1], mb[2], mb[3]), "shading"))
+                out.targets.append(
+                    Target(pi, list(chain), key, idx, idx, st["ctm"], (mb[0], mb[1], mb[2], mb[3]), "shading")
+                )
             elif op == "Do" and ins.operands:
                 x = (res.get("/XObject") or {}).get(str(ins.operands[0]))
                 try:
@@ -201,8 +211,16 @@ def scan(pdf) -> Scan:
                 out.form_uses[og] = out.form_uses.get(og, 0) + 1
                 m = tuple(float(v) for v in x.get("/Matrix", [1, 0, 0, 1, 0, 0]))
                 sub_res = x.get("/Resources") or res
-                walk(pi, page, ("obj", og), list(pikepdf.parse_content_stream(x)), sub_res,
-                     _mul(m, st["ctm"]), chain + [(key, idx)], depth + 1)
+                walk(
+                    pi,
+                    page,
+                    ("obj", og),
+                    list(pikepdf.parse_content_stream(x)),
+                    sub_res,
+                    _mul(m, st["ctm"]),
+                    chain + [(key, idx)],
+                    depth + 1,
+                )
 
     for pi, page in enumerate(pdf.pages):
         res = page.obj.get("/Resources") or page.obj.get("/Parent", {}).get("/Resources") or pikepdf.Dictionary()
@@ -210,7 +228,7 @@ def scan(pdf) -> Scan:
     keep = []
     for t in out.targets:
         if t.stream[0] == "obj" and out.form_uses.get(t.stream[1], 0) > 1:
-            out.skipped += 1                    # gleiches Formular mehrfach -> Hintergrund je Verwendung anders
+            out.skipped += 1  # gleiches Formular mehrfach -> Hintergrund je Verwendung anders
         else:
             keep.append(t)
     out.targets = keep
@@ -220,6 +238,7 @@ def scan(pdf) -> Scan:
 def count_softmask_paints(data: bytes) -> dict:
     """Seite (1-basiert) -> Anzahl betroffener Verläufe."""
     import pikepdf
+
     with pikepdf.open(io.BytesIO(data)) as pdf:
         sc = scan(pdf)
     res = {}
@@ -232,11 +251,12 @@ def _render_upto(data: bytes, t: Target, dpi: int):
     """Seite rendern, die genau nach dem Mal-Befehl t endet; Ausschnitt = t.bbox -> PIL-Bild."""
     import pikepdf
     import pypdfium2 as pdfium
+
     with pikepdf.open(io.BytesIO(data)) as pdf:
         page = pdf.pages[t.page]
         cuts = list(t.chain) + [(t.stream, t.end)]
         for key, idx in cuts:
-            ops = _stream_ops(pdf, page, key)[:idx + 1]
+            ops = _stream_ops(pdf, page, key)[: idx + 1]
             raw = pikepdf.unparse_content_stream(ops)
             if key[0] == "page":
                 page.obj.Contents = pikepdf.Stream(pdf, raw)
@@ -257,8 +277,11 @@ def _render_upto(data: bytes, t: Target, dpi: int):
         if x1 - x0 < 0.5 or y1 - y0 < 0.5:
             return None, None
         s = dpi / 72.0
-        img = pg.render(scale=s, crop=(x0 - cb[0], y0 - cb[1], cb[2] - x1, cb[3] - y1),
-                        draw_annots=False).to_pil().convert("RGB")
+        img = (
+            pg.render(scale=s, crop=(x0 - cb[0], y0 - cb[1], cb[2] - x1, cb[3] - y1), draw_annots=False)
+            .to_pil()
+            .convert("RGB")
+        )
         pg.close()
         return img, (x0, y0, x1, y1)
     finally:
@@ -268,13 +291,18 @@ def _render_upto(data: bytes, t: Target, dpi: int):
 def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple[bytes, list]:
     """Verläufe mit Soft-Maske in deckende Bilder umwandeln. -> (neue Daten, Hinweise)."""
     import pikepdf
+
     with pikepdf.open(io.BytesIO(data)) as pdf:
         sc = scan(pdf)
     notes = []
     if not sc.targets:
         if sc.skipped:
-            notes.append(tr("{0} transparente(r) Verlauf/Verläufe in mehrfach verwendeten Elementen – nicht "
-                            "umgewandelt, bitte „Transparenzen reduzieren“ verwenden.").format(sc.skipped))
+            notes.append(
+                tr(
+                    "{0} transparente(r) Verlauf/Verläufe in mehrfach verwendeten Elementen – nicht "
+                    "umgewandelt, bitte „Transparenzen reduzieren“ verwenden."
+                ).format(sc.skipped)
+            )
         return data, notes
     rendered = []
     for n, t in enumerate(sc.targets):
@@ -306,15 +334,24 @@ def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple
             if "/ExtGState" not in res:
                 res.ExtGState = pikepdf.Dictionary()
             gname = pikepdf.Name("/PMOpaque")
-            res.ExtGState[gname] = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, SMask=pikepdf.Name("/None"),
-                                                      ca=1, CA=1, BM=pikepdf.Name.Normal)
+            res.ExtGState[gname] = pikepdf.Dictionary(
+                Type=pikepdf.Name.ExtGState, SMask=pikepdf.Name("/None"), ca=1, CA=1, BM=pikepdf.Name.Normal
+            )
             for t, img, box in sorted(items, key=lambda x: -x[0].start):
                 counter += 1
                 buf = io.BytesIO()
                 img.save(buf, "JPEG", quality=92, subsampling=0)
-                xo = pikepdf.Stream(pdf, buf.getvalue(), Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
-                                    Width=img.width, Height=img.height, ColorSpace=pikepdf.Name.DeviceRGB,
-                                    BitsPerComponent=8, Filter=pikepdf.Name.DCTDecode)
+                xo = pikepdf.Stream(
+                    pdf,
+                    buf.getvalue(),
+                    Type=pikepdf.Name.XObject,
+                    Subtype=pikepdf.Name.Image,
+                    Width=img.width,
+                    Height=img.height,
+                    ColorSpace=pikepdf.Name.DeviceRGB,
+                    BitsPerComponent=8,
+                    Filter=pikepdf.Name.DCTDecode,
+                )
                 name = pikepdf.Name(f"/PMFlat{counter}")
                 res.XObject[name] = xo
                 inv = _inv(t.ctm)
@@ -322,28 +359,33 @@ def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple
                     continue
                 mb = (box[2] - box[0], 0.0, 0.0, box[3] - box[1], box[0], box[1])
                 m = _mul(mb, inv)
-                new = [pikepdf.ContentStreamInstruction([], pikepdf.Operator("q")),
-                       pikepdf.ContentStreamInstruction([gname], pikepdf.Operator("gs")),
-                       pikepdf.ContentStreamInstruction([round(v, 6) for v in m], pikepdf.Operator("cm")),
-                       pikepdf.ContentStreamInstruction([name], pikepdf.Operator("Do")),
-                       pikepdf.ContentStreamInstruction([], pikepdf.Operator("Q"))]
-                ops[t.start:t.end + 1] = new
+                new = [
+                    pikepdf.ContentStreamInstruction([], pikepdf.Operator("q")),
+                    pikepdf.ContentStreamInstruction([gname], pikepdf.Operator("gs")),
+                    pikepdf.ContentStreamInstruction([round(v, 6) for v in m], pikepdf.Operator("cm")),
+                    pikepdf.ContentStreamInstruction([name], pikepdf.Operator("Do")),
+                    pikepdf.ContentStreamInstruction([], pikepdf.Operator("Q")),
+                ]
+                ops[t.start : t.end + 1] = new
             raw = pikepdf.unparse_content_stream(ops)
             if key[0] == "page":
                 page.obj.Contents = pikepdf.Stream(pdf, raw)
             else:
                 pdf.get_object(key[1]).write(raw)
             # nicht mehr verwendete Muster mit Soft-Maske aus den Ressourcen dieses Inhalts entfernen
-            used = {str(o) for ins in ops for o in getattr(ins, "operands", [])
-                    if isinstance(o, pikepdf.Name)}
+            used = {str(o) for ins in ops for o in getattr(ins, "operands", []) if isinstance(o, pikepdf.Name)}
             pats = res.get("/Pattern")
             if pats is not None:
                 for n in [n for n, pat in pats.items() if n not in used and pattern_has_softmask(pat)]:
                     del pats[n]
         out = io.BytesIO()
         pdf.save(out)
-        notes.append(tr("{0} transparente(r) Verlauf/Verläufe in Bilder umgewandelt ({1} dpi) – Text und Vektoren "
-                        "darüber bleiben erhalten.").format(len(rendered), dpi))
+        notes.append(
+            tr(
+                "{0} transparente(r) Verlauf/Verläufe in Bilder umgewandelt ({1} dpi) – Text und Vektoren "
+                "darüber bleiben erhalten."
+            ).format(len(rendered), dpi)
+        )
         if sc.skipped:
             notes.append(tr("{0} weitere(r) in mehrfach verwendeten Elementen – nicht umgewandelt.").format(sc.skipped))
         return out.getvalue(), notes
@@ -354,14 +396,19 @@ def flatten_softmask_paints(data: bytes, dpi: int = 300, progress=None) -> tuple
 def rip_simulation(data: bytes) -> bytes:
     """Zum Prüfen: alle Soft-Masken in Grafikzuständen entfernen – so drucken RIPs, die sie ignorieren."""
     import pikepdf
+
     with pikepdf.open(io.BytesIO(data)) as pdf:
         for o in pdf.objects:
             try:
-                if isinstance(o, (pikepdf.Dictionary, pikepdf.Stream)) and o.get("/Type") == pikepdf.Name.ExtGState \
-                        and "/SMask" in o:
+                if (
+                    isinstance(o, (pikepdf.Dictionary, pikepdf.Stream))
+                    and o.get("/Type") == pikepdf.Name.ExtGState
+                    and "/SMask" in o
+                ):
                     del o["/SMask"]
             except Exception:
                 pass
+
         # auch direkte (nicht indirekte) ExtGState-Einträge
         def strip(res, seen):
             if res is None or id(res) in seen:
@@ -376,6 +423,7 @@ def rip_simulation(data: bytes) -> bytes:
                         strip(x.get("/Resources"), seen)
                     except Exception:
                         pass
+
         seen = set()
         for p in pdf.pages:
             strip(p.obj.get("/Resources"), seen)

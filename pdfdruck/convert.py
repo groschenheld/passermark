@@ -12,6 +12,7 @@ OnlyOffice or Euro-Office.
   desktop editors – the bundled converter "x2t" is used. Usually more faithful for
   docx/xlsx/pptx, but not officially guaranteed as an interface -> automatic fallback.
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -26,14 +27,60 @@ from . import images
 from . import platform as _platform
 
 OFFICE_EXT = {
-    ".doc", ".docx", ".docm", ".dot", ".dotx", ".odt", ".ott", ".rtf", ".txt", ".wpd",
-    ".xls", ".xlsx", ".xlsm", ".ods", ".csv",
-    ".ppt", ".pptx", ".pps", ".ppsx", ".odp",
-    ".odg", ".vsd", ".vsdx", ".pub", ".html", ".htm", ".xps", ".epub", ".djvu",
+    ".doc",
+    ".docx",
+    ".docm",
+    ".dot",
+    ".dotx",
+    ".odt",
+    ".ott",
+    ".rtf",
+    ".txt",
+    ".wpd",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".ods",
+    ".csv",
+    ".ppt",
+    ".pptx",
+    ".pps",
+    ".ppsx",
+    ".odp",
+    ".odg",
+    ".vsd",
+    ".vsdx",
+    ".pub",
+    ".html",
+    ".htm",
+    ".xps",
+    ".epub",
+    ".djvu",
 }
 OOXML_EXT = {".docx", ".docm", ".dotx", ".xlsx", ".xlsm", ".pptx", ".ppsx", ".doc", ".xls", ".ppt"}
-X2T_EXT = {".doc", ".docx", ".docm", ".dotx", ".odt", ".rtf", ".txt", ".xls", ".xlsx", ".xlsm",
-           ".ods", ".csv", ".ppt", ".pptx", ".ppsx", ".odp", ".html", ".htm", ".epub", ".xps", ".djvu"}
+X2T_EXT = {
+    ".doc",
+    ".docx",
+    ".docm",
+    ".dotx",
+    ".odt",
+    ".rtf",
+    ".txt",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".ods",
+    ".csv",
+    ".ppt",
+    ".pptx",
+    ".ppsx",
+    ".odp",
+    ".html",
+    ".htm",
+    ".epub",
+    ".xps",
+    ".djvu",
+}
 PDF_EXT = {".pdf"}
 
 CONVERTERS = {
@@ -43,9 +90,29 @@ CONVERTERS = {
     "eurooffice": "Euro-Office Desktop",
     "msoffice": "Microsoft Office (nur Windows)",
 }
-MSO_EXT = {".doc", ".docx", ".docm", ".dot", ".dotx", ".rtf", ".txt", ".odt", ".xls", ".xlsx", ".xlsm",
-           ".ods", ".csv", ".ppt", ".pptx", ".pps", ".ppsx", ".odp", ".htm", ".html"}
-X2T_PDF = 513        # AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF
+MSO_EXT = {
+    ".doc",
+    ".docx",
+    ".docm",
+    ".dot",
+    ".dotx",
+    ".rtf",
+    ".txt",
+    ".odt",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".ods",
+    ".csv",
+    ".ppt",
+    ".pptx",
+    ".pps",
+    ".ppsx",
+    ".odp",
+    ".htm",
+    ".html",
+}
+X2T_PDF = 513  # AVS_OFFICESTUDIO_FILE_CROSSPLATFORM_PDF
 
 
 def ext(path: str) -> str:
@@ -68,18 +135,27 @@ def _x2t_candidates():
         roots = filter(None, (os.environ.get(v) for v in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")))
         out = []
         for r in roots:
-            for pat in (r"*\DesktopEditors\converter\x2t.exe", r"*\*\DesktopEditors\converter\x2t.exe",
-                        r"*\converter\x2t.exe", r"*\*\converter\x2t.exe"):
+            for pat in (
+                r"*\DesktopEditors\converter\x2t.exe",
+                r"*\*\DesktopEditors\converter\x2t.exe",
+                r"*\converter\x2t.exe",
+                r"*\*\converter\x2t.exe",
+            ):
                 for hit in glob.glob(os.path.join(r, pat)):
                     if hit not in [h for h, _ in out]:
                         out.append((hit, hit))
         return out
-    pats = ["/opt/*/desktopeditors/converter/x2t", "/opt/*/converter/x2t", "/opt/*/*/converter/x2t",
-            "/usr/lib/*/desktopeditors/converter/x2t", "/usr/share/*/converter/x2t",
-            "/snap/*/current/opt/*/desktopeditors/converter/x2t",
-            "/var/lib/flatpak/app/*/current/active/files/*/desktopeditors/converter/x2t",
-            "/var/lib/flatpak/app/*/current/active/files/*/*/converter/x2t",
-            os.path.expanduser("~/.local/share/flatpak/app/*/current/active/files/*/*/converter/x2t")]
+    pats = [
+        "/opt/*/desktopeditors/converter/x2t",
+        "/opt/*/converter/x2t",
+        "/opt/*/*/converter/x2t",
+        "/usr/lib/*/desktopeditors/converter/x2t",
+        "/usr/share/*/converter/x2t",
+        "/snap/*/current/opt/*/desktopeditors/converter/x2t",
+        "/var/lib/flatpak/app/*/current/active/files/*/desktopeditors/converter/x2t",
+        "/var/lib/flatpak/app/*/current/active/files/*/*/converter/x2t",
+        os.path.expanduser("~/.local/share/flatpak/app/*/current/active/files/*/*/converter/x2t"),
+    ]
     seen, out = set(), []
     for p in pats:
         for hit in glob.glob(p):
@@ -98,8 +174,10 @@ def detect() -> dict[str, str]:
         found["msoffice"] = "com"
     if lo:
         found["libreoffice"] = lo
-    elif shutil.which("flatpak") and subprocess.run(["flatpak", "info", "org.libreoffice.LibreOffice"],
-                                                    capture_output=True).returncode == 0:
+    elif (
+        shutil.which("flatpak")
+        and subprocess.run(["flatpak", "info", "org.libreoffice.LibreOffice"], capture_output=True).returncode == 0
+    ):
         found["libreoffice"] = "flatpak:org.libreoffice.LibreOffice"
     for hit, real in _x2t_candidates():
         low = (hit + " " + real).lower().replace("-", "").replace("_", "")
@@ -112,6 +190,7 @@ def detect() -> dict[str, str]:
 def _msoffice_available() -> bool:
     try:
         import winreg
+
         winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application"))
         return True
     except Exception:
@@ -136,6 +215,7 @@ def _sandboxed(exe: str) -> bool:
 
 def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
     from pathlib import Path
+
     profile = Path(tempfile.gettempdir(), f"passermark-lo-{_platform.user_id()}").as_uri()
     base = os.path.splitext(os.path.basename(path))[0]
     work, src = outdir, path
@@ -148,14 +228,26 @@ def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
         shutil.copy2(path, src)
         base = "in"
     launcher = ["flatpak", "run", exe.split(":", 1)[1]] if exe.startswith("flatpak:") else [exe]
-    cmd = launcher + [f"-env:UserInstallation={profile}", "--headless", "--norestore",
-                      "--nolockcheck", "--convert-to", "pdf", "--outdir", work, src]
+    cmd = launcher + [
+        f"-env:UserInstallation={profile}",
+        "--headless",
+        "--norestore",
+        "--nolockcheck",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        work,
+        src,
+    ]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **_platform.hidden_subprocess_kwargs())
         produced = os.path.join(work, base + ".pdf")
         if not os.path.exists(produced):
-            hint = tr(" (LibreOffice als Snap/Flatpak? Dann darf es nicht in /tmp schreiben.)") \
-                if "convert" in (r.stdout or "") else ""
+            hint = (
+                tr(" (LibreOffice als Snap/Flatpak? Dann darf es nicht in /tmp schreiben.)")
+                if "convert" in (r.stdout or "")
+                else ""
+            )
             raise RuntimeError(((r.stderr or r.stdout or "keine Ausgabe").strip().splitlines() or ["?"])[-1] + hint)
         out = os.path.join(outdir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
         if produced != out:
@@ -165,7 +257,7 @@ def _libreoffice(exe: str, path: str, outdir: str, timeout: int) -> str:
         if work != outdir:
             shutil.rmtree(work, ignore_errors=True)
             try:
-                os.rmdir(os.path.dirname(work))      # leeren Sammelordner wieder entfernen
+                os.rmdir(os.path.dirname(work))  # leeren Sammelordner wieder entfernen
             except OSError:
                 pass
 
@@ -177,17 +269,23 @@ def _fonts_ready(d: str) -> bool:
 def _x2t_fonts(exe: str) -> str:
     """Folder with AllFonts.js + font_selection.bin for x2t (existing, cached, or newly created)."""
     import hashlib
+
     home = os.path.expanduser("~")
     if _platform.IS_WIN:
         appdata = os.environ.get("LOCALAPPDATA", home)
-        for hit in glob.glob(os.path.join(appdata, "*", "*", "data", "fonts", "AllFonts.js")) + \
-                glob.glob(os.path.join(appdata, "*", "*", "*", "data", "fonts", "AllFonts.js")):
+        for hit in glob.glob(os.path.join(appdata, "*", "*", "data", "fonts", "AllFonts.js")) + glob.glob(
+            os.path.join(appdata, "*", "*", "*", "data", "fonts", "AllFonts.js")
+        ):
             if _fonts_ready(os.path.dirname(hit)):
                 return os.path.dirname(hit)
     # 1) Schriftencache, den die Desktop-Editoren selbst angelegt haben
-    pats = [home + "/.local/share/onlyoffice/**/AllFonts.js", home + "/.local/share/*euro*office*/**/AllFonts.js",
-            home + "/.local/share/*Euro*Office*/**/AllFonts.js", home + "/snap/*/*/.local/share/*/**/AllFonts.js",
-            home + "/.var/app/*/data/**/AllFonts.js"]
+    pats = [
+        home + "/.local/share/onlyoffice/**/AllFonts.js",
+        home + "/.local/share/*euro*office*/**/AllFonts.js",
+        home + "/.local/share/*Euro*Office*/**/AllFonts.js",
+        home + "/snap/*/*/.local/share/*/**/AllFonts.js",
+        home + "/.var/app/*/data/**/AllFonts.js",
+    ]
     for pat in pats:
         for hit in glob.glob(pat, recursive=True):
             if _fonts_ready(os.path.dirname(hit)):
@@ -198,24 +296,50 @@ def _x2t_fonts(exe: str) -> str:
     if _fonts_ready(cache):
         return cache
     exe_ext = ".exe" if _platform.IS_WIN else ""
-    gen = next((g for g in (os.path.join(conv, "allfontsgen" + exe_ext),
-                            os.path.join(os.path.dirname(conv), "allfontsgen" + exe_ext),
-                            os.path.join(os.path.dirname(conv), "tools", "allfontsgen" + exe_ext))
-                if os.path.isfile(g) and os.access(g, os.X_OK)), None)
+    gen = next(
+        (
+            g
+            for g in (
+                os.path.join(conv, "allfontsgen" + exe_ext),
+                os.path.join(os.path.dirname(conv), "allfontsgen" + exe_ext),
+                os.path.join(os.path.dirname(conv), "tools", "allfontsgen" + exe_ext),
+            )
+            if os.path.isfile(g) and os.access(g, os.X_OK)
+        ),
+        None,
+    )
     if not gen:
-        raise RuntimeError(tr("Schriftenverzeichnis fehlt und allfontsgen wurde nicht gefunden – "
-                           "die Desktop-Editoren einmal starten, dann erneut versuchen."))
+        raise RuntimeError(
+            tr(
+                "Schriftenverzeichnis fehlt und allfontsgen wurde nicht gefunden – "
+                "die Desktop-Editoren einmal starten, dann erneut versuchen."
+            )
+        )
     os.makedirs(cache, exist_ok=True)
-    sysfonts = [os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"),
-                os.path.join(os.environ.get("LOCALAPPDATA", home), "Microsoft", "Windows", "Fonts")] \
-        if _platform.IS_WIN else ["/usr/share/fonts", "/usr/local/share/fonts", home + "/.local/share/fonts", home + "/.fonts"]
+    sysfonts = (
+        [
+            os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"),
+            os.path.join(os.environ.get("LOCALAPPDATA", home), "Microsoft", "Windows", "Fonts"),
+        ]
+        if _platform.IS_WIN
+        else ["/usr/share/fonts", "/usr/local/share/fonts", home + "/.local/share/fonts", home + "/.fonts"]
+    )
     inputs = [d for d in sysfonts + [os.path.join(os.path.dirname(conv), "fonts")] if os.path.isdir(d)]
-    cmd = [gen] + [f"--input={d}" for d in inputs] + [
-        f"--allfonts={cache}/AllFonts.js", f"--selection={cache}/font_selection.bin",
-        f"--allfonts-web={cache}/AllFonts-web.js", f"--output-web={cache}/web", "--use-system=true"]
+    cmd = (
+        [gen]
+        + [f"--input={d}" for d in inputs]
+        + [
+            f"--allfonts={cache}/AllFonts.js",
+            f"--selection={cache}/font_selection.bin",
+            f"--allfonts-web={cache}/AllFonts-web.js",
+            f"--output-web={cache}/web",
+            "--use-system=true",
+        ]
+    )
     os.makedirs(os.path.join(cache, "web"), exist_ok=True)
-    subprocess.run(cmd, capture_output=True, timeout=600, cwd=conv, env=_lib_env(conv),
-                   **_platform.hidden_subprocess_kwargs())
+    subprocess.run(
+        cmd, capture_output=True, timeout=600, cwd=conv, env=_lib_env(conv), **_platform.hidden_subprocess_kwargs()
+    )
     if not _fonts_ready(cache):
         raise RuntimeError(tr("Schriftenverzeichnis konnte nicht erzeugt werden (allfontsgen)."))
     return cache
@@ -232,13 +356,15 @@ def _lib_env(conv: str) -> dict:
 
 def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
     from xml.sax.saxutils import escape
+
     out = os.path.join(outdir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
     conv_dir = os.path.dirname(exe)
     fonts = _x2t_fonts(exe)
     params = os.path.join(outdir, "x2t-params.xml")
     # precompute expressions: backslashes/quotes in f-string brackets only work from Python 3.12
-    font_dir = (os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts") if _platform.IS_WIN
-                else "/usr/share/fonts")
+    font_dir = (
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts") if _platform.IS_WIN else "/usr/share/fonts"
+    )
     all_fonts = os.path.join(fonts, "AllFonts.js")
     with open(params, "w", encoding="utf-8") as f:
         f.write(f"""<?xml version="1.0" encoding="utf-8"?>
@@ -252,8 +378,15 @@ def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
   <m_bIsNoBase64>true</m_bIsNoBase64>
 </TaskQueueDataConvert>
 """)
-    r = subprocess.run([exe, params], capture_output=True, text=True, timeout=timeout, cwd=conv_dir,
-                       env=_lib_env(conv_dir), **_platform.hidden_subprocess_kwargs())
+    r = subprocess.run(
+        [exe, params],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        cwd=conv_dir,
+        env=_lib_env(conv_dir),
+        **_platform.hidden_subprocess_kwargs(),
+    )
     if not os.path.exists(out) or os.path.getsize(out) < 100:
         detail = (r.stderr or r.stdout or "").strip()
         first = next((l for l in detail.splitlines() if "error" in l.lower()), detail.splitlines()[0] if detail else "")
@@ -265,6 +398,7 @@ def _msoffice(path: str, outdir: str, timeout: int) -> str:
     """Remote-control Word/Excel/PowerPoint via COM (Windows only, invisible, opened read-only)."""
     import pythoncom
     import win32com.client
+
     out = os.path.join(outdir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
     src = os.path.abspath(path)
     e = ext(path)
@@ -275,7 +409,7 @@ def _msoffice(path: str, outdir: str, timeout: int) -> str:
             app.DisplayAlerts = False
             try:
                 wb = app.Workbooks.Open(src, ReadOnly=True)
-                wb.ExportAsFixedFormat(0, out)                 # 0 = xlTypePDF
+                wb.ExportAsFixedFormat(0, out)  # 0 = xlTypePDF
                 wb.Close(False)
             finally:
                 app.Quit()
@@ -283,7 +417,7 @@ def _msoffice(path: str, outdir: str, timeout: int) -> str:
             app = win32com.client.DispatchEx("PowerPoint.Application")
             try:
                 pres = app.Presentations.Open(src, ReadOnly=True, WithWindow=False)
-                pres.SaveAs(out, 32)                           # 32 = ppSaveAsPDF
+                pres.SaveAs(out, 32)  # 32 = ppSaveAsPDF
                 pres.Close()
             finally:
                 app.Quit()
@@ -293,7 +427,7 @@ def _msoffice(path: str, outdir: str, timeout: int) -> str:
             app.DisplayAlerts = 0
             try:
                 doc = app.Documents.Open(src, ReadOnly=True, AddToRecentFiles=False, ConfirmConversions=False)
-                doc.ExportAsFixedFormat(out, 17)               # 17 = wdExportFormatPDF
+                doc.ExportAsFixedFormat(out, 17)  # 17 = wdExportFormatPDF
                 doc.Close(False)
             finally:
                 app.Quit()
@@ -308,14 +442,17 @@ def conversion_order(path: str, preference: str, available: dict) -> list[str]:
     e = ext(path)
     if preference in ("libreoffice", "onlyoffice", "eurooffice", "msoffice"):
         order = [preference, "libreoffice", "eurooffice", "onlyoffice", "msoffice"]
-    elif e in OOXML_EXT:                     # Microsoft-Formate: MS Office, dann OnlyOffice-Familie
+    elif e in OOXML_EXT:  # Microsoft-Formate: MS Office, dann OnlyOffice-Familie
         order = ["msoffice", "eurooffice", "onlyoffice", "libreoffice"]
-    else:                                    # ODF & Rest: LibreOffice zuerst
+    else:  # ODF & Rest: LibreOffice zuerst
         order = ["libreoffice", "eurooffice", "onlyoffice", "msoffice"]
     seen, out = set(), []
     for k in order:
-        ok_ext = (k == "libreoffice") or (k == "msoffice" and e in MSO_EXT) or \
-            (k in ("eurooffice", "onlyoffice") and e in X2T_EXT)
+        ok_ext = (
+            (k == "libreoffice")
+            or (k == "msoffice" and e in MSO_EXT)
+            or (k in ("eurooffice", "onlyoffice") and e in X2T_EXT)
+        )
         if k in available and k not in seen and ok_ext:
             seen.add(k)
             out.append(k)
@@ -327,9 +464,14 @@ def office_to_pdf(path: str, outdir: str, preference: str = "auto", timeout: int
     available = detect()
     order = conversion_order(path, preference, available)
     if not order:
-        raise RuntimeError(tr("Für Office-Dateien wird LibreOffice, OnlyOffice, Euro-Office")
-                           + (tr(" oder Microsoft Office benötigt.") if _platform.IS_WIN else
-                              tr(" benötigt, z. B.:\nsudo apt install libreoffice-writer libreoffice-calc libreoffice-impress")))
+        raise RuntimeError(
+            tr("Für Office-Dateien wird LibreOffice, OnlyOffice, Euro-Office")
+            + (
+                tr(" oder Microsoft Office benötigt.")
+                if _platform.IS_WIN
+                else tr(" benötigt, z. B.:\nsudo apt install libreoffice-writer libreoffice-calc libreoffice-impress")
+            )
+        )
     errors = []
     for key in order:
         work = tempfile.mkdtemp(prefix=f"{key}-", dir=outdir)
@@ -341,13 +483,17 @@ def office_to_pdf(path: str, outdir: str, preference: str = "auto", timeout: int
             return _x2t(available[key], path, work, timeout), CONVERTERS[key]
         except Exception as e:
             errors.append(f"{CONVERTERS[key]}: {e}")
-    raise RuntimeError(tr("„{0}“ konnte nicht umgewandelt werden.\n").format(os.path.basename(path)) + "\n".join(errors))
+    raise RuntimeError(
+        tr("„{0}“ konnte nicht umgewandelt werden.\n").format(os.path.basename(path)) + "\n".join(errors)
+    )
 
 
-def to_document(path: str, workdir: str, image_dpi: float = 96.0, password: str | None = None,
-                preference: str = "auto"):
+def to_document(
+    path: str, workdir: str, image_dpi: float = 96.0, password: str | None = None, preference: str = "auto"
+):
     """Any supported file -> (pypdfium2 document, converter used or "")."""
     import pypdfium2 as pdfium
+
     if images.is_image(path):
         return images.images_to_document([path], image_dpi), ""
     if is_office(path):

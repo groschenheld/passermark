@@ -1,12 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Core interface: jobs file -> file, settings as JSON, progress, cancelling, atomic writing."""
-import json, os, sys, tempfile
+
+import json
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pikepdf
 import pypdfium2 as pdfium
-from pdfdruck import core, cutcontour, objects, preflight
+from pdfdruck import core, cutcontour, objects
 import test_cutcontour as tc
 
 TMP = tempfile.mkdtemp(prefix="pm-core-")
@@ -20,8 +25,9 @@ def stickers_file():
 
 
 def test_settings_json_roundtrip():
-    s = cutcontour.CutSettings(shape="heart", bleed_mm=3, single_shape=False,
-                               detect=objects.DetectSettings(tolerance=40, gap_mm=2.5))
+    s = cutcontour.CutSettings(
+        shape="heart", bleed_mm=3, single_shape=False, detect=objects.DetectSettings(tolerance=40, gap_mm=2.5)
+    )
     d = json.loads(json.dumps(core.settings_to_dict(s)))
     s2 = core.settings_from_dict(cutcontour.CutSettings, d)
     assert s2 == s and isinstance(s2.detect, objects.DetectSettings) and s2.detect.tolerance == 40
@@ -32,7 +38,7 @@ def test_settings_json_roundtrip():
     core.save_settings(p, "cutcontour", s)
     kind, d = core.load_settings(p)
     assert kind == "cutcontour" and core.settings_from_dict(cutcontour.CutSettings, d) == s
-    for kind in core.JOBS:                           # every job type: default settings are JSON-compatible
+    for kind in core.JOBS:  # every job type: default settings are JSON-compatible
         cls = core.settings_class(kind)
         assert core.settings_from_dict(cls, json.loads(json.dumps(core.settings_to_dict(cls())))) == cls()
 
@@ -40,8 +46,9 @@ def test_settings_json_roundtrip():
 def test_cutcontour_job_with_progress():
     src, dst = stickers_file(), os.path.join(TMP, "cut.pdf")
     seen = []
-    r = core.run_job("cutcontour", src, dst, {"shape": "contour", "bleed_mm": 2},
-                     progress=lambda d, t, txt: seen.append((d, t)))
+    r = core.run_job(
+        "cutcontour", src, dst, {"shape": "contour", "bleed_mm": 2}, progress=lambda d, t, txt: seen.append((d, t))
+    )
     assert os.path.exists(dst) and r.info["cuts"] >= 3 and r.info["pages"] == 1
     assert seen[0] == (0, 1) and seen[-1] == (1, 1)
     pk = pikepdf.open(dst)
@@ -58,9 +65,11 @@ def test_cancel_leaves_no_file():
         pass
     assert not os.path.exists(dst) and not os.path.exists(dst + ".part")
     calls = []
-    def cancel_later():                               # cancel only while working
+
+    def cancel_later():  # cancel only while working
         calls.append(1)
         return len(calls) > 2
+
     try:
         core.run_job("cutcontour", src, dst, {}, cancel=cancel_later)
     except core.Cancelled:
@@ -71,7 +80,7 @@ def test_cancel_leaves_no_file():
 def test_error_leaves_no_file():
     src, dst = stickers_file(), os.path.join(TMP, "fehler.pdf")
     try:
-        core.run_job("separate", src, dst, {"detect": {"min_size_mm": 5000}})     # findet nichts
+        core.run_job("separate", src, dst, {"detect": {"min_size_mm": 5000}})  # findet nichts
         assert False
     except ValueError:
         pass
@@ -99,6 +108,7 @@ def test_separate_job():
 
 def test_manip_crop_job():
     import test_preflight as tp
+
     src = os.path.join(TMP, "a4.pdf")
     open(src, "wb").write(tp.problem_pdf())
     dst = os.path.join(TMP, "crop.pdf")
@@ -106,7 +116,7 @@ def test_manip_crop_job():
     w, h = pdfium.PdfDocument(dst).get_page_size(0)
     assert abs(w - 419.5) < 1.5 and abs(h - 595.3) < 1.5, (w, h)
     try:
-        core.run_job("manip", src, dst, {})          # nichts aktiviert
+        core.run_job("manip", src, dst, {})  # nichts aktiviert
         assert False
     except ValueError:
         pass
@@ -123,6 +133,7 @@ def test_manip_crop_job():
 
 def test_preflight_fix_job():
     import test_preflight as tp
+
     src = os.path.join(TMP, "ebenen.pdf")
     open(src, "wb").write(tp.problem_pdf())
     dst = os.path.join(TMP, "festgeschrieben.pdf")
@@ -137,6 +148,7 @@ def test_preflight_fix_job():
 
 def test_repair_job():
     from pdfdruck import platform as pl
+
     if not pl.ghostscript():
         print("   (übersprungen: kein Ghostscript – läuft im GitHub-Build)")
         return
@@ -147,4 +159,6 @@ def test_repair_job():
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

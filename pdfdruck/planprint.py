@@ -14,6 +14,7 @@ Per plan (= PDF page):
 Printing: one job per plan, page = exact plan size, paper = custom size (roll width × length), feed = the roll.
 Order: unsorted by default (plan 1 ×3, plan 2 ×3 …), optionally sorted and/or grouped by roll width.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -31,72 +32,84 @@ FRAME_MODES = ("auto", "frame", "margin", "none")
 ROTATE_MODES = ("auto", "keep", "short", "long")
 BLEED_MODES = ("mirror", "blank", "color")
 ORDERS = ("list", "roll")
-ALIGNS = ("center", "left", "right")    # Lage quer auf der Rolle
-TOL_MM = 0.5                  # Toleranz Rollenbreite
+ALIGNS = ("center", "left", "right")  # Lage quer auf der Rolle
+TOL_MM = 0.5  # Toleranz Rollenbreite
 
 
 @dataclass
 class PlanSettings:
-    printer: str = ""                 # leer = Standarddrucker
-    color: str = ""                   # color | gray | "" (wie im Treiber)
-    media: str = ""                   # Medientyp im Treiber ("" = wie eingestellt)
-    frame: str = "auto"               # auto | frame (zwei Außenlinien) | margin (Inhalt + Rand) | none (Seite)
-    margin_mm: float = 5.0            # Rand ohne zwei Außenlinien
-    rotate: str = "auto"              # auto (kürzeste Länge) | keep (wie angeliefert) | short (kurze Seite quer) | long
-    scale_pct: float = 100.0          # Standard: tatsächliche Größe
-    bleed_mm: float = 0.0             # Überfüller rundum
-    bleed_mode: str = "mirror"        # mirror (gespiegelt) | blank (Leerraum) | color (Einzelfarbe)
+    printer: str = ""  # leer = Standarddrucker
+    color: str = ""  # color | gray | "" (wie im Treiber)
+    media: str = ""  # Medientyp im Treiber ("" = wie eingestellt)
+    frame: str = "auto"  # auto | frame (zwei Außenlinien) | margin (Inhalt + Rand) | none (Seite)
+    margin_mm: float = 5.0  # Rand ohne zwei Außenlinien
+    rotate: str = "auto"  # auto (kürzeste Länge) | keep (wie angeliefert) | short (kurze Seite quer) | long
+    scale_pct: float = 100.0  # Standard: tatsächliche Größe
+    bleed_mm: float = 0.0  # Überfüller rundum
+    bleed_mode: str = "mirror"  # mirror (gespiegelt) | blank (Leerraum) | color (Einzelfarbe)
     bleed_color: str = "#ffffff"
-    crop_marks: bool = False          # Schnittmarken
-    copies: int = 1                   # Exemplare (Sätze)
-    collate: bool = False             # sortiert: Satz für Satz – Standard: jeder Plan n-mal hintereinander
-    order: str = "list"               # list (Reihenfolge der Liste) | roll (nach Rollenbreite, schmal zuerst)
-    weights: list = field(default_factory=lambda: list(PLAN_WEIGHTS))   # Planpapier g/m² (Rollenauswahl)
-    rolls: list = field(default_factory=list)   # Rollen von Hand [594, 841, …] oder [{"width_mm": …, "slot": …}]
-    live_rolls: bool = True           # Rollen vom Gerät lesen
-    fix_hairlines: bool = False       # Haarlinien anheben
+    crop_marks: bool = False  # Schnittmarken
+    copies: int = 1  # Exemplare (Sätze)
+    collate: bool = False  # sortiert: Satz für Satz – Standard: jeder Plan n-mal hintereinander
+    order: str = "list"  # list (Reihenfolge der Liste) | roll (nach Rollenbreite, schmal zuerst)
+    weights: list = field(default_factory=lambda: list(PLAN_WEIGHTS))  # Planpapier g/m² (Rollenauswahl)
+    rolls: list = field(default_factory=list)  # Rollen von Hand [594, 841, …] oder [{"width_mm": …, "slot": …}]
+    live_rolls: bool = True  # Rollen vom Gerät lesen
+    fix_hairlines: bool = False  # Haarlinien anheben
     hairline_mm: float = 0.1
-    options: dict = field(default_factory=dict)     # Treiberoptionen roh
-    profile: str = "admin"            # Farbprofil wie beim Druck: admin | none | Profil-ID
+    options: dict = field(default_factory=dict)  # Treiberoptionen roh
+    profile: str = "admin"  # Farbprofil wie beim Druck: admin | none | Profil-ID
     intent: str = ""
     title: str = ""
     dry_run: bool = False
     # 1.18 Teil 2 – Poster/Qualitätsdruck, Banner, Print & Cut, Material
-    kind: str = "plan"                # plan (Produktionsdruck) | poster (Qualitätsdruck)
-    quality_mode: str = ""            # production (niedrigste Treiberqualität) | quality (höchste); "" = je Art
-    material: str = ""                # Druckmaterial (printmat) – Name oder ID; "" = keins
-    nest: bool = False                # mehrere Stücke nebeneinander auf die Rolle (Poster: Standard an)
-    gap_mm: float = 5.0               # Abstand zwischen Stücken beim Nebeneinander
-    max_page_m: float = 10.0          # nicht mehr verwendet (seit 1.18.5 ist jede Reihe eine eigene Seite)
-    overwidth: str = "none"           # breiter als jede Rolle: none (auslassen) | crop (abschneiden) | tile (Bahnen)
-    overlap_mm: float = 20.0          # Überlappung der Bahnen
-    fold_marks: bool = False          # Faltmarken nach DIN 824 (vereinfacht)
-    hem_mm: float = 0.0               # Saum-/Tunnelzugabe
-    hem_sides: str = "lrtb"           # Seiten mit Saum: l r t b (wie die Seite steht)
-    grommet_spacing_mm: float = 0.0   # Ösen: Abstand höchstens (0 = keine Ösenmarken)
-    grommet_inset_mm: float = 20.0    # Ösen: Mitte ab Endformat-Kante
-    grommet_d_mm: float = 10.0        # Ösen: Durchmesser der Marke
+    kind: str = "plan"  # plan (Produktionsdruck) | poster (Qualitätsdruck)
+    quality_mode: str = ""  # production (niedrigste Treiberqualität) | quality (höchste); "" = je Art
+    material: str = ""  # Druckmaterial (printmat) – Name oder ID; "" = keins
+    nest: bool = False  # mehrere Stücke nebeneinander auf die Rolle (Poster: Standard an)
+    gap_mm: float = 5.0  # Abstand zwischen Stücken beim Nebeneinander
+    max_page_m: float = 10.0  # nicht mehr verwendet (seit 1.18.5 ist jede Reihe eine eigene Seite)
+    overwidth: str = "none"  # breiter als jede Rolle: none (auslassen) | crop (abschneiden) | tile (Bahnen)
+    overlap_mm: float = 20.0  # Überlappung der Bahnen
+    fold_marks: bool = False  # Faltmarken nach DIN 824 (vereinfacht)
+    hem_mm: float = 0.0  # Saum-/Tunnelzugabe
+    hem_sides: str = "lrtb"  # Seiten mit Saum: l r t b (wie die Seite steht)
+    grommet_spacing_mm: float = 0.0  # Ösen: Abstand höchstens (0 = keine Ösenmarken)
+    grommet_inset_mm: float = 20.0  # Ösen: Mitte ab Endformat-Kante
+    grommet_d_mm: float = 10.0  # Ösen: Durchmesser der Marke
     grommet_sides: str = "lrtb"
-    cut_contour: bool = False         # CutContour (Sonderfarbe) am Bildrand – für Print & Cut (VersaWorks, CutStudio)
-    printcut_marks: bool = False      # zusätzlich Passermarken (Winkel) an den Ecken
+    cut_contour: bool = False  # CutContour (Sonderfarbe) am Bildrand – für Print & Cut (VersaWorks, CutStudio)
+    printcut_marks: bool = False  # zusätzlich Passermarken (Winkel) an den Ecken
     # 1.18.2
-    roll_pick: str = ""               # feste Rolle (roll_key) – "" = automatisch
-    align: str = "left"               # center | left | right: Lage quer auf der Rolle (Seite = Rollenbreite)
-    split_copies: bool = True         # alt (bis 1.18.6): False = Kopienzahl – heute copies_mode
-    copies_mode: str = "sheets"       # sheets: ein Auftrag, je Exemplar ein Blatt | jobs: je Exemplar ein Auftrag |
-                                      # count: ein Blatt mit Kopienzahl (Gerät entscheidet übers Schneiden)
-    scale_mode: str = "pct"           # pct (scale_pct) | short (kurze Kante auf scale_mm) | long (lange Kante)
+    roll_pick: str = ""  # feste Rolle (roll_key) – "" = automatisch
+    align: str = "left"  # center | left | right: Lage quer auf der Rolle (Seite = Rollenbreite)
+    split_copies: bool = True  # alt (bis 1.18.6): False = Kopienzahl – heute copies_mode
+    copies_mode: str = "sheets"  # sheets: ein Auftrag, je Exemplar ein Blatt | jobs: je Exemplar ein Auftrag |
+    # count: ein Blatt mit Kopienzahl (Gerät entscheidet übers Schneiden)
+    scale_mode: str = "pct"  # pct (scale_pct) | short (kurze Kante auf scale_mm) | long (lange Kante)
     scale_mm: float = 0.0
-    overrides: dict = field(default_factory=dict)   # je Seite (1-basiert, "3") Abweichungen: {"scale_pct": 200, …}
-    cut_sheets: bool = True           # Schneid-Option des Druckers auf „nach jeder Seite“ (IPP trim, CutMedia …)
+    overrides: dict = field(default_factory=dict)  # je Seite (1-basiert, "3") Abweichungen: {"scale_pct": 200, …}
+    cut_sheets: bool = True  # Schneid-Option des Druckers auf „nach jeder Seite“ (IPP trim, CutMedia …)
 
 
 KINDS = ("plan", "poster")
 COPIES_MODES = ("sheets", "jobs", "count")
 SCALE_MODES = ("pct", "short", "long")
 # Einstellungen, die je Plan/Poster abweichen dürfen (Dialog: Auswahl; CLI/Ablauf: "overrides")
-OV_KEYS = ("scale_mode", "scale_pct", "scale_mm", "rotate", "frame", "margin_mm", "bleed_mm", "bleed_mode",
-           "bleed_color", "roll_pick", "align", "material")
+OV_KEYS = (
+    "scale_mode",
+    "scale_pct",
+    "scale_mm",
+    "rotate",
+    "frame",
+    "margin_mm",
+    "bleed_mm",
+    "bleed_mode",
+    "bleed_color",
+    "roll_pick",
+    "align",
+    "material",
+)
 
 
 def copies_mode(s) -> str:
@@ -137,14 +150,23 @@ def scale_text(s) -> str:
     if mode == "long" and s.scale_mm > 0:
         return tr("lange Kante {0} mm").format(mm_text(s.scale_mm))
     return f"{mm_text(s.scale_pct)} %"
+
+
 OVERWIDTH = ("none", "crop", "tile")
 
 
 def defaults_for(kind: str) -> dict:
     """Standardwerte je Art: Poster = Qualitätsdruck, nebeneinander, Überbreite abschneiden, keine Planpapier-Wahl."""
     if kind == "poster":
-        return {"kind": "poster", "nest": False, "overwidth": "crop", "weights": [], "frame": "none",
-                "align": "center", "quality_mode": "quality"}
+        return {
+            "kind": "poster",
+            "nest": False,
+            "overwidth": "crop",
+            "weights": [],
+            "frame": "none",
+            "align": "center",
+            "quality_mode": "quality",
+        }
     return {"kind": "plan", "quality_mode": "production"}
 
 
@@ -159,9 +181,10 @@ def quality_mode_of(s) -> str:
 
 def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
     """Qualitätsoption des Treibers auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck).
-        Vorrang: von Hand in options gesetzt; ein Material derselben Kategorie (plan ↔ Produktion,
-        quality ↔ Qualität) mit eigener Qualität."""
+    Vorrang: von Hand in options gesetzt; ein Material derselben Kategorie (plan ↔ Produktion,
+    quality ↔ Qualität) mit eigener Qualität."""
     from . import printers
+
     if caps is None:
         return vals
     key = caps.roles.get("quality")
@@ -170,8 +193,9 @@ def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
         return vals
     mode = quality_mode_of(s)
     mat = mat or {}
-    if (mat.get("quality") or key in (mat.get("options") or {})) and \
-            (mat.get("category") == "plan") == (mode == "production"):
+    if (mat.get("quality") or key in (mat.get("options") or {})) and (mat.get("category") == "plan") == (
+        mode == "production"
+    ):
         return vals
     v = printers.quality_choice(opt, mode, vals.get(key, ""))
     if v:
@@ -184,8 +208,8 @@ def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
 # --------------------------------------------------------------------------- #
 @dataclass
 class Area:
-    rect: tuple                       # (x0, y0, x1, y1) in pt, Koordinaten der angezeigten Seite (darf darüber hinaus)
-    kind: str                         # frame | margin | page | empty
+    rect: tuple  # (x0, y0, x1, y1) in pt, Koordinaten der angezeigten Seite (darf darüber hinaus)
+    kind: str  # frame | margin | page | empty
     note: str = ""
 
     @property
@@ -197,13 +221,19 @@ class Area:
         return (self.rect[3] - self.rect[1]) / MM
 
     def to_dict(self) -> dict:
-        return {"rect_pt": [round(v, 2) for v in self.rect], "kind": self.kind, "w_mm": round(self.w_mm, 1),
-                "h_mm": round(self.h_mm, 1), "note": self.note}
+        return {
+            "rect_pt": [round(v, 2) for v in self.rect],
+            "kind": self.kind,
+            "w_mm": round(self.w_mm, 1),
+            "h_mm": round(self.h_mm, 1),
+            "note": self.note,
+        }
 
 
 def num(v: float, digits: int = 2) -> str:
     """Zahl in der Schreibweise der Oberflächensprache (Komma bzw. Punkt)."""
     from . import l10n, measure
+
     return measure.fmt(float(v), l10n.current(), digits)
 
 
@@ -215,12 +245,17 @@ def mm_text(v: float) -> str:
     return num(v, 2)
 
 
-KIND_TEXT = {"frame": "Zwei Außenlinien – auf die äußere beschnitten", "margin": "Inhalt + Rand",
-             "page": "Seite unverändert", "empty": "Leere Seite"}
+KIND_TEXT = {
+    "frame": "Zwei Außenlinien – auf die äußere beschnitten",
+    "margin": "Inhalt + Rand",
+    "page": "Seite unverändert",
+    "empty": "Leere Seite",
+}
 
 
 def _render_gray(page, scale: float, crop=(0, 0, 0, 0)):
     import numpy as np
+
     bm = page.render(scale=scale, grayscale=True, no_smoothpath=True, may_draw_forms=True, crop=crop)
     a = bm.to_numpy()
     if a.ndim == 3:
@@ -243,13 +278,14 @@ def _runs(flags) -> list:
 
 
 INK = 230
-LONG = 0.6                    # Linie: mindestens 60 % der Breite/Höhe
-MAX_GAP_MM = 60.0             # Abstand äußere -> innere Rahmenlinie höchstens
+LONG = 0.6  # Linie: mindestens 60 % der Breite/Höhe
+MAX_GAP_MM = 60.0  # Abstand äußere -> innere Rahmenlinie höchstens
 
 
 def _frames(ink, px_mm: float):
     """Grob: äußerer und innerer Rahmen in Pixeln {"outer": (t, b, l, r) Linien, "inner": …} oder None-Teile."""
     import numpy as np
+
     H, W = ink.shape
     ys, xs = np.nonzero(ink)
     if len(ys) == 0:
@@ -257,19 +293,24 @@ def _frames(ink, px_mm: float):
     y0, y1, x0, x1 = int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
     bbox = (y0, y1, x0, x1)
     bw, bh = x1 - x0 + 1, y1 - y0 + 1
-    rows = _runs((ink[:, x0:x1 + 1].sum(axis=1) / bw) >= LONG)
-    cols = _runs((ink[y0:y1 + 1, :].sum(axis=0) / bh) >= LONG)
+    rows = _runs((ink[:, x0 : x1 + 1].sum(axis=1) / bw) >= LONG)
+    cols = _runs((ink[y0 : y1 + 1, :].sum(axis=0) / bh) >= LONG)
     if len(rows) < 2 or len(cols) < 2:
         return bbox, None, None
     top, bot, lef, rig = rows[0], rows[-1], cols[0], cols[-1]
 
     def spans(r0, r1, c0, c1, horizontal, frac=0.9):
-        seg = ink[r0:r1 + 1, c0:c1 + 1]
+        seg = ink[r0 : r1 + 1, c0 : c1 + 1]
         cov = seg.any(axis=0).mean() if horizontal else seg.any(axis=1).mean()
         return cov >= frac
+
     # äußerer Rahmen: alle vier Linien durchgehend zwischen den anderen
-    if not (spans(top[0], top[1], lef[0], rig[1], True) and spans(bot[0], bot[1], lef[0], rig[1], True)
-            and spans(top[0], bot[1], lef[0], lef[1], False) and spans(top[0], bot[1], rig[0], rig[1], False)):
+    if not (
+        spans(top[0], top[1], lef[0], rig[1], True)
+        and spans(bot[0], bot[1], lef[0], rig[1], True)
+        and spans(top[0], bot[1], lef[0], lef[1], False)
+        and spans(top[0], bot[1], rig[0], rig[1], False)
+    ):
         return bbox, None, None
     outer = (top, bot, lef, rig)
     gap = MAX_GAP_MM / px_mm
@@ -280,21 +321,25 @@ def _frames(ink, px_mm: float):
     if not (it and ib and il and ir):
         return bbox, outer, None
     t2, b2, l2, r2 = it[0], ib[-1], il[0], ir[-1]
-    if not (spans(t2[0], t2[1], l2[0], r2[1], True, 0.85) and spans(b2[0], b2[1], l2[0], r2[1], True, 0.85)
-            and spans(t2[0], b2[1], l2[0], l2[1], False, 0.85) and spans(t2[0], b2[1], r2[0], r2[1], False, 0.85)):
+    if not (
+        spans(t2[0], t2[1], l2[0], r2[1], True, 0.85)
+        and spans(b2[0], b2[1], l2[0], r2[1], True, 0.85)
+        and spans(t2[0], b2[1], l2[0], l2[1], False, 0.85)
+        and spans(t2[0], b2[1], r2[0], r2[1], False, 0.85)
+    ):
         return bbox, outer, None
     return bbox, outer, (t2, b2, l2, r2)
 
 
 def _refine(page, W: float, H: float, side: str, approx: float, lo: float, hi: float) -> float | None:
     """Innenkante der äußeren Linie fein (300 dpi) – side t/b/l/r, approx = grobe Lage in pt (Seitenkoordinaten),
-        lo..hi = Bereich entlang der Linie in pt. -> Koordinate in pt oder None."""
-    import numpy as np
+    lo..hi = Bereich entlang der Linie in pt. -> Koordinate in pt oder None."""
+
     band = 3.0 * MM
     scale = 300 / 72
     if side in ("t", "b"):
         y0, y1 = max(0.0, approx - band), min(H, approx + band)
-        crop = (lo, y0, W - hi, H - y1)          # links, unten, rechts, oben abschneiden
+        crop = (lo, y0, W - hi, H - y1)  # links, unten, rechts, oben abschneiden
     else:
         x0, x1 = max(0.0, approx - band), min(W, approx + band)
         crop = (x0, lo, W - x1, H - hi)
@@ -308,10 +353,10 @@ def _refine(page, W: float, H: float, side: str, approx: float, lo: float, hi: f
             return None
         # Zeile 0 = oben (y1)
         if side == "t":
-            r = runs[0]                                       # oberste Linie im Band -> Innenkante unten
+            r = runs[0]  # oberste Linie im Band -> Innenkante unten
             return y1 - (r[1] + 1) / scale
         r = runs[-1]
-        return y1 - r[0] / scale                              # unterste Linie -> Innenkante oben
+        return y1 - r[0] / scale  # unterste Linie -> Innenkante oben
     runs = _runs(ink.mean(axis=0) >= 0.5)
     if not runs:
         return None
@@ -340,11 +385,12 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
             return Area((0.0, 0.0, W, H), "empty", tr("Leere Seite"))
         h_px, w_px = ink.shape
 
-        def ypt(row):                                   # Pixelzeile (Oberkante) -> pt
+        def ypt(row):  # Pixelzeile (Oberkante) -> pt
             return H - row * H / h_px
 
         def xpt(col):
             return col * W / w_px
+
         note = ""
         if mode in ("auto", "frame") and inner is not None:
             (t, b, l, r) = outer
@@ -358,8 +404,12 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
             fr = _refine(page, W, H, "r", (xpt(r[0]) + xpt(r[1] + 1)) / 2, span_y[0], span_y[1])
             # minimal nach innen, damit von der Linie nichts stehen bleibt
             e = 0.15 * MM
-            rect = ((fl if fl is not None else x0) + e, (fb if fb is not None else y0) + e,
-                    (fr if fr is not None else x1) - e, (ft if ft is not None else y1) - e)
+            rect = (
+                (fl if fl is not None else x0) + e,
+                (fb if fb is not None else y0) + e,
+                (fr if fr is not None else x1) - e,
+                (ft if ft is not None else y1) - e,
+            )
             return Area(rect, "frame")
         if mode == "frame":
             note = tr("Keine zwei Außenlinien gefunden – Inhalt + Rand")
@@ -376,11 +426,11 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
 # --------------------------------------------------------------------------- #
 @dataclass
 class Fit:
-    roll: int                 # Index in der Rollenliste
-    width_mm: float           # Rollenbreite
-    across: float             # quer zur Rolle (mm)
-    along: float              # Länge auf der Rolle (mm)
-    rotated: bool             # gegenüber der Seite um 90° gedreht
+    roll: int  # Index in der Rollenliste
+    width_mm: float  # Rollenbreite
+    across: float  # quer zur Rolle (mm)
+    along: float  # Länge auf der Rolle (mm)
+    rotated: bool  # gegenüber der Seite um 90° gedreht
 
 
 MARKS_MM = (layout.MARK_OFFSET + layout.MARK_LEN) / MM + 1.0
@@ -388,7 +438,7 @@ MARKS_MM = (layout.MARK_OFFSET + layout.MARK_LEN) / MM + 1.0
 
 def margins_mm(s: PlanSettings) -> tuple:
     """Zusatz je Seite (links, unten, rechts, oben) in mm, wie die Seite steht: Saum ersetzt dort den
-        Überfüller; dazu Platz für Schnitt-/Passermarken."""
+    Überfüller; dazu Platz für Schnitt-/Passermarken."""
     marks = MARKS_MM if (s.crop_marks or s.printcut_marks) else 0.0
     out = []
     for side in "lbrt":
@@ -428,7 +478,7 @@ def choose(w: float, h: float, rolls: list, rotate: str = "auto") -> Fit | None:
             if best is None or key < best[0]:
                 best = (key, Fit(i, r.width_mm, across, along, rot))
     if best is None and rotate in ("short", "long"):
-        return choose(w, h, rolls, "auto")             # passt nur andersherum
+        return choose(w, h, rolls, "auto")  # passt nur andersherum
     return best[1] if best else None
 
 
@@ -441,21 +491,22 @@ def eligible(rolls: list, weights) -> tuple:
     if ok:
         return ok, ""
     return list(rolls), tr("Keine Rolle mit {0} g/m² geladen – alle Rollen werden verwendet.").format(
-        " / ".join(str(w) for w in sorted(ws)))
+        " / ".join(str(w) for w in sorted(ws))
+    )
 
 
 @dataclass
 class Item:
-    page: int                 # Seite im Dokument
-    qty: int = 1              # Menge je Satz
+    page: int  # Seite im Dokument
+    qty: int = 1  # Menge je Satz
     area: Area | None = None
     fit: Fit | None = None
     size: tuple = (0.0, 0.0)  # fertige Größe (mm) wie die Seite steht
     hairlines: int = 0
-    source: str = ""          # Datei
-    doc: object = None        # pdfium-Dokument (nicht im Protokoll)
-    frame: str = ""           # Rahmen je Plan ("" = wie eingestellt)
-    ov: dict = field(default_factory=dict)   # Abweichungen von den Auftrags-Einstellungen (OV_KEYS)
+    source: str = ""  # Datei
+    doc: object = None  # pdfium-Dokument (nicht im Protokoll)
+    frame: str = ""  # Rahmen je Plan ("" = wie eingestellt)
+    ov: dict = field(default_factory=dict)  # Abweichungen von den Auftrags-Einstellungen (OV_KEYS)
 
     @property
     def label(self) -> str:
@@ -479,8 +530,16 @@ def run_lengths(items: list, rolls: list, copies: int) -> list:
     for it in items:
         if it.fit is None:
             continue
-        d = out.setdefault(it.fit.roll, {"roll": it.fit.roll, "width_mm": it.fit.width_mm,
-                                         "label": rolls[it.fit.roll].label(), "plans": 0, "single_m": 0.0})
+        d = out.setdefault(
+            it.fit.roll,
+            {
+                "roll": it.fit.roll,
+                "width_mm": it.fit.width_mm,
+                "label": rolls[it.fit.roll].label(),
+                "plans": 0,
+                "single_m": 0.0,
+            },
+        )
         d["plans"] += max(0, it.qty)
         d["single_m"] += it.fit.along * max(0, it.qty) / 1000.0
     res = []
@@ -498,7 +557,7 @@ def job_order(items: list, copies: int, collate: bool, order: str, rolls: list |
     """[(Item, Anzahl)] in Druckreihenfolge. Unsortiert: jeder Plan alle Exemplare hintereinander."""
     seq = [it for it in items if it.fit is not None and it.qty > 0]
     if order == "roll":
-        seq.sort(key=lambda it: (it.fit.width_mm, it.fit.roll))   # stabil: innerhalb der Rolle wie in der Liste
+        seq.sort(key=lambda it: (it.fit.width_mm, it.fit.roll))  # stabil: innerhalb der Rolle wie in der Liste
     copies = max(1, int(copies))
     if not collate:
         return [(it, it.qty * copies) for it in seq]
@@ -511,6 +570,7 @@ def job_order(items: list, copies: int, collate: bool, order: str, rolls: list |
 def _walk_paths(container, count_fn, get_fn, matrix, out: list, depth: int = 0):
     import ctypes
     import pypdfium2.raw as r
+
     n = count_fn(container)
     for k in range(n):
         obj = get_fn(container, k)
@@ -521,8 +581,9 @@ def _walk_paths(container, count_fn, get_fn, matrix, out: list, depth: int = 0):
             own = (1, 0, 0, 1, 0, 0)
         t = r.FPDFPageObj_GetType(obj)
         if t == r.FPDF_PAGEOBJ_FORM and depth < 8:
-            _walk_paths(obj, r.FPDFFormObj_CountObjects, r.FPDFFormObj_GetObject, layout._mul(own, matrix), out,
-                        depth + 1)
+            _walk_paths(
+                obj, r.FPDFFormObj_CountObjects, r.FPDFFormObj_GetObject, layout._mul(own, matrix), out, depth + 1
+            )
         elif t == r.FPDF_PAGEOBJ_PATH:
             fm, st = ctypes.c_int(0), ctypes.c_int(0)
             if not r.FPDFPath_GetDrawMode(obj, ctypes.byref(fm), ctypes.byref(st)) or not st.value:
@@ -539,6 +600,7 @@ def _walk_paths(container, count_fn, get_fn, matrix, out: list, depth: int = 0):
 def hairlines(doc, i: int, min_mm: float = 0.1, scale_pct: float = 100.0) -> int:
     """Anzahl gezeichneter Linien dünner als min_mm (Strichstärke 0 = dünnste Gerätelinie zählt mit)."""
     import pypdfium2.raw as r
+
     page = doc[i]
     try:
         found = []
@@ -554,6 +616,7 @@ def hairline_boxes(doc, i: int, min_mm: float = 0.1, max_objs: int = 200000) -> 
     """(Anzahl, [Bereich (x0, y0, x1, y1) pt]) der Linien dünner als min_mm – für den Preflight."""
     import ctypes
     import pypdfium2.raw as r
+
     page = doc[i]
     try:
         if r.FPDFPage_CountObjects(page.raw) > max_objs:
@@ -571,8 +634,11 @@ def hairline_boxes(doc, i: int, min_mm: float = 0.1, max_objs: int = 200000) -> 
                 continue
             box = (l.value, b.value, rr.value, t.value)
             if parent is not None:
-                pts = [(x * parent[0] + y * parent[2] + parent[4], x * parent[1] + y * parent[3] + parent[5])
-                       for x in (box[0], box[2]) for y in (box[1], box[3])]
+                pts = [
+                    (x * parent[0] + y * parent[2] + parent[4], x * parent[1] + y * parent[3] + parent[5])
+                    for x in (box[0], box[2])
+                    for y in (box[1], box[3])
+                ]
                 box = (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
             boxes.append(box)
         return n, boxes
@@ -585,6 +651,7 @@ def fix_hairlines(doc, pages, min_mm: float = 0.1, scale_pct: float = 100.0):
     import io
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
+
     buf = io.BytesIO()
     doc.save(buf)
     cp = pdfium.PdfDocument(buf.getvalue())
@@ -612,16 +679,17 @@ def fix_hairlines(doc, pages, min_mm: float = 0.1, scale_pct: float = 100.0):
 @dataclass
 class Piece:
     """Ein Stück auf der Rolle: ein Plan/Poster oder eine Bahn davon (Überbreite)."""
+
     item: Item
-    rect: tuple               # Ausschnitt der Seite (pt) – der Druckbereich oder eine Bahn davon
-    across: float             # mm quer zur Rolle (inkl. Überfüller/Saum/Marken)
-    along: float              # mm Länge auf der Rolle
+    rect: tuple  # Ausschnitt der Seite (pt) – der Druckbereich oder eine Bahn davon
+    across: float  # mm quer zur Rolle (inkl. Überfüller/Saum/Marken)
+    along: float  # mm Länge auf der Rolle
     rotated: bool
     roll: int
     width_mm: float
     tile: int = 0
     tiles: int = 1
-    clipped: bool = False     # breiter als die Rolle – abgeschnitten
+    clipped: bool = False  # breiter als die Rolle – abgeschnitten
 
     @property
     def label(self) -> str:
@@ -634,11 +702,12 @@ class Piece:
 @dataclass
 class Run:
     """Eine Druckseite = ein Auftrag: ein Stück oder mehrere nebeneinander."""
+
     roll: int
     width_mm: float
-    across: float             # Papierbreite (mm)
-    along: float              # Papierlänge (mm)
-    pieces: list              # [(Piece, x_mm, y_mm)] – Lage auf der Seite (links unten)
+    across: float  # Papierbreite (mm)
+    along: float  # Papierlänge (mm)
+    pieces: list  # [(Piece, x_mm, y_mm)] – Lage auf der Seite (links unten)
     copies: int = 1
 
     @property
@@ -664,14 +733,14 @@ def find_roll(rolls: list, key: str):
         if roll_key(r) == key:
             return k
     low = str(key).strip().lower()
-    for k, r in live:                                    # Zufuhr, Name am Gerät, Anzeigename
+    for k, r in live:  # Zufuhr, Name am Gerät, Anzeigename
         if low in {x.lower() for x in (r.slot, r.device, r.name) if x}:
             return k
     try:
         w = float(str(key).replace(",", ".").lower().removesuffix("mm").strip())
     except ValueError:
         return None
-    for k, r in live:                                    # Breite
+    for k, r in live:  # Breite
         if abs(r.width_mm - w) <= TOL_MM:
             return k
     return None
@@ -683,9 +752,14 @@ def _words(t: str) -> set:
 
 def match_material(rolls: list, mat: dict) -> list:
     """Rollen, die zum Material passen: Grammatur gleich, sonst Medienname/Material-Name ähnlich. [] = keine."""
-    if mat.get("device"):                              # vom Gerät: genau die Rolle(n) mit diesem Medium
-        hit = [r for r in rolls if not getattr(r, "empty", False) and (r.media or r.name) == mat["device_media"]
-               and (not mat["weight"] or r.weight == mat["weight"])]
+    if mat.get("device"):  # vom Gerät: genau die Rolle(n) mit diesem Medium
+        hit = [
+            r
+            for r in rolls
+            if not getattr(r, "empty", False)
+            and (r.media or r.name) == mat["device_media"]
+            and (not mat["weight"] or r.weight == mat["weight"])
+        ]
         if hit:
             return hit
     w = int(mat.get("weight") or 0)
@@ -700,7 +774,7 @@ def match_material(rolls: list, mat: dict) -> list:
 
 def eligible_for(rolls: list, s: PlanSettings) -> tuple:
     """Rollen für diesen Auftrag. Feste Rolle geht vor; dann Material (Grammatur oder Name); Plan:
-        Planpapier-Grammatur. -> (Rollen, Hinweis)."""
+    Planpapier-Grammatur. -> (Rollen, Hinweis)."""
     if s.roll_pick:
         k = find_roll(rolls, s.roll_pick)
         if k is not None:
@@ -714,8 +788,9 @@ def eligible_for(rolls: list, s: PlanSettings) -> tuple:
         if hit:
             return hit, note
         if mat.get("device"):
-            n2 = tr("Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle "
-                    "wählen.").format(mat["name"])
+            n2 = tr(
+                "Material „{0}“ ist am Gerät angelegt, aber nicht geladen – Rolle einlegen bzw. eine Rolle wählen."
+            ).format(mat["name"])
             return list(rolls), " ".join(x for x in (note, n2) if x)
         if mat.get("weight"):
             use, n2 = eligible(rolls, [int(mat["weight"])])
@@ -726,7 +801,7 @@ def eligible_for(rolls: list, s: PlanSettings) -> tuple:
     return list(rolls), note
 
 
-DEV_PREFIX = "dev:"                     # Material, wie es der Drucker meldet: "dev:<g/m²>:<Medienname>"
+DEV_PREFIX = "dev:"  # Material, wie es der Drucker meldet: "dev:<g/m²>:<Medienname>"
 
 
 def device_material_id(roll) -> str:
@@ -735,7 +810,7 @@ def device_material_id(roll) -> str:
 
 def device_materials(rolls: list, catalog: list | None = None) -> list:
     """Materialien laut Gerät: zuerst die Medien der geladenen Rollen, dann die im Medienkatalog des Geräts
-        angelegten, aber nicht geladenen. [{"id", "name", "weight", "loaded", …}], ohne Doppelte."""
+    angelegten, aber nicht geladenen. [{"id", "name", "weight", "loaded", …}], ohne Doppelte."""
     out, seen = [], set()
     for r in rolls:
         if getattr(r, "empty", False) or not (r.media or r.weight):
@@ -759,9 +834,17 @@ def device_materials(rolls: list, catalog: list | None = None) -> list:
 
 
 def _dev_mat(mid: str) -> dict:
-    w, _sep, name = mid[len(DEV_PREFIX):].partition(":")
-    return {"id": mid, "name": name or tr("Gerät"), "weight": int(w) if w.isdigit() else 0, "media": "",
-            "category": "", "printer": "", "device": True, "device_media": name}
+    w, _sep, name = mid[len(DEV_PREFIX) :].partition(":")
+    return {
+        "id": mid,
+        "name": name or tr("Gerät"),
+        "weight": int(w) if w.isdigit() else 0,
+        "media": "",
+        "category": "",
+        "printer": "",
+        "device": True,
+        "device_media": name,
+    }
 
 
 def material_of(s: PlanSettings):
@@ -771,6 +854,7 @@ def material_of(s: PlanSettings):
         return _dev_mat(s.material)
     try:
         from . import printmat
+
         return printmat.find(s.material, s.printer)
     except Exception:
         return None
@@ -806,11 +890,11 @@ def nest_fit(w: float, h: float, rolls: list, use: list, count: int, gap: float)
 
 def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, count: int = 1) -> list:
     """Stücke eines Plans/Posters. Passt er auf eine Rolle: eins. Sonst je nach Überbreite: abschneiden oder in
-        Bahnen mit Überlappung teilen (nur auf den passenden Rollen)."""
+    Bahnen mit Überlappung teilen (nur auf den passenden Rollen)."""
     if it.area is None:
         return []
     s = eff(s, it)
-    if it.ov.get("roll_pick") or it.ov.get("material"):     # eigene Rolle/eigenes Material: eigene Auswahl
+    if it.ov.get("roll_pick") or it.ov.get("material"):  # eigene Rolle/eigenes Material: eigene Auswahl
         use = eligible_for(rolls, s)[0]
     use = [r for r in (use if use is not None else rolls) if not getattr(r, "empty", False)]
     if it.fit is not None and s.nest and s.rotate == "auto" and count > 1:
@@ -838,7 +922,7 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
         if avail <= 10:
             continue
         if s.overwidth == "crop":
-            key = (c_across - avail, c_along)              # wenig abschneiden, dann kurz
+            key = (c_across - avail, c_along)  # wenig abschneiden, dann kurz
         else:
             n = max(1, -(-(c_across - s.overlap_mm) // max(1.0, avail - s.overlap_mm)))
             key = (n, c_along)
@@ -851,9 +935,10 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
 
     def sub(a0, a1):
         """Bereich a0..a1 (mm, quer zur Rolle, ab Anfang) als Ausschnitt der Seite (pt)."""
-        if rot:                                        # quer = Höhe der Seite (gedreht: oben beginnt)
+        if rot:  # quer = Höhe der Seite (gedreht: oben beginnt)
             return (x0, y1 - a1 * MM / f, x1, y1 - a0 * MM / f)
         return (x0 + a0 * MM / f, y0, x0 + a1 * MM / f, y1)
+
     if s.overwidth == "crop":
         w = min(c_across, avail)
         k = _narrowest(use, w + m_across, idx)
@@ -871,11 +956,11 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
 
 def _shelf(pieces: list, width: float, gap: float, max_len: float, roll: int) -> list:
     """Stücke nebeneinander (Regal-Verfahren, höchste zuerst) -> Druckseiten (Run) auf einer Rolle.
-        Jede Reihe ist eine eigene Druckseite: Der Drucker schneidet nach jeder Reihe ab (nie mehrere Reihen bzw.
-        Exemplare untereinander auf einem Blatt). Gleiche Reihen werden zu einer Seite mit Kopienzahl zusammengefasst
-        – „Einzeln abschneiden“ macht daraus wieder je Exemplar einen Auftrag. max_len: nicht mehr verwendet."""
+    Jede Reihe ist eine eigene Druckseite: Der Drucker schneidet nach jeder Reihe ab (nie mehrere Reihen bzw.
+    Exemplare untereinander auf einem Blatt). Gleiche Reihen werden zu einer Seite mit Kopienzahl zusammengefasst
+    – „Einzeln abschneiden“ macht daraus wieder je Exemplar einen Auftrag. max_len: nicht mehr verwendet."""
     pcs = sorted(pieces, key=lambda p: (-p.along, -p.across))
-    rows = []                                        # [Höhe, belegte Breite, [(Stück, x)]]
+    rows = []  # [Höhe, belegte Breite, [(Stück, x)]]
     for p in pcs:
         for row in rows:
             if row[1] + gap + p.across <= width + TOL_MM and p.along <= row[0] + TOL_MM:
@@ -887,7 +972,7 @@ def _shelf(pieces: list, width: float, gap: float, max_len: float, roll: int) ->
     runs, keys = [], []
     for h, w, items in rows:
         key = tuple((id(p.item), p.item.page, p.tile, round(x, 1), round(p.along, 1)) for p, x in items)
-        if runs and keys[-1] == key:                 # gleiche Reihe wie davor: nur Kopienzahl erhöhen
+        if runs and keys[-1] == key:  # gleiche Reihe wie davor: nur Kopienzahl erhöhen
             runs[-1].copies += 1
             continue
         placed = [(p, x, h - p.along) for p, x in items]
@@ -898,22 +983,21 @@ def _shelf(pieces: list, width: float, gap: float, max_len: float, roll: int) ->
 
 def build_runs(items: list, rolls: list, s: PlanSettings, copies: int | None = None) -> list:
     """Druckseiten in Druckreihenfolge. Ohne Nebeneinander: ein Stück je Seite (unsortiert: alle Exemplare
-        eines Stücks hintereinander, sortiert: Satz für Satz, optional nach Rollenbreite). Mit Nebeneinander:
-        alle Exemplare zusammen auf die Rollen verteilt, je Reihe eine Seite (abgeschnitten)."""
+    eines Stücks hintereinander, sortiert: Satz für Satz, optional nach Rollenbreite). Mit Nebeneinander:
+    alle Exemplare zusammen auf die Rollen verteilt, je Reihe eine Seite (abgeschnitten)."""
     return [_aligned(r, s) for r in _build_runs(items, rolls, s, copies)]
 
 
 def _aligned(run: Run, s: PlanSettings) -> Run:
     """Seite auf die volle Rollenbreite, Inhalt an den Rand (links/rechts) oder in die Mitte. So setzt der
-        Drucker nichts selbst: am Rand bleibt nur ein Längsschnitt, mittig blendet er nichts aus."""
-    if len(run.pieces) == 1:                          # ein Stück: Lage wie für diesen Plan eingestellt
+    Drucker nichts selbst: am Rand bleibt nur ein Längsschnitt, mittig blendet er nichts aus."""
+    if len(run.pieces) == 1:  # ein Stück: Lage wie für diesen Plan eingestellt
         s = eff(s, run.pieces[0][0].item)
     if s.align not in ALIGNS or run.width_mm <= 0 or run.across >= run.width_mm - 0.05:
         return run
     free = run.width_mm - run.across
     dx = {"left": 0.0, "right": free, "center": free / 2.0}[s.align]
-    return Run(run.roll, run.width_mm, run.width_mm, run.along, [(p, x + dx, y) for p, x, y in run.pieces],
-               run.copies)
+    return Run(run.roll, run.width_mm, run.width_mm, run.along, [(p, x + dx, y) for p, x, y in run.pieces], run.copies)
 
 
 def _build_runs(items: list, rolls: list, s: PlanSettings, copies: int | None = None) -> list:
@@ -941,6 +1025,7 @@ def _build_runs(items: list, rolls: list, s: PlanSettings, copies: int | None = 
 
 def lengths(items: list, rolls: list, s: PlanSettings) -> list:
     """Laufmeter je Rolle für einen Satz und für alle Exemplare (Nebeneinander: jeweils neu verteilt)."""
+
     def per_roll(runs):
         d = {}
         for run in runs:
@@ -948,6 +1033,7 @@ def lengths(items: list, rolls: list, s: PlanSettings) -> list:
             e[0] += run.along * run.copies / 1000.0
             e[1] += len(run.pieces) * run.copies
         return d
+
     one = per_roll(build_runs(items, rolls, s, 1))
     allc = per_roll(build_runs(items, rolls, s)) if max(1, int(s.copies)) > 1 else one
     res = []
@@ -955,9 +1041,17 @@ def lengths(items: list, rolls: list, s: PlanSettings) -> list:
         single, plans = one.get(k, (0.0, 0))
         total = allc.get(k, (0.0, 0))[0]
         rem = rolls[k].remaining_m
-        res.append({"roll": k, "width_mm": rolls[k].width_mm, "label": rolls[k].label(), "plans": plans,
-                    "single_m": round(single, 3), "total_m": round(total, 3),
-                    "short": rem is not None and total > rem})
+        res.append(
+            {
+                "roll": k,
+                "width_mm": rolls[k].width_mm,
+                "label": rolls[k].label(),
+                "plans": plans,
+                "single_m": round(single, 3),
+                "total_m": round(total, 3),
+                "short": rem is not None and total > rem,
+            }
+        )
     return res
 
 
@@ -974,6 +1068,7 @@ def _hex_rgb(c: str) -> tuple:
 
 def _rect(page, x, y, w, h, rgb, m):
     import pypdfium2.raw as r
+
     ro = r.FPDFPageObj_CreateNewRect(x, y, w, h)
     r.FPDFPageObj_SetFillColor(ro, rgb[0], rgb[1], rgb[2], 255)
     r.FPDFPath_SetDrawMode(ro, r.FPDF_FILLMODE_WINDING, False)
@@ -984,6 +1079,7 @@ def _rect(page, x, y, w, h, rgb, m):
 def _line(page, x0, y0, x1, y1, m, width=0.25, gray=0, dash=None):
     import ctypes
     import pypdfium2.raw as r
+
     o = r.FPDFPageObj_CreateNewPath(x0, y0)
     r.FPDFPath_LineTo(o, x1, y1)
     r.FPDFPageObj_SetStrokeColor(o, gray, gray, gray, 255)
@@ -998,6 +1094,7 @@ def _line(page, x0, y0, x1, y1, m, width=0.25, gray=0, dash=None):
 
 def _circle_obj(page, cx, cy, rad, m, width=0.4, gray=90):
     import pypdfium2.raw as r
+
     _kind, (sx, sy), segs = layout._circle(cx, cy, rad)
     o = r.FPDFPageObj_CreateNewPath(sx, sy)
     for c1, c2, pt in segs:
@@ -1012,7 +1109,7 @@ def _circle_obj(page, cx, cy, rad, m, width=0.4, gray=90):
 
 def grommet_points(w: float, h: float, inset: float, spacing: float, sides: str = "lrtb") -> list:
     """Ösen auf einem Endformat w × h (beliebige Einheit): Ecken immer, dazwischen gleichmäßig, Abstand höchstens
-        spacing. -> [(x, y)] ab links unten."""
+    spacing. -> [(x, y)] ab links unten."""
     if spacing <= 0 or w <= 2 * inset or h <= 2 * inset:
         return []
     pts = set()
@@ -1023,6 +1120,7 @@ def grommet_points(w: float, h: float, inset: float, spacing: float, sides: str 
         n = max(1, int(-(-L // spacing)))
         for k in range(n + 1):
             pts.add((round(ax + (bx - ax) * k / n, 3), round(ay + (by - ay) * k / n, 3)))
+
     a, b_, c, d = (inset, inset), (w - inset, inset), (w - inset, h - inset), (inset, h - inset)
     if "b" in sides:
         edge(a, b_)
@@ -1037,7 +1135,7 @@ def grommet_points(w: float, h: float, inset: float, spacing: float, sides: str 
 
 def fold_positions(w: float, h: float) -> tuple:
     """Faltung nach DIN 824 (vereinfacht, Form A): senkrecht von rechts in 190-mm-Feldern, bis links 210 mm
-        (inkl. 20 mm Heftrand) bleiben; waagrecht in 297-mm-Feldern von unten. -> ([x mm], [y mm])."""
+    (inkl. 20 mm Heftrand) bleiben; waagrecht in 297-mm-Feldern von unten. -> ([x mm], [y mm])."""
     xs, x = [], w
     while x - 190.0 >= 210.0 - 1e-6:
         x -= 190.0
@@ -1054,6 +1152,7 @@ def fold_positions(w: float, h: float) -> tuple:
 def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy: float, cuts: list):
     """Ein Stück an (ox, oy) pt auf die Seite: Inhalt, Überfüller, Saum, Marken, Ösen, Faltmarken."""
     import pypdfium2 as pdfium
+
     M = pdfium.PdfMatrix
     s = eff(s, p.item)
     f = factor(p.item.area, s)
@@ -1096,8 +1195,12 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
         content, cx, cy = len(tiles) - 1, l - bl, b - bb
     if s.bleed_mode == "color" and (bl or bb or br or bt):
         rgb = _hex_rgb(s.bleed_color)
-        for (rx, ry, rw, rh) in ((l - bl, b - bb, cw + bl + br, bb), (l - bl, b + ch, cw + bl + br, bt),
-                                 (l - bl, b, bl, ch), (l + cw, b, br, ch)):
+        for rx, ry, rw, rh in (
+            (l - bl, b - bb, cw + bl + br, bb),
+            (l - bl, b + ch, cw + bl + br, bt),
+            (l - bl, b, bl, ch),
+            (l + cw, b, br, ch),
+        ):
             if rw > 0 and rh > 0:
                 _rect(page, rx, ry, rw, rh, rgb, m)
     xo = tiles.page_as_xobject(content, out).as_pageobject()
@@ -1108,20 +1211,30 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     if s.crop_marks:
         o_ = max(bl, bb, br, bt) + layout.MARK_OFFSET
         L = layout.MARK_LEN
-        for (xa, ya, xb, yb) in ((CX0, CY1 + o_, CX0, CY1 + o_ + L), (CX1, CY1 + o_, CX1, CY1 + o_ + L),
-                                 (CX0, CY0 - o_, CX0, CY0 - o_ - L), (CX1, CY0 - o_, CX1, CY0 - o_ - L),
-                                 (CX0 - o_, CY0, CX0 - o_ - L, CY0), (CX0 - o_, CY1, CX0 - o_ - L, CY1),
-                                 (CX1 + o_, CY0, CX1 + o_ + L, CY0), (CX1 + o_, CY1, CX1 + o_ + L, CY1)):
+        for xa, ya, xb, yb in (
+            (CX0, CY1 + o_, CX0, CY1 + o_ + L),
+            (CX1, CY1 + o_, CX1, CY1 + o_ + L),
+            (CX0, CY0 - o_, CX0, CY0 - o_ - L),
+            (CX1, CY0 - o_, CX1, CY0 - o_ - L),
+            (CX0 - o_, CY0, CX0 - o_ - L, CY0),
+            (CX0 - o_, CY1, CX0 - o_ - L, CY1),
+            (CX1 + o_, CY0, CX1 + o_ + L, CY0),
+            (CX1 + o_, CY1, CX1 + o_ + L, CY1),
+        ):
             _line(page, xa, ya, xb, yb, m)
-    if s.printcut_marks:                             # Winkel an den Ecken (Sensor-Passermarken)
+    if s.printcut_marks:  # Winkel an den Ecken (Sensor-Passermarken)
         o_, L, w_ = max(bl, bb, br, bt) + 2.0 * MM, 5.0 * MM, 1.0 * MM
-        for (cx_, cy_, sx, sy) in ((CX0, CY0, -1, -1), (CX1, CY0, 1, -1), (CX0, CY1, -1, 1), (CX1, CY1, 1, 1)):
+        for cx_, cy_, sx, sy in ((CX0, CY0, -1, -1), (CX1, CY0, 1, -1), (CX0, CY1, -1, 1), (CX1, CY1, 1, 1)):
             ax, ay = cx_ + sx * o_, cy_ + sy * o_
             _rect(page, min(ax, ax + sx * L), min(ay, ay + sy * w_), L, w_, (0, 0, 0), m)
             _rect(page, min(ax, ax + sx * w_), min(ay, ay + sy * L), w_, L, (0, 0, 0), m)
-    for k, (xa, ya, xb, yb) in (("l", (l, b, l, b + ch)), ("r", (l + cw, b, l + cw, b + ch)),
-                                ("b", (l, b, l + cw, b)), ("t", (l, b + ch, l + cw, b + ch))):
-        if hem[k]:                                   # Falzlinie des Saums: gestrichelt im Saum
+    for k, (xa, ya, xb, yb) in (
+        ("l", (l, b, l, b + ch)),
+        ("r", (l + cw, b, l + cw, b + ch)),
+        ("b", (l, b, l + cw, b)),
+        ("t", (l, b + ch, l + cw, b + ch)),
+    ):
+        if hem[k]:  # Falzlinie des Saums: gestrichelt im Saum
             dx, dy = {"l": (-1, 0), "r": (1, 0), "b": (0, -1), "t": (0, 1)}[k]
             e = 1.0 * MM
             _line(page, xa + dx * e, ya + dy * e, xb + dx * e, yb + dy * e, m, 0.3, 120, (3.0, 3.0))
@@ -1151,6 +1264,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
 def make_run(run: Run, s: PlanSettings, out=None) -> tuple:
     """Druckseite eines Auftrags (Breite = quer zur Rolle). -> (pdfium-Dokument, [CutContour-Rechtecke (pt)])."""
     import pypdfium2 as pdfium
+
     out = out if out is not None else pdfium.PdfDocument.new()
     tiles = pdfium.PdfDocument.new()
     fixed = {}
@@ -1162,8 +1276,9 @@ def make_run(run: Run, s: PlanSettings, out=None) -> tuple:
             if s.fix_hairlines and p.item.hairlines:
                 key = (id(src), p.item.page)
                 if key not in fixed:
-                    fixed[key], _n = fix_hairlines(src, [p.item.page], s.hairline_mm,
-                                                   factor(p.item.area, eff(s, p.item)) * 100.0)
+                    fixed[key], _n = fix_hairlines(
+                        src, [p.item.page], s.hairline_mm, factor(p.item.area, eff(s, p.item)) * 100.0
+                    )
                 src = fixed[key]
             _draw_piece(out, page, tiles, src, p, s, x * MM, y * MM, cuts)
         page.gen_content()
@@ -1185,10 +1300,11 @@ def make_page(src, i: int, area: Area, fit: Fit, s: PlanSettings, out=None):
 
 def add_cut_contour(path: str, cuts_by_page: dict, spot: str = "CutContour", width_pt: float = 0.25) -> None:
     """Rechtecke als Schneidlinie in der Sonderfarbe (Separation, 100 % Magenta, Überdrucken) einzeichnen –
-        das erkennen VersaWorks, CutStudio, Summa, Graphtec … als Konturschnitt."""
+    das erkennen VersaWorks, CutStudio, Summa, Graphtec … als Konturschnitt."""
     if not any(cuts_by_page.values()):
         return
     import pikepdf
+
     pdf = pikepdf.open(path, allow_overwriting_input=True)
     try:
         fn = pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0, 0, 0, 0], C1=[0, 1, 0, 0], N=1)
@@ -1206,7 +1322,7 @@ def add_cut_contour(path: str, cuts_by_page: dict, spot: str = "CutContour", wid
                     res[key] = pikepdf.Dictionary()
                 res[key][val[0]] = val[1]
             ops = ["q /PMCutGS gs /PMCut CS 1 SCN", f"{width_pt:.3f} w"]
-            for (a, b_, c, d) in rects:
+            for a, b_, c, d in rects:
                 ops.append(f"{a:.3f} {b_:.3f} {c - a:.3f} {d - b_:.3f} re S")
             ops.append("Q")
             page.contents_add(pikepdf.Stream(pdf, ("\n" + "\n".join(ops) + "\n").encode()), prepend=False)
@@ -1218,21 +1334,26 @@ def add_cut_contour(path: str, cuts_by_page: dict, spot: str = "CutContour", wid
 def page_value(caps, across: float, along: float) -> str:
     """Papierwert für den Treiber: genau die Größe der Druckseite als eigenes Format (Breite quer × Länge)."""
     from . import printers
+
     return printers.custom_value(round(across, 1), round(along, 1))
 
 
-IPP_TRIM = ("61", "60", "63", "62", "64")      # trim-after-pages, trim, -after-copies, -after-documents, -after-job
+IPP_TRIM = ("61", "60", "63", "62", "64")  # trim-after-pages, trim, -after-copies, -after-documents, -after-job
 _CUT_KEY = re.compile(r"cut|trim|schneid|abschnitt|schnitt", re.I)
 _CUT_SKIP = re.compile(r"contour|kontur|cutcontour|plotter.?cut", re.I)
 _CUT_NO = re.compile(r"(^|\b)(none|never|off|no|not|false|aus|kein\w*|nicht|manual|manuell|disabled?)(\b|$)|^0$", re.I)
-_CUT_RANK = ((re.compile(r"page|seite|sheet|blatt|each|jede", re.I), 5), (re.compile(r"auto", re.I), 4),
-             (re.compile(r"(^|\b)(on|yes|true|ein|an|enabled?|1)(\b|$)", re.I), 3),
-             (re.compile(r"copy|kopie|set|satz|document|dokument", re.I), 2), (re.compile(r"job|auftrag", re.I), 1))
+_CUT_RANK = (
+    (re.compile(r"page|seite|sheet|blatt|each|jede", re.I), 5),
+    (re.compile(r"auto", re.I), 4),
+    (re.compile(r"(^|\b)(on|yes|true|ein|an|enabled?|1)(\b|$)", re.I), 3),
+    (re.compile(r"copy|kopie|set|satz|document|dokument", re.I), 2),
+    (re.compile(r"job|auftrag", re.I), 1),
+)
 
 
 def cut_values(caps) -> dict:
     """Treiberwerte, damit der Rollendrucker nach jeder Seite schneidet: IPP finishings trim (61 …), CUPS/PPD
-        CutMedia/cupsFinishings, Herstelleroptionen mit Schneid-/Cut-Namen. {} = Drucker bietet keine Option an."""
+    CutMedia/cupsFinishings, Herstelleroptionen mit Schneid-/Cut-Namen. {} = Drucker bietet keine Option an."""
     if caps is None:
         return {}
     out = {}
@@ -1270,6 +1391,7 @@ def config_profile(session, pid: str):
     if not pid:
         return None
     from . import config
+
     return config.profile_by_id(getattr(session, "cfg", {}) or {}, pid)
 
 
@@ -1306,12 +1428,13 @@ def write_run(run: Run, s: PlanSettings, path: str, copies: int = 1) -> None:
 # --------------------------------------------------------------------------- #
 # Zusammenstellen und drucken
 # --------------------------------------------------------------------------- #
-FOLDER_PREFIX = "folder:"             # Ausgabe in einen (Hot-)Ordner, z. B. für VersaWorks
-FOLDERS_KEY = "plan_hotfolders"       # Benutzereinstellung: [{"name", "dir"}]
+FOLDER_PREFIX = "folder:"  # Ausgabe in einen (Hot-)Ordner, z. B. für VersaWorks
+FOLDERS_KEY = "plan_hotfolders"  # Benutzereinstellung: [{"name", "dir"}]
 
 
 def hotfolders() -> list:
     from . import l10n
+
     out = []
     for e in l10n.load_settings().get(FOLDERS_KEY) or []:
         if isinstance(e, dict) and e.get("name") and e.get("dir"):
@@ -1321,6 +1444,7 @@ def hotfolders() -> list:
 
 def save_hotfolders(lst: list) -> None:
     from . import l10n
+
     st = l10n.load_settings()
     st[FOLDERS_KEY] = [{"name": str(e["name"]), "dir": str(e["dir"])} for e in lst if e.get("name") and e.get("dir")]
     l10n.save_settings(st)
@@ -1331,7 +1455,7 @@ def is_folder(printer: str) -> bool:
 
 
 def folder_dir(printer: str) -> str:
-    name = printer[len(FOLDER_PREFIX):]
+    name = printer[len(FOLDER_PREFIX) :]
     for e in hotfolders():
         if e["name"] == name:
             return e["dir"]
@@ -1341,6 +1465,7 @@ def folder_dir(printer: str) -> str:
 def rolls_for(session, printer: str, s: PlanSettings) -> tuple:
     """(Rollen, Herkunft, Hinweise). Rollen aus den Einstellungen gehen vor."""
     from . import rolls as rl
+
     if s.rolls:
         out = []
         for k, e in enumerate(s.rolls):
@@ -1360,8 +1485,11 @@ def rolls_for(session, printer: str, s: PlanSettings) -> tuple:
         st = rl.for_printer(session, printer, live=s.live_rolls)
     notes = []
     if not st.rolls:
-        notes.append(tr("Keine Rollen bekannt – vom Gerät nichts gemeldet ({0}). Rollen von Hand eintragen.")
-                     .format(st.error or tr("keine Adresse")))
+        notes.append(
+            tr("Keine Rollen bekannt – vom Gerät nichts gemeldet ({0}). Rollen von Hand eintragen.").format(
+                st.error or tr("keine Adresse")
+            )
+        )
     return st.rolls, st.origin, notes
 
 
@@ -1383,7 +1511,7 @@ def place_all(items: list, rolls: list, s: PlanSettings) -> str:
     plain = [it for it in items if not (it.ov.get("roll_pick") or it.ov.get("material"))]
     _place_on(plain, rolls, use, s)
     notes = [note] if note else []
-    for it in items:                                  # eigene Rolle/eigenes Material je Plan
+    for it in items:  # eigene Rolle/eigenes Material je Plan
         if it in plain:
             continue
         u, n = eligible_for(rolls, eff(s, it))
@@ -1404,13 +1532,15 @@ def _place_on(items: list, rolls: list, use: list, s: PlanSettings):
 
 def values_for(session, printer: str, caps, s: PlanSettings) -> dict:
     from .printcli import PrintSettings, resolve
+
     mat = material_of(s) or {}
     opts = dict(mat.get("options") or {})
     if mat.get("density_key") and mat.get("density"):
         opts[mat["density_key"]] = mat["density"]
     opts.update(s.options or {})
-    ps = PrintSettings(color=s.color, media=s.media or mat.get("media", ""), quality=mat.get("quality", ""),
-                       options=opts)
+    ps = PrintSettings(
+        color=s.color, media=s.media or mat.get("media", ""), quality=mat.get("quality", ""), options=opts
+    )
     vals, probs = resolve(caps, session.values_for(printer), ps)
     if probs:
         raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
@@ -1427,17 +1557,20 @@ def _neutral_media(caps, key: str) -> str:
     if opt is None:
         return ""
     for ch in opt.choices:
-        if re.search(r"^(auto|any|automatic|none|default|printer\s*default)$|automatisch|beliebig|druckereinst",
-                     f"{ch.value}".strip(), re.I) or re.search(r"^(auto|automatisch|beliebig)", ch.text.strip(), re.I):
+        if re.search(
+            r"^(auto|any|automatic|none|default|printer\s*default)$|automatisch|beliebig|druckereinst",
+            f"{ch.value}".strip(),
+            re.I,
+        ) or re.search(r"^(auto|automatisch|beliebig)", ch.text.strip(), re.I):
             return ch.value
     return opt.default or ""
 
 
-def run_values(session, printer: str, caps, base_vals: dict, run: "Run", rolls: list, s: PlanSettings) -> tuple:
+def run_values(session, printer: str, caps, base_vals: dict, run: Run, rolls: list, s: PlanSettings) -> tuple:
     """Treiberwerte für eine Druckseite (auch für --dry-run): Format, Rolle, Schnitt, Medientyp. -> (Werte, Material)."""
     roll = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
     vals = dict(base_vals)
-    rs = eff(s, run.pieces[0][0].item) if run.pieces else s     # Material/Medium dieses Plans
+    rs = eff(s, run.pieces[0][0].item) if run.pieces else s  # Material/Medium dieses Plans
     if rs.material != s.material and caps is not None and not is_folder(printer):
         try:
             vals = dict(values_for(session, printer, caps, rs))
@@ -1450,14 +1583,20 @@ def run_values(session, printer: str, caps, base_vals: dict, run: "Run", rolls: 
         vals[pkey] = page_value(caps, run.across, run.along)
     if skey and roll is not None and roll.slot:
         vals[skey] = roll.slot
-    if s.cut_sheets:                          # Abschnitt nach jeder Seite – außer von Hand anders gesetzt
+    if s.cut_sheets:  # Abschnitt nach jeder Seite – außer von Hand anders gesetzt
         for k, v in cut_values(caps).items():
             if k not in (s.options or {}):
                 vals[k] = v
     mkey = caps.roles.get("mediatype")
     rmat = material_of(rs) or {}
-    if (mkey and roll is not None and roll.media and not s.media and mkey not in (s.options or {})
-            and not rmat.get("device")):
+    if (
+        mkey
+        and roll is not None
+        and roll.media
+        and not s.media
+        and mkey not in (s.options or {})
+        and not rmat.get("device")
+    ):
         # Gerät meldet das Medium der Rolle: genau dieses verlangen. Ein anderer Medientyp aus dem Material
         # (Import, von Hand) ließe den Drucker auf ein Medium warten, das nicht geladen ist. Passt kein
         # Medientyp des Treibers zur Rolle: nichts Bestimmtes verlangen – das Gerät nimmt die Rolle (Zufuhr).
@@ -1465,9 +1604,10 @@ def run_values(session, printer: str, caps, base_vals: dict, run: "Run", rolls: 
         if mv:
             vals[mkey] = mv
     elif mkey and roll is not None and not s.media and not rmat.get("media"):
-        src = roll                            # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
-        if rmat.get("device"):                # Material vom Gerät: genau dieses Medium
+        src = roll  # Medientyp nicht vorgegeben: der der Rolle (Gerät wählt danach)
+        if rmat.get("device"):  # Material vom Gerät: genau dieses Medium
             from .rolls import Roll
+
             src = Roll(roll.width_mm, weight=int(rmat.get("weight") or 0), media=rmat["device_media"])
         mv = media_for_roll(caps, src)
         if mv:
@@ -1475,10 +1615,12 @@ def run_values(session, printer: str, caps, base_vals: dict, run: "Run", rolls: 
     return vals, rmat
 
 
-def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: list, s: PlanSettings,
-               log: bool = True) -> int | None:
+def submit_run(
+    session, printer: str, caps, base_vals: dict, run: Run, rolls: list, s: PlanSettings, log: bool = True
+) -> int | None:
     """Eine Druckseite run.copies-mal drucken (ein Auftrag). Mit Druckprotokoll inkl. Laufmeter."""
     from . import printjob, printlog
+
     roll = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
     n = max(1, run.copies)
     vals, rmat = dict(base_vals), {}
@@ -1491,6 +1633,7 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
             os.makedirs(d, exist_ok=True)
             import re
             import time
+
             it0 = run.pieces[0][0].item
             stem = re.sub(r"[^\w.\-]+", "_", os.path.splitext(os.path.basename(it0.source or "plan"))[0])[:50]
             stem += f"_p{it0.page + 1}" + (f"+{len(run.pieces) - 1}" if len(run.pieces) > 1 else "")
@@ -1520,21 +1663,25 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
         def prep(path):
             if icc and os.path.isfile(icc):
                 from .cmyk import embed_output_intent
+
                 embed_output_intent(path, icc)
+
         try:
             if mode == "sheets":
                 # ein Auftrag, je Exemplar eine Seite: der Drucker schneidet nach jeder Seite
                 write_run(run, s, job, n)
                 prep(job)
-                jid = printjob.send_prepared(session, printer, caps, job,
-                                             title + (f" ×{n}" if n > 1 else ""), vals, 1, True, {})
+                jid = printjob.send_prepared(
+                    session, printer, caps, job, title + (f" ×{n}" if n > 1 else ""), vals, 1, True, {}
+                )
             elif mode == "jobs" and n > 1:
                 write_run(run, s, job)
                 prep(job)
                 ids = []
                 for k in range(n):
-                    ids.append(printjob.send_prepared(session, printer, caps, job, f"{title} ({k + 1}/{n})",
-                                                      vals, 1, True, {}))
+                    ids.append(
+                        printjob.send_prepared(session, printer, caps, job, f"{title} ({k + 1}/{n})", vals, 1, True, {})
+                    )
                 jid = ", ".join(str(x) for x in ids if x is not None) or None
             else:
                 write_run(run, s, job)
@@ -1552,6 +1699,7 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
         return jid
     finally:
         import shutil
+
         shutil.rmtree(tmp, ignore_errors=True)
         if log and printlog.enabled(session.cfg):
             printlog.write(log_record(caps, printer, run, roll, s, vals, session, jid, err), session.cfg)
@@ -1559,33 +1707,59 @@ def submit_run(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
 
 def log_record(caps, printer, run: Run, roll, s: PlanSettings, vals: dict, session, jid, err) -> dict:
     from . import printlog
+
     first = run.pieces[0][0].item
     n = max(1, run.copies)
     pages = sorted({p.item.page for p, _x, _y in run.pieces})
-    rec = printlog.build(caps if not is_folder(printer) else None, printer, first.source or None,
-                         s.title or run.label, pages, s, vals, n, False, False,
-                         session.color_for(printer) if not is_folder(printer) else ("", ""), jid, error=err,
-                         sheet_mm=[round(run.across, 1), round(run.along, 1)])
+    rec = printlog.build(
+        caps if not is_folder(printer) else None,
+        printer,
+        first.source or None,
+        s.title or run.label,
+        pages,
+        s,
+        vals,
+        n,
+        False,
+        False,
+        session.color_for(printer) if not is_folder(printer) else ("", ""),
+        jid,
+        error=err,
+        sheet_mm=[round(run.across, 1), round(run.along, 1)],
+    )
     e = rec["job"]
     e["kind"] = s.kind
     e["roll_mm"] = round(run.width_mm, 1)
     e["roll"] = roll.label() if roll is not None else None
     e["length_mm"] = round(run.along * n, 1)
     e["run_m"] = round(run.along * n / 1000.0, 3)
-    e["pieces"] = [{"plan": p.label, "page": p.item.page + 1, "x_mm": round(x, 1), "y_mm": round(y, 1),
-                    "size_mm": [round(p.across, 1), round(p.along, 1)], "rotated": p.rotated,
-                    "clipped": p.clipped} for p, x, y in run.pieces]
+    e["pieces"] = [
+        {
+            "plan": p.label,
+            "page": p.item.page + 1,
+            "x_mm": round(x, 1),
+            "y_mm": round(y, 1),
+            "size_mm": [round(p.across, 1), round(p.along, 1)],
+            "rotated": p.rotated,
+            "clipped": p.clipped,
+        }
+        for p, x, y in run.pieces
+    ]
     e["area"] = first.area.to_dict() if first.area else None
     if len({id(p.item.doc) for p, _x, _y in run.pieces}) == 1 and len(run.pieces) == 1:
-        st = compact(dataclasses.replace(s, printer=printer, copies=n, collate=False, order="list", nest=False,
-                                         title=s.title, dry_run=False))
+        st = compact(
+            dataclasses.replace(
+                s, printer=printer, copies=n, collate=False, order="list", nest=False, title=s.title, dry_run=False
+            )
+        )
         st["rolls"] = [{"width_mm": round(run.width_mm, 1), "slot": roll.slot if roll is not None else ""}]
-        if first.ov or first.frame:                     # Abweichungen dieses Plans mit protokollieren
-            st["overrides"] = {str(first.page + 1): clean_ov(dict(first.ov, **({"frame": first.frame}
-                                                                                if first.frame else {})))}
+        if first.ov or first.frame:  # Abweichungen dieses Plans mit protokollieren
+            st["overrides"] = {
+                str(first.page + 1): clean_ov(dict(first.ov, **({"frame": first.frame} if first.frame else {})))
+            }
         step = {"job": "plan", "settings": st, "pages": str(first.page + 1)}
         rec["workflow"]["steps"] = list(rec["workflow"]["steps"][:-1]) + [step]
-    else:                                   # mehrere Stücke auf einer Seite: Nachdruck aller Seiten dieser Datei
+    else:  # mehrere Stücke auf einer Seite: Nachdruck aller Seiten dieser Datei
         st = compact(dataclasses.replace(s, printer=printer, copies=1, title=s.title, dry_run=False))
         st["rolls"] = [{"width_mm": round(run.width_mm, 1), "slot": roll.slot if roll is not None else ""}]
         ovs = {str(p.item.page + 1): clean_ov(p.item.ov) for p, _x, _y in run.pieces if p.item.ov}
@@ -1605,12 +1779,20 @@ def compact(s: PlanSettings) -> dict:
 def _job_info(run: Run, rolls: list, s: PlanSettings | None = None) -> dict:
     mode = copies_mode(s) if s is not None else "sheets"
     n = max(1, run.copies)
-    return {"plan": run.label, "pages": [p.item.page + 1 for p, _x, _y in run.pieces], "copies": run.copies,
-            "copies_mode": mode, "jobs_sent": n if mode == "jobs" else 1, "sheets_per_job": n if mode == "sheets" else 1,
-            "cuts": n,
-            "roll_mm": run.width_mm, "size_mm": [round(run.across, 1), round(run.along, 1)],
-            "rotated": run.pieces[0][0].rotated if len(run.pieces) == 1 else None,
-            "pieces": len(run.pieces), "slot": rolls[run.roll].slot if 0 <= run.roll < len(rolls) else ""}
+    return {
+        "plan": run.label,
+        "pages": [p.item.page + 1 for p, _x, _y in run.pieces],
+        "copies": run.copies,
+        "copies_mode": mode,
+        "jobs_sent": n if mode == "jobs" else 1,
+        "sheets_per_job": n if mode == "sheets" else 1,
+        "cuts": n,
+        "roll_mm": run.width_mm,
+        "size_mm": [round(run.across, 1), round(run.along, 1)],
+        "rotated": run.pieces[0][0].rotated if len(run.pieces) == 1 else None,
+        "pieces": len(run.pieces),
+        "slot": rolls[run.roll].slot if 0 <= run.roll < len(rolls) else "",
+    }
 
 
 def print_items(session, printer: str, items: list, rolls: list, s: PlanSettings, progress=None, cancel=None) -> dict:
@@ -1630,13 +1812,13 @@ def print_items(session, printer: str, items: list, rolls: list, s: PlanSettings
         if progress:
             progress(k, len(runs), run.label)
         rec = _job_info(run, rolls, s)
-        if caps is not None:              # was ans Gerät geht (auch im Probelauf) – zum Nachsehen bei Problemen
+        if caps is not None:  # was ans Gerät geht (auch im Probelauf) – zum Nachsehen bei Problemen
             try:
                 rv, _m = run_values(session, printer, caps, base, run, rolls, s)
                 rec["options"] = caps.job_options(rv)
                 r0 = rolls[run.roll] if 0 <= run.roll < len(rolls) else None
                 rec["roll_media"] = getattr(r0, "media", "") if r0 is not None else ""
-            except Exception as e:                                  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 rec["options_error"] = str(e)
         if not s.dry_run:
             rec["job_id"] = submit_run(session, printer, caps, base, run, rolls, s)
@@ -1663,34 +1845,49 @@ def summary(printer: str, items: list, rolls: list, s: PlanSettings) -> dict:
             clipped.append(it.label)
         if len(ps) > 1:
             tiled.append(it.label)
-    return {"printer": printer, "kind": s.kind, "dry_run": s.dry_run, "copies": max(1, int(s.copies)),
-            "collate": s.collate, "nest": s.nest,
-            "rolls": [dict(r.to_dict(), label=r.label()) for r in rolls],
-            "lengths": lens,
-            "single_m": round(sum(d["single_m"] for d in lens), 3),
-            "total_m": round(sum(d["total_m"] for d in lens), 3),
-            "plans": [{"plan": it.label, "page": it.page + 1, "qty": it.qty,
-                       "area": it.area.to_dict() if it.area else None,
-                       "size_mm": [round(it.size[0], 1), round(it.size[1], 1)],
-                       "roll_mm": it.fit.width_mm if it.fit else None,
-                       "rotated": it.fit.rotated if it.fit else None,
-                       "length_mm": round(it.fit.along, 1) if it.fit else None,
-                       "hairlines": it.hairlines} for it in items],
-            "unfit": [it.label for it in items if it.area is not None and not pieces_for(it, rolls, s, use)],
-            "clipped": clipped, "tiled": tiled,
-            "notes": []}
+    return {
+        "printer": printer,
+        "kind": s.kind,
+        "dry_run": s.dry_run,
+        "copies": max(1, int(s.copies)),
+        "collate": s.collate,
+        "nest": s.nest,
+        "rolls": [dict(r.to_dict(), label=r.label()) for r in rolls],
+        "lengths": lens,
+        "single_m": round(sum(d["single_m"] for d in lens), 3),
+        "total_m": round(sum(d["total_m"] for d in lens), 3),
+        "plans": [
+            {
+                "plan": it.label,
+                "page": it.page + 1,
+                "qty": it.qty,
+                "area": it.area.to_dict() if it.area else None,
+                "size_mm": [round(it.size[0], 1), round(it.size[1], 1)],
+                "roll_mm": it.fit.width_mm if it.fit else None,
+                "rotated": it.fit.rotated if it.fit else None,
+                "length_mm": round(it.fit.along, 1) if it.fit else None,
+                "hairlines": it.hairlines,
+            }
+            for it in items
+        ],
+        "unfit": [it.label for it in items if it.area is not None and not pieces_for(it, rolls, s, use)],
+        "clipped": clipped,
+        "tiled": tiled,
+        "notes": [],
+    }
 
 
 def cut_file(items: list, rolls: list, s: PlanSettings, path: str, force: int = 0, speed: int = 0) -> int:
     """Schneidauftrag (HP-GL/CAMM-GL) für einen Satz: die Schnittkanten aller Stücke, Seite für Seite
-        hintereinander auf der Rolle (für Schneideplotter ohne Druck, z. B. Folie). -> Anzahl Schnitte."""
+    hintereinander auf der Rolle (für Schneideplotter ohne Druck, z. B. Folie). -> Anzahl Schnitte."""
     from . import roland
+
     runs = build_runs(items, rolls, dataclasses.replace(s, collate=False, cut_contour=True), 1)
     rects, base = [], 0.0
     for run in runs:
         _d, cuts = make_run(run, dataclasses.replace(s, cut_contour=True))
         _d.close()
-        for (a, b_, c, d) in cuts:
+        for a, b_, c, d in cuts:
             rects.append((a / MM, base + b_ / MM, c / MM, base + d / MM))
         base += run.along + max(0.0, s.gap_mm)
     with open(path, "wb") as f:
@@ -1701,6 +1898,7 @@ def cut_file(items: list, rolls: list, s: PlanSettings, path: str, force: int = 
 def save_pdf(items: list, rolls: list, s: PlanSettings, path: str) -> int:
     """Alle Druckseiten (je ein Exemplar) in eine PDF – zum Prüfen oder Weitergeben. -> Seitenzahl."""
     import pypdfium2 as pdfium
+
     runs = build_runs(items, rolls, dataclasses.replace(s, collate=False), 1)
     out = pdfium.PdfDocument.new()
     cuts = {}
@@ -1724,17 +1922,20 @@ def print_pdf(path: str, s: PlanSettings, pages: list | None = None, session=Non
 def _open(path: str):
     import pypdfium2 as pdfium
     from . import images
+
     if images.is_image(path):
         return images.images_to_document([path], 96.0)
     return pdfium.PdfDocument(path)
 
 
-def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=None, progress=None,
-               plt: str = "") -> dict:
+def plan_files(
+    paths: list, s: PlanSettings, pages: list | None = None, session=None, progress=None, plt: str = ""
+) -> dict:
     """passermark-cli plan / Ablauf: Pläne aus einer oder mehreren Dateien – Laufmeter, Rollen, drucken.
-        pages gilt nur bei einer Datei. dry_run: nur rechnen (auch ohne Drucker, dann mit den Rollen aus s.rolls)."""
+    pages gilt nur bei einer Datei. dry_run: nur rechnen (auch ohne Drucker, dann mit den Rollen aus s.rolls)."""
     from . import config, printers, printjob
     from .session import Session
+
     if session is None:
         session = Session(config.load())
     printer = s.printer or ("" if (s.dry_run and s.rolls) else printjob.default_printer(session)) or ""
@@ -1743,18 +1944,22 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
     if printer == printers.PDF_TARGET:
         raise ValueError(tr("Plandruck geht nur auf einen Drucker – zum Prüfen im Programm „Als PDF speichern“."))
     if is_folder(printer):
-        folder_dir(printer)                           # gibt es den Ordner in den Einstellungen?
+        folder_dir(printer)  # gibt es den Ordner in den Einstellungen?
     elif printer and not s.dry_run:
         try:
             names = [p.name for p in printers.list_printers()]
         except Exception:
             names = None
         if names is not None and printer not in names:
-            raise ValueError(tr("Drucker nicht gefunden: {0} (vorhanden: {1})").format(printer, ", ".join(names) or "–"))
+            raise ValueError(
+                tr("Drucker nicht gefunden: {0} (vorhanden: {1})").format(printer, ", ".join(names) or "–")
+            )
     if printer and not is_folder(printer) and (s.profile != "admin" or s.intent):
         pid, intent = session.color_for(printer)
-        session.color[printer] = ("" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
-                                  s.intent or intent)
+        session.color[printer] = (
+            "" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
+            s.intent or intent,
+        )
     if s.material and material_of(s) is None:
         raise ValueError(tr("Material nicht gefunden: {0}").format(s.material))
     rolls, origin, notes = rolls_for(session, printer, s)
@@ -1772,9 +1977,9 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
         _use, wnote = eligible_for(rolls, s)
         info = None
         if s.dry_run and printer and not is_folder(printer) and session is not None:
-            try:                                # Probelauf mit Drucker: zeigt auch, was ans Gerät ginge
+            try:  # Probelauf mit Drucker: zeigt auch, was ans Gerät ginge
                 info = print_items(session, printer, items, rolls, s)
-            except Exception:                   # noqa: BLE001 – Drucker nicht erreichbar: nur rechnen
+            except Exception:  # noqa: BLE001 – Drucker nicht erreichbar: nur rechnen
                 info = None
         if info is not None:
             pass
@@ -1785,22 +1990,28 @@ def plan_files(paths: list, s: PlanSettings, pages: list | None = None, session=
                 info["cut_options"] = {}
                 try:
                     info["cut_options"] = cut_values(session.caps_for(printer))
-                except Exception:                       # noqa: BLE001 – Probelauf auch ohne erreichbaren Drucker
+                except Exception:  # noqa: BLE001 – Probelauf auch ohne erreichbaren Drucker
                     pass
         else:
             from . import printlog
+
             with printlog.source(printlog.current() if printlog.current() != "dialog" else "cli"):
                 info = print_items(session, printer, items, rolls, s, progress)
         info["roll_origin"] = origin
-        info["notes"] = notes + ([wnote] if wnote else []) + [
-            tr("Passt auf keine Rolle: {0}").format(u) for u in info["unfit"]] + [
-            tr("Breiter als die Rolle – abgeschnitten: {0}").format(u) for u in info["clipped"]] + [
-            tr("In Bahnen geteilt: {0}").format(u) for u in info["tiled"]]
+        info["notes"] = (
+            notes
+            + ([wnote] if wnote else [])
+            + [tr("Passt auf keine Rolle: {0}").format(u) for u in info["unfit"]]
+            + [tr("Breiter als die Rolle – abgeschnitten: {0}").format(u) for u in info["clipped"]]
+            + [tr("In Bahnen geteilt: {0}").format(u) for u in info["tiled"]]
+        )
         hl = sum(it.hairlines for it in items)
         if hl and not s.fix_hairlines:
-            info["notes"].append(tr("{0} Linie(n) dünner als {1} mm – fix_hairlines hebt sie an.")
-                                 .format(hl, mm_text(s.hairline_mm)))
+            info["notes"].append(
+                tr("{0} Linie(n) dünner als {1} mm – fix_hairlines hebt sie an.").format(hl, mm_text(s.hairline_mm))
+            )
         from . import printmat
+
         info["notes"] += printmat.notes(material_of(s), session.cfg)
         info["pages"] = len(items)
         if plt:

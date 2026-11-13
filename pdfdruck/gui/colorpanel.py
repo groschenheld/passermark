@@ -4,18 +4,31 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Farbe → Farbprüfung: side panel next to the soft proof. Printing condition (material or profile) on top,
-    facts about the document, findings with plain text and an "Ausführen" button, clickable locations.
+facts about the document, findings with plain text and an "Ausführen" button, clickable locations.
 
-    Signals to the viewer (it does the work):
-      goto_spot(page, box)         jump to a location (like the document check)
-      action_requested(kind, dict) convert | embed_oi | preflight | measure | get_profiles | choose_target | press
-      proof_requested(spec)        show the soft proof for the chosen printing condition"""
+Signals to the viewer (it does the work):
+  goto_spot(page, box)         jump to a location (like the document check)
+  action_requested(kind, dict) convert | embed_oi | preflight | measure | get_profiles | choose_target | press
+  proof_requested(spec)        show the soft proof for the chosen printing condition"""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QBrush, QColor
-from PySide6.QtWidgets import (QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QPushButton,
-                               QSpinBox, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QPushButton,
+    QSpinBox,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import colorcheck, colorlab, config
 from ..l10n import tr
@@ -27,15 +40,17 @@ SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis", "ok": "O
 
 def load_choice() -> dict:
     from .. import l10n
+
     st = l10n.load_settings().get("colorcheck")
     if isinstance(st, dict):
         return st
-    sp = l10n.load_settings().get("softproof")                 # sonst wie der Softproof
+    sp = l10n.load_settings().get("softproof")  # sonst wie der Softproof
     return {"key": sp.get("key", ""), "intent": sp.get("intent", "")} if isinstance(sp, dict) else {}
 
 
 def save_choice(d: dict):
     from .. import l10n
+
     st = l10n.load_settings()
     if st.get("colorcheck") != d:
         st["colorcheck"] = d
@@ -58,10 +73,11 @@ class _Worker(QThread):
 
     def run(self):
         import traceback
+
         try:
             f = colorcheck.facts(self.data, self.target, cancel=lambda: self._cancel)
             self.done.emit(f, colorcheck.check(f, self.target, self.cfg), "")
-        except Exception as e:                                 # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.done.emit(None, None, f"{e}\n\n{traceback.format_exc()}")
 
 
@@ -72,7 +88,7 @@ class ColorPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.data_fn = None                       # liefert die aktuellen Dokument-Bytes
+        self.data_fn = None  # liefert die aktuellen Dokument-Bytes
         self.cfg_fn = lambda: {}
         self.facts = None
         self.findings = []
@@ -85,19 +101,29 @@ class ColorPanel(QWidget):
         g = QGroupBox(tr("Gedruckt wird auf"))
         f = QFormLayout(g)
         self.cmb = QComboBox()
-        self.cmb.setToolTip(tr("Material (Papier mit Profil) oder Profil der Druckbedingung – eigene Papiere unter "
-                               "Farbe → Papiere und Messungen, Standards unter Farbe → Standardprofile holen"))
+        self.cmb.setToolTip(
+            tr(
+                "Material (Papier mit Profil) oder Profil der Druckbedingung – eigene Papiere unter "
+                "Farbe → Papiere und Messungen, Standards unter Farbe → Standardprofile holen"
+            )
+        )
         f.addRow(tr("Druckbedingung:"), self.cmb)
         h = QHBoxLayout()
         self.cmb_intent = QComboBox()
-        self.cmb_intent.setToolTip(tr("Relativ farbmetrisch passt fast immer; Wahrnehmungsorientiert für sehr bunte Fotos"))
+        self.cmb_intent.setToolTip(
+            tr("Relativ farbmetrisch passt fast immer; Wahrnehmungsorientiert für sehr bunte Fotos")
+        )
         h.addWidget(self.cmb_intent, 1)
         self.spn_tac = QSpinBox()
         self.spn_tac.setRange(0, 400)
         self.spn_tac.setSuffix(" %")
         self.spn_tac.setSpecialValueText(tr("Richtwert"))
-        self.spn_tac.setToolTip(tr("Höchster Farbauftrag (C+M+Y+K). „Richtwert“ = üblicher Wert der Druckbedingung, "
-                                   "sonst das, was die Druckerei vorgibt"))
+        self.spn_tac.setToolTip(
+            tr(
+                "Höchster Farbauftrag (C+M+Y+K). „Richtwert“ = üblicher Wert der Druckbedingung, "
+                "sonst das, was die Druckerei vorgibt"
+            )
+        )
         h.addWidget(QLabel(tr("Farbauftrag:")))
         h.addWidget(self.spn_tac)
         f.addRow(tr("Render-Intent:"), h)
@@ -109,7 +135,9 @@ class ColorPanel(QWidget):
         self.btn_check.clicked.connect(self.start)
         row.addWidget(self.btn_check)
         self.btn_proof = QPushButton(tr("Softproof"))
-        self.btn_proof.setToolTip(tr("Seiten so anzeigen, wie sie auf dieser Druckbedingung gedruckt aussehen (Strg+Y)"))
+        self.btn_proof.setToolTip(
+            tr("Seiten so anzeigen, wie sie auf dieser Druckbedingung gedruckt aussehen (Strg+Y)")
+        )
         self.btn_proof.clicked.connect(self._proof)
         row.addWidget(self.btn_proof)
         v.addLayout(row)
@@ -141,8 +169,12 @@ class ColorPanel(QWidget):
 
         row = QHBoxLayout()
         self.btn_press = QPushButton(tr("Für Druckerei ausgeben …"))
-        self.btn_press.setToolTip(tr("Umwandeln wie empfohlen, Output Intent einbetten, prüfen, speichern – optional "
-                                     "als Paket mit Profil und Bericht"))
+        self.btn_press.setToolTip(
+            tr(
+                "Umwandeln wie empfohlen, Output Intent einbetten, prüfen, speichern – optional "
+                "als Paket mit Profil und Bericht"
+            )
+        )
         self.btn_press.clicked.connect(lambda: self.action_requested.emit("press", {}))
         row.addWidget(self.btn_press)
         b = QPushButton(tr("Papiere …"))
@@ -165,8 +197,11 @@ class ColorPanel(QWidget):
             self.choices = colorlab.proof_choices(self.cfg_fn())
             cur = self.cmb.currentData() or saved.get("key", "")
             fill_combo(self.cmb, [("", tr("– bitte wählen –"))] + [(c["key"], c["label"]) for c in self.choices], cur)
-            fill_combo(self.cmb_intent, [("", tr("wie beim Material / Relativ farbmetrisch"))]
-                       + list(config.INTENTS.items()), self.cmb_intent.currentData() or saved.get("intent", ""))
+            fill_combo(
+                self.cmb_intent,
+                [("", tr("wie beim Material / Relativ farbmetrisch"))] + list(config.INTENTS.items()),
+                self.cmb_intent.currentData() or saved.get("intent", ""),
+            )
             if not self.spn_tac.value():
                 self.spn_tac.setValue(int(saved.get("tac", 0) or 0))
         finally:
@@ -183,8 +218,13 @@ class ColorPanel(QWidget):
     def _choice_changed(self, *_):
         if self._loading:
             return
-        save_choice({"key": self.cmb.currentData() or "", "intent": self.cmb_intent.currentData() or "",
-                     "tac": self.spn_tac.value()})
+        save_choice(
+            {
+                "key": self.cmb.currentData() or "",
+                "intent": self.cmb_intent.currentData() or "",
+                "tac": self.spn_tac.value(),
+            }
+        )
         if self.facts is not None:
             self.start()
 
@@ -198,7 +238,7 @@ class ColorPanel(QWidget):
             return
         try:
             data = self.data_fn()
-        except Exception as e:                                # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.lbl_sum.setText(tr("Fehler: {0}").format(e))
             return
         if data is None:
@@ -212,7 +252,7 @@ class ColorPanel(QWidget):
         self.btn_check.setEnabled(False)
         w = _Worker(data, t, self.cfg_fn())
         w.done.connect(lambda f, res, err, gen=gen, t=t: self._done(gen, t, f, res, err))
-        self._threads.add(w)                       # Verweis halten, bis der Thread wirklich fertig ist
+        self._threads.add(w)  # Verweis halten, bis der Thread wirklich fertig ist
         w.finished.connect(lambda w=w: self._threads.discard(w))
         self._worker = w
         w.start()
@@ -244,15 +284,20 @@ class ColorPanel(QWidget):
                 self.form_facts.addRow(tr("Papierweiß Profil:"), QLabel(colorlab.fmt_lab(pw)))
             if t.white:
                 de = colorlab.delta_e(t.white, pw) if pw else None
-                self.form_facts.addRow(tr("Papierweiß gemessen:"), QLabel(
-                    colorlab.fmt_lab(t.white) + (tr(" (ΔE {0:.1f})").format(de) if de is not None else "")))
+                self.form_facts.addRow(
+                    tr("Papierweiß gemessen:"),
+                    QLabel(colorlab.fmt_lab(t.white) + (tr(" (ΔE {0:.1f})").format(de) if de is not None else "")),
+                )
         self.box_facts.show()
         n = {k: sum(1 for x in self.findings if x.severity == k) for k in ("error", "warning", "info")}
         if not n["error"] and not n["warning"]:
             self.lbl_sum.setText("✓ " + tr("Nichts Kritisches – {0} Hinweis(e).").format(n["info"]))
         else:
-            self.lbl_sum.setText(tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e) – oben anfangen.").format(
-                n["error"], n["warning"], n["info"]))
+            self.lbl_sum.setText(
+                tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e) – oben anfangen.").format(
+                    n["error"], n["warning"], n["info"]
+                )
+            )
         col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED, "ok": "#3fa34d"}
         self.tree.clear()
         for x in self.findings:

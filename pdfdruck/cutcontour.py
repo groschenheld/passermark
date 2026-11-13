@@ -18,6 +18,7 @@ Per-object sequence (page normalized, see objects.py):
      spot color "CutContour" (separation, alternate color 100 % magenta), overprint.
      Optionally on the original sheet, or each object as its own page with a margin.
 """
+
 from __future__ import annotations
 
 import io
@@ -34,25 +35,25 @@ SHAPES = ["contour", "rect", "rounded", "circle", "oval", "hexagon", "octagon", 
 class CutSettings:
     dpi: int = 200
     shape: str = "contour"
-    fit: str = "motif"             # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
-                                   # "motif" = ums erkannte Motiv (gerechnet)
-    offset_mm: float = 0.0         # cut: + outward, − inward (from the artwork or the object size)
-    bleed: bool = True             # create bleed (off = artwork unchanged, e.g. for white margins)
-    bleed_mm: float = 2.0          # bleed (from the object, at least this far beyond the cut line)
-    smooth_mm: float = 1.5         # contour only: bays < 2× are bridged, edges rounded
-    inner: bool = False            # contour only: also cut inner contours (holes)
-    corner_mm: float = 3.0         # abgerundetes Rechteck: Eckenradius
-    scale_pct: float = 100.0       # shapes: size relative to the object
-    width_mm: float = 0.0          # shapes: cut line size in mm (0 = from the object + distance)
+    fit: str = "motif"  # Grundformen: "trim" = aufs Endformat (TrimBox, sonst Seite) – ohne Rendern/Erkennen;
+    # "motif" = ums erkannte Motiv (gerechnet)
+    offset_mm: float = 0.0  # cut: + outward, − inward (from the artwork or the object size)
+    bleed: bool = True  # create bleed (off = artwork unchanged, e.g. for white margins)
+    bleed_mm: float = 2.0  # bleed (from the object, at least this far beyond the cut line)
+    smooth_mm: float = 1.5  # contour only: bays < 2× are bridged, edges rounded
+    inner: bool = False  # contour only: also cut inner contours (holes)
+    corner_mm: float = 3.0  # abgerundetes Rechteck: Eckenradius
+    scale_pct: float = 100.0  # shapes: size relative to the object
+    width_mm: float = 0.0  # shapes: cut line size in mm (0 = from the object + distance)
     height_mm: float = 0.0
-    shift_x_mm: float = 0.0        # shapes: offset of the shape from the artwork center (+ is right)
-    shift_y_mm: float = 0.0        # (+ oben)
+    shift_x_mm: float = 0.0  # shapes: offset of the shape from the artwork center (+ is right)
+    shift_y_mm: float = 0.0  # (+ oben)
     min_size_mm: float = 3.0
-    bleed_color: str = ""          # "" = automatic from the artwork, otherwise a fixed color "#rrggbb" (uniform border)
-    clean_seams: bool = False      # replace narrow blend edges inside the artwork with solid colors (flat artwork only)
-    single_shape: bool = True      # Grundformen: EINE Form um das ganze Motiv (False = eine Form je Objekt)
-    per_object: bool = False       # jedes Objekt als eigene Seite
-    margin_mm: float = 6.0         # margin of the individual pages around bleed/cut
+    bleed_color: str = ""  # "" = automatic from the artwork, otherwise a fixed color "#rrggbb" (uniform border)
+    clean_seams: bool = False  # replace narrow blend edges inside the artwork with solid colors (flat artwork only)
+    single_shape: bool = True  # Grundformen: EINE Form um das ganze Motiv (False = eine Form je Objekt)
+    per_object: bool = False  # jedes Objekt als eigene Seite
+    margin_mm: float = 6.0  # margin of the individual pages around bleed/cut
     spot: str = "CutContour"
     stroke_pt: float = 0.25
     detect: DetectSettings = field(default_factory=lambda: DetectSettings(gap_mm=1.0))
@@ -60,25 +61,25 @@ class CutSettings:
 
 @dataclass
 class CutObject:
-    paths: list                    # [(Punkte [(x, y)…] in pt, glatt: bool)]
-    bleed_rgba: object = None      # numpy (h, w, 4)
-    bleed_box: tuple | None = None # (x0, y0, x1, y1) pt
+    paths: list  # [(Punkte [(x, y)…] in pt, glatt: bool)]
+    bleed_rgba: object = None  # numpy (h, w, 4)
+    bleed_box: tuple | None = None  # (x0, y0, x1, y1) pt
     motif_box: tuple = (0, 0, 0, 0)
-    box: tuple = (0, 0, 0, 0)      # extent of cut + bleed
-    clip: list = field(default_factory=list)   # Umriss des Objekts (nur bei Motiven mit Hintergrund)
-    overlay_rgba: object = None    # cleaned blend edges (above the artwork)
+    box: tuple = (0, 0, 0, 0)  # extent of cut + bleed
+    clip: list = field(default_factory=list)  # Umriss des Objekts (nur bei Motiven mit Hintergrund)
+    overlay_rgba: object = None  # cleaned blend edges (above the artwork)
     overlay_box: tuple | None = None
 
 
 @dataclass
 class CutResult:
-    objects: list                  # [CutObject]
+    objects: list  # [CutObject]
     page_size: tuple = (0, 0)
-    knockout: object = None       # bool-Maske (Seite, dpi) – sichtbarer Teil des Originals (Hintergrund ausgestanzt)
+    knockout: object = None  # bool-Maske (Seite, dpi) – sichtbarer Teil des Originals (Hintergrund ausgestanzt)
     dpi: int = 0
 
     @property
-    def paths(self):               # all cut paths (for preview/counting)
+    def paths(self):  # all cut paths (for preview/counting)
         return [p for o in self.objects for p in o.paths]
 
 
@@ -87,6 +88,7 @@ class CutResult:
 # --------------------------------------------------------------------------- #
 def _fit(pts, cx, cy, w, h):
     import numpy as np
+
     pts = np.asarray(pts, float)
     mn, mx = pts.min(axis=0), pts.max(axis=0)
     span = np.where(mx - mn > 1e-9, mx - mn, 1)
@@ -96,27 +98,36 @@ def _fit(pts, cx, cy, w, h):
 
 def _arc(cx, cy, r, a0, a1, step):
     n = max(2, int(abs(a1 - a0) * r / step) + 1)
-    return [(cx + r * math.cos(a0 + (a1 - a0) * i / (n - 1)), cy + r * math.sin(a0 + (a1 - a0) * i / (n - 1)))
-            for i in range(n)]
+    return [
+        (cx + r * math.cos(a0 + (a1 - a0) * i / (n - 1)), cy + r * math.sin(a0 + (a1 - a0) * i / (n - 1)))
+        for i in range(n)
+    ]
 
 
 def shape_polygon(kind: str, cx: float, cy: float, w: float, h: float, corner: float = 0.0):
     """Geschlossene Form (Punkte in pt), Ausdehnung w × h, Mitte (cx, cy). Kurven fein abgetastet."""
     import numpy as np
+
     step = 0.25 * MM
     if kind == "rect":
-        return np.array([(cx - w / 2, cy - h / 2), (cx + w / 2, cy - h / 2), (cx + w / 2, cy + h / 2), (cx - w / 2, cy + h / 2)])
+        return np.array(
+            [(cx - w / 2, cy - h / 2), (cx + w / 2, cy - h / 2), (cx + w / 2, cy + h / 2), (cx - w / 2, cy + h / 2)]
+        )
     if kind == "rounded":
         r = max(0.0, min(corner, w / 2, h / 2))
         if r < 0.05:
             return shape_polygon("rect", cx, cy, w, h)
         x0, x1, y0, y1 = cx - w / 2 + r, cx + w / 2 - r, cy - h / 2 + r, cy + h / 2 - r
-        pts = (_arc(x1, y0, r, -math.pi / 2, 0, step) + _arc(x1, y1, r, 0, math.pi / 2, step)
-               + _arc(x0, y1, r, math.pi / 2, math.pi, step) + _arc(x0, y0, r, math.pi, 1.5 * math.pi, step))
+        pts = (
+            _arc(x1, y0, r, -math.pi / 2, 0, step)
+            + _arc(x1, y1, r, 0, math.pi / 2, step)
+            + _arc(x0, y1, r, math.pi / 2, math.pi, step)
+            + _arc(x0, y0, r, math.pi, 1.5 * math.pi, step)
+        )
         return np.array(pts)
     if kind in ("circle", "oval"):
         if kind == "circle":
-            w = h = max(w, h)                  # around the entire artwork (larger side), not through it
+            w = h = max(w, h)  # around the entire artwork (larger side), not through it
         n = max(48, int(math.pi * (w + h) / 2 / step))
         t = np.linspace(0, 2 * math.pi, n, endpoint=False)
         return np.column_stack([cx + w / 2 * np.cos(t), cy + h / 2 * np.sin(t)])
@@ -155,6 +166,7 @@ SMOOTH_KINDS = {"contour"}
 def _resample(pts, step):
     """Redistribute a closed point sequence evenly by arc length (prevents overshoot)."""
     import numpy as np
+
     closed = np.vstack([pts, pts[:1]])
     seg = np.hypot(*np.diff(closed, axis=0).T)
     t = np.concatenate([[0], np.cumsum(seg)])
@@ -186,9 +198,9 @@ def line_ops(poly) -> str:
 
 def _offset_shape(s: CutSettings, w, h):
     """Shape size: the given size applies EXACTLY as the cut line; without a value, object size + distance.
-        With only one value (width or height): the object's aspect ratio is kept.
+    With only one value (width or height): the object's aspect ratio is kept.
     """
-    k = s.scale_pct / 100.0                      # only for API callers any more (GUI: 100)
+    k = s.scale_pct / 100.0  # only for API callers any more (GUI: 100)
     if s.width_mm > 0 and s.height_mm > 0:
         return max(1.0, s.width_mm * MM * k), max(1.0, s.height_mm * MM * k)
     off = 2 * s.offset_mm * MM
@@ -204,16 +216,18 @@ def _solid_palette(core_px, bg, tol):
     """Solid colors of an object (frequent colors in the core) and the share of core pixels matching one of them."""
     import numpy as np
     from PIL import Image
+
     pix = core_px.reshape(-1, 3)
     if len(pix) < 16:
         return None, 0.0
     if len(pix) > 200000:
         pix = pix[np.random.default_rng(0).choice(len(pix), 200000, replace=False)]
     q = Image.fromarray(pix.reshape(-1, 1, 3).astype(np.uint8), "RGB").quantize(
-        colors=24, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+        colors=24, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE
+    )
     raw = q.getpalette() or []
-    n = max(1, len(raw) // 3)                          # with few colors, Pillow returns a shorter palette
-    pal = np.asarray(raw[:n * 3], dtype=np.int16).reshape(n, 3)
+    n = max(1, len(raw) // 3)  # with few colors, Pillow returns a shorter palette
+    pal = np.asarray(raw[: n * 3], dtype=np.int16).reshape(n, 3)
     counts = np.bincount(np.asarray(q).ravel(), minlength=n)[:n]
     keep = counts >= max(1, 0.01 * len(pix))
     if bg is not None:
@@ -234,30 +248,33 @@ def _solid_palette(core_px, bg, tol):
 
 def _nearest_idx(flat, pal):
     import numpy as np
+
     out = np.empty(len(flat), np.int32)
     for i in range(0, len(flat), 250000):
-        part = flat[i:i + 250000]
-        out[i:i + 250000] = ((part[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
+        part = flat[i : i + 250000]
+        out[i : i + 250000] = ((part[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
     return out
 
 
 def _nearest_dist(flat, pal):
     import numpy as np
+
     out = np.empty(len(flat), np.int32)
     for i in range(0, len(flat), 250000):
-        part = flat[i:i + 250000]
-        out[i:i + 250000] = ((part[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2).min(axis=1)
+        part = flat[i : i + 250000]
+        out[i : i + 250000] = ((part[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2).min(axis=1)
     return out
 
 
 def _unmix_labels(px, pal, bg, solid_tol):
     """Assign every pixel to the solid color it was mixed from.
 
-        An edge pixel lies (physically) on the line solid color–background or solid color–solid color. The line
-        with the smallest distance is chosen; between two solid colors, the nearer side. That way light pink is
-        unambiguously red – even if by simple RGB distance it would be closer to green.
+    An edge pixel lies (physically) on the line solid color–background or solid color–solid color. The line
+    with the smallest distance is chosen; between two solid colors, the nearer side. That way light pink is
+    unambiguously red – even if by simple RGB distance it would be closer to green.
     """
     import numpy as np
+
     P = px.reshape(-1, 3).astype(np.float32)
     C = pal.astype(np.float32)
     B = np.asarray(bg, np.float32)
@@ -267,7 +284,7 @@ def _unmix_labels(px, pal, bg, solid_tol):
         return lab
     d0 = ((P[:, None, :] - C[None, :, :]) ** 2).sum(axis=2)
     lab = d0.argmin(axis=1)
-    rest = np.where(d0.min(axis=1) > solid_tol ** 2)[0]          # examine only blend/edge pixels closely
+    rest = np.where(d0.min(axis=1) > solid_tol**2)[0]  # examine only blend/edge pixels closely
     if len(rest) == 0:
         return lab
     Q = P[rest]
@@ -286,9 +303,10 @@ def _unmix_labels(px, pal, bg, solid_tol):
         upd = res < best
         best = np.where(upd, res, best)
         bl = np.where(upd, pick, bl)
+
     for k in range(K):
-        line(B, C[k], -1, k)                                       # Hintergrund–Vollfarbe
-    top = np.argsort(-np.bincount(lab, minlength=K))[:8]           # solid–solid (most common)
+        line(B, C[k], -1, k)  # Hintergrund–Vollfarbe
+    top = np.argsort(-np.bincount(lab, minlength=K))[:8]  # solid–solid (most common)
     for i in range(len(top)):
         for j in range(i + 1, len(top)):
             line(C[top[i]], C[top[j]], int(top[i]), int(top[j]))
@@ -298,9 +316,10 @@ def _unmix_labels(px, pal, bg, solid_tol):
 
 def _snap_to_solid(fill, core_px, bg, tol):
     """Set every bleed color to the object's nearest solid color (see _solid_palette).
-        For photos (many tones) the colors stay similar – they lie behind the object or outside the cut.
+    For photos (many tones) the colors stay similar – they lie behind the object or outside the cut.
     """
     import numpy as np
+
     pal, _share = _solid_palette(core_px, bg, tol)
     if pal is None:
         return fill
@@ -311,6 +330,7 @@ def _snap_to_solid(fill, core_px, bg, tol):
 @dataclass
 class _ObjCtx:
     """Page-wide values every object needs (small, passed to the worker processes)."""
+
     s: CutSettings
     pad: int
     px: float
@@ -323,15 +343,16 @@ class _ObjCtx:
     has_knock: bool
 
 
-PARALLEL_MIN_OBJECTS = 4            # darunter lohnt sich der Start von Arbeitsprozessen nicht
-PARALLEL_MIN_PIXELS = 1_500_000     # Summe der Arbeitsfenster (Bildpunkte)
+PARALLEL_MIN_OBJECTS = 4  # darunter lohnt sich der Start von Arbeitsprozessen nicht
+PARALLEL_MIN_PIXELS = 1_500_000  # Summe der Arbeitsfenster (Bildpunkte)
 
 
 def default_workers() -> int:
     """Worker processes for parallel computation: all cores but one (for the GUI), at most 8.
-        Limit with the environment variable PASSERMARK_WORKERS (e.g. 2; 1 = not parallel).
+    Limit with the environment variable PASSERMARK_WORKERS (e.g. 2; 1 = not parallel).
     """
     import os
+
     env = os.environ.get("PASSERMARK_WORKERS", "").strip()
     if env.isdigit() and int(env) >= 1:
         return int(env)
@@ -349,6 +370,7 @@ class WorkerPool:
         if self._ex is None:
             import multiprocessing as mp
             from concurrent.futures import ProcessPoolExecutor
+
             # "spawn": fresh processes (no inherited pdfium/threads), identical everywhere (Linux, Windows, AppImage)
             self._ex = ProcessPoolExecutor(max_workers=self.workers, mp_context=mp.get_context("spawn"))
         return self._ex
@@ -370,7 +392,9 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
     def check():
         if cancel is not None and cancel():
             from .core import Cancelled
+
             raise Cancelled(tr("Abgebrochen."))
+
     if not parallel:
         out = []
         for i, job in enumerate(jobs):
@@ -380,6 +404,7 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
             out.append(_compute_object(ctx, job))
         return out
     from concurrent.futures import FIRST_COMPLETED, wait
+
     out = [None] * n
     own = pool is None
     if own:
@@ -397,7 +422,7 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
                 if progress is not None:
                     progress(done_count, n)
     except BaseException:
-        if not own:                      # Abbruch/Fehler: offene Aufgaben verwerfen, Prozesse beenden
+        if not own:  # Abbruch/Fehler: offene Aufgaben verwerfen, Prozesse beenden
             pool.close()
         raise
     finally:
@@ -408,12 +433,13 @@ def _run_objects(ctx, jobs, workers, progress, cancel, pool=None):
 
 def _compute_object(ctx, job):
     """Compute one object (cut, bleed, cutout). Independent of other objects -> can also run in its own
-        worker process. Returns (CutObject | None, cutout in the window | None).
+    worker process. Returns (CutObject | None, cutout in the window | None).
     """
     import numpy as np
     from contourpy import LineType, contour_generator
     from PIL import Image, ImageDraw
     from scipy import ndimage as ndi
+
     obj, rgbw, (wy0, wy1, wx0, wx1), (ox0, oy0, ox1, oy1) = job
     s, pad, px, H = ctx.s, ctx.pad, ctx.px, ctx.H
     off, sm, bl, use_bleed, bg_rgb = ctx.off, ctx.sm, ctx.bl, ctx.use_bleed, ctx.bg_rgb
@@ -456,8 +482,14 @@ def _compute_object(ctx, job):
         mx0, my1 = to_pt(ox0, oy0)
         mx1, my0 = to_pt(ox1, oy1)
         w, h = _offset_shape(s, mx1 - mx0, my1 - my0)
-        poly = shape_polygon(s.shape, (mx0 + mx1) / 2 + s.shift_x_mm * MM, (my0 + my1) / 2 + s.shift_y_mm * MM, w, h,
-                             s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
+        poly = shape_polygon(
+            s.shape,
+            (mx0 + mx1) / 2 + s.shift_x_mm * MM,
+            (my0 + my1) / 2 + s.shift_y_mm * MM,
+            w,
+            h,
+            s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0),
+        )
         paths.append((poly.tolist(), False))
         im = Image.new("L", (wx1 - wx0, wy1 - wy0), 0)
         ImageDraw.Draw(im).polygon([(to_px(x, y)[0] - wx0, to_px(x, y)[1] - wy0) for x, y in poly], fill=255)
@@ -497,7 +529,7 @@ def _compute_object(ctx, job):
         _d, (iy, ix) = ndi.distance_transform_edt(~core, return_indices=True)
         fill = rgbw[iy, ix]
     alpha = np.clip(ndi.gaussian_filter(bleed.astype(np.float32), 0.7), 0, 1)
-    alpha[cut] = 1.0                                   # always opaque inside the cut shape (no holes)
+    alpha[cut] = 1.0  # always opaque inside the cut shape (no holes)
     alpha = (alpha * 255).astype(np.uint8)
     img = bbox = None
     if bleed.any():
@@ -543,7 +575,7 @@ def _compute_object(ctx, job):
             close = max(1, int(round(0.15 * MM * px)))
             vis = ndi.binary_closing(vis, iterations=close) & (d_in > 0)
             thr = 0.08 * MM * px
-            if thr >= 1.0:                       # beneath it, the condition is met for every artwork point
+            if thr >= 1.0:  # beneath it, the condition is met for every artwork point
                 vis = ndi.distance_transform_edt(vis) > thr
         else:
             vis = d_in > 0.25 * MM * px
@@ -566,7 +598,7 @@ def _compute_object(ctx, job):
         thick = ndi.binary_opening(nonsolid, iterations=max(1, int(round(0.5 * MM * px))))
         seam = nonsolid & ~thick
         if knock_patch is not None:
-            seam &= knock_patch           # cutout of this object (objects do not overlap)
+            seam &= knock_patch  # cutout of this object (objects do not overlap)
         if seam.any():
             yy, xx = np.where(seam)
             sy0, sy1, sx0, sx1 = yy.min(), yy.max() + 1, xx.min(), xx.max() + 1
@@ -584,47 +616,61 @@ def _compute_object(ctx, job):
     mx1, my0 = to_pt(ox1, oy1)
     xs_ = [x for p, _ in paths for x, _y in p] + ([bbox[0], bbox[2]] if bbox else [])
     ys_ = [y for p, _ in paths for _x, y in p] + ([bbox[1], bbox[3]] if bbox else [])
-    return CutObject(paths, img, bbox, (mx0, my0, mx1, my1),
-                                 (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_))), clip,
-                                 ov_img, ov_box), knock_patch
-
+    return CutObject(
+        paths,
+        img,
+        bbox,
+        (mx0, my0, mx1, my1),
+        (float(min(xs_)), float(min(ys_)), float(max(xs_)), float(max(ys_))),
+        clip,
+        ov_img,
+        ov_box,
+    ), knock_patch
 
 
 def is_fast(s: CutSettings) -> bool:
     """Base shape onto the trim size: pure geometry – nothing rendered, nothing detected, no bleed from the artwork."""
-    return s.shape != "contour" and (s.fit or "motif") == "trim" and bool(s.single_shape)   # „je Objekt“ braucht Erkennung
+    return (
+        s.shape != "contour" and (s.fit or "motif") == "trim" and bool(s.single_shape)
+    )  # „je Objekt“ braucht Erkennung
 
 
 def fast_result(size, trim, s: CutSettings) -> CutResult:
     """Cut line as a base shape onto the trim size. size = page (pt), trim = (left, bottom, right, top) distance
-        of the trim size from the page edge in pt (layout.page_trims) or None = whole page. Size/distance/offset as elsewhere.
+    of the trim size from the page edge in pt (layout.page_trims) or None = whole page. Size/distance/offset as elsewhere.
     """
     W, H = size
     l, b, r, t = trim or (0.0, 0.0, 0.0, 0.0)
     x0, y0, x1, y1 = l, b, W - r, H - t
     w, h = x1 - x0, y1 - y0
     if s.shape == "circle" and not (s.width_mm > 0):
-        w = h = min(w, h)                         # Kreis ins Endformat
+        w = h = min(w, h)  # Kreis ins Endformat
     sw, sh = _offset_shape(s, w, h)
-    poly = shape_polygon(s.shape, (x0 + x1) / 2 + s.shift_x_mm * MM, (y0 + y1) / 2 + s.shift_y_mm * MM, sw, sh,
-                         s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0))
+    poly = shape_polygon(
+        s.shape,
+        (x0 + x1) / 2 + s.shift_x_mm * MM,
+        (y0 + y1) / 2 + s.shift_y_mm * MM,
+        sw,
+        sh,
+        s.corner_mm * MM + (s.offset_mm * MM if s.shape == "rounded" else 0),
+    )
     pts = poly.tolist()
     px0, py0 = min(p[0] for p in pts), min(p[1] for p in pts)
     px1, py1 = max(p[0] for p in pts), max(p[1] for p in pts)
-    obj = CutObject(paths=[(pts, False)], motif_box=(x0, y0, x1, y1),
-                    box=(min(px0, x0), min(py0, y0), max(px1, x1), max(py1, y1)))
+    obj = CutObject(
+        paths=[(pts, False)], motif_box=(x0, y0, x1, y1), box=(min(px0, x0), min(py0, y0), max(px1, x1), max(py1, y1))
+    )
     return CutResult(objects=[obj], page_size=(W, H), dpi=s.dpi)
 
 
-def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progress=None,
-            cancel=None, pool=None, trim=None) -> CutResult:
+def compute(
+    page, s: CutSettings, rgba=None, size=None, workers: int = 1, progress=None, cancel=None, pool=None, trim=None
+) -> CutResult:
     """Cut + bleed for all objects of a normalized page.
-        rgba/size: already rendered page (at s.dpi) and page size in pt – then pdfium is not used here,
-        and the computation may run in a background thread (pdfium is not thread-safe).
+    rgba/size: already rendered page (at s.dpi) and page size in pt – then pdfium is not used here,
+    and the computation may run in a background thread (pdfium is not thread-safe).
     """
     import numpy as np
-    from contourpy import LineType, contour_generator
-    from PIL import Image, ImageDraw
     from scipy import ndimage as ndi
 
     W, H = size if size is not None else page.get_size()
@@ -646,7 +692,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
     if s.shape != "contour":
         # fixed size / scaling can enlarge the shape beyond the object
         grow_shape = max(0.0, (s.scale_pct / 100.0 - 1) * max(mask.shape) / 2, (s.width_mm + s.height_mm) * MM * px)
-        grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px     # Versatz braucht Platz
+        grow_shape += (abs(s.shift_x_mm) + abs(s.shift_y_mm)) * MM * px  # Versatz braucht Platz
     pad = int(math.ceil(max(off, 0) + sm + bl + grow_shape + 6))
     mask = np.pad(mask, pad)
     rgb = np.pad(rgba[:, :, :3], ((pad, pad), (pad, pad), (0, 0)), mode="edge")
@@ -664,8 +710,11 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
     minpx = s.min_size_mm * MM * px
     if s.shape != "contour" and s.single_shape and n > 1:
         # Grundform: alle Teile des Motivs (ohne Staub) zu EINEM Objekt -> eine Form, mittig, Skalierung ab der Mitte
-        keep = [k for k, sl in enumerate(ndi.find_objects(lab), start=1)
-                if sl is not None and (sl[1].stop - sl[1].start) >= minpx and (sl[0].stop - sl[0].start) >= minpx]
+        keep = [
+            k
+            for k, sl in enumerate(ndi.find_objects(lab), start=1)
+            if sl is not None and (sl[1].stop - sl[1].start) >= minpx and (sl[0].stop - sl[0].start) >= minpx
+        ]
         lab = np.isin(lab, keep).astype(np.int32) if keep else np.zeros_like(lab, dtype=np.int32)
         n = 1 if keep else 0
     out_objects = []
@@ -702,6 +751,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
             knock[wy0:wy1, wx0:wx1] |= patch
         out_objects.append(cobj)
     from .objects import Box, reading_order
+
     boxes = [Box(*o.motif_box) for o in out_objects]
     order = reading_order(list(boxes))
     out_objects = [out_objects[boxes.index(b)] for b in order]
@@ -713,7 +763,7 @@ def compute(page, s: CutSettings, rgba=None, size=None, workers: int = 1, progre
 def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     """Normalized document + results -> PDF with bleed (under the artwork) and CutContour paths.
 
-        results: {page index: CutResult}. With per_object, every object becomes its own page.
+    results: {page index: CutResult}. With per_object, every object becomes its own page.
     """
     import numpy as np
     import pikepdf
@@ -756,8 +806,12 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
             m = s.margin_mm * MM
             box = [o.box[0] - m, o.box[1] - m, o.box[2] + m, o.box[3] + m]
         else:
-            box = [min([mb[0]] + [o.box[0] for o in objs]), min([mb[1]] + [o.box[1] for o in objs]),
-                   max([mb[2]] + [o.box[2] for o in objs]), max([mb[3]] + [o.box[3] for o in objs])]
+            box = [
+                min([mb[0]] + [o.box[0] for o in objs]),
+                min([mb[1]] + [o.box[1] for o in objs]),
+                max([mb[2]] + [o.box[2] for o in objs]),
+                max([mb[3]] + [o.box[3] for o in objs]),
+            ]
         page.MediaBox = [float(v) for v in box]
         for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
             if k in page.obj:
@@ -772,9 +826,14 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
                 if tx1 - tx0 > 2 and ty1 - ty0 > 2:
                     page.TrimBox = [float(tx0), float(ty0), float(tx1), float(ty1)]
                     ob = objs[0].box
-                    page.BleedBox = [float(max(box[0], min(ob[0], tx0))), float(max(box[1], min(ob[1], ty0))),
-                                     float(min(box[2], max(ob[2], tx1))), float(min(box[3], max(ob[3], ty1)))]
+                    page.BleedBox = [
+                        float(max(box[0], min(ob[0], tx0))),
+                        float(max(box[1], min(ob[1], ty0))),
+                        float(min(box[2], max(ob[2], tx1))),
+                        float(min(box[3], max(ob[3], ty1))),
+                    ]
         res = sub(page.obj, "/Resources")
+
         def image(arr, name, box):
             a = np.asarray(arr)
             rgb = Image.fromarray(a[:, :, :3].astype(np.uint8), "RGB")
@@ -798,7 +857,7 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
                 under.append(image(o.bleed_rgba, f"/PTBleed{j}", o.bleed_box))
             if o.overlay_rgba is not None:
                 over.append(image(o.overlay_rgba, f"/PTSeam{j}", o.overlay_box))
-        pre = "\n".join(under) + "\nq\n"        # include the original: it may throw off the coordinate system
+        pre = "\n".join(under) + "\nq\n"  # include the original: it may throw off the coordinate system
         nq = 1
         if single:
             # show only this object (hide neighbors on the sheet): clip the content to bleed/object
@@ -832,13 +891,14 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
 def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, cancel=None, workers: int = 1):
     """Komplett: normalisieren, Schnitte berechnen, PDF bauen. Liefert (pypdfium2-Dokument, Anzahl Schnitte).
     progress(erledigt, gesamt, text) je Seite; cancel() -> True bricht ab (core.Cancelled)."""
-    import pypdfium2 as pdfium
     from .objects import normalized
+
     norm = normalized(doc)
     results, total = {}, 0
     todo = list(pages) if pages is not None else list(range(len(norm)))
-    if is_fast(s):                                        # Grundform aufs Endformat: keine Berechnung, kein Prozess
+    if is_fast(s):  # Grundform aufs Endformat: keine Berechnung, kein Prozess
         from .layout import page_trims
+
         trims = page_trims(doc)
         for k, i in enumerate(todo):
             if progress is not None:
@@ -853,7 +913,7 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
         at_once = _pages_at_once(norm, todo, s, workers) if (pool is not None and len(todo) >= 2) else 1
         if at_once >= 2:
             results, total = _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once)
-        else:                                             # one page (or too large): objects in parallel
+        else:  # one page (or too large): objects in parallel
             results, total = _make_pages(norm, s, todo, progress, cancel, pool)
     except BaseException:
         norm.close()
@@ -866,21 +926,25 @@ def make(doc, s: CutSettings, pages: list[int] | None = None, progress=None, can
     return _make_finish(norm, results, total, s, pages)
 
 
-PAGE_MEMORY_SHARE = 0.4             # share of RAM for pages computed simultaneously
+PAGE_MEMORY_SHARE = 0.4  # share of RAM for pages computed simultaneously
 PAGE_MEMORY_FALLBACK = 3_000_000_000  # wenn der Arbeitsspeicher nicht ermittelbar ist
 
 
 def page_memory_budget() -> int:
     """Bytes for pages computed simultaneously (all worker processes together) – scaled by the machine, at least 1 GB."""
     from . import platform as _platform
+
     total = _platform.total_memory()
     return max(1_000_000_000, int(total * PAGE_MEMORY_SHARE)) if total else PAGE_MEMORY_FALLBACK
-BYTES_PER_PIXEL = 40                 # grobe Spitze je Bildpunkt (Bild, Masken, Abstandsfelder)
+
+
+BYTES_PER_PIXEL = 40  # grobe Spitze je Bildpunkt (Bild, Masken, Abstandsfelder)
 
 
 def _page_worker(path: str, i: int, s: CutSettings):
     """Arbeitsprozess: eine ganze Seite rechnen (eigenes pdfium – in eigenen Prozessen sicher)."""
     import pypdfium2 as pdfium
+
     doc = pdfium.PdfDocument(path)
     try:
         pg = doc[i]
@@ -908,10 +972,11 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
     import os
     import tempfile
     from concurrent.futures import FIRST_COMPLETED, wait
+
     fd, path = tempfile.mkstemp(prefix="passermark-cut-", suffix=".pdf")
     os.close(fd)
     try:
-        norm.save(path)                                   # normalized pages for the worker processes
+        norm.save(path)  # normalized pages for the worker processes
         ex = pool.get()
         results, total, waiting = {}, 0, list(todo)
         running = {}
@@ -922,6 +987,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
             while waiting or running:
                 if cancel is not None and cancel():
                     from .core import Cancelled
+
                     raise Cancelled(tr("Abgebrochen."))
                 while waiting and len(running) < at_once:  # at most as many pages as fit into memory
                     i = waiting.pop(0)
@@ -935,7 +1001,7 @@ def _make_pages_parallel(norm, s, todo, progress, cancel, pool, at_once):
                     if progress is not None:
                         progress(done, len(todo), tr("{0} von {1} Seiten fertig").format(done, len(todo)))
         except BaseException:
-            pool.close()                                  # Abbruch/Fehler: offene Seiten verwerfen
+            pool.close()  # Abbruch/Fehler: offene Seiten verwerfen
             raise
         return results, total
     finally:
@@ -951,6 +1017,7 @@ def _make_pages(norm, s, todo, progress, cancel, pool):
     for k, i in enumerate(todo):
         if cancel is not None and cancel():
             from .core import Cancelled
+
             raise Cancelled(tr("Abgebrochen."))
         page_txt = tr("Seite {0}/{1}").format(k + 1, len(todo))
         if progress is not None:
@@ -959,6 +1026,7 @@ def _make_pages(norm, s, todo, progress, cancel, pool):
         def obj_progress(done, n, k=k, page_txt=page_txt):
             if progress is not None and n:
                 progress(k, len(todo), page_txt + " · " + tr("Objekt {0}/{1}").format(min(done + 1, n), n))
+
         pg = norm[i]
         try:
             results[i] = compute(pg, s, progress=obj_progress, cancel=cancel, pool=pool)
@@ -971,6 +1039,7 @@ def _make_pages(norm, s, todo, progress, cancel, pool):
 def _make_finish(norm, results, total, s, pages):
     """Assemble the results into the PDF (bleed under the artwork, CutContour paths)."""
     import pypdfium2 as pdfium
+
     if not total:
         norm.close()
         raise ValueError(tr("Kein Motiv gefunden – Hintergrund/Toleranz prüfen."))

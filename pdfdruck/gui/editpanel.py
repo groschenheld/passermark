@@ -6,6 +6,7 @@
 """Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace,
 scale/move). Selection via the list or by clicking on the page.
 """
+
 from __future__ import annotations
 
 import io
@@ -13,9 +14,27 @@ import os
 import traceback
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog,
-                               QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                               QMessageBox, QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import editing, preflight
 from ..l10n import tr
@@ -51,10 +70,10 @@ class EditPanel(QWidget):
         self.undo: list[bytes] = []
         self._cycle = []
         self._dstate = None
-        self.sel_box = None          # Auswahlrahmen (Seitenkoordinaten)
-        self._loaded = None          # (page, tab) for which the lists are filled
-        self._lists = {}             # (Dokumentstand, Seite, Art) -> Zeilen/Objekte (aus dem Render-Prozess)
-        self._pending_sel = None     # Neuauswahl nach einer Änderung, sobald die Listen da sind
+        self.sel_box = None  # Auswahlrahmen (Seitenkoordinaten)
+        self._loaded = None  # (page, tab) for which the lists are filled
+        self._lists = {}  # (Dokumentstand, Seite, Art) -> Zeilen/Objekte (aus dem Render-Prozess)
+        self._pending_sel = None  # Neuauswahl nach einer Änderung, sobald die Listen da sind
         self._busy = False
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
@@ -104,10 +123,12 @@ class EditPanel(QWidget):
         row.addWidget(b)
         lv.addLayout(row)
         row = QHBoxLayout()
-        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._text_z_up),
-                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._text_z_down),
-                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._text_z_front),
-                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._text_z_back)):
+        for text, tip, fn in (
+            (tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._text_z_up),
+            (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._text_z_down),
+            (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._text_z_front),
+            (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._text_z_back),
+        ):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -131,18 +152,22 @@ class EditPanel(QWidget):
         self.lbl_object.setStyleSheet(f"color: {theme.MUTED};")
         lv.addWidget(self.lbl_object)
         grid = QHBoxLayout()
-        for text, fn in ((tr("Skalieren / Verschieben …"), self._object_transform),
-                         (tr("Objekt löschen"), self._object_delete),
-                         (tr("Farbe …"), self._object_color)):
+        for text, fn in (
+            (tr("Skalieren / Verschieben …"), self._object_transform),
+            (tr("Objekt löschen"), self._object_delete),
+            (tr("Farbe …"), self._object_color),
+        ):
             b = QPushButton(text)
             b.clicked.connect(fn)
             grid.addWidget(b)
         lv.addLayout(grid)
         grid = QHBoxLayout()
-        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._object_z_up),
-                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._object_z_down),
-                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._object_z_front),
-                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._object_z_back)):
+        for text, tip, fn in (
+            (tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._object_z_up),
+            (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._object_z_down),
+            (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._object_z_front),
+            (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._object_z_back),
+        ):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -167,16 +192,21 @@ class EditPanel(QWidget):
             grid.addWidget(b)
         lv.addLayout(grid)
         grid = QHBoxLayout()
-        for text, fn in ((tr("Skalieren / Verschieben …"), self._layer_transform), (tr("Ersetzen …"), self._layer_replace)):
+        for text, fn in (
+            (tr("Skalieren / Verschieben …"), self._layer_transform),
+            (tr("Ersetzen …"), self._layer_replace),
+        ):
             b = QPushButton(text)
             b.clicked.connect(fn)
             grid.addWidget(b)
         lv.addLayout(grid)
         grid = QHBoxLayout()
-        for text, tip, fn in ((tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._layer_z_up),
-                              (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._layer_z_down),
-                              (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._layer_z_front),
-                              (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._layer_z_back)):
+        for text, tip, fn in (
+            (tr("Eins nach vorn"), tr("In der Zeichenreihenfolge eine Position nach vorn"), self._layer_z_up),
+            (tr("Eins nach hinten"), tr("In der Zeichenreihenfolge eine Position nach hinten"), self._layer_z_down),
+            (tr("Ganz nach vorn"), tr("Vor alle anderen Objekte legen"), self._layer_z_front),
+            (tr("Ganz nach hinten"), tr("Hinter alle anderen Objekte legen"), self._layer_z_back),
+        ):
             b = QPushButton(text)
             b.setToolTip(tip)
             b.clicked.connect(fn)
@@ -192,7 +222,8 @@ class EditPanel(QWidget):
         self.btn_undo.setEnabled(False)
         v.addWidget(self.btn_undo)
         from .common import responsive
-        responsive(self)                      # Knopfreihen umbrechen, nichts abschneiden bei schmalem Panel
+
+        responsive(self)  # Knopfreihen umbrechen, nichts abschneiden bei schmalem Panel
         self.setMinimumWidth(0)
 
     # ------------------------------------------------------------------ #
@@ -201,6 +232,7 @@ class EditPanel(QWidget):
 
     def _move_settings(self) -> dict:
         from .. import l10n
+
         d = l10n.load_settings().get("edit_move")
         base = {"snap": True, "grid_mm": 0.0, "rulers": True, "step": 1.0, "unit": "mm"}
         if isinstance(d, dict):
@@ -209,12 +241,17 @@ class EditPanel(QWidget):
 
     def _save_move_settings(self, *_):
         from .. import l10n
+
         if getattr(self, "_move_loading", True):
             return
         st = l10n.load_settings()
-        st["edit_move"] = {"snap": self.chk_snap.isChecked(), "grid_mm": self.spn_grid.value(),
-                           "rulers": self.chk_rulers.isChecked(), "step": self.spn_step.value(),
-                           "unit": self.cmb_unit.currentData() or "mm"}
+        st["edit_move"] = {
+            "snap": self.chk_snap.isChecked(),
+            "grid_mm": self.spn_grid.value(),
+            "rulers": self.chk_rulers.isChecked(),
+            "step": self.spn_step.value(),
+            "unit": self.cmb_unit.currentData() or "mm",
+        }
         try:
             l10n.save_settings(st)
         except OSError:
@@ -223,14 +260,19 @@ class EditPanel(QWidget):
     def _build_move_box(self):
         from PySide6.QtWidgets import QCheckBox, QGroupBox
         from .common import FlowLayout
+
         self._move_loading = True
         ms = self._move_settings()
         box = QGroupBox(tr("Verschieben"))
         g = QVBoxLayout(box)
         self.chk_snap = QCheckBox(tr("Einrasten"))
-        self.chk_snap.setToolTip(tr("Beim Ziehen rasten Kanten und Mitte der Auswahl an Seitenrand, Endformat, "
-                                    "Anschnitt, Seitenmitte, anderen Objekten und am Raster ein. Umschalt gedrückt "
-                                    "halten = frei ziehen."))
+        self.chk_snap.setToolTip(
+            tr(
+                "Beim Ziehen rasten Kanten und Mitte der Auswahl an Seitenrand, Endformat, "
+                "Anschnitt, Seitenmitte, anderen Objekten und am Raster ein. Umschalt gedrückt "
+                "halten = frei ziehen."
+            )
+        )
         self.chk_snap.setChecked(bool(ms["snap"]))
         self.spn_grid = QDoubleSpinBox()
         self.spn_grid.setRange(0, 500)
@@ -243,7 +285,7 @@ class EditPanel(QWidget):
         self.chk_rulers.setToolTip(tr("Lineale im Bearbeiten-Modus einblenden"))
         self.chk_rulers.setChecked(bool(ms["rulers"]))
         self.chk_rulers.toggled.connect(self._rulers_toggled)
-        r1 = FlowLayout()                                  # bricht bei schmalem Panel um
+        r1 = FlowLayout()  # bricht bei schmalem Panel um
         for w_ in (self.chk_snap, QLabel(tr("Raster:")), self.spn_grid, self.chk_rulers):
             r1.addWidget(w_)
         g.addLayout(r1)
@@ -260,8 +302,12 @@ class EditPanel(QWidget):
         row.addWidget(QLabel(tr("Um:")))
         row.addWidget(self.spn_step)
         row.addWidget(self.cmb_unit)
-        for arrow, tip, d in (("←", tr("nach links"), (-1, 0)), ("→", tr("nach rechts"), (1, 0)),
-                              ("↑", tr("nach oben"), (0, -1)), ("↓", tr("nach unten"), (0, 1))):
+        for arrow, tip, d in (
+            ("←", tr("nach links"), (-1, 0)),
+            ("→", tr("nach rechts"), (1, 0)),
+            ("↑", tr("nach oben"), (0, -1)),
+            ("↓", tr("nach unten"), (0, 1)),
+        ):
             b = QPushButton(arrow)
             b.setToolTip(tip + " – " + tr("auch mit den Pfeiltasten, Umschalt = ×10"))
             b.setFixedWidth(34)
@@ -291,10 +337,12 @@ class EditPanel(QWidget):
     def _screen_dir(self, sx: float, sy: float) -> tuple:
         """Bildschirmrichtung (rechts = +x, unten = +y) -> Einheitsvektor in Seitenkoordinaten (Drehung beachtet)."""
         import math
+
         w = self._page_widget()
         if w is None:
             return sx, -sy
         from PySide6.QtCore import QPointF
+
         cx, cy = w.width() / 2, w.height() / 2
         a = self.win.view.to_page(w, QPointF(cx, cy))
         b = self.win.view.to_page(w, QPointF(cx + sx * 50, cy + sy * 50))
@@ -325,10 +373,10 @@ class EditPanel(QWidget):
         view, w = self.win.view, self._page_widget()
         if w is None:
             return dx, dy, []
-        tol = view._tol_pt(w) * 8 / 7                      # ~8 Bildschirmpixel
+        tol = view._tol_pt(w) * 8 / 7  # ~8 Bildschirmpixel
         try:
             crop = tuple(view._textpage(self.page)[0].get_cropbox())
-        except Exception:                                  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             crop = (0.0, 0.0) + tuple(self.win.doc.get_page_size(self.page))
         xs, ys = [], []
         if self.chk_snap.isChecked():
@@ -347,10 +395,17 @@ class EditPanel(QWidget):
                     if abs(d) <= tol and (pick is None or abs(d) < abs(pick[0])):
                         pick = (d, c)
             return pick
-        mx = best((box[0] + dx, box[2] + dx, (box[0] + box[2]) / 2 + dx), xs,
-                  lambda e: crop[0] + round((e - crop[0]) / step) * step)
-        my = best((box[1] + dy, box[3] + dy, (box[1] + box[3]) / 2 + dy), ys,
-                  lambda e: crop[3] - round((crop[3] - e) / step) * step)
+
+        mx = best(
+            (box[0] + dx, box[2] + dx, (box[0] + box[2]) / 2 + dx),
+            xs,
+            lambda e: crop[0] + round((e - crop[0]) / step) * step,
+        )
+        my = best(
+            (box[1] + dy, box[3] + dy, (box[1] + box[3]) / 2 + dy),
+            ys,
+            lambda e: crop[3] - round((crop[3] - e) / step) * step,
+        )
         if mx:
             dx += mx[0]
             guides.append((mx[1], crop[1], mx[1], crop[3]))
@@ -361,15 +416,22 @@ class EditPanel(QWidget):
 
     def _move_status(self, box, dx, dy):
         from .. import l10n, measure as ms
+
         try:
             crop = tuple(self.win.view._textpage(self.page)[0].get_cropbox())
-        except Exception:                                  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             crop = (0.0, 0.0) + tuple(self.win.doc.get_page_size(self.page))
         mm = 25.4 / 72
         lang = l10n.current()
-        self.win.statusBar().showMessage(tr("Verschoben: {0} / {1} mm · Lage links {2} mm, oben {3} mm").format(
-            ms.fmt(dx * mm, lang), ms.fmt(dy * mm, lang), ms.fmt((box[0] + dx - crop[0]) * mm, lang),
-            ms.fmt((crop[3] - box[3] - dy) * mm, lang)), 3000)
+        self.win.statusBar().showMessage(
+            tr("Verschoben: {0} / {1} mm · Lage links {2} mm, oben {3} mm").format(
+                ms.fmt(dx * mm, lang),
+                ms.fmt(dy * mm, lang),
+                ms.fmt((box[0] + dx - crop[0]) * mm, lang),
+                ms.fmt((crop[3] - box[3] - dy) * mm, lang),
+            ),
+            3000,
+        )
 
     @property
     def page(self) -> int:
@@ -379,7 +441,7 @@ class EditPanel(QWidget):
         """Rebuild the lists for the current page."""
         if self.win.doc is None or not self.win.a_edit.isChecked():
             return
-        if self._loaded is None or self._loaded[0] != self.page:     # andere Seite: alte Anzahlen weg
+        if self._loaded is None or self._loaded[0] != self.page:  # andere Seite: alte Anzahlen weg
             for i, n in enumerate(self._tab_names):
                 self.tabs.setTabText(i, n)
         try:
@@ -402,23 +464,33 @@ class EditPanel(QWidget):
 
     def _replace_doc(self, data: bytes, pages=None, src_path=None):
         """pages: bearbeitete Seiten (alte Vorschau bleibt als Platzhalter). src_path: die Bytes liegen schon als
-            Zwischendatei vor (von der Prüfung) – die Vorschau übernimmt sie statt neu zu schreiben."""
+        Zwischendatei vor (von der Prüfung) – die Vorschau übernimmt sie statt neu zu schreiben."""
         import pypdfium2 as pdfium
+
         page = self.page
         if pages is None:
-            pages = [page]               # Ansicht bleibt an der Stelle (Rückgängig, Ebenen, Reihenfolge …)
-        self.win._set_doc(pdfium.PdfDocument(data), self.win.path, self.win.display_name, True, keep_page=page,
-                          src=src_path if src_path and os.path.isfile(src_path) else data, changed_pages=pages)
+            pages = [page]  # Ansicht bleibt an der Stelle (Rückgängig, Ebenen, Reihenfolge …)
+        self.win._set_doc(
+            pdfium.PdfDocument(data),
+            self.win.path,
+            self.win.display_name,
+            True,
+            keep_page=page,
+            src=src_path if src_path and os.path.isfile(src_path) else data,
+            changed_pages=pages,
+        )
 
     def _verify(self, data: bytes, new: bytes, ignore_boxes) -> tuple:
         """editing.verify_edit im Analyse-Prozess (rendert die Seite vorher/nachher – bei großen Fotos Sekunden).
-            Das Fenster bleibt dabei bedienbar, nur dieser Bereich ist gesperrt. -> (Fehlertext, Zwischendatei)"""
+        Das Fenster bleibt dabei bedienbar, nur dieser Bereich ist gesperrt. -> (Fehlertext, Zwischendatei)"""
         from .renderclient import RenderService
+
         svc = RenderService.get("analysis")
         if not svc.ok or self.win.view._local:
             return editing.verify_edit(data, new, self.page, ignore_boxes), None
         import tempfile
         from PySide6.QtCore import QEventLoop
+
         paths = []
         try:
             for b in (data, new):
@@ -436,13 +508,17 @@ class EditPanel(QWidget):
         def got(err, result):
             res["err"], res["result"] = err, result
             loop.quit()
+
         self._busy = True
         self.setEnabled(False)
         QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
         self.win.statusBar().showMessage(tr("Änderung wird geprüft …"))
         try:
-            svc.call("verify", {"before": paths[0], "after": paths[1], "page": self.page,
-                                "boxes": [list(b) for b in ignore_boxes]}, got)
+            svc.call(
+                "verify",
+                {"before": paths[0], "after": paths[1], "page": self.page, "boxes": [list(b) for b in ignore_boxes]},
+                got,
+            )
             if "err" not in res:
                 loop.exec()
         finally:
@@ -452,7 +528,7 @@ class EditPanel(QWidget):
             self.win.statusBar().clearMessage()
             _rm(paths[0])
         if res.get("err") or not isinstance(res.get("result"), str):
-            _rm(paths[1])                               # Prozess nicht verfügbar: wie bisher im Programm
+            _rm(paths[1])  # Prozess nicht verfügbar: wie bisher im Programm
             return editing.verify_edit(data, new, self.page, ignore_boxes), None
         if res["result"]:
             _rm(paths[1])
@@ -534,13 +610,14 @@ class EditPanel(QWidget):
             if self._inside(box, x, y, tol):
                 self._dstate = {"kind": "move", "box": box, "start": (x, y)}
                 return
-        self.page_click(page, x, y, ctrl)          # reselect (Strg = zur Auswahl hinzufügen) …
+        self.page_click(page, x, y, ctrl)  # reselect (Strg = zur Auswahl hinzufügen) …
         box = self.sel_box
         if box is not None and self._inside(box, x, y, tol):
-            self._dstate = {"kind": "move", "box": box, "start": (x, y)}   # … und gleich greifen
+            self._dstate = {"kind": "move", "box": box, "start": (x, y)}  # … und gleich greifen
 
     def _preview(self, x, y, d=None):
         import math
+
         d = d or self._dstate
         x0, y0, x1, y1 = d["box"]
         if d["kind"] == "scale_radial":
@@ -572,14 +649,26 @@ class EditPanel(QWidget):
             self._move_status(self._dstate["box"], _dx, _dy)
         if self._dstate["kind"] in ("scale", "scale_radial"):
             if self.tabs.currentIndex() == 0 and self.lines:
-                L = self.lines[self.lst_text.currentRow()] if 0 <= self.lst_text.currentRow() < len(self.lines) else None
+                L = (
+                    self.lines[self.lst_text.currentRow()]
+                    if 0 <= self.lst_text.currentRow() < len(self.lines)
+                    else None
+                )
                 if L is not None:
                     self.win.statusBar().showMessage(tr("Neue Größe: {0:.1f} pt").format(L.size * s), 2000)
             elif self.tabs.currentIndex() == 1 and self.objects:
-                O = self.objects[self.lst_objects.currentRow()] if 0 <= self.lst_objects.currentRow() < len(self.objects) else None
+                O = (
+                    self.objects[self.lst_objects.currentRow()]
+                    if 0 <= self.lst_objects.currentRow() < len(self.objects)
+                    else None
+                )
                 if O is not None:
-                    self.win.statusBar().showMessage(tr("Neue Größe: {0:.1f} × {1:.1f} mm").format(
-                        (O.bbox[2] - O.bbox[0]) / MM * s, (O.bbox[3] - O.bbox[1]) / MM * s), 2000)
+                    self.win.statusBar().showMessage(
+                        tr("Neue Größe: {0:.1f} × {1:.1f} mm").format(
+                            (O.bbox[2] - O.bbox[0]) / MM * s, (O.bbox[3] - O.bbox[1]) / MM * s
+                        ),
+                        2000,
+                    )
 
     def release(self, page, x, y):
         """Release: apply move/scale (layer or text row), with undo."""
@@ -591,7 +680,7 @@ class EditPanel(QWidget):
         s, dx, dy, nb = self._preview(x, y, d)
         if abs(s - 1) < 0.005 and abs(dx) < 0.5 and abs(dy) < 0.5:
             self._overlay([(*d["box"], SEL_TEXT if self.tabs.currentIndex() == 0 else SEL_LAYER)])
-            return                                   # nur geklickt, nicht gezogen
+            return  # nur geklickt, nicht gezogen
         self._apply_transform(d["box"], s, dx, dy, d.get("anchor", (0.0, 0.0)), nb)
 
     def _apply_transform(self, box, s, dx, dy, origin, nb):
@@ -611,12 +700,20 @@ class EditPanel(QWidget):
                             new = b
                         else:
                             pending.append(L)
-                    if pending:                    # pdfium-Rest Durchlauf (einmal speichern)
-                        new = self._pdfium_edit(new, self.page,
-                                                lambda d: editing.transform_lines_bulk(d, self.page, pending, s, dx, dy, origin))[0]
+                    if pending:  # pdfium-Rest Durchlauf (einmal speichern)
+                        new = self._pdfium_edit(
+                            new,
+                            self.page,
+                            lambda d: editing.transform_lines_bulk(d, self.page, pending, s, dx, dy, origin),
+                        )[0]
                     return new
-                if self._text_edit(run, [L.bbox for L in lines] + [nb], op="move_lines",
-                                   kwargs={"lines": lines, "s": s, "dx": dx, "dy": dy, "origin": origin}):
+
+                if self._text_edit(
+                    run,
+                    [L.bbox for L in lines] + [nb],
+                    op="move_lines",
+                    kwargs={"lines": lines, "s": s, "dx": dx, "dy": dy, "origin": origin},
+                ):
                     self._reselect_text(nb)
             elif self.tabs.currentIndex() == 1:
                 objs = self._selected_objects()
@@ -625,9 +722,15 @@ class EditPanel(QWidget):
 
                 def run_obj(data):
                     from .. import editops
+
                     return editops.move_objects(data, self.page, objs, s, dx, dy, origin)[0]
-                if self._text_edit(run_obj, [O.bbox for O in objs] + [nb], op="move_objects",
-                                   kwargs={"objs": objs, "s": s, "dx": dx, "dy": dy, "origin": origin}):
+
+                if self._text_edit(
+                    run_obj,
+                    [O.bbox for O in objs] + [nb],
+                    op="move_objects",
+                    kwargs={"objs": objs, "s": s, "dx": dx, "dy": dy, "origin": origin},
+                ):
                     self._reselect_object(nb)
             else:
                 L = self._layer_key()
@@ -646,25 +749,28 @@ class EditPanel(QWidget):
     def _reselect_text(self, box):
         """After reloading, select the moved row again (the one nearest the new position)."""
         if not self.lines:
-            self._pending_sel = ("text", box)              # Liste kommt noch
+            self._pending_sel = ("text", box)  # Liste kommt noch
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        best = min(self.lines, key=lambda L: abs((L.bbox[0] + L.bbox[2]) / 2 - cx) + abs((L.bbox[1] + L.bbox[3]) / 2 - cy))
+        best = min(
+            self.lines, key=lambda L: abs((L.bbox[0] + L.bbox[2]) / 2 - cx) + abs((L.bbox[1] + L.bbox[3]) / 2 - cy)
+        )
         if self.lst_text.currentRow() == best.index:
-            self._text_selected(best.index)          # gleiche Zeile: kein Signal -> direkt anwählen
+            self._text_selected(best.index)  # gleiche Zeile: kein Signal -> direkt anwählen
         else:
             self.lst_text.setCurrentRow(best.index)
 
     def _reselect_object(self, box):
         """After reloading, select the moved object again (nearest to the new position)."""
         if not self.objects:
-            self._pending_sel = ("object", box)            # Liste kommt noch
+            self._pending_sel = ("object", box)  # Liste kommt noch
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        best = min(self.objects, key=lambda O: abs((O.bbox[0] + O.bbox[2]) / 2 - cx)
-                   + abs((O.bbox[1] + O.bbox[3]) / 2 - cy))
+        best = min(
+            self.objects, key=lambda O: abs((O.bbox[0] + O.bbox[2]) / 2 - cx) + abs((O.bbox[1] + O.bbox[3]) / 2 - cy)
+        )
         if self.lst_objects.currentRow() == best.index:
-            self._object_selected(best.index)        # gleiche Zeile: kein Signal -> direkt anwählen
+            self._object_selected(best.index)  # gleiche Zeile: kein Signal -> direkt anwählen
         else:
             self.lst_objects.setCurrentRow(best.index)
 
@@ -677,17 +783,14 @@ class EditPanel(QWidget):
 
     # ---------------- Auswahl (Mehrfach, Bild + Liste synchron) ---------------- #
     def _selected_lines(self) -> list:
-        return [self.lines[i.row()] for i in self.lst_text.selectedIndexes()
-                if 0 <= i.row() < len(self.lines)]
+        return [self.lines[i.row()] for i in self.lst_text.selectedIndexes() if 0 <= i.row() < len(self.lines)]
 
     def _selected_objects(self) -> list:
-        return [self.objects[i.row()] for i in self.lst_objects.selectedIndexes()
-                if 0 <= i.row() < len(self.objects)]
+        return [self.objects[i.row()] for i in self.lst_objects.selectedIndexes() if 0 <= i.row() < len(self.objects)]
 
     @staticmethod
     def _union(boxes) -> tuple:
-        return (min(b[0] for b in boxes), min(b[1] for b in boxes),
-                max(b[2] for b in boxes), max(b[3] for b in boxes))
+        return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
 
     def _text_selection(self):
         """Mehrfachauswahl Text: Rahmen um alle gewählten Zeilen (Union = Griffrahmen)."""
@@ -706,8 +809,9 @@ class EditPanel(QWidget):
             self.spn_size.setValue(L.size)
         multi = len(sel) > 1
         self.ed_text.setEnabled(not multi)
-        self.ed_text.setToolTip(tr("Bei mehreren gewählten Zeilen werden nur Schrift und Größe übernommen.")
-                                if multi else "")
+        self.ed_text.setToolTip(
+            tr("Bei mehreren gewählten Zeilen werden nur Schrift und Größe übernommen.") if multi else ""
+        )
 
     def _object_selection(self):
         """Mehrfachauswahl Objekte: Rahmen um alle gewählten Objekte (Union = Griffrahmen)."""
@@ -724,8 +828,11 @@ class EditPanel(QWidget):
         row = self.lst_objects.currentRow()
         if any(O.index == row for O in sel):
             O = next(O for O in sel if O.index == row)
-            self.lbl_object.setText(tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
-                (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM))
+            self.lbl_object.setText(
+                tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
+                    (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM
+                )
+            )
 
     # ---------------- Z-Ordnung ---------------- #
     def _zorder(self, items, where, layer_key=None) -> None:
@@ -740,12 +847,17 @@ class EditPanel(QWidget):
             _err(self, e)
             return
         if new is None:
-            QMessageBox.information(self, tr("Bearbeiten"),
-                                    tr("Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher "
-                                       "umordnen (Struktur der Seite nicht erkannt)."))
+            QMessageBox.information(
+                self,
+                tr("Bearbeiten"),
+                tr(
+                    "Für diese Auswahl lässt sich die Zeichenreihenfolge nicht sicher "
+                    "umordnen (Struktur der Seite nicht erkannt)."
+                ),
+            )
             return
         if new == data:
-            return                                    # schon an der Position
+            return  # schon an der Position
         self.undo.append(data)
         del self.undo[:-20]
         self.btn_undo.setEnabled(True)
@@ -814,32 +926,39 @@ class EditPanel(QWidget):
     # ---------------- Listen (im Render-Prozess aufgebaut) ---------------- #
     def _fetch(self, kind: str):
         """Zeilen ("text") bzw. Objekte ("objects") der aktuellen Seite – bei großen Seiten dauert das; darum
-            im Render-Prozess. Liefert None, solange sie unterwegs sind (die Liste zeigt „Lade …“)."""
+        im Render-Prozess. Liefert None, solange sie unterwegs sind (die Liste zeigt „Lade …“)."""
         view = self.win.view
         page = self.page
         if view._local or view._rkey is None:
-            return editing.text_lines(self.win.doc, page, include_undecodable=True) if kind == "text" \
+            return (
+                editing.text_lines(self.win.doc, page, include_undecodable=True)
+                if kind == "text"
                 else editing.limit_objects(editing.page_objects(self.win.doc, page))
+            )
         key = (view._gen, page, kind)
         if key in self._lists:
             v = self._lists[key]
             return None if v == "pending" else v
-        self._lists = {k: v for k, v in self._lists.items() if k[0] == view._gen}     # alte Stände weg
+        self._lists = {k: v for k, v in self._lists.items() if k[0] == view._gen}  # alte Stände weg
         self._lists[key] = "pending"
         from .renderclient import RenderService
 
         def got(err, result, key=key, rkey=view._rkey):
             if err or not isinstance(result, (list, tuple)):
-                try:                                    # Rückfall: im Programm
+                try:  # Rückfall: im Programm
                     d = self.win.doc
-                    result = editing.text_lines(d, key[1], include_undecodable=True) if key[2] == "text" \
+                    result = (
+                        editing.text_lines(d, key[1], include_undecodable=True)
+                        if key[2] == "text"
                         else editing.limit_objects(editing.page_objects(d, key[1]))
+                    )
                 except Exception:
                     result = [] if key[2] == "text" else ([], 0)
             self._lists[key] = result
             if key[0] == self.win.view._gen and key[1] == self.page and self.win.a_edit.isChecked():
                 self._loaded = None
                 self.refresh()
+
         RenderService.get().lists(view._rkey, page, kind, got)
         return None
 
@@ -873,9 +992,11 @@ class EditPanel(QWidget):
         self.lst_text.clear()
         for L in self.lines:
             shown = L.text[:60] if L.text.strip() and not L.no_text else "(" + tr("ohne Textinhalt") + ")"
-            it = QListWidgetItem(f"{shown}\n{L.font.split('+')[-1]} · {L.size:.1f} pt" +
-                                 (" · " + tr("Ebene") if L.in_layer else "") +
-                                 (" · " + tr("Pfadtext") if L.path_center else ""))
+            it = QListWidgetItem(
+                f"{shown}\n{L.font.split('+')[-1]} · {L.size:.1f} pt"
+                + (" · " + tr("Ebene") if L.in_layer else "")
+                + (" · " + tr("Pfadtext") if L.path_center else "")
+            )
             self.lst_text.addItem(it)
         self.lst_text.blockSignals(False)
         self.tabs.setTabText(0, tr("Text ({0})").format(len(self.lines)))
@@ -896,8 +1017,9 @@ class EditPanel(QWidget):
 
     def _font_activated(self, idx):
         if self.cmb_font.itemData(idx) == "__file__":
-            p, _ = QFileDialog.getOpenFileName(self, tr("Schriftdatei wählen"), preflight.user_font_dir(),
-                                               tr("Schriften (*.ttf *.otf *.TTF *.OTF)"))
+            p, _ = QFileDialog.getOpenFileName(
+                self, tr("Schriftdatei wählen"), preflight.user_font_dir(), tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
+            )
             if p:
                 self.cmb_font.insertItem(idx, os.path.basename(p), ("file", p))
                 self.cmb_font.setCurrentIndex(idx)
@@ -940,6 +1062,7 @@ class EditPanel(QWidget):
 
             def run(data):
                 import pypdfium2 as pdfium
+
                 cur = data
                 for L0 in sel:
                     d = pdfium.PdfDocument(cur)
@@ -949,14 +1072,18 @@ class EditPanel(QWidget):
                         d.close()
                     L = _match_line(L0, lines)
                     if L is None:
-                        raise ValueError(tr("Zeile „{0}“ nach der Änderung nicht mehr gefunden – "
-                                            "Änderung abgebrochen.").format(L0.text[:40]))
+                        raise ValueError(
+                            tr("Zeile „{0}“ nach der Änderung nicht mehr gefunden – Änderung abgebrochen.").format(
+                                L0.text[:40]
+                            )
+                        )
                     size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
                     cur, notes = editing.edit_line_bytes(cur, self.page, L, L.text, font, size_arg)
                     for n in notes:
                         if n not in holder["notes"]:
                             holder["notes"].append(n)
                 return cur
+
         try:
             if self._text_edit(run, [self._wide_box(L) for L in sel], op=op, kwargs=kw, info=holder):
                 if holder.get("notes"):
@@ -969,8 +1096,12 @@ class EditPanel(QWidget):
         if not sel:
             return
         try:
-            if self._text_edit(lambda data: editing.remove_lines_ops(data, self.page, sel), [L.bbox for L in sel],
-                               op="remove_lines", kwargs={"lines": sel}):
+            if self._text_edit(
+                lambda data: editing.remove_lines_ops(data, self.page, sel),
+                [L.bbox for L in sel],
+                op="remove_lines",
+                kwargs={"lines": sel},
+            ):
                 self._overlay(None)
         except Exception as e:
             _err(self, e)
@@ -978,21 +1109,28 @@ class EditPanel(QWidget):
     def _text_color(self):
         sel = self._sel_or_current_lines()
         if not sel:
-            QMessageBox.information(self, tr("Text"), tr("Bitte zuerst eine Zeile wählen (Liste oder Klick auf die Seite)."))
+            QMessageBox.information(
+                self, tr("Text"), tr("Bitte zuerst eine Zeile wählen (Liste oder Klick auf die Seite).")
+            )
             return
         self._recolor(sel, [], tr("{0} Zeile(n)").format(len(sel)), with_parts=False)
 
     def _object_color(self):
         sel = self._sel_or_current_objects()
         if not sel:
-            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            QMessageBox.information(
+                self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite).")
+            )
             return
         paths = [O for O in sel if O.kind == "path"]
         if not paths:
-            QMessageBox.information(self, tr("Objekte"), tr("Bilder lassen sich nicht umfärben – bitte Vektorobjekte wählen."))
+            QMessageBox.information(
+                self, tr("Objekte"), tr("Bilder lassen sich nicht umfärben – bitte Vektorobjekte wählen.")
+            )
             return
-        self._recolor([], paths, tr("{0} Vektorobjekt(e)").format(len(paths)), with_parts=True,
-                      skipped=len(sel) - len(paths))
+        self._recolor(
+            [], paths, tr("{0} Vektorobjekt(e)").format(len(paths)), with_parts=True, skipped=len(sel) - len(paths)
+        )
 
     def _recolor(self, lines, objs, what, with_parts, skipped=0):
         dlg = _ColorDialog(self, what, self._last_color, with_parts)
@@ -1009,23 +1147,35 @@ class EditPanel(QWidget):
             new = editing.recolor(data, self.page, color, lines=lines, objs=objs, fill=fill, stroke=stroke)
             holder["unsafe"] = new is None
             return new
+
         try:
-            self._text_edit(run, [(b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2) for b in boxes], op="recolor",
-                            kwargs={"color": color, "lines": lines, "objs": objs, "fill": fill, "stroke": stroke},
-                            info=holder)
+            self._text_edit(
+                run,
+                [(b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2) for b in boxes],
+                op="recolor",
+                kwargs={"color": color, "lines": lines, "objs": objs, "fill": fill, "stroke": stroke},
+                info=holder,
+            )
             if holder.get("unsafe"):
-                QMessageBox.information(self, tr("Farbe"), tr("Auf dieser Seite lässt sich die Farbe nicht sicher "
-                                                              "zuordnen – das Dokument bleibt unverändert."))
+                QMessageBox.information(
+                    self,
+                    tr("Farbe"),
+                    tr(
+                        "Auf dieser Seite lässt sich die Farbe nicht sicher zuordnen – das Dokument bleibt unverändert."
+                    ),
+                )
             elif skipped:
-                QMessageBox.information(self, tr("Farbe"), tr("{0} Bild(er) in der Auswahl wurden nicht umgefärbt.").format(skipped))
+                QMessageBox.information(
+                    self, tr("Farbe"), tr("{0} Bild(er) in der Auswahl wurden nicht umgefärbt.").format(skipped)
+                )
         except Exception as e:
             _err(self, e)
 
     def _text_edit(self, fn, ignore_boxes, notes=None, op=None, kwargs=None, info=None) -> bool:
         """fn(data) -> new data. Runs on a copy, is verified, then adopted.
-            op/kwargs: dieselbe Änderung als benannte Operation (editops) – läuft dann samt Prüfung im
-            Analyse-Prozess, das Fenster bleibt bedienbar. info: bekommt "notes"/"unsafe" zurück."""
-        self.win.view._close_textpages()                 # no open pages of the view during the change
+        op/kwargs: dieselbe Änderung als benannte Operation (editops) – läuft dann samt Prüfung im
+        Analyse-Prozess, das Fenster bleibt bedienbar. info: bekommt "notes"/"unsafe" zurück."""
+        self.win.view._close_textpages()  # no open pages of the view during the change
         if op is not None and self._offload_ok():
             r = self._edit_offloaded(op, kwargs or {}, ignore_boxes, info)
             if r is not None:
@@ -1035,7 +1185,7 @@ class EditPanel(QWidget):
         data = self.win._doc_bytes()
         new = fn(data)
         if new is None or new == data:
-            return False                                 # nichts geändert: kein Rückgängig-Schritt, nicht „geändert“
+            return False  # nichts geändert: kein Rückgängig-Schritt, nicht „geändert“
         err, new_path = self._verify(data, new, ignore_boxes)
         if err:
             self._verify_failed(err)
@@ -1050,30 +1200,45 @@ class EditPanel(QWidget):
 
     def _verify_failed(self, err):
         from pypdfium2 import version as _v
-        box = QMessageBox(QMessageBox.Icon.Warning, tr("Änderung nicht übernommen"),
-                          err + "\n\n" + tr("Das Dokument bleibt unverändert. Bitte die Datei an den Entwickler "
-                                            "schicken, damit der Fall gelöst werden kann."), parent=self)
-        box.setDetailedText(f"pypdfium2 {getattr(_v, 'PYPDFIUM_INFO', '?')} · pdfium {getattr(_v, 'PDFIUM_INFO', '?')}\n"
-                            f"Seite {self.page + 1}\n{err}")
+
+        box = QMessageBox(
+            QMessageBox.Icon.Warning,
+            tr("Änderung nicht übernommen"),
+            err
+            + "\n\n"
+            + tr(
+                "Das Dokument bleibt unverändert. Bitte die Datei an den Entwickler "
+                "schicken, damit der Fall gelöst werden kann."
+            ),
+            parent=self,
+        )
+        box.setDetailedText(
+            f"pypdfium2 {getattr(_v, 'PYPDFIUM_INFO', '?')} · pdfium {getattr(_v, 'PDFIUM_INFO', '?')}\n"
+            f"Seite {self.page + 1}\n{err}"
+        )
         box.exec()
 
     def _offload_ok(self) -> bool:
         from .renderclient import RenderService
+
         view = self.win.view
-        return bool(RenderService.get("analysis").ok and not view._local and view._src_path
-                    and os.path.isfile(view._src_path))
+        return bool(
+            RenderService.get("analysis").ok and not view._local and view._src_path and os.path.isfile(view._src_path)
+        )
 
     def _wait_call(self, fn, args, message):
         """Aufruf im Analyse-Prozess. Das Fenster bleibt bedienbar (Vorschau, Scrollen), nur dieser Bereich
-            ist gesperrt, bis das Ergebnis da ist. -> (Fehler des Prozesses, Ergebnis)"""
+        ist gesperrt, bis das Ergebnis da ist. -> (Fehler des Prozesses, Ergebnis)"""
         from PySide6.QtCore import QEventLoop
         from .renderclient import RenderService
+
         res = {}
         loop = QEventLoop()
 
         def got(err, result):
             res["err"], res["result"] = err, result
             loop.quit()
+
         self._busy = True
         self.setEnabled(False)
         QApplication.setOverrideCursor(Qt.CursorShape.BusyCursor)
@@ -1092,13 +1257,23 @@ class EditPanel(QWidget):
     def _edit_offloaded(self, op, kwargs, ignore_boxes, info):
         """Änderung + Prüfung im Analyse-Prozess. -> True/False, oder None = Prozess nicht nutzbar (Rückfall)."""
         import tempfile
+
         view = self.win.view
         before, page = view._src_path, self.page
         fd, out = tempfile.mkstemp(prefix="passermark-view-", suffix=".pdf")
         os.close(fd)
-        err, res = self._wait_call("edit", {"before": before, "out": out, "page": page, "op": op, "kwargs": kwargs,
-                                            "boxes": [list(b) for b in ignore_boxes]},
-                                   tr("Änderung wird übernommen …"))
+        err, res = self._wait_call(
+            "edit",
+            {
+                "before": before,
+                "out": out,
+                "page": page,
+                "op": op,
+                "kwargs": kwargs,
+                "boxes": [list(b) for b in ignore_boxes],
+            },
+            tr("Änderung wird übernommen …"),
+        )
         if err or not isinstance(res, dict):
             _rm(out)
             return None
@@ -1129,6 +1304,7 @@ class EditPanel(QWidget):
     def _pdfium_edit(data, page, fn):
         """Apply a pdfium change to a freshly loaded copy -> (new data, hints)."""
         import pypdfium2 as pdfium
+
         d = pdfium.PdfDocument(data)
         try:
             notes = fn(d) or []
@@ -1143,7 +1319,7 @@ class EditPanel(QWidget):
         pw = self.win.doc.get_page_size(self.page)[0]
         h = L.bbox[3] - L.bbox[1]
         size = self.spn_size.value() if hasattr(self, "spn_size") else L.size
-        grow = max(0.0, (float(size) / max(L.size, 0.1) - 1.0)) * h     # a larger font may grow upward
+        grow = max(0.0, (float(size) / max(L.size, 0.1) - 1.0)) * h  # a larger font may grow upward
         return (0, L.bbox[1] - 0.3 * h, pw, L.bbox[3] + 0.3 * h + grow)
 
     def _after_edit(self, notes):
@@ -1166,8 +1342,9 @@ class EditPanel(QWidget):
         for O in self.objects:
             w_mm = (O.bbox[2] - O.bbox[0]) / MM
             h_mm = (O.bbox[3] - O.bbox[1]) / MM
-            self.lst_objects.addItem(QListWidgetItem(
-                f"{O.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if O.in_layer else "")))
+            self.lst_objects.addItem(
+                QListWidgetItem(f"{O.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if O.in_layer else ""))
+            )
         self.lst_objects.blockSignals(False)
         n_path = sum(1 for O in self.objects if O.kind == "path")
         n_img = len(self.objects) - n_path
@@ -1184,8 +1361,11 @@ class EditPanel(QWidget):
         if not self.objects:
             self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
         elif total > len(self.objects):
-            self.lbl_object.setText(tr("{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.")
-                                    .format(total, len(self.objects)))
+            self.lbl_object.setText(
+                tr("{0} Objekte auf der Seite – angezeigt: alle Bilder und die {1} größten.").format(
+                    total, len(self.objects)
+                )
+            )
         if 0 <= cur < len(self.objects) and not self.lst_objects.isRowHidden(cur):
             self.lst_objects.setCurrentRow(cur)
         if self._pending_sel and self._pending_sel[0] == "object":
@@ -1205,13 +1385,16 @@ class EditPanel(QWidget):
             return
         O = self.objects[row]
         self._overlay([(O.bbox[0] - 1, O.bbox[1] - 1, O.bbox[2] + 1, O.bbox[3] + 1, SEL_TEXT)])
-        self.lbl_object.setText(tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
-            (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM))
+        self.lbl_object.setText(
+            tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format((O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM)
+        )
 
     def _object_transform(self):
         sel = self._sel_or_current_objects()
         if not sel:
-            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            QMessageBox.information(
+                self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite).")
+            )
             return
         box = self._union([O.bbox for O in sel])
         name = sel[0].text if len(sel) == 1 else tr("{0} Objekte").format(len(sel))
@@ -1224,9 +1407,13 @@ class EditPanel(QWidget):
         moved = (box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy)
         try:
             from .. import editops
-            if self._text_edit(lambda data: editops.move_objects(data, self.page, sel, scale, dx, dy, origin)[0],
-                    [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
-                    op="move_objects", kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin}):
+
+            if self._text_edit(
+                lambda data: editops.move_objects(data, self.page, sel, scale, dx, dy, origin)[0],
+                [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
+                op="move_objects",
+                kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin},
+            ):
                 self._reselect_object(self._grow_box(moved, scale) if len(sel) == 1 else moved)
         except Exception as e:
             _err(self, e)
@@ -1234,12 +1421,19 @@ class EditPanel(QWidget):
     def _object_delete(self):
         sel = self._sel_or_current_objects()
         if not sel:
-            QMessageBox.information(self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite)."))
+            QMessageBox.information(
+                self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite).")
+            )
             return
         try:
             from .. import editops
-            if self._text_edit(lambda data: editops.delete_objects(data, self.page, sel)[0], [O.bbox for O in sel],
-                    op="delete_objects", kwargs={"objs": sel}):
+
+            if self._text_edit(
+                lambda data: editops.delete_objects(data, self.page, sel)[0],
+                [O.bbox for O in sel],
+                op="delete_objects",
+                kwargs={"objs": sel},
+            ):
                 self._overlay(None)
         except Exception as e:
             _err(self, e)
@@ -1285,8 +1479,10 @@ class EditPanel(QWidget):
         if b:
             pb = self.lmap.page_box
             out = 100 * (1 - _overlap(b, pb))
-            self.lbl_layer.setText(tr("Ausdehnung: {0:.0f} × {1:.0f} mm").format((b[2] - b[0]) / MM, (b[3] - b[1]) / MM)
-                                   + (tr(" · {0:.0f} % außerhalb der Seite").format(out) if out > 1 else ""))
+            self.lbl_layer.setText(
+                tr("Ausdehnung: {0:.0f} × {1:.0f} mm").format((b[2] - b[0]) / MM, (b[3] - b[1]) / MM)
+                + (tr(" · {0:.0f} % außerhalb der Seite").format(out) if out > 1 else "")
+            )
             self._overlay([(b[0], b[1], b[2], b[3], SEL_LAYER)])
         else:
             self.lbl_layer.setText(tr("Kein Inhalt auf dieser Seite."))
@@ -1295,7 +1491,9 @@ class EditPanel(QWidget):
     def _layer_key(self):
         row = self.lst_layers.currentRow()
         if not (0 <= row < len(self.layers)):
-            QMessageBox.information(self, tr("Ebenen"), tr("Bitte zuerst eine Ebene wählen (Liste oder Klick auf die Seite)."))
+            QMessageBox.information(
+                self, tr("Ebenen"), tr("Bitte zuerst eine Ebene wählen (Liste oder Klick auf die Seite).")
+            )
             return None
         return self.layers[row]
 
@@ -1320,10 +1518,15 @@ class EditPanel(QWidget):
 
     def _layer_remove(self):
         def fn(d, L):
-            if QMessageBox.question(self, tr("Ebene entfernen"), tr("Ebene „{0}“ samt Inhalt entfernen?").format(L.name)) \
-                    != QMessageBox.StandardButton.Yes:
+            if (
+                QMessageBox.question(
+                    self, tr("Ebene entfernen"), tr("Ebene „{0}“ samt Inhalt entfernen?").format(L.name)
+                )
+                != QMessageBox.StandardButton.Yes
+            ):
                 return None
             return preflight.remove_layers(d, {L.key})
+
         self._run_layer(fn)
 
     def _layer_transform(self):
@@ -1334,27 +1537,33 @@ class EditPanel(QWidget):
                 return None
             scale, dx, dy, origin, all_pages = dlg.values(b, self.lmap.page_box if self.lmap else (0, 0, 0, 0))
             return editing.transform_layer(d, L.key, scale, dx, dy, origin, None if all_pages else [self.page])
+
         self._run_layer(fn)
 
     def _layer_replace(self):
         def fn(d, L):
-            p, _ = QFileDialog.getOpenFileName(self, tr("Ersatz für Ebene „{0}“ wählen").format(L.name), "",
-                                               tr("PDF-Dateien (*.pdf *.PDF)"))
+            p, _ = QFileDialog.getOpenFileName(
+                self, tr("Ersatz für Ebene „{0}“ wählen").format(L.name), "", tr("PDF-Dateien (*.pdf *.PDF)")
+            )
             if not p:
                 return None
             src = open(p, "rb").read()
             import pypdfium2 as pdfium
+
             n = len(pdfium.PdfDocument(src))
             sp = 0
             if n > 1:
                 from PySide6.QtWidgets import QInputDialog
-                sp, ok = QInputDialog.getInt(self, tr("Seite wählen"), tr("Welche Seite der Datei ({0} Seiten)?").format(n),
-                                             1, 1, n)
+
+                sp, ok = QInputDialog.getInt(
+                    self, tr("Seite wählen"), tr("Welche Seite der Datei ({0} Seiten)?").format(n), 1, 1, n
+                )
                 if not ok:
                     return None
                 sp -= 1
             box = self.lmap.boxes.get(L.key) if self.lmap else None
             return editing.replace_layer(d, L.key, self.page, src, sp, box)
+
         self._run_layer(fn)
 
     # ---------------- Mausauswahl ---------------- #
@@ -1373,8 +1582,11 @@ class EditPanel(QWidget):
                     self.lst_text.setCurrentRow(L.index)
         elif self.tabs.currentIndex() == 1:
             kind = self.cmb_objkind.currentData() or "all"
-            hits = [O for O in self.objects if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3]
-                    and (kind == "all" or O.kind == kind)]
+            hits = [
+                O
+                for O in self.objects
+                if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3] and (kind == "all" or O.kind == kind)
+            ]
             if hits:
                 O = min(hits, key=lambda o: (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))
                 if additive:
@@ -1476,8 +1688,13 @@ class _TransformDialog(QDialog):
             origin = ((page_box[0] + page_box[2]) / 2, (page_box[1] + page_box[3]) / 2)
         else:
             origin = (0.0, 0.0)
-        return (self.spn_scale.value() / 100.0, self.spn_dx.value() * MM, self.spn_dy.value() * MM, origin,
-                bool(self.cmb_pages.currentData()) if self._with_pages else False)
+        return (
+            self.spn_scale.value() / 100.0,
+            self.spn_dx.value() * MM,
+            self.spn_dy.value() * MM,
+            origin,
+            bool(self.cmb_pages.currentData()) if self._with_pages else False,
+        )
 
 
 class _ColorDialog(QDialog):
@@ -1485,6 +1702,7 @@ class _ColorDialog(QDialog):
 
     def __init__(self, parent, what, last, with_parts=True):
         from PySide6.QtWidgets import QCheckBox, QFrame
+
         super().__init__(parent)
         self.setWindowTitle(tr("Farbe ändern – {0}").format(what))
         f = QFormLayout(self)
@@ -1493,8 +1711,15 @@ class _ColorDialog(QDialog):
         self.cmb_model.addItem(tr("RGB"), "rgb")
         f.addRow(tr("Farbmodell:"), self.cmb_model)
         self.spins = {}
-        for key, label in (("c", tr("Cyan:")), ("m", tr("Magenta:")), ("y", tr("Gelb:")), ("k", tr("Schwarz:")),
-                           ("r", tr("Rot:")), ("g", tr("Grün:")), ("b", tr("Blau:"))):
+        for key, label in (
+            ("c", tr("Cyan:")),
+            ("m", tr("Magenta:")),
+            ("y", tr("Gelb:")),
+            ("k", tr("Schwarz:")),
+            ("r", tr("Rot:")),
+            ("g", tr("Grün:")),
+            ("b", tr("Blau:")),
+        ):
             sp = QSpinBox()
             sp.setRange(0, 100 if key in "cmyk" else 255)
             sp.setSuffix(" %" if key in "cmyk" else "")
@@ -1551,7 +1776,7 @@ class _ColorDialog(QDialog):
     def _rgb(self):
         if self.cmb_model.currentData() == "cmyk":
             c, m, y, k = (self.spins[x].value() / 100 for x in "cmyk")
-            return tuple(round(255 * (1 - v) * (1 - k)) for v in (c, m, y))       # nur Bildschirm-Näherung
+            return tuple(round(255 * (1 - v) * (1 - k)) for v in (c, m, y))  # nur Bildschirm-Näherung
         return tuple(self.spins[x].value() for x in "rgb")
 
     def _preview(self, *_):
@@ -1561,6 +1786,7 @@ class _ColorDialog(QDialog):
     def _pick(self):
         from PySide6.QtGui import QColor
         from PySide6.QtWidgets import QColorDialog
+
         c = QColorDialog.getColor(QColor(*self._rgb()), self, tr("Farbe auswählen"))
         if c.isValid():
             for k, v in zip("rgb", (c.red(), c.green(), c.blue())):

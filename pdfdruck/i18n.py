@@ -8,6 +8,7 @@
 Many vendor PPDs (e.g. Epson escpr2) provide only English or internal abbreviations.
 Unknown values stay unchanged – nothing is lost, the original value is in the tooltip.
 """
+
 import re
 
 from .l10n import current, tr
@@ -18,77 +19,191 @@ def _norm(s: str) -> str:
 
 
 OPTION_DE = {
-    "papersource": "Papierzufuhr", "mediasource": "Papierzufuhr", "inputslot": "Papierzufuhr",
-    "source": "Papierzufuhr", "mediasize": "Papierformat", "pagesize": "Papierformat",
-    "papersize": "Papierformat", "printquality": "Druckqualität / Papiersorte", "mediatype": "Medientyp",
-    "papertype": "Papiersorte", "duplex": "Beidseitig", "duplextumble": "Beidseitig",
-    "2sidedprinting": "Beidseitig", "twosided": "Beidseitig", "grayscale": "Farbe / Graustufen",
-    "colormode": "Farbmodus", "colormodel": "Farbmodus", "ink": "Farbe / Graustufen",
-    "brightness": "Helligkeit", "contrast": "Kontrast", "saturation": "Sättigung",
-    "resolution": "Auflösung", "outputbin": "Ausgabefach", "collate": "Sortieren",
-    "staple": "Heften", "stapling": "Heften", "punch": "Lochen", "holepunch": "Lochen",
-    "booklet": "Broschüre", "finisher": "Finisher", "quality": "Qualität",
-    "tonersave": "Tonersparmodus", "inksave": "Tintensparmodus",
+    "papersource": "Papierzufuhr",
+    "mediasource": "Papierzufuhr",
+    "inputslot": "Papierzufuhr",
+    "source": "Papierzufuhr",
+    "mediasize": "Papierformat",
+    "pagesize": "Papierformat",
+    "papersize": "Papierformat",
+    "printquality": "Druckqualität / Papiersorte",
+    "mediatype": "Medientyp",
+    "papertype": "Papiersorte",
+    "duplex": "Beidseitig",
+    "duplextumble": "Beidseitig",
+    "2sidedprinting": "Beidseitig",
+    "twosided": "Beidseitig",
+    "grayscale": "Farbe / Graustufen",
+    "colormode": "Farbmodus",
+    "colormodel": "Farbmodus",
+    "ink": "Farbe / Graustufen",
+    "brightness": "Helligkeit",
+    "contrast": "Kontrast",
+    "saturation": "Sättigung",
+    "resolution": "Auflösung",
+    "outputbin": "Ausgabefach",
+    "collate": "Sortieren",
+    "staple": "Heften",
+    "stapling": "Heften",
+    "punch": "Lochen",
+    "holepunch": "Lochen",
+    "booklet": "Broschüre",
+    "finisher": "Finisher",
+    "quality": "Qualität",
+    "tonersave": "Tonersparmodus",
+    "inksave": "Tintensparmodus",
 }
 
 CHOICE_DE = {
-    "auto": "Automatisch", "automatic": "Automatisch", "autoselect": "Automatisch",
-    "rearpaperfeed": "Hintere Papierzufuhr", "rear": "Hintere Papierzufuhr",
-    "rearfeed": "Hintere Papierzufuhr", "cassette": "Papierkassette", "papercassette": "Papierkassette",
-    "manual": "Manuelle Zufuhr", "manualfeed": "Manuelle Zufuhr", "multipurpose": "Mehrzweckfach",
-    "multipurposetray": "Mehrzweckfach", "mptray": "Mehrzweckfach", "bypass": "Mehrzweckfach",
-    "none": "Aus", "off": "Aus", "on": "Ein", "true": "Ja", "false": "Nein",
-    "duplexnotumble": "Beidseitig, lange Kante", "duplextumble": "Beidseitig, kurze Kante",
-    "longedge": "Beidseitig, lange Kante", "shortedge": "Beidseitig, kurze Kante",
-    "color": "Farbe", "colour": "Farbe", "rgb": "Farbe", "cmyk": "Farbe",
-    "mono": "Graustufen", "monochrome": "Graustufen", "gray": "Graustufen", "grayscale": "Graustufen",
-    "black": "Schwarzweiß", "draft": "Entwurf", "normal": "Normal", "high": "Hoch", "best": "Beste",
-    "fine": "Fein", "standard": "Standard",
-    "main": "Haupteinzug", "maintray": "Haupteinzug", "top": "Oberes Fach", "bottom": "Unteres Fach",
-    "middle": "Mittleres Fach", "photo": "Fotofach", "envelope": "Umschlag",
-    "faceup": "Schriftseite nach oben", "facedown": "Schriftseite nach unten",
-    "stationery": "Normalpapier", "stationeryletterhead": "Briefpapier", "stationeryinkjet": "Inkjet-Papier",
-    "stationerycoated": "Gestrichenes Papier", "photographic": "Fotopapier",
-    "photographicglossy": "Fotopapier glänzend", "photographicmatte": "Fotopapier matt",
-    "photographicsemigloss": "Fotopapier seidenmatt", "photographichighgloss": "Fotopapier hochglänzend",
-    "cardstock": "Karton", "labels": "Etiketten", "transparency": "Folie", "envelopes": "Umschläge",
-    "onesided": "Einseitig", "twosidedlongedge": "Beidseitig, lange Kante",
+    "auto": "Automatisch",
+    "automatic": "Automatisch",
+    "autoselect": "Automatisch",
+    "rearpaperfeed": "Hintere Papierzufuhr",
+    "rear": "Hintere Papierzufuhr",
+    "rearfeed": "Hintere Papierzufuhr",
+    "cassette": "Papierkassette",
+    "papercassette": "Papierkassette",
+    "manual": "Manuelle Zufuhr",
+    "manualfeed": "Manuelle Zufuhr",
+    "multipurpose": "Mehrzweckfach",
+    "multipurposetray": "Mehrzweckfach",
+    "mptray": "Mehrzweckfach",
+    "bypass": "Mehrzweckfach",
+    "none": "Aus",
+    "off": "Aus",
+    "on": "Ein",
+    "true": "Ja",
+    "false": "Nein",
+    "duplexnotumble": "Beidseitig, lange Kante",
+    "duplextumble": "Beidseitig, kurze Kante",
+    "longedge": "Beidseitig, lange Kante",
+    "shortedge": "Beidseitig, kurze Kante",
+    "color": "Farbe",
+    "colour": "Farbe",
+    "rgb": "Farbe",
+    "cmyk": "Farbe",
+    "mono": "Graustufen",
+    "monochrome": "Graustufen",
+    "gray": "Graustufen",
+    "grayscale": "Graustufen",
+    "black": "Schwarzweiß",
+    "draft": "Entwurf",
+    "normal": "Normal",
+    "high": "Hoch",
+    "best": "Beste",
+    "fine": "Fein",
+    "standard": "Standard",
+    "main": "Haupteinzug",
+    "maintray": "Haupteinzug",
+    "top": "Oberes Fach",
+    "bottom": "Unteres Fach",
+    "middle": "Mittleres Fach",
+    "photo": "Fotofach",
+    "envelope": "Umschlag",
+    "faceup": "Schriftseite nach oben",
+    "facedown": "Schriftseite nach unten",
+    "stationery": "Normalpapier",
+    "stationeryletterhead": "Briefpapier",
+    "stationeryinkjet": "Inkjet-Papier",
+    "stationerycoated": "Gestrichenes Papier",
+    "photographic": "Fotopapier",
+    "photographicglossy": "Fotopapier glänzend",
+    "photographicmatte": "Fotopapier matt",
+    "photographicsemigloss": "Fotopapier seidenmatt",
+    "photographichighgloss": "Fotopapier hochglänzend",
+    "cardstock": "Karton",
+    "labels": "Etiketten",
+    "transparency": "Folie",
+    "envelopes": "Umschläge",
+    "onesided": "Einseitig",
+    "twosidedlongedge": "Beidseitig, lange Kante",
     "twosidedshortedge": "Beidseitig, kurze Kante",
 }
 
 # Epson media abbreviations (MediaType e.g. PLAIN_HIGH)
 EPSON_MEDIA = {
-    "PLAIN": "Normalpapier", "LETTERHEAD": "Briefkopfpapier", "SFINE": "Matt, Superfine",
-    "PMMATT": "Premium Matt", "PLATINA": "Ultra Glossy (Platinum)", "PMPHOTO": "Premium Glossy",
-    "PSGLOS": "Premium Semigloss", "LCPP": "Photo Quality Ink Jet", "ENV": "Umschlag",
-    "PHOTO": "Fotopapier", "THICK": "Dickes Papier", "LABEL": "Etiketten",
+    "PLAIN": "Normalpapier",
+    "LETTERHEAD": "Briefkopfpapier",
+    "SFINE": "Matt, Superfine",
+    "PMMATT": "Premium Matt",
+    "PLATINA": "Ultra Glossy (Platinum)",
+    "PMPHOTO": "Premium Glossy",
+    "PSGLOS": "Premium Semigloss",
+    "LCPP": "Photo Quality Ink Jet",
+    "ENV": "Umschlag",
+    "PHOTO": "Fotopapier",
+    "THICK": "Dickes Papier",
+    "LABEL": "Etiketten",
 }
 EPSON_QUAL = {"HIGH": "hohe Qualität", "NORMAL": "Standard", "DRAFT": "Entwurf"}
 
 
 # finishing (Canon imagePRESS / imageRUNNER, Fiery, generic): word/phrase translation
-FINISH_RX = re.compile(r"stapl|saddle|punch|hole|fold|trim|booklet|finish|stack|offset|insert|bind|"
-                       r"cnsaddle|cnpunch|cnfold|cntrim|heft|loch|falz|beschnitt|broschüre", re.I)
+FINISH_RX = re.compile(
+    r"stapl|saddle|punch|hole|fold|trim|booklet|finish|stack|offset|insert|bind|"
+    r"cnsaddle|cnpunch|cnfold|cntrim|heft|loch|falz|beschnitt|broschüre",
+    re.I,
+)
 # (patterns in the English driver text, {language: replacement}) – longer phrases first
 PHRASES = [
-    (r"accordion\s*z[- ]?fold", {"de": "Leporellofalz", "fr": "Pli accordéon", "es": "Plegado en acordeón", "hu": "Harmonikahajtás"}),
-    (r"double\s*parallel\s*fold", {"de": "Doppelparallelfalz", "fr": "Pli double parallèle", "es": "Plegado paralelo doble", "hu": "Dupla párhuzamos hajtás"}),
-    (r"saddle\s*stitch(ing)?", {"de": "Sattelheftung", "fr": "Piqûre à cheval", "es": "Grapado por el lomo", "hu": "Gerinctűzés"}),
-    (r"saddle\s*fold|half\s*fold", {"de": "Mittenfalz", "fr": "Pli central", "es": "Plegado por la mitad", "hu": "Középhajtás"}),
-    (r"tri[- ]?fold|letter\s*fold|c[- ]?fold", {"de": "Wickelfalz", "fr": "Pli roulé", "es": "Plegado tríptico", "hu": "Levélhajtás"}),
+    (
+        r"accordion\s*z[- ]?fold",
+        {"de": "Leporellofalz", "fr": "Pli accordéon", "es": "Plegado en acordeón", "hu": "Harmonikahajtás"},
+    ),
+    (
+        r"double\s*parallel\s*fold",
+        {
+            "de": "Doppelparallelfalz",
+            "fr": "Pli double parallèle",
+            "es": "Plegado paralelo doble",
+            "hu": "Dupla párhuzamos hajtás",
+        },
+    ),
+    (
+        r"saddle\s*stitch(ing)?",
+        {"de": "Sattelheftung", "fr": "Piqûre à cheval", "es": "Grapado por el lomo", "hu": "Gerinctűzés"},
+    ),
+    (
+        r"saddle\s*fold|half\s*fold",
+        {"de": "Mittenfalz", "fr": "Pli central", "es": "Plegado por la mitad", "hu": "Középhajtás"},
+    ),
+    (
+        r"tri[- ]?fold|letter\s*fold|c[- ]?fold",
+        {"de": "Wickelfalz", "fr": "Pli roulé", "es": "Plegado tríptico", "hu": "Levélhajtás"},
+    ),
     (r"z[- ]?fold", {"de": "Z-Falz", "fr": "Pli en Z", "es": "Plegado en Z", "hu": "Z-hajtás"}),
     (r"gate\s*fold", {"de": "Fensterfalz", "fr": "Pli fenêtre", "es": "Plegado de ventana", "hu": "Ablakhajtás"}),
-    (r"perfect\s*bind(ing|er)?", {"de": "Klebebindung", "fr": "Reliure dos carré collé", "es": "Encuadernación encolada", "hu": "Ragasztókötés"}),
-    (r"high[- ]capacity\s*stacker", {"de": "Großraumstapler", "fr": "Réceptacle grande capacité", "es": "Apilador de alta capacidad", "hu": "Nagy kapacitású gyűjtő"}),
+    (
+        r"perfect\s*bind(ing|er)?",
+        {"de": "Klebebindung", "fr": "Reliure dos carré collé", "es": "Encuadernación encolada", "hu": "Ragasztókötés"},
+    ),
+    (
+        r"high[- ]capacity\s*stacker",
+        {
+            "de": "Großraumstapler",
+            "fr": "Réceptacle grande capacité",
+            "es": "Apilador de alta capacidad",
+            "hu": "Nagy kapacitású gyűjtő",
+        },
+    ),
     (r"two[- ]knife", {"de": "Zwei-Messer", "fr": "Deux lames", "es": "Dos cuchillas", "hu": "Kétkéses"}),
-    (r"front[- ]edge\s*trim(ming)?", {"de": "Vorderkantenbeschnitt", "fr": "Massicotage avant", "es": "Recorte frontal", "hu": "Előélvágás"}),
-    (r"3[- ]side\s*cut|three[- ]side\s*trim", {"de": "Dreiseitenbeschnitt", "fr": "Coupe trois côtés", "es": "Corte trilateral", "hu": "Háromoldalú vágás"}),
+    (
+        r"front[- ]edge\s*trim(ming)?",
+        {"de": "Vorderkantenbeschnitt", "fr": "Massicotage avant", "es": "Recorte frontal", "hu": "Előélvágás"},
+    ),
+    (
+        r"3[- ]side\s*cut|three[- ]side\s*trim",
+        {"de": "Dreiseitenbeschnitt", "fr": "Coupe trois côtés", "es": "Corte trilateral", "hu": "Háromoldalú vágás"},
+    ),
     (r"top\s*left", {"de": "oben links", "fr": "en haut à gauche", "es": "arriba a la izquierda", "hu": "bal felső"}),
     (r"top\s*right", {"de": "oben rechts", "fr": "en haut à droite", "es": "arriba a la derecha", "hu": "jobb felső"}),
     (r"bottom\s*left", {"de": "unten links", "fr": "en bas à gauche", "es": "abajo a la izquierda", "hu": "bal alsó"}),
     (r"bottom\s*right", {"de": "unten rechts", "fr": "en bas à droite", "es": "abajo a la derecha", "hu": "jobb alsó"}),
     (r"output\s*tray", {"de": "Ausgabefach", "fr": "Bac de sortie", "es": "Bandeja de salida", "hu": "Kimeneti tálca"}),
-    (r"paper\s*deck|pod\s*deck", {"de": "Papiermagazin", "fr": "Magasin papier", "es": "Depósito de papel", "hu": "Papírtár"}),
+    (
+        r"paper\s*deck|pod\s*deck",
+        {"de": "Papiermagazin", "fr": "Magasin papier", "es": "Depósito de papel", "hu": "Papírtár"},
+    ),
     (r"hole\s*punch(ing)?", {"de": "Lochung", "fr": "Perforation", "es": "Perforación", "hu": "Lyukasztás"}),
     (r"(\d)\s*holes?", {"de": r"\1-fach", "fr": r"\1 trous", "es": r"\1 agujeros", "hu": r"\1 lyuk"}),
     (r"stapl(e|ing|er)", {"de": "Heftung", "fr": "Agrafage", "es": "Grapado", "hu": "Tűzés"}),
@@ -129,16 +244,33 @@ def _phrase_de(text: str) -> str:
 
 # German terms from German-installed drivers (PPD) -> interface language (longer first)
 DE_DRIVER = [
-    ("Hintere Papierzufuhr", {"en": "Rear paper feed", "hu": "Hátsó papíradagoló", "es": "Alimentación trasera", "fr": "Alimentation arrière"}),
-    ("Papierkassette", {"en": "Paper cassette", "hu": "Papírkazetta", "es": "Casete de papel", "fr": "Cassette papier"}),
+    (
+        "Hintere Papierzufuhr",
+        {
+            "en": "Rear paper feed",
+            "hu": "Hátsó papíradagoló",
+            "es": "Alimentación trasera",
+            "fr": "Alimentation arrière",
+        },
+    ),
+    (
+        "Papierkassette",
+        {"en": "Paper cassette", "hu": "Papírkazetta", "es": "Casete de papel", "fr": "Cassette papier"},
+    ),
     ("Papierformat", {"en": "Paper size", "hu": "Papírméret", "es": "Tamaño de papel", "fr": "Format du papier"}),
     ("Papierquelle", {"en": "Paper source", "hu": "Papírforrás", "es": "Origen del papel", "fr": "Source du papier"}),
-    ("Papierzufuhr", {"en": "Paper feed", "hu": "Papíradagolás", "es": "Alimentación de papel", "fr": "Alimentation papier"}),
+    (
+        "Papierzufuhr",
+        {"en": "Paper feed", "hu": "Papíradagolás", "es": "Alimentación de papel", "fr": "Alimentation papier"},
+    ),
     ("Papiertyp", {"en": "Paper type", "hu": "Papírtípus", "es": "Tipo de papel", "fr": "Type de papier"}),
     ("Papiersorte", {"en": "Paper type", "hu": "Papírtípus", "es": "Tipo de papel", "fr": "Type de papier"}),
     ("Normalpapier", {"en": "Plain paper", "hu": "Normál papír", "es": "Papel normal", "fr": "Papier ordinaire"}),
     ("Fotopapier", {"en": "Photo paper", "hu": "Fotópapír", "es": "Papel fotográfico", "fr": "Papier photo"}),
-    ("Druckqualität", {"en": "Print quality", "hu": "Nyomtatási minőség", "es": "Calidad de impresión", "fr": "Qualité d'impression"}),
+    (
+        "Druckqualität",
+        {"en": "Print quality", "hu": "Nyomtatási minőség", "es": "Calidad de impresión", "fr": "Qualité d'impression"},
+    ),
     ("Qualität", {"en": "Quality", "hu": "Minőség", "es": "Calidad", "fr": "Qualité"}),
     ("Heftkante", {"en": "Binding edge", "hu": "Kötési él", "es": "Borde de encuadernación", "fr": "Bord de reliure"}),
     ("Lange Kante", {"en": "Long edge", "hu": "Hosszú él", "es": "Lado largo", "fr": "Grand côté"}),
@@ -167,8 +299,10 @@ DE_DRIVER = [
     ("Kassette", {"en": "Cassette", "hu": "Kazetta", "es": "Casete", "fr": "Cassette"}),
     ("Fach", {"en": "Tray", "hu": "Tálca", "es": "Bandeja", "fr": "Bac"}),
 ]
-_DE_HINT = re.compile(r"[äöüÄÖÜß]|Randlos|randlos|Zoll|Umschlag|Papier|Kante|Fach|Kassette|seitig|Graustufen|Farbe|"
-                      r"Automatisch|Qualität|Entwurf|\bAus\b|\bEin\b|\bDIN\b|US Lang|breit|Matt")
+_DE_HINT = re.compile(
+    r"[äöüÄÖÜß]|Randlos|randlos|Zoll|Umschlag|Papier|Kante|Fach|Kassette|seitig|Graustufen|Farbe|"
+    r"Automatisch|Qualität|Entwurf|\bAus\b|\bEin\b|\bDIN\b|US Lang|breit|Matt"
+)
 
 
 def localize_driver(text: str) -> str:
@@ -196,17 +330,22 @@ def option_text(keyword: str, text: str) -> str:
 
 
 def choice_text(keyword: str, value: str, text: str, option_label: str = "") -> str:
-    if (is_finishing(keyword, option_label) or FINISH_RX.search(text or "")) and not CHOICE_DE.get(_norm(text or value)):
+    if (is_finishing(keyword, option_label) or FINISH_RX.search(text or "")) and not CHOICE_DE.get(
+        _norm(text or value)
+    ):
         return _phrase_de(text or value)
     for cand in (text, value):
         de = CHOICE_DE.get(_norm(cand))
         if de:
             return tr(de)
-    m = re.fullmatch(r"(?:tray|fach)\s*_?(\d+)", value, re.I) or re.fullmatch(r"(?:tray|fach)\s*(\d+)", text or "", re.I)
+    m = re.fullmatch(r"(?:tray|fach)\s*_?(\d+)", value, re.I) or re.fullmatch(
+        r"(?:tray|fach)\s*(\d+)", text or "", re.I
+    )
     if m:
         return tr("Fach {0}").format(m.group(1))
-    m = re.fullmatch(r"(?:cas|cassette|cst)\s*_?(\d+)", value, re.I) or \
-        re.fullmatch(r"(?:paper\s*)?cassette\s*(\d+)", text or "", re.I)
+    m = re.fullmatch(r"(?:cas|cassette|cst)\s*_?(\d+)", value, re.I) or re.fullmatch(
+        r"(?:paper\s*)?cassette\s*(\d+)", text or "", re.I
+    )
     if m:
         return tr("Kassette {0}").format(m.group(1))
     m = re.fullmatch(r"([A-Z]+)_(HIGH|NORMAL|DRAFT)", value)

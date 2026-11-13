@@ -1,9 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Druckprotokoll (1.16): jeder Druckauftrag mit allen Einstellungen als JSON + printlog.csv, eingeschaltet
-    vom Benutzer oder vom Admin erzwungen; passermark-cli reprint druckt ihn genauso nochmal – auch einen Druck
-    mitten in einem Ablauf (die Schritte davor werden wieder durchgerechnet)."""
-import contextlib, csv, io, json, os, sys, tempfile
+vom Benutzer oder vom Admin erzwungen; passermark-cli reprint druckt ihn genauso nochmal – auch einen Druck
+mitten in einem Ablauf (die Schritte davor werden wieder durchgerechnet)."""
+
+import contextlib
+import csv
+import io
+import json
+import os
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
@@ -30,11 +38,12 @@ def test_off_by_default_then_on():
     src = T.doc(2)
     with T.FakePrinter():
         printcli.print_pdf(src, printcli.PrintSettings(paper="A4"))
-    assert not logs()                                    # aus: nichts geschrieben
+    assert not logs()  # aus: nichts geschrieben
     l10n.save_settings(dict(l10n.load_settings(), print_log=True))
     with T.FakePrinter():
-        printcli.print_pdf(src, printcli.PrintSettings(paper="A3", duplex="short", copies=2,
-                                                       finishing={"staple": "TopLeft"}))
+        printcli.print_pdf(
+            src, printcli.PrintSettings(paper="A3", duplex="short", copies=2, finishing={"staple": "TopLeft"})
+        )
     (p,) = logs()
     rec = json.load(open(p, encoding="utf-8"))
     j = rec["job"]
@@ -43,7 +52,7 @@ def test_off_by_default_then_on():
     assert j["options"]["StapleLocation"] == "TopLeft" and j["options"]["Duplex"] == "DuplexTumble"
     assert j["file"] == os.path.abspath(src) and len(j["file_sha256"]) == 64 and j["pages"] == "1-2"
     assert j["sent"]["copies"] == "2" and j["layout"]["handling"]
-    assert j["out_pages"] == 2                           # 1.18.3: gesendete Seiten je Exemplar
+    assert j["out_pages"] == 2  # 1.18.3: gesendete Seiten je Exemplar
     rows = list(csv.reader(open(os.path.join(LOGDIR, "printlog.csv"), encoding="utf-8-sig"), delimiter=";"))
     assert rows[0][0] == "time" and rows[1][6] == "Canon" and rows[1][11] == "sent"
     # Nachdruck: genau dieselben Treiberoptionen
@@ -51,7 +60,7 @@ def test_off_by_default_then_on():
         assert cli.main(["reprint", p, "--quiet"]) == 0
     o = fp.sent[-1]["opts"]
     assert o["PageSize"] == "A3" and o["StapleLocation"] == "TopLeft" and o["copies"] == "2", o
-    assert len(logs()) == 2                              # der Nachdruck wird selbst protokolliert
+    assert len(logs()) == 2  # der Nachdruck wird selbst protokolliert
     # Datei inzwischen verändert -> Hinweis; --dry-run sendet nichts
     open(src, "ab").write(b"\n%")
     out = io.StringIO()
@@ -75,15 +84,32 @@ def test_error_logged_and_workflow_reprint():
     src = T.doc(1, (85, 55))
     with T.FakePrinter():
         try:
-            printcli.print_pdf(src, printcli.PrintSettings(paper="A4", layout={
-                "step_repeat": True, "sr_pass2": True, "sr2_format": "custom", "sr2_w_mm": 999, "sr2_h_mm": 999}))
+            printcli.print_pdf(
+                src,
+                printcli.PrintSettings(
+                    paper="A4",
+                    layout={
+                        "step_repeat": True,
+                        "sr_pass2": True,
+                        "sr2_format": "custom",
+                        "sr2_w_mm": 999,
+                        "sr2_h_mm": 999,
+                    },
+                ),
+            )
         except ValueError:
             pass
     # Fehler vor dem Senden (Zielformat fehlt) passieren in print_pdf – im Protokoll nur, was gesendet werden sollte
     n = len(logs())
-    wf = {"passermark": "workflow", "version": 1, "input": src, "steps": [
-        {"job": "impose", "settings": {"sheet": "A4", "step_repeat": True}},
-        {"job": "print", "settings": {"paper": "A4"}}]}
+    wf = {
+        "passermark": "workflow",
+        "version": 1,
+        "input": src,
+        "steps": [
+            {"job": "impose", "settings": {"sheet": "A4", "step_repeat": True}},
+            {"job": "print", "settings": {"paper": "A4"}},
+        ],
+    }
     with T.FakePrinter() as fp:
         workflow.run(workflow.prepare(wf, TMP))
         first = fp.sent[-1]
@@ -99,9 +125,12 @@ def test_error_logged_and_workflow_reprint():
 def test_admin_force_and_shared_folder():
     l10n.save_settings(dict(l10n.load_settings(), print_log=False))
     shared = os.path.join(TMP, "gemeinsam")
-    json.dump({"print_log": {"force": True, "dir": shared, "keep_days": 30}},
-              open(os.path.join(os.environ["PDFDRUCK_CONFIG_DIR"], "defaults.json"), "w"))
+    json.dump(
+        {"print_log": {"force": True, "dir": shared, "keep_days": 30}},
+        open(os.path.join(os.environ["PDFDRUCK_CONFIG_DIR"], "defaults.json"), "w"),
+    )
     from pdfdruck import cfgvalidate, config
+
     assert printlog.enabled() and printlog.folder() == shared
     cfgvalidate.validate(config.load(), os.path.join(TMP, "icc"))
     with T.FakePrinter():

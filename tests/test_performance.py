@@ -7,10 +7,17 @@ each budget is given as a multiple of it ("calibration factor"). The best of sev
   above FAIL × baseline -> error (build red)
 Re-determine baselines: python3 tests/test_performance.py --messen
 """
-import io, json, os, sys, time
+
+import io
+import json
+import os
+import sys
+import time
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, ROOT); sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import numpy as np
 
@@ -24,6 +31,7 @@ if os.path.exists(BASELINE_FILE):
 
 def calibrate() -> float:
     from scipy import ndimage as ndi
+
     rng = np.random.default_rng(7)
     a = rng.random((1400, 1400)) > 0.6
 
@@ -33,6 +41,7 @@ def calibrate() -> float:
             ndi.distance_transform_edt(a)
             ndi.gaussian_filter(a.astype(np.float32), 2)
         return time.perf_counter() - t
+
     return min(once() for _ in range(3))
 
 
@@ -70,18 +79,23 @@ def _poster():
     from PIL import Image, ImageDraw, ImageFilter
     import pypdfium2 as pdfium
     import img2pdf
-    W, H = 1240, 1754                                      # 150 dpi
+
+    W, H = 1240, 1754  # 150 dpi
     rng = np.random.default_rng(1)
-    base = np.zeros((H, W, 3), np.float32); base[:] = (233, 208, 160)
+    base = np.zeros((H, W, 3), np.float32)
+    base[:] = (233, 208, 160)
     noise = np.array(Image.fromarray(rng.normal(0, 1, (H // 8, W // 8)).astype(np.float32)).resize((W, H)))
     base += noise[:, :, None] * 14
-    img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8)); d = ImageDraw.Draw(img)
-    for (x, y, w, h) in ((200, 450, 450, 500), (750, 750, 350, 400), (150, 1100, 600, 350), (850, 1300, 250, 350)):
-        d.ellipse((x, y, x + w, y + h), fill=(20, 15, 12)); d.rectangle((x + w // 3, y + h // 3, x + w // 2, y + h // 2), fill=(200, 60, 50))
+    img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(img)
+    for x, y, w, h in ((200, 450, 450, 500), (750, 750, 350, 400), (150, 1100, 600, 350), (850, 1300, 250, 350)):
+        d.ellipse((x, y, x + w, y + h), fill=(20, 15, 12))
+        d.rectangle((x + w // 3, y + h // 3, x + w // 2, y + h // 2), fill=(200, 60, 50))
     for _ in range(25):
         x, y = int(rng.integers(50, W - 50)), int(rng.integers(50, H - 50))
         d.regular_polygon((x, y, 15), 5, fill=(90, 20, 20))
-    b = io.BytesIO(); img.filter(ImageFilter.GaussianBlur(0.8)).save(b, "JPEG", quality=90, dpi=(150, 150))
+    b = io.BytesIO()
+    img.filter(ImageFilter.GaussianBlur(0.8)).save(b, "JPEG", quality=90, dpi=(150, 150))
     return pdfium.PdfDocument(img2pdf.convert(b.getvalue()))
 
 
@@ -89,9 +103,12 @@ def _booklet_src():
     import pypdfium2 as pdfium
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
-    b = io.BytesIO(); c = canvas.Canvas(b, pagesize=A4)
+
+    b = io.BytesIO()
+    c = canvas.Canvas(b, pagesize=A4)
     for i in range(32):
-        c.setFont("Helvetica", 40); c.drawString(100, 700, f"Seite {i + 1}")
+        c.setFont("Helvetica", 40)
+        c.drawString(100, 700, f"Seite {i + 1}")
         for j in range(60):
             c.line(50 + j * 8, 100, 300 + j * 3, 600)
         c.showPage()
@@ -101,6 +118,7 @@ def _booklet_src():
 
 def measure() -> dict:
     from pdfdruck import cutcontour, layout, objects
+
     poster = _poster()
     norm = objects.normalized(poster)
     pg = norm[0]
@@ -152,5 +170,7 @@ if __name__ == "__main__":
         json.dump(res, open(BASELINE_FILE, "w", encoding="utf-8"), indent=2)
         print("Bezug gespeichert:", json.dumps(res))
     else:
-        test_judge_logic(); print("ok test_judge_logic")
-        test_time_budgets(); print("ok test_time_budgets")
+        test_judge_logic()
+        print("ok test_judge_logic")
+        test_time_budgets()
+        print("ok test_time_budgets")

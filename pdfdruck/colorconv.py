@@ -9,11 +9,11 @@ Ghostscript (pdfwrite) converts to device colors with the admin profile; vectors
 and text are preserved. To avoid double conversion, the admin can store driver
 options per profile (e.g. the driver color matching OFF).
 """
+
 from __future__ import annotations
 
 from .l10n import tr
 
-import shutil
 import subprocess
 
 INTENT_NUM = {"perceptual": 0, "relative": 1, "saturation": 2, "absolute": 3}
@@ -34,17 +34,28 @@ def icc_colorspace(path: str) -> str:
 
 def convert(src: str, dst: str, icc: str, intent: str = "relative", bpc: bool = True) -> None:
     from . import platform as _platform
+
     gs = _platform.ghostscript()
     if not gs:
         raise RuntimeError(tr("Ghostscript (gs) ist nicht installiert."))
     space = icc_colorspace(icc)
     cmd = [
-        gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", f"--permit-file-read={icc}",
-        "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7", "-dAutoRotatePages=/None",
-        f"-sColorConversionStrategy={space}", f"-sOutputICCProfile={icc}",
+        gs,
+        "-q",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-dSAFER",
+        f"--permit-file-read={icc}",
+        "-sDEVICE=pdfwrite",
+        "-dCompatibilityLevel=1.7",
+        "-dAutoRotatePages=/None",
+        f"-sColorConversionStrategy={space}",
+        f"-sOutputICCProfile={icc}",
         f"-dRenderIntent={INTENT_NUM.get(intent, 1)}",
         f"-dBlackPtComp={1 if bpc else 0}",
-        "-o", dst, src,
+        "-o",
+        dst,
+        src,
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if r.returncode != 0:

@@ -1,22 +1,36 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Drop-Ordner (passermark-cli serve): Einstellung prüfen, Dateien verarbeiten, Ergebnis/Original/Fehler ablegen,
-    nur Druckende Abläufe, unterbrochene Dateien zurücklegen, halb geschriebene Dateien abwarten."""
-import io, json, os, shutil, subprocess, sys, tempfile, time
+nur Druckende Abläufe, unterbrochene Dateien zurücklegen, halb geschriebene Dateien abwarten."""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
-from pdfdruck import watch, workflow
+from pdfdruck import watch
 
 TMP = tempfile.mkdtemp(prefix="pm-watch-")
-ENV = dict(os.environ, PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""), PASSERMARK_LANG="de",
-           XDG_CONFIG_HOME=os.path.join(TMP, "cfg"), PDFDRUCK_CONFIG_DIR=os.path.join(TMP, "etc"))
+ENV = dict(
+    os.environ,
+    PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    PASSERMARK_LANG="de",
+    XDG_CONFIG_HOME=os.path.join(TMP, "cfg"),
+    PDFDRUCK_CONFIG_DIR=os.path.join(TMP, "etc"),
+)
 
 
 def pdf(path, n=2, size=(85, 55)):
     from reportlab.pdfgen import canvas
+
     MM = 72 / 25.4
     c = canvas.Canvas(path, pagesize=(size[0] * MM, size[1] * MM))
     for i in range(n):
@@ -29,34 +43,71 @@ def pdf(path, n=2, size=(85, 55)):
 def setup(name):
     base = os.path.join(TMP, name)
     os.makedirs(os.path.join(base, "in"))
-    json.dump({"passermark": "workflow", "version": 1, "name": "Nutzen",
-               "output": "${dir}/${stem}-nutzen.pdf",          # würde im Eingang landen – der Watcher legt nach out
-               "steps": [{"job": "impose", "settings": {"sheet": "A4", "step_repeat": True}}]},
-              open(os.path.join(base, "nutzen.json"), "w"))
-    json.dump({"passermark": "workflow", "version": 1,
-               "steps": [{"job": "print", "settings": {"paper": "auto", "layout": {"handling": "size"}}}]},
-              open(os.path.join(base, "druck.json"), "w"))
+    json.dump(
+        {
+            "passermark": "workflow",
+            "version": 1,
+            "name": "Nutzen",
+            "output": "${dir}/${stem}-nutzen.pdf",  # würde im Eingang landen – der Watcher legt nach out
+            "steps": [{"job": "impose", "settings": {"sheet": "A4", "step_repeat": True}}],
+        },
+        open(os.path.join(base, "nutzen.json"), "w"),
+    )
+    json.dump(
+        {
+            "passermark": "workflow",
+            "version": 1,
+            "steps": [{"job": "print", "settings": {"paper": "auto", "layout": {"handling": "size"}}}],
+        },
+        open(os.path.join(base, "druck.json"), "w"),
+    )
     return base
 
 
 def test_config_problems():
     base = setup("cfg")
     p = os.path.join(base, "watch.json")
-    json.dump({"passermark": "watch", "version": 9, "intervall": 3, "settle": -1,
-               "folders": [{"in": "in", "workflow": "nutzen.json", "out": ".", "patterns": [], "x": 1},
-                           {"in": "in", "workflow": ""}]}, open(p, "w"))
+    json.dump(
+        {
+            "passermark": "watch",
+            "version": 9,
+            "intervall": 3,
+            "settle": -1,
+            "folders": [
+                {"in": "in", "workflow": "nutzen.json", "out": ".", "patterns": [], "x": 1},
+                {"in": "in", "workflow": ""},
+            ],
+        },
+        open(p, "w"),
+    )
     try:
         watch.load_config(p)
         assert False
     except watch.WatchError as e:
         where = {w for w, _ in e.problems}
-        assert {"version", "intervall", "settle", "folders[0].out", "folders[0].patterns", "folders[0].x",
-                "folders[1].in", "folders[1].workflow"} <= where, where
-    json.dump({"passermark": "watch", "version": 1, "folders": [{"in": "gibtsnicht", "workflow": "nutzen.json"},
-                                                                  {"in": "in", "workflow": "fehlt"}]}, open(p, "w"))
+        assert {
+            "version",
+            "intervall",
+            "settle",
+            "folders[0].out",
+            "folders[0].patterns",
+            "folders[0].x",
+            "folders[1].in",
+            "folders[1].workflow",
+        } <= where, where
+    json.dump(
+        {
+            "passermark": "watch",
+            "version": 1,
+            "folders": [{"in": "gibtsnicht", "workflow": "nutzen.json"}, {"in": "in", "workflow": "fehlt"}],
+        },
+        open(p, "w"),
+    )
     cfg = watch.load_config(p)
     f0 = cfg["folders"][0]
-    assert f0["out"] == os.path.join(base, "gibtsnicht", "output") and f0["workflow"] == os.path.join(base, "nutzen.json")
+    assert f0["out"] == os.path.join(base, "gibtsnicht", "output") and f0["workflow"] == os.path.join(
+        base, "nutzen.json"
+    )
     probs = watch.check(cfg)
     where = {w for w, _ in probs}
     assert "folders[0].in" in where and "folders[1].workflow" in where, probs
@@ -66,8 +117,10 @@ def test_process_files():
     base = setup("run")
     ind = os.path.join(base, "in")
     p = os.path.join(base, "watch.json")
-    json.dump({"passermark": "watch", "version": 1, "settle": 0,
-               "folders": [{"in": "in", "workflow": "nutzen.json"}]}, open(p, "w"))
+    json.dump(
+        {"passermark": "watch", "version": 1, "settle": 0, "folders": [{"in": "in", "workflow": "nutzen.json"}]},
+        open(p, "w"),
+    )
     pdf(os.path.join(ind, "karte.pdf"))
     open(os.path.join(ind, "kaputt.pdf"), "w").write("kein pdf")
     open(os.path.join(ind, "notiz.txt"), "w").write("passt nicht zum Muster")
@@ -75,12 +128,13 @@ def test_process_files():
     evs = []
     counts = watch.Watcher(watch.load_config(p), evs.append).run(once=True)
     assert counts == {"done": 1, "failed": 1}, (counts, evs)
-    assert os.path.isfile(os.path.join(ind, "output", "karte.pdf"))                  # Ergebnis
-    assert os.path.isfile(os.path.join(ind, "processed", "karte.pdf"))               # Original
+    assert os.path.isfile(os.path.join(ind, "output", "karte.pdf"))  # Ergebnis
+    assert os.path.isfile(os.path.join(ind, "processed", "karte.pdf"))  # Original
     assert os.path.isfile(os.path.join(ind, "failed", "kaputt.pdf"))
     assert os.path.isfile(os.path.join(ind, "failed", "kaputt.pdf.log"))
-    assert sorted(os.listdir(ind)) == sorted(["output", "processed", "failed", ".passermark", "notiz.txt",
-                                              "halb.pdf.part"]), os.listdir(ind)
+    assert sorted(os.listdir(ind)) == sorted(
+        ["output", "processed", "failed", ".passermark", "notiz.txt", "halb.pdf.part"]
+    ), os.listdir(ind)
     assert not os.listdir(os.path.join(ind, ".passermark"))
     kinds = [e["event"] for e in evs]
     assert kinds[0] == "watch_start" and "file_done" in kinds and "file_failed" in kinds and "step" in kinds
@@ -93,11 +147,19 @@ def test_process_files():
 
 def test_print_only_and_recover():
     import test_printcli as T
+
     base = setup("druck")
     ind = os.path.join(base, "in")
     p = os.path.join(base, "watch.json")
-    json.dump({"passermark": "watch", "version": 1, "settle": 0,
-               "folders": [{"in": "in", "workflow": "druck.json", "done": ""}]}, open(p, "w"))
+    json.dump(
+        {
+            "passermark": "watch",
+            "version": 1,
+            "settle": 0,
+            "folders": [{"in": "in", "workflow": "druck.json", "done": ""}],
+        },
+        open(p, "w"),
+    )
     pdf(os.path.join(ind, "a3.pdf"), 2, (297, 420))
     # Rest eines Absturzes: liegt noch im Arbeitsordner -> kommt zurück und wird verarbeitet
     os.makedirs(os.path.join(ind, ".passermark"))
@@ -110,21 +172,23 @@ def test_print_only_and_recover():
     assert evs[0]["recovered"] == 1
     done = [e for e in evs if e["event"] == "file_done"]
     assert all(e["output"] is None and e["moved_to"] is None and e["prints"][0]["job_id"] == 4711 for e in done)
-    assert sorted(os.listdir(ind)) == [".passermark"]                       # nur gedruckt: kein Ergebnis, Original weg
+    assert sorted(os.listdir(ind)) == [".passermark"]  # nur gedruckt: kein Ergebnis, Original weg
 
 
 def test_settle_waits_for_complete_file():
     base = setup("settle")
     ind = os.path.join(base, "in")
     p = os.path.join(base, "watch.json")
-    json.dump({"passermark": "watch", "version": 1, "settle": 1.0,
-               "folders": [{"in": "in", "workflow": "nutzen.json"}]}, open(p, "w"))
+    json.dump(
+        {"passermark": "watch", "version": 1, "settle": 1.0, "folders": [{"in": "in", "workflow": "nutzen.json"}]},
+        open(p, "w"),
+    )
     w = watch.Watcher(watch.load_config(p))
     f = os.path.join(ind, "gross.pdf")
     pdf(f)
-    assert w.scan_once() == 0                       # gerade erst gesehen
+    assert w.scan_once() == 0  # gerade erst gesehen
     time.sleep(0.4)
-    with open(f, "ab") as fh:                       # wächst noch -> wieder warten
+    with open(f, "ab") as fh:  # wächst noch -> wieder warten
         fh.write(b"\n%")
     assert w.scan_once() == 0
     time.sleep(0.4)
@@ -137,12 +201,26 @@ def test_cli_serve():
     base = setup("cli")
     ind = os.path.join(base, "in")
     p = os.path.join(base, "watch.json")
-    json.dump({"passermark": "watch", "version": 1, "settle": 0,
-               "folders": [{"in": "in", "workflow": "nutzen.json", "name": "Karten"}]}, open(p, "w"))
+    json.dump(
+        {
+            "passermark": "watch",
+            "version": 1,
+            "settle": 0,
+            "folders": [{"in": "in", "workflow": "nutzen.json", "name": "Karten"}],
+        },
+        open(p, "w"),
+    )
 
     def cli(*args):
-        return subprocess.run([sys.executable, "-m", "pdfdruck.cli", "serve", *args], capture_output=True, text=True,
-                              env=ENV, cwd=base, timeout=600)
+        return subprocess.run(
+            [sys.executable, "-m", "pdfdruck.cli", "serve", *args],
+            capture_output=True,
+            text=True,
+            env=ENV,
+            cwd=base,
+            timeout=600,
+        )
+
     r = cli("--config", p, "--check")
     assert r.returncode == 0 and "1 Ordner" in r.stdout, r.stdout + r.stderr
     pdf(os.path.join(ind, "k.pdf"))
@@ -162,9 +240,15 @@ def test_cli_serve():
     os.makedirs(own, exist_ok=True)
     shutil.copy(p, os.path.join(own, "watch.json"))
     r = cli("--check")
-    assert r.returncode == 2 and "folders[0].in" in r.stderr, r.stdout + r.stderr   # „in“ relativ zur eigenen Datei
-    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "serve", "--config", "fehlt.json", "--json"],
-                       capture_output=True, text=True, env=ENV, cwd=base, timeout=600)
+    assert r.returncode == 2 and "folders[0].in" in r.stderr, r.stdout + r.stderr  # „in“ relativ zur eigenen Datei
+    r = subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "serve", "--config", "fehlt.json", "--json"],
+        capture_output=True,
+        text=True,
+        env=ENV,
+        cwd=base,
+        timeout=600,
+    )
     assert r.returncode == 2 and json.loads(r.stdout)["code"] == "not_found"
 
 
@@ -175,22 +259,30 @@ def test_init_never_overwrites():
     env = dict(ENV, HOME=home, XDG_CONFIG_HOME=os.path.join(home, "cfg"), PDFDRUCK_CONFIG_DIR=os.path.join(home, "etc"))
 
     def cli(*a):
-        return subprocess.run([sys.executable, "-m", "pdfdruck.cli", "serve", *a], capture_output=True, text=True,
-                              env=env, cwd=home, timeout=300)
+        return subprocess.run(
+            [sys.executable, "-m", "pdfdruck.cli", "serve", *a],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=home,
+            timeout=300,
+        )
+
     r = cli("--init", "--json")
     ev = json.loads(r.stdout)
     assert r.returncode == 0 and ev["created"] and ev["config"].endswith(os.path.join("passermark", "watch.json")), ev
     cfgp = ev["config"]
     assert cli("--check").returncode == 0
-    open(cfgp, "a").write("\n")                             # eigene Änderung
+    open(cfgp, "a").write("\n")  # eigene Änderung
     before = open(cfgp).read()
     r = cli("--init")
     assert r.returncode == 0 and "nichts geändert" in r.stdout and open(cfgp).read() == before
     pdf(os.path.join(home, "hotfolder", "beispiel", "x.pdf"))
     r = cli("--once")
-    assert r.returncode == 0 and os.path.isfile(os.path.join(home, "hotfolder", "beispiel", "output", "x.pdf")), \
+    assert r.returncode == 0 and os.path.isfile(os.path.join(home, "hotfolder", "beispiel", "output", "x.pdf")), (
         r.stdout + r.stderr
-    r = cli("--init", "--system")                            # für alle: eigener Ort, ebenfalls nie überschreiben
+    )
+    r = cli("--init", "--system")  # für alle: eigener Ort, ebenfalls nie überschreiben
     assert r.returncode == 0 and os.path.isfile(os.path.join(home, "etc", "watch.json"))
 
 

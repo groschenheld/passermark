@@ -11,6 +11,7 @@
 - after a hard crash, the next start reports the log (pending_crashes)
 - at most MAX_LOGS logs containing errors are kept
 """
+
 from __future__ import annotations
 
 import atexit
@@ -38,14 +39,17 @@ def log_dir() -> str:
 
 def system_info() -> str:
     from . import __version__
-    lines = [f"Passermark {__version__}",
-             f"System: {_pyplatform.platform()}",
-             f"Python: {sys.version.split()[0]} ({'gebündelt' if getattr(sys, 'frozen', False) else 'Quelltext'})"]
+
+    lines = [
+        f"Passermark {__version__}",
+        f"System: {_pyplatform.platform()}",
+        f"Python: {sys.version.split()[0]} ({'gebündelt' if getattr(sys, 'frozen', False) else 'Quelltext'})",
+    ]
     for mod, label in (("pypdfium2", "pypdfium2"), ("pikepdf", "pikepdf"), ("numpy", "numpy"), ("scipy", "scipy")):
         try:
             m = __import__(mod)
             lines.append(f"{label}: {getattr(m, '__version__', getattr(m, 'V_PYPDFIUM2', '?'))}")
-        except Exception:                                  # noqa: BLE001 – Angaben sind nur Beiwerk
+        except Exception:  # noqa: BLE001 – Angaben sind nur Beiwerk
             pass
     if "PySide6.QtCore" in sys.modules:
         lines.append(f"Qt: {sys.modules['PySide6.QtCore'].qVersion()}")
@@ -67,15 +71,16 @@ def _prune():
             pass
 
 
-SETTING = "error_logs"           # Benutzereinstellung: Fehlerprotokolle und Ruckler-Meldungen (Standard an)
+SETTING = "error_logs"  # Benutzereinstellung: Fehlerprotokolle und Ruckler-Meldungen (Standard an)
 
 
 def enabled() -> bool:
     """Fehlerprotokolle eingeschaltet? (Datei → Einstellungen; Standard an)"""
     try:
         from . import l10n
+
         return bool(l10n.load_settings().get(SETTING, True))
-    except Exception:                                      # noqa: BLE001 – im Zweifel an
+    except Exception:  # noqa: BLE001 – im Zweifel an
         return True
 
 
@@ -91,12 +96,12 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         path = os.path.join(d, f"passermark-{kind}-{stamp}-{os.getpid()}.log")
         f = open(path, "w", encoding="utf-8", buffering=1)
     except OSError:
-        return None                                        # no log possible – the program still runs
+        return None  # no log possible – the program still runs
     f.write(f"== Passermark-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")
     f.write(system_info() + "\n\n")
     f.flush()
     _state.update(file=f, path=path, error=False, on_error=on_error, kind=kind)
-    faulthandler.enable(file=f, all_threads=True)          # hard crashes (e.g. in pdfium) -> file
+    faulthandler.enable(file=f, all_threads=True)  # hard crashes (e.g. in pdfium) -> file
     prev_hook = sys.excepthook
 
     def excepthook(et, ev, tb):
@@ -109,8 +114,9 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         if cb is not None and threading.current_thread() is threading.main_thread():
             try:
                 cb(f"{et.__name__}: {ev}", text)
-            except Exception:                              # noqa: BLE001 – the display must never crash itself
+            except Exception:  # noqa: BLE001 – the display must never crash itself
                 pass
+
     sys.excepthook = excepthook
 
     def thread_hook(args):
@@ -118,6 +124,7 @@ def install(kind: str = "gui", on_error=None) -> str | None:
             return
         text = "".join(traceback.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
         record(f"Fehler im Thread {getattr(args.thread, 'name', '?')}", text)
+
     threading.excepthook = thread_hook
     atexit.register(_finish)
     return path
@@ -126,8 +133,9 @@ def install(kind: str = "gui", on_error=None) -> str | None:
 def tr_safe(text: str) -> str:
     try:
         from .l10n import tr
+
         return tr(text)
-    except Exception:                                      # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return text
 
 
@@ -159,10 +167,10 @@ def _finish():
         return
     try:
         faulthandler.disable()
-    except Exception:                                      # noqa: BLE001
+    except Exception:  # noqa: BLE001
         pass
     if _state["error"]:
-        try:                                               # Fehler wurden schon angezeigt -> nicht nochmal melden
+        try:  # Fehler wurden schon angezeigt -> nicht nochmal melden
             f.write(f"{SEEN_MARK}\n")
         except (OSError, ValueError):
             pass

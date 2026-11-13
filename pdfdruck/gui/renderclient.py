@@ -12,6 +12,7 @@ quickly. The page view comes before the thumbnails, the active window before the
 If the process cannot be started or dies twice, `ok` becomes False and the sources render in-process as
 before (PASSERMARK_RENDER=local forces that, e.g. for troubleshooting).
 """
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ def _clean_leftovers():
     """Zwischendateien der Seitenansicht aus früheren Sitzungen (z. B. nach einem Absturz), älter als 1 Tag."""
     import glob
     import time
+
     for f in glob.glob(os.path.join(tempfile.gettempdir(), "passermark-view-*.pdf")):
         try:
             if time.time() - os.path.getmtime(f) > 86400:
@@ -37,7 +39,7 @@ def _clean_leftovers():
 
 
 class _Reader(QThread):
-    got = Signal(dict, object)            # Kopf, QImage | None
+    got = Signal(dict, object)  # Kopf, QImage | None
     dead = Signal()
 
     def __init__(self, stream):
@@ -58,7 +60,7 @@ class _Reader(QThread):
                 img = None
                 if n and head.get("ok"):
                     if head.get("fmt") == "pickle":
-                        img = pickle.loads(data)             # nur von unserem eigenen Prozess
+                        img = pickle.loads(data)  # nur von unserem eigenen Prozess
                     else:
                         fmt = QImage.Format.Format_RGB32 if head.get("fmt") == "bgrx" else QImage.Format.Format_BGR888
                         img = QImage(data, head["w"], head["h"], head["stride"], fmt).copy()
@@ -70,16 +72,18 @@ class _Reader(QThread):
 
 class RenderService(QObject):
     """Program-wide render process with a simple scheduler.
-        get("render") draws pages; get("analysis") runs the slow checks (preflight, verification after
-        editing) in a second process, so a check never holds up the picture and vice versa."""
+    get("render") draws pages; get("analysis") runs the slow checks (preflight, verification after
+    editing) in a second process, so a check never holds up the picture and vice versa."""
+
     _instances: dict = {}
 
     @classmethod
-    def get(cls, name: str = "render") -> "RenderService":
+    def get(cls, name: str = "render") -> RenderService:
         if name not in cls._instances:
             svc = RenderService()
-            try:                                     # immer im Hauptthread anlegen (Timer, Signale)
+            try:  # immer im Hauptthread anlegen (Timer, Signale)
                 from PySide6.QtWidgets import QApplication
+
                 app = QApplication.instance()
                 if app is not None and svc.thread() is not app.thread():
                     svc.moveToThread(app.thread())
@@ -94,14 +98,15 @@ class RenderService(QObject):
         self.reader = None
         self.ok = os.environ.get("PASSERMARK_RENDER", "") != "local"
         self.restarts = 0
-        self.sources: list = []           # Objekte mit render_priority() und next_render() / render_done()
-        self.ops: list = []               # open/close – vor allen Bild-Anfragen
+        self.sources: list = []  # Objekte mit render_priority() und next_render() / render_done()
+        self.ops: list = []  # open/close – vor allen Bild-Anfragen
         self.busy = None
         self._id = 0
         self._stderr = None
         self._kick = QTimer(self, singleShot=True, interval=0, timeout=self._pump)
         try:
             from PySide6.QtWidgets import QApplication
+
             QApplication.instance().aboutToQuit.connect(self.stop)
         except Exception:
             pass
@@ -115,12 +120,19 @@ class RenderService(QObject):
         _clean_leftovers()
         from .. import platform as _platform
         from ..jobproc import cli_command
+
         cmd, env_extra = cli_command()
         env = dict(os.environ, **env_extra)
         try:
             self._stderr = tempfile.TemporaryFile(mode="w+b")
-            self.proc = subprocess.Popen(cmd + ["render-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                         stderr=self._stderr, env=env, **_platform.hidden_subprocess_kwargs())
+            self.proc = subprocess.Popen(
+                cmd + ["render-server"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=self._stderr,
+                env=env,
+                **_platform.hidden_subprocess_kwargs(),
+            )
         except Exception:
             self.ok = False
             return False
@@ -214,10 +226,13 @@ class RenderService(QObject):
         self._id += 1
         req["id"] = self._id
         self.busy = req
-        wire = {k: v for k, v in req.items()
-                if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind", "proof")}
+        wire = {
+            k: v
+            for k, v in req.items()
+            if k in ("op", "id", "doc", "path", "page", "scale", "rotation", "crop", "fn", "kind", "proof")
+        }
         payload = b""
-        if req.get("op") == "call":                         # Argumente können Objekte sein (Zeilen, Objekte)
+        if req.get("op") == "call":  # Argumente können Objekte sein (Zeilen, Objekte)
             payload = pickle.dumps(req.get("args") or {})
             wire["n"] = len(payload)
         if not self._send(wire, payload):
@@ -265,7 +280,7 @@ class RenderService(QObject):
             return
         for src in list(self.sources):
             try:
-                src.render_reset()                 # Quelle öffnet ihr Dokument neu
+                src.render_reset()  # Quelle öffnet ihr Dokument neu
             except Exception:
                 pass
         if req is not None and req.get("source") is not None:

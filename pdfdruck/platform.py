@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Betriebssystem-Unterschiede an einer Stelle: Pfade, Benutzerkennung, Benachrichtigungen, Programme."""
+
 from __future__ import annotations
 
 import glob
@@ -48,11 +49,18 @@ def total_memory() -> int | None:
             import ctypes
 
             class _MS(ctypes.Structure):
-                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
-                            ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
-                            ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
-                            ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
-                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
             ms = _MS()
             ms.dwLength = ctypes.sizeof(_MS)
             if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(ms)):
@@ -73,6 +81,7 @@ def user_cache_dir() -> str:
 def app_dirs() -> list[str]:
     """Ordner der eigenen Programmdatei (Installer/AppImage bringen dort z. B. Ghostscript mit)."""
     import sys
+
     if getattr(sys, "frozen", False):
         return [os.path.dirname(os.path.abspath(sys.executable))]
     return []
@@ -85,11 +94,12 @@ def find_program(names: list[str], win_globs: list[str] = ()) -> str | None:
         if p:
             return p
     if IS_WIN:
-        roots = app_dirs() + [os.environ.get(v) for v in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432",
-                                                          "LOCALAPPDATA")]
+        roots = app_dirs() + [
+            os.environ.get(v) for v in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "LOCALAPPDATA")
+        ]
         for root in filter(None, roots):
             for pat in win_globs:
-                hits = sorted(glob.glob(os.path.join(root, pat)), reverse=True)   # neueste Version zuerst
+                hits = sorted(glob.glob(os.path.join(root, pat)), reverse=True)  # neueste Version zuerst
                 if hits:
                     return hits[0]
     return None
@@ -108,6 +118,7 @@ def notify(title: str, body: str, error: bool = False):
     if IS_WIN:
         try:
             from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+
             app = QApplication.instance()
             if app is None:
                 return
@@ -116,18 +127,24 @@ def notify(title: str, body: str, error: bool = False):
                 tray = QSystemTrayIcon(app.windowIcon(), app)
                 app._passermark_tray = tray
             tray.show()
-            tray.showMessage(title, body, QSystemTrayIcon.MessageIcon.Critical if error
-                             else QSystemTrayIcon.MessageIcon.Information, 6000)
+            tray.showMessage(
+                title,
+                body,
+                QSystemTrayIcon.MessageIcon.Critical if error else QSystemTrayIcon.MessageIcon.Information,
+                6000,
+            )
         except Exception:
             pass
         return
     if shutil.which("notify-send"):
-        subprocess.Popen(["notify-send", "-a", "Passermark", "-i", "dialog-error" if error else "passermark",
-                          title, body], start_new_session=True)
+        subprocess.Popen(
+            ["notify-send", "-a", "Passermark", "-i", "dialog-error" if error else "passermark", title, body],
+            start_new_session=True,
+        )
 
 
 def hidden_subprocess_kwargs() -> dict:
     """On Windows, do not let a console window flash up for helper programs."""
     if IS_WIN:
-        return {"creationflags": 0x08000000}        # CREATE_NO_WINDOW
+        return {"creationflags": 0x08000000}  # CREATE_NO_WINDOW
     return {}

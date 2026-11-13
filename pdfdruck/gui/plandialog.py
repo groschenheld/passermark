@@ -9,6 +9,7 @@ Plan printing window in three parts: the plans (add with + or drag in), the run 
 copies) and the settings (colour, material, print area, rotation, scale, bleed, marks, order). The work is done by
 planprint (same as passermark-cli plan / the workflow step "plan"); the rolls come from rolls (device or by hand).
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -16,11 +17,41 @@ import os
 
 from PySide6.QtCore import QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QColorDialog, QComboBox, QDialog,
-                               QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGroupBox, QHBoxLayout,
-                               QHeaderView, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem, QMenu, QMessageBox, QPlainTextEdit, QPushButton,
-                               QScrollArea, QSizePolicy, QSpinBox, QSplitter,
-                               QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QCheckBox,
+    QColorDialog,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListView,
+    QListWidget,
+    QListWidgetItem,
+    QMenu,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import planprint as pp
 from .. import printers
@@ -29,23 +60,42 @@ from ..l10n import tr
 from . import theme
 from .icons import icon
 
-SETTINGS_KEY = "plan"                 # Benutzereinstellung: zuletzt verwendete Plan-Einstellungen
+SETTINGS_KEY = "plan"  # Benutzereinstellung: zuletzt verwendete Plan-Einstellungen
 PRINTER_KEY = "plan_printer"
 
-FRAME_TEXT = {"auto": "Automatisch (zwei Außenlinien, sonst Inhalt + Rand)", "frame": "Auf die äußere Linie",
-              "margin": "Inhalt + Rand", "none": "Ganze Seite"}
-ROTATE_TEXT = {"auto": "Kürzeste Länge auf der Rolle (drehen erlaubt)", "keep": "Wie angeliefert",
-               "short": "Kurze Seite quer zur Rolle", "long": "Lange Seite quer zur Rolle"}
+FRAME_TEXT = {
+    "auto": "Automatisch (zwei Außenlinien, sonst Inhalt + Rand)",
+    "frame": "Auf die äußere Linie",
+    "margin": "Inhalt + Rand",
+    "none": "Ganze Seite",
+}
+ROTATE_TEXT = {
+    "auto": "Kürzeste Länge auf der Rolle (drehen erlaubt)",
+    "keep": "Wie angeliefert",
+    "short": "Kurze Seite quer zur Rolle",
+    "long": "Lange Seite quer zur Rolle",
+}
 ORDER_TEXT = {"list": "Reihenfolge der Liste", "roll": "Nach Rollenbreite (schmal zuerst)"}
 COLOR_TEXT = {"": "Wie im Treiber", "color": "Farbe", "gray": "Graustufen"}
 QMODE_TEXT = {"production": "Produktionsdruck (schnell)", "quality": "Qualitätsdruck (höchste Qualität)"}
 BLEED_TEXT = {"mirror": "Gespiegelt", "blank": "Leerraum", "color": "Einzelfarbe"}
-ORIGIN_TEXT = {"ipp": "vom Gerät (IPP)", "snmp": "vom Gerät (SNMP)", "manual": "von Hand eingetragen",
-               "settings": "aus den Einstellungen", "roland": "vom Gerät (Roland)"}
-OVER_TEXT = {"none": "Auslassen (Warnung)", "crop": "Abschneiden (was nicht passt)",
-             "tile": "In Bahnen teilen (mit Überlappung)"}
-COPIES_TEXT = {"sheets": "Ein Auftrag, je Exemplar ein Blatt", "jobs": "Je Exemplar ein eigener Auftrag",
-               "count": "Kopienzahl (Gerät entscheidet übers Schneiden)"}
+ORIGIN_TEXT = {
+    "ipp": "vom Gerät (IPP)",
+    "snmp": "vom Gerät (SNMP)",
+    "manual": "von Hand eingetragen",
+    "settings": "aus den Einstellungen",
+    "roland": "vom Gerät (Roland)",
+}
+OVER_TEXT = {
+    "none": "Auslassen (Warnung)",
+    "crop": "Abschneiden (was nicht passt)",
+    "tile": "In Bahnen teilen (mit Überlappung)",
+}
+COPIES_TEXT = {
+    "sheets": "Ein Auftrag, je Exemplar ein Blatt",
+    "jobs": "Je Exemplar ein eigener Auftrag",
+    "count": "Kopienzahl (Gerät entscheidet übers Schneiden)",
+}
 SCALE_TEXT = {"pct": "Prozent", "short": "Kurze Kante auf", "long": "Lange Kante auf"}
 ALIGN_TEXT = {"center": "Mittig", "left": "Am Rand (links)", "right": "Am Rand (rechts)"}
 COLOR_MODE_TEXT = {"convert": "Umwandeln", "embed": "Nur einbetten", "none": "Nichts"}
@@ -54,9 +104,9 @@ CAT_TEXT = {"plan": "Plandruck", "quality": "Qualitätsdruck"}
 KIND_SHORT = {"frame": "Außenlinie", "margin": "Rand", "page": "Seite", "empty": "leer"}
 
 
-PREVIEW_PX = 150                      # Vorschaubild: längere Kante in Pixel
-PREVIEW_MAX = 24                      # höchstens so viele Druckseiten in der Vorschau
-_RUNNING: set = set()                 # laufende Geräteabfragen (überleben das Schließen des Fensters)
+PREVIEW_PX = 150  # Vorschaubild: längere Kante in Pixel
+PREVIEW_MAX = 24  # höchstens so viele Druckseiten in der Vorschau
+_RUNNING: set = set()  # laufende Geräteabfragen (überleben das Schließen des Fensters)
 
 
 def fill_combo(combo: QComboBox, choices, current):
@@ -78,8 +128,9 @@ class MsgBox(QPlainTextEdit):
         self.setReadOnly(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
-        self.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse
-                                     | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        self.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -91,7 +142,7 @@ class MsgBox(QPlainTextEdit):
     def setText(self, text: str):
         self.setPlainText(text or "")
         self.setVisible(bool(text))
-        QTimer.singleShot(0, self._fit)              # Zeilenzahl steht erst nach dem Umbruch fest
+        QTimer.singleShot(0, self._fit)  # Zeilenzahl steht erst nach dem Umbruch fest
 
     def text(self) -> str:
         return self.toPlainText()
@@ -109,7 +160,7 @@ class MsgBox(QPlainTextEdit):
 
 def make_responsive(w: QWidget):
     """Lange Einträge (Rollen, Materialien, Meldungen) dürfen das Fenster nicht breiter machen bzw. die
-        Einstellungen ineinanderschieben: Auswahllisten kürzen, Formulare umbrechen."""
+    Einstellungen ineinanderschieben: Auswahllisten kürzen, Formulare umbrechen."""
     for c in w.findChildren(QComboBox):
         c.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         c.setMinimumContentsLength(8)
@@ -126,7 +177,7 @@ def make_responsive(w: QWidget):
 
 def _start_query(host: str, receiver, tag: str = "", fn=None):
     """Gerät im Hintergrund abfragen. receiver = gebundene Methode eines Fensters (wird dann im Haupt-Thread
-        aufgerufen und automatisch getrennt, wenn das Fenster schon zu ist): receiver(RollState, tag)."""
+    aufgerufen und automatisch getrennt, wenn das Fenster schon zu ist): receiver(RollState, tag)."""
     for old in [t for t in _RUNNING if t.isFinished()]:
         _RUNNING.discard(old)
     q = _RollQuery(host, tag, fn)
@@ -155,6 +206,7 @@ def _clean(s: pp.PlanSettings) -> dict:
 def load_settings(kind: str = "plan") -> pp.PlanSettings:
     """Standard (eigener, sonst eingebauter) + was zuletzt eingestellt, aber nicht gedruckt wurde."""
     from .. import core, l10n
+
     st = l10n.load_settings()
     d = st.get(_keys(kind)[0]) or {}
     std = st.get(_std_key(kind)) or {}
@@ -169,8 +221,9 @@ def load_settings(kind: str = "plan") -> pp.PlanSettings:
 
 def save_settings(s: pp.PlanSettings, printer: str, reset: bool = False) -> None:
     """Merken, was eingestellt ist. reset=True (nach dem Drucken): beim nächsten Mal wieder der Standard –
-        nur der Drucker bleibt."""
+    nur der Drucker bleibt."""
     from .. import l10n
+
     st = l10n.load_settings()
     skey, pkey = _keys(s.kind)
     if reset:
@@ -187,6 +240,7 @@ def save_settings(s: pp.PlanSettings, printer: str, reset: bool = False) -> None
 
 class _RollQuery(QThread):
     """Gerät abfragen (nur Netzwerk – kein pdfium) ohne die Oberfläche anzuhalten."""
+
     done = Signal(object, str)
 
     def __init__(self, host: str, tag: str = "", fn=None):
@@ -196,7 +250,7 @@ class _RollQuery(QThread):
     def run(self):
         try:
             st = self.fn(self.host)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             st = rl.RollState([], "none", str(e), self.host)
         self.done.emit(st, self.tag)
 
@@ -218,31 +272,41 @@ class RollsDialog(QDialog):
             self.caps = None
         self._q = None
         v = QVBoxLayout(self)
-        t = QLabel(tr("Passermark liest die geladenen Rollen direkt vom Gerät (IPP, sonst SNMP). Meldet das Gerät "
-                      "nichts, gelten die hier eingetragenen Rollen. Die Zufuhr ist der Wert im Treiber."))
+        t = QLabel(
+            tr(
+                "Passermark liest die geladenen Rollen direkt vom Gerät (IPP, sonst SNMP). Meldet das Gerät "
+                "nichts, gelten die hier eingetragenen Rollen. Die Zufuhr ist der Wert im Treiber."
+            )
+        )
         t.setWordWrap(True)
         v.addWidget(t)
         row = QHBoxLayout()
         row.addWidget(QLabel(tr("Geräteadresse:")))
         self.ed_host = QLineEdit(rl.host_for(session, printer))
         self.ed_host.setPlaceholderText(tr("IP-Adresse oder Name, z. B. 10.30.4.73"))
-        self.ed_host.setToolTip(tr("Wird aus dem Anschluss ermittelt; geht das nicht (WSD, Druckserver), hier "
-                                   "eintragen – gilt nur für dich"))
+        self.ed_host.setToolTip(
+            tr(
+                "Wird aus dem Anschluss ermittelt; geht das nicht (WSD, Druckserver), hier "
+                "eintragen – gilt nur für dich"
+            )
+        )
         row.addWidget(self.ed_host, 1)
         self.btn_query = QPushButton(tr("Vom Gerät lesen"))
         self.btn_query.clicked.connect(self._query)
         row.addWidget(self.btn_query)
         self.btn_probe = QPushButton(icon("check"), tr("Gerät prüfen …"))
-        self.btn_probe.setToolTip(tr("Alles abfragen, was das Gerät über IPP/SNMP meldet – Bericht zum Speichern "
-                                     "und Weitergeben"))
+        self.btn_probe.setToolTip(
+            tr("Alles abfragen, was das Gerät über IPP/SNMP meldet – Bericht zum Speichern und Weitergeben")
+        )
         self.btn_probe.clicked.connect(self._probe)
         row.addWidget(self.btn_probe)
         v.addLayout(row)
         self.lbl_dev = MsgBox(5)
         v.addWidget(self.lbl_dev)
         self.tbl = QTableWidget(0, 5)
-        self.tbl.setHorizontalHeaderLabels([tr("Breite (mm)"), tr("Zufuhr im Treiber"), tr("g/m²"), tr("Name"),
-                                            tr("Material")])
+        self.tbl.setHorizontalHeaderLabels(
+            [tr("Breite (mm)"), tr("Zufuhr im Treiber"), tr("g/m²"), tr("Name"), tr("Material")]
+        )
         self.tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         v.addWidget(self.tbl, 1)
@@ -328,7 +392,7 @@ class RollsDialog(QDialog):
         except OSError:
             pass
         try:
-            rl.set_user_host(self.printer, "" if host == auto else host)   # nur merken, was abweicht
+            rl.set_user_host(self.printer, "" if host == auto else host)  # nur merken, was abweicht
         except OSError:
             pass
         return host
@@ -341,6 +405,7 @@ class RollsDialog(QDialog):
         self.btn_query.setEnabled(False)
         self.lbl_dev.setText(tr("Frage {0} ab …").format(host))
         from .. import roland
+
         fn = rl.query_roland if roland.is_roland(self.printer, rl.model_of(self.printer)) else None
         self._q = _start_query(host, self._queried, "", fn)
 
@@ -350,6 +415,7 @@ class RollsDialog(QDialog):
             self.lbl_dev.setText(tr("Keine Geräteadresse – oben die IP-Adresse des Geräts eintragen."))
             return
         from .. import probe
+
         self.btn_probe.setEnabled(False)
         self.lbl_dev.setText(tr("Prüfe {0} … (bis zu einer Minute)").format(host))
         printer = self.printer
@@ -357,15 +423,17 @@ class RollsDialog(QDialog):
 
     def _probed(self, rep, _tag=""):
         from .. import probe
+
         self.btn_probe.setEnabled(True)
-        if not isinstance(rep, dict):                      # Fehler im Thread: RollState mit Meldung
+        if not isinstance(rep, dict):  # Fehler im Thread: RollState mit Meldung
             self.lbl_dev.setText(getattr(rep, "error", "") or tr("Prüfung fehlgeschlagen"))
             return
         ProbeDialog(self, rep).exec()
         r = rep.get("rolls") or {}
         if r.get("rolls"):
-            self._queried(rl.RollState([rl.Roll.from_dict(x) for x in r["rolls"]], r.get("origin", ""), "",
-                                       rep.get("host", "")))
+            self._queried(
+                rl.RollState([rl.Roll.from_dict(x) for x in r["rolls"]], r.get("origin", ""), "", rep.get("host", ""))
+            )
         else:
             self.lbl_dev.setText(probe.text(rep).splitlines()[-1])
 
@@ -375,8 +443,11 @@ class RollsDialog(QDialog):
         for i, r in enumerate(self.live):
             r.slot = r.slot or (rl.slot_for(self.caps, r.device or r.name, i) if self.caps else "")
         if st.rolls:
-            self.lbl_dev.setText(tr("Gerät {0} meldet {1}:").format(st.host, tr(ORIGIN_TEXT.get(st.origin, st.origin)))
-                                 + "<br>" + "<br>".join(r.label() for r in st.rolls))
+            self.lbl_dev.setText(
+                tr("Gerät {0} meldet {1}:").format(st.host, tr(ORIGIN_TEXT.get(st.origin, st.origin)))
+                + "<br>"
+                + "<br>".join(r.label() for r in st.rolls)
+            )
         else:
             self.lbl_dev.setText(tr("Gerät {0}: keine Rollen gemeldet ({1})").format(st.host, st.error or "–"))
         self.btn_take.setEnabled(bool(self.live))
@@ -406,6 +477,7 @@ class ProbeDialog(QDialog):
         super().__init__(parent)
         from PySide6.QtWidgets import QPlainTextEdit
         from .. import probe
+
         self.rep = rep
         self.setWindowTitle(tr("Gerät prüfen – {0}").format(rep.get("printer") or rep.get("host")))
         v = QVBoxLayout(self)
@@ -425,9 +497,13 @@ class ProbeDialog(QDialog):
 
     def _save(self):
         from .. import probe
-        out, _ = QFileDialog.getSaveFileName(self, tr("Bericht speichern"),
-                                             os.path.join(os.path.expanduser("~"), probe.default_name(self.rep)),
-                                             "JSON (*.json)")
+
+        out, _ = QFileDialog.getSaveFileName(
+            self,
+            tr("Bericht speichern"),
+            os.path.join(os.path.expanduser("~"), probe.default_name(self.rep)),
+            "JSON (*.json)",
+        )
         if out:
             try:
                 probe.save(self.rep, out)
@@ -437,21 +513,39 @@ class ProbeDialog(QDialog):
 
 class MaterialsDialog(QDialog):
     """Druckmaterialien: Hauptkategorie (Plandruck/Qualitätsdruck), dann die Einstellungen je Material."""
-    COLS = ("Name", "Kategorie", "g/m²", "Medientyp", "Qualität", "Tintenmenge", "Profil", "Farbe",
-            "max. Farbauftrag", "nur für diesen Drucker", "Quelle", "geprüft")
+
+    COLS = (
+        "Name",
+        "Kategorie",
+        "g/m²",
+        "Medientyp",
+        "Qualität",
+        "Tintenmenge",
+        "Profil",
+        "Farbe",
+        "max. Farbauftrag",
+        "nur für diesen Drucker",
+        "Quelle",
+        "geprüft",
+    )
     C_COLOR, C_TAC, C_PRN, C_SRC, C_OK = 7, 8, 9, 10, 11
 
     def __init__(self, parent, session, printer: str, caps, device: list | None = None):
         super().__init__(parent)
         from .. import printmat
+
         self.setWindowTitle(tr("Materialien – {0}").format(printer or tr("alle Drucker")))
         self.session, self.printer, self.caps = session, printer, caps
         self.others = [m for m in printmat.load() if m["printer"] and m["printer"] != printer]
         v = QVBoxLayout(self)
-        t = QLabel(tr("Zuerst die Kategorie (Plandruck = Produktionsdruck, Qualitätsdruck = Poster, Foto, PVC …), "
-                      "dann je Material: Grammatur (wählt die Rolle), Medientyp und Qualität im Treiber, Tintenmenge "
-                      "(falls der Treiber sie anbietet) und das Farbprofil – sein Farbauftrag ist die echte Grenze. "
-                      "„max. Farbauftrag“ ist der Richtwert, gegen den Passermark warnt."))
+        t = QLabel(
+            tr(
+                "Zuerst die Kategorie (Plandruck = Produktionsdruck, Qualitätsdruck = Poster, Foto, PVC …), "
+                "dann je Material: Grammatur (wählt die Rolle), Medientyp und Qualität im Treiber, Tintenmenge "
+                "(falls der Treiber sie anbietet) und das Farbprofil – sein Farbauftrag ist die echte Grenze. "
+                "„max. Farbauftrag“ ist der Richtwert, gegen den Passermark warnt."
+            )
+        )
         t.setWordWrap(True)
         v.addWidget(t)
         self.tbl = QTableWidget(0, len(self.COLS))
@@ -461,7 +555,7 @@ class MaterialsDialog(QDialog):
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         v.addWidget(self.tbl, 1)
         self.ids = []
-        self.orig = []                         # je Zeile das gespeicherte Material (Felder ohne eigene Spalte)
+        self.orig = []  # je Zeile das gespeicherte Material (Felder ohne eigene Spalte)
         self.device = list(device or [])
         row = QHBoxLayout()
         b = QPushButton(icon("insert"), tr("Material hinzufügen"))
@@ -471,14 +565,22 @@ class MaterialsDialog(QDialog):
         b.clicked.connect(self._remove)
         row.addWidget(b)
         b = QPushButton(tr("Vom Gerät übernehmen"))
-        b.setToolTip(tr("Die Medien, die das Gerät meldet (geladen und im Katalog), als Materialien anlegen – "
-                        "ungeprüft, bis du sie abhakst"))
+        b.setToolTip(
+            tr(
+                "Die Medien, die das Gerät meldet (geladen und im Katalog), als Materialien anlegen – "
+                "ungeprüft, bis du sie abhakst"
+            )
+        )
         b.setEnabled(bool(self.device))
         b.clicked.connect(self._from_device)
         row.addWidget(b)
         b = QPushButton(icon("open"), tr("Importieren …"))
-        b.setToolTip(tr("Materialliste aus CSV oder JSON (z. B. Export aus dem RIP): Spalten wie Name/Material, "
-                        "Grammatur/gsm, Medientyp, Qualität, Profil werden erkannt"))
+        b.setToolTip(
+            tr(
+                "Materialliste aus CSV oder JSON (z. B. Export aus dem RIP): Spalten wie Name/Material, "
+                "Grammatur/gsm, Medientyp, Qualität, Profil werden erkannt"
+            )
+        )
         b.clicked.connect(self._import)
         row.addWidget(b)
         row.addStretch(1)
@@ -516,7 +618,8 @@ class MaterialsDialog(QDialog):
         return c
 
     def _add(self, m: dict):
-        from .. import config, printmat
+        from .. import printmat
+
         n = self.tbl.rowCount()
         self.tbl.insertRow(n)
         self.ids.append(m.get("id", ""))
@@ -554,9 +657,13 @@ class MaterialsDialog(QDialog):
         cc = QComboBox()
         for k, txt in COLOR_MODE_TEXT.items():
             cc.addItem(tr(txt), k)
-        cc.setToolTip(tr("Umwandeln: Passermark rechnet ins Profil um, das Gerät soll nicht mehr umrechnen (am "
-                         "sichersten).\nNur einbetten: das Profil geht als Output Intent mit, das Gerät/der RIP wendet "
-                         "es an.\nNichts: unverändert senden, die Farbe macht ganz das Gerät."))
+        cc.setToolTip(
+            tr(
+                "Umwandeln: Passermark rechnet ins Profil um, das Gerät soll nicht mehr umrechnen (am "
+                "sichersten).\nNur einbetten: das Profil geht als Output Intent mit, das Gerät/der RIP wendet "
+                "es an.\nNichts: unverändert senden, die Farbe macht ganz das Gerät."
+            )
+        )
         cc.setCurrentIndex(max(0, cc.findData(m.get("color_mode", "convert"))))
         self.tbl.setCellWidget(n, self.C_COLOR, cc)
         t = QSpinBox()
@@ -586,6 +693,7 @@ class MaterialsDialog(QDialog):
 
     def _rows(self) -> list:
         from .. import printmat
+
         out = []
         for i in range(self.tbl.rowCount()):
             name = (self.tbl.item(i, 0).text() if self.tbl.item(i, 0) else "").strip()
@@ -594,22 +702,32 @@ class MaterialsDialog(QDialog):
             dc = self.tbl.cellWidget(i, 5)
             mid = self.ids[i] or printmat.new_id(name, self.others + out)
             o = self.orig[i]
-            out.append({**{k: o[k] for k in ("options", "intent", "notes", "cut_force", "cut_speed", "updated")
-                           if k in o},
-                        "source": o.get("source", "hand"), "checked": self.tbl.cellWidget(i, self.C_OK).isChecked(),
-                        "color_mode": self.tbl.cellWidget(i, self.C_COLOR).currentData() or "convert",
-                        "id": mid, "name": name, "category": self.tbl.cellWidget(i, 1).currentData(),
-                        "weight": self.tbl.cellWidget(i, 2).value(), "media": self.tbl.cellWidget(i, 3).currentData(),
-                        "quality": self.tbl.cellWidget(i, 4).currentData(),
-                        "density_key": (dc.property("density_key") or "") if dc.currentData() else "",
-                        "density": dc.currentData() or "", "profile": self.tbl.cellWidget(i, 6).currentData(),
-                        "tac": self.tbl.cellWidget(i, self.C_TAC).value(),
-                        "printer": self.printer if self.tbl.cellWidget(i, self.C_PRN).isChecked() else ""})
+            out.append(
+                {
+                    **{k: o[k] for k in ("options", "intent", "notes", "cut_force", "cut_speed", "updated") if k in o},
+                    "source": o.get("source", "hand"),
+                    "checked": self.tbl.cellWidget(i, self.C_OK).isChecked(),
+                    "color_mode": self.tbl.cellWidget(i, self.C_COLOR).currentData() or "convert",
+                    "id": mid,
+                    "name": name,
+                    "category": self.tbl.cellWidget(i, 1).currentData(),
+                    "weight": self.tbl.cellWidget(i, 2).value(),
+                    "media": self.tbl.cellWidget(i, 3).currentData(),
+                    "quality": self.tbl.cellWidget(i, 4).currentData(),
+                    "density_key": (dc.property("density_key") or "") if dc.currentData() else "",
+                    "density": dc.currentData() or "",
+                    "profile": self.tbl.cellWidget(i, 6).currentData(),
+                    "tac": self.tbl.cellWidget(i, self.C_TAC).value(),
+                    "printer": self.printer if self.tbl.cellWidget(i, self.C_PRN).isChecked() else "",
+                }
+            )
         return out
 
     def _names(self) -> set:
-        return {(self.tbl.item(i, 0).text() if self.tbl.item(i, 0) else "").strip().lower()
-                for i in range(self.tbl.rowCount())}
+        return {
+            (self.tbl.item(i, 0).text() if self.tbl.item(i, 0) else "").strip().lower()
+            for i in range(self.tbl.rowCount())
+        }
 
     def _add_new(self, mats: list) -> int:
         have, n = self._names(), 0
@@ -624,29 +742,47 @@ class MaterialsDialog(QDialog):
 
     def _from_device(self):
         from .. import printmat
+
         n = self._add_new(printmat.from_device(self.device, self.printer))
-        QMessageBox.information(self, tr("Materialien"), tr("{0} Material(ien) vom Gerät übernommen – ungeprüft. "
-                                                            "Einstellungen ansehen, abhaken, speichern.").format(n)
-                                if n else tr("Alle gemeldeten Medien sind schon angelegt."))
+        QMessageBox.information(
+            self,
+            tr("Materialien"),
+            tr("{0} Material(ien) vom Gerät übernommen – ungeprüft. Einstellungen ansehen, abhaken, speichern.").format(
+                n
+            )
+            if n
+            else tr("Alle gemeldeten Medien sind schon angelegt."),
+        )
 
     def _import(self):
         from .. import printmat
-        path, _ = QFileDialog.getOpenFileName(self, tr("Materialliste importieren"), os.path.expanduser("~"),
-                                              tr("Materiallisten (*.csv *.txt *.json);;Alle Dateien (*)"))
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Materialliste importieren"),
+            os.path.expanduser("~"),
+            tr("Materiallisten (*.csv *.txt *.json);;Alle Dateien (*)"),
+        )
         if not path:
             return
         try:
             mats = printmat.parse_import(path, self.printer)
-        except Exception as e:                                  # noqa: BLE001 – jede Ursache melden
+        except Exception as e:  # noqa: BLE001 – jede Ursache melden
             QMessageBox.warning(self, tr("Materialien"), tr("Import nicht möglich: {0}").format(e))
             return
         n = self._add_new(mats)
-        QMessageBox.information(self, tr("Materialien"), tr("{0} von {1} Material(ien) übernommen (gleiche Namen "
-                                                            "übersprungen) – ungeprüft. Ansehen, abhaken, speichern.")
-                                .format(n, len(mats)))
+        QMessageBox.information(
+            self,
+            tr("Materialien"),
+            tr(
+                "{0} von {1} Material(ien) übernommen (gleiche Namen "
+                "übersprungen) – ungeprüft. Ansehen, abhaken, speichern."
+            ).format(n, len(mats)),
+        )
 
     def _fill_defaults(self):
         from .. import printmat
+
         if not self.printer:
             return
         rows = []
@@ -664,6 +800,7 @@ class MaterialsDialog(QDialog):
 
     def _save(self):
         from .. import printmat
+
         rows = self._rows()
         try:
             printmat.save(self.others + rows)
@@ -683,9 +820,13 @@ class FoldersDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(tr("Ausgabe-Ordner"))
         v = QVBoxLayout(self)
-        t = QLabel(tr("Für Geräte ohne Druckertreiber (Roland über VersaWorks, andere RIPs): jede Druckseite wird als "
-                      "PDF in den Ordner gelegt – mit CutContour, falls eingeschaltet. Der Ordner erscheint dann wie "
-                      "ein Drucker; Rollen dafür unter „Rollen …“ eintragen."))
+        t = QLabel(
+            tr(
+                "Für Geräte ohne Druckertreiber (Roland über VersaWorks, andere RIPs): jede Druckseite wird als "
+                "PDF in den Ordner gelegt – mit CutContour, falls eingeschaltet. Der Ordner erscheint dann wie "
+                "ein Drucker; Rollen dafür unter „Rollen …“ eintragen."
+            )
+        )
         t.setWordWrap(True)
         v.addWidget(t)
         self.tbl = QTableWidget(0, 2)
@@ -700,8 +841,11 @@ class FoldersDialog(QDialog):
         b.clicked.connect(self._add_dir)
         row.addWidget(b)
         b = QPushButton(icon("delete"), tr("Entfernen"))
-        b.clicked.connect(lambda: [self.tbl.removeRow(i) for i in sorted(
-            {ix.row() for ix in self.tbl.selectedIndexes()}, reverse=True)])
+        b.clicked.connect(
+            lambda: [
+                self.tbl.removeRow(i) for i in sorted({ix.row() for ix in self.tbl.selectedIndexes()}, reverse=True)
+            ]
+        )
         row.addWidget(b)
         row.addStretch(1)
         v.addLayout(row)
@@ -716,8 +860,12 @@ class FoldersDialog(QDialog):
 
     def _check_home(self):
         from .. import shared
-        bad = [self.tbl.item(i, 1).text() for i in range(self.tbl.rowCount())
-               if self.tbl.item(i, 1) and shared.in_home(self.tbl.item(i, 1).text())]
+
+        bad = [
+            self.tbl.item(i, 1).text()
+            for i in range(self.tbl.rowCount())
+            if self.tbl.item(i, 1) and shared.in_home(self.tbl.item(i, 1).text())
+        ]
         self.lbl_home.setText(shared.home_hint() if bad else "")
 
     def _row(self, name, d):
@@ -728,6 +876,7 @@ class FoldersDialog(QDialog):
 
     def _add_dir(self):
         from .. import shared
+
         d = QFileDialog.getExistingDirectory(self, tr("Ausgabe-Ordner wählen"), shared.hotfolder_dir())
         if d:
             self._row(os.path.basename(d.rstrip("/\\")) or d, d)
@@ -747,7 +896,7 @@ class FoldersDialog(QDialog):
         self.accept()
 
 
-_WINDOWS: dict = {}          # je Art ("plan", "poster") höchstens ein offenes Fenster
+_WINDOWS: dict = {}  # je Art ("plan", "poster") höchstens ein offenes Fenster
 
 
 def open_windows() -> list:
@@ -756,23 +905,27 @@ def open_windows() -> list:
 
 def open_window(session, ctl=None, kind: str = "plan", entry: dict | None = None, files=None):
     """Plan- bzw. Posterdruck als eigenes Fenster (ohne Elternfenster): bleibt offen, wenn die Dokumentfenster
-        zugehen. Schon offen: nach vorne holen; entry = früheren Druck öffnen, files = Dateien dazunehmen."""
+    zugehen. Schon offen: nach vorne holen; entry = früheren Druck öffnen, files = Dateien dazunehmen."""
     kind = kind if kind in pp.KINDS else "plan"
     dlg = _WINDOWS.get(kind)
     if dlg is None:
         dlg = PlanDialog(None, session, ctl, None, "", "", kind)
-        dlg.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowMinimizeButtonHint
-                           | Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
+        dlg.setWindowFlags(
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
+        )
         dlg.setModal(False)
         dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         _WINDOWS[kind] = dlg
         dlg.finished.connect(lambda _r, k=kind, d=dlg: _WINDOWS.pop(k, None) if _WINDOWS.get(k) is d else None)
-        try:                                     # nie größer als der Bildschirm (kleine Notebooks)
+        try:  # nie größer als der Bildschirm (kleine Notebooks)
             scr = dlg.screen().availableGeometry()
             w, h = min(dlg.width(), scr.width() - 40), min(dlg.height(), scr.height() - 60)
             if (w, h) != (dlg.width(), dlg.height()):
                 dlg.resize(max(640, w), max(420, h))
-        except Exception:                                       # noqa: BLE001
+        except Exception:  # noqa: BLE001
             pass
     if entry is not None:
         dlg.load_history(entry)
@@ -798,14 +951,14 @@ class PlanDialog(QDialog):
         self.setAcceptDrops(True)
         self.session, self.ctl = session, ctl
         self.items: list = []
-        self.owned: list = []                 # selbst geöffnete Dokumente (beim Schließen freigeben)
+        self.owned: list = []  # selbst geöffnete Dokumente (beim Schließen freigeben)
         self.rolls: list = []
         self.roll_state = None
         self.caps = None
         self.printer = ""
         self._queue: list = []
         self._q = None
-        self._retired = []          # nach einem Druck abgelegte Dokumente – erst beim Schließen freigeben
+        self._retired = []  # nach einem Druck abgelegte Dokumente – erst beim Schließen freigeben
         self._building = False
         self.s0 = load_settings(self.kind)
         self._bleed_color = self.s0.bleed_color
@@ -866,7 +1019,7 @@ class PlanDialog(QDialog):
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._menu)
         self.tree.itemChanged.connect(self._qty_changed)
-        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)      # nur die Menge
+        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)  # nur die Menge
         self.tree.itemDoubleClicked.connect(lambda row, col: self.tree.editItem(row, 4) if col == 4 else None)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         vsplit = QSplitter(Qt.Orientation.Vertical)
@@ -898,8 +1051,12 @@ class PlanDialog(QDialog):
         self._prev_timer.setSingleShot(True)
         self._prev_timer.setInterval(350)
         self._prev_timer.timeout.connect(self._preview)
-        self.lbl_hint = QLabel(tr("Pläne mit + hinzufügen oder ins Fenster ziehen. Jede Seite ist ein Plan. "
-                                  "Menge: Doppelklick. Rechtsklick: Druckbereich je Plan."))
+        self.lbl_hint = QLabel(
+            tr(
+                "Pläne mit + hinzufügen oder ins Fenster ziehen. Jede Seite ist ein Plan. "
+                "Menge: Doppelklick. Rechtsklick: Druckbereich je Plan."
+            )
+        )
         self.lbl_hint.setWordWrap(True)
         self.lbl_hint.setStyleSheet(f"color: {theme.MUTED};")
         lv.addWidget(self.lbl_hint)
@@ -928,17 +1085,22 @@ class PlanDialog(QDialog):
         self.spn_copies.setValue(max(1, s0.copies))
         row.addWidget(self.spn_copies)
         self.chk_collate = QCheckBox(tr("Sortiert"))
-        self.chk_collate.setToolTip(tr("Aus: jeder Plan alle Exemplare hintereinander (Plan 1 ×3, Plan 2 ×3 …).\n"
-                                       "An: Satz für Satz."))
+        self.chk_collate.setToolTip(
+            tr("Aus: jeder Plan alle Exemplare hintereinander (Plan 1 ×3, Plan 2 ×3 …).\nAn: Satz für Satz.")
+        )
         self.chk_collate.setChecked(s0.collate)
         row.addWidget(self.chk_collate)
         row.addStretch(1)
         f.addRow(tr("Exemplare:"), row)
         self.cmb_copies = QComboBox()
         fill_combo(self.cmb_copies, [(k, tr(t)) for k, t in COPIES_TEXT.items()], pp.copies_mode(s0))
-        self.cmb_copies.setToolTip(tr("Ein Auftrag, je Exemplar ein Blatt: so erwartet es z. B. die ColorWave – sie "
-                                      "schneidet nach jedem Blatt.\nJe Exemplar ein Auftrag: (1/3), (2/3) …\n"
-                                      "Kopienzahl: ein Blatt, das Gerät druckt es mehrfach."))
+        self.cmb_copies.setToolTip(
+            tr(
+                "Ein Auftrag, je Exemplar ein Blatt: so erwartet es z. B. die ColorWave – sie "
+                "schneidet nach jedem Blatt.\nJe Exemplar ein Auftrag: (1/3), (2/3) …\n"
+                "Kopienzahl: ein Blatt, das Gerät druckt es mehrfach."
+            )
+        )
         f.addRow(tr("Versand:"), self.cmb_copies)
         self.lbl_scope = QLabel()
         self.lbl_scope.setWordWrap(True)
@@ -952,14 +1114,22 @@ class PlanDialog(QDialog):
         f.addRow(tr("Farbe:"), self.cmb_color)
         self.cmb_qmode = QComboBox()
         fill_combo(self.cmb_qmode, [(k, tr(t)) for k, t in QMODE_TEXT.items()], pp.quality_mode_of(s0))
-        self.cmb_qmode.setToolTip(tr("Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. "
-                                     "höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material "
-                                     "derselben Kategorie eingetragen ist."))
+        self.cmb_qmode.setToolTip(
+            tr(
+                "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. "
+                "höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material "
+                "derselben Kategorie eingetragen ist."
+            )
+        )
         f.addRow(tr("Qualität:"), self.cmb_qmode)
         row = QHBoxLayout()
         self.cmb_mat = QComboBox()
-        self.cmb_mat.setToolTip(tr("Passermark-Material: Grammatur (wählt die Rolle), Medientyp, Qualität, "
-                                   "Tintenmenge und Profil – unter „Materialien …“ je Drucker"))
+        self.cmb_mat.setToolTip(
+            tr(
+                "Passermark-Material: Grammatur (wählt die Rolle), Medientyp, Qualität, "
+                "Tintenmenge und Profil – unter „Materialien …“ je Drucker"
+            )
+        )
         row.addWidget(self.cmb_mat, 1)
         b = QPushButton(icon("material"), "")
         b.setToolTip(tr("Materialien …"))
@@ -967,24 +1137,33 @@ class PlanDialog(QDialog):
         row.addWidget(b)
         f.addRow(tr("Material:"), row)
         self.cmb_roll = QComboBox()
-        self.cmb_roll.setToolTip(tr("Auf diese Rolle drucken – „Automatisch“ wählt nach Material bzw. Grammatur "
-                                    "die schmälste passende"))
+        self.cmb_roll.setToolTip(
+            tr("Auf diese Rolle drucken – „Automatisch“ wählt nach Material bzw. Grammatur die schmälste passende")
+        )
         f.addRow(tr("Rolle:"), self.cmb_roll)
         self.cmb_align = QComboBox()
         fill_combo(self.cmb_align, [(k, tr(t)) for k, t in ALIGN_TEXT.items()], s0.align)
-        self.cmb_align.setToolTip(tr("Am Rand: die Seite ist so breit wie die Rolle, der Plan liegt an der "
-                                     "Rollenkante – Rand bzw. äußere Linie bleiben, es bleibt ein Längsschnitt.\n"
-                                     "Mittig: rundum gleich viel Abstand, das Gerät blendet nichts aus."))
+        self.cmb_align.setToolTip(
+            tr(
+                "Am Rand: die Seite ist so breit wie die Rolle, der Plan liegt an der "
+                "Rollenkante – Rand bzw. äußere Linie bleiben, es bleibt ein Längsschnitt.\n"
+                "Mittig: rundum gleich viel Abstand, das Gerät blendet nichts aus."
+            )
+        )
         f.addRow(tr("Auf der Rolle:"), self.cmb_align)
-        self.cmb_media = QComboBox()            # 1.18.7: nicht mehr angezeigt – der Medientyp folgt der Rolle
+        self.cmb_media = QComboBox()  # 1.18.7: nicht mehr angezeigt – der Medientyp folgt der Rolle
         self.ed_weights = QLineEdit(", ".join(str(w) for w in (s0.weights or [])))
         self.ed_weights.setToolTip(tr("Rollen mit dieser Grammatur werden für Pläne verwendet (leer = alle Rollen)"))
         if self.kind == "plan":
             f.addRow(tr("Planpapier g/m²:"), self.ed_weights)
         self.cmb_frame = QComboBox()
         fill_combo(self.cmb_frame, [(k, tr(t)) for k, t in FRAME_TEXT.items()], s0.frame)
-        self.cmb_frame.setToolTip(tr("Zwei Außenlinien: gedruckt wird bis zur äußeren – sie verschwindet, um den "
-                                     "Plan bleibt ein exakter Rand. Sonst: Inhalt + Rand."))
+        self.cmb_frame.setToolTip(
+            tr(
+                "Zwei Außenlinien: gedruckt wird bis zur äußeren – sie verschwindet, um den "
+                "Plan bleibt ein exakter Rand. Sonst: Inhalt + Rand."
+            )
+        )
         f.addRow(tr("Druckbereich:"), self.cmb_frame)
         self.spn_margin = QDoubleSpinBox()
         self.spn_margin.setRange(0, 100)
@@ -1044,8 +1223,9 @@ class PlanDialog(QDialog):
             f.addRow("", self.chk_fold)
         row = QHBoxLayout()
         self.chk_nest = QCheckBox(tr("Nebeneinander auf die Rolle"))
-        self.chk_nest.setToolTip(tr("Mehrere Stücke nebeneinander – spart Laufmeter (die Reihenfolge ergibt sich "
-                                    "dann aus der Verteilung)"))
+        self.chk_nest.setToolTip(
+            tr("Mehrere Stücke nebeneinander – spart Laufmeter (die Reihenfolge ergibt sich dann aus der Verteilung)")
+        )
         self.chk_nest.setChecked(s0.nest)
         row.addWidget(self.chk_nest)
         self.spn_gap = QDoubleSpinBox()
@@ -1108,9 +1288,13 @@ class PlanDialog(QDialog):
         row.addWidget(self.spn_grom_in)
         fb.addRow(tr("Ösen alle:"), row)
         self.chk_cut = QCheckBox(tr("CutContour am Bildrand (Print & Cut)"))
-        self.chk_cut.setToolTip(tr("Schneidlinie in der Sonderfarbe CutContour um das Endformat (inkl. Saum) – "
-                                   "VersaWorks, CutStudio und andere schneiden danach. Freie Konturen: "
-                                   "Druckaufbereitung → CutContour."))
+        self.chk_cut.setToolTip(
+            tr(
+                "Schneidlinie in der Sonderfarbe CutContour um das Endformat (inkl. Saum) – "
+                "VersaWorks, CutStudio und andere schneiden danach. Freie Konturen: "
+                "Druckaufbereitung → CutContour."
+            )
+        )
         self.chk_cut.setChecked(s0.cut_contour)
         fb.addRow("", self.chk_cut)
         self.chk_pcm = QCheckBox(tr("Passermarken (Winkel) an den Ecken"))
@@ -1138,13 +1322,21 @@ class PlanDialog(QDialog):
         self.lbl_state.setStyleSheet(f"color: {theme.MUTED};")
         bot.addWidget(self.lbl_state, 1)
         self.btn_hist = QPushButton(icon("history"), tr("Verlauf"))
-        self.btn_hist.setToolTip(tr("Frühere Drucke mit denselben Dateien, Mengen und Einstellungen wieder öffnen; "
-                                    "„Verlauf aufräumen“ verwirft sie"))
+        self.btn_hist.setToolTip(
+            tr(
+                "Frühere Drucke mit denselben Dateien, Mengen und Einstellungen wieder öffnen; "
+                "„Verlauf aufräumen“ verwirft sie"
+            )
+        )
         self.btn_hist.clicked.connect(self._history_menu)
         bot.addWidget(self.btn_hist)
         b = QPushButton(tr("Als Standard speichern"))
-        b.setToolTip(tr("Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach "
-                        "dem Drucken geht das Fenster immer auf den Standard zurück."))
+        b.setToolTip(
+            tr(
+                "Die jetzigen Einstellungen (ohne Abweichungen einzelner Pläne) als Standard merken. Nach "
+                "dem Drucken geht das Fenster immer auf den Standard zurück."
+            )
+        )
         b.clicked.connect(self._save_standard)
         bot.addWidget(b)
         b = QPushButton(tr("Standard"))
@@ -1173,8 +1365,16 @@ class PlanDialog(QDialog):
         # Änderungen: nur neu platzieren bzw. neu erkennen
         for w in (self.spn_copies, self.spn_gap, self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in):
             w.valueChanged.connect(self._changed)
-        for w in (self.chk_collate, self.chk_marks, self.chk_hair, self.chk_fold, self.chk_nest, self.chk_cut,
-                  self.chk_pcm, *self.chk_hem.values()):
+        for w in (
+            self.chk_collate,
+            self.chk_marks,
+            self.chk_hair,
+            self.chk_fold,
+            self.chk_nest,
+            self.chk_cut,
+            self.chk_pcm,
+            *self.chk_hem.values(),
+        ):
             w.toggled.connect(self._changed)
         for w in (self.cmb_order, self.cmb_color, self.cmb_over, self.cmb_copies, self.cmb_qmode):
             w.currentIndexChanged.connect(self._changed)
@@ -1182,12 +1382,14 @@ class PlanDialog(QDialog):
         # Einstellungen je Plan: wirken auf die Auswahl (nichts bzw. alles ausgewählt: auf alle)
         self.g = {k: getattr(s0, k) for k in pp.OV_KEYS}
         self.g["roll_pick"] = s0.roll_pick
-        for w, key, get in ((self.cmb_mat, "material", lambda: self.cmb_mat.currentData() or ""),
-                            (self.cmb_roll, "roll_pick", lambda: self.cmb_roll.currentData() or ""),
-                            (self.cmb_align, "align", lambda: self.cmb_align.currentData() or "center"),
-                            (self.cmb_rotate, "rotate", lambda: self.cmb_rotate.currentData() or "auto"),
-                            (self.cmb_bleed, "bleed_mode", lambda: self.cmb_bleed.currentData() or "mirror"),
-                            (self.cmb_frame, "frame", lambda: self.cmb_frame.currentData() or "auto")):
+        for w, key, get in (
+            (self.cmb_mat, "material", lambda: self.cmb_mat.currentData() or ""),
+            (self.cmb_roll, "roll_pick", lambda: self.cmb_roll.currentData() or ""),
+            (self.cmb_align, "align", lambda: self.cmb_align.currentData() or "center"),
+            (self.cmb_rotate, "rotate", lambda: self.cmb_rotate.currentData() or "auto"),
+            (self.cmb_bleed, "bleed_mode", lambda: self.cmb_bleed.currentData() or "mirror"),
+            (self.cmb_frame, "frame", lambda: self.cmb_frame.currentData() or "auto"),
+        ):
             w.currentIndexChanged.connect(lambda _i, key=key, get=get: self._set_field({key: get()}))
         self.spn_bleed.valueChanged.connect(lambda v: self._set_field({"bleed_mm": v}))
         self.spn_margin.valueChanged.connect(lambda v: self._set_field({"margin_mm": v}))
@@ -1212,6 +1414,7 @@ class PlanDialog(QDialog):
     # ------------------------------------------------------------------ #
     def _fill_printers(self):
         from .. import l10n, printjob
+
         try:
             plist = [p for p in printers.list_printers() if p.name != printers.PDF_TARGET]
         except Exception:
@@ -1230,7 +1433,7 @@ class PlanDialog(QDialog):
         if self.printer and not pp.is_folder(self.printer):
             try:
                 self.caps = self.session.caps_for(self.printer)
-            except Exception as e:                              # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 self.lbl_rolls.setText(tr("Drucker nicht abfragbar: {0}").format(e))
         self._fill_media()
         self._fill_materials()
@@ -1259,12 +1462,17 @@ class PlanDialog(QDialog):
         host = rl.host_for(self.session, self.printer) if (self.printer and not pp.is_folder(self.printer)) else ""
         if not host:
             if not self.rolls:
-                self.lbl_rolls.setText(tr("Geräteadresse nicht ermittelbar – unter „Rollen …“ die IP-Adresse "
-                                          "eintragen oder die Rollen von Hand"))
+                self.lbl_rolls.setText(
+                    tr(
+                        "Geräteadresse nicht ermittelbar – unter „Rollen …“ die IP-Adresse "
+                        "eintragen oder die Rollen von Hand"
+                    )
+                )
             return
         self.btn_reload.setEnabled(False)
         self.lbl_rolls.setText(self.lbl_rolls.text() + "  " + tr("(frage Gerät ab …)"))
         from .. import roland
+
         fn = rl.query_roland if roland.is_roland(self.printer, rl.model_of(self.printer)) else None
         self._q = _start_query(host, self._rolls_read, self.printer, fn)
 
@@ -1311,8 +1519,9 @@ class PlanDialog(QDialog):
             err = f" ({st.error})" if st is not None and st.error else ""
             self.lbl_rolls.setText(tr("Keine Rollen bekannt") + err + " – " + tr("„Rollen …“ zum Eintragen"))
             return
-        self.lbl_rolls.setText(tr(ORIGIN_TEXT.get(st.origin, st.origin)) + ": "
-                               + "  ·  ".join(r.label() for r in self.rolls))
+        self.lbl_rolls.setText(
+            tr(ORIGIN_TEXT.get(st.origin, st.origin)) + ": " + "  ·  ".join(r.label() for r in self.rolls)
+        )
 
     def _edit_rolls(self):
         if not self.printer:
@@ -1326,7 +1535,7 @@ class PlanDialog(QDialog):
     def add_doc(self, doc, source: str, own: bool = True, pages=None):
         if own:
             self.owned.append(doc)
-        for p in (pages if pages is not None else range(len(doc))):
+        for p in pages if pages is not None else range(len(doc)):
             it = pp.Item(p, 1, None, source=source, doc=doc)
             self.items.append(it)
             self._queue.append(it)
@@ -1335,8 +1544,13 @@ class PlanDialog(QDialog):
 
     def _add_files(self):
         from .. import convert
-        paths, _ = QFileDialog.getOpenFileNames(self, tr("Pläne hinzufügen"), os.path.expanduser("~"),
-                                                tr("Pläne (*.pdf *.png *.jpg *.jpeg *.tif *.tiff);;Alle Dateien (*)"))
+
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            tr("Pläne hinzufügen"),
+            os.path.expanduser("~"),
+            tr("Pläne (*.pdf *.png *.jpg *.jpeg *.tif *.tiff);;Alle Dateien (*)"),
+        )
         self.add_paths([p for p in paths if convert.is_supported(p) or p.lower().endswith(".pdf")])
 
     def add_paths(self, paths: list):
@@ -1349,15 +1563,18 @@ class PlanDialog(QDialog):
         try:
             if self.ctl is not None:
                 from .viewer import load_any
+
                 return load_any(self, self.ctl, path)
             import pypdfium2 as pdfium
             from .. import images
+
             if images.is_image(path):
                 return images.images_to_document([path], 96.0)
             return pdfium.PdfDocument(path)
-        except Exception as e:                                  # noqa: BLE001
-            QMessageBox.warning(self, tr("Plandruck"), tr("{0} lässt sich nicht öffnen: {1}").format(
-                os.path.basename(path), e))
+        except Exception as e:  # noqa: BLE001
+            QMessageBox.warning(
+                self, tr("Plandruck"), tr("{0} lässt sich nicht öffnen: {1}").format(os.path.basename(path), e)
+            )
             return None
 
     def dragEnterEvent(self, e):
@@ -1366,6 +1583,7 @@ class PlanDialog(QDialog):
 
     def dropEvent(self, e):
         from .. import convert
+
         paths = [u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()]
         self.add_paths([p for p in paths if convert.is_supported(p) or p.lower().endswith(".pdf")])
 
@@ -1388,7 +1606,7 @@ class PlanDialog(QDialog):
             return
         if (d < 0 and rows[0] == 0) or (d > 0 and rows[-1] == len(self.items) - 1):
             return
-        for r in (rows if d < 0 else reversed(rows)):
+        for r in rows if d < 0 else reversed(rows):
             self.items[r], self.items[r + d] = self.items[r + d], self.items[r]
         self._rebuild()
         for r in rows:
@@ -1401,7 +1619,7 @@ class PlanDialog(QDialog):
             return
         m = QMenu(self)
         sub = m.addMenu(tr("Druckbereich"))
-        for k in ("", ) + pp.FRAME_MODES:
+        for k in ("",) + pp.FRAME_MODES:
             a = sub.addAction(tr("Wie eingestellt") if k == "" else tr(FRAME_TEXT[k]))
             a.setCheckable(True)
             a.setChecked(all(self.items[r].ov.get("frame", self.items[r].frame) == k for r in rows))
@@ -1464,8 +1682,9 @@ class PlanDialog(QDialog):
         for it in self.items:
             if it.area is not None:
                 try:
-                    it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm,
-                                                pp.factor(it.area, pp.eff(s, it)) * 100.0)
+                    it.hairlines = pp.hairlines(
+                        it.doc, it.page, s.hairline_mm, pp.factor(it.area, pp.eff(s, it)) * 100.0
+                    )
                 except Exception:
                     pass
         self._refresh()
@@ -1483,7 +1702,7 @@ class PlanDialog(QDialog):
             es = pp.eff(s, it)
             it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
             it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, pp.factor(it.area, es) * 100.0)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             it.area = None
             self.lbl_state.setText(tr("{0}: {1}").format(it.label, e))
         self._refresh()
@@ -1518,7 +1737,7 @@ class PlanDialog(QDialog):
             for it in sel:
                 for k, v in vals.items():
                     if v == self.g.get(k):
-                        it.ov.pop(k, None)       # gleich wie für alle: keine Abweichung mehr
+                        it.ov.pop(k, None)  # gleich wie für alle: keine Abweichung mehr
                     else:
                         it.ov[k] = v
                     if k == "frame":
@@ -1551,8 +1770,10 @@ class PlanDialog(QDialog):
         self._scale_widgets()
         mode = self.cmb_scale.currentData() or "pct"
         if mode != "pct" and self.spn_scale_mm.value() <= 0:
-            return                               # erst ein Maß eingeben
-        self._set_field({"scale_mode": mode, "scale_pct": self.spn_scale.value(), "scale_mm": self.spn_scale_mm.value()})
+            return  # erst ein Maß eingeben
+        self._set_field(
+            {"scale_mode": mode, "scale_pct": self.spn_scale.value(), "scale_mm": self.spn_scale_mm.value()}
+        )
 
     def _load_fields(self):
         """Felder zeigen die Werte der Auswahl (erster ausgewählter Plan) bzw. die für alle."""
@@ -1561,15 +1782,25 @@ class PlanDialog(QDialog):
         es = pp.eff(base, sel[0]) if sel else base
         self._loading_fields = True
         try:
-            for w, v in ((self.cmb_mat, es.material), (self.cmb_roll, es.roll_pick), (self.cmb_align, es.align),
-                         (self.cmb_rotate, es.rotate), (self.cmb_bleed, es.bleed_mode), (self.cmb_frame, es.frame),
-                         (self.cmb_scale, es.scale_mode)):
+            for w, v in (
+                (self.cmb_mat, es.material),
+                (self.cmb_roll, es.roll_pick),
+                (self.cmb_align, es.align),
+                (self.cmb_rotate, es.rotate),
+                (self.cmb_bleed, es.bleed_mode),
+                (self.cmb_frame, es.frame),
+                (self.cmb_scale, es.scale_mode),
+            ):
                 w.blockSignals(True)
                 i = w.findData(v)
                 w.setCurrentIndex(max(0, i))
                 w.blockSignals(False)
-            for w, v in ((self.spn_bleed, es.bleed_mm), (self.spn_margin, es.margin_mm), (self.spn_scale, es.scale_pct),
-                         (self.spn_scale_mm, es.scale_mm or 0)):
+            for w, v in (
+                (self.spn_bleed, es.bleed_mm),
+                (self.spn_margin, es.margin_mm),
+                (self.spn_scale, es.scale_pct),
+                (self.spn_scale_mm, es.scale_mm or 0),
+            ):
                 w.blockSignals(True)
                 w.setValue(v)
                 w.blockSignals(False)
@@ -1579,8 +1810,12 @@ class PlanDialog(QDialog):
         finally:
             self._loading_fields = False
         if sel:
-            self.lbl_scope.setText(tr("Änderungen gelten nur für die Auswahl ({0} von {1}) – Material, Rolle, Lage, "
-                                      "Druckbereich, Skalierung und Überfüller").format(len(sel), len(self.items)))
+            self.lbl_scope.setText(
+                tr(
+                    "Änderungen gelten nur für die Auswahl ({0} von {1}) – Material, Rolle, Lage, "
+                    "Druckbereich, Skalierung und Überfüller"
+                ).format(len(sel), len(self.items))
+            )
         else:
             self.lbl_scope.setText("")
 
@@ -1612,19 +1847,36 @@ class PlanDialog(QDialog):
     def settings(self) -> pp.PlanSettings:
         hem = "".join(k for k, c in self.chk_hem.items() if c.isChecked())
         return dataclasses.replace(
-            self.s0, kind=self.kind, printer=self.printer, color=self.cmb_color.currentData() or "",
+            self.s0,
+            kind=self.kind,
+            printer=self.printer,
+            color=self.cmb_color.currentData() or "",
             quality_mode=self.cmb_qmode.currentData() or "",
-            media=self.s0.media, crop_marks=self.chk_marks.isChecked(),
+            media=self.s0.media,
+            crop_marks=self.chk_marks.isChecked(),
             copies=self.spn_copies.value(),
-            collate=self.chk_collate.isChecked(), order=self.cmb_order.currentData() or "list",
-            weights=self._weights() if self.kind == "plan" else [], fix_hairlines=self.chk_hair.isChecked(),
-            nest=self.chk_nest.isChecked(), gap_mm=self.spn_gap.value(),
-            overwidth=self.cmb_over.currentData() or "none", overlap_mm=self.spn_overlap.value(),
-            fold_marks=self.chk_fold.isChecked() and self.kind == "plan", hem_mm=self.spn_hem.value(),
-            hem_sides=hem, grommet_spacing_mm=self.spn_grom.value(), grommet_inset_mm=self.spn_grom_in.value(),
-            cut_contour=self.chk_cut.isChecked(), printcut_marks=self.chk_pcm.isChecked(), rolls=[], dry_run=False,
-            split_copies=True, copies_mode=self.cmb_copies.currentData() or "sheets", overrides={},
-            **{k: self.g[k] for k in pp.OV_KEYS})
+            collate=self.chk_collate.isChecked(),
+            order=self.cmb_order.currentData() or "list",
+            weights=self._weights() if self.kind == "plan" else [],
+            fix_hairlines=self.chk_hair.isChecked(),
+            nest=self.chk_nest.isChecked(),
+            gap_mm=self.spn_gap.value(),
+            overwidth=self.cmb_over.currentData() or "none",
+            overlap_mm=self.spn_overlap.value(),
+            fold_marks=self.chk_fold.isChecked() and self.kind == "plan",
+            hem_mm=self.spn_hem.value(),
+            hem_sides=hem,
+            grommet_spacing_mm=self.spn_grom.value(),
+            grommet_inset_mm=self.spn_grom_in.value(),
+            cut_contour=self.chk_cut.isChecked(),
+            printcut_marks=self.chk_pcm.isChecked(),
+            rolls=[],
+            dry_run=False,
+            split_copies=True,
+            copies_mode=self.cmb_copies.currentData() or "sheets",
+            overrides={},
+            **{k: self.g[k] for k in pp.OV_KEYS},
+        )
 
     def _pieces(self, it, s, use):
         return pp.pieces_for(it, self.rolls, s, use, max(1, it.qty) * max(1, s.copies)) if self.rolls else []
@@ -1650,8 +1902,12 @@ class PlanDialog(QDialog):
                 row.setText(3, "")
                 continue
             kind = tr(KIND_SHORT.get(it.area.kind, it.area.kind))
-            row.setText(1, tr("{0} × {1} mm").format(pp.mm_text(round(it.size[0])), pp.mm_text(round(it.size[1])))
-                        + f"  ({kind})" + ("  ⚠" if it.hairlines else ""))
+            row.setText(
+                1,
+                tr("{0} × {1} mm").format(pp.mm_text(round(it.size[0])), pp.mm_text(round(it.size[1])))
+                + f"  ({kind})"
+                + ("  ⚠" if it.hairlines else ""),
+            )
             tip = [tr(pp.KIND_TEXT.get(it.area.kind, it.area.kind))]
             if it.area.note:
                 tip.append(it.area.note)
@@ -1670,10 +1926,18 @@ class PlanDialog(QDialog):
                 if p0.clipped:
                     txt += "  ✂"
                 row.setText(2, txt)
-                row.setToolTip(2, "\n".join(x for x in (
-                    tr("gedreht – quer zur Rolle") if p0.rotated else "",
-                    tr("breiter als die Rolle – wird abgeschnitten") if p0.clipped else "",
-                    tr("in {0} Bahnen mit Überlappung").format(len(pcs)) if len(pcs) > 1 else "") if x))
+                row.setToolTip(
+                    2,
+                    "\n".join(
+                        x
+                        for x in (
+                            tr("gedreht – quer zur Rolle") if p0.rotated else "",
+                            tr("breiter als die Rolle – wird abgeschnitten") if p0.clipped else "",
+                            tr("in {0} Bahnen mit Überlappung").format(len(pcs)) if len(pcs) > 1 else "",
+                        )
+                        if x
+                    ),
+                )
                 row.setText(3, tr("{0} m").format(pp.num(sum(p.along for p in pcs) / 1000.0)))
                 for c in range(4):
                     row.setForeground(c, QBrush())
@@ -1701,14 +1965,16 @@ class PlanDialog(QDialog):
         s = self.settings()
         try:
             runs = pp.build_runs(done, self.rolls, s)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.lbl_prev.setText(str(e))
             return
         mode = pp.copies_mode(s)
         for k, run in enumerate(runs[:PREVIEW_MAX]):
             roll = self.rolls[run.roll] if 0 <= run.roll < len(self.rolls) else None
             n = max(1, run.copies)
-            cap = tr("Blatt {0}: {1} × {2} mm").format(k + 1, pp.mm_text(round(run.across)), pp.mm_text(round(run.along)))
+            cap = tr("Blatt {0}: {1} × {2} mm").format(
+                k + 1, pp.mm_text(round(run.across)), pp.mm_text(round(run.along))
+            )
             cap += "\n" + (roll.name or roll.slot or tr("{0} mm").format(pp.mm_text(roll.width_mm)) if roll else "")
             if n > 1:
                 cap += "  ×" + str(n) + ("" if mode == "count" else " ✂")
@@ -1716,9 +1982,11 @@ class PlanDialog(QDialog):
             it.setToolTip("\n".join(p.label for p, _x, _y in run.pieces))
             self.lst_prev.addItem(it)
         total = sum(max(1, r.copies) for r in runs)
-        txt = {"sheets": tr("{0} Druckseite(n) · {1} Blatt · ein Auftrag je Druckseite, Schnitt nach jedem Blatt"),
-               "jobs": tr("{0} Druckseite(n) · {1} Blatt · je Exemplar ein Auftrag"),
-               "count": tr("{0} Druckseite(n) · {1} Blatt · Kopienzahl, Schneiden wie am Gerät eingestellt")}[mode]
+        txt = {
+            "sheets": tr("{0} Druckseite(n) · {1} Blatt · ein Auftrag je Druckseite, Schnitt nach jedem Blatt"),
+            "jobs": tr("{0} Druckseite(n) · {1} Blatt · je Exemplar ein Auftrag"),
+            "count": tr("{0} Druckseite(n) · {1} Blatt · Kopienzahl, Schneiden wie am Gerät eingestellt"),
+        }[mode]
         extra = tr(" – Vorschau zeigt die ersten {0}").format(PREVIEW_MAX) if len(runs) > PREVIEW_MAX else ""
         self.lbl_prev.setText(txt.format(len(runs), total) + extra)
 
@@ -1739,18 +2007,19 @@ class PlanDialog(QDialog):
             finally:
                 doc.close()
             import numpy as np
+
             if arr.ndim == 2:
                 arr = np.stack([arr] * 3, axis=2)
             arr = np.ascontiguousarray(arr[..., :3][..., ::-1]) if arr.shape[2] >= 3 else arr
             img = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
             p = QPainter(pm)
             p.drawImage(1, 1, img.scaled(w, h))
-        except Exception:                                       # noqa: BLE001 – Vorschau darf nie stören
+        except Exception:  # noqa: BLE001 – Vorschau darf nie stören
             p = QPainter(pm)
         p.setPen(QPen(QColor("#999999"), 1))
         p.drawRect(0, 0, w + 1, h + 1)
         p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
-        p.drawLine(0, h + 1, w + 1, h + 1)                       # Schnitt am Blattende
+        p.drawLine(0, h + 1, w + 1, h + 1)  # Schnitt am Blattende
         p.end()
         return pm
 
@@ -1769,47 +2038,71 @@ class PlanDialog(QDialog):
                 val = f"<b>{pp.num(d['single_m'])} m</b>"
                 if cp > 1:
                     val += f" &nbsp; ×{cp} = <b>{pp.num(d['total_m'])} m</b>"
-                val += " &nbsp; <span style='color:%s'>(%s)</span>" % (theme.MUTED, tr("{0} Plan/Pläne").format(d["plans"]))
+                val += " &nbsp; <span style='color:%s'>(%s)</span>" % (
+                    theme.MUTED,
+                    tr("{0} Plan/Pläne").format(d["plans"]),
+                )
                 if d.get("short"):
                     val += " <span style='color:%s'>%s</span>" % (theme.ERROR, tr("reicht nicht!"))
             if r.remaining_m is not None:
                 sub += (" · " if sub else "") + tr("~{0} m Rest").format(pp.mm_text(r.remaining_m))
-            rows.append(f"<tr><td>{head}</td><td style='color:{theme.MUTED}'>&nbsp;{sub}&nbsp;</td>"
-                        f"<td align='right'>{val}</td></tr>")
+            rows.append(
+                f"<tr><td>{head}</td><td style='color:{theme.MUTED}'>&nbsp;{sub}&nbsp;</td>"
+                f"<td align='right'>{val}</td></tr>"
+            )
         if len(lens) > 1:
             tot = sum(d["single_m"] for d in lens)
             tot_all = sum(d["total_m"] for d in lens)
             val = f"<b>{pp.num(tot)} m</b>" + (f" &nbsp; ×{cp} = <b>{pp.num(tot_all)} m</b>" if cp > 1 else "")
             rows.append(f"<tr><td colspan='2'>{tr('Gesamt')}</td><td align='right'>{val}</td></tr>")
-        self.lbl_len.setText("<table width='100%'>" + "".join(rows) + "</table>" if rows else
-                             tr("Noch keine Rollen – „Rollen …“ oder Gerät abfragen."))
+        self.lbl_len.setText(
+            "<table width='100%'>" + "".join(rows) + "</table>"
+            if rows
+            else tr("Noch keine Rollen – „Rollen …“ oder Gerät abfragen.")
+        )
         warn = []
         if wnote:
             warn.append(wnote)
         if s.cut_sheets and self.caps is not None and not pp.is_folder(self.printer) and not pp.cut_values(self.caps):
-            warn.append(tr("Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, "
-                           "entscheidet die Einstellung am Gerät."))
+            warn.append(
+                tr(
+                    "Der Drucker bietet keine Schneid-Option an – ob nach jedem Blatt geschnitten wird, "
+                    "entscheidet die Einstellung am Gerät."
+                )
+            )
         k = pp.find_roll(self.rolls, s.roll_pick)
         if k is not None and not pp.is_folder(self.printer):
             r = self.rolls[k]
             if not r.slot:
                 mv = pp.media_for_roll(self.caps, r) if self.caps is not None else ""
-                warn.append(tr("Der Treiber bietet keine Rollenwahl – das Gerät nimmt die Rolle nach Breite und "
-                               "Medientyp.") + (" " + tr("Medientyp laut Rolle wird mitgeschickt.") if mv else
-                                                 " " + tr("Medientyp passend zur Rolle einstellen.")))
+                warn.append(
+                    tr("Der Treiber bietet keine Rollenwahl – das Gerät nimmt die Rolle nach Breite und Medientyp.")
+                    + (
+                        " " + tr("Medientyp laut Rolle wird mitgeschickt.")
+                        if mv
+                        else " " + tr("Medientyp passend zur Rolle einstellen.")
+                    )
+                )
             mat = pp.material_of(s)
             if mat and mat.get("weight") and r.weight and int(mat["weight"]) != r.weight:
-                warn.append(tr("Material ({0} g) passt nicht zur gewählten Rolle ({1} g).")
-                            .format(mat["weight"], r.weight))
+                warn.append(
+                    tr("Material ({0} g) passt nicht zur gewählten Rolle ({1} g).").format(mat["weight"], r.weight)
+                )
         use = use if use is not None else self.rolls
         unfit = [it.label for it in done if self.rolls and not self._pieces(it, s, use)]
         if unfit:
-            warn.append(tr("Passt auf keine Rolle: {0}").format(", ".join(unfit[:5]) + (" …" if len(unfit) > 5 else "")))
+            warn.append(
+                tr("Passt auf keine Rolle: {0}").format(", ".join(unfit[:5]) + (" …" if len(unfit) > 5 else ""))
+            )
         hl = sum(it.hairlines for it in done)
         if hl and not s.fix_hairlines:
-            warn.append(tr("{0} Linie(n) dünner als {1} mm – „Haarlinien anheben“ verstärkt sie.")
-                        .format(hl, pp.mm_text(s.hairline_mm)))
+            warn.append(
+                tr("{0} Linie(n) dünner als {1} mm – „Haarlinien anheben“ verstärkt sie.").format(
+                    hl, pp.mm_text(s.hairline_mm)
+                )
+            )
         from .. import printmat
+
         warn += printmat.notes(pp.material_of(s), self.session.cfg)
         self.lbl_warn.setText("\n".join(warn))
         printable = any(self._pieces(it, s, use) and it.qty > 0 for it in done) if self.rolls else False
@@ -1822,6 +2115,7 @@ class PlanDialog(QDialog):
     # ------------------------------------------------------------------ #
     def _fill_materials(self):
         from .. import printmat
+
         cat = "plan" if self.kind == "plan" else "quality"
         g = getattr(self, "g", None)
         cur = g["material"] if g is not None else self.s0.material
@@ -1837,12 +2131,18 @@ class PlanDialog(QDialog):
         own = {m["name"].strip().lower() for m in printmat.for_printer(self.printer)}
         for m in pp.device_materials(getattr(self, "rolls", []) or [], getattr(rs, "catalog", None)):
             if m["name"].strip().lower() in own:
-                continue                          # schon als eigenes Material angelegt
-            self.cmb_mat.addItem(m["name"] + (f" · {m['weight']} g" if m["weight"] and f"{m['weight']} g"
-                                              not in m["name"] else "")
-                                 + "  (" + (tr("Gerät") if m["loaded"] else tr("Gerät, nicht geladen")) + ")", m["id"])
-        for m in printmat.for_printer(self.printer, cat) + [m for m in printmat.for_printer(self.printer)
-                                                            if m["category"] != cat]:
+                continue  # schon als eigenes Material angelegt
+            self.cmb_mat.addItem(
+                m["name"]
+                + (f" · {m['weight']} g" if m["weight"] and f"{m['weight']} g" not in m["name"] else "")
+                + "  ("
+                + (tr("Gerät") if m["loaded"] else tr("Gerät, nicht geladen"))
+                + ")",
+                m["id"],
+            )
+        for m in printmat.for_printer(self.printer, cat) + [
+            m for m in printmat.for_printer(self.printer) if m["category"] != cat
+        ]:
             t = m["name"] + (f" · {m['weight']} g" if m["weight"] else "")
             if not m.get("checked", True):
                 t += "  ⚠ " + tr("ungeprüft")
@@ -1850,8 +2150,10 @@ class PlanDialog(QDialog):
                 t += "  (" + tr(CAT_TEXT[m["category"]]) + ")"
             self.cmb_mat.addItem(t, m["id"])
         if cur and self.cmb_mat.findData(cur) < 0 and cur.startswith(pp.DEV_PREFIX):
-            self.cmb_mat.addItem(pp.material_of(dataclasses.replace(self.s0, material=cur))["name"]
-                                 + "  (" + tr("nicht geladen") + ")", cur)
+            self.cmb_mat.addItem(
+                pp.material_of(dataclasses.replace(self.s0, material=cur))["name"] + "  (" + tr("nicht geladen") + ")",
+                cur,
+            )
         i = self.cmb_mat.findData(cur or "")
         self.cmb_mat.setCurrentIndex(max(0, i))
         self.cmb_mat.blockSignals(False)
@@ -1889,10 +2191,14 @@ class PlanDialog(QDialog):
 
     def _save_pdf(self):
         s = self.settings()
-        out, _ = QFileDialog.getSaveFileName(self, tr("Als PDF speichern"),
-                                             os.path.join(os.path.expanduser("~"), (tr("Plaene_Druck") if self.kind
-                                                          == "plan" else tr("Poster_Druck")) + ".pdf"),
-                                             tr("PDF-Dateien (*.pdf)"))
+        out, _ = QFileDialog.getSaveFileName(
+            self,
+            tr("Als PDF speichern"),
+            os.path.join(
+                os.path.expanduser("~"), (tr("Plaene_Druck") if self.kind == "plan" else tr("Poster_Druck")) + ".pdf"
+            ),
+            tr("PDF-Dateien (*.pdf)"),
+        )
         if not out:
             return
         if not out.lower().endswith(".pdf"):
@@ -1900,7 +2206,7 @@ class PlanDialog(QDialog):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             n = pp.save_pdf([it for it in self.items if it.area is not None], self.rolls, s, out)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Speichern"), str(e))
             return
@@ -1912,38 +2218,57 @@ class PlanDialog(QDialog):
         items = [it for it in self.items if it.area is not None]
         use, _n = pp.eligible_for(self.rolls, s)
         unfit = [it for it in items if it.qty > 0 and not self._pieces(it, s, use)]
-        if unfit and QMessageBox.question(
-                self, tr("Plandruck"), tr("{0} Plan/Pläne passen auf keine Rolle und werden ausgelassen. "
-                                          "Trotzdem drucken?").format(len(unfit))) != QMessageBox.StandardButton.Yes:
+        if (
+            unfit
+            and QMessageBox.question(
+                self,
+                tr("Plandruck"),
+                tr("{0} Plan/Pläne passen auf keine Rolle und werden ausgelassen. Trotzdem drucken?").format(
+                    len(unfit)
+                ),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         short = [d for d in pp.lengths(items, self.rolls, s) if d.get("short")]
-        if short and QMessageBox.question(
-                self, tr("Plandruck"), tr("Laut Gerät reicht die Rolle {0} mm nicht. Trotzdem drucken?").format(
-                    pp.mm_text(short[0]["width_mm"]))) != QMessageBox.StandardButton.Yes:
+        if (
+            short
+            and QMessageBox.question(
+                self,
+                tr("Plandruck"),
+                tr("Laut Gerät reicht die Rolle {0} mm nicht. Trotzdem drucken?").format(
+                    pp.mm_text(short[0]["width_mm"])
+                ),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
 
         def prog(done, total, text=""):
-            self.lbl_state.setText(tr("Sende {0} von {1}: {2}").format(done + 1 if done < total else total, total,
-                                                                        text))
+            self.lbl_state.setText(
+                tr("Sende {0} von {1}: {2}").format(done + 1 if done < total else total, total, text)
+            )
             QApplication.processEvents()
+
         try:
             info = pp.print_items(self.session, self.printer, items, self.rolls, s, prog)
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckfehler"), str(e))
             return
         QApplication.restoreOverrideCursor()
-        self._remember(s, info)                              # Verlauf: genau so wieder öffnen
-        save_settings(s, self.printer, reset=True)          # nächstes Mal wieder der Standard
+        self._remember(s, info)  # Verlauf: genau so wieder öffnen
+        save_settings(s, self.printer, reset=True)  # nächstes Mal wieder der Standard
         msg = tr("{0} Plan-Auftrag/-Aufträge an {1} gesendet – {2} m").format(
-            len(info["jobs"]), self.printer, pp.num(info["total_m"]))
+            len(info["jobs"]), self.printer, pp.num(info["total_m"])
+        )
         self.printed.emit(msg)
         self._reset_after_print(msg)
 
     def _reset_after_print(self, msg: str):
         """Fenster bleibt offen: Liste leeren, Felder zurück auf den Standard (der Druck steht im Verlauf).
-            Selbst geöffnete Dokumente erst beim Schließen freigeben – nichts darf mehr auf ein zugemachtes zeigen."""
+        Selbst geöffnete Dokumente erst beim Schließen freigeben – nichts darf mehr auf ein zugemachtes zeigen."""
         try:
             self._timer.stop()
             self._prev_timer.stop()
@@ -1957,14 +2282,15 @@ class PlanDialog(QDialog):
                 self.tree.blockSignals(False)
             self.s0 = load_settings(self.kind)
             self._fill_from(self.s0)
-        except Exception:                                       # noqa: BLE001 – das Fenster bleibt jedenfalls
+        except Exception:  # noqa: BLE001 – das Fenster bleibt jedenfalls
             import traceback
             from .. import crashlog
+
             crashlog.record("Plandruck: Zurücksetzen nach dem Druck", traceback.format_exc())
         self.lbl_state.setText(msg)
 
     def keyPressEvent(self, e):
-        if e.key() == Qt.Key.Key_Escape:                        # eigenes Fenster: Esc schließt nicht (Liste weg)
+        if e.key() == Qt.Key.Key_Escape:  # eigenes Fenster: Esc schließt nicht (Liste weg)
             e.ignore()
             return
         super().keyPressEvent(e)
@@ -1973,18 +2299,30 @@ class PlanDialog(QDialog):
     # Verlauf (1.18.17)
     def _remember(self, s, info):
         from .. import planhistory
+
         try:
-            items = [{"doc": it.doc, "source": it.source, "page": it.page, "qty": it.qty, "ov": dict(it.ov),
-                      "frame": it.frame, "own": any(it.doc is d for d in self.owned)}
-                     for it in self.items if it.area is not None]
+            items = [
+                {
+                    "doc": it.doc,
+                    "source": it.source,
+                    "page": it.page,
+                    "qty": it.qty,
+                    "ov": dict(it.ov),
+                    "frame": it.frame,
+                    "own": any(it.doc is d for d in self.owned),
+                }
+                for it in self.items
+                if it.area is not None
+            ]
             st = pp.compact(dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", overrides={}))
             st.pop("printer", None)
             planhistory.add(self.kind, self.printer, st, items, info.get("total_m", 0), len(info.get("jobs", [])))
-        except Exception:                                       # noqa: BLE001 – Verlauf darf den Druck nie stören
+        except Exception:  # noqa: BLE001 – Verlauf darf den Druck nie stören
             pass
 
     def _history_menu(self):
         from .. import planhistory
+
         m = QMenu(self)
         ents = planhistory.entries(self.kind)
         if not ents:
@@ -1999,11 +2337,18 @@ class PlanDialog(QDialog):
 
     def _clear_history(self):
         from .. import planhistory
+
         n = len(planhistory.entries(self.kind))
         mb = planhistory.size_bytes(self.kind) / 1e6
         what = tr("Plandrucke") if self.kind == "plan" else tr("Posterdrucke")
-        if QMessageBox.question(self, tr("Verlauf aufräumen"), tr("{0} {1} im Verlauf verwerfen ({2} MB)?").format(
-                n, what, pp.num(round(mb, 1)))) != QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(
+                self,
+                tr("Verlauf aufräumen"),
+                tr("{0} {1} im Verlauf verwerfen ({2} MB)?").format(n, what, pp.num(round(mb, 1))),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         planhistory.clear(self.kind)
         self.lbl_state.setText(tr("Verlauf aufgeräumt."))
@@ -2011,13 +2356,17 @@ class PlanDialog(QDialog):
     def load_history(self, entry: dict):
         """Früheren Druck öffnen: Dateien, Seiten, Mengen, Abweichungen je Plan, Einstellungen, Drucker."""
         from .. import core, planhistory
-        if self.items and QMessageBox.question(
-                self, tr("Verlauf"), tr("Die Liste durch den früheren Druck ersetzen?")) != QMessageBox.StandardButton.Yes:
+
+        if (
+            self.items
+            and QMessageBox.question(self, tr("Verlauf"), tr("Die Liste durch den früheren Druck ersetzen?"))
+            != QMessageBox.StandardButton.Yes
+        ):
             return
         for d in self.owned:
             try:
                 d.close()
-            except Exception:                                   # noqa: BLE001
+            except Exception:  # noqa: BLE001
                 pass
         self.owned, self.items, self._queue = [], [], []
         try:
@@ -2044,9 +2393,15 @@ class PlanDialog(QDialog):
             doc = docs[path]
             if doc is None or rec.get("page", 0) >= len(doc):
                 continue
-            it = pp.Item(int(rec.get("page", 0)), int(rec.get("qty", 1)), None,
-                         source=rec.get("source") or path, doc=doc, frame=rec.get("frame", ""),
-                         ov=dict(rec.get("ov") or {}))
+            it = pp.Item(
+                int(rec.get("page", 0)),
+                int(rec.get("qty", 1)),
+                None,
+                source=rec.get("source") or path,
+                doc=doc,
+                frame=rec.get("frame", ""),
+                ov=dict(rec.get("ov") or {}),
+            )
             self.items.append(it)
             self._queue.append(it)
         self._rebuild()
@@ -2058,8 +2413,9 @@ class PlanDialog(QDialog):
 
     def _save_standard(self):
         from .. import l10n
+
         st = l10n.load_settings()
-        st[_std_key(self.kind)] = _clean(dataclasses.replace(self.settings(), copies=1))   # Exemplare: immer 1
+        st[_std_key(self.kind)] = _clean(dataclasses.replace(self.settings(), copies=1))  # Exemplare: immer 1
         try:
             l10n.save_settings(st)
         except OSError as e:
@@ -2070,6 +2426,7 @@ class PlanDialog(QDialog):
     def _load_standard(self):
         """Felder auf den Standard setzen (Pläne in der Liste und ihre Abweichungen bleiben)."""
         from .. import l10n
+
         st = l10n.load_settings()
         st.pop(_keys(self.kind)[0], None)
         try:
@@ -2082,15 +2439,34 @@ class PlanDialog(QDialog):
 
     def _fill_from(self, s: pp.PlanSettings):
         """Gegenstück zu settings(): alle Felder aus s setzen (Einzel-Abweichungen der Pläne bleiben)."""
+
         def combo(cb, val):
             i = cb.findData(val)
             if i >= 0:
                 cb.setCurrentIndex(i)
-        ws = [self.spn_copies, self.chk_collate, self.cmb_copies, self.cmb_order, self.cmb_color, self.cmb_qmode,
-              self.ed_weights,
-              self.chk_hair, self.chk_marks, self.chk_fold, self.chk_nest, self.spn_gap, self.cmb_over,
-              self.spn_overlap, self.spn_hem, self.spn_grom, self.spn_grom_in, self.chk_cut, self.chk_pcm,
-              *self.chk_hem.values()]
+
+        ws = [
+            self.spn_copies,
+            self.chk_collate,
+            self.cmb_copies,
+            self.cmb_order,
+            self.cmb_color,
+            self.cmb_qmode,
+            self.ed_weights,
+            self.chk_hair,
+            self.chk_marks,
+            self.chk_fold,
+            self.chk_nest,
+            self.spn_gap,
+            self.cmb_over,
+            self.spn_overlap,
+            self.spn_hem,
+            self.spn_grom,
+            self.spn_grom_in,
+            self.chk_cut,
+            self.chk_pcm,
+            *self.chk_hem.values(),
+        ]
         for w in ws:
             w.blockSignals(True)
         try:

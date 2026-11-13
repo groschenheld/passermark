@@ -1,20 +1,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Seite <-> Bildschirm ohne Seite zu laden (pagegeom) muss exakt wie pdfium rechnen – alle Kombinationen aus
-    /Rotate, verschobener CropBox (∩ MediaBox), geerbten Werten und Ansichtsdrehung."""
+/Rotate, verschobener CropBox (∩ MediaBox), geerbten Werten und Ansichtsdrehung."""
+
 import ctypes
 import io
 import os
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import pagegeom, renderproc
 
 
 def _pdf() -> bytes:
     import pikepdf
+
     pdf = pikepdf.new()
-    cases = [(0, None), (90, [20, 30, 400, 600]), (180, [-50, 10, 500, 700]), (270, [100, 120, 300, 500]),
-             (90, None), (0, [10, 20, 590, 820])]
+    cases = [
+        (0, None),
+        (90, [20, 30, 400, 600]),
+        (180, [-50, 10, 500, 700]),
+        (270, [100, 120, 300, 500]),
+        (90, None),
+        (0, [10, 20, 590, 820]),
+    ]
     for rot, crop in cases:
         pdf.add_blank_page(page_size=(595, 842))
         p = pdf.pages[-1].obj
@@ -23,7 +32,7 @@ def _pdf() -> bytes:
         if crop:
             p.CropBox = crop
     pdf.pages[-1].obj.TrimBox = [30, 40, 570, 800]
-    del pdf.pages[-1].obj["/MediaBox"]                     # geerbt über /Parent
+    del pdf.pages[-1].obj["/MediaBox"]  # geerbt über /Parent
     pdf.Root.Pages.MediaBox = [0, 0, 600, 850]
     buf = io.BytesIO()
     pdf.save(buf)
@@ -33,6 +42,7 @@ def _pdf() -> bytes:
 def test_matches_pdfium():
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
+
     data = _pdf()
     info = renderproc.page_info(data)
     doc = pdfium.PdfDocument(data)

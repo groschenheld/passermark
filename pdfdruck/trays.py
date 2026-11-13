@@ -9,6 +9,7 @@ Based on the assignment stored by the admin (order = priority). Optionally, the 
 reports live via IPP which tray is empty; empty trays are skipped. Without live data,
 the order applies.
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -22,16 +23,21 @@ LIVE_CACHE_S = 20
 
 @dataclass
 class Tray:
-    slot: str            # Treiberwert der Lade (InputSlot / Windows-Fach-ID)
-    size: str            # Treiberwert des Formats (PageSize / Windows-Papier-ID)
-    weight: int = 0      # g/m², 0 = nicht angegeben
-    media: str = ""      # Treiberwert Medientyp ("" = nicht setzen)
-    ipp: str = ""        # tray name on the device (IPP media-source), for the fill level
+    slot: str  # Treiberwert der Lade (InputSlot / Windows-Fach-ID)
+    size: str  # Treiberwert des Formats (PageSize / Windows-Papier-ID)
+    weight: int = 0  # g/m², 0 = nicht angegeben
+    media: str = ""  # Treiberwert Medientyp ("" = nicht setzen)
+    ipp: str = ""  # tray name on the device (IPP media-source), for the fill level
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Tray":
-        return cls(str(d.get("slot", "")), str(d.get("size", "")), int(d.get("weight", 0) or 0),
-                   str(d.get("media", "") or ""), str(d.get("ipp", "") or ""))
+    def from_dict(cls, d: dict) -> Tray:
+        return cls(
+            str(d.get("slot", "")),
+            str(d.get("size", "")),
+            int(d.get("weight", 0) or 0),
+            str(d.get("media", "") or ""),
+            str(d.get("ipp", "") or ""),
+        )
 
     def to_dict(self) -> dict:
         return {"slot": self.slot, "size": self.size, "weight": self.weight, "media": self.media, "ipp": self.ipp}
@@ -62,7 +68,9 @@ def pick(trays: list[Tray], size: str, weight: int = 0, live=None, labels: dict 
         cands = [t for t in same if t.weight == weight] or [t for t in same if not t.weight]
         if not cands:
             have = ", ".join(f"{w} g" for w in sorted({t.weight for t in same if t.weight}))
-            return Pick(None, tr("Keine Lade mit {0} g/m² in diesem Format (geladen: {1}).").format(weight, have), warn=True)
+            return Pick(
+                None, tr("Keine Lade mit {0} g/m² in diesem Format (geladen: {1}).").format(weight, have), warn=True
+            )
     else:
         cands = same
     skipped = []
@@ -73,13 +81,16 @@ def pick(trays: list[Tray], size: str, weight: int = 0, live=None, labels: dict 
             continue
         note = ""
         if skipped:
-            note = tr("{0} leer – nehme {1}.").format(', '.join(skipped), lab(t.slot, t.slot))
+            note = tr("{0} leer – nehme {1}.").format(", ".join(skipped), lab(t.slot, t.slot))
         if st is not None and st.size_mm and st.weight and weight and st.weight != weight:
             note += tr(" Achtung: Gerät meldet {0} g in {1}.").format(st.weight, lab(t.slot, t.slot))
         return Pick(t, note.strip(), warn=bool(note and "Achtung" in note))
     first = cands[0]
-    return Pick(first, tr("Alle passenden Laden laut Gerät leer – bitte {0} nachfüllen.").format(lab(first.slot, first.slot)),
-                warn=True)
+    return Pick(
+        first,
+        tr("Alle passenden Laden laut Gerät leer – bitte {0} nachfüllen.").format(lab(first.slot, first.slot)),
+        warn=True,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -90,6 +101,7 @@ _cache: dict = {}
 
 def live_status(host: str, force: bool = False):
     from . import ipp
+
     if not host:
         return None
     hit = _cache.get(host)

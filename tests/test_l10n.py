@@ -1,7 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Translations: complete, placeholders identical, fallback to German."""
-import ast, glob, importlib, os, re, sys
+
+import ast
+import glob
+import importlib
+import os
+import re
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ["PASSERMARK_LANG"] = "de"
 from pdfdruck import l10n
@@ -16,8 +23,13 @@ def code_strings():
         if os.sep + "lang" + os.sep in p:
             continue
         for n in ast.walk(ast.parse(open(p, encoding="utf-8").read())):
-            if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "tr" and n.args \
-                    and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str):
+            if (
+                isinstance(n, ast.Call)
+                and getattr(n.func, "id", None) == "tr"
+                and n.args
+                and isinstance(n.args[0], ast.Constant)
+                and isinstance(n.args[0].value, str)
+            ):
                 out.add(n.args[0].value)
     return out
 
@@ -41,11 +53,13 @@ def test_catalogs_complete_and_consistent():
 def test_switch_and_fallback():
     l10n.set_language("fr")
     assert l10n.tr("Drucken…") == "Imprimer…"
-    assert l10n.tr("gibt es nicht") == "gibt es nicht"        # unknown -> unchanged
+    assert l10n.tr("gibt es nicht") == "gibt es nicht"  # unknown -> unchanged
     l10n.set_language("de")
     assert l10n.tr("Drucken…") == "Drucken…"
 
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

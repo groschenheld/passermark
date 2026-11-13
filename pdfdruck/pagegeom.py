@@ -9,12 +9,13 @@ Für die Seitenansicht: Mauskoordinaten, Rahmen, Auswahl – bisher hat dafür j
 werden müssen (bei Vektor-lastigen Seiten bis über eine Sekunde). Gebraucht werden nur CropBox (∩ MediaBox)
 und /Rotate der Seite (renderproc.page_info). Geprüft gegen FPDF_PageToDevice (tests/test_pagegeom.py).
 """
+
 from __future__ import annotations
 
 
 def display_matrix(info: dict, width: float, height: float, view_rotation: int = 0):
     """(a, b, c, d, e, f) mit x' = a x + c y + e, y' = b x + d y + f  (Seite pt -> Gerätepixel) oder None.
-        info: {"crop": (x0, y0, x1, y1), "rotate": 0..3}; view_rotation in Grad (0/90/180/270)."""
+    info: {"crop": (x0, y0, x1, y1), "rotate": 0..3}; view_rotation in Grad (0/90/180/270)."""
     x0, y0, x1, y1 = info["crop"]
     pr = int(info.get("rotate", 0)) % 4
     if pr == 1:
@@ -32,8 +33,14 @@ def display_matrix(info: dict, width: float, height: float, view_rotation: int =
     X0, Y0, X1, Y1, X2, Y2 = ((L, B, L, T, R, B), (L, T, R, T, L, B), (R, T, R, B, L, T), (R, B, L, B, R, T))[r]
     m = ((X2 - X0) / pw, (Y2 - Y0) / pw, (X1 - X0) / ph, (Y1 - Y0) / ph, X0, Y0)
     a, b, c, d, e, f = pm
-    return (a * m[0] + b * m[2], a * m[1] + b * m[3], c * m[0] + d * m[2], c * m[1] + d * m[3],
-            e * m[0] + f * m[2] + m[4], e * m[1] + f * m[3] + m[5])
+    return (
+        a * m[0] + b * m[2],
+        a * m[1] + b * m[3],
+        c * m[0] + d * m[2],
+        c * m[1] + d * m[3],
+        e * m[0] + f * m[2] + m[4],
+        e * m[1] + f * m[3] + m[5],
+    )
 
 
 def to_device(m, x: float, y: float):

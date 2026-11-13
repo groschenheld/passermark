@@ -4,12 +4,16 @@
 „Für Druckerei ausgeben“.
   test_color_gui_stub  – Qt-Attrappe (läuft überall): Aufbau, Handler, Speichern der eigenen Papiere
   test_color_gui_qt    – echtes Qt ohne Bildschirm: Prüfung im Hintergrund, Assistent bis zur fertigen Datei"""
-import os, subprocess, sys, tempfile
+
+import os
+import subprocess
+import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-STUB = r'''
+STUB = r"""
 import os, sys, types
 from pdfdruck.gui import viewer
 viewer.PageView._dpi_scale = lambda self: 1.0
@@ -109,9 +113,9 @@ d.out_path = out
 d._finished(r)
 assert os.path.isfile(r["package"])
 print("COLOR-GUI-OK")
-'''
+"""
 
-QT = r'''
+QT = r"""
 import os, sys, time
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.environ["PM_TESTS"])
@@ -184,13 +188,22 @@ with pikepdf.open(out) as pdf:
 assert os.path.isfile(d.result["package"])
 d.accept()
 print("OK")
-'''
+"""
 
 
 def _env(d, stub):
-    env = dict(os.environ, PASSERMARK_LANG="de", PDFTOOLKIT_LANG="de", PASSERMARK_RENDER="local", HOME=d,
-               XDG_CONFIG_HOME=os.path.join(d, "cfg"), XDG_DATA_HOME=os.path.join(d, "data"), PM_TESTS=HERE,
-               PASSERMARK_USER_DIR=os.path.join(d, "user"), PDFDRUCK_CONFIG_DIR=os.path.join(d, "etc"))
+    env = dict(
+        os.environ,
+        PASSERMARK_LANG="de",
+        PDFTOOLKIT_LANG="de",
+        PASSERMARK_RENDER="local",
+        HOME=d,
+        XDG_CONFIG_HOME=os.path.join(d, "cfg"),
+        XDG_DATA_HOME=os.path.join(d, "data"),
+        PM_TESTS=HERE,
+        PASSERMARK_USER_DIR=os.path.join(d, "user"),
+        PDFDRUCK_CONFIG_DIR=os.path.join(d, "etc"),
+    )
     env["PYTHONPATH"] = os.pathsep.join(([os.path.join(HERE, "_qtstub")] if stub else []) + [ROOT, HERE])
     return env
 
@@ -213,5 +226,7 @@ def test_color_gui_qt():
 
 
 if __name__ == "__main__":
-    test_color_gui_stub(); print("ok test_color_gui_stub")
-    test_color_gui_qt(); print("ok test_color_gui_qt")
+    test_color_gui_stub()
+    print("ok test_color_gui_stub")
+    test_color_gui_qt()
+    print("ok test_color_gui_qt")

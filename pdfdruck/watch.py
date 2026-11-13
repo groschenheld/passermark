@@ -5,28 +5,29 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Drop folders (passermark-cli serve): files dropped into a folder run through a workflow. No Qt.
 
-    Configuration (watch.json) – which folder runs which workflow:
-    {
-      "passermark": "watch", "version": 1,
-      "interval": 5,                      seconds between two scans
-      "settle": 5,                        a file counts as complete once size/time stay unchanged this long
-      "folders": [
-        {"in": "/srv/druck/visitenkarten", "workflow": "Visitenkarten"},
-        {"in": "/srv/druck/a4-sw", "workflow": "drucken-a4.json", "patterns": ["*.pdf", "*.jpg"],
-         "out": "", "vars": {"kunde": "Muster"}}
-      ]
-    }
+Configuration (watch.json) – which folder runs which workflow:
+{
+  "passermark": "watch", "version": 1,
+  "interval": 5,                      seconds between two scans
+  "settle": 5,                        a file counts as complete once size/time stay unchanged this long
+  "folders": [
+    {"in": "/srv/druck/visitenkarten", "workflow": "Visitenkarten"},
+    {"in": "/srv/druck/a4-sw", "workflow": "drucken-a4.json", "patterns": ["*.pdf", "*.jpg"],
+     "out": "", "vars": {"kunde": "Muster"}}
+  ]
+}
 
-    Per folder: in (required), workflow (name from the workflow folders or JSON file, required),
-    out ("output" – results; "" = do not keep a result), done ("processed" – originals afterwards; "" = delete),
-    error ("failed" – originals with a .log next to them), patterns (["*.pdf"]), vars ({}), name.
-    Relative paths: in/workflow from the folder of watch.json, out/done/error from the "in" folder.
-    A workflow that only prints keeps no result unless "out" is given.
+Per folder: in (required), workflow (name from the workflow folders or JSON file, required),
+out ("output" – results; "" = do not keep a result), done ("processed" – originals afterwards; "" = delete),
+error ("failed" – originals with a .log next to them), patterns (["*.pdf"]), vars ({}), name.
+Relative paths: in/workflow from the folder of watch.json, out/done/error from the "in" folder.
+A workflow that only prints keeps no result unless "out" is given.
 
-    Each file is first claimed (moved to <in>/.passermark/) – several watchers on the same folder never process
-    a file twice; after a crash, claimed files go back into the folder on the next start.
-    Polling instead of file system notifications: works the same on network shares (SMB/NFS) and Windows.
+Each file is first claimed (moved to <in>/.passermark/) – several watchers on the same folder never process
+a file twice; after a crash, claimed files go back into the folder on the next start.
+Polling instead of file system notifications: works the same on network shares (SMB/NFS) and Windows.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -57,6 +58,7 @@ def config_paths() -> list:
     """Where serve looks without --config: own folder first, then the one for all users."""
     from . import presets
     from .platform import config_dir
+
     return [os.path.join(os.path.dirname(presets.root_dir()), FILE), os.path.join(config_dir(), FILE)]
 
 
@@ -68,13 +70,14 @@ def find_config(path: str | None = None) -> str:
     for p in config_paths():
         if os.path.isfile(p):
             return p
-    raise FileNotFoundError(tr("Keine Watcher-Einstellung gefunden ({0}) – mit --config angeben.")
-                            .format(" · ".join(config_paths())))
+    raise FileNotFoundError(
+        tr("Keine Watcher-Einstellung gefunden ({0}) – mit --config angeben.").format(" · ".join(config_paths()))
+    )
 
 
 def load_config(path: str) -> dict:
     """Read and check watch.json -> {"interval", "settle", "folders": [{…, absolute paths}]}. WatchError lists all
-        problems at once."""
+    problems at once."""
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -85,15 +88,21 @@ def load_config(path: str) -> dict:
     if not isinstance(data, dict):
         raise WatchError([("", tr("Objekt erwartet"))])
     if data.get("passermark") != KIND:
-        probs.append(("passermark", tr("muss \"{0}\" sein").format(KIND)))
+        probs.append(("passermark", tr('muss "{0}" sein').format(KIND)))
     ver = data.get("version")
     if not isinstance(ver, int) or isinstance(ver, bool):
         probs.append(("version", tr("Zahl erwartet")))
     elif ver > VERSION:
-        probs.append(("version", tr("Einstellung ist für eine neuere Passermark-Version (Format {0}, unterstützt: {1})")
-                      .format(ver, VERSION)))
+        probs.append(
+            (
+                "version",
+                tr("Einstellung ist für eine neuere Passermark-Version (Format {0}, unterstützt: {1})").format(
+                    ver, VERSION
+                ),
+            )
+        )
     for k in data:
-        if k not in _TOP and not str(k).startswith("_"):       # "_hinweis" … = Kommentar
+        if k not in _TOP and not str(k).startswith("_"):  # "_hinweis" … = Kommentar
             probs.append((k, tr("unbekannter Eintrag")))
     out = {"file": os.path.abspath(path), "interval": 5.0, "settle": 5.0, "folders": []}
     for k in ("interval", "settle"):
@@ -136,7 +145,7 @@ def load_config(path: str) -> dict:
             if not isinstance(v, str):
                 probs.append((f"{w}.{k}", tr("Text erwartet")))
                 v = dflt
-            d[k] = (os.path.normpath(os.path.join(d["in"], os.path.expanduser(v))) if v else "")
+            d[k] = os.path.normpath(os.path.join(d["in"], os.path.expanduser(v))) if v else ""
             if k == "error" and not v:
                 probs.append((f"{w}.error", tr("Fehler-Ordner darf nicht leer sein")))
         d["out_given"] = "out" in f
@@ -144,7 +153,7 @@ def load_config(path: str) -> dict:
         if isinstance(pats, str):
             pats = [pats]
         if not isinstance(pats, list) or not pats or not all(isinstance(p, str) and p for p in pats):
-            probs.append((f"{w}.patterns", tr("Liste von Mustern erwartet, z. B. [\"*.pdf\"]")))
+            probs.append((f"{w}.patterns", tr('Liste von Mustern erwartet, z. B. ["*.pdf"]')))
             pats = ["*.pdf"]
         d["patterns"] = pats
         vs = f.get("vars", {})
@@ -169,15 +178,17 @@ def load_config(path: str) -> dict:
 
 def init_config(system: bool = False) -> tuple[str, bool, list]:
     """Vorlage watch.json anlegen (eigene, mit system=True die für alle) – NIE überschreiben.
-        -> (Pfad, neu angelegt?, angelegte Dateien/Ordner). Dazu ein harmloser Beispiel-Ablauf (verkleinern) und der
-        Beispiel-Ordner – nur wenn es sie noch nicht gibt."""
+    -> (Pfad, neu angelegt?, angelegte Dateien/Ordner). Dazu ein harmloser Beispiel-Ablauf (verkleinern) und der
+    Beispiel-Ordner – nur wenn es sie noch nicht gibt."""
     from .platform import IS_WIN
+
     path = config_paths()[1 if system else 0]
     if os.path.exists(path):
         return path, False, []
     base = os.path.dirname(path)
     from . import shared
-    if system or os.path.isdir(shared.path("hotfolder")):     # gemeinsamer Druckordner (alle Programme)
+
+    if system or os.path.isdir(shared.path("hotfolder")):  # gemeinsamer Druckordner (alle Programme)
         drop = os.path.join(shared.path("hotfolder"), "beispiel").replace("\\", "/")
     else:
         drop = os.path.abspath(os.path.join(os.path.expanduser("~"), "hotfolder", "beispiel")).replace("\\", "/")
@@ -186,22 +197,33 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
     wf = os.path.join(base, "beispiel-verkleinern.json")
     if not os.path.exists(wf):
         with open(wf, "w", encoding="utf-8") as f:
-            json.dump({"passermark": "workflow", "version": 1, "name": "Beispiel: verkleinern",
-                       "description": "Harmloser Test für den Watcher – das Ergebnis landet in output/",
-                       "steps": [{"job": "shrink"}]}, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "passermark": "workflow",
+                    "version": 1,
+                    "name": "Beispiel: verkleinern",
+                    "description": "Harmloser Test für den Watcher – das Ergebnis landet in output/",
+                    "steps": [{"job": "shrink"}],
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
         made.append(wf)
     data = {
         "_hinweis": "Vorlage – je Ordner: in (Drop-Ordner), workflow (Name aus den Ablauf-Ordnern oder JSON-Datei); "
-                    "optional out/done/error (Standard output/processed/failed, \"\" = kein Ergebnis bzw. löschen), "
-                    "patterns, vars, name. Prüfen: passermark-cli serve --check",
-        "passermark": KIND, "version": VERSION,
-        "interval": 5, "settle": 5,
+        'optional out/done/error (Standard output/processed/failed, "" = kein Ergebnis bzw. löschen), '
+        "patterns, vars, name. Prüfen: passermark-cli serve --check",
+        "passermark": KIND,
+        "version": VERSION,
+        "interval": 5,
+        "settle": 5,
         "folders": [{"in": drop, "workflow": "beispiel-verkleinern.json", "name": "Beispiel"}],
     }
     tmp = path + ".part"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    if os.path.exists(path):                     # inzwischen von woanders angelegt: nichts überschreiben
+    if os.path.exists(path):  # inzwischen von woanders angelegt: nichts überschreiben
         os.remove(tmp)
         return path, False, made
     os.replace(tmp, path)
@@ -210,7 +232,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
         os.makedirs(drop, exist_ok=True)
         made.append(drop)
         if not IS_WIN and os.path.abspath(drop).startswith(shared.root() + os.sep):
-            os.chmod(drop, 0o2770)                 # nur die Programme (Gruppe passermark), auch ohne ACL
+            os.chmod(drop, 0o2770)  # nur die Programme (Gruppe passermark), auch ohne ACL
     except OSError:
         pass
     return path, True, made
@@ -219,6 +241,7 @@ def init_config(system: bool = False) -> tuple[str, bool, list]:
 def check(cfg: dict) -> list:
     """Check every folder and its workflow without running anything. -> [(where, message)]."""
     from . import workflow
+
     probs = []
     for i, f in enumerate(cfg["folders"]):
         w = f"folders[{i}]"
@@ -228,8 +251,14 @@ def check(cfg: dict) -> list:
             path = workflow.find(f["workflow"])
             data = workflow.load(path)
             dummy = os.path.join(f["in"], "datei.pdf")
-            workflow.prepare(data, os.path.dirname(os.path.abspath(path)), [dummy],
-                             _output_for(f, data, dummy), _vars(f, dummy), check_files=False)
+            workflow.prepare(
+                data,
+                os.path.dirname(os.path.abspath(path)),
+                [dummy],
+                _output_for(f, data, dummy),
+                _vars(f, dummy),
+                check_files=False,
+            )
         except FileNotFoundError as e:
             probs.append((f"{w}.workflow", str(e)))
         except workflow.WorkflowError as e:
@@ -248,6 +277,7 @@ def _vars(f: dict, src: str) -> dict:
 
 def _prints_only(data: dict) -> bool:
     from .workflow import PRINT
+
     steps = data.get("steps") if isinstance(data.get("steps"), list) else []
     return bool(steps) and all(isinstance(s, dict) and s.get("job") == PRINT for s in steps)
 
@@ -278,11 +308,11 @@ def _move(src: str, folder: str, name: str) -> str:
 
 class Watcher:
     """events(dict): {"event": "watch_start" | "file" | "step" | "progress" | "step_done" | "file_done" |
-        "file_failed" | "idle", …}. cancel(): True = stop (the current file goes back into its folder)."""
+    "file_failed" | "idle", …}. cancel(): True = stop (the current file goes back into its folder)."""
 
     def __init__(self, cfg: dict, events=None, cancel=None):
         self.cfg, self.events, self.cancel = cfg, events, cancel or (lambda: False)
-        self.seen = {}                       # path -> (size, mtime, since)
+        self.seen = {}  # path -> (size, mtime, since)
         self.counts = {"done": 0, "failed": 0}
 
     def emit(self, **ev):
@@ -316,7 +346,7 @@ class Watcher:
             return out
         present = {e.path for e in entries}
         for p in [p for p in self.seen if os.path.dirname(p) == f["in"] and p not in present]:
-            del self.seen[p]                     # weg (umbenannt, gelöscht, von einem anderen Watcher geholt)
+            del self.seen[p]  # weg (umbenannt, gelöscht, von einem anderen Watcher geholt)
         for e in entries:
             name = e.name
             if name.startswith((".", "~")) or name.lower().endswith(_SKIP):
@@ -354,13 +384,14 @@ class Watcher:
 
     def process(self, f: dict, path: str) -> bool:
         from . import core, workflow
+
         name = os.path.basename(path)
         try:
             os.makedirs(os.path.join(f["in"], CLAIM), exist_ok=True)
             work = os.path.join(f["in"], CLAIM, name)
             if os.path.exists(work):
                 work = _unique(work)
-            os.replace(path, work)                   # claim: still being written / someone else was faster -> skip
+            os.replace(path, work)  # claim: still being written / someone else was faster -> skip
         except OSError:
             return False
         t0 = time.monotonic()
@@ -371,17 +402,19 @@ class Watcher:
             out = _output_for(f, data, path)
             plan = workflow.prepare(data, os.path.dirname(os.path.abspath(wf)), [work], out, _vars(f, path))
             if plan.output and os.path.normcase(os.path.dirname(plan.output)) == os.path.normcase(f["in"]):
-                raise ValueError(tr("Das Ergebnis würde wieder im Eingangsordner landen – \"out\" angeben."))
+                raise ValueError(tr('Das Ergebnis würde wieder im Eingangsordner landen – "out" angeben.'))
 
             def ev(e):
                 self.emit(**dict(e, file=path))
+
             from . import printlog
+
             with printlog.source("watch"):
                 r = workflow.run(plan, ev, cancel=self.cancel, variables=_vars(f, path))
         except (core.Cancelled, KeyboardInterrupt):
             _move(work, f["in"], name)
             raise
-        except Exception as e:                       # noqa: BLE001 – every cause ends up in the failed folder
+        except Exception as e:  # noqa: BLE001 – every cause ends up in the failed folder
             probs = getattr(e, "problems", None) or []
             msg = str(e) if not probs else tr("Ablauf ungültig ({0} Problem(e))").format(len(probs))
             try:
@@ -394,8 +427,14 @@ class Watcher:
                 moved = work
                 msg += f" ({e2})"
             self.counts["failed"] += 1
-            self.emit(event="file_failed", folder=f["name"], file=path, moved_to=moved, message=msg,
-                      problems=[{"where": w, "message": m} for w, m in probs])
+            self.emit(
+                event="file_failed",
+                folder=f["name"],
+                file=path,
+                moved_to=moved,
+                message=msg,
+                problems=[{"where": w, "message": m} for w, m in probs],
+            )
             return True
         if f["done"]:
             moved = _move(work, f["done"], name)
@@ -403,17 +442,36 @@ class Watcher:
             os.remove(work)
             moved = None
         self.counts["done"] += 1
-        self.emit(event="file_done", folder=f["name"], file=path, output=r["output"], moved_to=moved,
-                  pages=r["pages"], notes=r["notes"], seconds=round(time.monotonic() - t0, 1),
-                  prints=[{"printer": s["info"].get("printer"), "job_id": s["info"].get("job_id"),
-                           "dry_run": s["info"].get("dry_run")} for s in r["steps"] if s["job"] == workflow.PRINT])
+        self.emit(
+            event="file_done",
+            folder=f["name"],
+            file=path,
+            output=r["output"],
+            moved_to=moved,
+            pages=r["pages"],
+            notes=r["notes"],
+            seconds=round(time.monotonic() - t0, 1),
+            prints=[
+                {
+                    "printer": s["info"].get("printer"),
+                    "job_id": s["info"].get("job_id"),
+                    "dry_run": s["info"].get("dry_run"),
+                }
+                for s in r["steps"]
+                if s["job"] == workflow.PRINT
+            ],
+        )
         return True
 
     def run(self, once: bool = False):
         """Scan until cancel() – once=True: process what is there (waiting for settle) and return."""
         n = self.recover()
-        self.emit(event="watch_start", config=self.cfg["file"], recovered=n,
-                  folders=[{"name": f["name"], "in": f["in"], "workflow": f["workflow"]} for f in self.cfg["folders"]])
+        self.emit(
+            event="watch_start",
+            config=self.cfg["file"],
+            recovered=n,
+            folders=[{"name": f["name"], "in": f["in"], "workflow": f["workflow"]} for f in self.cfg["folders"]],
+        )
         if once:
             deadline = None
             while not self.cancel():

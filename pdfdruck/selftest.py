@@ -3,6 +3,7 @@
 """Self-test of the finished program file (EXE/AppImage): checks that all bundled dependencies load.
 Call: passermark --selftest   (return 0 = OK; log in <temp>/passermark-selftest.log)
 """
+
 import os
 import re
 import subprocess
@@ -28,12 +29,15 @@ def run() -> int:
 
     def qt():
         from PySide6.QtWidgets import QApplication
+
         app = QApplication.instance() or QApplication([sys.argv[0]])
         from PySide6.QtSvg import QSvgRenderer  # noqa: F401
+
         return app.platformName()
 
     def pdfium():
         import pypdfium2 as p
+
         d = p.PdfDocument.new()
         d.new_page(595, 842)
         img = d[0].render(scale=0.2).to_pil()
@@ -41,30 +45,37 @@ def run() -> int:
 
     def pikepdf_():
         import pikepdf
+
         return pikepdf.__version__
 
     def images():
         import img2pdf  # noqa: F401
         from PIL import Image
+
         return Image.__version__
 
     def ghostscript():
         from . import platform as pl
+
         gs = pl.ghostscript()
         if not gs:
             raise RuntimeError("Ghostscript not found")
-        out = subprocess.run([gs, "--version"], capture_output=True, text=True, timeout=60,
-                             **pl.hidden_subprocess_kwargs())
+        out = subprocess.run(
+            [gs, "--version"], capture_output=True, text=True, timeout=60, **pl.hidden_subprocess_kwargs()
+        )
         if out.returncode != 0:
             raise RuntimeError(out.stderr)
         return f"{out.stdout.strip()} ({gs})"
 
     def printing():
         from . import platform as pl
+
         if pl.IS_WIN:
             import win32print  # noqa: F401
+
             return "win32print"
         import cups  # noqa: F401
+
         return "pycups"
 
     step("Qt", qt)
@@ -74,21 +85,25 @@ def run() -> int:
     step("printing", printing)
     step("Ghostscript", ghostscript)
 
-    def barcodes():                      # variable Daten: reportlab-Barcodes werden dynamisch geladen
+    def barcodes():  # variable Daten: reportlab-Barcodes werden dynamisch geladen
         import io
         from reportlab.graphics import renderPDF
         from reportlab.graphics.barcode import createBarcodeDrawing
         from reportlab.pdfgen import canvas
+
         buf = io.BytesIO()
         cv = canvas.Canvas(buf)
         for kind, val in (("QR", "passermark"), ("Code128", "PM123"), ("EAN13", "400638133393")):
             renderPDF.draw(createBarcodeDrawing(kind, value=val, width=60, height=40), cv, 10, 10)
         cv.save()
         return f"{len(buf.getvalue())} B"
+
     step("reportlab/Barcodes", barcodes)
     if os.path.exists(os.path.join(os.path.dirname(__file__), "cutcontour.py")):
-        step("numpy/scipy/contourpy", lambda: __import__("contourpy").__version__ + " / "
-             + __import__("scipy").__version__)
+        step(
+            "numpy/scipy/contourpy",
+            lambda: __import__("contourpy").__version__ + " / " + __import__("scipy").__version__,
+        )
     text = "\n".join(lines) + ("\nSELFTEST OK\n" if ok else "\nSELFTEST FAILED\n")
     try:
         with open(log, "w", encoding="utf-8") as f:
@@ -104,13 +119,13 @@ def run() -> int:
 
 def admin_helper(args: list) -> int:
     """Linux AppImage: run the bundled root helper (invoked via pkexec, see admindialog).
-        As usual, the helper only accepts validation rules from a root-owned folder (for the AppImage: extracted by root).
+    As usual, the helper only accepts validation rules from a root-owned folder (for the AppImage: extracted by root).
     """
     base = getattr(sys, "_MEIPASS", None) or os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     path = os.path.join(base, "admin", "passermark-admin")
     with open(path, encoding="utf-8") as f:
         code = f.read()
-    code = re.sub(r'^LIB = .*$', "LIB = " + repr(base), code, count=1, flags=re.M)
+    code = re.sub(r"^LIB = .*$", "LIB = " + repr(base), code, count=1, flags=re.M)
     sys.argv = [path] + list(args)
     g = {"__name__": "__main__", "__file__": path}
     try:
@@ -118,6 +133,3 @@ def admin_helper(args: list) -> int:
     except SystemExit as e:
         return int(e.code or 0)
     return 0
-
-
-

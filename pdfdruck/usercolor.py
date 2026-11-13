@@ -15,6 +15,7 @@
 
 The admin materials (/etc/passermark/defaults.json) stay as they are; colorlab.all_materials() shows both.
 """
+
 from __future__ import annotations
 
 import copy
@@ -38,6 +39,7 @@ def user_dir() -> str:
     if env:
         return env
     from . import l10n
+
     return os.path.dirname(l10n._settings_file())
 
 
@@ -69,6 +71,7 @@ def _clean(m: dict) -> dict | None:
     except (TypeError, ValueError):
         out["weight"] = 0
     from .colorlab import SURFACES
+
     if out.get("surface", "") not in SURFACES:
         out["surface"] = ""
     w = out.get("white")
@@ -82,6 +85,7 @@ def _clean(m: dict) -> dict | None:
     out["white_source"] = str(out.get("white_source") or "")[:200]
     out["notes"] = str(out.get("notes") or "")[:2000]
     from .config import INTENTS
+
     if out.get("intent", "") not in ("",) + tuple(INTENTS):
         out["intent"] = ""
     prof = out.get("profiles")
@@ -133,7 +137,8 @@ def new_id(name: str, existing) -> str:
 def import_icc(path: str) -> str:
     """Copy an ICC file into the own ICC folder -> new path (the same file is not copied twice)."""
     from .colorconv import icc_colorspace
-    icc_colorspace(path)                                    # ValueError, wenn kein ICC
+
+    icc_colorspace(path)  # ValueError, wenn kein ICC
     d = icc_dir()
     os.makedirs(d, exist_ok=True)
     if os.path.realpath(os.path.dirname(path)) == os.path.realpath(d):
@@ -161,21 +166,69 @@ REGISTRY_PAGE = "https://registry.color.org/profile-registry/{0}"
 
 # key, file (= registry name), shown name, characterisation, surface, typical max. ink coverage %, publisher
 STANDARD_PROFILES = [
-    {"key": "PSOcoated_v3", "name": "PSO Coated v3", "condition": "FOGRA51", "surface": "coated", "tac": 300,
-     "by": "ECI", "use": "Offset, gestrichenes Papier (Bilderdruck) – heutiger Standard"},
-    {"key": "PSOuncoated_v3_FOGRA52", "name": "PSO Uncoated v3", "condition": "FOGRA52", "surface": "uncoated",
-     "tac": 300, "by": "ECI", "use": "Offset, ungestrichenes Papier (Naturpapier, Offsetpapier) – heutiger Standard"},
-    {"key": "Coated_Fogra39L_VIGC_300", "name": "Coated FOGRA39 (300 %)", "condition": "FOGRA39",
-     "surface": "coated", "tac": 300, "by": "VIGC",
-     "use": "Offset, gestrichen – ältere Norm, verlangen viele Druckereien noch (wie ISO Coated v2)"},
-    {"key": "Uncoated_Fogra47L_VIGC_300", "name": "Uncoated FOGRA47 (300 %)", "condition": "FOGRA47",
-     "surface": "uncoated", "tac": 300, "by": "VIGC", "use": "Offset, ungestrichen – ältere Norm"},
-    {"key": "PSOsc-b_paper_v3_FOGRA54", "name": "PSO SC-B Paper v3", "condition": "FOGRA54", "surface": "special",
-     "tac": 270, "by": "ECI", "use": "Rollenoffset, SC-Papier (Magazine, Beilagen)"},
-    {"key": "GRACoL2013_CRPC6", "name": "GRACoL 2013", "condition": "CRPC6", "surface": "coated", "tac": 320,
-     "by": "Idealliance", "use": "USA, Bogenoffset gestrichen"},
-    {"key": "SWOP2013C3_CRPC5", "name": "SWOP 2013 C3", "condition": "CRPC5", "surface": "coated", "tac": 300,
-     "by": "Idealliance", "use": "USA, Rollenoffset Publikationspapier"},
+    {
+        "key": "PSOcoated_v3",
+        "name": "PSO Coated v3",
+        "condition": "FOGRA51",
+        "surface": "coated",
+        "tac": 300,
+        "by": "ECI",
+        "use": "Offset, gestrichenes Papier (Bilderdruck) – heutiger Standard",
+    },
+    {
+        "key": "PSOuncoated_v3_FOGRA52",
+        "name": "PSO Uncoated v3",
+        "condition": "FOGRA52",
+        "surface": "uncoated",
+        "tac": 300,
+        "by": "ECI",
+        "use": "Offset, ungestrichenes Papier (Naturpapier, Offsetpapier) – heutiger Standard",
+    },
+    {
+        "key": "Coated_Fogra39L_VIGC_300",
+        "name": "Coated FOGRA39 (300 %)",
+        "condition": "FOGRA39",
+        "surface": "coated",
+        "tac": 300,
+        "by": "VIGC",
+        "use": "Offset, gestrichen – ältere Norm, verlangen viele Druckereien noch (wie ISO Coated v2)",
+    },
+    {
+        "key": "Uncoated_Fogra47L_VIGC_300",
+        "name": "Uncoated FOGRA47 (300 %)",
+        "condition": "FOGRA47",
+        "surface": "uncoated",
+        "tac": 300,
+        "by": "VIGC",
+        "use": "Offset, ungestrichen – ältere Norm",
+    },
+    {
+        "key": "PSOsc-b_paper_v3_FOGRA54",
+        "name": "PSO SC-B Paper v3",
+        "condition": "FOGRA54",
+        "surface": "special",
+        "tac": 270,
+        "by": "ECI",
+        "use": "Rollenoffset, SC-Papier (Magazine, Beilagen)",
+    },
+    {
+        "key": "GRACoL2013_CRPC6",
+        "name": "GRACoL 2013",
+        "condition": "CRPC6",
+        "surface": "coated",
+        "tac": 320,
+        "by": "Idealliance",
+        "use": "USA, Bogenoffset gestrichen",
+    },
+    {
+        "key": "SWOP2013C3_CRPC5",
+        "name": "SWOP 2013 C3",
+        "condition": "CRPC5",
+        "surface": "coated",
+        "tac": 300,
+        "by": "Idealliance",
+        "use": "USA, Rollenoffset Publikationspapier",
+    },
 ]
 
 
@@ -186,6 +239,7 @@ def standard_by_key(key: str):
 def standard_installed(p: dict) -> str:
     """Path of an installed copy of the standard profile ("" = not installed)."""
     from . import cmyk
+
     want = p["key"].lower()
     for d in cmyk.system_profile_dirs():
         if not os.path.isdir(d):
@@ -200,14 +254,16 @@ def standard_installed(p: dict) -> str:
 def standards_for_surface(surface: str) -> list:
     """Standard profiles that fit this surface (coated/uncoated/…), Europe first."""
     from .colorlab import _surface_group
+
     g = _surface_group(surface or "")
     return [p for p in STANDARD_PROFILES if g and _surface_group(p["surface"]) == g]
 
 
 def download_standard(key: str, timeout: float = 60.0, opener=None) -> str:
     """Fetch a standard profile from the ICC registry into the own ICC folder -> path.
-        Only CMYK output profiles are accepted (header checked); at most 8 MB."""
+    Only CMYK output profiles are accepted (header checked); at most 8 MB."""
     import urllib.request
+
     p = standard_by_key(key)
     if p is None:
         raise ValueError(tr("Unbekanntes Standardprofil: {0}").format(key))
@@ -239,19 +295,20 @@ def tac_limit_for(icc_path: str, default: int = 300) -> int:
     text = os.path.basename(icc_path or "").lower()
     try:
         from .colorlab import profile_desc
+
         text += " " + profile_desc(icc_path).lower()
     except Exception:
         pass
     text = re.sub(r"[^a-z0-9]", "", text)
-    for p in STANDARD_PROFILES:                             # genau dieses Profil
+    for p in STANDARD_PROFILES:  # genau dieses Profil
         if re.sub(r"[^a-z0-9]", "", p["key"].lower()) in text:
             return p["tac"]
     m = re.search(r"(?:tac|gcr|ucr|vigc)(2[4-9]0|3[0-5]0)", text)
-    if m:                                                    # Grenze im Namen („…_VIGC_260“, „TAC300“)
+    if m:  # Grenze im Namen („…_VIGC_260“, „TAC300“)
         return int(m.group(1))
     if "isocoatedv2" in text or "fogra39" in text or "fogra27" in text:
-        return 330                                           # ISO Coated v2 / FOGRA39: 330 %
-    for p in STANDARD_PROFILES:                              # gleiche Druckbedingung
+        return 330  # ISO Coated v2 / FOGRA39: 330 %
+    for p in STANDARD_PROFILES:  # gleiche Druckbedingung
         if p["condition"].lower() in text:
             return p["tac"]
     return default

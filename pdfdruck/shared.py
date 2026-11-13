@@ -15,6 +15,7 @@
 Setting up needs root (Linux: root helper passermark-admin shared-folder, via pkexec) or the installer (Windows).
 This module only reads (status, paths, warnings) and starts the helper. No Qt.
 """
+
 from __future__ import annotations
 
 import os
@@ -56,24 +57,27 @@ def in_home(p: str) -> bool:
 
 def home_hint() -> str:
     from .l10n import tr
-    return tr("Ordner liegt in einem Home-Verzeichnis – Dienste anderer Benutzer (Watcher, Passerlink …) dürfen dort "
-              "meist nicht schreiben. Besser unter {0}.").format(path("hotfolder"))
+
+    return tr(
+        "Ordner liegt in einem Home-Verzeichnis – Dienste anderer Benutzer (Watcher, Passerlink …) dürfen dort "
+        "meist nicht schreiben. Besser unter {0}."
+    ).format(path("hotfolder"))
 
 
 def status() -> dict:
     """{root, exists, dirs: {name: {exists, writable}}, group (Linux: gibt's die Gruppe), member (aktiver Benutzer in
-        der Gruppe – None unter Windows), member_pending (in /etc/group, aber noch nicht angemeldet), ok}."""
+    der Gruppe – None unter Windows), member_pending (in /etc/group, aber noch nicht angemeldet), ok}."""
     r = root()
     dirs = {}
     for s in SUBDIRS:
         p = os.path.join(r, s)
         dirs[s] = {"path": p, "exists": os.path.isdir(p), "writable": os.path.isdir(p) and os.access(p, os.W_OK)}
-    out = {"root": r, "exists": os.path.isdir(r), "dirs": dirs, "group": None, "member": None,
-           "member_pending": False}
+    out = {"root": r, "exists": os.path.isdir(r), "dirs": dirs, "group": None, "member": None, "member_pending": False}
     if not IS_WIN:
         try:
             import grp
             import pwd
+
             g = grp.getgrnam(GROUP)
             out["group"] = True
             me = pwd.getpwuid(os.getuid()).pw_name
@@ -90,23 +94,28 @@ def status() -> dict:
 
 def status_text(st: dict | None = None) -> str:
     from .l10n import tr
+
     st = st or status()
     if st["ok"]:
         return tr("Gemeinsamer Druckordner {0}: eingerichtet, beschreibbar.").format(st["root"])
     if not st["exists"] or not all(d["exists"] for d in st["dirs"].values()):
         return tr("Gemeinsamer Druckordner {0}: noch nicht eingerichtet.").format(st["root"])
     if st.get("member_pending"):
-        return tr("Gemeinsamer Druckordner {0}: du bist in der Gruppe {1} – neu anmelden, dann ist er "
-                  "beschreibbar.").format(st["root"], GROUP)
+        return tr(
+            "Gemeinsamer Druckordner {0}: du bist in der Gruppe {1} – neu anmelden, dann ist er beschreibbar."
+        ).format(st["root"], GROUP)
     if st.get("member") is False:
-        return tr("Gemeinsamer Druckordner {0}: vorhanden, aber du bist nicht in der Gruppe {1}.").format(st["root"], GROUP)
+        return tr("Gemeinsamer Druckordner {0}: vorhanden, aber du bist nicht in der Gruppe {1}.").format(
+            st["root"], GROUP
+        )
     return tr("Gemeinsamer Druckordner {0}: vorhanden, aber nicht beschreibbar.").format(st["root"])
 
 
 def helper_cmd() -> list:
     """Root-Helfer aufrufen: als root direkt, sonst über pkexec. Installiert: /usr/libexec/passermark-admin;
-        AppImage: das AppImage selbst (--admin-helper); aus dem Quellordner: admin/passermark-admin."""
+    AppImage: das AppImage selbst (--admin-helper); aus dem Quellordner: admin/passermark-admin."""
     from . import config
+
     appimage = os.environ.get("APPIMAGE")
     if os.path.exists(config.HELPER):
         cmd = [config.HELPER]
@@ -120,14 +129,16 @@ def helper_cmd() -> list:
 
 def setup(users: list | None = None) -> tuple[int, str]:
     """Linux: einrichten über den Root-Helfer (ein Passwort). users leer = der aufrufende Benutzer.
-        -> (Rückgabecode, Ausgabe). 126/127 = abgebrochen bzw. pkexec fehlt."""
+    -> (Rückgabecode, Ausgabe). 126/127 = abgebrochen bzw. pkexec fehlt."""
     if IS_WIN:
         from .l10n import tr
+
         return 1, tr("Unter Windows richtet das Setup den Ordner ein (Passermark neu installieren bzw. reparieren).")
     users = list(users or [])
     if not users and os.geteuid() != 0:
         try:
             import pwd
+
             users = [pwd.getpwuid(os.getuid()).pw_name]
         except (ImportError, KeyError):
             users = []
@@ -135,5 +146,6 @@ def setup(users: list | None = None) -> tuple[int, str]:
         r = subprocess.run(helper_cmd() + ["shared-folder"] + users, capture_output=True, text=True)
     except FileNotFoundError:
         from .l10n import tr
+
         return 127, tr("pkexec wurde nicht gefunden (Paket polkit).")
     return r.returncode, (r.stdout + ("\n" + r.stderr if r.stderr else "")).strip()

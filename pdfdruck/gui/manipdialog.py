@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dokument-Manipulation: Bedienfeld (Reiter im Druckdialog + eigener Dialog) und Farbvorschau."""
+
 from __future__ import annotations
 
 import os
@@ -12,18 +13,37 @@ import tempfile
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-                               QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QMessageBox,
-                               QPushButton, QScrollArea, QSpinBox, QSplitter, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import cmyk, config, pdfmanip
 from ..l10n import tr
 from . import theme
 from .common import fill_combo, fit_width
 
-MODES = [("rgb_only", "RGB/Graustufen → CMYK, vorhandenes CMYK unverändert"),
-         ("all", "Alles neu separieren (CMYK von Quellprofil → Zielprofil)"),
-         ("gray", "In Graustufen umwandeln (druckt nur mit Schwarz)")]
+MODES = [
+    ("rgb_only", "RGB/Graustufen → CMYK, vorhandenes CMYK unverändert"),
+    ("all", "Alles neu separieren (CMYK von Quellprofil → Zielprofil)"),
+    ("gray", "In Graustufen umwandeln (druckt nur mit Schwarz)"),
+]
 
 
 def pil_to_pixmap(img) -> QPixmap:
@@ -35,6 +55,7 @@ def pil_to_pixmap(img) -> QPixmap:
 
 class ManipPanel(QWidget):
     """Document manipulation settings. `changed` signal on every change."""
+
     changed = Signal()
 
     def __init__(self, parent, settings: cmyk.ManipSettings, cfg: dict, doc=None, current: int = 0):
@@ -50,11 +71,13 @@ class ManipPanel(QWidget):
         self.chk_cmyk.setChecked(settings.cmyk)
         f.addRow(self.chk_cmyk)
         from .. import colorlab
+
         self.material_white = None
         self._facts = None
         self.cmb_material = QComboBox()
-        self.cmb_material.setToolTip(tr("Papier (Verwaltung oder eigenes) – wählt Zielprofil, Intent und die passende "
-                                        "Methode"))
+        self.cmb_material.setToolTip(
+            tr("Papier (Verwaltung oder eigenes) – wählt Zielprofil, Intent und die passende Methode")
+        )
         mats = [m for m in colorlab.all_materials(cfg) if colorlab.cmyk_profile_of(cfg, m)]
         fill_combo(self.cmb_material, [("", tr("– keins –"))] + [(m["id"], m.get("name") or m["id"]) for m in mats], "")
         f.addRow(tr("Material:"), self.cmb_material)
@@ -107,9 +130,11 @@ class ManipPanel(QWidget):
         f.addRow(self.chk_crop)
         self.cmb_size = QComboBox()
         items = [(k, f"{k}  ({w:g} × {h:g} mm)") for k, (w, h) in pdfmanip.FORMATS.items()]
-        items += [("custom", tr("Benutzerdefiniert")),
-                  (pdfmanip.TRIM_MODE, tr("Kanten abschneiden (kein Zielformat)")),
-                  (pdfmanip.WHITEOUT_MODE, tr("Weißraum entfernen"))]
+        items += [
+            ("custom", tr("Benutzerdefiniert")),
+            (pdfmanip.TRIM_MODE, tr("Kanten abschneiden (kein Zielformat)")),
+            (pdfmanip.WHITEOUT_MODE, tr("Weißraum entfernen")),
+        ]
         fill_combo(self.cmb_size, items, settings.crop_size)
         f.addRow(tr("Modus:"), self.cmb_size)
         row = QHBoxLayout()
@@ -132,30 +157,45 @@ class ManipPanel(QWidget):
         f.addRow(self.chk_follow)
         self.chk_scale = QCheckBox(tr("Skalieren, bis das Format ganz gefüllt ist"))
         self.chk_scale.setChecked(settings.crop_scale)
-        self.chk_scale.setToolTip(tr("An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen "
-                                     "wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten "
-                                     "(z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, "
-                                     "die schon in der richtigen Größe mit Anschnitt kommen."))
+        self.chk_scale.setToolTip(
+            tr(
+                "An: die passende Kante wird genau aufs Zielformat skaliert, an der anderen "
+                "wird der Überstand oben/unten bzw. links/rechts gleichmäßig abgeschnitten "
+                "(z. B. A4 → A6 = 50 %). Aus: nur abschneiden, ohne Skalieren – für Dateien, "
+                "die schon in der richtigen Größe mit Anschnitt kommen."
+            )
+        )
         f.addRow(self.chk_scale)
         self.spn_inset = QDoubleSpinBox()
         self.spn_inset.setRange(0, 100)
         self.spn_inset.setDecimals(1)
         self.spn_inset.setSuffix(" mm")
         self.spn_inset.setValue(settings.crop_inset_mm)
-        self.spn_inset.setToolTip(tr("Vorher rundum so viel von der Vorlage abschneiden – z. B. weiße Ränder eines "
-                                     "Scans oder einer Datei ohne Anschnitt. Danach wird wie eingestellt skaliert "
-                                     "und beschnitten."))
+        self.spn_inset.setToolTip(
+            tr(
+                "Vorher rundum so viel von der Vorlage abschneiden – z. B. weiße Ränder eines "
+                "Scans oder einer Datei ohne Anschnitt. Danach wird wie eingestellt skaliert "
+                "und beschnitten."
+            )
+        )
         f.addRow(tr("Weißen Rand vorher abschneiden:"), self.spn_inset)
         self.lbl_trim = QLabel(tr("Kanten abschneiden:"))
         f.addRow(self.lbl_trim)
         row = QHBoxLayout()
-        self.spn_tl = QDoubleSpinBox(); self.spn_tt = QDoubleSpinBox()
-        self.spn_tr = QDoubleSpinBox(); self.spn_tb = QDoubleSpinBox()
-        for sp, val, lbl in ((self.spn_tl, settings.trim_l_mm, tr("links")),
-                             (self.spn_tt, settings.trim_t_mm, tr("oben")),
-                             (self.spn_tr, settings.trim_r_mm, tr("rechts")),
-                             (self.spn_tb, settings.trim_b_mm, tr("unten"))):
-            sp.setRange(0, 500); sp.setDecimals(1); sp.setSuffix(" mm"); sp.setValue(val)
+        self.spn_tl = QDoubleSpinBox()
+        self.spn_tt = QDoubleSpinBox()
+        self.spn_tr = QDoubleSpinBox()
+        self.spn_tb = QDoubleSpinBox()
+        for sp, val, lbl in (
+            (self.spn_tl, settings.trim_l_mm, tr("links")),
+            (self.spn_tt, settings.trim_t_mm, tr("oben")),
+            (self.spn_tr, settings.trim_r_mm, tr("rechts")),
+            (self.spn_tb, settings.trim_b_mm, tr("unten")),
+        ):
+            sp.setRange(0, 500)
+            sp.setDecimals(1)
+            sp.setSuffix(" mm")
+            sp.setValue(val)
             cell = QWidget()
             col = QVBoxLayout(cell)
             col.setContentsMargins(0, 0, 0, 0)
@@ -171,9 +211,13 @@ class ManipPanel(QWidget):
         self.lbl_wm = QLabel(tr("Rand um den erkannten Inhalt:"))
         f.addRow(self.lbl_wm)
         self.spn_wm = QDoubleSpinBox()
-        self.spn_wm.setRange(-10, 50); self.spn_wm.setDecimals(1); self.spn_wm.setSuffix(" mm")
+        self.spn_wm.setRange(-10, 50)
+        self.spn_wm.setDecimals(1)
+        self.spn_wm.setSuffix(" mm")
         self.spn_wm.setValue(settings.white_margin_mm)
-        self.spn_wm.setToolTip(tr("Abstand rund um den erkannten Inhalt. Negativ = zusätzlich in den Inhalt hineinschneiden."))
+        self.spn_wm.setToolTip(
+            tr("Abstand rund um den erkannten Inhalt. Negativ = zusätzlich in den Inhalt hineinschneiden.")
+        )
         f.addRow(self.spn_wm)
         self.lbl_crop = QLabel()
         self.lbl_crop.setWordWrap(True)
@@ -188,8 +232,16 @@ class ManipPanel(QWidget):
         for w in (self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.cmb_size):
             w.currentIndexChanged.connect(self._changed)
         self.cmb_material.currentIndexChanged.connect(self._material_changed)
-        for w in (self.spn_w, self.spn_h, self.spn_inset,
-                  self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb, self.spn_wm):
+        for w in (
+            self.spn_w,
+            self.spn_h,
+            self.spn_inset,
+            self.spn_tl,
+            self.spn_tt,
+            self.spn_tr,
+            self.spn_tb,
+            self.spn_wm,
+        ):
             w.valueChanged.connect(self._changed)
         self._sync()
         fit_width(self)
@@ -203,15 +255,21 @@ class ManipPanel(QWidget):
         fill_combo(self.cmb_target, items or [("", tr("(kein CMYK-Profil gefunden)"))], cur_t)
         fill_combo(self.cmb_source, [("", tr("Ghostscript-Standard (SWOP)"))] + items, cur_s)
         if not profs:
-            self.lbl_cmyk.setText(tr("Kein CMYK-Druckprofil gefunden. Profile der Standard-Druckbedingungen (z. B. "
-                                     "PSO Coated v3 / FOGRA51, PSO Uncoated v3 / FOGRA52) gibt es kostenlos bei der "
-                                     "ECI: ") + f'<a style="color:{theme.ACCENT}" href="{cmyk.ECI_URL}">eci.org</a>. '
-                                  + tr("Einbinden über „Datei…“, im Admin unter Farbprofile oder mit Farbe → Standardprofile holen."))
+            self.lbl_cmyk.setText(
+                tr(
+                    "Kein CMYK-Druckprofil gefunden. Profile der Standard-Druckbedingungen (z. B. "
+                    "PSO Coated v3 / FOGRA51, PSO Uncoated v3 / FOGRA52) gibt es kostenlos bei der "
+                    "ECI: "
+                )
+                + f'<a style="color:{theme.ACCENT}" href="{cmyk.ECI_URL}">eci.org</a>. '
+                + tr("Einbinden über „Datei…“, im Admin unter Farbprofile oder mit Farbe → Standardprofile holen.")
+            )
 
     def _material_changed(self, *_):
         """Material gewählt: Zielprofil + Intent vom Material, Methode nach der Datei (Ausgabebedingung, CMYK)."""
         import io
         from .. import colorlab
+
         m = colorlab.material_by_id(self.cfg, self.cmb_material.currentData() or "")
         self.material_white = list(m["white"]) if m and m.get("white") else None
         if m is None:
@@ -230,8 +288,12 @@ class ManipPanel(QWidget):
                 self._facts = ([], True)
         ois, has_cmyk = self._facts or ([], True)
         rec = colorlab.recommend_conversion(ois, has_cmyk, target, colorlab.candidates(self.cfg))
-        for cmb, val in ((self.cmb_target, target), (self.cmb_mode, rec["mode"]), (self.cmb_source, rec["source"]),
-                         (self.cmb_intent, m.get("intent") or "")):
+        for cmb, val in (
+            (self.cmb_target, target),
+            (self.cmb_mode, rec["mode"]),
+            (self.cmb_source, rec["source"]),
+            (self.cmb_intent, m.get("intent") or ""),
+        ):
             if val or cmb is self.cmb_source:
                 i = cmb.findData(val)
                 if i < 0 and cmb is self.cmb_source and val:
@@ -252,7 +314,9 @@ class ManipPanel(QWidget):
         self.lbl_rec.show()
 
     def _pick_file(self):
-        p, _ = QFileDialog.getOpenFileName(self, tr("ICC-Profil wählen"), "", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)"))
+        p, _ = QFileDialog.getOpenFileName(
+            self, tr("ICC-Profil wählen"), "", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)")
+        )
         if not p:
             return
         head = cmyk._icc_head(p)
@@ -289,7 +353,7 @@ class ManipPanel(QWidget):
             if lab is not None:
                 lab.setVisible(on)
 
-        self.cmb_size.setVisible(crop)            # Modus-Auswahl bleibt immer erreichbar
+        self.cmb_size.setVisible(crop)  # Modus-Auswahl bleibt immer erreichbar
         self.cmb_size.setEnabled(crop)
         show(self.row_wh, crop and custom and fmt)
         for w in (self.chk_follow, self.chk_scale):
@@ -310,7 +374,7 @@ class ManipPanel(QWidget):
 
     def _changed(self, *_):
         s = self.settings()
-        self.s.__dict__.update(s.__dict__)       # Sitzung aktualisieren
+        self.s.__dict__.update(s.__dict__)  # Sitzung aktualisieren
         self._sync()
         self.changed.emit()
 
@@ -348,14 +412,34 @@ class ManipPanel(QWidget):
             if i >= 0:
                 cmb.setCurrentIndex(i)
             return i >= 0
+
         missing = []
         for p in (s.target, s.source):
             if p and self.cmb_target.findData(p) < 0 and os.path.isfile(p):
                 self.extra_profiles.append(cmyk.CmykProfile(cmyk._desc(p), p, "file"))
         self._fill_profiles()
-        ws = [self.chk_cmyk, self.cmb_mode, self.cmb_target, self.cmb_source, self.cmb_intent, self.chk_bpc, self.chk_k,
-              self.chk_oi, self.chk_crop, self.cmb_size, self.spn_w, self.spn_h, self.chk_follow, self.chk_scale,
-              self.spn_inset, self.spn_tl, self.spn_tt, self.spn_tr, self.spn_tb, self.spn_wm]
+        ws = [
+            self.chk_cmyk,
+            self.cmb_mode,
+            self.cmb_target,
+            self.cmb_source,
+            self.cmb_intent,
+            self.chk_bpc,
+            self.chk_k,
+            self.chk_oi,
+            self.chk_crop,
+            self.cmb_size,
+            self.spn_w,
+            self.spn_h,
+            self.chk_follow,
+            self.chk_scale,
+            self.spn_inset,
+            self.spn_tl,
+            self.spn_tt,
+            self.spn_tr,
+            self.spn_tb,
+            self.spn_wm,
+        ]
         for w in ws:
             w.blockSignals(True)
         try:
@@ -378,16 +462,23 @@ class ManipPanel(QWidget):
             self.chk_follow.setChecked(bool(s.crop_follow))
             self.chk_scale.setChecked(bool(s.crop_scale))
             self.spn_inset.setValue(s.crop_inset_mm)
-            self.spn_tl.setValue(s.trim_l_mm); self.spn_tt.setValue(s.trim_t_mm)
-            self.spn_tr.setValue(s.trim_r_mm); self.spn_tb.setValue(s.trim_b_mm)
+            self.spn_tl.setValue(s.trim_l_mm)
+            self.spn_tt.setValue(s.trim_t_mm)
+            self.spn_tr.setValue(s.trim_r_mm)
+            self.spn_tb.setValue(s.trim_b_mm)
             self.spn_wm.setValue(s.white_margin_mm)
         finally:
             for w in ws:
                 w.blockSignals(False)
         self._changed()
         if missing:
-            QMessageBox.warning(self, tr("Preset"), tr("Dieses Farbprofil gibt es auf diesem Rechner nicht – bitte ein "
-                                                       "anderes wählen:") + "\n" + "\n".join(missing))
+            QMessageBox.warning(
+                self,
+                tr("Preset"),
+                tr("Dieses Farbprofil gibt es auf diesem Rechner nicht – bitte ein anderes wählen:")
+                + "\n"
+                + "\n".join(missing),
+            )
 
     def open_preview(self):
         if self.doc is None:
@@ -418,8 +509,15 @@ class _PreviewWorker(QThread):
 class ColorPreviewDialog(QDialog):
     """Before/after, individual separations and total ink coverage – computed from the real CMYK values."""
 
-    VIEWS = [("both", "Vorher | Nachher"), ("after", "Nur Nachher"), ("c", "Auszug Cyan"), ("m", "Auszug Magenta"),
-             ("y", "Auszug Gelb"), ("k", "Auszug Schwarz"), ("tac", "Farbauftrag (TAC) – Warnung")]
+    VIEWS = [
+        ("both", "Vorher | Nachher"),
+        ("after", "Nur Nachher"),
+        ("c", "Auszug Cyan"),
+        ("m", "Auszug Magenta"),
+        ("y", "Auszug Gelb"),
+        ("k", "Auszug Schwarz"),
+        ("tac", "Farbauftrag (TAC) – Warnung"),
+    ]
 
     def __init__(self, parent, doc, s: cmyk.ManipSettings, page: int = 0, white=None):
         super().__init__(parent)
@@ -460,7 +558,9 @@ class ColorPreviewDialog(QDialog):
         self.spn_tac.setSingleStep(10)
         self.spn_tac.setValue(300)
         self.spn_tac.setSuffix(" %")
-        self.spn_tac.setToolTip(tr("Maximaler Farbauftrag der Druckbedingung (gestrichen meist 300–330 %, ungestrichen 280–300 %)"))
+        self.spn_tac.setToolTip(
+            tr("Maximaler Farbauftrag der Druckbedingung (gestrichen meist 300–330 %, ungestrichen 280–300 %)")
+        )
         bar.addWidget(self.spn_tac)
         self.chk_paper = QCheckBox(tr("Papierweiß simulieren") + (tr(" (gemessen)") if white else ""))
         bar.addWidget(self.chk_paper)
@@ -484,9 +584,13 @@ class ColorPreviewDialog(QDialog):
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
         v.addWidget(self.lbl_info)
-        note = QLabel(tr("„Nachher“ entsteht mit denselben Ghostscript-Einstellungen wie die Umwandlung und wird über "
-                         "das Zielprofil (LittleCMS) auf den Bildschirm gerechnet. Auszüge und Farbauftrag stammen aus "
-                         "den tatsächlichen CMYK-Werten. Genau so genau wie Profil und Monitorkalibrierung."))
+        note = QLabel(
+            tr(
+                "„Nachher“ entsteht mit denselben Ghostscript-Einstellungen wie die Umwandlung und wird über "
+                "das Zielprofil (LittleCMS) auf den Bildschirm gerechnet. Auszüge und Farbauftrag stammen aus "
+                "den tatsächlichen CMYK-Werten. Genau so genau wie Profil und Monitorkalibrierung."
+            )
+        )
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(note)
@@ -506,8 +610,14 @@ class ColorPreviewDialog(QDialog):
             return
         self.lbl_info.setText(tr("Berechne Vorschau …"))
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.worker = _PreviewWorker(self.path, self.spn_page.value() - 1, self.s,
-                                     self.cmb_dpi.currentData(), self.chk_paper.isChecked(), self.white)
+        self.worker = _PreviewWorker(
+            self.path,
+            self.spn_page.value() - 1,
+            self.s,
+            self.cmb_dpi.currentData(),
+            self.chk_paper.isChecked(),
+            self.white,
+        )
         self.worker.done.connect(self._done)
         self.worker.start()
 
@@ -528,8 +638,11 @@ class ColorPreviewDialog(QDialog):
         right = r.after
         if r.cmyk is not None:
             mx, pct, warn = cmyk.tac(r.cmyk, self.spn_tac.value())
-            info.append(tr("Max. Farbauftrag: {0:.0f} %  ·  über {1} %: {2:.2f} % der Fläche").format(
-                mx, self.spn_tac.value(), pct))
+            info.append(
+                tr("Max. Farbauftrag: {0:.0f} %  ·  über {1} %: {2:.2f} % der Fläche").format(
+                    mx, self.spn_tac.value(), pct
+                )
+            )
             if view in ("c", "m", "y", "k"):
                 right = cmyk.separation(r.cmyk, "cmyk".index(view))
             elif view == "tac":
@@ -552,11 +665,14 @@ class ColorPreviewDialog(QDialog):
 class ManipDialog(QDialog):
     """From the Document manipulation menu: apply to the whole document -> result in a new window.
 
-        mode: "cmyk" (conversion only), "crop" (cropping only) or "all" (both).
+    mode: "cmyk" (conversion only), "crop" (cropping only) or "all" (both).
     """
 
-    TITLES = {"cmyk": "CMYK-Umwandlung – Passermark", "crop": "Auf Format beschneiden – Passermark",
-              "all": "Dokument-Manipulation – Passermark"}
+    TITLES = {
+        "cmyk": "CMYK-Umwandlung – Passermark",
+        "crop": "Auf Format beschneiden – Passermark",
+        "all": "Dokument-Manipulation – Passermark",
+    }
 
     def __init__(self, parent, doc, session, current: int = 0, mode: str = "all"):
         super().__init__(parent)
@@ -570,6 +686,7 @@ class ManipDialog(QDialog):
         sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.panel = ManipPanel(self, session.manip, session.cfg, doc, current)
         from .presetbar import PresetBar
+
         self.presetbar = PresetBar(self, "manip", self.panel.settings, self.panel.load_settings)
         v.addWidget(self.presetbar)
         sa.setWidget(self.panel)
@@ -577,13 +694,17 @@ class ManipDialog(QDialog):
         if mode == "cmyk":
             self.panel.grp_crop.hide()
             self.panel.chk_cmyk.setChecked(True)
-            self.panel.chk_cmyk.hide()            # in diesem Dialog immer an
+            self.panel.chk_cmyk.hide()  # in diesem Dialog immer an
         elif mode == "crop":
             self.panel.grp_cmyk.hide()
             self.panel.chk_crop.setChecked(True)
             self.panel.chk_crop.hide()
-        hint = QLabel(tr("Das Ergebnis öffnet sich in einem neuen Fenster und liegt vorerst nur im Zwischenspeicher. "
-                         "Zum Behalten „Speichern unter …“ verwenden; gedruckt wird es wie jedes andere Dokument."))
+        hint = QLabel(
+            tr(
+                "Das Ergebnis öffnet sich in einem neuen Fenster und liegt vorerst nur im Zwischenspeicher. "
+                "Zum Behalten „Speichern unter …“ verwenden; gedruckt wird es wie jedes andere Dokument."
+            )
+        )
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(hint)
@@ -605,9 +726,12 @@ class ManipDialog(QDialog):
         elif self.mode == "crop":
             s.cmyk = False
         if not s.active:
-            QMessageBox.information(self, tr("Nichts zu tun"), tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren."))
+            QMessageBox.information(
+                self, tr("Nichts zu tun"), tr("Bitte CMYK-Umwandlung und/oder Beschneiden aktivieren.")
+            )
             return
         # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
         from .. import core
+
         self.job = ("manip", core.settings_to_dict(s), None)
         self.accept()

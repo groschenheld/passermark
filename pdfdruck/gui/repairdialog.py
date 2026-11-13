@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dialog: repair PDFs, optimize for sharing, set/remove password protection."""
+
 from __future__ import annotations
 
 from ..l10n import tr
@@ -11,9 +12,24 @@ from ..l10n import tr
 import os
 
 from PySide6.QtCore import QThread, Signal
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QDialogButtonBox, QFileDialog,
-                               QFormLayout, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
-                               QMessageBox, QPlainTextEdit, QPushButton, QRadioButton, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QRadioButton,
+    QVBoxLayout,
+)
 
 from .. import repair
 from . import theme
@@ -21,12 +37,12 @@ from .common import fit_width
 
 MODE_HELP = {
     "repair": "Behebt beschädigte Dateistrukturen („Datei ist beschädigt“, Acrobat öffnet nicht). "
-              "Der Inhalt bleibt unverändert. Schnell, verlustfrei.",
+    "Der Inhalt bleibt unverändert. Schnell, verlustfrei.",
     "print": "Erzeugt das PDF sauber neu: alle Schriften eingebettet, normgerechte Struktur. Hilft, wenn "
-             "Acrobat nicht öffnet oder nicht druckt, der Browser aber schon. Empfohlen vor dem Versand.",
+    "Acrobat nicht öffnet oder nicht druckt, der Browser aber schon. Empfohlen vor dem Versand.",
     "screen": "Wie oben, Bilder zusätzlich auf 150 dpi reduziert – deutlich kleinere Dateien für Mail.",
     "pdfa": "Langzeitarchiv-Format nach ISO 19005-2 (z. B. für Behörden, Gerichte, Archive). "
-            "Kann nicht verschlüsselt werden.",
+    "Kann nicht verschlüsselt werden.",
 }
 
 
@@ -40,7 +56,7 @@ class _Worker(QThread):
 
     def __init__(self, jobs):
         super().__init__()
-        self.jobs = jobs          # [(src, dst, mode, pw_in, pw_new, allow_print)]
+        self.jobs = jobs  # [(src, dst, mode, pw_in, pw_new, allow_print)]
 
     def run(self):
         out = []
@@ -56,8 +72,9 @@ class _Worker(QThread):
 
 
 class RepairDialog(QDialog):
-    def __init__(self, parent, files: list[str], display_names: dict | None = None,
-                 out_dir: str | None = None, open_cb=None):
+    def __init__(
+        self, parent, files: list[str], display_names: dict | None = None, out_dir: str | None = None, open_cb=None
+    ):
         super().__init__(parent)
         self.setWindowTitle(tr("Reparieren, optimieren, Passwortschutz – Passermark"))
         self.resize(640, 640)
@@ -69,8 +86,11 @@ class RepairDialog(QDialog):
         self.results = []
         v = QVBoxLayout(self)
 
-        lbl = QLabel(tr("<b>Dateien:</b> ") + ", ".join(self.names.get(f, os.path.basename(f)) for f in files[:6])
-                     + (f" … (+{len(files) - 6})" if len(files) > 6 else ""))
+        lbl = QLabel(
+            tr("<b>Dateien:</b> ")
+            + ", ".join(self.names.get(f, os.path.basename(f)) for f in files[:6])
+            + (f" … (+{len(files) - 6})" if len(files) > 6 else "")
+        )
         lbl.setWordWrap(True)
         v.addWidget(lbl)
 
@@ -104,8 +124,12 @@ class RepairDialog(QDialog):
         self.chk_allowprint = QCheckBox(tr("Drucken erlauben"))
         self.chk_allowprint.setChecked(True)
         f.addRow(self.chk_allowprint)
-        note = QLabel(tr("Ohne Haken wird die neue Datei <b>ohne</b> Passwort gespeichert – so entfernst du "
-                      "auch einen bestehenden Schutz (das Passwort der Quelldatei wird beim Start abgefragt)."))
+        note = QLabel(
+            tr(
+                "Ohne Haken wird die neue Datei <b>ohne</b> Passwort gespeichert – so entfernst du "
+                "auch einen bestehenden Schutz (das Passwort der Quelldatei wird beim Start abgefragt)."
+            )
+        )
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
@@ -194,9 +218,12 @@ class RepairDialog(QDialog):
             # Passwort der Quelle vorab abfragen (im Hauptthread)
             if src not in self.passwords and repair.needs_password(src):
                 while True:
-                    pw, ok = QInputDialog.getText(self, tr("Passwortgeschützt"),
-                                                  tr("Passwort für „{0}“:").format(self.names.get(src, os.path.basename(src))),
-                                                  QLineEdit.EchoMode.Password)
+                    pw, ok = QInputDialog.getText(
+                        self,
+                        tr("Passwortgeschützt"),
+                        tr("Passwort für „{0}“:").format(self.names.get(src, os.path.basename(src))),
+                        QLineEdit.EchoMode.Password,
+                    )
                     if not ok:
                         break
                     try:
@@ -212,9 +239,15 @@ class RepairDialog(QDialog):
             if os.path.abspath(dst) == os.path.abspath(src):
                 QMessageBox.warning(self, tr("Ziel"), tr("Das Ziel darf nicht die Quelldatei sein."))
                 return
-            if os.path.exists(dst) and QMessageBox.question(
-                    self, tr("Überschreiben?"), tr("{0} existiert bereits. Überschreiben?").format(os.path.basename(dst))
-            ) != QMessageBox.StandardButton.Yes:
+            if (
+                os.path.exists(dst)
+                and QMessageBox.question(
+                    self,
+                    tr("Überschreiben?"),
+                    tr("{0} existiert bereits. Überschreiben?").format(os.path.basename(dst)),
+                )
+                != QMessageBox.StandardButton.Yes
+            ):
                 continue
             jobs.append((src, dst, self._mode(), self.passwords.get(src), npw, self.chk_allowprint.isChecked()))
         if not jobs:
@@ -232,7 +265,15 @@ class RepairDialog(QDialog):
             if kind == "ok":
                 mark = "✓" if r.ok else "⚠"
                 self.log.appendPlainText(
-                    tr("{0} {1} → {2}  ·  {3} Seiten  ·  {4} → {5}").format(mark, self.names.get(r.src, os.path.basename(r.src)), os.path.basename(r.dst), r.pages_out, _mb(r.size_in), _mb(r.size_out)))
+                    tr("{0} {1} → {2}  ·  {3} Seiten  ·  {4} → {5}").format(
+                        mark,
+                        self.names.get(r.src, os.path.basename(r.src)),
+                        os.path.basename(r.dst),
+                        r.pages_out,
+                        _mb(r.size_in),
+                        _mb(r.size_out),
+                    )
+                )
                 for n in r.notes:
                     self.log.appendPlainText("   " + n)
             else:

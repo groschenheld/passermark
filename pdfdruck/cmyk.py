@@ -20,6 +20,7 @@ LittleCMS converts that CMYK with the destination profile to the screen (sRGB) �
 when printed. Additionally: total ink coverage (TAC) and the individual separations C/M/Y/K from exactly
 these CMYK values.
 """
+
 from __future__ import annotations
 
 import glob
@@ -53,33 +54,33 @@ ECI_URL = "https://www.eci.org/doku.php?id=en:downloads"
 class CmykProfile:
     name: str
     path: str
-    origin: str             # admin | system
+    origin: str  # admin | system
 
 
 @dataclass
 class ManipSettings:
     cmyk: bool = False
-    cmyk_mode: str = "rgb_only"        # rgb_only | all | gray
-    target: str = ""                   # Pfad Zielprofil (CMYK)
-    source: str = ""                   # source profile path for existing CMYK (mode "all")
+    cmyk_mode: str = "rgb_only"  # rgb_only | all | gray
+    target: str = ""  # Pfad Zielprofil (CMYK)
+    source: str = ""  # source profile path for existing CMYK (mode "all")
     intent: str = "relative"
     bpc: bool = True
-    gray_to_k: bool = True             # Grau/Schwarz nur mit K drucken
-    output_intent: bool = True         # Zielprofil als Output Intent einbetten
+    gray_to_k: bool = True  # Grau/Schwarz nur mit K drucken
+    output_intent: bool = True  # Zielprofil als Output Intent einbetten
     crop: bool = False
-    crop_size: str = "A4"              # key from FORMATS or "custom"
+    crop_size: str = "A4"  # key from FORMATS or "custom"
     crop_w_mm: float = 210.0
     crop_h_mm: float = 297.0
-    crop_follow: bool = True           # Hoch-/Querformat der Seite folgen
-    crop_scale: bool = True            # first scale until the target is fully covered, then trim the overhang
-    crop_inset_mm: float = 0.0         # trim this much all around beforehand (white margins of the original)
-    crop_mode: str = "format"          # format | trim | whiteout
-    trim_l_mm: float = 0.0             # trim: links/oben/rechts/unten abschneiden
+    crop_follow: bool = True  # Hoch-/Querformat der Seite folgen
+    crop_scale: bool = True  # first scale until the target is fully covered, then trim the overhang
+    crop_inset_mm: float = 0.0  # trim this much all around beforehand (white margins of the original)
+    crop_mode: str = "format"  # format | trim | whiteout
+    trim_l_mm: float = 0.0  # trim: links/oben/rechts/unten abschneiden
     trim_t_mm: float = 0.0
     trim_r_mm: float = 0.0
     trim_b_mm: float = 0.0
-    white_margin_mm: float = 0.0       # whiteout: Rand um erkannten Inhalt (negativ = hineinschneiden)
-    
+    white_margin_mm: float = 0.0  # whiteout: Rand um erkannten Inhalt (negativ = hineinschneiden)
+
     @classmethod
     def from_dict(cls, d):
         s = cls()
@@ -111,6 +112,7 @@ def _icc_head(path):
 def _desc(path):
     try:
         from PIL import ImageCms
+
         d = (ImageCms.getProfileDescription(ImageCms.getOpenProfile(path)) or "").strip()
         if d:
             return d
@@ -122,14 +124,21 @@ def _desc(path):
 def system_profile_dirs() -> list[str]:
     """Ordner mit ICC-Profilen: System, dazu der eigene Profilordner (usercolor.icc_dir – Standardprofile holen)."""
     from . import usercolor
+
     if _platform.IS_WIN:
         win = os.environ.get("WINDIR", r"C:\Windows")
         dirs = [os.path.join(win, "System32", "spool", "drivers", "color")]
     else:
         home = os.path.expanduser("~")
-        dirs = ["/usr/share/color/icc", "/usr/local/share/color/icc", "/var/lib/color/icc",
-                os.path.join(home, ".local", "share", "icc"), os.path.join(home, ".color", "icc"),
-                "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles", "/usr/share/ghostscript"]
+        dirs = [
+            "/usr/share/color/icc",
+            "/usr/local/share/color/icc",
+            "/var/lib/color/icc",
+            os.path.join(home, ".local", "share", "icc"),
+            os.path.join(home, ".color", "icc"),
+            "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles",
+            "/usr/share/ghostscript",
+        ]
     own = usercolor.icc_dir()
     if own not in dirs:
         dirs.insert(0, own)
@@ -156,8 +165,9 @@ def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
     for d in system_profile_dirs():
         if not os.path.isdir(d):
             continue
-        for path in glob.glob(os.path.join(d, "**", "*.ic[cm]"), recursive=True) + \
-                glob.glob(os.path.join(d, "**", "*.IC[CM]"), recursive=True):
+        for path in glob.glob(os.path.join(d, "**", "*.ic[cm]"), recursive=True) + glob.glob(
+            os.path.join(d, "**", "*.IC[CM]"), recursive=True
+        ):
             add(path, "system")
     return out
 
@@ -174,10 +184,14 @@ def color_args(s: ManipSettings) -> list[str]:
         return ["-sColorConversionStrategy=Gray", "-sProcessColorModel=DeviceGray"]
     if not s.target:
         raise ValueError(tr("Kein CMYK-Zielprofil gewählt."))
-    args = ["-sColorConversionStrategy=CMYK", "-sProcessColorModel=DeviceCMYK",
-            f"-sOutputICCProfile={s.target}",
-            f"-dRenderIntent={INTENT_NUM.get(s.intent, 1)}", f"-dBlackPtComp={1 if s.bpc else 0}",
-            f"-dDeviceGrayToK={'true' if s.gray_to_k else 'false'}"]
+    args = [
+        "-sColorConversionStrategy=CMYK",
+        "-sProcessColorModel=DeviceCMYK",
+        f"-sOutputICCProfile={s.target}",
+        f"-dRenderIntent={INTENT_NUM.get(s.intent, 1)}",
+        f"-dBlackPtComp={1 if s.bpc else 0}",
+        f"-dDeviceGrayToK={'true' if s.gray_to_k else 'false'}",
+    ]
     if s.cmyk_mode == "rgb_only":
         # Quell-CMYK = Zielprofil -> vorhandenes CMYK wird 1:1 durchgereicht
         args.append(f"-sDefaultCMYKProfile={s.target}")
@@ -202,11 +216,27 @@ def convert_pdf(src: str, dst: str, s: ManipSettings):
     gs = ghostscript()
     if not gs:
         raise RuntimeError(tr("Für die CMYK-Umwandlung wird Ghostscript benötigt."))
-    cmd = [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7",
-           "-dAutoRotatePages=/None", "-dEmbedAllFonts=true", "-dSubsetFonts=true",
-           # no image downscaling – only the colors should change
-           "-dDownsampleColorImages=false", "-dDownsampleGrayImages=false", "-dDownsampleMonoImages=false",
-           *_permit(s), *color_args(s), "-o", dst, src]
+    cmd = [
+        gs,
+        "-q",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-dSAFER",
+        "-sDEVICE=pdfwrite",
+        "-dCompatibilityLevel=1.7",
+        "-dAutoRotatePages=/None",
+        "-dEmbedAllFonts=true",
+        "-dSubsetFonts=true",
+        # no image downscaling – only the colors should change
+        "-dDownsampleColorImages=false",
+        "-dDownsampleGrayImages=false",
+        "-dDownsampleMonoImages=false",
+        *_permit(s),
+        *color_args(s),
+        "-o",
+        dst,
+        src,
+    ]
     r = _run(cmd)
     if r.returncode != 0 or not os.path.exists(dst):
         raise RuntimeError(tr("Ghostscript-Fehler:\n") + (r.stderr or r.stdout or "")[-1500:])
@@ -217,6 +247,7 @@ def convert_pdf(src: str, dst: str, s: ManipSettings):
 def embed_output_intent(path: str, icc: str):
     """Zielprofil als Output Intent (GTS_PDFX) einbetten – die Druckerei sieht die Druckbedingung."""
     import pikepdf
+
     with open(icc, "rb") as f:
         data = f.read()
     pdf = pikepdf.open(path, allow_overwriting_input=True)
@@ -224,9 +255,13 @@ def embed_output_intent(path: str, icc: str):
         stream = pikepdf.Stream(pdf, data)
         stream["/N"] = 4
         name = _desc(icc)
-        oi = pikepdf.Dictionary(Type=pikepdf.Name.OutputIntent, S=pikepdf.Name.GTS_PDFX,
-                                OutputConditionIdentifier=pikepdf.String(name), Info=pikepdf.String(name),
-                                DestOutputProfile=stream)
+        oi = pikepdf.Dictionary(
+            Type=pikepdf.Name.OutputIntent,
+            S=pikepdf.Name.GTS_PDFX,
+            OutputConditionIdentifier=pikepdf.String(name),
+            Info=pikepdf.String(name),
+            DestOutputProfile=stream,
+        )
         pdf.Root.OutputIntents = pikepdf.Array([oi])
         pdf.save(path)
     finally:
@@ -237,9 +272,23 @@ def embed_output_intent(path: str, icc: str):
 # Vorschau
 # --------------------------------------------------------------------------- #
 def _render(gs, src, page, dpi, device, extra, out):
-    cmd = [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", f"-sDEVICE={device}", f"-r{dpi}",
-           f"-dFirstPage={page + 1}", f"-dLastPage={page + 1}", "-dTextAlphaBits=4", "-dGraphicsAlphaBits=4",
-           *extra, "-o", out, src]
+    cmd = [
+        gs,
+        "-q",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-dSAFER",
+        f"-sDEVICE={device}",
+        f"-r{dpi}",
+        f"-dFirstPage={page + 1}",
+        f"-dLastPage={page + 1}",
+        "-dTextAlphaBits=4",
+        "-dGraphicsAlphaBits=4",
+        *extra,
+        "-o",
+        out,
+        src,
+    ]
     r = _run(cmd, timeout=300)
     if r.returncode != 0 or not os.path.exists(out):
         raise RuntimeError(tr("Ghostscript-Fehler:\n") + (r.stderr or r.stdout or "")[-800:])
@@ -247,16 +296,18 @@ def _render(gs, src, page, dpi, device, extra, out):
 
 @dataclass
 class Preview:
-    before: object                     # PIL RGB
-    after: object                      # PIL RGB (Softproof)
-    cmyk: object = None                # PIL CMYK (echte Separationswerte) bzw. None bei Graustufen
-    gray: object = None                # PIL L bei Graustufen
+    before: object  # PIL RGB
+    after: object  # PIL RGB (Softproof)
+    cmyk: object = None  # PIL CMYK (echte Separationswerte) bzw. None bei Graustufen
+    gray: object = None  # PIL L bei Graustufen
     notes: list = field(default_factory=list)
 
 
-def render_preview(src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False,
-                   white_lab=None) -> Preview:
+def render_preview(
+    src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False, white_lab=None
+) -> Preview:
     from PIL import Image
+
     gs = ghostscript()
     if not gs:
         raise RuntimeError(tr("Für die Farbvorschau wird Ghostscript benötigt."))
@@ -283,10 +334,12 @@ def render_preview(src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, pa
 
 def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None):
     """CMYK-Werte so anzeigen, wie sie mit diesem Profil gedruckt aussehen (LittleCMS). white_lab = gemessenes
-        Papierweiß des Materials (statt des Profilweiß) für die Papiersimulation."""
+    Papierweiß des Materials (statt des Profilweiß) für die Papiersimulation."""
     from PIL import ImageCms
+
     if paper_white and white_lab:
         from . import proof
+
         return proof.device_to_screen(cmyk, {"icc": profile, "space": "CMYK", "paper": True, "white": list(white_lab)})
     src = ImageCms.getOpenProfile(profile)
     dst = ImageCms.createProfile("sRGB")
@@ -299,6 +352,7 @@ def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None
 def separation(cmyk, channel: int):
     """Einzelauszug (0=C, 1=M, 2=Y, 3=K) als Graubild: viel Farbe = dunkel (wie ein Film)."""
     from PIL import ImageOps
+
     return ImageOps.invert(cmyk.split()[channel]).convert("RGB")
 
 
@@ -306,6 +360,7 @@ def tac(cmyk, limit_pct: float = 300.0):
     """Ink coverage: (maximum in %, area share above the limit in %, warning image RGB)."""
     import numpy as np
     from PIL import Image
+
     a = np.asarray(cmyk, dtype=np.uint16)
     total = a.sum(axis=2) * (100.0 / 255.0)
     mx = float(total.max()) if total.size else 0.0

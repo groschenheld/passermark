@@ -1,17 +1,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Plandruck: zwei Außenlinien erkennen (äußere verschwindet), Inhalt + 5 mm, Rollenwahl (kürzeste Länge,
-    gedreht erlaubt), Laufmeter einfach/gesamt, Reihenfolge (unsortiert, sortiert, nach Rolle), Druckseite mit
-    Überfüller/Marken, Haarlinien, Druck an einen nachgebauten Plotter, Protokoll mit Laufmetern,
-    Kommandozeile und Ablauf-Schritt „plan“."""
-import csv, io, json, os, subprocess, sys, tempfile
+gedreht erlaubt), Laufmeter einfach/gesamt, Reihenfolge (unsortiert, sortiert, nach Rolle), Druckseite mit
+Überfüller/Marken, Haarlinien, Druck an einen nachgebauten Plotter, Protokoll mit Laufmetern,
+Kommandozeile und Ablauf-Schritt „plan“."""
+
+import csv
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-plan-cfg-")
 import pypdfium2 as pdfium
-from pdfdruck import l10n, planprint as pp, printers, rolls
+from pdfdruck import planprint as pp, printers, rolls
 from pdfdruck.printers import Choice, Option, PrinterCaps, PrinterInfo
 
 TMP = tempfile.mkdtemp(prefix="pm-plan-")
@@ -21,6 +28,7 @@ R = [rolls.Roll(594, name="Rolle 1"), rolls.Roll(841, name="Rolle 2"), rolls.Rol
 
 def plan_pdf(name, W, H, frames=2, outer=10, gaps=(20, 5, 5, 5), thin=False, pages=1):
     from reportlab.pdfgen import canvas
+
     p = os.path.join(TMP, name)
     c = canvas.Canvas(p, pagesize=(W * MM, H * MM))
     for _ in range(pages):
@@ -56,12 +64,13 @@ def test_detect_frame_margin_page():
     a1 = pp.detect(d1, 0)
     assert a1.kind == "margin" and near(a1.rect[0] / MM, 10 - 5, 0.8) and near(a1.w_mm, 600 + 10, 1.5)
     a1f = pp.detect(d1, 0, "frame")
-    assert a1f.kind == "margin" and a1f.note                          # ausdrücklich Rahmen, aber nur einer da
+    assert a1f.kind == "margin" and a1f.note  # ausdrücklich Rahmen, aber nur einer da
     am = pp.detect(d, 0, "margin", 3)
     assert am.kind == "margin" and near(am.w_mm, 606, 1.5)
     an = pp.detect(d, 0, "none")
     assert an.kind == "page" and near(an.w_mm, 620, 0.01)
     from reportlab.pdfgen import canvas
+
     p = os.path.join(TMP, "leer.pdf")
     c = canvas.Canvas(p, pagesize=(200, 300))
     c.showPage()
@@ -71,6 +80,7 @@ def test_detect_frame_margin_page():
 
 def test_rotated_page():
     import pikepdf
+
     src = plan_pdf("rot.pdf", 420, 297)
     pdf = pikepdf.open(src)
     pdf.pages[0].Rotate = 90
@@ -151,7 +161,7 @@ def test_make_page_rotated_bleed_marks():
         img = out[0].render(scale=0.2).to_pil().convert("RGB")
         px = img.getpixel((int(img.width / 2), int(pp.extra_mm(s) * MM * 0.2 - 3 * MM * 0.2 / 2)))
         if mode == "color":
-            assert px[0] > 200 and px[1] < 80, px                  # roter Überfüller
+            assert px[0] > 200 and px[1] < 80, px  # roter Überfüller
         out.close()
     # ohne Zusätze: genau der Druckbereich, ungedreht auf 841 wenn quer
     s = pp.PlanSettings(rotate="keep")
@@ -169,10 +179,11 @@ def test_hairlines_count_and_fix():
     d = pdfium.PdfDocument(plan_pdf("thin.pdf", 420, 297, thin=True))
     n = pp.hairlines(d, 0)
     assert n == 10, n
-    assert pp.hairlines(d, 0, scale_pct=250) == 0                     # vergrößert reicht es
+    assert pp.hairlines(d, 0, scale_pct=250) == 0  # vergrößert reicht es
     fixed, k = pp.fix_hairlines(d, [0])
     assert k == 10 and pp.hairlines(fixed, 0) == 0
     from pdfdruck import preflight
+
     rep = preflight.analyze(open(os.path.join(TMP, "thin.pdf"), "rb").read())
     hi = [i for i in rep.issues if i.category == "line"]
     assert hi and hi[0].severity == "warning" and any(sp.box for sp in hi[0].spots)
@@ -181,11 +192,16 @@ def test_hairlines_count_and_fix():
 def plotter_caps(name="Plotter"):
     def opt(k, text, choices, default):
         return Option(k, text, "", [Choice(v, t) for v, t in choices], default)
+
     caps = PrinterCaps(name, "ppd")
     caps.options = {
         "PageSize": opt("PageSize", "Papierformat", [("A1", "A1"), ("A0", "A0")], "A1"),
-        "InputSlot": opt("InputSlot", "Papierzufuhr", [("Auto", "Automatisch"), ("Roll1", "Rolle 1"),
-                                                       ("Roll2", "Rolle 2"), ("Roll3", "Rolle 3")], "Auto"),
+        "InputSlot": opt(
+            "InputSlot",
+            "Papierzufuhr",
+            [("Auto", "Automatisch"), ("Roll1", "Rolle 1"), ("Roll2", "Rolle 2"), ("Roll3", "Rolle 3")],
+            "Auto",
+        ),
         "MediaType": opt("MediaType", "Medientyp", [("Plain", "Normalpapier 80 g"), ("Photo", "Fotopapier")], "Plain"),
         "ColorModel": opt("ColorModel", "Farbmodus", [("CMYK", "Farbe"), ("Gray", "Graustufen")], "CMYK"),
     }
@@ -206,6 +222,7 @@ class FakePlotter:
             self.sent.append({"title": title, "opts": dict(opts), "size": tuple(v / MM for v in d.get_page_size(0))})
             d.close()
             return 100 + len(self.sent)
+
         printers.submit = submit
         return self
 
@@ -216,20 +233,27 @@ class FakePlotter:
 def test_print_jobs_and_log():
     from pdfdruck import config, printlog
     from pdfdruck.session import Session
+
     logdir = os.path.join(TMP, "log")
-    rolls.save_manual("Plotter", [rolls.Roll(594, "Roll1", "Rolle 1", 80), rolls.Roll(841, "Roll2", "Rolle 2", 80),
-                                  rolls.Roll(914, "Roll3", "Rolle 3", 80)])
+    rolls.save_manual(
+        "Plotter",
+        [
+            rolls.Roll(594, "Roll1", "Rolle 1", 80),
+            rolls.Roll(841, "Roll2", "Rolle 2", 80),
+            rolls.Roll(914, "Roll3", "Rolle 3", 80),
+        ],
+    )
     src = plan_pdf("job.pdf", 620, 870, pages=2)
     with FakePlotter() as fp:
         sess = Session(dict(config.BUILTIN, print_log={"force": True, "dir": logdir}))
         s = pp.PlanSettings(printer="Plotter", copies=3, color="gray", live_rolls=False, copies_mode="count")
         info = pp.plan_files([src], s, session=sess)
-    assert len(fp.sent) == 2, fp.sent                       # Anzahl ans Gerät: ein Auftrag je Plan, 3 Kopien
+    assert len(fp.sent) == 2, fp.sent  # Anzahl ans Gerät: ein Auftrag je Plan, 3 Kopien
     o = fp.sent[0]["opts"]
     assert o["copies"] == "3" and o["InputSlot"] == "Roll3" and o["ColorModel"] == "Gray"
     assert o["PageSize"].startswith("Custom.") and o["print-scaling"] == "none"
     w, h = fp.sent[0]["size"]
-    assert near(w, 914, 0.5) and near(h, 599.7, 0.5)    # gedreht, Druckseite rollenbreit (Schnitt je Seite, 1.18.5)
+    assert near(w, 914, 0.5) and near(h, 599.7, 0.5)  # gedreht, Druckseite rollenbreit (Schnitt je Seite, 1.18.5)
     assert near(info["lengths"][0]["single_m"], 1.199, 0.003) and near(info["total_m"], 3.598, 0.01)
     # Protokoll: Laufmeter je Auftrag, CSV-Spalten, Nachdruck-Ablauf mit Schritt „plan“
     with open(os.path.join(logdir, printlog.CSV_NAME), encoding="utf-8-sig") as f:
@@ -242,17 +266,19 @@ def test_print_jobs_and_log():
     # sortiert: Satz für Satz -> 6 Aufträge zu je 1
     with FakePlotter() as fp:
         sess = Session(config.BUILTIN)
-        pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, collate=True, live_rolls=False),
-                      session=sess)
+        pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, collate=True, live_rolls=False), session=sess)
     assert len(fp.sent) == 6 and all(x["opts"]["copies"] == "1" for x in fp.sent)
     # Standard seit 1.18.7: ein Auftrag je Plan, je Exemplar ein Blatt (copies = 1)
     with FakePlotter() as fp:
-        pp.plan_files([src], pp.PlanSettings(printer="Plotter", copies=3, live_rolls=False), session=Session(config.BUILTIN))
+        pp.plan_files(
+            [src], pp.PlanSettings(printer="Plotter", copies=3, live_rolls=False), session=Session(config.BUILTIN)
+        )
     assert len(fp.sent) == 2 and all(x["opts"]["copies"] == "1" for x in fp.sent)
 
 
 def test_csv_upgrade():
     from pdfdruck import printlog
+
     d = os.path.join(TMP, "oldlog")
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, printlog.CSV_NAME)
@@ -260,13 +286,14 @@ def test_csv_upgrade():
         f.write("time;user;host;source;file;pages;printer;paper;tray;copies;job_id;result;log\r\nx;y\r\n")
     printlog._upgrade_csv(p)
     head = open(p, encoding="utf-8-sig").readline()
-    assert head.strip().endswith(";roll_mm;run_m;order;item"), head   # 1.18.9: Bestellbezug
+    assert head.strip().endswith(";roll_mm;run_m;order;item"), head  # 1.18.9: Bestellbezug
 
 
 def _cli(*args):
     env = dict(os.environ, PYTHONPATH=ROOT)
-    return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True, env=env,
-                          cwd=TMP)
+    return subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True, env=env, cwd=TMP
+    )
 
 
 def test_cli_plan_dry_run_and_workflow():
@@ -279,8 +306,12 @@ def test_cli_plan_dry_run_and_workflow():
     assert done["lengths"][0]["width_mm"] == 914 and abs(done["total_m"] - 2.399) < 0.01
     r = _cli("plan", src, "--rolls", "594,841,914", "--dry-run")
     assert r.returncode == 0 and "914 mm:" in r.stdout and "gedreht" in r.stdout, r.stdout + r.stderr
-    wf = {"passermark": "workflow", "version": 1, "input": src,
-          "steps": [{"job": "plan", "settings": {"rolls": [594, 841, 914], "dry_run": True, "copies": 2}}]}
+    wf = {
+        "passermark": "workflow",
+        "version": 1,
+        "input": src,
+        "steps": [{"job": "plan", "settings": {"rolls": [594, 841, 914], "dry_run": True, "copies": 2}}],
+    }
     p = os.path.join(TMP, "plan.json")
     json.dump(wf, open(p, "w"))
     r = _cli("check", p)
@@ -296,28 +327,51 @@ def test_media_of_loaded_roll():
     einen anderen Medientyp nennt. Sonst wartet z. B. die ColorWave auf ein Medium, das nicht geladen ist."""
     from pdfdruck import config, printmat
     from pdfdruck.session import Session
-    printmat.save([{"id": "poster180", "name": "Poster 180", "category": "quality", "weight": 180, "media": "Photo",
-                    "printer": "Plotter"}])
+
+    printmat.save(
+        [
+            {
+                "id": "poster180",
+                "name": "Poster 180",
+                "category": "quality",
+                "weight": 180,
+                "media": "Photo",
+                "printer": "Plotter",
+            }
+        ]
+    )
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180, media="Normalpapier")])
     src = plan_pdf("media.pdf", 420, 594)
     with FakePlotter() as fp:
-        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
-                      session=Session(config.BUILTIN))
+        pp.plan_files(
+            [src],
+            pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+            session=Session(config.BUILTIN),
+        )
     assert fp.sent and all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]
     # Gerät meldet ein Medium, das keinem Medientyp des Treibers entspricht: nichts Bestimmtes verlangen
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180, media="IJM 123 Matt Coated")])
     with FakePlotter() as fp:
-        info = pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False,
-                                                    material="poster180", dry_run=True), session=Session(config.BUILTIN))
-        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
-                      session=Session(config.BUILTIN))
-    assert all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]   # Vorgabe statt Photo
-    j = info["jobs"][0]                                     # Probelauf zeigt, was ans Gerät ginge
+        info = pp.plan_files(
+            [src],
+            pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180", dry_run=True),
+            session=Session(config.BUILTIN),
+        )
+        pp.plan_files(
+            [src],
+            pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+            session=Session(config.BUILTIN),
+        )
+    assert all(x["opts"]["MediaType"] == "Plain" for x in fp.sent), [x["opts"] for x in fp.sent]  # Vorgabe statt Photo
+    j = info["jobs"][0]  # Probelauf zeigt, was ans Gerät ginge
     assert j["options"]["MediaType"] == "Plain" and j["roll_media"] == "IJM 123 Matt Coated", j
-    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])        # Medium unbekannt: Material zählt
+    rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 180)])  # Medium unbekannt: Material zählt
     with FakePlotter() as fp:
-        pp.plan_files([src], pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
-                      session=Session(config.BUILTIN))
+        pp.plan_files(
+            [src],
+            pp.PlanSettings(kind="poster", printer="Plotter", live_rolls=False, material="poster180"),
+            session=Session(config.BUILTIN),
+        )
     assert all(x["opts"]["MediaType"] == "Photo" for x in fp.sent), [x["opts"] for x in fp.sent]
     printmat.save([])
 
@@ -326,13 +380,20 @@ def test_history():
     """Verlauf: Datei wird mitgesichert (Original darf weg sein), neueste zuerst, höchstens MAX_ENTRIES, aufräumen."""
     import shutil
     from pdfdruck import planhistory
+
     planhistory.clear()
     src = plan_pdf("hist.pdf", 420, 594)
     tmp = os.path.join(TMP, "hist_copy.pdf")
     shutil.copy(src, tmp)
-    e = planhistory.add("poster", "Plotter", {"copies": 3}, [{"source": tmp, "page": 0, "qty": 2, "ov": {"align": "left"},
-                                                              "own": True}], 1.26, 1)
-    os.remove(tmp)                                          # Original weg: die Sicherung zählt
+    e = planhistory.add(
+        "poster",
+        "Plotter",
+        {"copies": 3},
+        [{"source": tmp, "page": 0, "qty": 2, "ov": {"align": "left"}, "own": True}],
+        1.26,
+        1,
+    )
+    os.remove(tmp)  # Original weg: die Sicherung zählt
     p = planhistory.file_of(e, e["items"][0])
     assert p and os.path.isfile(p) and p.startswith(planhistory.history_dir())
     assert "hist_copy.pdf" in planhistory.label(e) and "Plotter" in planhistory.label(e)
@@ -353,7 +414,8 @@ def test_quality_mode():
     Material derselben Kategorie mit eigener Qualität und Optionen von Hand haben Vorrang."""
     from pdfdruck import config, printmat
     from pdfdruck.session import Session
-    q = lambda k, ch, d="": Option(k, "Druckqualität", "", [Choice(v, t) for v, t in ch], d)      # noqa: E731
+
+    q = lambda k, ch, d="": Option(k, "Druckqualität", "", [Choice(v, t) for v, t in ch], d)  # noqa: E731
     cq = q("cupsPrintQuality", [("Normal", "Normal"), ("Draft", "Entwurf"), ("High", "Hoch")], "Normal")
     assert printers.quality_choice(cq, "production") == "Draft" and printers.quality_choice(cq, "quality") == "High"
     ipp = q("print-quality", [("3", "Entwurf"), ("4", "Normal"), ("5", "Hoch")], "4")
@@ -361,37 +423,55 @@ def test_quality_mode():
     res = q("Resolution", [("600x600dpi", "600 dpi"), ("1200x1200dpi", "1200 dpi"), ("300x300dpi", "300 dpi")])
     assert printers.quality_choice(res, "production") == "300x300dpi"
     assert printers.quality_choice(res, "quality") == "1200x1200dpi"
-    ep = q("EPIJ_Qual", [("PLAIN_DRAFT", "Entwurf"), ("PLAIN_HIGH", "Fein"), ("PHOTO_HIGH", "Foto fein"),
-                         ("PHOTO_NORMAL", "Foto")], "PLAIN_DRAFT")
-    assert printers.quality_choice(ep, "quality", "PLAIN_DRAFT") == "PLAIN_HIGH"      # beim Medium bleiben
-    assert printers.quality_choice(q("X", [("A", "Modus A"), ("B", "Modus B")]), "quality") == ""   # unklar: nichts
+    ep = q(
+        "EPIJ_Qual",
+        [("PLAIN_DRAFT", "Entwurf"), ("PLAIN_HIGH", "Fein"), ("PHOTO_HIGH", "Foto fein"), ("PHOTO_NORMAL", "Foto")],
+        "PLAIN_DRAFT",
+    )
+    assert printers.quality_choice(ep, "quality", "PLAIN_DRAFT") == "PLAIN_HIGH"  # beim Medium bleiben
+    assert printers.quality_choice(q("X", [("A", "Modus A"), ("B", "Modus B")]), "quality") == ""  # unklar: nichts
     caps = plotter_caps()
-    caps.options["CNQualityMode"] = Option("CNQualityMode", "Druckqualität", "",
-                                           [Choice("Std", "Standard"), Choice("Fast", "Schnell"),
-                                            Choice("Best", "Beste Qualität")], "Std")
-    printers._assign_roles(caps)                                  # erkannt über den Text „Druckqualität“
+    caps.options["CNQualityMode"] = Option(
+        "CNQualityMode",
+        "Druckqualität",
+        "",
+        [Choice("Std", "Standard"), Choice("Fast", "Schnell"), Choice("Best", "Beste Qualität")],
+        "Std",
+    )
+    printers._assign_roles(caps)  # erkannt über den Text „Druckqualität“
     assert caps.roles.get("quality") == "CNQualityMode"
     assert pp.quality_mode_of(pp.PlanSettings()) == "production"
     assert pp.quality_mode_of(pp.PlanSettings(kind="poster")) == "quality"
     assert pp.quality_mode_of(pp.PlanSettings(kind="poster", quality_mode="production")) == "production"
-    assert pp.defaults_for("poster")["quality_mode"] == "quality" and pp.defaults_for("plan")["quality_mode"] == "production"
+    assert (
+        pp.defaults_for("poster")["quality_mode"] == "quality"
+        and pp.defaults_for("plan")["quality_mode"] == "production"
+    )
     v = pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster"))
     assert v == {"CNQualityMode": "Best"}
     assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster", options={"CNQualityMode": "Std"})) == {}
     assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "plan", "quality": "Std"}) == {}
-    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "quality", "quality": "Best"}) == \
-        {"CNQualityMode": "Fast"}                                 # Qualitätsmaterial im Produktionsdruck
+    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "quality", "quality": "Best"}) == {
+        "CNQualityMode": "Fast"
+    }  # Qualitätsmaterial im Produktionsdruck
     # Ende zu Ende: was wirklich an den Drucker geht
     printmat.save([])
     rolls.save_manual("Plotter", [rolls.Roll(914, "Roll3", "Rolle 3", 80)])
     src = plan_pdf("qmode.pdf", 420, 594)
     with FakePlotter() as fp:
         printers.load_caps = lambda name: caps
-        for kind, mode, want in (("plan", "", "Fast"), ("poster", "", "Best"), ("poster", "production", "Fast"),
-                                 ("plan", "quality", "Best")):
+        for kind, mode, want in (
+            ("plan", "", "Fast"),
+            ("poster", "", "Best"),
+            ("poster", "production", "Fast"),
+            ("plan", "quality", "Best"),
+        ):
             fp.sent.clear()
-            pp.plan_files([src], pp.PlanSettings(kind=kind, quality_mode=mode, printer="Plotter", live_rolls=False),
-                          session=Session(config.BUILTIN))
+            pp.plan_files(
+                [src],
+                pp.PlanSettings(kind=kind, quality_mode=mode, printer="Plotter", live_rolls=False),
+                session=Session(config.BUILTIN),
+            )
             assert fp.sent and all(x["opts"].get("CNQualityMode") == want for x in fp.sent), (kind, mode, fp.sent)
 
 

@@ -12,6 +12,7 @@ section (MediaBox/CropBox). Shared content is not copied. Rotated pages are spli
 see them. If the page has a trim size (TrimBox), the split lines lie in the trim size and the bleed
 area is preserved outside.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,12 +24,12 @@ MODES = ("halves_v", "halves_h", "grid")
 
 @dataclass
 class SplitSettings:
-    mode: str = "halves_v"        # halves_v = links|rechts · halves_h = oben|unten · grid = Spalten × Zeilen
-    cols: int = 2                 # nur bei grid
-    rows: int = 2                 # nur bei grid
-    only_spreads: bool = False    # only split pages that are twice as wide (or tall) as the others
-    rtl: bool = False             # Reihenfolge rechts nach links (Bindung rechts)
-    use_trim: bool = True         # split at the trim size (TrimBox), keep the bleed area outside
+    mode: str = "halves_v"  # halves_v = links|rechts · halves_h = oben|unten · grid = Spalten × Zeilen
+    cols: int = 2  # nur bei grid
+    rows: int = 2  # nur bei grid
+    only_spreads: bool = False  # only split pages that are twice as wide (or tall) as the others
+    rtl: bool = False  # Reihenfolge rechts nach links (Bindung rechts)
+    use_trim: bool = True  # split at the trim size (TrimBox), keep the bleed area outside
 
 
 def grid_of(s: SplitSettings) -> tuple[int, int]:
@@ -118,6 +119,7 @@ def _inh(obj, key):
 
 def _box(obj, key):
     import pikepdf
+
     v = _inh(obj, key) if key in ("/MediaBox", "/CropBox") else obj.get(key)
     if v is None or not isinstance(v, pikepdf.Array) or len(v) != 4:
         return None
@@ -147,7 +149,7 @@ def page_info(obj):
 
 def spreads(sizes: list, cols: int, rows: int) -> set:
     """Pages (0-based) that are as large as cols × rows of the other pages – e.g. double pages at 2 × 1.
-        The reference is the smallest size occurring.
+    The reference is the smallest size occurring.
     """
     if not sizes:
         return set()
@@ -155,9 +157,11 @@ def spreads(sizes: list, cols: int, rows: int) -> set:
     bh = min(h for w, h in sizes)
     out = set()
     for i, (w, h) in enumerate(sizes):
-        if (cols > 1 and abs(w / (bw * cols) - 1) < 0.08 and (rows == 1 and abs(h / bh - 1) < 0.08
-                                                               or rows > 1 and abs(h / (bh * rows) - 1) < 0.08)) \
-                or (cols == 1 and rows > 1 and abs(h / (bh * rows) - 1) < 0.08 and abs(w / bw - 1) < 0.08):
+        if (
+            cols > 1
+            and abs(w / (bw * cols) - 1) < 0.08
+            and (rows == 1 and abs(h / bh - 1) < 0.08 or rows > 1 and abs(h / (bh * rows) - 1) < 0.08)
+        ) or (cols == 1 and rows > 1 and abs(h / (bh * rows) - 1) < 0.08 and abs(w / bw - 1) < 0.08):
             out.add(i)
     return out
 
@@ -166,6 +170,7 @@ def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) ->
     """Split the selected pages (pages, 0-based; None = all or all double pages). Result PDF + info."""
     import io
     import pikepdf
+
     cols, rows = grid_of(s)
     if cols * rows < 2:
         raise ValueError(tr("Raster mit nur einem Feld – nichts zu teilen."))
@@ -181,6 +186,7 @@ def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) ->
         for i, o in enumerate(objs):
             if cancel is not None and cancel():
                 from .core import Cancelled
+
                 raise Cancelled(tr("Abgebrochen."))
             if progress is not None and i % 20 == 0:
                 progress(i, len(objs), tr("Seite {0}/{1}").format(i + 1, len(objs)))
@@ -191,8 +197,9 @@ def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) ->
             box, rot, trim, _w, _h = infos[i]
             res = _inh(o, "/Resources")
             for piece, t in cells(box, rot, trim if s.use_trim else None, cols, rows, s.rtl):
-                d = pikepdf.Dictionary(Type=pikepdf.Name.Page, MediaBox=piece, CropBox=piece,
-                                       Contents=o.get("/Contents", pikepdf.Array()))
+                d = pikepdf.Dictionary(
+                    Type=pikepdf.Name.Page, MediaBox=piece, CropBox=piece, Contents=o.get("/Contents", pikepdf.Array())
+                )
                 if res is not None:
                     d.Resources = res
                 if rot:
@@ -211,6 +218,10 @@ def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) ->
     finally:
         src_pdf.close()
     if n_split == 0:
-        raise ValueError(tr("Keine Seite zum Teilen gefunden – bei „nur Doppelseiten“ müssen manche Seiten doppelt so "
-                            "breit sein wie die übrigen."))
+        raise ValueError(
+            tr(
+                "Keine Seite zum Teilen gefunden – bei „nur Doppelseiten“ müssen manche Seiten doppelt so "
+                "breit sein wie die übrigen."
+            )
+        )
     return buf.getvalue(), info

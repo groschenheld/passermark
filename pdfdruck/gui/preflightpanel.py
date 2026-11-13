@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window)."""
+
 from __future__ import annotations
 
 import os
@@ -11,21 +12,56 @@ import traceback
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QBrush, QColor
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout,
-                               QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton, QTableWidget,
-                               QTableWidgetItem, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import preflight
 from ..l10n import tr
 from . import theme
 
 SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis"}
-CAT_TEXT = {"font": "Schrift", "layer": "Ebene", "transparency": "Transparenz", "text": "Zeichen", "image": "Bild",
-            "size": "Dateigröße", "geometry": "Seitenrahmen", "security": "Schutz", "pdfx": "PDF/X",
-            "form": "Formular", "page": "Seite", "device": "Drucker"}
-KIND_TEXT = {"smask": "weiche Maske", "blend": "Füllmethode", "alpha": "Deckkraft", "group": "Transparenzgruppe",
-             "overprint": "Überdrucken", "image_alpha": "Bild mit Transparenz",
-             "pattern_smask": "Verlauf mit Soft-Maske"}
+CAT_TEXT = {
+    "font": "Schrift",
+    "layer": "Ebene",
+    "transparency": "Transparenz",
+    "text": "Zeichen",
+    "image": "Bild",
+    "size": "Dateigröße",
+    "geometry": "Seitenrahmen",
+    "security": "Schutz",
+    "pdfx": "PDF/X",
+    "form": "Formular",
+    "page": "Seite",
+    "device": "Drucker",
+}
+KIND_TEXT = {
+    "smask": "weiche Maske",
+    "blend": "Füllmethode",
+    "alpha": "Deckkraft",
+    "group": "Transparenzgruppe",
+    "overprint": "Überdrucken",
+    "image_alpha": "Bild mit Transparenz",
+    "pattern_smask": "Verlauf mit Soft-Maske",
+}
 
 
 class _Worker(QThread):
@@ -44,17 +80,18 @@ class _Worker(QThread):
 
 class PreflightPanel(QWidget):
     """Show the check result and repair. Signals: open result, jump to page, recheck."""
-    result_ready = Signal(bytes, str, list)      # PDF-Bytes, Namenszusatz, Hinweise
+
+    result_ready = Signal(bytes, str, list)  # PDF-Bytes, Namenszusatz, Hinweise
     goto_page = Signal(int)
-    goto_spot = Signal(int, object)               # Seite (1-basiert), Bereich (x0, y0, x1, y1) pt oder None
+    goto_spot = Signal(int, object)  # Seite (1-basiert), Bereich (x0, y0, x1, y1) pt oder None
     job_requested = Signal(str, object, str, str)  # Art, Einstellungen, Namenszusatz, Titel (eigener Prozess)
     recheck = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rep: preflight.Report | None = None
-        self.data_fn = None                       # liefert die aktuellen Dokument-Bytes
-        self.file_fn = None                       # Datei wie auf der Platte (Größe/Verkleinern), sonst data_fn
+        self.data_fn = None  # liefert die aktuellen Dokument-Bytes
+        self.file_fn = None  # Datei wie auf der Platte (Größe/Verkleinern), sonst data_fn
         self._job_data = None
         self.font_map: dict[str, str] = {}
         self._worker = None
@@ -101,13 +138,18 @@ class PreflightPanel(QWidget):
         lv.addLayout(nav)
         self._update_nav()
         self.btn_fix_all = QPushButton(tr("Empfohlene Reparaturen …"))
-        self.btn_fix_all.setToolTip(tr("Ebenen festschreiben (falls ausgeblendete vorhanden) und fehlende Schriften "
-                                       "mit Ersatz einbetten – Ergebnis im neuen Fenster"))
+        self.btn_fix_all.setToolTip(
+            tr(
+                "Ebenen festschreiben (falls ausgeblendete vorhanden) und fehlende Schriften "
+                "mit Ersatz einbetten – Ergebnis im neuen Fenster"
+            )
+        )
         self.btn_fix_all.clicked.connect(self._fix_all)
         lv.addWidget(self.btn_fix_all)
         self.btn_hdr = QPushButton(tr("HDR-Zusatzseiten entfernen …"))
-        self.btn_hdr.setToolTip(tr("Graue Helligkeitskarten von Handy-HDR-Fotos entfernen – eine Seite je Foto, "
-                                   "Größe wählbar"))
+        self.btn_hdr.setToolTip(
+            tr("Graue Helligkeitskarten von Handy-HDR-Fotos entfernen – eine Seite je Foto, Größe wählbar")
+        )
         self.btn_hdr.clicked.connect(self._fix_hdr)
         self.btn_hdr.hide()
         lv.addWidget(self.btn_hdr)
@@ -156,8 +198,12 @@ class PreflightPanel(QWidget):
         b1.setToolTip(tr("Die gewählte Sichtbarkeit (Ansicht/Druck) ins Dokument schreiben – Ebenen bleiben erhalten"))
         b1.clicked.connect(self._layers_apply)
         b2 = QPushButton(tr("Sichtbaren Zustand festschreiben"))
-        b2.setToolTip(tr("Ausgeblendete Inhalte entfernen und Ebenen auflösen – danach druckt jeder Drucker genau "
-                         "das Sichtbare (Druck-Einstellung der Spalte „Druck“)"))
+        b2.setToolTip(
+            tr(
+                "Ausgeblendete Inhalte entfernen und Ebenen auflösen – danach druckt jeder Drucker genau "
+                "das Sichtbare (Druck-Einstellung der Spalte „Druck“)"
+            )
+        )
         b2.clicked.connect(self._layers_flatten)
         b3 = QPushButton(tr("Markierte entfernen"))
         b3.clicked.connect(self._layers_remove)
@@ -173,12 +219,17 @@ class PreflightPanel(QWidget):
         lv.addWidget(self.lbl_trans, 1)
         b = QPushButton(tr("Transparenzen reduzieren (300 dpi)"))
         b.setToolTip(tr("Für ältere Drucker/RIPs: transparente Bereiche werden gerastert (PDF 1.3)"))
-        b.clicked.connect(lambda: self._run(preflight.flatten_transparency, tr("_ohneTransparenz"),
-                                            [tr("Transparenzen reduziert.")]))
+        b.clicked.connect(
+            lambda: self._run(preflight.flatten_transparency, tr("_ohneTransparenz"), [tr("Transparenzen reduziert.")])
+        )
         lv.addWidget(b)
         b = QPushButton(tr("Transparente Verläufe in Bilder umwandeln (300 dpi)"))
-        b.setToolTip(tr("Gegen schwarze Flächen am RIP/Plotter: nur Verläufe mit Soft-Maske werden samt Untergrund "
-                        "als deckendes Bild gerendert – Text und Vektoren darüber bleiben erhalten. Ohne Ghostscript."))
+        b.setToolTip(
+            tr(
+                "Gegen schwarze Flächen am RIP/Plotter: nur Verläufe mit Soft-Maske werden samt Untergrund "
+                "als deckendes Bild gerendert – Text und Vektoren darüber bleiben erhalten. Ohne Ghostscript."
+            )
+        )
         b.clicked.connect(self._flatten_softmask)
         lv.addWidget(b)
         self.tabs.addTab(w, tr("Transparenz"))
@@ -190,20 +241,34 @@ class PreflightPanel(QWidget):
         self.lbl_colors.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         lv.addWidget(self.lbl_colors)
         self.tbl_images = QTableWidget(0, 7)
-        self.tbl_images.setHorizontalHeaderLabels([tr("Seite"), tr("Pixel"), tr("Platziert"), tr("Auflösung"),
-                                                   tr("Farbraum / Profil"), tr("max. 300 dpi"), tr("max. 150 dpi")])
+        self.tbl_images.setHorizontalHeaderLabels(
+            [
+                tr("Seite"),
+                tr("Pixel"),
+                tr("Platziert"),
+                tr("Auflösung"),
+                tr("Farbraum / Profil"),
+                tr("max. 300 dpi"),
+                tr("max. 150 dpi"),
+            ]
+        )
         self.tbl_images.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.tbl_images.verticalHeader().setVisible(False)
         self.tbl_images.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tbl_images.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tbl_images.setSortingEnabled(True)
-        self.tbl_images.setToolTip(tr("Auflösung = Pixel im Verhältnis zur platzierten Größe auf der Seite. "
-                                      "Grün ab 300 dpi, gelb 150–299 dpi (Plakat/Großformat), rot darunter. "
-                                      "Doppelklick springt zur Seite."))
+        self.tbl_images.setToolTip(
+            tr(
+                "Auflösung = Pixel im Verhältnis zur platzierten Größe auf der Seite. "
+                "Grün ab 300 dpi, gelb 150–299 dpi (Plakat/Großformat), rot darunter. "
+                "Doppelklick springt zur Seite."
+            )
+        )
         self.tbl_images.cellDoubleClicked.connect(
-            lambda r, _c: self.goto_page.emit(int(self.tbl_images.item(r, 0).data(Qt.ItemDataRole.UserRole) or 1)))
+            lambda r, _c: self.goto_page.emit(int(self.tbl_images.item(r, 0).data(Qt.ItemDataRole.UserRole) or 1))
+        )
         lv.addWidget(self.tbl_images, 1)
-        self.tabs.addTab(w, tr("Bilder & Farben").replace("&", "&&"))      # & sonst Tastenkürzel
+        self.tabs.addTab(w, tr("Bilder & Farben").replace("&", "&&"))  # & sonst Tastenkürzel
         # Dateigröße
         w = QWidget()
         lv = QVBoxLayout(w)
@@ -231,16 +296,23 @@ class PreflightPanel(QWidget):
         if not rep.issues:
             self.lbl_sum.setText("✓ " + tr("Keine Probleme gefunden."))
         else:
-            self.lbl_sum.setText(tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(c["error"], c["warning"], c["info"]))
+            self.lbl_sum.setText(
+                tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(c["error"], c["warning"], c["info"])
+            )
         col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED}
         self.tree.clear()
         for i in rep.issues:
             spots = list(getattr(i, "spots", None) or [preflight.Spot(p) for p in i.pages])
-            it = QTreeWidgetItem([tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT.get(i.category, i.category)), i.message,
-                                  preflight._pages_str(i.pages)])
+            it = QTreeWidgetItem(
+                [
+                    tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT.get(i.category, i.category)),
+                    i.message,
+                    preflight._pages_str(i.pages),
+                ]
+            )
             it.setForeground(0, QBrush(QColor(col[i.severity])))
             it.setData(0, Qt.ItemDataRole.UserRole, spots)
-            it.setData(1, Qt.ItemDataRole.UserRole, 0)            # aktuelle Fundstelle (für ◀ ▶)
+            it.setData(1, Qt.ItemDataRole.UserRole, 0)  # aktuelle Fundstelle (für ◀ ▶)
             it.setToolTip(1, i.message)
             self.tree.addTopLevelItem(it)
             if len(spots) > 1 or (spots and (spots[0].box is not None or spots[0].label)):
@@ -253,8 +325,12 @@ class PreflightPanel(QWidget):
         self.tree.resizeColumnToContents(0)
         self.btn_hdr.setVisible(bool(getattr(rep, "hdr", None)))
         # Schriften
-        st = {"ok": tr("eingebettet"), "std14": tr("Standard, nicht eingebettet"), "missing": tr("NICHT eingebettet"),
-              "type3": "Type3"}
+        st = {
+            "ok": tr("eingebettet"),
+            "std14": tr("Standard, nicht eingebettet"),
+            "missing": tr("NICHT eingebettet"),
+            "type3": "Type3",
+        }
         self.tbl_fonts.setRowCount(0)
         self.font_map = {}
         for f in rep.fonts:
@@ -314,6 +390,7 @@ class PreflightPanel(QWidget):
         self._fill_colors(rep)
         if rep.size is not None:
             from .. import shrink
+
             self.lbl_size.setText("\n".join(shrink.summary_lines(rep.size, top=8)))
         else:
             self.lbl_size.setText("")
@@ -321,12 +398,16 @@ class PreflightPanel(QWidget):
     def shrink(self):
         """Dialog mit Aufschlüsselung und Häkchen; läuft als eigener Prozess (große Dateien)."""
         from .shrinkdialog import ShrinkDialog
+
         fn = self.file_fn or self.data_fn
         if fn is None:
             return
         data = fn()
-        rep = self.rep.size if self.rep is not None and self.rep.size is not None \
-            and self.rep.size.size == len(data) else None
+        rep = (
+            self.rep.size
+            if self.rep is not None and self.rep.size is not None and self.rep.size.size == len(data)
+            else None
+        )
         dlg = ShrinkDialog(self, rep, data)
         if dlg.exec():
             self._job_data = data
@@ -340,6 +421,7 @@ class PreflightPanel(QWidget):
     def _fill_colors(self, rep):
         """Reiter „Bilder & Farben“: Farbräume je Seite, Ausgabeprofil, Seitenlimits und Bildtabelle."""
         from .. import imagecheck as ic
+
         cr = getattr(rep, "colors", None)
         self.tbl_images.setSortingEnabled(False)
         self.tbl_images.setRowCount(0)
@@ -352,13 +434,28 @@ class PreflightPanel(QWidget):
             dpi, f300, f150 = lim[p]
             ps = cr.page_size_mm.get(p, (0, 0))
             if f300 < 0.995:
-                lines.append(tr("Seite {0}: niedrigste Bildauflösung {1:.0f} dpi – höchstens {2:.0f} % ({3:.0f} × {4:.0f} mm) "
-                                "bei 300 dpi, {5:.0f} % ({6:.0f} × {7:.0f} mm) bei 150 dpi").format(
-                    p, dpi, f300 * 100, ps[0] * f300, ps[1] * f300, min(f150, 9.99) * 100,
-                    ps[0] * min(f150, 9.99), ps[1] * min(f150, 9.99)))
+                lines.append(
+                    tr(
+                        "Seite {0}: niedrigste Bildauflösung {1:.0f} dpi – höchstens {2:.0f} % ({3:.0f} × {4:.0f} mm) "
+                        "bei 300 dpi, {5:.0f} % ({6:.0f} × {7:.0f} mm) bei 150 dpi"
+                    ).format(
+                        p,
+                        dpi,
+                        f300 * 100,
+                        ps[0] * f300,
+                        ps[1] * f300,
+                        min(f150, 9.99) * 100,
+                        ps[0] * min(f150, 9.99),
+                        ps[1] * min(f150, 9.99),
+                    )
+                )
             else:
-                lines.append(tr("Seite {0}: niedrigste Bildauflösung {1:.0f} dpi – in Originalgröße gut; für "
-                                "Plakat/Großformat (150 dpi) bis {2:.0f} % vergrößerbar").format(p, dpi, min(f150, 9.99) * 100))
+                lines.append(
+                    tr(
+                        "Seite {0}: niedrigste Bildauflösung {1:.0f} dpi – in Originalgröße gut; für "
+                        "Plakat/Großformat (150 dpi) bis {2:.0f} % vergrößerbar"
+                    ).format(p, dpi, min(f150, 9.99) * 100)
+                )
         if not cr.images:
             lines.append(tr("Keine Bilder."))
         if cr.truncated:
@@ -398,7 +495,7 @@ class PreflightPanel(QWidget):
         if not spots:
             return
         parent = it.parent()
-        if parent is not None:                         # Unterpunkt: als aktuelle Fundstelle des Befunds merken
+        if parent is not None:  # Unterpunkt: als aktuelle Fundstelle des Befunds merken
             parent.setData(1, Qt.ItemDataRole.UserRole, int(it.data(1, Qt.ItemDataRole.UserRole) or 0))
             self._go(spots[0])
         else:
@@ -458,15 +555,23 @@ class PreflightPanel(QWidget):
 
     def _ask_basis(self, states) -> str | None:
         """Unterscheiden sich Ansicht und Druck, fragen, welcher Zustand festgeschrieben wird."""
-        diff = [self.tbl_layers.item(r, 0).text() for r in range(self.tbl_layers.rowCount())
-                if states[self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole)][0]
-                != states[self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole)][1]]
+        diff = [
+            self.tbl_layers.item(r, 0).text()
+            for r in range(self.tbl_layers.rowCount())
+            if states[self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole)][0]
+            != states[self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole)][1]
+        ]
         if not diff:
             return "print"
-        box = QMessageBox(QMessageBox.Icon.Question, tr("Ebenen festschreiben"),
-                          tr("Bei diesen Ebenen unterscheiden sich Ansicht und Druck:\n{0}\n\n"
-                             "Welcher Zustand soll festgeschrieben werden?").format("\n".join("• " + d for d in diff)),
-                          parent=self)
+        box = QMessageBox(
+            QMessageBox.Icon.Question,
+            tr("Ebenen festschreiben"),
+            tr(
+                "Bei diesen Ebenen unterscheiden sich Ansicht und Druck:\n{0}\n\n"
+                "Welcher Zustand soll festgeschrieben werden?"
+            ).format("\n".join("• " + d for d in diff)),
+            parent=self,
+        )
         b_print = box.addButton(tr("Wie beim Druck"), QMessageBox.ButtonRole.AcceptRole)
         b_view = box.addButton(tr("Wie am Bildschirm"), QMessageBox.ButtonRole.AcceptRole)
         box.addButton(QMessageBox.StandardButton.Cancel)
@@ -486,8 +591,11 @@ class PreflightPanel(QWidget):
         if basis is None:
             return
         vis = {k for k, (v, p) in st.items() if (p if basis == "print" else v)}
-        self._run(lambda d: preflight.flatten_layers(d, vis), tr("_festgeschrieben"),
-                  [tr("Ebenen festgeschrieben – es wird genau das Sichtbare gedruckt.")])
+        self._run(
+            lambda d: preflight.flatten_layers(d, vis),
+            tr("_festgeschrieben"),
+            [tr("Ebenen festgeschrieben – es wird genau das Sichtbare gedruckt.")],
+        )
 
     def _layers_remove(self):
         rows = {i.row() for i in self.tbl_layers.selectedIndexes()}
@@ -495,16 +603,18 @@ class PreflightPanel(QWidget):
             QMessageBox.information(self, tr("Ebenen"), tr("Bitte zuerst Ebenen in der Liste markieren."))
             return
         keys = {self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole) for r in rows}
-        self._run(lambda d: preflight.remove_layers(d, keys), tr("_Ebenen"),
-                  [tr("{0} Ebene(n) entfernt.").format(len(keys))])
+        self._run(
+            lambda d: preflight.remove_layers(d, keys), tr("_Ebenen"), [tr("{0} Ebene(n) entfernt.").format(len(keys))]
+        )
 
     def _font_action(self, what):
         """Buttons below the table: act on the highlighted row."""
         row = self.tbl_fonts.currentRow()
         cb = self.tbl_fonts.cellWidget(row, 3) if row >= 0 else None
         if not isinstance(cb, QComboBox):
-            QMessageBox.information(self, tr("Schriften"), tr("Bitte zuerst eine nicht eingebettete Schrift in der "
-                                                             "Liste markieren."))
+            QMessageBox.information(
+                self, tr("Schriften"), tr("Bitte zuerst eine nicht eingebettete Schrift in der Liste markieren.")
+            )
             return
         i = cb.findData(what)
         if i >= 0:
@@ -523,7 +633,9 @@ class PreflightPanel(QWidget):
         name = cb.property("font")
         what = cb.currentData()
         if what == "__file__":
-            p, _ = QFileDialog.getOpenFileName(self, tr("Schriftdatei wählen"), "", tr("Schriften (*.ttf *.otf *.TTF *.OTF)"))
+            p, _ = QFileDialog.getOpenFileName(
+                self, tr("Schriftdatei wählen"), "", tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
+            )
             cb.setCurrentIndex(0)
             if p:
                 cb.setItemText(0, os.path.basename(p))
@@ -534,10 +646,17 @@ class PreflightPanel(QWidget):
             alt = preflight.free_alternative(name)
             text = tr("Name der Schrift (fontsource.org, freie Lizenzen), z. B. „Roboto“:")
             if alt:
-                text = tr("„{0}“ ist eine kommerzielle Schrift und kann nicht frei heruntergeladen werden.\n"
-                          "Freie Alternative mit gleichen Zeichenbreiten: {1}").format(name, alt) + "\n\n" + text
-            fam, ok = QInputDialog.getText(self, tr("Freie Schrift herunterladen"), text,
-                                           QLineEdit.EchoMode.Normal, alt)
+                text = (
+                    tr(
+                        "„{0}“ ist eine kommerzielle Schrift und kann nicht frei heruntergeladen werden.\n"
+                        "Freie Alternative mit gleichen Zeichenbreiten: {1}"
+                    ).format(name, alt)
+                    + "\n\n"
+                    + text
+                )
+            fam, ok = QInputDialog.getText(
+                self, tr("Freie Schrift herunterladen"), text, QLineEdit.EchoMode.Normal, alt
+            )
             while ok and fam.strip():
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
@@ -545,8 +664,14 @@ class PreflightPanel(QWidget):
                 except preflight.FontNotFound as e:
                     QApplication.restoreOverrideCursor()
                     if e.suggestions:
-                        fam, ok = QInputDialog.getItem(self, tr("Freie Schrift herunterladen"), str(e) + "\n\n"
-                                                       + tr("Stattdessen laden:"), e.suggestions, 0, False)
+                        fam, ok = QInputDialog.getItem(
+                            self,
+                            tr("Freie Schrift herunterladen"),
+                            str(e) + "\n\n" + tr("Stattdessen laden:"),
+                            e.suggestions,
+                            0,
+                            False,
+                        )
                         continue
                     QMessageBox.warning(self, tr("Herunterladen"), str(e))
                     return
@@ -570,18 +695,27 @@ class PreflightPanel(QWidget):
         names = [f.name for f in self.rep.fonts if f.status == "missing" and f.name not in self.font_map]
         if not names:
             return True
-        return QMessageBox.question(
-            self, tr("Schriften einbetten"),
-            tr("Für diese Schriften ist kein Ersatz gewählt – Ghostscript nimmt dann eine eigene Standardschrift, "
-               "das Schriftbild ändert sich:\n{0}\n\nTrotzdem einbetten?").format("\n".join("• " + n for n in names))
-        ) == QMessageBox.StandardButton.Yes
+        return (
+            QMessageBox.question(
+                self,
+                tr("Schriften einbetten"),
+                tr(
+                    "Für diese Schriften ist kein Ersatz gewählt – Ghostscript nimmt dann eine eigene Standardschrift, "
+                    "das Schriftbild ändert sich:\n{0}\n\nTrotzdem einbetten?"
+                ).format("\n".join("• " + n for n in names)),
+            )
+            == QMessageBox.StandardButton.Yes
+        )
 
     def _embed(self):
         if not self._no_substitute_ok():
             return
         mp = dict(self.font_map)
-        self._run(lambda d: preflight.embed_fonts(d, mp), tr("_Schriften"),
-                  [tr("Schriften eingebettet ({0} ersetzt).").format(len(mp))])
+        self._run(
+            lambda d: preflight.embed_fonts(d, mp),
+            tr("_Schriften"),
+            [tr("Schriften eingebettet ({0} ersetzt).").format(len(mp))],
+        )
 
     def _fix_all(self):
         if not self.rep:
@@ -595,8 +729,11 @@ class PreflightPanel(QWidget):
                 return
             vis = {k for k, (v, p) in st.items() if (p if basis == "print" else v)}
             steps.append(lambda d: preflight.flatten_layers(d, vis))
-            notes.append(tr("Ebenen festgeschrieben ({0}).").format(
-                tr("wie beim Druck") if basis == "print" else tr("wie am Bildschirm")))
+            notes.append(
+                tr("Ebenen festgeschrieben ({0}).").format(
+                    tr("wie beim Druck") if basis == "print" else tr("wie am Bildschirm")
+                )
+            )
         if getattr(self.rep, "hdr", None):
             steps.append(lambda d: preflight.remove_hdr_aux(d, "aux", False))
             notes.append(tr("{0} HDR-Zusatzseite(n) entfernt.").format(len(self.rep.hdr)))
@@ -615,25 +752,35 @@ class PreflightPanel(QWidget):
             for s in steps:
                 d = s(d)
             return d
+
         self._run(chain, tr("_repariert"), notes)
 
     def _fix_hdr(self):
         if not self.rep or not self.rep.hdr:
             return
         from .hdrdialog import hdr_options
+
         pages = ", ".join(str(h["aux"] + 1) for h in self.rep.hdr[:6]) + (" …" if len(self.rep.hdr) > 6 else "")
         opts = hdr_options(self, self.rep.hdr, tr("Das Dokument (Seite {0})").format(pages))
         if opts is None:
             return
         n = len(self.rep.hdr)
-        self._run(lambda d: preflight.remove_hdr_aux(d, opts["size"], opts["merge"]), tr("_ohneHDR"),
-                  [tr("{0} HDR-Zusatzseite(n) entfernt.").format(n)])
+        self._run(
+            lambda d: preflight.remove_hdr_aux(d, opts["size"], opts["merge"]),
+            tr("_ohneHDR"),
+            [tr("{0} HDR-Zusatzseite(n) entfernt.").format(n)],
+        )
 
     def _flatten_softmask(self):
         """Läuft als eigener Prozess (pdfium rendert – nicht im Hintergrund-Thread der Oberfläche)."""
         from ..core import PreflightFixSettings
-        self.job_requested.emit("preflight_fix", PreflightFixSettings(fix="flatten_softmask", dpi=300),
-                                tr("_Verlaeufe"), tr("Verläufe umwandeln"))
+
+        self.job_requested.emit(
+            "preflight_fix",
+            PreflightFixSettings(fix="flatten_softmask", dpi=300),
+            tr("_Verlaeufe"),
+            tr("Verläufe umwandeln"),
+        )
 
     def _run(self, fn, suffix, notes):
         if self.data_fn is None or (self._worker is not None and self._worker.isRunning()):
@@ -655,14 +802,16 @@ class PreflightPanel(QWidget):
             if self.rep:
                 self.set_report(self.rep)
             self.result_ready.emit(res, suffix, notes)
+
         self._worker.done.connect(done)
         self._worker.start()
 
     def _save_report(self):
         if not self.rep:
             return
-        p, _ = QFileDialog.getSaveFileName(self, tr("Prüfbericht speichern"), tr("Pruefbericht.txt"),
-                                           tr("Textdateien (*.txt)"))
+        p, _ = QFileDialog.getSaveFileName(
+            self, tr("Prüfbericht speichern"), tr("Pruefbericht.txt"), tr("Textdateien (*.txt)")
+        )
         if p:
             with open(p, "w", encoding="utf-8") as f:
                 f.write(preflight.report_text(self.rep, getattr(self.window(), "display_name", "")))

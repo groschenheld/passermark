@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Materialien und Softproof in der Oberfläche (echtes Qt, ohne Bildschirm): Papierweiß messen (nachgestelltes
-    spotread: kalibrieren, messen), Datei/Hand, Verwaltung → Materialien mit Vorschlag und Übernahme,
-    Material im Druckdialog und in der CMYK-Umwandlung, Softproof der Seitenansicht."""
+spotread: kalibrieren, messen), Datei/Hand, Verwaltung → Materialien mit Vorschlag und Übernahme,
+Material im Druckdialog und in der CMYK-Umwandlung, Softproof der Seitenansicht."""
+
 import os
 import subprocess
 import sys
@@ -11,7 +12,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import os, sys, time
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.environ["PM_TESTS"])
@@ -150,7 +151,7 @@ assert not w.view.proof["paper"] and SD.load_saved()["paper"] is False
 w.a_proof.setChecked(False)
 assert w.view.proof is None and not w.lbl_proof.isVisible()
 print("OK")
-'''
+"""
 
 
 def test_materials_gui():
@@ -164,9 +165,18 @@ def test_materials_gui():
     with open(wrap, "w") as f:
         f.write(f'#!/bin/sh\nexec "{sys.executable}" "{os.path.join(HERE, "fake_spotread.py")}" "$@"\n')
     os.chmod(wrap, 0o755)
-    env = dict(os.environ, PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""), PASSERMARK_LANG="de",
-               PASSERMARK_RENDER="local", HOME=d, XDG_CONFIG_HOME=os.path.join(d, "cfg"), PM_TESTS=HERE, PM_TMP=d,
-               PASSERMARK_SPOTREAD=wrap, PDFDRUCK_CONFIG_DIR=os.path.join(d, "etc"))
+    env = dict(
+        os.environ,
+        PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
+        PASSERMARK_LANG="de",
+        PASSERMARK_RENDER="local",
+        HOME=d,
+        XDG_CONFIG_HOME=os.path.join(d, "cfg"),
+        PM_TESTS=HERE,
+        PM_TMP=d,
+        PASSERMARK_SPOTREAD=wrap,
+        PDFDRUCK_CONFIG_DIR=os.path.join(d, "etc"),
+    )
     r = subprocess.run([sys.executable, "-c", SCRIPT, d], capture_output=True, text=True, env=env, timeout=600)
     assert r.returncode == 0 and "OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 

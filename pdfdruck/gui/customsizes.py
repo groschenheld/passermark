@@ -4,10 +4,22 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Manage custom sizes: name, width, height – stored permanently, for all printers and "Save as PDF"."""
+
 from __future__ import annotations
 
-from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QListWidget, QMessageBox, QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from .. import printers
 from ..l10n import tr
@@ -20,7 +32,7 @@ class CustomSizesDialog(QDialog):
         self.setWindowTitle(tr("Sonderformate – Passermark"))
         self.resize(460, 420)
         self.sizes = printers.load_custom_sizes()
-        self.chosen = None                       # Papierwert, der danach eingestellt werden soll
+        self.chosen = None  # Papierwert, der danach eingestellt werden soll
         v = QVBoxLayout(self)
         self.lst = QListWidget()
         v.addWidget(self.lst, 1)
@@ -48,9 +60,13 @@ class CustomSizesDialog(QDialog):
         row.addWidget(b_del)
         row.addStretch()
         v.addLayout(row)
-        note = QLabel(tr("Gedruckt wird das Format als Sondergröße (CUPS: Custom.B×Hmm, Windows: benutzerdefiniertes "
-                         "Papier). Ob ein Drucker das Maß annimmt, entscheidet sein Treiber – bei „Als PDF "
-                         "speichern“ geht jedes Maß."))
+        note = QLabel(
+            tr(
+                "Gedruckt wird das Format als Sondergröße (CUPS: Custom.B×Hmm, Windows: benutzerdefiniertes "
+                "Papier). Ob ein Drucker das Maß annimmt, entscheidet sein Treiber – bei „Als PDF "
+                "speichern“ geht jedes Maß."
+            )
+        )
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(note)

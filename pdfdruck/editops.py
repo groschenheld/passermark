@@ -9,6 +9,7 @@ Damit laufen sie im Analyse-Prozess (renderproc „edit“): Laden, Ändern, Spe
 einer großen Datei blockieren das Fenster nicht mehr. Jede Operation: (Daten, Seite, …) -> (neue Daten | None,
 Hinweise); None = lässt sich nicht sicher ändern, Dokument bleibt wie es ist.
 """
+
 from __future__ import annotations
 
 import io
@@ -20,6 +21,7 @@ from .l10n import tr
 def pdfium_edit(data: bytes, page: int, fn):
     """pdfium-Änderung an einer frisch geladenen Kopie -> (neue Daten, Hinweise)."""
     import pypdfium2 as pdfium
+
     d = pdfium.PdfDocument(data)
     try:
         notes = fn(d) or []
@@ -86,8 +88,9 @@ def edit_line(data, page, line, text, font, size):
 
 def edit_lines(data, page, lines, font, size):
     """Mehrere Zeilen: Schrift/Größe für alle; nach jeder Änderung die nächste Zeile neu suchen
-        (Objektnummern können sich durch die Änderung verschieben)."""
+    (Objektnummern können sich durch die Änderung verschieben)."""
     import pypdfium2 as pdfium
+
     cur, notes = data, []
     for L0 in lines:
         d = pdfium.PdfDocument(cur)
@@ -97,21 +100,29 @@ def edit_lines(data, page, lines, font, size):
             d.close()
         L = match_line(L0, found)
         if L is None:
-            raise ValueError(tr("Zeile „{0}“ nach der Änderung nicht mehr gefunden – Änderung abgebrochen.")
-                             .format(L0.text[:40]))
+            raise ValueError(
+                tr("Zeile „{0}“ nach der Änderung nicht mehr gefunden – Änderung abgebrochen.").format(L0.text[:40])
+            )
         size_arg = size if (abs(size - L.size) > 0.01 or font is not None) else None
         cur, n = editing.edit_line_bytes(cur, page, L, L.text, font, size_arg)
         notes += [x for x in n if x not in notes]
     return cur, notes
 
 
-OPS = {"move_lines": move_lines, "move_objects": move_objects, "delete_objects": delete_objects,
-       "remove_lines": remove_lines, "recolor": recolor, "edit_line": edit_line, "edit_lines": edit_lines}
+OPS = {
+    "move_lines": move_lines,
+    "move_objects": move_objects,
+    "delete_objects": delete_objects,
+    "remove_lines": remove_lines,
+    "recolor": recolor,
+    "edit_line": edit_line,
+    "edit_lines": edit_lines,
+}
 
 
 def apply_and_verify(data: bytes, page: int, op: str, kwargs: dict, boxes: list) -> dict:
     """Operation ausführen und prüfen. -> {"new": Bytes | None, "unsafe": bool, "err": Text, "notes": […],
-        "error": Text}  (error = Operation selbst gescheitert, z. B. Zeile nicht gefunden)."""
+    "error": Text}  (error = Operation selbst gescheitert, z. B. Zeile nicht gefunden)."""
     try:
         new, notes = OPS[op](data, page, **kwargs)
     except Exception as e:

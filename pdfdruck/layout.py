@@ -13,6 +13,7 @@ Coordinates: PDF points (1/72 inch), origin bottom left.
 "Physical" = sheet in portrait as reported by the driver (PaperDimension).
 "Logical"   = sheet in the chosen orientation (rotated 90° for landscape).
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -23,10 +24,16 @@ from dataclasses import dataclass, field
 MM = 72.0 / 25.4
 
 POSTER_FORMATS = {  # width x height in mm (portrait)
-    "A0": (841, 1189), "A1": (594, 841), "A2": (420, 594), "A3": (297, 420), "A4": (210, 297),
-    "B1": (707, 1000), "B2": (500, 707), "B3": (353, 500),
+    "A0": (841, 1189),
+    "A1": (594, 841),
+    "A2": (420, 594),
+    "A3": (297, 420),
+    "A4": (210, 297),
+    "B1": (707, 1000),
+    "B2": (500, 707),
+    "B3": (353, 500),
 }
-LABEL_H = 9.0       # height of the caption line (pt)
+LABEL_H = 9.0  # height of the caption line (pt)
 
 # default grid (columns, rows) for landscape; portrait = swapped
 NUP_GRIDS = {2: (2, 1), 4: (2, 2), 6: (3, 2), 8: (4, 2), 9: (3, 3), 16: (4, 4)}
@@ -44,7 +51,7 @@ ORDERS = {
 # --------------------------------------------------------------------------- #
 @dataclass
 class Sheet:
-    width: float                      # physisch, Punkte
+    width: float  # physisch, Punkte
     height: float
     imageable: tuple[float, float, float, float] | None = None  # llx,lly,urx,ury
 
@@ -59,91 +66,91 @@ class Sheet:
 
 @dataclass
 class LayoutSettings:
-    mode: str = "fit"             # fit | actual | shrink | custom
+    mode: str = "fit"  # fit | actual | shrink | custom
     custom_percent: float = 100.0
-    custom_by: str = "percent"    # percent | short | long  (custom: percent or edge measure)
-    custom_mm: float = 210.0      # target size of the short or long edge in mm
-    nup: int = 1                  # 1 = aus, sonst Seiten pro Blatt
-    cols: int = 0                 # >0 und rows>0 => benutzerdefiniertes Raster
+    custom_by: str = "percent"  # percent | short | long  (custom: percent or edge measure)
+    custom_mm: float = 210.0  # target size of the short or long edge in mm
+    nup: int = 1  # 1 = aus, sonst Seiten pro Blatt
+    cols: int = 0  # >0 und rows>0 => benutzerdefiniertes Raster
     rows: int = 0
     order: str = "horizontal"
-    tile_mode: str = "fit"        # fit | actual | custom
+    tile_mode: str = "fit"  # fit | actual | custom
     tile_percent: float = 100.0
     gap_mm: float = 0.0
     borders: bool = False
-    orientation: str = "auto"     # auto | portrait | landscape
+    orientation: str = "auto"  # auto | portrait | landscape
     autorotate: bool = True
     center: bool = True
-    use_margins: bool = True      # take the unprintable margin of the printer into account
-    borderless: bool = False      # randlos: ganzes Blatt; mit Endformat im Dokument liegt das Endformat auf dem
-                                  # Blatt, der Anschnitt läuft über den Rand hinaus (statt Erweiterung im Treiber)
-    handling: str = "size"        # size | multiple | booklet | poster
+    use_margins: bool = True  # take the unprintable margin of the printer into account
+    borderless: bool = False  # randlos: ganzes Blatt; mit Endformat im Dokument liegt das Endformat auf dem
+    # Blatt, der Anschnitt läuft über den Rand hinaus (statt Erweiterung im Treiber)
+    handling: str = "size"  # size | multiple | booklet | poster
     # booklet
-    booklet_sides: str = "both"   # both | front | back
-    booklet_binding: str = "left" # left | right
-    booklet_sheets: str = ""      # Blattbereich, z. B. "1-3" (leer = alle)
+    booklet_sides: str = "both"  # both | front | back
+    booklet_binding: str = "left"  # left | right
+    booklet_sheets: str = ""  # Blattbereich, z. B. "1-3" (leer = alle)
     booklet_gutter_mm: float = 0.0
     booklet_kind: str = "saddle"  # saddle = saddle stitching (one signature) | stack = single sheets stacked
-                                  # (perfect binding/pad binding) | grouped = signatures of booklet_per_sig sheets each
-    booklet_per_sig: int = 4      # grouped: sheets per signature
-    booklet_creep_mm: float = 0.0 # creep: per-sheet inward shift (≈ paper thickness)
+    # (perfect binding/pad binding) | grouped = signatures of booklet_per_sig sheets each
+    booklet_per_sig: int = 4  # grouped: sheets per signature
+    booklet_creep_mm: float = 0.0  # creep: per-sheet inward shift (≈ paper thickness)
     booklet_spread: str = "side"  # Druckbögen: side = Seiten nebeneinander (seitlich gebunden),
-                                  # top = übereinander (oben gebunden, Kalender)
+    # top = übereinander (oben gebunden, Kalender)
     booklet_nutzen: bool = False  # Broschüre als aufgeklappte Druckbögen montieren (Nutzen-Logik:
-                                  # Anordnung, Überfüller, Schnittmarken, Schritt 2) statt Falzbogen
-    booklet_blanks: str = "end"   # end | before_back (the back of the cover stays the last page)
+    # Anordnung, Überfüller, Schnittmarken, Schritt 2) statt Falzbogen
+    booklet_blanks: str = "end"  # end | before_back (the back of the cover stays the last page)
     booklet_blank_text: str = ""  # note about added blank pages (blank = completely empty)
     booklet_fold_marks: bool = False
-    booklet_reg_marks: bool = False      # Passermarken
+    booklet_reg_marks: bool = False  # Passermarken
     booklet_collation_marks: bool = False  # collation marks on the spine (check the signature order)
     # poster / oversize
-    poster_mode: str = "scale"    # scale | sheets | target
+    poster_mode: str = "scale"  # scale | sheets | target
     poster_percent: float = 200.0
     poster_cols: int = 2
     poster_rows: int = 2
-    poster_target: str = "A2"     # key from POSTER_FORMATS or "custom"
+    poster_target: str = "A2"  # key from POSTER_FORMATS or "custom"
     poster_target_w_mm: float = 420.0
     poster_target_h_mm: float = 594.0
     poster_overlap_mm: float = 10.0
-    poster_marks: bool = True     # Schnitt-/Klebelinien
-    poster_labels: bool = True    # Beschriftung je Kachel
+    poster_marks: bool = True  # Schnitt-/Klebelinien
+    poster_labels: bool = True  # Beschriftung je Kachel
     poster_large_only: bool = False
     # Weitere Optionen
-    mirror_h: bool = False        # horizontal spiegeln (Transferdruck)
+    mirror_h: bool = False  # horizontal spiegeln (Transferdruck)
     mirror_v: bool = False
-    step_repeat: bool = False     # eine Seite mehrfach je Blatt (Nutzen)
-    sr_mode: str = "auto"         # auto (so viele wie passen) | grid
+    step_repeat: bool = False  # eine Seite mehrfach je Blatt (Nutzen)
+    sr_mode: str = "auto"  # auto (so viele wie passen) | grid
     sr_cols: int = 2
     sr_rows: int = 5
     sr_gap_mm: float = 0.0
     sr_percent: float = 100.0
-    sr_by: str = "percent"        # percent | short | long  (step & repeat size: percent or edge measure)
-    sr_mm: float = 85.0           # target size of the short or long edge per step & repeat tile in mm
+    sr_by: str = "percent"  # percent | short | long  (step & repeat size: percent or edge measure)
+    sr_mm: float = 85.0  # target size of the short or long edge per step & repeat tile in mm
     sr_orientation: str = "auto"  # Blatt: auto | portrait | landscape
-    sr_rotate: str = "auto"       # Nutzen: auto | 0 | 90
-    sr_join: str = "bleed"        # edge = edge to edge | bleed = bleed to bleed | gap = gap
-    sr_sequence: bool = False     # the next page per tile (variable data) instead of repeating one page
-    sr_stack: str = "row"         # row = sheet by sheet | stack = cut and stack (stacks stay in sequence)
-    sr_pass2: bool = False        # Schritt 2: das montierte Ergebnis erneut auf ein Zielformat setzen
-    sr_multi: bool = False        # Mehrfachnutzen zugeschaltet (eigenes Fenster) – sonst wird z. B. jeder
-                                  # Broschüren-Druckbogen genau einmal mittig gesetzt
-    sr2_format: str = "custom"    # Zielformat (Wert aus der Formatliste des Geräts oder "custom")
-    sr2_w_mm: float = 320.0       # Zielformat, Breite in mm (bei "custom" einstellbar)
-    sr2_h_mm: float = 450.0      # Zielformat, Höhe in mm
-    sr2_cols: int = 0             # Schritt 2: Raster (Spalten × Zeilen); 0 × 0 = automatisch so viele wie passen
+    sr_rotate: str = "auto"  # Nutzen: auto | 0 | 90
+    sr_join: str = "bleed"  # edge = edge to edge | bleed = bleed to bleed | gap = gap
+    sr_sequence: bool = False  # the next page per tile (variable data) instead of repeating one page
+    sr_stack: str = "row"  # row = sheet by sheet | stack = cut and stack (stacks stay in sequence)
+    sr_pass2: bool = False  # Schritt 2: das montierte Ergebnis erneut auf ein Zielformat setzen
+    sr_multi: bool = False  # Mehrfachnutzen zugeschaltet (eigenes Fenster) – sonst wird z. B. jeder
+    # Broschüren-Druckbogen genau einmal mittig gesetzt
+    sr2_format: str = "custom"  # Zielformat (Wert aus der Formatliste des Geräts oder "custom")
+    sr2_w_mm: float = 320.0  # Zielformat, Breite in mm (bei "custom" einstellbar)
+    sr2_h_mm: float = 450.0  # Zielformat, Höhe in mm
+    sr2_cols: int = 0  # Schritt 2: Raster (Spalten × Zeilen); 0 × 0 = automatisch so viele wie passen
     sr2_rows: int = 0
-    crop_marks: bool = False      # Schnittmarken
-    bleed_mm: float = 0.0         # bleed area/bleed by mirroring the edges
+    crop_marks: bool = False  # Schnittmarken
+    bleed_mm: float = 0.0  # bleed area/bleed by mirroring the edges
 
     @classmethod
-    def from_dict(cls, d: dict | None) -> "LayoutSettings":
+    def from_dict(cls, d: dict | None) -> LayoutSettings:
         s = cls()
         d = d or {}
         for k, v in d.items():
             if hasattr(s, k):
                 setattr(s, k, type(getattr(s, k))(v))
         if "handling" not in d and (s.nup > 1 or s.cols * s.rows > 1):
-            s.handling = "multiple"          # alte Konfigurationen
+            s.handling = "multiple"  # alte Konfigurationen
         return s
 
     def to_dict(self) -> dict:
@@ -152,23 +159,26 @@ class LayoutSettings:
     @property
     def is_nup(self) -> bool:
         return self.handling == "multiple" and (
-            self.nup > 1 or (self.cols > 0 and self.rows > 0 and self.cols * self.rows > 1))
+            self.nup > 1 or (self.cols > 0 and self.rows > 0 and self.cols * self.rows > 1)
+        )
 
 
 @dataclass
 class ImposeSettings(LayoutSettings):
     """Imposition without a printer (command line, print presets): layout + sheet size."""
-    sheet: str = "A4"             # A0–A6, A3+, SRA3, B4–B6, LETTER, LEGAL, TABLOID … oder "custom"
-    sheet_w_mm: float = 0.0       # bei "custom"
+
+    sheet: str = "A4"  # A0–A6, A3+, SRA3, B4–B6, LETTER, LEGAL, TABLOID … oder "custom"
+    sheet_w_mm: float = 0.0  # bei "custom"
     sheet_h_mm: float = 0.0
 
-    def sheet_obj(self) -> "Sheet":
+    def sheet_obj(self) -> Sheet:
         if self.sheet.lower() == "custom":
             if self.sheet_w_mm <= 0 or self.sheet_h_mm <= 0:
                 raise ValueError(tr("Bogenformat „custom“: sheet_w_mm und sheet_h_mm angeben"))
             w, h = self.sheet_w_mm, self.sheet_h_mm
         else:
             from .printers import STD_SIZES_MM
+
             key = self.sheet.upper()
             if key not in STD_SIZES_MM:
                 raise ValueError(tr("Unbekanntes Bogenformat: {0}").format(self.sheet))
@@ -178,21 +188,21 @@ class ImposeSettings(LayoutSettings):
 
 @dataclass
 class Placement:
-    src: int                      # Quellseiten-Index (0-basiert)
-    rot: int                      # 0 or 90 (additional, counterclockwise)
+    src: int  # Quellseiten-Index (0-basiert)
+    rot: int  # 0 or 90 (additional, counterclockwise)
     scale: float
-    x: float                      # logisch, linke untere Ecke der platzierten Seite
+    x: float  # logisch, linke untere Ecke der platzierten Seite
     y: float
-    w: float                      # placed size
+    w: float  # placed size
     h: float
     clip: tuple[float, float, float, float] | None  # logische Zelle (x,y,w,h) bei N-Up
-    bleed: float = 0.0            # gespiegelter Anschnitt in pt (um die platzierte Seite)
-    bleed_sides: tuple = (True, True, True, True)   # links, unten, rechts, oben
+    bleed: float = 0.0  # gespiegelter Anschnitt in pt (um die platzierte Seite)
+    bleed_sides: tuple = (True, True, True, True)  # links, unten, rechts, oben
     mirror_h: bool = False
     mirror_v: bool = False
-    trim: tuple | None = None     # Endformat im Dokument: (links, unten, rechts, oben) pt -> echter Anschnitt
-    trim_show_edge: tuple = (False, False, False, False)   # Nutzen-Blockaußenseiten: echten
-                                 # Dokumentrand (inkl. vorhandener Schnittmarken) mit zeigen
+    trim: tuple | None = None  # Endformat im Dokument: (links, unten, rechts, oben) pt -> echter Anschnitt
+    trim_show_edge: tuple = (False, False, False, False)  # Nutzen-Blockaußenseiten: echten
+    # Dokumentrand (inkl. vorhandener Schnittmarken) mit zeigen
 
 
 @dataclass
@@ -203,8 +213,8 @@ class SheetPlan:
     # Zusatzgrafik in logischen Koordinaten:
     #   ("line", x0, y0, x1, y1, dashed)  |  ("text", x, y, size, text)
     marks: list[tuple] = field(default_factory=list)
-    label: str = ""               # description for the preview
-    duplex_short: bool = False    # booklet: duplex on the short edge needed
+    label: str = ""  # description for the preview
+    duplex_short: bool = False  # booklet: duplex on the short edge needed
 
 
 # --------------------------------------------------------------------------- #
@@ -234,8 +244,9 @@ def parse_ranges(text: str, count: int) -> list[int]:
     return out
 
 
-def select_pages(count: int, ranges: str = "", subset: str = "all",
-                 reverse: bool = False, current: int | None = None) -> list[int]:
+def select_pages(
+    count: int, ranges: str = "", subset: str = "all", reverse: bool = False, current: int | None = None
+) -> list[int]:
     pages = [current] if current is not None else parse_ranges(ranges, count)
     if subset == "odd":
         pages = [p for p in pages if (p + 1) % 2 == 1]
@@ -320,9 +331,9 @@ def _pick_grid(first_size, sheet: Sheet, s: LayoutSettings):
     return best[1], best[2], best[3]
 
 
-MAX_PER_SHEET = 400        # Schutz: mehr Nutzen/Kacheln pro Blatt sind praktisch nie gewollt
-MAX_SHEETS = 2000          # safeguard: more output sheets per job (poster) likewise
-MARK_OFFSET = 2.0 * MM     # Abstand Schnittmarke zum Anschnitt
+MAX_PER_SHEET = 400  # Schutz: mehr Nutzen/Kacheln pro Blatt sind praktisch nie gewollt
+MAX_SHEETS = 2000  # safeguard: more output sheets per job (poster) likewise
+MARK_OFFSET = 2.0 * MM  # Abstand Schnittmarke zum Anschnitt
 MARK_LEN = 5.0 * MM
 
 
@@ -365,7 +376,7 @@ def global_scale(s: LayoutSettings, pw: float, ph: float, base: float) -> float:
         return max(0.001, custom_scale(pw, ph, s))
     if s.mode == "shrink":
         return min(1.0, base)
-    return base                       # fit: Modus-Standard unverändert
+    return base  # fit: Modus-Standard unverändert
 
 
 def plan_single(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
@@ -447,8 +458,8 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
     plans = []
     for start in range(0, len(pages), per):
         plan = SheetPlan(land)
-        rcs = []                                # (col, row) je Placement – für Zellen-Schrumpfen
-        for i, p in enumerate(pages[start:start + per]):
+        rcs = []  # (col, row) je Placement – für Zellen-Schrumpfen
+        for i, p in enumerate(pages[start : start + per]):
             c, r = order[i]
             cx = area[0] + c * (cw + gap)
             cy = area[1] + area[3] - (r + 1) * ch - r * gap
@@ -464,7 +475,7 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
                 sc = s.tile_percent / 100.0
             else:
                 sc = fit
-            sc = global_scale(s, pw, ph, sc)   # globale Skalierung wirkt auch hier
+            sc = global_scale(s, pw, ph, sc)  # globale Skalierung wirkt auch hier
             w, h = pw * sc, ph * sc
             x = cx + (cw - w) / 2
             y = cy + (ch - h) / 2
@@ -488,7 +499,7 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
             for pl, (c, r) in zip(plan.placements, rcs):
                 cx = x0 + sum(colw[:c]) + gap * c
                 cw2, ch2 = colw[c], rowh[r]
-                cy = bottom0 + sum(rowh[r + 1:]) + gap * (rows - 1 - r)
+                cy = bottom0 + sum(rowh[r + 1 :]) + gap * (rows - 1 - r)
                 pl.clip = (cx, cy, cw2, ch2)
                 pl.x = cx + (cw2 - pl.w) / 2
                 pl.y = cy + (ch2 - pl.h) / 2
@@ -497,9 +508,12 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
             # ein Schnitt in der Mitte teilt zwei Kacheln (wie bei Nutzen).
             for pl in plan.placements:
                 cx, cy, cw, ch = pl.clip if pl.clip else (pl.x, pl.y, pl.w, pl.h)
-                pl.bleed_sides = (cx <= area[0] + 0.5, cy <= area[1] + 0.5,
-                                  cx + cw >= area[0] + area[2] - 0.5,
-                                  cy + ch >= area[1] + area[3] - 0.5)
+                pl.bleed_sides = (
+                    cx <= area[0] + 0.5,
+                    cy <= area[1] + 0.5,
+                    cx + cw >= area[0] + area[2] - 0.5,
+                    cy + ch >= area[1] + area[3] - 0.5,
+                )
         if join_override and s.bleed_mm > 0:
             # Bugfix (1.12): Die geschrumpften Zellen MÜSSEN um den Anschnitt
             # erweitert werden – impose() clippt den gespiegelten Rand sonst an
@@ -513,8 +527,7 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
             for pl in plan.placements:
                 sl, sb, sr_, st = pl.bleed_sides
                 cx, cy, cw, ch = pl.clip
-                pl.clip = (cx - b if sl else cx, cy - b if sb else cy,
-                           cw + b * (sl + sr_), ch + b * (sb + st))
+                pl.clip = (cx - b if sl else cx, cy - b if sb else cy, cw + b * (sl + sr_), ch + b * (sb + st))
         plans.append(plan)
     return plans
 
@@ -522,8 +535,8 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
 def booklet_order(n: int, binding: str = "left") -> list[tuple[list, list]]:
     """Page order for saddle stitching.
 
-        Returns per sheet (front, back) as [left, right]; indices >= n are blank pages.
-        Example 8 pages, binding on the left: sheet 1 front [8,1] back [2,7], sheet 2 front [6,3] back [4,5].
+    Returns per sheet (front, back) as [left, right]; indices >= n are blank pages.
+    Example 8 pages, binding on the left: sheet 1 front [8,1] back [2,7], sheet 2 front [6,3] back [4,5].
     """
     N = max(4, -(-n // 4) * 4)
     out = []
@@ -540,7 +553,7 @@ def booklet_order(n: int, binding: str = "left") -> list[tuple[list, list]]:
 def booklet_sequence(n: int, blanks: str = "end") -> list[int | None]:
     """Logical page sequence padded to a multiple of 4 (None = blank page).
 
-        blanks="before_back": blank pages before the last page (the cover back stays at the end).
+    blanks="before_back": blank pages before the last page (the cover back stays at the end).
     """
     N = max(4, -(-n // 4) * 4)
     seq = list(range(n))
@@ -564,7 +577,7 @@ def signatures(N: int, kind: str = "saddle", per_sig: int = 4) -> list[list[int]
 def signature_sheets(sig: list[int], binding: str = "left") -> list[tuple[list, list]]:
     """One signature (nested sheets) -> per sheet (front [left, right], back [left, right]).
 
-        Sheet 0 is the outer one. Binding on the left: front [last, first], back [second, second-to-last].
+    Sheet 0 is the outer one. Binding on the left: front [last, first], back [second, second-to-last].
     """
     k = len(sig) // 4
     out = []
@@ -578,9 +591,9 @@ def signature_sheets(sig: list[int], binding: str = "left") -> list[tuple[list, 
     return out
 
 
-def booklet_layout(n: int, s: "LayoutSettings"):
+def booklet_layout(n: int, s: LayoutSettings):
     """All sheets: list of (signature, sheet_in_signature, sheets_in_signature, (front, back)) with values
-        from booklet_sequence (page index in `pages` or None = blank page).
+    from booklet_sequence (page index in `pages` or None = blank page).
     """
     seq = booklet_sequence(n, s.booklet_blanks)
     sigs = signatures(len(seq), s.booklet_kind, s.booklet_per_sig)
@@ -595,8 +608,12 @@ def booklet_layout(n: int, s: "LayoutSettings"):
 def _circle(cx, cy, r):
     """Circle as four Bézier arcs: ("bezier", start point, [(c1, c2, p), …])."""
     k = 0.5523 * r
-    pts = [((cx + r, cy + k), (cx + k, cy + r), (cx, cy + r)), ((cx - k, cy + r), (cx - r, cy + k), (cx - r, cy)),
-           ((cx - r, cy - k), (cx - k, cy - r), (cx, cy - r)), ((cx + k, cy - r), (cx + r, cy - k), (cx + r, cy))]
+    pts = [
+        ((cx + r, cy + k), (cx + k, cy + r), (cx, cy + r)),
+        ((cx - k, cy + r), (cx - r, cy + k), (cx - r, cy)),
+        ((cx - r, cy - k), (cx - k, cy - r), (cx, cy - r)),
+        ((cx + k, cy - r), (cx + r, cy - k), (cx + r, cy)),
+    ]
     return ("bezier", (cx + r, cy), pts)
 
 
@@ -611,7 +628,7 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
     if not pages:
         return []
     pw0, ph0 = sizes[pages[0]]
-    land = ph0 >= pw0            # Hochformatseiten -> Querbogen, Falz senkrecht
+    land = ph0 >= pw0  # Hochformatseiten -> Querbogen, Falz senkrecht
     LW, LH, area, printable = _area(sheet, land, s.use_margins)
     if s.booklet_fold_marks or s.booklet_reg_marks:
         # keep the margin free for the marks (fold marks 5 mm, registration marks at 4 mm) – only where missing
@@ -622,10 +639,10 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
         area = (l, b, r - l, t - b)
     g = s.booklet_gutter_mm * MM / 2
     ax, ay, aw, ah = area
-    if land:   # links | rechts, Falz bei LW/2
+    if land:  # links | rechts, Falz bei LW/2
         cells = [(ax, ay, LW / 2 - g - ax, ah), (LW / 2 + g, ay, ax + aw - LW / 2 - g, ah)]
-        inner = ["right", "left"]          # Kante Richtung Falz
-    else:      # oben | unten (Querformatseiten), Falz bei LH/2
+        inner = ["right", "left"]  # Kante Richtung Falz
+    else:  # oben | unten (Querformatseiten), Falz bei LH/2
         cells = [(ax, LH / 2 + g, aw, ay + ah - LH / 2 - g), (ax, ay, aw, LH / 2 - g - ay)]
         inner = ["bottom", "top"]
     if min(c[2] for c in cells) <= 0 or min(c[3] for c in cells) <= 0:
@@ -641,9 +658,9 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
     plans = []
     for b in chosen:
         li, j, k, faces = sheets_[b]
-        shift = creep * j                     # inner sheets further toward the fold (creep)
+        shift = creep * j  # inner sheets further toward the fold (creep)
         for side in sides:
-            what = tr('Vorderseite') if side == 0 else tr('Rückseite')
+            what = tr("Vorderseite") if side == 0 else tr("Rückseite")
             if multi:
                 lab = tr("Lage {0}/{1} · Bogen {2}/{3} – {4}").format(li + 1, n_sigs, j + 1, k, what)
             else:
@@ -651,10 +668,17 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
             sp = SheetPlan(land, label=lab, duplex_short=(s.booklet_sides == "both"))
             for slot, idx in enumerate(faces[side]):
                 cx, cy, cw, ch = cells[slot]
-                if idx is None:                # Leerseite
+                if idx is None:  # Leerseite
                     if s.booklet_blank_text.strip():
-                        sp.marks.append(("text", cx + cw / 2 - len(s.booklet_blank_text) * 2.2, cy + ch / 2, 8,
-                                         s.booklet_blank_text.strip()))
+                        sp.marks.append(
+                            (
+                                "text",
+                                cx + cw / 2 - len(s.booklet_blank_text) * 2.2,
+                                cy + ch / 2,
+                                8,
+                                s.booklet_blank_text.strip(),
+                            )
+                        )
                     continue
                 p = pages[idx]
                 pw, ph = sizes[p]
@@ -662,7 +686,7 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
                 if s.autorotate and (pw > ph) != (cw > ch) and abs(pw - ph) > 1:
                     rot, pw, ph = 90, ph, pw
                 sc = min(cw / pw, ch / ph)
-                sc = global_scale(s, pw, ph, sc)   # globale Skalierung wirkt auch bei Broschüre
+                sc = global_scale(s, pw, ph, sc)  # globale Skalierung wirkt auch bei Broschüre
                 w, h = pw * sc, ph * sc
                 x, y = cx + (cw - w) / 2, cy + (ch - h) / 2
                 # move toward the fold (+ creep: beyond the fold, trimmed at the cell)
@@ -676,14 +700,19 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
                     y = cy + ch - h + shift
                 sp.placements.append(Placement(p, rot, sc, x, y, w, h, (cx, cy, cw, ch)))
                 if w > cw + 0.5 or h > ch + 0.5:
-                    sp.warnings.append(tr("Seite {0} größer als die Bogenhälfte – wird beschnitten. "
-                                          "Skalierung verkleinern oder größeres Papier wählen.").format(p + 1))
+                    sp.warnings.append(
+                        tr(
+                            "Seite {0} größer als die Bogenhälfte – wird beschnitten. "
+                            "Skalierung verkleinern oder größeres Papier wählen."
+                        ).format(p + 1)
+                    )
             _booklet_marks(sp, s, land, LW, LH, area, li, n_sigs, j, side)
             plans.append(sp)
     if blanks and plans:
         where = tr("vor der letzten Seite") if s.booklet_blanks == "before_back" else tr("am Ende")
-        plans[0].warnings.append(tr("{0} Leerseite(n) {1} ergänzt (Seitenzahl auf Vielfaches von 4).").format(
-            blanks, where))
+        plans[0].warnings.append(
+            tr("{0} Leerseite(n) {1} ergänzt (Seitenzahl auf Vielfaches von 4).").format(blanks, where)
+        )
     return plans
 
 
@@ -701,7 +730,7 @@ def _booklet_marks(sp: SheetPlan, s: LayoutSettings, land: bool, LW, LH, area, l
     if s.booklet_reg_marks:
         r = 2.5 * MM
         m = max(4 * MM, r + 1.5 * MM)
-        if land:          # mittig oben und unten, neben dem Falz
+        if land:  # mittig oben und unten, neben dem Falz
             for y in (m, LH - m):
                 _reg_mark(sp.marks, LW / 2 - 4 * r, y)
                 _reg_mark(sp.marks, LW / 2 + 4 * r, y)
@@ -739,10 +768,10 @@ def _poster_geometry(pw, ph, sheet: Sheet, s: LayoutSettings, land: bool):
         sc = min(tw / pw, th / ph)
     else:
         sc = s.poster_percent / 100.0
-    sc = global_scale(s, pw, ph, sc)       # globale Skalierung wirkt auch beim Poster
+    sc = global_scale(s, pw, ph, sc)  # globale Skalierung wirkt auch beim Poster
     W, H = pw * sc, ph * sc
-    cols = max(1, -(-(W - ov - 0.01) // sw)) if W > aw else 1
-    rows = max(1, -(-(H - ov - 0.01) // sh)) if H > ah else 1
+    cols = max(1, -(-(W - ov - 0.01) // sw)) if aw < W else 1
+    rows = max(1, -(-(H - ov - 0.01) // sh)) if ah < H else 1
     cols, rows = int(cols), int(rows)
     return dict(area=(ax, ay, aw, ah), ov=ov, sw=sw, sh=sh, sc=sc, W=W, H=H, cols=cols, rows=rows)
 
@@ -755,8 +784,12 @@ def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
             land = pw > ph
             _, _, area, _ = _area(sheet, land, s.use_margins)
             if pw <= area[2] + 0.5 and ph <= area[3] + 0.5:
-                single = LayoutSettings(mode="actual", center=True, orientation="landscape" if land else "portrait",
-                                        use_margins=s.use_margins)
+                single = LayoutSettings(
+                    mode="actual",
+                    center=True,
+                    orientation="landscape" if land else "portrait",
+                    use_margins=s.use_margins,
+                )
                 plans.extend(plan_single(sizes, [p], sheet, single))
                 continue
         orients = [False, True] if s.orientation == "auto" else [s.orientation == "landscape"]
@@ -764,8 +797,11 @@ def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
         for land in orients:
             geo = _poster_geometry(pw, ph, sheet, s, land)
             # fewer sheets wins; for "number of sheets" the larger scale
-            key = (-geo["sc"], geo["cols"] * geo["rows"]) if s.poster_mode == "sheets" \
+            key = (
+                (-geo["sc"], geo["cols"] * geo["rows"])
+                if s.poster_mode == "sheets"
                 else (geo["cols"] * geo["rows"], -geo["sc"])
+            )
             if best is None or key < best[0]:
                 best = (key, land, geo)
         _, land, geo = best
@@ -773,7 +809,11 @@ def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
         ov, sw, sh, sc = geo["ov"], geo["sw"], geo["sh"], geo["sc"]
         cols, rows = geo["cols"], geo["rows"]
         if len(plans) + cols * rows > MAX_SHEETS:
-            raise ValueError(tr("Das Poster ergäbe {0} Blätter pro Seite – Maßstab bzw. Zielformat prüfen (Grenze {1} Blätter).").format(cols * rows, MAX_SHEETS))
+            raise ValueError(
+                tr(
+                    "Das Poster ergäbe {0} Blätter pro Seite – Maßstab bzw. Zielformat prüfen (Grenze {1} Blätter)."
+                ).format(cols * rows, MAX_SHEETS)
+            )
         TW, TH = cols * sw + ov, rows * sh + ov
         px, py = (TW - geo["W"]) / 2, (TH - geo["H"]) / 2
         rot_w, rot_h = geo["W"], geo["H"]
@@ -781,33 +821,45 @@ def plan_poster(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan
             for c in range(cols):
                 x = ax + px - c * sw
                 y = ay + py - (TH - r * sh - ah)
-                sp = SheetPlan(land, label=tr("Seite {0} – Kachel Zeile {1}/{2}, Spalte {3}/{4}").format(p + 1, r + 1, rows, c + 1, cols))
+                sp = SheetPlan(
+                    land,
+                    label=tr("Seite {0} – Kachel Zeile {1}/{2}, Spalte {3}/{4}").format(
+                        p + 1, r + 1, rows, c + 1, cols
+                    ),
+                )
                 sp.placements.append(Placement(p, 0, sc, x, y, rot_w, rot_h, (ax, ay, aw, ah)))
                 if s.poster_marks and ov > 0:
-                    if c > 0:   # cut here and glue onto the overlap strip on the left
+                    if c > 0:  # cut here and glue onto the overlap strip on the left
                         sp.marks.append(("line", ax + ov, ay, ax + ov, ay + ah, True))
                     if r > 0:
                         sp.marks.append(("line", ax, ay + ah - ov, ax + aw, ay + ah - ov, True))
                 if s.poster_labels:
-                    sp.marks.append(("text", ax, ay - LABEL_H + 2, 7.0,
-                                     f"Seite {p + 1}  ·  Zeile {r + 1}/{rows}  ·  Spalte {c + 1}/{cols}  ·  "
-                                     f"{sc * 100:.0f} %  ·  {geo['W'] / MM:.0f} × {geo['H'] / MM:.0f} mm"))
+                    sp.marks.append(
+                        (
+                            "text",
+                            ax,
+                            ay - LABEL_H + 2,
+                            7.0,
+                            f"Seite {p + 1}  ·  Zeile {r + 1}/{rows}  ·  Spalte {c + 1}/{cols}  ·  "
+                            f"{sc * 100:.0f} %  ·  {geo['W'] / MM:.0f} × {geo['H'] / MM:.0f} mm",
+                        )
+                    )
                 plans.append(sp)
     return plans
 
 
 def _over_rank(over: float) -> float:
     """Überhang zum Vergleichen: auf ganze mm gerundet (Bruchteile entscheiden nicht über die Drehung),
-        negativ – weniger Überhang ist besser. Passt alles (≤ 0,5 pt), zählt er nicht."""
+    negativ – weniger Überhang ist besser. Passt alles (≤ 0,5 pt), zählt er nicht."""
     return 0.0 if over <= 0.5 else -round(over / MM)
 
 
 def _sr_gap(s: LayoutSettings) -> float:
     bleed = s.bleed_mm * MM
     if s.sr_join == "edge":
-        return 0.0                         # Kante an Kante: ein gemeinsamer Schnitt
+        return 0.0  # Kante an Kante: ein gemeinsamer Schnitt
     if s.sr_join == "bleed":
-        return 2 * bleed                   # bleed to bleed
+        return 2 * bleed  # bleed to bleed
     # „Mit Abstand“: Spinner = sichtbarer Weißabstand; Anschnitt kommt dazu
     return s.sr_gap_mm * MM + 2 * bleed
 
@@ -821,6 +873,7 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
     if s.sr_sequence and pages:
         # determine the grid from the first page, then place the next page per tile
         import dataclasses
+
         proto = plan_step_repeat(sizes, pages[:1], sheet, dataclasses.replace(s, sr_sequence=False))
         if not proto:
             return []
@@ -828,8 +881,11 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
         n = len(cells)
         n_sheets = -(-len(pages) // n)
         for k in range(n_sheets):
-            sp = SheetPlan(proto[0].landscape, warnings=list(proto[0].warnings) if k == 0 else [],
-                           label=tr("Bogen {0}/{1} – {2} Nutzen, je Nutzen eine eigene Seite").format(k + 1, n_sheets, n))
+            sp = SheetPlan(
+                proto[0].landscape,
+                warnings=list(proto[0].warnings) if k == 0 else [],
+                label=tr("Bogen {0}/{1} – {2} Nutzen, je Nutzen eine eigene Seite").format(k + 1, n_sheets, n),
+            )
             for j, cell in enumerate(cells):
                 idx = j * n_sheets + k if s.sr_stack == "stack" else k * n + j
                 if idx >= len(pages):
@@ -847,8 +903,8 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
         return plans
     for p in pages:
         pw0, ph0 = sizes[p]
-        sc = edge_scale(pw0, ph0, s.sr_by, s.sr_mm, s.sr_percent)   # per page (the edge measure applies per tile)
-        sc = global_scale(s, pw0, ph0, sc)      # globale Skalierung wirkt auch bei Nutzen
+        sc = edge_scale(pw0, ph0, s.sr_by, s.sr_mm, s.sr_percent)  # per page (the edge measure applies per tile)
+        sc = global_scale(s, pw0, ph0, sc)  # globale Skalierung wirkt auch bei Nutzen
         best = None
         for land in orients:
             _, _, area, printable = _area(sheet, land, s.use_margins)
@@ -873,7 +929,7 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
                 key = (over <= 0.5, _over_rank(over), rot == 0, cols * rows, -over, not land)
                 if best is None or key > best[0]:
                     best = (key, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh)
-        if best is None:      # passt nicht einmal einmal -> 1 Nutzen, beschnitten: Lage mit dem kleinsten Überhang
+        if best is None:  # passt nicht einmal einmal -> 1 Nutzen, beschnitten: Lage mit dem kleinsten Überhang
             for land in orients:
                 _, _, area, _ = _area(sheet, land, s.use_margins)
                 for rot in rots:
@@ -885,22 +941,35 @@ def plan_step_repeat(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[Shee
         _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best
         n = cols * rows
         if n > MAX_PER_SHEET:
-            raise ValueError(tr("{0} Nutzen pro Blatt ({1:.1f} × {2:.1f} mm) – das ist sicher nicht gewollt (Grenze {3}). Nutzengröße bzw. Maßstab größer wählen.").format(n, w / MM, h / MM, MAX_PER_SHEET))
+            raise ValueError(
+                tr(
+                    "{0} Nutzen pro Blatt ({1:.1f} × {2:.1f} mm) – das ist sicher nicht gewollt (Grenze {3}). Nutzengröße bzw. Maßstab größer wählen."
+                ).format(n, w / MM, h / MM, MAX_PER_SHEET)
+            )
         x0, y0 = ax + (aw - bw) / 2, ay + (ah - bh) / 2
-        sp = SheetPlan(land, label=tr("Seite {0} – {1} Nutzen ({2} × {3}), Blatt {4}{5}").format(p + 1, n, cols, rows, tr('quer') if land else tr('hoch'), tr(', Nutzen gedreht') if rot else ''))
+        sp = SheetPlan(
+            land,
+            label=tr("Seite {0} – {1} Nutzen ({2} × {3}), Blatt {4}{5}").format(
+                p + 1, n, cols, rows, tr("quer") if land else tr("hoch"), tr(", Nutzen gedreht") if rot else ""
+            ),
+        )
         for r in range(rows):
             for c in range(cols):
                 x = x0 + c * (w + gap)
                 y = y0 + bh - (r + 1) * h - r * gap
                 pl = Placement(p, rot, sc, x, y, w, h, None)
-                if s.sr_join == "edge":   # bleed area only on the outer edges of the block
+                if s.sr_join == "edge":  # bleed area only on the outer edges of the block
                     pl.bleed_sides = (c == 0, r == rows - 1, c == cols - 1, r == 0)
                 # Außenseiten des Nutzenblocks: bis zum echten Dokumentrand zeigen
                 # (im Dokument vorhandene Schnittmarken werden damit unverändert verwendet)
                 pl.trim_show_edge = (c == 0, r == rows - 1, c == cols - 1, r == 0)
                 sp.placements.append(pl)
         if bw > aw + 0.5 or bh > ah + 0.5:
-            sp.warnings.append(tr("Seite {0}: {1} × {2} passt nicht aufs Blatt – wird beschnitten. Blatt drehen, Nutzen drehen oder Maßstab verkleinern.").format(p + 1, cols, rows))
+            sp.warnings.append(
+                tr(
+                    "Seite {0}: {1} × {2} passt nicht aufs Blatt – wird beschnitten. Blatt drehen, Nutzen drehen oder Maßstab verkleinern."
+                ).format(p + 1, cols, rows)
+            )
         plans.append(sp)
     return plans
 
@@ -966,21 +1035,23 @@ def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None
     tw, th = tile_size
     target = target or step2_sheet(s)
     n_sheets = max(1, int(n_sheets))
-    gap = 0.0                       # Kante an Kante
+    gap = 0.0  # Kante an Kante
     orients = {"portrait": [False], "landscape": [True]}.get(s.sr_orientation, [False, True])
     rots = {"0": [0], "90": [90]}.get(s.sr_rotate, [0, 90])
     best = None
     for land in orients:
-        _, _, area, _ = _area(target, land, False)   # Zielformat: ohne Rand planen (kein Druckerblatt, sondern Schneideformat)
+        _, _, area, _ = _area(
+            target, land, False
+        )  # Zielformat: ohne Rand planen (kein Druckerblatt, sondern Schneideformat)
         ax, ay, aw, ah = area
         for rot in rots:
             w, h = (th, tw) if rot else (tw, th)
             if s.sr2_cols > 0 and s.sr2_rows > 0:
-                cols, rows = s.sr2_cols, s.sr2_rows          # Raster wie eingestellt
+                cols, rows = s.sr2_cols, s.sr2_rows  # Raster wie eingestellt
             else:
-                cols = int((aw + gap + 0.01) // (w + gap))   # automatisch: so viele wie passen
+                cols = int((aw + gap + 0.01) // (w + gap))  # automatisch: so viele wie passen
                 rows = int((ah + gap + 0.01) // (h + gap))
-            cols, rows = max(1, cols), max(1, rows)           # nie 0: mindestens 1, mit Warnung
+            cols, rows = max(1, cols), max(1, rows)  # nie 0: mindestens 1, mit Warnung
             bw, bh = cols * w + (cols - 1) * gap, rows * h + (rows - 1) * gap
             over = max(bw - aw, bh - ah, 0.0)
             # passt > (passt nicht: kleinerer Überhang) > UNGEDREHT > mehr Bögen > weniger Überhang >
@@ -991,25 +1062,38 @@ def plan_step2(tile_size, n_sheets: int, s: LayoutSettings, target: Sheet | None
     _, land, rot, cols, rows, (ax, ay, aw, ah), w, h, bw, bh = best
     n = cols * rows
     if n > MAX_PER_SHEET:
-        raise ValueError(tr("{0} Bögen pro Zielformat – das ist sicher nicht gewollt (Grenze {1}). "
-                             "Zielformat vergrößern.").format(n, MAX_PER_SHEET))
-    x0, y0 = ax + (aw - bw) / 2, ay + (ah - bh) / 2           # Rasterblock immer mittig
+        raise ValueError(
+            tr("{0} Bögen pro Zielformat – das ist sicher nicht gewollt (Grenze {1}). Zielformat vergrößern.").format(
+                n, MAX_PER_SHEET
+            )
+        )
+    x0, y0 = ax + (aw - bw) / 2, ay + (ah - bh) / 2  # Rasterblock immer mittig
     plans = []
     for p in range(n_sheets):
-        sp = SheetPlan(land, label=tr("Schritt-2-Bogen {0}/{1} – {2} × {3} montiert{4}{5}").format(
-            p + 1, n_sheets, cols, rows,
-            tr(", Bogen gedreht") if rot else "",
-            tr(", Zielformat quer") if land else ""))
+        sp = SheetPlan(
+            land,
+            label=tr("Schritt-2-Bogen {0}/{1} – {2} × {3} montiert{4}{5}").format(
+                p + 1,
+                n_sheets,
+                cols,
+                rows,
+                tr(", Bogen gedreht") if rot else "",
+                tr(", Zielformat quer") if land else "",
+            ),
+        )
         for r in range(rows):
             for c in range(cols):
                 x = x0 + c * (w + gap)
                 y = y0 + bh - (r + 1) * h - r * gap
                 sp.placements.append(Placement(p, rot, 1.0, x, y, w, h, None))
         if bw > aw + 0.5 or bh > ah + 0.5:
-            sp.warnings.append(tr("Schritt 2: Der montierte Bogen ({0:.0f} × {1:.0f} mm) samt Raster "
-                                   "{2} × {3} passt nicht aufs Zielformat ({4:.0f} × {5:.0f} mm) – "
-                                   "am Rand wird beschnitten.").format(tw / MM, th / MM, cols, rows,
-                                                                      aw / MM, ah / MM))
+            sp.warnings.append(
+                tr(
+                    "Schritt 2: Der montierte Bogen ({0:.0f} × {1:.0f} mm) samt Raster "
+                    "{2} × {3} passt nicht aufs Zielformat ({4:.0f} × {5:.0f} mm) – "
+                    "am Rand wird beschnitten."
+                ).format(tw / MM, th / MM, cols, rows, aw / MM, ah / MM)
+            )
         plans.append(sp)
     return plans
 
@@ -1030,6 +1114,7 @@ def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
     import io
     import pikepdf
     import pypdfium2 as pdfium
+
     if not pages:
         raise ValueError(tr("Keine Seiten für die Broschüre."))
     if trims is None:
@@ -1042,25 +1127,37 @@ def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
     else:
         bleed = 0.0
         if any(tr_of[p] for p in pages):
-            notes.append(tr("Nicht alle Seiten haben ein Endformat (TrimBox) – Druckbögen ohne Anschnitt; "
-                            "den Überfüller erzeugt dann der Nutzen-Modus (gespiegelt)."))
+            notes.append(
+                tr(
+                    "Nicht alle Seiten haben ein Endformat (TrimBox) – Druckbögen ohne Anschnitt; "
+                    "den Überfüller erzeugt dann der Nutzen-Modus (gespiegelt)."
+                )
+            )
 
     def trim_size(p):
         w, h = sizes[p]
         t = tr_of[p] if bleed > 0 else None
         return (w - t[0] - t[2], h - t[1] - t[3]) if t else (w, h)
+
     W, H = trim_size(pages[0])
     if any(abs(trim_size(p)[0] - W) > 1 or abs(trim_size(p)[1] - H) > 1 for p in pages):
-        notes.append(tr("Seiten haben unterschiedliche Endformate – jede Seite wird mittig in ihre "
-                        "Bogenhälfte gesetzt (Format der ersten Seite)."))
+        notes.append(
+            tr(
+                "Seiten haben unterschiedliche Endformate – jede Seite wird mittig in ihre "
+                "Bogenhälfte gesetzt (Format der ersten Seite)."
+            )
+        )
     top = s.booklet_spread == "top"
     b = bleed
     sw, sh = (W + 2 * b, 2 * H + 2 * b) if top else (2 * W + 2 * b, H + 2 * b)
     # Bogenhälften (Endformat) in Slot-Reihenfolge wie plan_booklet: side = links|rechts, top = oben|unten
     halves = [(b, b + H), (b, b)] if top else [(b, b), (b + W, b)]
     # Anschnitt je Hälfte nur außen (links, unten, rechts, oben)
-    outer = [(True, False, True, True), (True, True, True, False)] if top else \
-            [(True, True, False, True), (False, True, True, True)]
+    outer = (
+        [(True, False, True, True), (True, True, True, False)]
+        if top
+        else [(True, True, False, True), (False, True, True, True)]
+    )
 
     sheets_, blanks, _n = booklet_layout(len(pages), s)
     chosen = parse_ranges(s.booklet_sheets, len(sheets_)) if s.booklet_sheets.strip() else range(len(sheets_))
@@ -1069,24 +1166,27 @@ def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
     for k in chosen:
         _li, _j, _k, faces = sheets_[k]
         for side in sides:
-            sp = SheetPlan(False, label=tr("Bogen {0}/{1} – {2}").format(
-                k + 1, len(sheets_), tr("Vorderseite") if side == 0 else tr("Rückseite")))
+            sp = SheetPlan(
+                False,
+                label=tr("Bogen {0}/{1} – {2}").format(
+                    k + 1, len(sheets_), tr("Vorderseite") if side == 0 else tr("Rückseite")
+                ),
+            )
             for slot, idx in enumerate(faces[side]):
                 if idx is None:
-                    continue                                   # Leerseite: Hälfte bleibt leer
+                    continue  # Leerseite: Hälfte bleibt leer
                 p = pages[idx]
                 pw, ph = trim_size(p)
                 hx, hy = halves[slot]
                 x, y = hx + (W - pw) / 2, hy + (H - ph) / 2
                 t = tr_of[p] if bleed > 0 else None
-                sp.placements.append(Placement(p, 0, 1.0, x, y, pw, ph, None, bleed=b,
-                                               bleed_sides=outer[slot], trim=t))
+                sp.placements.append(Placement(p, 0, 1.0, x, y, pw, ph, None, bleed=b, bleed_sides=outer[slot], trim=t))
             plans.append(sp)
     if blanks:
         where = tr("vor der letzten Seite") if s.booklet_blanks == "before_back" else tr("am Ende")
         notes.append(tr("{0} Leerseite(n) {1} ergänzt (Seitenzahl auf Vielfaches von 4).").format(blanks, where))
     target = Sheet(sw, sh, None)
-    target.width, target.height = sw, sh      # Sheet dreht sonst auf Hochformat – Druckbogen bleibt wie er ist
+    target.width, target.height = sw, sh  # Sheet dreht sonst auf Hochformat – Druckbogen bleibt wie er ist
     doc = impose(src, target, plans)
     buf = io.BytesIO()
     doc.save(buf)
@@ -1098,9 +1198,13 @@ def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
     out = io.BytesIO()
     pdf.save(out)
     pdf.close()
-    notes.insert(0, tr("Druckbögen {0:.0f} × {1:.0f} mm (Endformat), Anschnitt {2:.1f} mm außen – jetzt im "
-                       "Druckdialog „Nutzen“ wählen: Anordnung, Überfüller, Schnittmarken, Schritt 2.").format(
-        (sw - 2 * b) / MM, (sh - 2 * b) / MM, b / MM))
+    notes.insert(
+        0,
+        tr(
+            "Druckbögen {0:.0f} × {1:.0f} mm (Endformat), Anschnitt {2:.1f} mm außen – jetzt im "
+            "Druckdialog „Nutzen“ wählen: Anordnung, Überfüller, Schnittmarken, Schritt 2."
+        ).format((sw - 2 * b) / MM, (sh - 2 * b) / MM, b / MM),
+    )
     return pdfium.PdfDocument(out.getvalue()), notes
 
 
@@ -1114,11 +1218,13 @@ def spread_settings(s: LayoutSettings) -> LayoutSettings:
     """Einstellungen für die Montage der Druckbögen: Nutzen-Logik (Step & Repeat) mit allen Nutzen-
     Optionen (Anordnung, Abstand, Überfüller, Schnittmarken, Raster, Schritt 2) – Seite für Seite."""
     import dataclasses
+
     s2 = dataclasses.replace(s, handling="size", step_repeat=True, sr_sequence=False)
     if not getattr(s, "sr_multi", False):
         # einfach setzen: jeder Druckbogen genau EINMAL, mittig, Originalgröße, ungedreht
-        s2 = dataclasses.replace(s2, sr_mode="grid", sr_cols=1, sr_rows=1, sr_by="percent",
-                                 sr_percent=100.0, sr_rotate="0")
+        s2 = dataclasses.replace(
+            s2, sr_mode="grid", sr_cols=1, sr_rows=1, sr_by="percent", sr_percent=100.0, sr_rotate="0"
+        )
     return s2
 
 
@@ -1153,6 +1259,7 @@ def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None
     import os
     import tempfile
     import pypdfium2 as pdfium
+
     mid = impose(src, sheet, plans1)
     fd, tmp = tempfile.mkstemp(prefix="passermark-sr2-", suffix=".pdf")
     os.close(fd)
@@ -1161,7 +1268,7 @@ def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None
         mid.save(tmp)
         mid.close()
         mid = None
-        flat = pdfium.PdfDocument(tmp)     # neu geladen: verschachtelte XObjects sind aufgelöst
+        flat = pdfium.PdfDocument(tmp)  # neu geladen: verschachtelte XObjects sind aufgelöst
         return impose(flat, step2_sheet(s), plans2, only)
     finally:
         if mid is not None:
@@ -1176,12 +1283,13 @@ def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None
 
 def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None) -> list[SheetPlan]:
     """Plan the sheets. trims (from page_trims): pages with a defined trim size are set to their trim size,
-        their bleed area comes from the document (not mirrored). bleeds (from page_doc_bleeds): bleed area per the
-        BleedBox – with step & repeat "bleed to bleed" and no configured bleed area, it is adopted
-        (e.g. CutContour objects: the bleeds touch each other).
+    their bleed area comes from the document (not mirrored). bleeds (from page_doc_bleeds): bleed area per the
+    BleedBox – with step & repeat "bleed to bleed" and no configured bleed area, it is adopted
+    (e.g. CutContour objects: the bleeds touch each other).
     """
-    if s.borderless:                 # randlos: kein Rand des Druckers, ganzes Blatt
+    if s.borderless:  # randlos: kein Rand des Druckers, ganzes Blatt
         import dataclasses
+
         s = dataclasses.replace(s, use_margins=False)
         sheet = Sheet(sheet.width, sheet.height, None)
     if not trims or not any(trims) or not uses_trim(s):
@@ -1193,8 +1301,9 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
             sz[i] = (w - t[0] - t[2], h - t[1] - t[3])
     if s.step_repeat and s.sr_join == "bleed" and s.bleed_mm <= 0 and bleeds and any(bleeds):
         import dataclasses
+
         plans = []
-        groups = [pages] if s.sr_sequence else [[p] for p in pages]   # fortlaufend: ein gemeinsames Raster
+        groups = [pages] if s.sr_sequence else [[p] for p in pages]  # fortlaufend: ein gemeinsames Raster
         for grp in groups:
             p = grp[0]
             b = bleeds[p] if p < len(bleeds) and trims[p] else 0.0
@@ -1209,7 +1318,7 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
             if t:
                 pl.trim = t
                 if s.borderless and not s.step_repeat and s.handling != "booklet":
-                    pl.trim_show_edge = (True, True, True, True)   # echter Anschnitt über den Blattrand
+                    pl.trim_show_edge = (True, True, True, True)  # echter Anschnitt über den Blattrand
     return plans
 
 
@@ -1230,9 +1339,14 @@ def _mul(m1, m2):
     """Zuerst m1, dann m2 anwenden."""
     a1, b1, c1, d1, e1, f1 = m1
     a2, b2, c2, d2, e2, f2 = m2
-    return (a1 * a2 + b1 * c2, a1 * b2 + b1 * d2,
-            c1 * a2 + d1 * c2, c1 * b2 + d1 * d2,
-            e1 * a2 + f1 * c2 + e2, e1 * b2 + f1 * d2 + f2)
+    return (
+        a1 * a2 + b1 * c2,
+        a1 * b2 + b1 * d2,
+        c1 * a2 + d1 * c2,
+        c1 * b2 + d1 * d2,
+        e1 * a2 + f1 * c2 + e2,
+        e1 * b2 + f1 * d2 + f2,
+    )
 
 
 def _translate(x, y):
@@ -1265,13 +1379,12 @@ def placement_matrix(pl: Placement, src_size) -> tuple:
 # --------------------------------------------------------------------------- #
 # PDF erzeugen
 # --------------------------------------------------------------------------- #
-def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = None,
-           borders: bool = False):
+def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = None, borders: bool = False):
     """Erzeugt ein neues pypdfium2-Dokument. `src` ist ein pdfium.PdfDocument."""
     import pypdfium2 as pdfium
 
     out = pdfium.PdfDocument.new()
-    tiles = pdfium.PdfDocument.new()   # Zwischenseiten zum Clippen der Kacheln
+    tiles = pdfium.PdfDocument.new()  # Zwischenseiten zum Clippen der Kacheln
     sizes = {}
 
     def size(i):
@@ -1342,7 +1455,7 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
             offsets = [(dx, dy) for dx in xs_ for dy in ys_]
             for dx, dy in offsets:
                 mm = local
-                if dx:   # an linker/rechter Kante spiegeln
+                if dx:  # an linker/rechter Kante spiegeln
                     c = X0 - eL if dx < 0 else X1 + eR
                     mm = _mul(mm, (-1, 0, 0, 1, 2 * c, 0))
                 if dy:
@@ -1382,6 +1495,7 @@ def impose_with(src, sheet: Sheet, plans, settings: LayoutSettings, only=None):
 
 def _add_border(tpage, x, y, w, h, cw, ch):
     import pypdfium2.raw as r
+
     lw = 0.5
     x0, y0 = max(x, 0) + lw / 2, max(y, 0) + lw / 2
     x1, y1 = min(x + w, cw) - lw / 2, min(y + h, ch) - lw / 2
@@ -1397,6 +1511,7 @@ def _add_border(tpage, x, y, w, h, cw, ch):
 def _add_mark(doc, page, m, to_phys):
     import ctypes
     import pypdfium2.raw as r
+
     if m[0] == "line":
         _, x0, y0, x1, y1, dashed = m
         obj = r.FPDFPageObj_CreateNewPath(x0, y0)
@@ -1404,7 +1519,7 @@ def _add_mark(doc, page, m, to_phys):
         if dashed:
             r.FPDFPageObj_SetStrokeColor(obj, 90, 90, 90, 255)
             r.FPDFPageObj_SetStrokeWidth(obj, 0.4)
-        else:   # trim mark: similar to registration black, thin
+        else:  # trim mark: similar to registration black, thin
             r.FPDFPageObj_SetStrokeColor(obj, 0, 0, 0, 255)
             r.FPDFPageObj_SetStrokeWidth(obj, 0.25)
         if dashed:
@@ -1414,7 +1529,7 @@ def _add_mark(doc, page, m, to_phys):
     elif m[0] == "bezier":
         _, (x0, y0), segs = m
         obj = r.FPDFPageObj_CreateNewPath(x0, y0)
-        for (c1, c2, pt) in segs:
+        for c1, c2, pt in segs:
             r.FPDFPath_BezierTo(obj, c1[0], c1[1], c2[0], c2[1], pt[0], pt[1])
         r.FPDFPath_Close(obj)
         r.FPDFPageObj_SetStrokeColor(obj, 0, 0, 0, 255)
@@ -1457,8 +1572,8 @@ def page_trims(doc) -> list:
             continue
         cl, cb, cr, ct = crop
         tl, tb, tr_, tt = (max(trim[0], cl), max(trim[1], cb), min(trim[2], cr), min(trim[3], ct))
-        o = (tl - cl, tb - cb, cr - tr_, ct - tt)      # ungedreht: links, unten, rechts, oben
-        if rot == 90:      # im Uhrzeigersinn: unten -> links, rechts -> unten, oben -> rechts, links -> oben
+        o = (tl - cl, tb - cb, cr - tr_, ct - tt)  # ungedreht: links, unten, rechts, oben
+        if rot == 90:  # im Uhrzeigersinn: unten -> links, rechts -> unten, oben -> rechts, links -> oben
             o = (o[1], o[2], o[3], o[0])
         elif rot == 180:
             o = (o[2], o[3], o[0], o[1])
@@ -1506,6 +1621,7 @@ def doc_bleeds_from_info(info: list) -> list:
 def _has_box(pg, name: str) -> bool:
     import pypdfium2.raw as r
     import ctypes
+
     f = {"TrimBox": r.FPDFPage_GetTrimBox, "ArtBox": r.FPDFPage_GetArtBox, "BleedBox": r.FPDFPage_GetBleedBox}[name]
     v = [ctypes.c_float() for _ in range(4)]
     return bool(f(pg.raw, *[ctypes.byref(x) for x in v]))
@@ -1522,9 +1638,14 @@ def page_boxes(doc) -> list:
             media = pg.get_cropbox()
         finally:
             pg.close()
-        if trim is not None and abs(trim[0] - media[0]) < 0.5 and abs(trim[1] - media[1]) < 0.5 \
-                and abs(trim[2] - media[2]) < 0.5 and abs(trim[3] - media[3]) < 0.5:
-            trim = None                              # Endformat = Seite: kein Anschnitt
+        if (
+            trim is not None
+            and abs(trim[0] - media[0]) < 0.5
+            and abs(trim[1] - media[1]) < 0.5
+            and abs(trim[2] - media[2]) < 0.5
+            and abs(trim[3] - media[3]) < 0.5
+        ):
+            trim = None  # Endformat = Seite: kein Anschnitt
         if bleed is not None and trim is None:
             bleed = None
         out.append((trim, bleed))
@@ -1559,20 +1680,22 @@ def page_trims_one(doc, i: int):
 
         def __getitem__(self, _k):
             return doc[i]
+
     return page_trims(_One())[0]
 
 
 def flattened(doc):
     """Copy with form values, comments and stamps burned in (like printing from Acrobat).
 
-        Imposition only carries over the page content – annotations (filled form fields,
-        comments, stamps) would otherwise not end up on the sheet. Only annotations the PDF says
-        should be printed are included (FLAT_PRINT). Without annotations, the original is
-        returned unchanged.
+    Imposition only carries over the page content – annotations (filled form fields,
+    comments, stamps) would otherwise not end up on the sheet. Only annotations the PDF says
+    should be printed are included (FLAT_PRINT). Without annotations, the original is
+    returned unchanged.
     """
     import io
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
+
     has = False
     for i in range(len(doc)):
         pg = doc[i]
@@ -1587,7 +1710,7 @@ def flattened(doc):
     doc.save(buf)
     cp = pdfium.PdfDocument(buf.getvalue())
     try:
-        cp.init_forms()                 # erzeugt fehlende Feld-Darstellungen
+        cp.init_forms()  # erzeugt fehlende Feld-Darstellungen
     except Exception:
         pass
     for i in range(len(cp)):
@@ -1608,4 +1731,3 @@ def build_pdf(src, sheet: Sheet, pages: list[int], settings: LayoutSettings, pat
     doc.save(path)
     doc.close()
     return plans
-

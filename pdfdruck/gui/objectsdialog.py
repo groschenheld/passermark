@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters)."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -13,25 +14,50 @@ import math
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-                               QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
-                               QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import cutcontour, objects
 from ..l10n import tr
 from . import theme
 from .common import split_panels, fill_combo, fit_width
 
-MODES = [("auto", "Automatisch"), ("transparent", "Vektor/Transparenz (exakt)"),
-         ("color", "Hintergrundfarbe (Scans)")]
-SHAPES = [("contour", "Kontur (folgt dem Motiv)"), ("rect", "Rechteck"), ("rounded", "Abgerundetes Rechteck"),
-          ("circle", "Kreis"), ("oval", "Oval"), ("hexagon", "Sechseck"), ("octagon", "Achteck"), ("heart", "Herz"),
-          ("star", "Stern"), ("shield", "Wappen"), ("arch", "Torbogen")]
+MODES = [("auto", "Automatisch"), ("transparent", "Vektor/Transparenz (exakt)"), ("color", "Hintergrundfarbe (Scans)")]
+SHAPES = [
+    ("contour", "Kontur (folgt dem Motiv)"),
+    ("rect", "Rechteck"),
+    ("rounded", "Abgerundetes Rechteck"),
+    ("circle", "Kreis"),
+    ("oval", "Oval"),
+    ("hexagon", "Sechseck"),
+    ("octagon", "Achteck"),
+    ("heart", "Herz"),
+    ("star", "Stern"),
+    ("shield", "Wappen"),
+    ("arch", "Torbogen"),
+]
 
 
 def fmt_mm(v: float) -> str:
     from .. import l10n
     from ..measure import fmt
+
     return fmt(v, l10n.current())
 
 
@@ -44,6 +70,7 @@ def show_error(parent, title, exc):
 
 def rgba_to_pixmap(arr) -> QPixmap:
     import numpy as np
+
     a = np.ascontiguousarray(arr.astype(np.uint8))
     h, w = a.shape[:2]
     qi = QImage(a.data, w, h, 4 * w, QImage.Format.Format_RGBA8888).copy()
@@ -52,6 +79,7 @@ def rgba_to_pixmap(arr) -> QPixmap:
 
 class PageCanvas(QWidget):
     """Shows a (normalized) page; display/select/draw frames; optionally contours."""
+
     changed = Signal()
 
     def __init__(self, editable=True):
@@ -60,17 +88,17 @@ class PageCanvas(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.editable = editable
         self.page_w = self.page_h = 1.0
-        self.layers = []          # [(QPixmap, (x0, y0, x1, y1) pt)] – von unten nach oben
+        self.layers = []  # [(QPixmap, (x0, y0, x1, y1) pt)] – von unten nach oben
         self.boxes: list[objects.Box] = []
         self.selected: set[int] = set()
-        self.paths = []           # Konturen in pt
-        self.shape_box = None     # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
-        self.on_shape = None      # callback (sx, sy, dx_pt, dy_pt) on release
+        self.paths = []  # Konturen in pt
+        self.shape_box = None  # Grundform: Rahmen der Form (pt) -> Griffe zum Skalieren/Verschieben
+        self.on_shape = None  # callback (sx, sy, dx_pt, dy_pt) on release
         self.keep_aspect = False  # circle: side handles scale uniformly
-        self.on_shaping = None    # callback (sx, sy, dx_pt, dy_pt) while dragging (display)
+        self.on_shaping = None  # callback (sx, sy, dx_pt, dy_pt) while dragging (display)
         self.live = (1.0, 1.0, 0.0, 0.0)
         self._sdrag = None
-        self.margin_pt = 0.0      # Vorschau des Randes (gestrichelt)
+        self.margin_pt = 0.0  # Vorschau des Randes (gestrichelt)
         self._drag = None
 
     def set_page(self, w, h, layers):
@@ -144,8 +172,8 @@ class PageCanvas(QWidget):
             p.drawRect(QRectF(self._drag[0], self._drag[1]).normalized())
 
     # Griffe der Grundform ------------------------------------------------ #
-    HANDLE = 5          # half handle size (px)
-    GRIP_OFF = 18       # move handle: distance above the shape (px)
+    HANDLE = 5  # half handle size (px)
+    GRIP_OFF = 18  # move handle: distance above the shape (px)
 
     def _box_now(self):
         """Frame of the shape including the live change (pt)."""
@@ -167,8 +195,16 @@ class PageCanvas(QWidget):
         """{name: screen point} – corners (uniform), sides (width/height only), move handle."""
         x0, y0, x1, y1 = self._box_now()
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        h = {"c00": (x0, y0), "c10": (x1, y0), "c01": (x0, y1), "c11": (x1, y1),
-             "sx0": (x0, cy), "sx1": (x1, cy), "sy0": (cx, y0), "sy1": (cx, y1)}
+        h = {
+            "c00": (x0, y0),
+            "c10": (x1, y0),
+            "c01": (x0, y1),
+            "c11": (x1, y1),
+            "sx0": (x0, cy),
+            "sx1": (x1, cy),
+            "sy0": (cx, y0),
+            "sy1": (cx, y1),
+        }
         out = {k: self.to_widget(*v) for k, v in h.items()}
         top = self.to_widget(cx, y1)
         out["move"] = QPointF(top.x(), top.y() - self.GRIP_OFF)
@@ -196,7 +232,7 @@ class PageCanvas(QWidget):
         p.drawEllipse(m, self.HANDLE + 3, self.HANDLE + 3)
         p.setPen(QPen(QColor("#ffffff"), 1.4))
         a = self.HANDLE
-        p.drawLine(QPointF(m.x() - a, m.y()), QPointF(m.x() + a, m.y()))     # Kreuz = verschieben
+        p.drawLine(QPointF(m.x() - a, m.y()), QPointF(m.x() + a, m.y()))  # Kreuz = verschieben
         p.drawLine(QPointF(m.x(), m.y() - a), QPointF(m.x(), m.y() + a))
 
     # Maus/Tastatur ------------------------------------------------------- #
@@ -239,7 +275,7 @@ class PageCanvas(QWidget):
             elif name.startswith("sx"):
                 sx = max(0.05, min(20.0, abs(pos.x() - c.x()) / (abs(p0.x() - c.x()) or 1.0)))
                 if self.keep_aspect:
-                    sy = sx                              # circle: side handle scales uniformly
+                    sy = sx  # circle: side handle scales uniformly
             else:
                 sy = max(0.05, min(20.0, abs(pos.y() - c.y()) / (abs(p0.y() - c.y()) or 1.0)))
                 if self.keep_aspect:
@@ -251,11 +287,17 @@ class PageCanvas(QWidget):
             return
         if not self.editable and self.shape_box is not None and self.paths:
             name = self._hit(e.position())
-            cur = {"c00": Qt.CursorShape.SizeBDiagCursor, "c11": Qt.CursorShape.SizeBDiagCursor,
-                   "c10": Qt.CursorShape.SizeFDiagCursor, "c01": Qt.CursorShape.SizeFDiagCursor,
-                   "sx0": Qt.CursorShape.SizeHorCursor, "sx1": Qt.CursorShape.SizeHorCursor,
-                   "sy0": Qt.CursorShape.SizeVerCursor, "sy1": Qt.CursorShape.SizeVerCursor,
-                   "move": Qt.CursorShape.SizeAllCursor}.get(name, Qt.CursorShape.ArrowCursor)
+            cur = {
+                "c00": Qt.CursorShape.SizeBDiagCursor,
+                "c11": Qt.CursorShape.SizeBDiagCursor,
+                "c10": Qt.CursorShape.SizeFDiagCursor,
+                "c01": Qt.CursorShape.SizeFDiagCursor,
+                "sx0": Qt.CursorShape.SizeHorCursor,
+                "sx1": Qt.CursorShape.SizeHorCursor,
+                "sy0": Qt.CursorShape.SizeVerCursor,
+                "sy1": Qt.CursorShape.SizeVerCursor,
+                "move": Qt.CursorShape.SizeAllCursor,
+            }.get(name, Qt.CursorShape.ArrowCursor)
             self.setCursor(cur)
         if self._drag:
             self._drag[1] = e.position()
@@ -267,7 +309,7 @@ class PageCanvas(QWidget):
             sx, sy, dx, dy = self.live
             changed = abs(sx - 1) > 0.002 or abs(sy - 1) > 0.002 or abs(dx) > 0.2 or abs(dy) > 0.2
             if self.on_shape is not None and changed:
-                self.on_shape(sx, sy, dx, dy)            # apply size/offset in mm -> recompute
+                self.on_shape(sx, sy, dx, dy)  # apply size/offset in mm -> recompute
             else:
                 self.live = (1.0, 1.0, 0.0, 0.0)
                 self.update()
@@ -386,8 +428,12 @@ class SeparateDialog(QDialog):
         nav.addWidget(QLabel(f"/ {len(self.norm)}"))
         nav.addStretch()
         left.addLayout(nav)
-        hint = QLabel(tr("Klicken = auswählen (Strg/Umschalt: mehrere) · auf freier Fläche ziehen = Rahmen hinzufügen · "
-                         "Entf = entfernen"))
+        hint = QLabel(
+            tr(
+                "Klicken = auswählen (Strg/Umschalt: mehrere) · auf freier Fläche ziehen = Rahmen hinzufügen · "
+                "Entf = entfernen"
+            )
+        )
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         left.addWidget(hint)
@@ -460,7 +506,7 @@ class SeparateDialog(QDialog):
 
     def _detect(self, pages):
         _read_detect(self.w, self.ds)
-        raw = dataclasses.replace(self.ds, margin_mm=0.0)     # Rahmen = Objekt; Rand erst bei der Ausgabe
+        raw = dataclasses.replace(self.ds, margin_mm=0.0)  # Rahmen = Objekt; Rand erst bei der Ausgabe
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             for i in pages:
@@ -488,8 +534,9 @@ class SeparateDialog(QDialog):
 
     def _count(self):
         total = sum(len(v) for v in self.boxes.values())
-        self.lbl_count.setText(tr("{0} Objekt(e) auf dieser Seite · {1} insgesamt").format(
-            len(self.canvas.boxes), total))
+        self.lbl_count.setText(
+            tr("{0} Objekt(e) auf dieser Seite · {1} insgesamt").format(len(self.canvas.boxes), total)
+        )
 
     def _apply(self):
         self.boxes[self.page] = self.canvas.boxes
@@ -498,8 +545,7 @@ class SeparateDialog(QDialog):
             return
         # nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess)
         boxes = {str(i): [[b.x0, b.y0, b.x1, b.y1] for b in bs] for i, bs in self.boxes.items() if bs}
-        self.job = ("separate", {"margin_mm": self.w["margin"].value(), "boxes": boxes},
-                    sorted(int(i) for i in boxes))
+        self.job = ("separate", {"margin_mm": self.w["margin"].value(), "boxes": boxes}, sorted(int(i) for i in boxes))
         self.accept()
 
     def done(self, r):
@@ -510,6 +556,7 @@ class SeparateDialog(QDialog):
 # --------------------------------------------------------------------------- #
 class _CutWorker(QThread):
     """Konturberechnung im Hintergrund (nur numpy/scipy – die Seite wurde vorher im Hauptthread gerendert)."""
+
     done = Signal(int, object, str)
 
     def __init__(self, gen, s, rgba, size, trim=None):
@@ -521,6 +568,7 @@ class _CutWorker(QThread):
             self.done.emit(self.gen, cutcontour.compute(None, self.s, self.rgba, self.size, trim=self.trim), "")
         except Exception as e:
             import traceback
+
             self.done.emit(self.gen, None, f"{e}\n\n{traceback.format_exc()}")
 
 
@@ -538,7 +586,7 @@ class CutContourDialog(QDialog):
         finally:
             QApplication.restoreOverrideCursor()
         self.page = min(current, len(self.norm) - 1)
-        self.s = cutcontour.CutSettings(shape="rect", fit="trim")   # Standard: Rechteck aufs Endformat (sofort)
+        self.s = cutcontour.CutSettings(shape="rect", fit="trim")  # Standard: Rechteck aufs Endformat (sofort)
         self.result = None
         self.count = 0
 
@@ -563,6 +611,7 @@ class CutContourDialog(QDialog):
 
         right = QVBoxLayout()
         from .presetbar import PresetBar
+
         self.presetbar = PresetBar(self, "cutcontour", self._settings, self._load_settings)
         right.addWidget(self.presetbar)
         g = QGroupBox(tr("Schnittlinie"))
@@ -571,14 +620,24 @@ class CutContourDialog(QDialog):
         fill_combo(self.cmb_shape, SHAPES, self.s.shape)
         f.addRow(tr("Form:"), self.cmb_shape)
         self.cmb_single = QComboBox()
-        fill_combo(self.cmb_single, [("trim", tr("Auf das Endformat (ohne Berechnung)")),
-                                     ("motif", tr("Eine Form um das ganze Motiv")),
-                                     ("each", tr("Eine Form je Objekt"))], self._placement(self.s))
-        self.cmb_single.setToolTip(tr("Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, "
-                                      "sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF "
-                                      "selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je "
-                                      "erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. "
-                                      "In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen."))
+        fill_combo(
+            self.cmb_single,
+            [
+                ("trim", tr("Auf das Endformat (ohne Berechnung)")),
+                ("motif", tr("Eine Form um das ganze Motiv")),
+                ("each", tr("Eine Form je Objekt")),
+            ],
+            self._placement(self.s),
+        )
+        self.cmb_single.setToolTip(
+            tr(
+                "Bei Grundformen: „Endformat“ legt die Form direkt aufs Endformat (TrimBox, "
+                "sonst die Seite) – sofort, ohne Motiv-Erkennung; Überfüller bringt das PDF "
+                "selbst mit (Anschnitt). Sonst eine Form mittig um alle Teile des Motivs oder je "
+                "erkanntem Objekt eine eigene – z. B. für Aufkleberbögen. "
+                "In der Vorschau lässt sich die Form mit der Maus größer/kleiner ziehen."
+            )
+        )
         f.addRow("", self.cmb_single)
 
         def dspin(val, lo, hi, tip=""):
@@ -591,18 +650,27 @@ class CutContourDialog(QDialog):
             if tip:
                 sp.setToolTip(tip)
             return sp
-        self.spn_off = dspin(self.s.offset_mm, -30, 30, tr("Abstand der Schnittlinie vom Motivrand: + nach außen (weißer Rand), − nach innen"))
+
+        self.spn_off = dspin(
+            self.s.offset_mm,
+            -30,
+            30,
+            tr("Abstand der Schnittlinie vom Motivrand: + nach außen (weißer Rand), − nach innen"),
+        )
         f.addRow(tr("Abstand zum Motiv:"), self.spn_off)
         self.spn_corner = dspin(self.s.corner_mm, 0, 200)
         f.addRow(tr("Eckenradius:"), self.spn_corner)
         row = QHBoxLayout()
         self.spn_fw, self.spn_fh = dspin(0, 0, 2000), dspin(0, 0, 2000)
-        self.spn_fw.valueChanged.connect(
-            lambda v: self.cmb_shape.currentData() == "circle" and self.spn_fh.setValue(v))
+        self.spn_fw.valueChanged.connect(lambda v: self.cmb_shape.currentData() == "circle" and self.spn_fh.setValue(v))
         for sp in (self.spn_fw, self.spn_fh):
             sp.setSpecialValueText(tr("auto"))
-            sp.setToolTip(tr("Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: "
-                             "Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau."))
+            sp.setToolTip(
+                tr(
+                    "Größe der Schnittlinie in mm; „auto“ = aus dem Motiv plus Abstand (nur eine Angabe: "
+                    "Seitenverhältnis bleibt). Ändert sich auch beim Ziehen an den Griffen in der Vorschau."
+                )
+            )
         row.addWidget(self.spn_fw)
         row.addWidget(QLabel("×"))
         row.addWidget(self.spn_fh)
@@ -614,7 +682,10 @@ class CutContourDialog(QDialog):
         f.addRow(tr("Größe (B × H):"), row)
         row = QHBoxLayout()
         self.spn_sx, self.spn_sy = dspin(self.s.shift_x_mm, -2000, 2000), dspin(self.s.shift_y_mm, -2000, 2000)
-        for sp, tip in ((self.spn_sx, tr("Versatz waagrecht (+ rechts)")), (self.spn_sy, tr("Versatz senkrecht (+ oben)"))):
+        for sp, tip in (
+            (self.spn_sx, tr("Versatz waagrecht (+ rechts)")),
+            (self.spn_sy, tr("Versatz senkrecht (+ oben)")),
+        ):
             sp.setToolTip(tip + " – " + tr("auch mit dem Verschiebe-Griff über der Form in der Vorschau"))
             row.addWidget(sp)
         self.btn_shift0 = QPushButton("↺")
@@ -623,14 +694,25 @@ class CutContourDialog(QDialog):
         self.btn_shift0.clicked.connect(lambda: (self.spn_sx.setValue(0), self.spn_sy.setValue(0)))
         row.addWidget(self.btn_shift0)
         f.addRow(tr("Versatz (X / Y):"), row)
-        self.spn_smooth = dspin(self.s.smooth_mm, 0, 20, tr("Buchten und Lücken schmaler als das Doppelte werden überbrückt, Ecken gerundet – nötig zum Entgittern"))
+        self.spn_smooth = dspin(
+            self.s.smooth_mm,
+            0,
+            20,
+            tr("Buchten und Lücken schmaler als das Doppelte werden überbrückt, Ecken gerundet – nötig zum Entgittern"),
+        )
         f.addRow(tr("Glättung:"), self.spn_smooth)
-        self.spn_bleed = dspin(self.s.bleed_mm, 0, 10, tr("So weit wird das Motiv über die Schnittlinie hinaus verlängert"))
+        self.spn_bleed = dspin(
+            self.s.bleed_mm, 0, 10, tr("So weit wird das Motiv über die Schnittlinie hinaus verlängert")
+        )
         row_b = QHBoxLayout()
         self.chk_bleed = QCheckBox(tr("erzeugen"))
         self.chk_bleed.setChecked(self.s.bleed)
-        self.chk_bleed.setToolTip(tr("Aus: Motiv bleibt unverändert, nur die Schnittlinie – z. B. für weiße Ränder "
-                                     "(„Abstand zum Motiv“ ins Plus)"))
+        self.chk_bleed.setToolTip(
+            tr(
+                "Aus: Motiv bleibt unverändert, nur die Schnittlinie – z. B. für weiße Ränder "
+                "(„Abstand zum Motiv“ ins Plus)"
+            )
+        )
         row_b.addWidget(self.chk_bleed)
         row_b.addWidget(self.spn_bleed, 1)
         f.addRow(tr("Überfüller:"), row_b)
@@ -639,8 +721,11 @@ class CutContourDialog(QDialog):
         f.addRow(self.chk_inner)
         row = QHBoxLayout()
         self.cmb_bcol = QComboBox()
-        fill_combo(self.cmb_bcol, [("auto", tr("Automatisch (Vollfarben aus dem Motiv)")),
-                                   ("fixed", tr("Feste Farbe (gleichmäßiger Rand)"))], "auto")
+        fill_combo(
+            self.cmb_bcol,
+            [("auto", tr("Automatisch (Vollfarben aus dem Motiv)")), ("fixed", tr("Feste Farbe (gleichmäßiger Rand)"))],
+            "auto",
+        )
         self.btn_bcol = QPushButton()
         self.btn_bcol.setFixedWidth(46)
         self.btn_bcol.setToolTip(tr("Farbe wählen"))
@@ -651,8 +736,12 @@ class CutContourDialog(QDialog):
         row.addWidget(self.btn_bcol)
         f.addRow(tr("Überfüller-Farbe:"), row)
         self.chk_seams = QCheckBox(tr("Mischkanten im Motiv bereinigen (bis ~1 mm, nur flächige Motive)"))
-        self.chk_seams.setToolTip(tr("Ersetzt schmale Mischsäume zwischen Vollfarben (z. B. dunkle Linie zwischen "
-                                     "Rot und Grün) durch die jeweilige Vollfarbe. Verändert das Motiv leicht."))
+        self.chk_seams.setToolTip(
+            tr(
+                "Ersetzt schmale Mischsäume zwischen Vollfarben (z. B. dunkle Linie zwischen "
+                "Rot und Grün) durch die jeweilige Vollfarbe. Verändert das Motiv leicht."
+            )
+        )
         f.addRow(self.chk_seams)
         right.addWidget(g)
 
@@ -663,7 +752,9 @@ class CutContourDialog(QDialog):
         g3 = QGroupBox(tr("Ausgabe"))
         f3 = QFormLayout(g3)
         self.cmb_out = QComboBox()
-        fill_combo(self.cmb_out, [(False, tr("Auf dem Bogen lassen")), (True, tr("Jedes Objekt als eigene Seite"))], False)
+        fill_combo(
+            self.cmb_out, [(False, tr("Auf dem Bogen lassen")), (True, tr("Jedes Objekt als eigene Seite"))], False
+        )
         f3.addRow(tr("Objekte:"), self.cmb_out)
         self.ed_spot = QLineEdit(self.s.spot)
         self.ed_spot.setToolTip(tr("Name der Sonderfarbe – Roland VersaWorks erkennt „CutContour“"))
@@ -691,12 +782,27 @@ class CutContourDialog(QDialog):
         self._pv_timer.setSingleShot(True)
         self._pv_timer.setInterval(350)
         self._pv_timer.timeout.connect(self._preview)
-        for sig in (self.cmb_shape.currentIndexChanged, self.cmb_single.currentIndexChanged,
-                    self.cmb_bcol.currentIndexChanged, self.chk_bleed.toggled,
-                    self.cmb_out.currentIndexChanged, self.chk_seams.toggled, self.chk_inner.toggled):
+        for sig in (
+            self.cmb_shape.currentIndexChanged,
+            self.cmb_single.currentIndexChanged,
+            self.cmb_bcol.currentIndexChanged,
+            self.chk_bleed.toggled,
+            self.cmb_out.currentIndexChanged,
+            self.chk_seams.toggled,
+            self.chk_inner.toggled,
+        ):
             sig.connect(self._pv_timer.start)
-        for sp in (self.spn_corner, self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.spn_off, self.spn_smooth,
-                   self.spn_bleed, self.spn_margin):
+        for sp in (
+            self.spn_corner,
+            self.spn_fw,
+            self.spn_fh,
+            self.spn_sx,
+            self.spn_sy,
+            self.spn_off,
+            self.spn_smooth,
+            self.spn_bleed,
+            self.spn_margin,
+        ):
             sp.valueChanged.connect(self._pv_timer.start)
         for wdg in self.w.values():
             for name in ("valueChanged", "currentIndexChanged", "toggled"):
@@ -710,8 +816,12 @@ class CutContourDialog(QDialog):
         b = QPushButton(tr("Vorschau aktualisieren"))
         b.clicked.connect(self._preview)
         right.addWidget(b)
-        note = QLabel(tr("Die Schnittlinie liegt immer innerhalb des Überfüllers. Mit Glättung folgt sie dem Motiv bewusst "
-                         "nicht exakt, damit sich die Restfolie entgittern lässt."))
+        note = QLabel(
+            tr(
+                "Die Schnittlinie liegt immer innerhalb des Überfüllers. Mit Glättung folgt sie dem Motiv bewusst "
+                "nicht exakt, damit sich die Restfolie entgittern lässt."
+            )
+        )
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         right.addWidget(note)
@@ -731,8 +841,9 @@ class CutContourDialog(QDialog):
         split_panels(root, left, wrap, 420)
         fit_width(wrap)
         from .. import presets
+
         last = presets.load_last("cutcontour")
-        if last is not None:                     # most recently used settings – the offset belongs to the old artwork
+        if last is not None:  # most recently used settings – the offset belongs to the old artwork
             last.shift_x_mm = last.shift_y_mm = 0.0
             try:
                 self._load_settings(last, preview=False)
@@ -743,14 +854,34 @@ class CutContourDialog(QDialog):
 
     def _load_settings(self, s, preview=True):
         """Felder aus Einstellungen setzen (Preset, zuletzt verwendet)."""
+
         def pick(cmb, val):
             i = cmb.findData(val)
             if i >= 0:
                 cmb.setCurrentIndex(i)
-        widgets = [self.cmb_shape, self.cmb_single, self.cmb_out, self.cmb_bcol, self.cmb_dpi, self.chk_seams,
-                   self.chk_bleed, self.chk_inner, self.spn_corner, self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy,
-                   self.spn_off, self.spn_smooth, self.spn_bleed, self.spn_stroke, self.spn_margin, self.ed_spot,
-                   *self.w.values()]
+
+        widgets = [
+            self.cmb_shape,
+            self.cmb_single,
+            self.cmb_out,
+            self.cmb_bcol,
+            self.cmb_dpi,
+            self.chk_seams,
+            self.chk_bleed,
+            self.chk_inner,
+            self.spn_corner,
+            self.spn_fw,
+            self.spn_fh,
+            self.spn_sx,
+            self.spn_sy,
+            self.spn_off,
+            self.spn_smooth,
+            self.spn_bleed,
+            self.spn_stroke,
+            self.spn_margin,
+            self.ed_spot,
+            *self.w.values(),
+        ]
         for wd in widgets:
             wd.blockSignals(True)
         try:
@@ -798,6 +929,7 @@ class CutContourDialog(QDialog):
 
     def _pick_bcol(self):
         from PySide6.QtWidgets import QColorDialog
+
         c = QColorDialog.getColor(QColor(self._bcol), self, tr("Überfüller-Farbe"))
         if c.isValid():
             self._bcol = c.name()
@@ -817,7 +949,7 @@ class CutContourDialog(QDialog):
         for w in (self.spn_fw, self.spn_fh, self.spn_sx, self.spn_sy, self.btn_shift0, self.btn_size0, self.cmb_single):
             w.setEnabled(not contour)
         circle = shape == "circle"
-        self.spn_fh.setEnabled(not contour and not circle)     # Kreis: ein Durchmesser
+        self.spn_fh.setEnabled(not contour and not circle)  # Kreis: ein Durchmesser
         self.canvas.keep_aspect = circle
         if circle and abs(self.spn_fh.value() - self.spn_fw.value()) > 0.05:
             d = max(self.spn_fw.value(), self.spn_fh.value())
@@ -834,10 +966,10 @@ class CutContourDialog(QDialog):
         s.fit = "trim" if place == "trim" else "motif"
         s.single_shape = place != "each"
         s.corner_mm = self.spn_corner.value()
-        s.scale_pct = 100.0                          # size only in mm now (field or handles)
+        s.scale_pct = 100.0  # size only in mm now (field or handles)
         s.width_mm, s.height_mm = self.spn_fw.value(), self.spn_fh.value()
         if s.shape == "circle" and s.width_mm > 0:
-            s.height_mm = s.width_mm                         # Kreis bleibt Kreis
+            s.height_mm = s.width_mm  # Kreis bleibt Kreis
         s.shift_x_mm, s.shift_y_mm = self.spn_sx.value(), self.spn_sy.value()
         s.per_object = bool(self.cmb_out.currentData())
         s.bleed_color = self._bcol if self.cmb_bcol.currentData() == "fixed" else ""
@@ -864,6 +996,7 @@ class CutContourDialog(QDialog):
         """Trim size of the current page (margins left/bottom/right/top in pt) or None."""
         try:
             from ..layout import page_trims_one
+
             return page_trims_one(self.doc, self.page)
         except Exception:
             return None
@@ -871,10 +1004,11 @@ class CutContourDialog(QDialog):
     def _preview(self):
         """Seite im Hauptthread rendern (pdfium, wenige ms), Kontur im Hintergrund rechnen – Fenster bleibt bedienbar."""
         import copy
-        if getattr(self, "_closing", False):     # window closing or document already gone: no more preview
+
+        if getattr(self, "_closing", False):  # window closing or document already gone: no more preview
             return
         if self._pv_worker is not None and self._pv_worker.isRunning():
-            self._pv_pending = True              # nach der laufenden Berechnung mit dem neuesten Stand nochmal
+            self._pv_pending = True  # nach der laufenden Berechnung mit dem neuesten Stand nochmal
             return
         s = copy.deepcopy(self._settings(preview=True))
         try:
@@ -898,7 +1032,7 @@ class CutContourDialog(QDialog):
     def _preview_done(self, gen, r, err):
         if getattr(self, "_closing", False):
             return
-        if self._pv_pending:                     # settings have changed in the meantime -> recompute
+        if self._pv_pending:  # settings have changed in the meantime -> recompute
             self._pv_pending = False
             QTimer.singleShot(0, self._preview)
             return
@@ -913,7 +1047,7 @@ class CutContourDialog(QDialog):
         rgba = self._pv_rgba.copy()
         w, h = self._pv_size
         if r.knockout is not None and r.knockout.shape == rgba.shape[:2]:
-            rgba[:, :, 3] = rgba[:, :, 3] * r.knockout      # Hintergrund wie in der Ausgabe ausblenden
+            rgba[:, :, 3] = rgba[:, :, 3] * r.knockout  # Hintergrund wie in der Ausgabe ausblenden
         motif = rgba_to_pixmap(rgba)
         layers = [(rgba_to_pixmap(o.bleed_rgba), o.bleed_box) for o in r.objects if o.bleed_rgba is not None]
         layers.append((motif, (0, 0, w, h)))
@@ -928,13 +1062,17 @@ class CutContourDialog(QDialog):
         self.canvas.live = (1.0, 1.0, 0.0, 0.0)
         info = tr("{0} Kontur(en) auf dieser Seite").format(len(r.paths))
         if self.cmb_shape.currentData() != "contour" and self.canvas.paths:
-            boxes = [(min(x for x, _y in p), min(y for _x, y in p), max(x for x, _y in p), max(y for _x, y in p))
-                     for p in self.canvas.paths]
-            self.canvas.shape_box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))   # largest shape
+            boxes = [
+                (min(x for x, _y in p), min(y for _x, y in p), max(x for x, _y in p), max(y for _x, y in p))
+                for p in self.canvas.paths
+            ]
+            self.canvas.shape_box = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))  # largest shape
             self.canvas.on_shape = self._apply_drag
             self.canvas.on_shaping = self._show_drag
             bx = self.canvas.shape_box
-            info = tr("Form: {0} × {1} mm").format(fmt_mm((bx[2] - bx[0]) / objects.MM), fmt_mm((bx[3] - bx[1]) / objects.MM))
+            info = tr("Form: {0} × {1} mm").format(
+                fmt_mm((bx[2] - bx[0]) / objects.MM), fmt_mm((bx[3] - bx[1]) / objects.MM)
+            )
         else:
             self.canvas.shape_box = None
         self.canvas.set_page(x1 - x0, y1 - y0, shift)
@@ -945,8 +1083,9 @@ class CutContourDialog(QDialog):
         w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
         txt = tr("Form: {0} × {1} mm").format(fmt_mm(w), fmt_mm(h))
         if abs(dx) > 0.2 or abs(dy) > 0.2:
-            txt += "  ·  " + tr("Versatz: {0} / {1} mm").format(fmt_mm(self.spn_sx.value() + dx / objects.MM),
-                                                             fmt_mm(self.spn_sy.value() + dy / objects.MM))
+            txt += "  ·  " + tr("Versatz: {0} / {1} mm").format(
+                fmt_mm(self.spn_sx.value() + dx / objects.MM), fmt_mm(self.spn_sy.value() + dy / objects.MM)
+            )
         self.lbl_info.setText(txt)
 
     def _reset_shape(self):
@@ -963,8 +1102,12 @@ class CutContourDialog(QDialog):
         w, h = (bx[2] - bx[0]) * sx / objects.MM, (bx[3] - bx[1]) * sy / objects.MM
         if self.cmb_shape.currentData() == "circle":
             w = h = max(w, h)
-        for sp, v in ((self.spn_fw, w), (self.spn_fh, h), (self.spn_sx, self.spn_sx.value() + dx / objects.MM),
-                      (self.spn_sy, self.spn_sy.value() + dy / objects.MM)):
+        for sp, v in (
+            (self.spn_fw, w),
+            (self.spn_fh, h),
+            (self.spn_sx, self.spn_sx.value() + dx / objects.MM),
+            (self.spn_sy, self.spn_sy.value() + dy / objects.MM),
+        ):
             sp.blockSignals(True)
             sp.setValue(round(max(sp.minimum(), min(sp.maximum(), v)), 1))
             sp.blockSignals(False)
@@ -973,19 +1116,21 @@ class CutContourDialog(QDialog):
     def _apply(self):
         """Nur den Auftrag beschreiben – gerechnet wird im Hintergrund (eigener Prozess), das Fenster friert nicht ein."""
         from .. import core
+
         s = self._settings()
         pages = None if self.chk_all.isChecked() else [self.page]
         self.job = ("cutcontour", core.settings_to_dict(s), pages)
         from .. import presets
+
         presets.save_last("cutcontour", s)
         self.accept()
 
     def done(self, r):
-        self._closing = True                     # ignore late preview signals (the document is about to close)
+        self._closing = True  # ignore late preview signals (the document is about to close)
         if getattr(self, "_pv_timer", None) is not None:
             self._pv_timer.stop()
         w = getattr(self, "_pv_worker", None)
         if w is not None and w.isRunning():
-            w.wait(30000)                        # do not destroy the thread in the middle of a computation
+            w.wait(30000)  # do not destroy the thread in the middle of a computation
         self.norm.close()
         super().done(r)

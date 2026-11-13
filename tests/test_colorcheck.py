@@ -2,10 +2,19 @@
 # Passermark – Copyright (C) 2026 Hias
 """Farbe (1.17): eigene Materialien, Standardprofile, Farbprüfung mit Empfehlungen, Ausgabe für die Druckerei
 (Auftrag „press“) – ohne Qt. Ghostscript wird genutzt, wenn vorhanden; sonst die Wege ohne Umwandlung."""
-import io, json, os, subprocess, sys, tempfile, zipfile
+
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import zipfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, ROOT); sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
 os.environ["PASSERMARK_LANG"] = "de"
 USER = tempfile.mkdtemp(prefix="pm-user-")
 os.environ["PASSERMARK_USER_DIR"] = USER
@@ -35,14 +44,16 @@ def sample_pdf(rgb=True, cmyk_ink=(0.9, 0.9, 0.8, 0.9), oi="", spot=False) -> by
         ops += b"q 100 0 0 100 50 50 cm /Im0 Do Q 1 0 0 rg 10 150 30 30 re f "
     if spot:
         fn = pdf.make_indirect(pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0, 0, 0, 0], C1=[0, 1, 1, 0], N=1))
-        res.ColorSpace = pikepdf.Dictionary(CS0=pikepdf.Array([pikepdf.Name.Separation, pikepdf.Name("/HKS 13"),
-                                                               pikepdf.Name.DeviceCMYK, fn]))
+        res.ColorSpace = pikepdf.Dictionary(
+            CS0=pikepdf.Array([pikepdf.Name.Separation, pikepdf.Name("/HKS 13"), pikepdf.Name.DeviceCMYK, fn])
+        )
         ops += b"/CS0 cs 1 scn 120 10 40 40 re f "
     pg.Resources = res
     pg.Contents = pikepdf.Stream(pdf, ops)
     if oi:
-        oid = pikepdf.Dictionary(Type=pikepdf.Name.OutputIntent, S=pikepdf.Name.GTS_PDFX,
-                                 OutputConditionIdentifier=pikepdf.String(oi))
+        oid = pikepdf.Dictionary(
+            Type=pikepdf.Name.OutputIntent, S=pikepdf.Name.GTS_PDFX, OutputConditionIdentifier=pikepdf.String(oi)
+        )
         pdf.Root.OutputIntents = pikepdf.Array([oid])
     out = io.BytesIO()
     pdf.save(out)
@@ -63,9 +74,21 @@ def target():
 # --------------------------------------------------------------------------- #
 def test_user_materials_roundtrip_and_merge():
     f = cmyk_profile()
-    mats = [{"id": "u_natur", "name": "Natur 120 g", "weight": 120, "surface": "uncoated", "white": [93, 0.5, 4],
-             "profiles": {"*": f}, "intent": "relative", "notes": "", "junk": 1},
-            {"id": "kaputt"}, {"id": "u_x", "white": [200, 0, 0], "surface": "??", "intent": "x"}]
+    mats = [
+        {
+            "id": "u_natur",
+            "name": "Natur 120 g",
+            "weight": 120,
+            "surface": "uncoated",
+            "white": [93, 0.5, 4],
+            "profiles": {"*": f},
+            "intent": "relative",
+            "notes": "",
+            "junk": 1,
+        },
+        {"id": "kaputt"},
+        {"id": "u_x", "white": [200, 0, 0], "surface": "??", "intent": "x"},
+    ]
     os.makedirs(USER, exist_ok=True)
     with open(usercolor.materials_file(), "w") as fh:
         json.dump({"materials": mats}, fh)
@@ -93,7 +116,7 @@ def test_user_materials_roundtrip_and_merge():
 def test_import_icc_and_profile_dirs():
     f = cmyk_profile()
     p = usercolor.import_icc(f)
-    assert os.path.dirname(p) == usercolor.icc_dir() and usercolor.import_icc(f) == p     # nicht doppelt
+    assert os.path.dirname(p) == usercolor.icc_dir() and usercolor.import_icc(f) == p  # nicht doppelt
     assert usercolor.icc_dir() in cmyk.system_profile_dirs()
     assert os.path.realpath(p) in {os.path.realpath(c.path) for c in cmyk.find_profiles(None)}
     try:
@@ -111,13 +134,21 @@ def test_standard_profiles_catalogue_and_download():
     data = open(cmyk_profile(), "rb").read()
 
     class R(io.BytesIO):
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
     seen = []
-    path = usercolor.download_standard("PSOcoated_v3", opener=lambda req, timeout: (seen.append(req.full_url), R(data))[1])
+    path = usercolor.download_standard(
+        "PSOcoated_v3", opener=lambda req, timeout: (seen.append(req.full_url), R(data))[1]
+    )
     assert seen == ["https://registry.color.org/profile-registry/profiles/PSOcoated_v3.icc"]
-    assert os.path.basename(path) == "PSOcoated_v3.icc" and usercolor.standard_installed(
-        usercolor.standard_by_key("PSOcoated_v3")) == path
+    assert (
+        os.path.basename(path) == "PSOcoated_v3.icc"
+        and usercolor.standard_installed(usercolor.standard_by_key("PSOcoated_v3")) == path
+    )
     # nicht installierte Standards als Vorschlag (nach Oberfläche)
     cands = colorlab.standard_candidates()
     assert "PSOcoated_v3" not in {c["std"] for c in cands} and "PSOuncoated_v3_FOGRA52" in {c["std"] for c in cands}
@@ -142,7 +173,7 @@ def test_tac_limits():
 def test_conditions():
     assert colorcheck.condition_keys("Coated FOGRA39 (ISO 12647-2:2004)") >= {"fogra39"}
     assert "fogra51" in colorcheck.condition_keys("PSO Coated v3")
-    f = cmyk_profile()                                         # FOGRA39L_coated.icc
+    f = cmyk_profile()  # FOGRA39L_coated.icc
     assert colorcheck.same_condition("Coated FOGRA39 (ISO 12647-2:2004)", f)
     assert not colorcheck.same_condition("PSO Uncoated v3 (FOGRA52)", f)
 
@@ -159,7 +190,7 @@ def test_facts_and_findings():
     assert {"rgb", "oi_missing", "spots", "cmyk_unknown"} <= set(keys), keys
     rgb = next(x for x in res if x.key == "rgb")
     assert rgb.action == "convert" and rgb.params["cmyk_mode"] == "rgb_only" and rgb.params["rgb_ask"]
-    assert rgb.spots[0].box == (50.0, 50.0, 150.0, 150.0)           # Fundstelle: das Bild
+    assert rgb.spots[0].box == (50.0, 50.0, 150.0, 150.0)  # Fundstelle: das Bild
     assert next(x for x in res if x.key == "oi_missing").action == "embed_oi"
     if f.tac["max"] > t.limit:
         tac = next(x for x in res if x.key == "tac")
@@ -185,7 +216,7 @@ def test_paper_findings():
     f = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.1, 0, 0, 0)), t)
     keys = {x.key for x in colorcheck.check(f, t, {})}
     assert {"paper_unmeasured", "surface"} <= keys
-    t.white = [88.0, 2.0, 12.0]                                    # gelbliches Papier
+    t.white = [88.0, 2.0, 12.0]  # gelbliches Papier
     res = colorcheck.check(f, t, {})
     assert next(x for x in res if x.key == "paper").action == "get_profiles"
 
@@ -208,13 +239,14 @@ def test_press_without_conversion_package():
     t = target()
     src = write(sample_pdf())
     dst = src[:-4] + "_druck.pdf"
-    r = pressexport.run(src, dst, pressexport.PressSettings(target=t.icc, rgb="keep", cmyk_mode="none",
-                                                             package=True), cfg={})
+    r = pressexport.run(
+        src, dst, pressexport.PressSettings(target=t.icc, rgb="keep", cmyk_mode="none", package=True), cfg={}
+    )
     with pikepdf.open(dst) as pdf:
         oi = pdf.Root.OutputIntents[0]
         assert str(oi.OutputConditionIdentifier) == t.name and oi.DestOutputProfile.N == 4
         im = pdf.pages[0].Resources.XObject.Im0
-        assert im.ColorSpace[0] == pikepdf.Name.ICCBased            # RGB als sRGB gekennzeichnet
+        assert im.ColorSpace[0] == pikepdf.Name.ICCBased  # RGB als sRGB gekennzeichnet
         assert "/DefaultRGB" in pdf.pages[0].Resources.ColorSpace
     with zipfile.ZipFile(r["package"]) as z:
         names = z.namelist()
@@ -235,8 +267,14 @@ def test_press_job_and_cli():
     assert res.info["output_intent"] == t.name
     env = dict(os.environ, PASSERMARK_LANG="de")
     out = src[:-4] + "_cli.pdf"
-    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "press", write(sample_pdf()), out, "--set",
-                        f"target={t.icc}"], capture_output=True, text=True, env=env, cwd=ROOT, timeout=300)
+    r = subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "press", write(sample_pdf()), out, "--set", f"target={t.icc}"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=ROOT,
+        timeout=300,
+    )
     assert r.returncode != 0 and "rgb=convert" in (r.stdout + r.stderr), r.stdout + r.stderr
     for bad in ({"target": ""}, {"target": t.icc, "cmyk_mode": "x"}, {"target": t.icc, "rgb": "x"}):
         try:
@@ -259,8 +297,10 @@ def test_press_with_ghostscript():
 
 
 def test_spotread_ports():
-    text = " -c listno   Set communication port from the following list (default 1)\n" \
-           "    1 = 'usb:/bus2/dev3/ (X-Rite i1 Pro 2)'\n    2 = '/dev/ttyS0'\n"
+    text = (
+        " -c listno   Set communication port from the following list (default 1)\n"
+        "    1 = 'usb:/bus2/dev3/ (X-Rite i1 Pro 2)'\n    2 = '/dev/ttyS0'\n"
+    )
     ports = colorlab.spotread_ports(text)
     assert ports == [(1, "usb:/bus2/dev3/ (X-Rite i1 Pro 2)"), (2, "/dev/ttyS0")]
     assert [colorlab.is_instrument(d) for _, d in ports] == [True, False]

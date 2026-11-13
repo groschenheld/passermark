@@ -9,6 +9,7 @@
 * Only PDFs selected     -> "Print" without a dialog (session or admin defaults)
 Installed into /usr/share/nautilus-python/extensions/ (package python3-nautilus).
 """
+
 import subprocess
 
 import gi
@@ -21,34 +22,119 @@ from gi.repository import GObject, Nautilus  # noqa: E402
 
 PDFDRUCK = "/usr/local/bin/passermark"
 IMAGE_MIMES = {
-    "image/jpeg", "image/png", "image/tiff", "image/bmp", "image/x-bmp", "image/x-ms-bmp",
-    "image/gif", "image/webp", "image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence",
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "image/bmp",
+    "image/x-bmp",
+    "image/x-ms-bmp",
+    "image/gif",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+    "image/heic-sequence",
+    "image/heif-sequence",
 }
 
 
-IMAGE_EXT = {".jpg", ".jpeg", ".jpe", ".png", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".heic", ".heif", ".svg", ".svgz"}
-OFFICE_EXT = {".doc", ".docx", ".docm", ".dot", ".dotx", ".odt", ".ott", ".rtf", ".txt", ".wpd", ".xls", ".xlsx",
-              ".xlsm", ".ods", ".csv", ".ppt", ".pptx", ".pps", ".ppsx", ".odp", ".odg", ".vsd", ".vsdx", ".pub",
-              ".html", ".htm", ".xps", ".epub", ".djvu"}
+IMAGE_EXT = {
+    ".jpg",
+    ".jpeg",
+    ".jpe",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".heif",
+    ".svg",
+    ".svgz",
+}
+OFFICE_EXT = {
+    ".doc",
+    ".docx",
+    ".docm",
+    ".dot",
+    ".dotx",
+    ".odt",
+    ".ott",
+    ".rtf",
+    ".txt",
+    ".wpd",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".ods",
+    ".csv",
+    ".ppt",
+    ".pptx",
+    ".pps",
+    ".ppsx",
+    ".odp",
+    ".odg",
+    ".vsd",
+    ".vsdx",
+    ".pub",
+    ".html",
+    ".htm",
+    ".xps",
+    ".epub",
+    ".djvu",
+}
 
 
 LABELS = {
-    "merge": {"de": "{n} Dateien als ein PDF zusammenführen (Passermark)", "en": "Merge {n} files into one PDF (Passermark)",
-              "hu": "{n} fájl egyesítése egy PDF-be (Passermark)", "es": "Combinar {n} archivos en un PDF (Passermark)",
-              "fr": "Fusionner {n} fichiers en un PDF (Passermark)"},
-    "open1": {"de": "Als PDF öffnen", "en": "Open as PDF", "hu": "Megnyitás PDF-ként", "es": "Abrir como PDF",
-              "fr": "Ouvrir en PDF"},
-    "openN": {"de": "{n} Bilder als ein PDF öffnen", "en": "Open {n} images as one PDF", "hu": "{n} kép megnyitása egy PDF-ként",
-              "es": "Abrir {n} imágenes como un PDF", "fr": "Ouvrir {n} images en un PDF"},
-    "office": {"de": "Als PDF öffnen (Passermark)", "en": "Open as PDF (Passermark)", "hu": "Megnyitás PDF-ként (Passermark)",
-               "es": "Abrir como PDF (Passermark)", "fr": "Ouvrir en PDF (Passermark)"},
-    "print1": {"de": "Drucken (Passermark)", "en": "Print (Passermark)", "hu": "Nyomtatás (Passermark)",
-               "es": "Imprimir (Passermark)", "fr": "Imprimer (Passermark)"},
-    "printN": {"de": "{n} PDFs drucken (Passermark)", "en": "Print {n} PDFs (Passermark)", "hu": "{n} PDF nyomtatása (Passermark)",
-               "es": "Imprimir {n} PDF (Passermark)", "fr": "Imprimer {n} PDF (Passermark)"},
-    "repair": {"de": "Reparieren / optimieren (Passermark)", "en": "Repair / optimize (Passermark)",
-               "hu": "Javítás / optimalizálás (Passermark)", "es": "Reparar / optimizar (Passermark)",
-               "fr": "Réparer / optimiser (Passermark)"},
+    "merge": {
+        "de": "{n} Dateien als ein PDF zusammenführen (Passermark)",
+        "en": "Merge {n} files into one PDF (Passermark)",
+        "hu": "{n} fájl egyesítése egy PDF-be (Passermark)",
+        "es": "Combinar {n} archivos en un PDF (Passermark)",
+        "fr": "Fusionner {n} fichiers en un PDF (Passermark)",
+    },
+    "open1": {
+        "de": "Als PDF öffnen",
+        "en": "Open as PDF",
+        "hu": "Megnyitás PDF-ként",
+        "es": "Abrir como PDF",
+        "fr": "Ouvrir en PDF",
+    },
+    "openN": {
+        "de": "{n} Bilder als ein PDF öffnen",
+        "en": "Open {n} images as one PDF",
+        "hu": "{n} kép megnyitása egy PDF-ként",
+        "es": "Abrir {n} imágenes como un PDF",
+        "fr": "Ouvrir {n} images en un PDF",
+    },
+    "office": {
+        "de": "Als PDF öffnen (Passermark)",
+        "en": "Open as PDF (Passermark)",
+        "hu": "Megnyitás PDF-ként (Passermark)",
+        "es": "Abrir como PDF (Passermark)",
+        "fr": "Ouvrir en PDF (Passermark)",
+    },
+    "print1": {
+        "de": "Drucken (Passermark)",
+        "en": "Print (Passermark)",
+        "hu": "Nyomtatás (Passermark)",
+        "es": "Imprimir (Passermark)",
+        "fr": "Imprimer (Passermark)",
+    },
+    "printN": {
+        "de": "{n} PDFs drucken (Passermark)",
+        "en": "Print {n} PDFs (Passermark)",
+        "hu": "{n} PDF nyomtatása (Passermark)",
+        "es": "Imprimir {n} PDF (Passermark)",
+        "fr": "Imprimer {n} PDF (Passermark)",
+    },
+    "repair": {
+        "de": "Reparieren / optimieren (Passermark)",
+        "en": "Repair / optimize (Passermark)",
+        "hu": "Javítás / optimalizálás (Passermark)",
+        "es": "Reparar / optimizar (Passermark)",
+        "fr": "Réparer / optimiser (Passermark)",
+    },
 }
 
 
@@ -56,9 +142,16 @@ def _lang():
     """Language as in Passermark: File → Preferences > Admin default > System language > English."""
     import json
     import os
-    for path, key in ((os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                                    "passermark", "settings.json"), "language"),
-                      ("/etc/passermark/defaults.json", "language")):
+
+    for path, key in (
+        (
+            os.path.join(
+                os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "passermark", "settings.json"
+            ),
+            "language",
+        ),
+        ("/etc/passermark/defaults.json", "language"),
+    ):
         try:
             with open(path, encoding="utf-8") as f:
                 v = json.load(f).get(key, "")
@@ -80,6 +173,7 @@ def _t(key, n=0):
 
 def _kind(f):
     import os
+
     e = os.path.splitext(f.get_name() or "")[1].lower()
     if e == ".pdf" or f.get_mime_type() == "application/pdf":
         return "pdf"
@@ -92,7 +186,7 @@ def _kind(f):
 
 class PassermarkMenu(GObject.GObject, Nautilus.MenuProvider):
     def get_file_items(self, *args):
-        files = args[-1]                      # API 3.0: (window, files) – API 4.0: (files)
+        files = args[-1]  # API 3.0: (window, files) – API 4.0: (files)
         if not files:
             return []
         if any(f.get_uri_scheme() != "file" or f.is_directory() for f in files):
@@ -121,5 +215,6 @@ class PassermarkMenu(GObject.GObject, Nautilus.MenuProvider):
 
     def _run(self, _item, files, flag):
         paths = sorted(f.get_location().get_path() for f in files)
-        subprocess.Popen([PDFDRUCK, flag, *paths], start_new_session=True,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(
+            [PDFDRUCK, flag, *paths], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )

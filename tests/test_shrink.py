@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Dateigröße: Aufschlüsselung, verlustfreie Maßnahmen (Druckbild pixelgleich), jede einzeln schaltbar,
-    optionales Herunterrechnen, Befund in der Prüfung, Auftrag „shrink“."""
+optionales Herunterrechnen, Befund in der Prüfung, Auftrag „shrink“."""
+
 import io
 import os
 import sys
 import tempfile
 import zlib
+
 os.environ.setdefault("PASSERMARK_LANG", "de")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import core, preflight, shrink
@@ -16,6 +18,7 @@ MM = 72 / 25.4
 
 def _photo(w, h, c):
     import numpy as np
+
     y, x = np.mgrid[0:h, 0:w]
     ch = [np.sin(x / 37.0 + k) * 60 + np.cos(y / 23.0 * (k + 1)) * 60 + 128 + (x * y % 7) for k in range(c)]
     return np.clip(np.stack(ch, 2), 0, 255).astype(np.uint8)
@@ -23,16 +26,20 @@ def _photo(w, h, c):
 
 def _pdf() -> bytes:
     """16-Bit-RGB unkomprimiert (~760 dpi), Graubild doppelt gespeichert, ZIP+JPEG-CMYK (~1000 dpi),
-        RGB mit Soft-Maske, Illustrator-Bearbeitungsdaten, Vorschaubild."""
+    RGB mit Soft-Maske, Illustrator-Bearbeitungsdaten, Vorschaubild."""
     import pikepdf
     from PIL import Image
+
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(595, 842))
     pg = pdf.pages[0]
     X, I = pikepdf.Name.XObject, pikepdf.Name.Image
 
     def img(data, w, h, cs, bpc=8, **kw):
-        return pikepdf.Stream(pdf, data, Type=X, Subtype=I, Width=w, Height=h, ColorSpace=cs, BitsPerComponent=bpc, **kw)
+        return pikepdf.Stream(
+            pdf, data, Type=X, Subtype=I, Width=w, Height=h, ColorSpace=cs, BitsPerComponent=bpc, **kw
+        )
+
     a = _photo(600, 600, 3).astype(">u2") * 257
     i16 = img(a.tobytes(), 600, 600, pikepdf.Name.DeviceRGB, 16)
     g = zlib.compress(_photo(400, 400, 1)[:, :, 0].tobytes())
@@ -40,21 +47,41 @@ def _pdf() -> bytes:
     d2 = img(g, 400, 400, pikepdf.Name.DeviceGray, Filter=pikepdf.Name.FlateDecode)
     b = io.BytesIO()
     Image.fromarray(_photo(900, 900, 4), "CMYK").save(b, "JPEG", quality=95)
-    fj = img(zlib.compress(b.getvalue()), 900, 900, pikepdf.Name.DeviceCMYK,
-             Filter=pikepdf.Array([pikepdf.Name.FlateDecode, pikepdf.Name.DCTDecode]), Decode=[1, 0] * 4)
+    fj = img(
+        zlib.compress(b.getvalue()),
+        900,
+        900,
+        pikepdf.Name.DeviceCMYK,
+        Filter=pikepdf.Array([pikepdf.Name.FlateDecode, pikepdf.Name.DCTDecode]),
+        Decode=[1, 0] * 4,
+    )
     m = (_photo(500, 500, 1)[:, :, 0] > 100).astype("uint8") * 255
     sm = img(zlib.compress(m.tobytes()), 500, 500, pikepdf.Name.DeviceGray, Filter=pikepdf.Name.FlateDecode)
-    rs = img(zlib.compress(_photo(500, 500, 3).tobytes(), 1), 500, 500, pikepdf.Name.DeviceRGB,
-             Filter=pikepdf.Name.FlateDecode, SMask=sm)
+    rs = img(
+        zlib.compress(_photo(500, 500, 3).tobytes(), 1),
+        500,
+        500,
+        pikepdf.Name.DeviceRGB,
+        Filter=pikepdf.Name.FlateDecode,
+        SMask=sm,
+    )
     pg.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(A=i16, B=d1, C=d2, D=fj, E=rs))
-    pg.obj.Contents = pikepdf.Stream(pdf, (
-        f"q {20 * MM} 0 0 {20 * MM} 30 600 cm /A Do Q q 50 0 0 50 300 650 cm /B Do Q "
-        f"q 50 0 0 50 420 650 cm /C Do Q q {23 * MM} 0 0 {23 * MM} 30 300 cm /D Do Q "
-        f"q {17 * MM} 0 0 {17 * MM} 300 300 cm /E Do Q").encode())
-    pg.obj.PieceInfo = pikepdf.Dictionary(Illustrator=pikepdf.Dictionary(Private=pikepdf.Dictionary(
-        AIPrivateData1=pikepdf.Stream(pdf, os.urandom(400_000)))))
-    pg.obj.Thumb = pikepdf.Stream(pdf, os.urandom(50_000), Width=10, Height=14,
-                                  ColorSpace=pikepdf.Name.DeviceRGB, BitsPerComponent=8)
+    pg.obj.Contents = pikepdf.Stream(
+        pdf,
+        (
+            f"q {20 * MM} 0 0 {20 * MM} 30 600 cm /A Do Q q 50 0 0 50 300 650 cm /B Do Q "
+            f"q 50 0 0 50 420 650 cm /C Do Q q {23 * MM} 0 0 {23 * MM} 30 300 cm /D Do Q "
+            f"q {17 * MM} 0 0 {17 * MM} 300 300 cm /E Do Q"
+        ).encode(),
+    )
+    pg.obj.PieceInfo = pikepdf.Dictionary(
+        Illustrator=pikepdf.Dictionary(
+            Private=pikepdf.Dictionary(AIPrivateData1=pikepdf.Stream(pdf, os.urandom(400_000)))
+        )
+    )
+    pg.obj.Thumb = pikepdf.Stream(
+        pdf, os.urandom(50_000), Width=10, Height=14, ColorSpace=pikepdf.Name.DeviceRGB, BitsPerComponent=8
+    )
     out = io.BytesIO()
     pdf.save(out, compress_streams=False)
     return out.getvalue()
@@ -63,6 +90,7 @@ def _pdf() -> bytes:
 def _render(data):
     import numpy as np
     import pypdfium2 as pdfium
+
     doc = pdfium.PdfDocument(data)
     try:
         return np.asarray(doc[0].render(scale=100 / 72).to_pil().convert("RGB")).astype(int)
@@ -85,6 +113,7 @@ def test_analyze_breakdown():
 
 def test_lossless_is_pixel_identical():
     import numpy as np
+
     data = _pdf()
     out, notes = shrink.shrink(data, shrink.ShrinkOptions())
     assert len(out) < len(data) * 0.8, (len(data), len(out))
@@ -96,8 +125,7 @@ def test_lossless_is_pixel_identical():
 
 def test_each_measure_switchable():
     """Alles aus: nur neu geschrieben, Bearbeitungsdaten/Vorschau/Duplikate bleiben."""
-    off = shrink.ShrinkOptions(rewrite=False, unreferenced=False, dedupe=False, private=False, thumbs=False,
-                               pack=False)
+    off = shrink.ShrinkOptions(rewrite=False, unreferenced=False, dedupe=False, private=False, thumbs=False, pack=False)
     out, _ = shrink.shrink(_pdf(), off)
     rep = shrink.analyze(out)
     assert rep.private_bytes >= 400_000 and rep.thumb_bytes >= 50_000 and rep.duplicates == 1
@@ -109,6 +137,7 @@ def test_each_measure_switchable():
 
 def test_bits16_and_downsample():
     import numpy as np
+
     data = _pdf()
     out, notes = shrink.shrink(data, shrink.ShrinkOptions(bits16=True))
     assert not [i for i in shrink.analyze(out).images if i.bpc == 16]
@@ -128,6 +157,7 @@ def test_bits16_and_downsample():
 
 def test_preflight_finding_and_job():
     import pikepdf
+
     rep = preflight.analyze(_pdf(), deep_layers=False, pdfium_parts=False)
     assert rep.size is not None and rep.size.duplicates == 1
     assert any(i.category == "size" and "16 Bit" in i.message for i in rep.issues), rep.issues
@@ -147,14 +177,22 @@ def test_same_profile_per_page_deduped():
     import numpy as np
     import pikepdf
     from PIL import ImageCms
+
     prof = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes() + os.urandom(600_000)
     pdf = pikepdf.new()
     for k in range(6):
         pdf.add_blank_page(page_size=(200, 200))
         icc = pikepdf.Stream(pdf, prof, N=3)
-        im = pikepdf.Stream(pdf, bytes([40 * k, 90, 160]) * 64 * 64, Type=pikepdf.Name.XObject,
-                            Subtype=pikepdf.Name.Image, Width=64, Height=64, BitsPerComponent=8,
-                            ColorSpace=pikepdf.Array([pikepdf.Name.ICCBased, icc]))
+        im = pikepdf.Stream(
+            pdf,
+            bytes([40 * k, 90, 160]) * 64 * 64,
+            Type=pikepdf.Name.XObject,
+            Subtype=pikepdf.Name.Image,
+            Width=64,
+            Height=64,
+            BitsPerComponent=8,
+            ColorSpace=pikepdf.Array([pikepdf.Name.ICCBased, icc]),
+        )
         pg = pdf.pages[k]
         pg.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im=im))
         pg.obj.Contents = pikepdf.Stream(pdf, b"q 200 0 0 200 0 0 cm /Im Do Q")
@@ -175,6 +213,7 @@ def test_same_profile_per_page_deduped():
 def _render_all(data):
     import numpy as np
     import pypdfium2 as pdfium
+
     doc = pdfium.PdfDocument(data)
     try:
         return [np.asarray(doc[i].render(scale=0.5).to_pil()) for i in range(len(doc))]
@@ -184,28 +223,47 @@ def _render_all(data):
 
 def test_zip_photos_to_jpeg():
     """Fotos als ZIP (RGB, CMYK, Grau) -> JPEG mit treuen Farben; Grafik mit wenigen Farben bleibt ZIP;
-        Häkchen aus -> nichts wird JPEG."""
+    Häkchen aus -> nichts wird JPEG."""
     import numpy as np
     import pikepdf
+
     rng = np.random.default_rng(1)
 
     def photo(w, h, c):
         return np.clip(_photo(w, h, c).astype(int) + rng.normal(0, 6, (h, w, c)), 0, 255).astype(np.uint8)
+
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(595, 842))
 
     def img(a, cs):
-        return pikepdf.Stream(pdf, zlib.compress(a.tobytes()), Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
-                              Width=a.shape[1], Height=a.shape[0], ColorSpace=cs, BitsPerComponent=8,
-                              Filter=pikepdf.Name.FlateDecode)
+        return pikepdf.Stream(
+            pdf,
+            zlib.compress(a.tobytes()),
+            Type=pikepdf.Name.XObject,
+            Subtype=pikepdf.Name.Image,
+            Width=a.shape[1],
+            Height=a.shape[0],
+            ColorSpace=cs,
+            BitsPerComponent=8,
+            Filter=pikepdf.Name.FlateDecode,
+        )
+
     g = np.zeros((600, 600, 3), np.uint8)
     g[:300], g[300:] = [200, 30, 30], [20, 20, 200]
     pg = pdf.pages[0]
-    pg.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(
-        A=img(photo(900, 700, 3), pikepdf.Name.DeviceRGB), B=img(photo(800, 800, 4), pikepdf.Name.DeviceCMYK),
-        C=img(photo(600, 600, 1), pikepdf.Name.DeviceGray), D=img(g, pikepdf.Name.DeviceRGB)))
-    pg.obj.Contents = pikepdf.Stream(pdf, b"q 250 0 0 200 20 600 cm /A Do Q q 250 0 0 250 300 550 cm /B Do Q "
-                                          b"q 200 0 0 200 20 300 cm /C Do Q q 200 0 0 200 300 300 cm /D Do Q")
+    pg.obj.Resources = pikepdf.Dictionary(
+        XObject=pikepdf.Dictionary(
+            A=img(photo(900, 700, 3), pikepdf.Name.DeviceRGB),
+            B=img(photo(800, 800, 4), pikepdf.Name.DeviceCMYK),
+            C=img(photo(600, 600, 1), pikepdf.Name.DeviceGray),
+            D=img(g, pikepdf.Name.DeviceRGB),
+        )
+    )
+    pg.obj.Contents = pikepdf.Stream(
+        pdf,
+        b"q 250 0 0 200 20 600 cm /A Do Q q 250 0 0 250 300 550 cm /B Do Q "
+        b"q 200 0 0 200 20 300 cm /C Do Q q 200 0 0 200 300 300 cm /D Do Q",
+    )
     buf = io.BytesIO()
     pdf.save(buf)
     data = buf.getvalue()
@@ -226,20 +284,22 @@ def test_too_big_warning():
     rep = shrink.SizeReport(size=60 * shrink.MB, pages=1, area_m2=shrink.A4_M2, parts={"images": 55 * shrink.MB})
     iss = shrink.issues(rep)
     assert iss and iss[0][0] == "warning" and "60 MB" in iss[0][1] and "Bilder" in iss[0][1]
-    rep.area_m2 = shrink.A4_M2 * 8                      # A0: 7,5 MB je A4 – unauffällig
+    rep.area_m2 = shrink.A4_M2 * 8  # A0: 7,5 MB je A4 – unauffällig
     assert not [i for i in shrink.issues(rep) if i[0] == "warning"]
 
 
 def test_ascii85_wrapped_jpeg():
     """JPEG hinter ASCII85 (ReportLab): wird erkannt, heruntergerechnet und ausgepackt."""
-    import base64, io as _io
+    import base64
+    import io as _io
     import pikepdf
     from PIL import Image
+
     buf = _io.BytesIO()
     Image.new("RGB", (2000, 1500), (120, 60, 30)).save(buf, "JPEG", quality=90)
     jpg = buf.getvalue()
     pdf = pikepdf.new()
-    pdf.add_blank_page(page_size=(144, 108))            # 2 × 1,5 Zoll -> 1000 dpi
+    pdf.add_blank_page(page_size=(144, 108))  # 2 × 1,5 Zoll -> 1000 dpi
     img = pikepdf.Stream(pdf, base64.a85encode(jpg) + b"~>")
     img.Type, img.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
     img.Width, img.Height, img.BitsPerComponent = 2000, 1500, 8

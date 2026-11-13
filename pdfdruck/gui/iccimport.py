@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package."""
+
 from __future__ import annotations
 
 from ..l10n import tr
@@ -11,9 +12,23 @@ from ..l10n import tr
 import html
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                               QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                               QMessageBox, QProgressDialog, QPushButton, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from .. import iccfetch
 from . import theme
@@ -35,8 +50,11 @@ class IccImportDialog(QDialog):
         row = QHBoxLayout()
         row.addWidget(QLabel(tr("Für Drucker:")))
         self.cmb = QComboBox()
-        fill_combo(self.cmb, [(p.name, f"{p.name}  –  {p.model}" if p.model else p.name) for p in printers],
-                   current or (printers[0].name if printers else ""))
+        fill_combo(
+            self.cmb,
+            [(p.name, f"{p.name}  –  {p.model}" if p.model else p.name) for p in printers],
+            current or (printers[0].name if printers else ""),
+        )
         self.cmb.currentIndexChanged.connect(self._show_sources)
         row.addWidget(self.cmb, 1)
         v.addLayout(row)
@@ -72,8 +90,12 @@ class IccImportDialog(QDialog):
         gl = QVBoxLayout(g)
         self.lst = QListWidget()
         gl.addWidget(self.lst)
-        hint = QLabel(tr("Nur Druckerprofile (Klasse „Drucker“) sind als Ausgabeprofil sinnvoll; andere "
-                      "werden angezeigt, aber nicht vorausgewählt. Für den Epson unter Linux: RGB-Profile."))
+        hint = QLabel(
+            tr(
+                "Nur Druckerprofile (Klasse „Drucker“) sind als Ausgabeprofil sinnvoll; andere "
+                "werden angezeigt, aber nicht vorausgewählt. Für den Epson unter Linux: RGB-Profile."
+            )
+        )
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color: {theme.MUTED};")
         gl.addWidget(hint)
@@ -94,10 +116,18 @@ class IccImportDialog(QDialog):
     def _show_sources(self, *_):
         parts = []
         for s in iccfetch.sources_for(self._model()):
-            parts.append(f'<p><a style="color:{theme.ACCENT}" href="{html.escape(s["url"])}">'
-                         f'{html.escape(tr(s["name"]))}</a><br><span style="color:{theme.MUTED}">'
-                         f'{html.escape(tr(s["hint"]))}</span></p>')
-        parts.append(f'<p style="color:{theme.MUTED}">' + tr("Profile gelten immer für Drucker + Papier + Tinte. Herstellerprofile sind für den Windows/Mac-Treiber gemacht – unter Linux eine gute Annäherung. Am genauesten: eigenes Profil über den Linux-Druckweg (ArgyllCMS).") + "</p>")
+            parts.append(
+                f'<p><a style="color:{theme.ACCENT}" href="{html.escape(s["url"])}">'
+                f'{html.escape(tr(s["name"]))}</a><br><span style="color:{theme.MUTED}">'
+                f"{html.escape(tr(s['hint']))}</span></p>"
+            )
+        parts.append(
+            f'<p style="color:{theme.MUTED}">'
+            + tr(
+                "Profile gelten immer für Drucker + Papier + Tinte. Herstellerprofile sind für den Windows/Mac-Treiber gemacht – unter Linux eine gute Annäherung. Am genauesten: eigenes Profil über den Linux-Druckweg (ArgyllCMS)."
+            )
+            + "</p>"
+        )
         self.lbl_src.setText("".join(parts))
 
     # ------------------------------------------------------------------ #
@@ -117,8 +147,13 @@ class IccImportDialog(QDialog):
 
     def _from_file(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, tr("Profil, ZIP oder Treiberpaket wählen"), "",
-            tr("Profile und Pakete (*.icc *.icm *.ICC *.ICM *.zip *.exe *.cab *.7z *.dmg *.pkg *.msi);;Alle Dateien (*)"))
+            self,
+            tr("Profil, ZIP oder Treiberpaket wählen"),
+            "",
+            tr(
+                "Profile und Pakete (*.icc *.icm *.ICC *.ICM *.zip *.exe *.cab *.7z *.dmg *.pkg *.msi);;Alle Dateien (*)"
+            ),
+        )
         if path:
             self._extract(path)
 
@@ -148,6 +183,7 @@ class IccImportDialog(QDialog):
             QApplication.processEvents()
             if dlg.wasCanceled():
                 raise RuntimeError(tr("Abgebrochen."))
+
         try:
             path = iccfetch.download(url, self.workdir, progress)
         except Exception as e:

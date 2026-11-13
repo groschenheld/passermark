@@ -16,6 +16,7 @@ Modes:
 Password: input password to open protected files; optionally a new password (AES-256) for the
 output. Without a new password, the output is saved unprotected.
 """
+
 from __future__ import annotations
 
 from .l10n import tr
@@ -61,6 +62,7 @@ def default_output(src: str, mode: str) -> str:
 
 def needs_password(path: str) -> bool:
     import pikepdf
+
     try:
         pikepdf.open(path).close()
         return False
@@ -72,6 +74,7 @@ def needs_password(path: str) -> bool:
 
 def _open(path: str, password: str | None):
     import pikepdf
+
     try:
         return pikepdf.open(path, password=password or "", attempt_recovery=True)
     except pikepdf.PasswordError:
@@ -93,6 +96,7 @@ def _pages(path: str, password: str | None = None) -> int:
 
 def _gs():
     from . import platform as _platform
+
     gs = _platform.ghostscript()
     if not gs:
         raise RuntimeError(tr("Ghostscript (gs) ist nicht installiert."))
@@ -101,6 +105,7 @@ def _gs():
 
 def _srgb_icc(tmp: str) -> str:
     from PIL import ImageCms
+
     p = os.path.join(tmp, "sRGB.icc")
     with open(p, "wb") as f:
         f.write(ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
@@ -128,19 +133,35 @@ def _pdfa_def(tmp: str, icc: str) -> str:
 
 
 def _ghostscript(src: str, dst: str, mode: str, password: str | None, tmp: str):
-    cmd = [_gs(), "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=pdfwrite",
-           "-dEmbedAllFonts=true", "-dSubsetFonts=true", "-dAutoRotatePages=/None",
-           "-dDetectDuplicateImages=true", "-dCompressFonts=true"]
+    cmd = [
+        _gs(),
+        "-q",
+        "-dNOPAUSE",
+        "-dBATCH",
+        "-dSAFER",
+        "-sDEVICE=pdfwrite",
+        "-dEmbedAllFonts=true",
+        "-dSubsetFonts=true",
+        "-dAutoRotatePages=/None",
+        "-dDetectDuplicateImages=true",
+        "-dCompressFonts=true",
+    ]
     if password:
         cmd.append(f"-sPDFPassword={password}")
     if mode == "screen":
         cmd += ["-dPDFSETTINGS=/ebook", "-dCompatibilityLevel=1.7"]
     elif mode == "pdfa":
         icc = _srgb_icc(tmp)
-        cmd += ["-dPDFA=2", "-dPDFACompatibilityPolicy=1", "-dCompatibilityLevel=1.7",
-                "-sColorConversionStrategy=RGB", "-sProcessColorModel=DeviceRGB",
-                f"--permit-file-read={tmp}/", f"-sOutputICCProfile={icc}",
-                "-dPDFSETTINGS=/prepress"]
+        cmd += [
+            "-dPDFA=2",
+            "-dPDFACompatibilityPolicy=1",
+            "-dCompatibilityLevel=1.7",
+            "-sColorConversionStrategy=RGB",
+            "-sProcessColorModel=DeviceRGB",
+            f"--permit-file-read={tmp}/",
+            f"-sOutputICCProfile={icc}",
+            "-dPDFSETTINGS=/prepress",
+        ]
         cmd += ["-o", dst, _pdfa_def(tmp, icc), src]
         return _run(cmd)
     else:
@@ -155,20 +176,34 @@ def _run(cmd):
         raise RuntimeError((r.stderr or r.stdout or "Ghostscript-Fehler")[-1500:])
 
 
-def _pike_save(src: str, dst: str, password: str | None, new_password: str | None,
-               allow_print: bool = True, pdfa: bool = False):
+def _pike_save(
+    src: str, dst: str, password: str | None, new_password: str | None, allow_print: bool = True, pdfa: bool = False
+):
     import pikepdf
+
     pdf = _open(src, password)
     try:
         enc = None
-        if new_password and not pdfa:            # PDF/A forbids encryption
-            perms = pikepdf.Permissions(print_lowres=allow_print, print_highres=allow_print,
-                                        extract=True, modify_annotation=True, modify_form=True,
-                                        modify_other=True, modify_assembly=True, accessibility=True)
+        if new_password and not pdfa:  # PDF/A forbids encryption
+            perms = pikepdf.Permissions(
+                print_lowres=allow_print,
+                print_highres=allow_print,
+                extract=True,
+                modify_annotation=True,
+                modify_form=True,
+                modify_other=True,
+                modify_assembly=True,
+                accessibility=True,
+            )
             enc = pikepdf.Encryption(owner=new_password, user=new_password, R=6, allow=perms)
         pdf.remove_unreferenced_resources()
-        pdf.save(dst, encryption=enc if enc else False, object_stream_mode=pikepdf.ObjectStreamMode.generate,
-                 fix_metadata_version=True, linearize=not enc)
+        pdf.save(
+            dst,
+            encryption=enc if enc else False,
+            object_stream_mode=pikepdf.ObjectStreamMode.generate,
+            fix_metadata_version=True,
+            linearize=not enc,
+        )
     finally:
         pdf.close()
 
@@ -180,13 +215,19 @@ def encrypt_file(src: str, dst: str, password: str, allow_print: bool = True) ->
     _pike_save(src, dst, None, password, allow_print=allow_print)
 
 
-def process(src: str, dst: str, mode: str = "print", password: str | None = None,
-            new_password: str | None = None, allow_print: bool = True) -> Result:
+def process(
+    src: str,
+    dst: str,
+    mode: str = "print",
+    password: str | None = None,
+    new_password: str | None = None,
+    allow_print: bool = True,
+) -> Result:
     """Processes one file. Raises PasswordRequired if a password is needed/wrong."""
     if os.path.abspath(src) == os.path.abspath(dst):
         raise ValueError(tr("Ziel darf nicht die Quelldatei sein."))
     notes = []
-    pages_in = _pages(src, password)          # wirft PasswordRequired
+    pages_in = _pages(src, password)  # wirft PasswordRequired
     tmp = tempfile.mkdtemp(prefix="passermark-rep-")
     try:
         # 1) always repair and decrypt the structure first -> clean intermediate state
@@ -195,7 +236,7 @@ def process(src: str, dst: str, mode: str = "print", password: str | None = None
             _pike_save(src, clean, password, None)
         except PasswordRequired:
             raise
-        except Exception as e:                # extrem kaputt: Ghostscript direkt versuchen
+        except Exception as e:  # extrem kaputt: Ghostscript direkt versuchen
             notes.append(tr("Strukturreparatur nicht möglich ({0}) – Neuaufbau direkt.").format(e.__class__.__name__))
             clean = src
         if mode == "repair":

@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """CutContour dialog without a screen (Qt stub): switching the shape changes the preview; calculation runs in the worker."""
-import os, subprocess, sys
+
+import os
+import subprocess
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-SCRIPT = r'''
+SCRIPT = r"""
 import sys
 sys.path.insert(0, sys.argv[1])
 from pdfdruck.gui import objectsdialog as od
@@ -90,16 +93,21 @@ run("contour")
 assert dlg.canvas.shape_box is None                                        # Kontur: keine Griffe
 dlg.done(0)
 print("CUT-DIALOG-OK")
-'''
+"""
 
 
 def test_shape_changes_preview_in_worker():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               HOME="/tmp/_smoke_home", PASSERMARK_LANG="de")
+    env = dict(
+        os.environ,
+        PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
+        HOME="/tmp/_smoke_home",
+        PASSERMARK_LANG="de",
+    )
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT, ROOT], capture_output=True, text=True, env=env, timeout=600)
     assert "CUT-DIALOG-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 
 
 if __name__ == "__main__":
-    test_shape_changes_preview_in_worker(); print("ok test_shape_changes_preview_in_worker")
+    test_shape_changes_preview_in_worker()
+    print("ok test_shape_changes_preview_in_worker")

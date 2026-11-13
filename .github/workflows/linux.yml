@@ -21,6 +21,10 @@ jobs:
             fonts-crosextra-caladea fonts-dejavu-core fontconfig
       - name: Build AppImage
         run: ./linux/build-appimage.sh
+      - name: Code style
+        run: |
+          .venv/bin/pip install ruff
+          .venv/bin/ruff format --check .
       - name: Tests
         run: |
           .venv/bin/pip install reportlab numpy

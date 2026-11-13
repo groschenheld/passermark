@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Presets (save/load/delete, recently used, command line with preset names), password-protected PDF,
 window workspaces (Qt stub) and unique keyboard shortcuts."""
-import json, os, re, subprocess, sys, tempfile
+
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -9,11 +15,11 @@ sys.path.insert(0, ROOT)
 SAMPLE = os.path.join(HERE, "sample.pdf")
 
 TMP = tempfile.mkdtemp(prefix="pm-presets-")
-os.environ["XDG_CONFIG_HOME"] = TMP              # eigene Ablage, nichts vom Benutzer anfassen
+os.environ["XDG_CONFIG_HOME"] = TMP  # eigene Ablage, nichts vom Benutzer anfassen
 os.environ["APPDATA"] = TMP
 
 from pdfdruck import core, cutcontour, presets  # noqa: E402
-from pdfdruck.layout import LayoutSettings      # noqa: E402
+from pdfdruck.layout import LayoutSettings  # noqa: E402
 
 
 def test_roundtrip_and_list():
@@ -25,7 +31,7 @@ def test_roundtrip_and_list():
     t = presets.load("cutcontour", "Sticker rund")
     assert t.shape == "rounded" and t.corner_mm == 4.5 and t.bleed_mm == 3.0 and t.detect.tolerance == 55
     with open(p, encoding="utf-8") as f:
-        assert json.load(f)["job"] == "cutcontour"      # gleiches Format wie `passermark-cli settings`
+        assert json.load(f)["job"] == "cutcontour"  # gleiches Format wie `passermark-cli settings`
     presets.delete("cutcontour", "Sticker rund")
     assert presets.list_presets("cutcontour") == []
 
@@ -40,10 +46,11 @@ def test_names_and_last():
     assert presets.clean_name('a/b:c*?"<>|d') == "abcd"
     assert presets.load_last("manip") is None
     from pdfdruck.cmyk import ManipSettings
+
     presets.save_last("manip", ManipSettings(crop=True, crop_size="A5"))
     last = presets.load_last("manip")
     assert last.crop and last.crop_size == "A5"
-    assert presets.list_presets("manip") == []          # „zuletzt“ steht nicht in der Liste
+    assert presets.list_presets("manip") == []  # „zuletzt“ steht nicht in der Liste
 
 
 def test_print_layout_kind():
@@ -61,6 +68,7 @@ def test_print_layout_kind():
 def test_migrate_print_presets_from_17():
     """Version 1.7 stored print presets under "druck" – they are adopted and apply to `impose`."""
     import shutil
+
     shutil.rmtree(presets.job_dir(presets.PRINT), ignore_errors=True)
     old = os.path.join(presets.root_dir(), "druck")
     os.makedirs(old, exist_ok=True)
@@ -83,12 +91,14 @@ def test_wrong_kind_rejected():
 
 def _cli(*args):
     env = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de", PASSERMARK_WORKERS="1")
-    return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True,
-                          env=env, cwd=ROOT, timeout=300)
+    return subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True, env=env, cwd=ROOT, timeout=300
+    )
 
 
 def test_cli_preset_by_name():
     from pdfdruck.cmyk import ManipSettings
+
     presets.save("manip", "A5 zuschneiden", ManipSettings(crop=True, crop_size="A5"))
     r = _cli("presets", "manip")
     assert r.returncode == 0 and r.stdout.strip() == "A5 zuschneiden", (r.stdout, r.stderr)
@@ -96,6 +106,7 @@ def test_cli_preset_by_name():
     r = _cli("manip", SAMPLE, out, "--preset", "A5 zuschneiden", "--quiet")
     assert r.returncode == 0, r.stderr
     import pypdfium2 as pdfium
+
     d = pdfium.PdfDocument(out)
     w, h = d.get_page_size(0)
     d.close()
@@ -108,12 +119,23 @@ def test_pdf_with_password():
     import pikepdf
     import pypdfium2 as pdfium
     from pdfdruck import printers, printjob
+
     caps = printers.pdf_caps()
     sess = type("S", (), {"caps_for": lambda self, n: caps})()
     out = os.path.join(TMP, "geschützt.pdf")
     doc = pdfium.PdfDocument(SAMPLE)
-    printjob.submit_document(doc, "x.pdf", sess, printers.PDF_TARGET, [0], LayoutSettings(),
-                             1, True, False, values=dict(caps.defaults(), __out__=out, __password__="geheim"))
+    printjob.submit_document(
+        doc,
+        "x.pdf",
+        sess,
+        printers.PDF_TARGET,
+        [0],
+        LayoutSettings(),
+        1,
+        True,
+        False,
+        values=dict(caps.defaults(), __out__=out, __password__="geheim"),
+    )
     doc.close()
     try:
         pikepdf.open(out).close()
@@ -125,7 +147,7 @@ def test_pdf_with_password():
     assert not os.path.exists(out + ".part")
 
 
-GUI = r'''
+GUI = r"""
 import sys, types
 from pdfdruck.gui import viewer
 viewer.PageView._dpi_scale = lambda self: 1.0
@@ -230,12 +252,13 @@ ctl2.open_paths([sys.argv[1]])                      # Doppelklick im Dateimanage
 assert ctl2.windows[-1]._host is not w1._host or len(ctl2.hosts) == n_hosts
 w1._detach()
 print("ok")
-'''
+"""
 
 
 def test_gui_workspaces_and_presetbars():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               QT_QPA_PLATFORM="offscreen")
+    env = dict(
+        os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]), QT_QPA_PLATFORM="offscreen"
+    )
     r = subprocess.run([sys.executable, "-c", GUI, SAMPLE], capture_output=True, text=True, env=env, timeout=300)
     assert r.returncode == 0 and r.stdout.strip().endswith("ok"), r.stdout[-2000:] + r.stderr[-4000:]
 

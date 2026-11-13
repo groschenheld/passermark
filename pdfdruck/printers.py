@@ -13,6 +13,7 @@ Strategy:
 The queue defaults in CUPS are NEVER changed by this module. Options are sent
 in full with every job.
 """
+
 from __future__ import annotations
 
 from . import papersizes
@@ -33,8 +34,16 @@ except ImportError:  # erlaubt Import ohne CUPS (Tests, Doku)
 INSTALLABLE_GROUP = "InstallableOptions"
 
 # options the program handles itself or that must never be sent along
-SKIP_KEYS = {"PageRegion", "number-up", "fit-to-page", "print-scaling",
-             "copies", "collate", "page-ranges", "orientation-requested"}
+SKIP_KEYS = {
+    "PageRegion",
+    "number-up",
+    "fit-to-page",
+    "print-scaling",
+    "copies",
+    "collate",
+    "page-ranges",
+    "orientation-requested",
+}
 
 # candidates for the "basic" fields (manufacturers name them differently)
 ROLE_KEYS = {
@@ -55,20 +64,22 @@ ROLE_TEXT = {
 }
 
 # Druckqualität einordnen (Produktionsdruck = niedrigste, Qualitätsdruck = höchste Stufe des Treibers)
-_Q_LOW = re.compile(r"draft|entwurf|fast|schnell|speed|eco|spar|produ[ck]|quick|express|economy|niedrig|\blow\b",
-                    re.I)
-_Q_HIGH = re.compile(r"best|beste|high|hoch|fine|fein|photo|foto|\bmax|super|ultra|premium|qualit|detail|enhanced|"
-                     r"pr[äa]zis|precis", re.I)
+_Q_LOW = re.compile(r"draft|entwurf|fast|schnell|speed|eco|spar|produ[ck]|quick|express|economy|niedrig|\blow\b", re.I)
+_Q_HIGH = re.compile(
+    r"best|beste|high|hoch|fine|fein|photo|foto|\bmax|super|ultra|premium|qualit|detail|enhanced|"
+    r"pr[äa]zis|precis",
+    re.I,
+)
 _Q_DPI = re.compile(r"(\d{2,4})\s*(?:x\s*(\d{2,4}))?\s*dpi", re.I)
 _Q_EPSON = re.compile(r"([A-Z]+)_(HIGH|NORMAL|DRAFT)")
 
 
-def quality_choice(opt: "Option", mode: str, current: str = "") -> str:
+def quality_choice(opt: Option, mode: str, current: str = "") -> str:
     """Wert der Qualitätsoption für mode "production" (niedrigste Stufe) bzw. "quality" (höchste).
-        "" = nicht einzuordnen (alles gleich) – dann bleibt der Treiberwert."""
+    "" = nicht einzuordnen (alles gleich) – dann bleibt der Treiberwert."""
     chs = list(opt.choices)
     m = _Q_EPSON.fullmatch(current or opt.default or "")
-    if m:                                   # Epson: Qualität hängt am Medium (PLAIN_HIGH …) – beim Medium bleiben
+    if m:  # Epson: Qualität hängt am Medium (PLAIN_HIGH …) – beim Medium bleiben
         chs = [c for c in chs if c.value.startswith(m.group(1) + "_")] or chs
 
     def rank(c):
@@ -78,6 +89,7 @@ def quality_choice(opt: "Option", mode: str, current: str = "") -> str:
         if _Q_LOW.search(t):
             return -1
         return 1 if _Q_HIGH.search(t) else 0
+
     dpi = [_Q_DPI.search(f"{c.value} {c.text}") for c in chs]
     if chs and all(dpi):
         ranks = [int(d.group(1)) * int(d.group(2) or d.group(1)) for d in dpi]
@@ -96,7 +108,7 @@ STD_SIZES_MM = papersizes.PAPER_MM
 
 def std_size(name: str):
     """(w, h, borderless) in pt for a paper name like 'A3', 'TA4', 'A4.Borderless', 'DIN A4', 'Custom.85x55mm'
-        or a display text with the size in it ("10 x 15 cm (4 x 6 in)") – or None."""
+    or a display text with the size in it ("10 x 15 cm (4 x 6 in)") – or None."""
     raw = str(name or "")
     n = raw.upper().replace(" ", "")
     borderless = bool(re.search(r"borderless|randlos|full\s*bleed|sans\s*marges|sin\s*bordes", raw, re.I))
@@ -110,7 +122,7 @@ def std_size(name: str):
         borderless = True
     mm = papersizes.lookup(base)
     if mm is None:
-        mm = papersizes.lookup(re.sub(r"\(.*\)", "", raw).strip())       # "A4 (Borderless)", "JIS B4"
+        mm = papersizes.lookup(re.sub(r"\(.*\)", "", raw).strip())  # "A4 (Borderless)", "JIS B4"
     if mm is not None:
         return mm[0] * 72 / 25.4, mm[1] * 72 / 25.4, borderless
     pt = papersizes.size_from_text(raw)
@@ -119,8 +131,9 @@ def std_size(name: str):
     return pt[0], pt[1], borderless
 
 
-_PPD_ENTRY = re.compile(r'^\*(PaperDimension|ImageableArea|PageSize|PageRegion)\s+([^/:\s]+)(?:/([^:\n]*))?:\s*"([^"]*)"',
-                        re.M)
+_PPD_ENTRY = re.compile(
+    r'^\*(PaperDimension|ImageableArea|PageSize|PageRegion)\s+([^/:\s]+)(?:/([^:\n]*))?:\s*"([^"]*)"', re.M
+)
 _PS_PAGESIZE = re.compile(r"/PageSize\s*\[\s*([^\]]*?)\s*\]")
 
 
@@ -140,9 +153,9 @@ def _ppd_numbers(text: str, n: int, comma_ok: bool):
 
 def parse_ppd_sizes(path: str) -> dict:
     """Paper sizes straight from the PPD file (more reliable than pycups), from every place a PPD states them:
-        {"dims": {name: (w, h)} from *PaperDimension, "areas": {name: (l, b, r, t)} from *ImageableArea,
-         "code": {name: (w, h)} from the PostScript code of *PageSize/*PageRegion (<</PageSize[w h]>>),
-         "texts": {name: display text}, "problems": {name: [message, …]}} – sizes in pt."""
+    {"dims": {name: (w, h)} from *PaperDimension, "areas": {name: (l, b, r, t)} from *ImageableArea,
+     "code": {name: (w, h)} from the PostScript code of *PageSize/*PageRegion (<</PageSize[w h]>>),
+     "texts": {name: display text}, "problems": {name: [message, …]}} – sizes in pt."""
     out = {"dims": {}, "areas": {}, "code": {}, "texts": {}, "problems": {}}
     try:
         with open(path, "rb") as f:
@@ -154,6 +167,7 @@ def parse_ppd_sizes(path: str) -> dict:
         out["problems"].setdefault(name, [])
         if msg not in out["problems"][name]:
             out["problems"][name].append(msg)
+
     for m in _PPD_ENTRY.finditer(text):
         kind, name, label, val = m.group(1), m.group(2), (m.group(3) or "").strip(), m.group(4)
         if kind == "PaperDimension":
@@ -175,8 +189,12 @@ def parse_ppd_sizes(path: str) -> dict:
             if pm:
                 nums, comma = _ppd_numbers(pm.group(1), 2, True)
                 if comma:
-                    problem(name, tr("*{0} mit Komma statt Punkt – PostScript braucht „{1}“").format(
-                        kind, " ".join(f"{v:g}" for v in nums) if nums else "…"))
+                    problem(
+                        name,
+                        tr("*{0} mit Komma statt Punkt – PostScript braucht „{1}“").format(
+                            kind, " ".join(f"{v:g}" for v in nums) if nums else "…"
+                        ),
+                    )
                 if nums and nums[0] > 0 and nums[1] > 0:
                     out["code"].setdefault(name, (nums[0], nums[1]))
     return out
@@ -192,18 +210,35 @@ def ppd_lines(name: str, w: float, h: float, area=None) -> str:
     """The PPD lines that make a paper size known (for the warning): pt with a decimal point."""
     l, b, r, t = area or (0.0, 0.0, w, h)
     f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".")
-    return (f'*PaperDimension {name}/{name}: "{f(w)} {f(h)}"\n'
-            f'*ImageableArea {name}/{name}: "{f(l)} {f(b)} {f(r)} {f(t)}"')
+    return (
+        f'*PaperDimension {name}/{name}: "{f(w)} {f(h)}"\n*ImageableArea {name}/{name}: "{f(l)} {f(b)} {f(r)} {f(t)}"'
+    )
 
 
 IPP_QUALITY = {"3": "Entwurf", "4": "Normal", "5": "Hoch"}
-IPP_FINISHINGS = {"3": "Keine", "4": "Heften", "5": "Lochen", "6": "Abdeckung", "7": "Binden",
-                  "8": "Sattelheftung", "9": "Kantenheftung", "20": "Heften oben links",
-                  "21": "Heften unten links", "22": "Heften oben rechts", "23": "Heften unten rechts",
-                  "28": "Doppelheftung links", "29": "Doppelheftung oben", "74": "Lochung (2) links",
-                  "75": "Lochung (2) oben", "80": "Lochung (4) links",
-                  "60": "Schneiden", "61": "Schneiden nach jeder Seite", "62": "Schneiden nach jedem Dokument",
-                  "63": "Schneiden nach jeder Kopie", "64": "Schneiden nach dem Auftrag"}
+IPP_FINISHINGS = {
+    "3": "Keine",
+    "4": "Heften",
+    "5": "Lochen",
+    "6": "Abdeckung",
+    "7": "Binden",
+    "8": "Sattelheftung",
+    "9": "Kantenheftung",
+    "20": "Heften oben links",
+    "21": "Heften unten links",
+    "22": "Heften oben rechts",
+    "23": "Heften unten rechts",
+    "28": "Doppelheftung links",
+    "29": "Doppelheftung oben",
+    "74": "Lochung (2) links",
+    "75": "Lochung (2) oben",
+    "80": "Lochung (4) links",
+    "60": "Schneiden",
+    "61": "Schneiden nach jeder Seite",
+    "62": "Schneiden nach jedem Dokument",
+    "63": "Schneiden nach jeder Kopie",
+    "64": "Schneiden nach dem Auftrag",
+}
 
 
 @dataclass
@@ -231,7 +266,7 @@ class PrinterInfo:
     state: int
     state_message: str
     is_default: bool
-    uri: str = ""                 # device address (Linux: device-uri, Windows: port)
+    uri: str = ""  # device address (Linux: device-uri, Windows: port)
 
     @property
     def state_text(self) -> str:
@@ -241,7 +276,7 @@ class PrinterInfo:
 @dataclass
 class PrinterCaps:
     name: str
-    backend: str                                   # "ppd" | "ipp"
+    backend: str  # "ppd" | "ipp"
     options: dict[str, Option] = field(default_factory=dict)
     groups: list[tuple[str, str, list[str]]] = field(default_factory=list)
     page_sizes: dict[str, tuple[float, float]] = field(default_factory=dict)
@@ -251,7 +286,7 @@ class PrinterCaps:
     # "text" (im Namen/Anzeigetext), "table" (eingebaute Tabelle) – fehlt ein Format hier, sind die Maße unbekannt
     size_source: dict[str, str] = field(default_factory=dict)
     size_problems: dict[str, list] = field(default_factory=dict)  # PPD-Fehler je Format (Komma statt Punkt …)
-    ipp_zero_margin: bool = False                  # IPP ohne PPD: Gerät erlaubt Rand 0 (randlos über media-col)
+    ipp_zero_margin: bool = False  # IPP ohne PPD: Gerät erlaubt Rand 0 (randlos über media-col)
     _ppd: object = None
 
     # ------------------------------------------------------------------ #
@@ -284,7 +319,7 @@ class PrinterCaps:
 
     def borderless_sizes(self) -> dict:
         """{normales Papier: randlose Variante} – gleiche Größe, Name/Text sagt randlos oder bedruckbarer Bereich
-            ist das ganze Blatt, während das normale Format einen Rand hat."""
+        ist das ganze Blatt, während das normale Format einen Rand hat."""
         c = self._bl_cache()
         if "sizes" in c:
             return c["sizes"]
@@ -292,7 +327,7 @@ class PrinterCaps:
         key = self.roles.get("pagesize")
         opt = self.options.get(key) if key else None
         groups = {}
-        for ch in (opt.choices if opt else []):
+        for ch in opt.choices if opt else []:
             sz = self._choice_size(ch)
             if sz:
                 groups.setdefault((round(min(sz)), round(max(sz))), []).append(ch)
@@ -302,9 +337,15 @@ class PrinterCaps:
 
             def full(ch):
                 ia, sz = self.imageable.get(ch.value), self._choice_size(ch)
-                return bool(ia and sz and ia[0] <= 0.5 and ia[1] <= 0.5 and ia[2] >= sz[0] - 0.5 and ia[3] >= sz[1] - 0.5)
-            named = [ch for ch in chs if _BL_RX.search(ch.value) or _BL_RX.search(ch.text)
-                     or (std_size(ch.value) or (0, 0, False))[2]]
+                return bool(
+                    ia and sz and ia[0] <= 0.5 and ia[1] <= 0.5 and ia[2] >= sz[0] - 0.5 and ia[3] >= sz[1] - 0.5
+                )
+
+            named = [
+                ch
+                for ch in chs
+                if _BL_RX.search(ch.value) or _BL_RX.search(ch.text) or (std_size(ch.value) or (0, 0, False))[2]
+            ]
             if not named:
                 fulls = [ch for ch in chs if full(ch)]
                 named = fulls if len(fulls) == 1 and len(chs) > 1 else []
@@ -313,8 +354,10 @@ class PrinterCaps:
                 if not named:
                     break
                 # passende Variante: gleicher Namensanfang („A4“ -> „A4.Borderless“), sonst die erste
-                pick = next((v for v in named if v.value.upper().lstrip("T").startswith(b.value.upper().split(".")[0])),
-                            named[0])
+                pick = next(
+                    (v for v in named if v.value.upper().lstrip("T").startswith(b.value.upper().split(".")[0])),
+                    named[0],
+                )
                 out[b.value] = pick.value
         c["sizes"] = out
         return out
@@ -334,8 +377,14 @@ class PrinterCaps:
             if not (_BL_OPT_RX.search(k) or _BL_OPT_RX.search(o.text)):
                 continue
             on = next((ch.value for ch in o.choices if _BL_ON_RX.search(ch.value) or _BL_ON_RX.search(ch.text)), None)
-            off = next((ch.value for ch in o.choices if ch.value != on and
-                        (_BL_OFF_RX.search(ch.value) or _BL_OFF_RX.search(ch.text))), None)
+            off = next(
+                (
+                    ch.value
+                    for ch in o.choices
+                    if ch.value != on and (_BL_OFF_RX.search(ch.value) or _BL_OFF_RX.search(ch.text))
+                ),
+                None,
+            )
             if on and not off and len(o.choices) == 2:
                 off = next(ch.value for ch in o.choices if ch.value != on)
             if on and off:
@@ -348,8 +397,14 @@ class PrinterCaps:
         """Treiberoption für die Erweiterung (wie weit das Bild über den Blattrand gezogen wird) – oder None."""
         c = self._bl_cache()
         if "exp" not in c:
-            c["exp"] = next((k for k, o in self.options.items() if not o.installable and len(o.choices) >= 2 and
-                             (_BL_EXP_RX.search(k) or _BL_EXP_RX.search(o.text))), None)
+            c["exp"] = next(
+                (
+                    k
+                    for k, o in self.options.items()
+                    if not o.installable and len(o.choices) >= 2 and (_BL_EXP_RX.search(k) or _BL_EXP_RX.search(o.text))
+                ),
+                None,
+            )
         return c["exp"]
 
     def borderless_how(self, values: dict | None = None) -> str:
@@ -368,8 +423,9 @@ class PrinterCaps:
 
     def can_borderless(self) -> bool:
         """Kann das Gerät grundsätzlich randlos (mit irgendeinem Papier)?"""
-        return bool(self.borderless_sizes() or self.borderless_option() or
-                    (self.backend == "ipp" and self.ipp_zero_margin))
+        return bool(
+            self.borderless_sizes() or self.borderless_option() or (self.backend == "ipp" and self.ipp_zero_margin)
+        )
 
     def is_borderless(self, values: dict) -> bool:
         pkey = self.roles.get("pagesize")
@@ -382,7 +438,7 @@ class PrinterCaps:
 
     def set_borderless(self, values: dict, on: bool) -> tuple[dict, bool]:
         """Randlos ein-/ausschalten -> (neue Werte, geklappt). Geht es für das gewählte Papier nicht, bleibt
-            alles wie es ist und geklappt = False."""
+        alles wie es ist und geklappt = False."""
         out = dict(values)
         how = self.borderless_how(out)
         pkey = self.roles.get("pagesize")
@@ -415,6 +471,7 @@ class PrinterCaps:
             if val not in cache:
                 try:
                     from .printers_win import imageable_for
+
                     cache[val] = imageable_for(self.name, values)
                 except Exception:
                     cache[val] = None
@@ -426,7 +483,7 @@ class PrinterCaps:
             return w, h, self.imageable.get(val), True
         if val is not None:
             std = std_size(val)
-            if std is None and key in self.options:      # try via the display text ("DIN A3")
+            if std is None and key in self.options:  # try via the display text ("DIN A3")
                 txt = next((c.text for c in self.options[key].choices if c.value == val), "")
                 std = std_size(txt.replace("DIN", "").strip())
             if std:
@@ -455,8 +512,8 @@ class PrinterCaps:
     def job_options(self, values: dict[str, str]) -> dict[str, str]:
         """Complete, deterministic set of options for the job.
 
-                ALL driver options are sent (not only changed ones), so that
-                neither ~/.cups/lpoptions nor later queue changes can interfere.
+        ALL driver options are sent (not only changed ones), so that
+        neither ~/.cups/lpoptions nor later queue changes can interfere.
         """
         out = {}
         for k, opt in self.options.items():
@@ -467,9 +524,10 @@ class PrinterCaps:
                 out[k] = str(v)
         if self.backend == "ipp" and values.get(BORDERLESS_KEY) == "1":
             sz = self.page_sizes.get(out.get("media", ""))
-            if sz:                                   # randlos: Format + Rand 0 als media-col (ersetzt media …)
-                parts = ["media-size={x-dimension=%d y-dimension=%d}" % (round(sz[0] / 72 * 2540),
-                                                                          round(sz[1] / 72 * 2540))]
+            if sz:  # randlos: Format + Rand 0 als media-col (ersetzt media …)
+                parts = [
+                    "media-size={x-dimension=%d y-dimension=%d}" % (round(sz[0] / 72 * 2540), round(sz[1] / 72 * 2540))
+                ]
                 parts += [f"media-{e}-margin=0" for e in ("top", "bottom", "left", "right")]
                 for k in ("media-source", "media-type"):
                     if out.get(k):
@@ -480,24 +538,34 @@ class PrinterCaps:
 
 
 # --------------------------------------------------------------------------- #
-BORDERLESS_KEY = "__borderless__"   # IPP ohne PPD: randlos (wird in job_options zu media-col)
-_BL_RX = re.compile(r"borderless|randlos|full\s*-?bleed|sans\s*marges?|sin\s*bordes|senza\s*bordi|keret\s*n[ée]lk|"
-                    r"ohne\s*rand|no\s*margins?|margin\s*-?less|\(bl\)|\.bl\b|_bl\b", re.I)
+BORDERLESS_KEY = "__borderless__"  # IPP ohne PPD: randlos (wird in job_options zu media-col)
+_BL_RX = re.compile(
+    r"borderless|randlos|full\s*-?bleed|sans\s*marges?|sin\s*bordes|senza\s*bordi|keret\s*n[ée]lk|"
+    r"ohne\s*rand|no\s*margins?|margin\s*-?less|\(bl\)|\.bl\b|_bl\b",
+    re.I,
+)
 _BL_OPT_RX = re.compile(r"borderless|randlos|full\s*-?bleed|margin\s*-?type|randtyp|ohne\s*rand", re.I)
 _BL_EXP_RX = re.compile(r"expan|extension|erweiterung|[üu]berstand|overspray|amount\s*of\s*ext|bleed\s*amount", re.I)
 _BL_ON_RX = re.compile(r"^(true|on|yes|1)$|borderless|randlos|full\s*-?bleed|ohne\s*rand|no\s*margin", re.I)
 _BL_OFF_RX = re.compile(r"^(false|off|no|0|none|normal|standard)$|bordered|with\s*margin|mit\s*rand|^border$", re.I)
 PDF_TARGET = "__pdf__"
-PDF_DOC_SIZE = "DOC"                # „Als PDF speichern“: Blatt = Größe der ersten gewählten Seite
+PDF_DOC_SIZE = "DOC"  # „Als PDF speichern“: Blatt = Größe der ersten gewählten Seite
 PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA4", "SRA3", "SRA2", "LETTER", "LEGAL", "TABLOID"]
 
 
-def pdf_target_info() -> "PrinterInfo":
-    return PrinterInfo(name=PDF_TARGET, info=tr("Als PDF speichern (Farben unverändert)"), location="",
-                       model="Passermark", state=3, state_message="", is_default=False)
+def pdf_target_info() -> PrinterInfo:
+    return PrinterInfo(
+        name=PDF_TARGET,
+        info=tr("Als PDF speichern (Farben unverändert)"),
+        location="",
+        model="Passermark",
+        state=3,
+        state_message="",
+        is_default=False,
+    )
 
 
-def pdf_caps() -> "PrinterCaps":
+def pdf_caps() -> PrinterCaps:
     """Virtueller Drucker: ausgeschossenes Ergebnis als PDF-Datei – ohne Farbkonvertierung, vektoriell."""
     caps = PrinterCaps(name=PDF_TARGET, backend="pdf")
     choices = [Choice(PDF_DOC_SIZE, tr("Wie Dokument (erste gewählte Seite)"))]
@@ -506,7 +574,7 @@ def pdf_caps() -> "PrinterCaps":
         label = {"LETTER": "Letter", "LEGAL": "Legal", "TABLOID": "Tabloid"}.get(n, n)
         choices.append(Choice(n, f"{label} ({w / 72 * 25.4:.0f} × {h / 72 * 25.4:.0f} mm)"))
         caps.page_sizes[n] = (w, h)
-        caps.imageable[n] = (0.0, 0.0, w, h)          # kein Druckerrand
+        caps.imageable[n] = (0.0, 0.0, w, h)  # kein Druckerrand
     caps.options["PageSize"] = Option("PageSize", tr("Papierformat"), tr("Allgemein"), choices, PDF_DOC_SIZE)
     caps.groups.append(("pdf", tr("Allgemein"), ["PageSize"]))
     caps.roles["pagesize"] = "PageSize"
@@ -539,6 +607,7 @@ def parse_custom(val) -> tuple[float, float] | None:
 def load_custom_sizes() -> list[dict]:
     """[{"name": …, "w": mm, "h": mm}] aus den Benutzereinstellungen."""
     from . import l10n
+
     out = []
     for e in l10n.load_settings().get("custom_sizes", []) or []:
         try:
@@ -552,18 +621,19 @@ def load_custom_sizes() -> list[dict]:
 
 def save_custom_sizes(sizes: list[dict]) -> None:
     from . import l10n
+
     st = l10n.load_settings()
     st["custom_sizes"] = [{"name": e["name"], "w": float(e["w"]), "h": float(e["h"])} for e in sizes]
     l10n.save_settings(st)
 
 
-def apply_custom_sizes(caps: "PrinterCaps", sizes: list[dict] | None = None) -> None:
+def apply_custom_sizes(caps: PrinterCaps, sizes: list[dict] | None = None) -> None:
     """Hook custom sizes into "Save as PDF" (replacing previous ones).
-        Custom paper sizes are for PDF export only – devices reject them
-        (no fallback to a standard size on some printers, e.g. Canon).
+    Custom paper sizes are for PDF export only – devices reject them
+    (no fallback to a standard size on some printers, e.g. Canon).
     """
     if caps.backend != "pdf":
-        return                              # NEU: Geräte bekommen keine ★-Formate mehr
+        return  # NEU: Geräte bekommen keine ★-Formate mehr
     sizes = load_custom_sizes() if sizes is None else sizes
     key = caps.roles.get("pagesize")
     if not key or key not in caps.options:
@@ -606,16 +676,18 @@ def list_printers() -> list[PrinterInfo]:
     default = c.getDefault()
     out = []
     for name, a in sorted(c.getPrinters().items()):
-        out.append(PrinterInfo(
-            name=name,
-            info=a.get("printer-info", "") or name,
-            location=a.get("printer-location", ""),
-            model=a.get("printer-make-and-model", ""),
-            state=int(a.get("printer-state", 0)),
-            state_message=a.get("printer-state-message", ""),
-            is_default=(name == default),
-            uri=a.get("device-uri", ""),
-        ))
+        out.append(
+            PrinterInfo(
+                name=name,
+                info=a.get("printer-info", "") or name,
+                location=a.get("printer-location", ""),
+                model=a.get("printer-make-and-model", ""),
+                state=int(a.get("printer-state", 0)),
+                state_message=a.get("printer-state-message", ""),
+                is_default=(name == default),
+                uri=a.get("device-uri", ""),
+            )
+        )
     return out
 
 
@@ -639,15 +711,16 @@ def load_caps(name: str) -> PrinterCaps:
 # --------------------------------------------------------------------------- #
 # PPD
 # --------------------------------------------------------------------------- #
-def fill_page_sizes(caps: "PrinterCaps", opt: "Option", dims: dict, areas: dict, code: dict | None = None,
-                    problems: dict | None = None) -> None:
+def fill_page_sizes(
+    caps: PrinterCaps, opt: Option, dims: dict, areas: dict, code: dict | None = None, problems: dict | None = None
+) -> None:
     """Maße für jedes Papierformat des Treibers – immer zuerst vom Drucker selbst:
-        1. Treiber (*PaperDimension bzw. das, was das Backend meldet)   -> "driver"
-        2. PostScript-Code der PPD (<</PageSize[w h]>>)                 -> "code"
-        3. im Namen oder Anzeigetext ("10 x 15 cm", "Custom.225x320mm") -> "text"
-        4. eingebaute Tabelle (SRA4, DIN A4, JIS B4 …)                  -> "table"
-        Bedruckbarer Bereich: vom Treiber; bei Maßen nicht vom Treiber: randlos = ganzes Blatt, sonst die Ränder,
-        die der Drucker bei seinen anderen Formaten hat (Median), sonst 12 pt."""
+    1. Treiber (*PaperDimension bzw. das, was das Backend meldet)   -> "driver"
+    2. PostScript-Code der PPD (<</PageSize[w h]>>)                 -> "code"
+    3. im Namen oder Anzeigetext ("10 x 15 cm", "Custom.225x320mm") -> "text"
+    4. eingebaute Tabelle (SRA4, DIN A4, JIS B4 …)                  -> "table"
+    Bedruckbarer Bereich: vom Treiber; bei Maßen nicht vom Treiber: randlos = ganzes Blatt, sonst die Ränder,
+    die der Drucker bei seinen anderen Formaten hat (Median), sonst 12 pt."""
     code, problems = code or {}, problems or {}
     margins = []
     for v, (l, b, r, t) in areas.items():
@@ -681,10 +754,11 @@ def fill_page_sizes(caps: "PrinterCaps", opt: "Option", dims: dict, areas: dict,
         if v in areas:
             caps.imageable[v] = areas[v]
             continue
-        if src == "driver":                          # Treiber nennt die Größe, aber keinen Bereich: wie bisher offen
+        if src == "driver":  # Treiber nennt die Größe, aber keinen Bereich: wie bisher offen
             continue
         borderless = (std or std_size(v) or std_size(ch.text) or (0, 0, False))[2] or bool(
-            re.search(r"borderless|randlos|full\s*bleed", ch.text, re.I))
+            re.search(r"borderless|randlos|full\s*bleed", ch.text, re.I)
+        )
         if borderless:
             caps.imageable[v] = (0.0, 0.0, w, h)
         else:
@@ -693,26 +767,33 @@ def fill_page_sizes(caps: "PrinterCaps", opt: "Option", dims: dict, areas: dict,
                 caps.imageable[v] = (l, b, w - r, h - t)
 
 
-def find_paper(caps: "PrinterCaps", w: float, h: float, tol: float = 2 * 72 / 25.4) -> str | None:
+def find_paper(caps: PrinterCaps, w: float, h: float, tol: float = 2 * 72 / 25.4) -> str | None:
     """Papierformat des Treibers für w × h pt (beide Lagen, Toleranz 2 mm) – ohne Randlos-/Sondervarianten
-        bevorzugt, sonst der kürzeste Name. None = keins."""
+    bevorzugt, sonst der kürzeste Name. None = keins."""
     key = caps.roles.get("pagesize")
     if not key or key not in caps.options:
         return None
     vals = {c.value for c in caps.options[key].choices}
-    hits = [v for v, (pw, ph) in caps.page_sizes.items() if v in vals and
-            ((abs(pw - w) <= tol and abs(ph - h) <= tol) or (abs(pw - h) <= tol and abs(ph - w) <= tol))]
+    hits = [
+        v
+        for v, (pw, ph) in caps.page_sizes.items()
+        if v in vals and ((abs(pw - w) <= tol and abs(ph - h) <= tol) or (abs(pw - h) <= tol and abs(ph - w) <= tol))
+    ]
     if not hits:
         return None
-    plain = [v for v in hits if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)
-             and not (v[:1] == "T" and v[1:] in hits)]
+    plain = [
+        v
+        for v in hits
+        if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)
+        and not (v[:1] == "T" and v[1:] in hits)
+    ]
     return sorted(plain or hits, key=lambda v: (len(v), v))[0]
 
 
-def size_note(caps: "PrinterCaps", values: dict, label: str = "") -> str:
+def size_note(caps: PrinterCaps, values: dict, label: str = "") -> str:
     """Warnung für den Druckdialog, wenn die Maße des gewählten Papierformats fehlen, ungenau sind oder die PPD
-        Fehler hat – mit den PPD-Zeilen, die es beheben (pt, Dezimalpunkt). "" = alles in Ordnung.
-        „Als PDF speichern“ mit „Wie Dokument“ hat absichtlich keine feste Größe – keine Warnung."""
+    Fehler hat – mit den PPD-Zeilen, die es beheben (pt, Dezimalpunkt). "" = alles in Ordnung.
+    „Als PDF speichern“ mit „Wie Dokument“ hat absichtlich keine feste Größe – keine Warnung."""
     key = caps.roles.get("pagesize")
     value = values.get(key) if key else None
     if value is None or (caps.backend == "pdf" and value == PDF_DOC_SIZE):
@@ -724,16 +805,22 @@ def size_note(caps: "PrinterCaps", values: dict, label: str = "") -> str:
         msg = tr("⚠ Maße für Papierformat „{0}“ unbekannt – A4 angenommen. Bitte Treiber/PPD prüfen.").format(label)
         if caps.backend == "ppd":
             msg += "\n" + tr("In der PPD fehlt z. B.: {0}").format(
-                f'*PaperDimension {value}/{value}: "<{tr("Breite")}> <{tr("Höhe")}>" (pt)')
+                f'*PaperDimension {value}/{value}: "<{tr("Breite")}> <{tr("Höhe")}>" (pt)'
+            )
         return msg
     if not probs and src not in ("text", "table"):
         return ""
     w, h, _ia, _ok = caps.sheet_info(values)
     parts = list(probs)
     if src in ("text", "table"):
-        parts.append(tr("Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}").format(
-            label, w / papersizes.PT, h / papersizes.PT,
-            tr("dem Namen") if src == "text" else tr("der eingebauten Formattabelle")))
+        parts.append(
+            tr("Maße für „{0}“ ({1:.1f} × {2:.1f} mm) nicht vom Treiber, sondern aus {3}").format(
+                label,
+                w / papersizes.PT,
+                h / papersizes.PT,
+                tr("dem Namen") if src == "text" else tr("der eingebauten Formattabelle"),
+            )
+        )
     msg = "⚠ " + "; ".join(parts) + "."
     if caps.backend == "ppd":
         msg += "\n" + tr("Für die PPD:") + "\n" + ppd_lines(value, w, h, caps.imageable.get(value))
@@ -759,14 +846,21 @@ def _caps_from_ppd(name: str, ppd_file: str) -> PrinterCaps:
         for o in g.options:
             if o.keyword in SKIP_KEYS:
                 continue
-            choices = [Choice(ch["choice"], i18n.choice_text(o.keyword, ch["choice"], ch.get("text") or "", o.text or ""))
-                       for ch in o.choices]
+            choices = [
+                Choice(ch["choice"], i18n.choice_text(o.keyword, ch["choice"], ch.get("text") or "", o.text or ""))
+                for ch in o.choices
+            ]
             if not choices:
                 continue
             default = o.defchoice or choices[0].value
-            caps.options[o.keyword] = Option(o.keyword, i18n.option_text(o.keyword, o.text or o.keyword),
-                                             prefix + (i18n.option_text(g.name, g.text) if g.text else g.name),
-                                             choices, default, installable)
+            caps.options[o.keyword] = Option(
+                o.keyword,
+                i18n.option_text(o.keyword, o.text or o.keyword),
+                prefix + (i18n.option_text(g.name, g.text) if g.text else g.name),
+                choices,
+                default,
+                installable,
+            )
             keys.append(o.keyword)
         if keys:
             caps.groups.append((g.name, prefix + (g.text or g.name), keys))
@@ -775,7 +869,7 @@ def _caps_from_ppd(name: str, ppd_file: str) -> PrinterCaps:
     dims, areas = dict(info["dims"]), dict(info["areas"])
     ps = caps.options.get("PageSize")
     if ps:
-        for ch in ps.choices:                       # pycups kennt manchmal mehr (eingebundene Dateien)
+        for ch in ps.choices:  # pycups kennt manchmal mehr (eingebundene Dateien)
             if ch.value not in dims:
                 try:
                     dim = ppd.findAttr("PaperDimension", ch.value)
@@ -816,13 +910,28 @@ def _as_list(v):
 
 
 def _caps_from_ipp(name: str, c) -> PrinterCaps:
-    want = ["media-supported", "media-default", "media-source-supported", "media-source-default",
-            "media-type-supported", "media-type-default", "sides-supported", "sides-default",
-            "print-color-mode-supported", "print-color-mode-default", "print-quality-supported",
-            "print-quality-default", "output-bin-supported", "output-bin-default",
-            "finishings-supported", "finishings-default",
-            "media-bottom-margin-supported", "media-left-margin-supported",
-            "media-right-margin-supported", "media-top-margin-supported"]
+    want = [
+        "media-supported",
+        "media-default",
+        "media-source-supported",
+        "media-source-default",
+        "media-type-supported",
+        "media-type-default",
+        "sides-supported",
+        "sides-default",
+        "print-color-mode-supported",
+        "print-color-mode-default",
+        "print-quality-supported",
+        "print-quality-default",
+        "output-bin-supported",
+        "output-bin-default",
+        "finishings-supported",
+        "finishings-default",
+        "media-bottom-margin-supported",
+        "media-left-margin-supported",
+        "media-right-margin-supported",
+        "media-top-margin-supported",
+    ]
     a = c.getPrinterAttributes(name, requested_attributes=want)
     caps = PrinterCaps(name=name, backend="ipp")
 
@@ -838,10 +947,20 @@ def _caps_from_ipp(name: str, c) -> PrinterCaps:
     add("media", tr("Papierformat"))
     add("media-source", tr("Papierzufuhr"))
     add("media-type", tr("Medientyp"))
-    add("sides", tr("Beidseitig"), {"one-sided": tr("Einseitig"), "two-sided-long-edge": tr("Beidseitig, lange Kante"),
-                                       "two-sided-short-edge": tr("Beidseitig, kurze Kante")})
-    add("print-color-mode", tr("Farbmodus"), {"color": tr("Farbe"), "monochrome": tr("Graustufen"),
-                                              "auto": tr("Automatisch")})
+    add(
+        "sides",
+        tr("Beidseitig"),
+        {
+            "one-sided": tr("Einseitig"),
+            "two-sided-long-edge": tr("Beidseitig, lange Kante"),
+            "two-sided-short-edge": tr("Beidseitig, kurze Kante"),
+        },
+    )
+    add(
+        "print-color-mode",
+        tr("Farbmodus"),
+        {"color": tr("Farbe"), "monochrome": tr("Graustufen"), "auto": tr("Automatisch")},
+    )
     add("print-quality", tr("Qualität"), {k: tr(v) for k, v in IPP_QUALITY.items()})
     add("output-bin", tr("Ausgabefach"))
     add("finishings", tr("Endverarbeitung"), {k: tr(v) for k, v in IPP_FINISHINGS.items()})
@@ -850,12 +969,15 @@ def _caps_from_ipp(name: str, c) -> PrinterCaps:
     def margin(k):
         vals = [int(v) for v in _as_list(a.get(f"media-{k}-margin-supported"))]
         return min(vals) * 72.0 / 2540.0 if vals else 0.0
+
     mb, ml, mr, mt = margin("bottom"), margin("left"), margin("right"), margin("top")
-    caps.ipp_zero_margin = all(0 in [int(v) for v in _as_list(a.get(f"media-{k}-margin-supported"))]
-                               for k in ("bottom", "left", "right", "top"))
+    caps.ipp_zero_margin = all(
+        0 in [int(v) for v in _as_list(a.get(f"media-{k}-margin-supported"))]
+        for k in ("bottom", "left", "right", "top")
+    )
     for ch in caps.options.get("media", Option("", "", "", [], "")).choices:
-        sz, src = _media_size(ch.value), "driver"          # PWG-Name: iso_a4_210x297mm
-        if not sz:                                          # sonst: Name/Text („Custom.225x320mm“, „A4“ …)
+        sz, src = _media_size(ch.value), "driver"  # PWG-Name: iso_a4_210x297mm
+        if not sz:  # sonst: Name/Text („Custom.225x320mm“, „A4“ …)
             sz, src = papersizes.size_from_text(ch.value) or papersizes.size_from_text(ch.text), "text"
         if not sz:
             std = std_size(ch.value) or std_size(ch.text)
@@ -912,7 +1034,7 @@ def submit(printer: str, path: str, title: str, options: dict[str, str]) -> int:
 # Windows: gleiche Schnittstelle, andere Anbindung (siehe printers_win.py)
 # --------------------------------------------------------------------------- #
 if sys.platform == "win32":
-    from . import printers_win as _win   # noqa: E402
+    from . import printers_win as _win  # noqa: E402
 
-    list_printers = _win.list_printers   # type: ignore[assignment]  # noqa: F811
-    load_caps = _win.load_caps           # type: ignore[assignment]  # noqa: F811
+    list_printers = _win.list_printers  # type: ignore[assignment]  # noqa: F811
+    load_caps = _win.load_caps  # type: ignore[assignment]  # noqa: F811

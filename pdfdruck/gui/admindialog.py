@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Management of the defaults – saved via pkexec + helper (a single password prompt)."""
+
 from __future__ import annotations
 
 from ..l10n import tr
@@ -16,12 +17,36 @@ import subprocess
 import tempfile
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSpinBox, QTabWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import colorconv, config, i18n, layout, printers
 from .. import platform as _platform
 from . import theme
-from .common import Session, fill_combo, fit_width, guard_wheel
+from .common import Session, fill_combo, fit_width
 
 
 def _helper_cmd() -> list:
@@ -35,6 +60,7 @@ def _helper_cmd() -> list:
 def _scroll(widget):
     """Reiter-Inhalt scrollbar machen (kleine Bildschirme, Windows-Skalierung)."""
     from PySide6.QtWidgets import QFrame, QScrollArea
+
     sa = QScrollArea()
     sa.setWidgetResizable(True)
     sa.setFrameShape(QFrame.Shape.NoFrame)
@@ -45,6 +71,7 @@ def _scroll(widget):
 def _fit_screen(dlg, want_w: int, want_h: int):
     """Limit the window size to the available screen (taskbar/scaling accounted for)."""
     from PySide6.QtGui import QGuiApplication
+
     scr = dlg.screen() if hasattr(dlg, "screen") and dlg.screen() else QGuiApplication.primaryScreen()
     if scr is None:
         dlg.resize(want_w, want_h)
@@ -63,8 +90,8 @@ class AdminDialog(QDialog):
         self.s = session
         self.cfg = copy.deepcopy(session.cfg)
         self.queue_changes: dict[tuple[str, str], str] = {}
-        self.touched: set[str] = set()          # printers whose defaults were changed
-        self.new_icc: dict[str, str] = {}       # id -> Quelldatei
+        self.touched: set[str] = set()  # printers whose defaults were changed
+        self.new_icc: dict[str, str] = {}  # id -> Quelldatei
         self.removed_icc: set[str] = set()
         try:
             self.plist = printers.list_printers()
@@ -73,9 +100,13 @@ class AdminDialog(QDialog):
             self.plist = []
 
         v = QVBoxLayout(self)
-        note = QLabel(tr("Änderungen hier sind die Standards für alle Benutzer. Speichern erfordert "
-                      "Administratorrechte (Polkit). Benutzer können im Druckdialog abweichen – "
-                      "nach Programmende gelten wieder diese Standards."))
+        note = QLabel(
+            tr(
+                "Änderungen hier sind die Standards für alle Benutzer. Speichern erfordert "
+                "Administratorrechte (Polkit). Benutzer können im Druckdialog abweichen – "
+                "nach Programmende gelten wieder diese Standards."
+            )
+        )
         note.setWordWrap(True)
         v.addWidget(note)
         tabs = QTabWidget()
@@ -84,6 +115,7 @@ class AdminDialog(QDialog):
         tabs.addTab(_scroll(self._tab_printers()), tr("Druckerstandards"))
         tabs.addTab(_scroll(self._tab_profiles()), tr("Farbprofile"))
         from .materialtab import MaterialTab
+
         self.mat_tab = MaterialTab(self)
         tabs.addTab(_scroll(self.mat_tab), tr("Materialien"))
         tabs.currentChanged.connect(lambda _i: self.mat_tab.invalidate())
@@ -92,15 +124,18 @@ class AdminDialog(QDialog):
         bb.accepted.connect(self._save)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
-        _fit_screen(self, 900, 700)        # never larger than the screen; the rest scrolls
+        _fit_screen(self, 900, 700)  # never larger than the screen; the rest scrolls
 
     # ================================================================== #
     def _tab_general(self):
         w = QWidget()
         f = QFormLayout(w)
         self.cmb_default = QComboBox()
-        fill_combo(self.cmb_default, [("", tr("(CUPS-Standarddrucker)"))] + [(p.name, p.name) for p in self.plist],
-                   self.cfg.get("default_printer", ""))
+        fill_combo(
+            self.cmb_default,
+            [("", tr("(CUPS-Standarddrucker)"))] + [(p.name, p.name) for p in self.plist],
+            self.cfg.get("default_printer", ""),
+        )
         f.addRow(tr("Standarddrucker:"), self.cmb_default)
         self.chk_user_prof = QCheckBox(tr("Benutzer dürfen Farbprofil/Intent im Druckdialog wählen"))
         self.chk_user_prof.setChecked(bool(self.cfg.get("allow_user_profile_choice", True)))
@@ -112,16 +147,20 @@ class AdminDialog(QDialog):
         self.spn_imgdpi.setToolTip(tr("Gilt nur für Bilder ohne eigene Auflösungsangabe"))
         f.addRow(tr("Bilder ohne DPI-Angabe:"), self.spn_imgdpi)
         from .. import convert
+
         self.cmb_conv = QComboBox()
         fill_combo(self.cmb_conv, list(convert.CONVERTERS.items()), self.cfg.get("office_converter", "auto"))
         f.addRow(tr("Office → PDF mit:"), self.cmb_conv)
         from .. import l10n
+
         self.cmb_lang = QComboBox()
         self.cmb_lang.addItem(tr("Systemsprache"), "")
         for code, name in l10n.LANGS.items():
             self.cmb_lang.addItem(name, code)
         self.cmb_lang.setCurrentIndex(max(0, self.cmb_lang.findData(self.cfg.get("language", ""))))
-        self.cmb_lang.setToolTip(tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben"))
+        self.cmb_lang.setToolTip(
+            tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben")
+        )
         f.addRow(tr("Standardsprache:"), self.cmb_lang)
         # weitere Ablauf-Ordner für alle (passermark-cli run <Name>), z. B. eine Netzwerkfreigabe
         self.lst_wfdirs = QListWidget()
@@ -131,22 +170,28 @@ class AdminDialog(QDialog):
         brow = QHBoxLayout()
         b_add, b_del = QPushButton(tr("Hinzufügen …")), QPushButton(tr("Entfernen"))
         b_add.clicked.connect(self._wfdir_add)
-        b_del.clicked.connect(lambda: [self.lst_wfdirs.takeItem(self.lst_wfdirs.row(i))
-                                       for i in self.lst_wfdirs.selectedItems()])
+        b_del.clicked.connect(
+            lambda: [self.lst_wfdirs.takeItem(self.lst_wfdirs.row(i)) for i in self.lst_wfdirs.selectedItems()]
+        )
         brow.addWidget(b_add)
         brow.addWidget(b_del)
         brow.addStretch()
         box = QVBoxLayout()
         box.addWidget(self.lst_wfdirs)
         box.addLayout(brow)
-        lbl = QLabel(tr("Gelten nach den eigenen Abläufen der Benutzer und vor denen im Programmordner. Wer dort "
-                        "Abläufe anlegen darf, regeln die Rechte des Ordners (z. B. eine Gruppe mit Schreibrecht)."))
+        lbl = QLabel(
+            tr(
+                "Gelten nach den eigenen Abläufen der Benutzer und vor denen im Programmordner. Wer dort "
+                "Abläufe anlegen darf, regeln die Rechte des Ordners (z. B. eine Gruppe mit Schreibrecht)."
+            )
+        )
         lbl.setWordWrap(True)
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         box.addWidget(lbl)
         f.addRow(tr("Weitere Ablauf-Ordner:"), box)
         # gemeinsamer Druckordner für Passermark und die Zusatzprogramme (Watcher, Passerlink, PassCount …)
         from .. import shared
+
         sbox = QVBoxLayout()
         self.lbl_shared = QLabel()
         self.lbl_shared.setWordWrap(True)
@@ -154,9 +199,13 @@ class AdminDialog(QDialog):
         sbox.addWidget(self.lbl_shared)
         srow = QHBoxLayout()
         self.btn_shared = QPushButton(tr("Gemeinsamen Druckordner einrichten …"))
-        self.btn_shared.setToolTip(tr("Legt {0} mit hotfolder, ausgabe und archiv an, Gruppe {1}, und nimmt dich in "
-                                      "die Gruppe auf – Dienste (Watcher, Passerlink, PassCount) dürfen dort schreiben, "
-                                      "anders als in Home-Ordnern").format(shared.root(), shared.GROUP))
+        self.btn_shared.setToolTip(
+            tr(
+                "Legt {0} mit hotfolder, ausgabe und archiv an, Gruppe {1}, und nimmt dich in "
+                "die Gruppe auf – Dienste (Watcher, Passerlink, PassCount) dürfen dort schreiben, "
+                "anders als in Home-Ordnern"
+            ).format(shared.root(), shared.GROUP)
+        )
         self.btn_shared.clicked.connect(self._setup_shared)
         self.btn_shared.setVisible(not _platform.IS_WIN)
         srow.addWidget(self.btn_shared)
@@ -173,8 +222,11 @@ class AdminDialog(QDialog):
         self.ed_plog = QLineEdit(str(pl.get("dir", "") or ""))
         self.ed_plog.setPlaceholderText(tr("leer = je Benutzer im eigenen Ordner"))
         b_pl = QPushButton(tr("Wählen …"))
-        b_pl.clicked.connect(lambda: (lambda d: d and self.ed_plog.setText(os.path.normpath(d)))(
-            QFileDialog.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))))
+        b_pl.clicked.connect(
+            lambda: (lambda d: d and self.ed_plog.setText(os.path.normpath(d)))(
+                QFileDialog.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))
+            )
+        )
         prow.addWidget(self.ed_plog, 1)
         prow.addWidget(b_pl)
         f.addRow(tr("Protokoll-Ordner:"), prow)
@@ -184,20 +236,41 @@ class AdminDialog(QDialog):
         self.spn_plkeep.setSuffix(tr(" Tage"))
         self.spn_plkeep.setValue(int(pl.get("keep_days", 0) or 0))
         f.addRow(tr("Protokolle aufheben:"), self.spn_plkeep)
-        lbl = QLabel(convert.describe_available() + tr(". Fällt ein Konverter aus, wird automatisch der nächste "
-                     "verwendet. OnlyOffice/Euro-Office werden über ihren internen Konverter angesprochen."))
+        lbl = QLabel(
+            convert.describe_available()
+            + tr(
+                ". Fällt ein Konverter aus, wird automatisch der nächste "
+                "verwendet. OnlyOffice/Euro-Office werden über ihren internen Konverter angesprochen."
+            )
+        )
         lbl.setWordWrap(True)
         lbl.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow("", lbl)
 
         L = self.cfg["layout"]
         self.l_handling = QComboBox()
-        fill_combo(self.l_handling, [("size", tr("Größe")), ("multiple", tr("Mehrere Seiten pro Blatt")),
-                                     ("booklet", tr("Broschüre")), ("poster", tr("Poster"))], L.get("handling", "size"))
+        fill_combo(
+            self.l_handling,
+            [
+                ("size", tr("Größe")),
+                ("multiple", tr("Mehrere Seiten pro Blatt")),
+                ("booklet", tr("Broschüre")),
+                ("poster", tr("Poster")),
+            ],
+            L.get("handling", "size"),
+        )
         f.addRow(tr("Seitenhandhabung:"), self.l_handling)
         self.l_mode = QComboBox()
-        fill_combo(self.l_mode, [("fit", tr("Anpassen")), ("actual", tr("Tatsächliche Größe")),
-                                 ("shrink", tr("Übergroße Seiten verkleinern")), ("custom", tr("Benutzerdefiniert"))], L["mode"])
+        fill_combo(
+            self.l_mode,
+            [
+                ("fit", tr("Anpassen")),
+                ("actual", tr("Tatsächliche Größe")),
+                ("shrink", tr("Übergroße Seiten verkleinern")),
+                ("custom", tr("Benutzerdefiniert")),
+            ],
+            L["mode"],
+        )
         f.addRow(tr("Skalierung:"), self.l_mode)
         self.l_custom = QDoubleSpinBox()
         self.l_custom.setRange(1, 1000)
@@ -206,8 +279,11 @@ class AdminDialog(QDialog):
         f.addRow(tr("Benutzerdef. Maßstab:"), self.l_custom)
         row = QHBoxLayout()
         self.l_nup = QComboBox()
-        fill_combo(self.l_nup, [(1, tr("Aus (1)"))] + [(n, str(n)) for n in (2, 4, 6, 8, 9, 16)] +
-                   [(0, tr("Benutzerdefiniert"))], 0 if (L["cols"] and L["rows"]) else L["nup"])
+        fill_combo(
+            self.l_nup,
+            [(1, tr("Aus (1)"))] + [(n, str(n)) for n in (2, 4, 6, 8, 9, 16)] + [(0, tr("Benutzerdefiniert"))],
+            0 if (L["cols"] and L["rows"]) else L["nup"],
+        )
         self.l_cols = QSpinBox()
         self.l_cols.setRange(1, 16)
         self.l_cols.setValue(L["cols"] or 2)
@@ -223,8 +299,15 @@ class AdminDialog(QDialog):
         fill_combo(self.l_order, list(layout.ORDERS.items()), L["order"])
         f.addRow(tr("Reihenfolge:"), self.l_order)
         self.l_tile = QComboBox()
-        fill_combo(self.l_tile, [("fit", tr("An Kachel anpassen")), ("actual", tr("Tatsächliche Größe")),
-                                 ("custom", tr("Benutzerdefiniert"))], L["tile_mode"])
+        fill_combo(
+            self.l_tile,
+            [
+                ("fit", tr("An Kachel anpassen")),
+                ("actual", tr("Tatsächliche Größe")),
+                ("custom", tr("Benutzerdefiniert")),
+            ],
+            L["tile_mode"],
+        )
         f.addRow(tr("Kachel-Skalierung:"), self.l_tile)
         self.l_tilepct = QDoubleSpinBox()
         self.l_tilepct.setRange(1, 1000)
@@ -237,12 +320,19 @@ class AdminDialog(QDialog):
         self.l_gap.setValue(L["gap_mm"])
         f.addRow(tr("Abstand:"), self.l_gap)
         self.l_orient = QComboBox()
-        fill_combo(self.l_orient, [("auto", tr("Automatisch")), ("portrait", tr("Hochformat")),
-                                   ("landscape", tr("Querformat"))], L["orientation"])
+        fill_combo(
+            self.l_orient,
+            [("auto", tr("Automatisch")), ("portrait", tr("Hochformat")), ("landscape", tr("Querformat"))],
+            L["orientation"],
+        )
         f.addRow(tr("Ausrichtung:"), self.l_orient)
         self.l_checks = {}
-        for k, t in [("borders", tr("Seitenrand drucken (N-Up)")), ("autorotate", tr("Seiten automatisch drehen")),
-                     ("center", tr("Zentrieren")), ("use_margins", tr("Druckerränder berücksichtigen"))]:
+        for k, t in [
+            ("borders", tr("Seitenrand drucken (N-Up)")),
+            ("autorotate", tr("Seiten automatisch drehen")),
+            ("center", tr("Zentrieren")),
+            ("use_margins", tr("Druckerränder berücksichtigen")),
+        ]:
             c = QCheckBox(t)
             c.setChecked(bool(L[k]))
             self.l_checks[k] = c
@@ -255,7 +345,10 @@ class AdminDialog(QDialog):
         self.l_overlap.setSuffix(tr(" mm"))
         self.l_overlap.setValue(L.get("poster_overlap_mm", 10.0))
         f.addRow(tr("Poster – Überlappung:"), self.l_overlap)
-        for k, t in [("poster_marks", tr("Poster – Schnitt-/Klebelinien")), ("poster_labels", tr("Poster – Beschriftung"))]:
+        for k, t in [
+            ("poster_marks", tr("Poster – Schnitt-/Klebelinien")),
+            ("poster_labels", tr("Poster – Beschriftung")),
+        ]:
             c = QCheckBox(t)
             c.setChecked(bool(L.get(k, True)))
             self.l_checks[k] = c
@@ -274,21 +367,30 @@ class AdminDialog(QDialog):
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
         self.cfg["workflow_dirs"] = [self.lst_wfdirs.item(i).text() for i in range(self.lst_wfdirs.count())]
-        self.cfg["print_log"] = {"force": self.chk_plog.isChecked(), "dir": self.ed_plog.text().strip(),
-                                 "keep_days": self.spn_plkeep.value()}
+        self.cfg["print_log"] = {
+            "force": self.chk_plog.isChecked(),
+            "dir": self.ed_plog.text().strip(),
+            "keep_days": self.spn_plkeep.value(),
+        }
         n = self.l_nup.currentData()
-        L = dict(self.cfg["layout"])     # remaining fields (poster/booklet) preserved
-        L.update({
-            "mode": self.l_mode.currentData(), "custom_percent": self.l_custom.value(),
-            "nup": 1 if n == 0 else n,
-            "cols": self.l_cols.value() if n == 0 else 0, "rows": self.l_rows.value() if n == 0 else 0,
-            "order": self.l_order.currentData(), "tile_mode": self.l_tile.currentData(),
-            "tile_percent": self.l_tilepct.value(), "gap_mm": self.l_gap.value(),
-            "orientation": self.l_orient.currentData(),
-            "handling": self.l_handling.currentData(),
-            "booklet_binding": self.l_binding.currentData(),
-            "poster_overlap_mm": self.l_overlap.value(),
-        })
+        L = dict(self.cfg["layout"])  # remaining fields (poster/booklet) preserved
+        L.update(
+            {
+                "mode": self.l_mode.currentData(),
+                "custom_percent": self.l_custom.value(),
+                "nup": 1 if n == 0 else n,
+                "cols": self.l_cols.value() if n == 0 else 0,
+                "rows": self.l_rows.value() if n == 0 else 0,
+                "order": self.l_order.currentData(),
+                "tile_mode": self.l_tile.currentData(),
+                "tile_percent": self.l_tilepct.value(),
+                "gap_mm": self.l_gap.value(),
+                "orientation": self.l_orient.currentData(),
+                "handling": self.l_handling.currentData(),
+                "booklet_binding": self.l_binding.currentData(),
+                "poster_overlap_mm": self.l_overlap.value(),
+            }
+        )
         L.update({k: c.isChecked() for k, c in self.l_checks.items()})
         self.cfg["layout"] = L
 
@@ -307,10 +409,11 @@ class AdminDialog(QDialog):
         btn_reset.clicked.connect(self._reset_printer)
         row.addWidget(btn_reset)
         v.addLayout(row)
-        self.chk_sync = QCheckBox(tr("Auch als Windows-Standard des Druckers setzen (gilt dann für alle Programme)")
-                                  if _platform.IS_WIN else
-                                  tr("Auch als System-Standard der CUPS-Queue setzen "
-                                  "(gilt dann zusätzlich für alle anderen Programme)"))
+        self.chk_sync = QCheckBox(
+            tr("Auch als Windows-Standard des Druckers setzen (gilt dann für alle Programme)")
+            if _platform.IS_WIN
+            else tr("Auch als System-Standard der CUPS-Queue setzen (gilt dann zusätzlich für alle anderen Programme)")
+        )
         self.chk_sync.setChecked(True)
         v.addWidget(self.chk_sync)
         self.p_area = QScrollArea()
@@ -338,14 +441,19 @@ class AdminDialog(QDialog):
         inner = QWidget()
         v = QVBoxLayout(inner)
         for gname, gtext, keys in caps.groups:
-            box = QGroupBox(gtext + (tr(" – Hardware, wird direkt in der CUPS-Queue gesetzt")
-                                     if gname == printers.INSTALLABLE_GROUP else ""))
+            box = QGroupBox(
+                gtext
+                + (
+                    tr(" – Hardware, wird direkt in der CUPS-Queue gesetzt")
+                    if gname == printers.INSTALLABLE_GROUP
+                    else ""
+                )
+            )
             f = QFormLayout(box)
             for k in keys:
                 o = caps.options[k]
                 cb = QComboBox()
-                cur = self.queue_changes.get((name, k), o.default) if o.installable \
-                    else pc["options"].get(k, o.default)
+                cur = self.queue_changes.get((name, k), o.default) if o.installable else pc["options"].get(k, o.default)
                 fill_combo(cb, [(c.value, c.text) for c in o.choices], cur)
                 lbl = o.text + (" *" if (not o.installable and k in pc["options"]) else "") + ":"
                 cb.currentIndexChanged.connect(lambda _i, k=k, cb=cb, o=o: self._opt_set(name, o, cb))
@@ -354,8 +462,12 @@ class AdminDialog(QDialog):
         if caps.backend == "win":
             g = QGroupBox(tr("Herstellereinstellungen (Windows-Treiber)"))
             gl = QVBoxLayout(g)
-            lbl = QLabel(tr("Finisher, Heften, Lochen, Falzen, Beschnitt, Fiery-Optionen usw. stellst du im Original-"
-                         "Dialog des Herstellers ein. Die Auswahl wird als Passermark-Standard gespeichert."))
+            lbl = QLabel(
+                tr(
+                    "Finisher, Heften, Lochen, Falzen, Beschnitt, Fiery-Optionen usw. stellst du im Original-"
+                    "Dialog des Herstellers ein. Die Auswahl wird als Passermark-Standard gespeichert."
+                )
+            )
             lbl.setWordWrap(True)
             gl.addWidget(lbl)
             row = QHBoxLayout()
@@ -369,8 +481,12 @@ class AdminDialog(QDialog):
             row.addWidget(self.lbl_dm, 1)
             gl.addLayout(row)
             v.addWidget(g)
-            hint = QLabel(tr("Installierte Hardware (Finisher, Decks, Locher) wird unter Windows in den "
-                          "Druckereigenschaften → Geräteeinstellungen des Treibers konfiguriert."))
+            hint = QLabel(
+                tr(
+                    "Installierte Hardware (Finisher, Decks, Locher) wird unter Windows in den "
+                    "Druckereigenschaften → Geräteeinstellungen des Treibers konfiguriert."
+                )
+            )
             hint.setWordWrap(True)
             hint.setStyleSheet(f"color: {theme.MUTED};")
             v.addWidget(hint)
@@ -397,9 +513,12 @@ class AdminDialog(QDialog):
         g = QGroupBox(tr("Farbmanagement-Standard"))
         f = QFormLayout(g)
         self.p_prof = QComboBox()
-        fill_combo(self.p_prof, [("", tr("Keins (Treiber)"))] +
-                   [(p["id"], p.get("name") or p["id"]) for p in config.profiles_for(self.cfg, name)],
-                   pc.get("color_profile", ""))
+        fill_combo(
+            self.p_prof,
+            [("", tr("Keins (Treiber)"))]
+            + [(p["id"], p.get("name") or p["id"]) for p in config.profiles_for(self.cfg, name)],
+            pc.get("color_profile", ""),
+        )
         self.p_intent = QComboBox()
         fill_combo(self.p_intent, list(config.INTENTS.items()), pc.get("intent", "relative"))
         self.p_prof.currentIndexChanged.connect(lambda _i: pc.__setitem__("color_profile", self.p_prof.currentData()))
@@ -416,6 +535,7 @@ class AdminDialog(QDialog):
     # ---------------- Tray assignment ---------------- #
     def _build_tray_table(self, v, name, caps, pc):
         from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QTableWidget
+
         skey, pkey, mkey = (caps.roles.get(r) for r in ("source", "pagesize", "mediatype"))
         g = QGroupBox(tr("Fächerbelegung – automatische Fachwahl nach Format und Grammatur"))
         gl = QVBoxLayout(g)
@@ -423,9 +543,13 @@ class AdminDialog(QDialog):
             gl.addWidget(QLabel(tr("Der Treiber meldet keine Fächer/Formate – automatische Fachwahl nicht möglich.")))
             v.addWidget(g)
             return
-        info = QLabel(tr("Reihenfolge = Vorrang: Bei mehreren passenden Laden nimmt Passermark die oberste; "
-                      "ist sie laut Gerät leer, die nächste. Am Gerät zusätzlich die automatische "
-                      "Kassettenumschaltung einschalten – nur der Drucker kann mitten im Auftrag wechseln."))
+        info = QLabel(
+            tr(
+                "Reihenfolge = Vorrang: Bei mehreren passenden Laden nimmt Passermark die oberste; "
+                "ist sie laut Gerät leer, die nächste. Am Gerät zusätzlich die automatische "
+                "Kassettenumschaltung einschalten – nur der Drucker kann mitten im Auftrag wechseln."
+            )
+        )
         info.setWordWrap(True)
         info.setStyleSheet(f"color: {theme.MUTED};")
         gl.addWidget(info)
@@ -450,7 +574,9 @@ class AdminDialog(QDialog):
         gl.addWidget(self.chk_traylive)
 
         self.tbl = QTableWidget(0, 5)
-        self.tbl.setHorizontalHeaderLabels([tr("Lade"), tr("Format"), tr("Grammatur"), tr("Medientyp"), tr("Gerätename (IPP)")])
+        self.tbl.setHorizontalHeaderLabels(
+            [tr("Lade"), tr("Format"), tr("Grammatur"), tr("Medientyp"), tr("Gerätename (IPP)")]
+        )
         self.tbl.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tbl.verticalHeader().setVisible(True)
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -460,9 +586,12 @@ class AdminDialog(QDialog):
         for t in pc.get("trays", []):
             self._tray_add_row(t)
         row = QHBoxLayout()
-        for text, fn in [("+ Lade", lambda: (self._tray_add_row({}), self._tray_store())),
-                         ("Entfernen", self._tray_remove), ("▲", lambda: self._tray_move(-1)),
-                         ("▼", lambda: self._tray_move(1))]:
+        for text, fn in [
+            ("+ Lade", lambda: (self._tray_add_row({}), self._tray_store())),
+            ("Entfernen", self._tray_remove),
+            ("▲", lambda: self._tray_move(-1)),
+            ("▼", lambda: self._tray_move(1)),
+        ]:
             b = QPushButton(text)
             b.clicked.connect(fn)
             row.addWidget(b)
@@ -472,17 +601,20 @@ class AdminDialog(QDialog):
 
     def _guess_host(self, name):
         from .. import ipp
+
         p = next((p for p in self.plist if p.name == name), None)
         return ipp.host_from_device_uri(p.uri) if p and getattr(p, "uri", "") else ""
 
     def _tray_add_row(self, t: dict):
         from PySide6.QtWidgets import QSpinBox as _Spin
+
         name, caps, pc, skey, pkey, mkey = self._tray_ctx
         r = self.tbl.rowCount()
         self.tbl.insertRow(r)
         cb_slot = QComboBox()
-        fill_combo(cb_slot, [(c.value, c.text) for c in caps.options[skey].choices
-                             if not re_auto(c)], t.get("slot", ""))
+        fill_combo(
+            cb_slot, [(c.value, c.text) for c in caps.options[skey].choices if not re_auto(c)], t.get("slot", "")
+        )
         cb_size = QComboBox()
         fill_combo(cb_size, [(c.value, c.text) for c in caps.options[pkey].choices], t.get("size", "A4"))
         sp = _Spin()
@@ -508,9 +640,15 @@ class AdminDialog(QDialog):
         out = []
         for r in range(self.tbl.rowCount()):
             w = [self.tbl.cellWidget(r, c) for c in range(5)]
-            out.append({"slot": w[0].currentData() or "", "size": w[1].currentData() or "",
-                        "weight": int(w[2].value()), "media": w[3].currentData() or "",
-                        "ipp": w[4].text().strip()})
+            out.append(
+                {
+                    "slot": w[0].currentData() or "",
+                    "size": w[1].currentData() or "",
+                    "weight": int(w[2].value()),
+                    "media": w[3].currentData() or "",
+                    "ipp": w[4].text().strip(),
+                }
+            )
         return out
 
     def _tray_store(self):
@@ -538,16 +676,20 @@ class AdminDialog(QDialog):
 
     def _tray_from_device(self, name, caps, pc):
         from .. import ipp, trays
+
         host = self.ed_host.text().strip()
         pc["tray_host"] = host
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         st = ipp.query(host)
         QApplication.restoreOverrideCursor()
         if st.error or not st.trays:
-            QMessageBox.warning(self, tr("Vom Gerät lesen"),
-                                tr("Keine Fachinformationen erhalten.\n\n") + (st.error or
-                                tr("Das Gerät meldet keine Ladenbelegung (media-col-ready).")) +
-                                tr("\n\nDie Belegung kann auch von Hand eingetragen werden."))
+            QMessageBox.warning(
+                self,
+                tr("Vom Gerät lesen"),
+                tr("Keine Fachinformationen erhalten.\n\n")
+                + (st.error or tr("Das Gerät meldet keine Ladenbelegung (media-col-ready)."))
+                + tr("\n\nDie Belegung kann auch von Hand eingetragen werden."),
+            )
             return
         rows, unmapped = [], []
         for src, t in st.trays.items():
@@ -558,8 +700,11 @@ class AdminDialog(QDialog):
                 continue
             rows.append({"slot": slot, "size": size, "weight": int(t.weight or 0), "media": "", "ipp": src})
         if not rows:
-            QMessageBox.warning(self, tr("Vom Gerät lesen"), tr("Laden gefunden, aber keiner Treiberlade zuordenbar:\n")
-                                + "\n".join(unmapped))
+            QMessageBox.warning(
+                self,
+                tr("Vom Gerät lesen"),
+                tr("Laden gefunden, aber keiner Treiberlade zuordenbar:\n") + "\n".join(unmapped),
+            )
             return
         self.tbl.setRowCount(0)
         for t in rows:
@@ -572,6 +717,7 @@ class AdminDialog(QDialog):
 
     def _win_devmode(self, name):
         from ..printers_win import driver_dialog
+
         pc = self._pcfg(name)
         try:
             res = driver_dialog(int(self.winId()), name, pc.get("devmode"))
@@ -620,7 +766,7 @@ class AdminDialog(QDialog):
             return
         opts = self._pcfg(name)["options"]
         if val == o.default:
-            opts.pop(o.keyword, None)    # nur Abweichungen speichern
+            opts.pop(o.keyword, None)  # nur Abweichungen speichern
         else:
             opts[o.keyword] = val
 
@@ -676,8 +822,9 @@ class AdminDialog(QDialog):
         self.pf_bpc = QCheckBox(tr("Tiefenkompensierung (BPC)"))
         f.addRow("", self.pf_bpc)
         self.pf_opts = QPlainTextEdit()
-        self.pf_opts.setPlaceholderText(tr("Treiberoptionen, die mit diesem Profil gesetzt werden,\n"
-                                        "z. B. Farbabgleich des Treibers aus:\nKEY=WERT"))
+        self.pf_opts.setPlaceholderText(
+            tr("Treiberoptionen, die mit diesem Profil gesetzt werden,\nz. B. Farbabgleich des Treibers aus:\nKEY=WERT")
+        )
         self.pf_opts.setMaximumHeight(110)
         f.addRow(tr("Treiberoptionen:"), self.pf_opts)
         h.addWidget(self.prof_box, 2)
@@ -742,8 +889,11 @@ class AdminDialog(QDialog):
         p = self._cur_profile()
         if p is None:
             return
-        p["printers"] = [self.pf_printers.item(i).text() for i in range(self.pf_printers.count())
-                         if self.pf_printers.item(i).checkState() == Qt.CheckState.Checked]
+        p["printers"] = [
+            self.pf_printers.item(i).text()
+            for i in range(self.pf_printers.count())
+            if self.pf_printers.item(i).checkState() == Qt.CheckState.Checked
+        ]
         p["intents"] = [k for k, c in self.pf_intents.items() if c.isChecked()] or ["relative"]
         p["bpc"] = self.pf_bpc.isChecked()
         opts = {}
@@ -755,8 +905,9 @@ class AdminDialog(QDialog):
         p["driver_options"] = opts
 
     def _add_profile(self):
-        path, _ = QFileDialog.getOpenFileName(self, tr("ICC-Profil wählen"), "/usr/share/color/icc",
-                                              tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)"))
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr("ICC-Profil wählen"), "/usr/share/color/icc", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)")
+        )
         if not path:
             return
         try:
@@ -774,10 +925,17 @@ class AdminDialog(QDialog):
             return
         self.new_icc[pid] = path
         self.removed_icc.discard(pid)
-        self.cfg["color_profiles"].append({
-            "id": pid, "name": name.strip()[:128] or pid, "file": str(config.ICC_DIR / f"{pid}.icc"),
-            "printers": [], "intents": ["perceptual", "relative"], "bpc": True, "driver_options": {},
-        })
+        self.cfg["color_profiles"].append(
+            {
+                "id": pid,
+                "name": name.strip()[:128] or pid,
+                "file": str(config.ICC_DIR / f"{pid}.icc"),
+                "printers": [],
+                "intents": ["perceptual", "relative"],
+                "bpc": True,
+                "driver_options": {},
+            }
+        )
         self._refresh_profiles(pid)
         self.pf_space.setText(space)
 
@@ -789,14 +947,23 @@ class AdminDialog(QDialog):
             QMessageBox.warning(self, tr("ICC"), str(e))
             return ""
         from .. import iccfetch
-        pid = iccfetch.profile_id(name or os.path.splitext(os.path.basename(path))[0],
-                                  {p["id"] for p in self.cfg["color_profiles"]})
+
+        pid = iccfetch.profile_id(
+            name or os.path.splitext(os.path.basename(path))[0], {p["id"] for p in self.cfg["color_profiles"]}
+        )
         self.new_icc[pid] = path
         self.removed_icc.discard(pid)
-        self.cfg["color_profiles"].append({
-            "id": pid, "name": (name or pid)[:128], "file": str(config.ICC_DIR / f"{pid}.icc"),
-            "printers": [], "intents": ["perceptual", "relative"], "bpc": True, "driver_options": {},
-        })
+        self.cfg["color_profiles"].append(
+            {
+                "id": pid,
+                "name": (name or pid)[:128],
+                "file": str(config.ICC_DIR / f"{pid}.icc"),
+                "printers": [],
+                "intents": ["perceptual", "relative"],
+                "bpc": True,
+                "driver_options": {},
+            }
+        )
         self._refresh_profiles(pid)
         return pid
 
@@ -804,6 +971,7 @@ class AdminDialog(QDialog):
         import tempfile
         from .. import iccfetch
         from .iccimport import IccImportDialog
+
         if not hasattr(self, "_icc_work"):
             self._icc_work = tempfile.mkdtemp(prefix="passermark-icc-")
             self.finished.connect(lambda *_: __import__("shutil").rmtree(self._icc_work, ignore_errors=True))
@@ -818,15 +986,24 @@ class AdminDialog(QDialog):
             ids.add(pid)
             self.new_icc[pid] = info.path
             self.removed_icc.discard(pid)
-            self.cfg["color_profiles"].append({
-                "id": pid, "name": info.desc[:128], "file": str(config.ICC_DIR / f"{pid}.icc"),
-                "printers": [printer] if printer else [], "intents": ["perceptual", "relative"],
-                "bpc": True, "driver_options": {},
-            })
+            self.cfg["color_profiles"].append(
+                {
+                    "id": pid,
+                    "name": info.desc[:128],
+                    "file": str(config.ICC_DIR / f"{pid}.icc"),
+                    "printers": [printer] if printer else [],
+                    "intents": ["perceptual", "relative"],
+                    "bpc": True,
+                    "driver_options": {},
+                }
+            )
             last = pid
         self._refresh_profiles(last)
-        QMessageBox.information(self, tr("Übernommen"),
-                                tr("{0} Profil(e) hinzugefügt. Sie werden beim Speichern installiert.").format(len(dlg.selected)))
+        QMessageBox.information(
+            self,
+            tr("Übernommen"),
+            tr("{0} Profil(e) hinzugefügt. Sie werden beim Speichern installiert.").format(len(dlg.selected)),
+        )
 
     def _rename_profile(self):
         p = self._cur_profile()
@@ -849,7 +1026,7 @@ class AdminDialog(QDialog):
         for pc in self.cfg.get("printers", {}).values():
             if pc.get("color_profile") == p["id"]:
                 pc["color_profile"] = ""
-        for m in self.cfg.get("materials", []):           # Materialien verlieren die Zuordnung
+        for m in self.cfg.get("materials", []):  # Materialien verlieren die Zuordnung
             m["profiles"] = {q: pid for q, pid in (m.get("profiles") or {}).items() if pid != p["id"]}
         self._refresh_profiles()
         if hasattr(self, "mat_tab"):
@@ -860,9 +1037,11 @@ class AdminDialog(QDialog):
         self._collect_general()
         self._store_profile()
         # remove empty printer entries
-        self.cfg["printers"] = {k: v for k, v in self.cfg.get("printers", {}).items()
-                                if v.get("options") or v.get("color_profile") or v.get("devmode") or v.get("presets")
-                                or v.get("trays")}
+        self.cfg["printers"] = {
+            k: v
+            for k, v in self.cfg.get("printers", {}).items()
+            if v.get("options") or v.get("color_profile") or v.get("devmode") or v.get("presets") or v.get("trays")
+        }
         qopts = [[q, k, v] for (q, k), v in self.queue_changes.items()]
         n_sys = 0
         if self.chk_sync.isChecked():
@@ -879,10 +1058,14 @@ class AdminDialog(QDialog):
         if _platform.IS_WIN:
             bundle.pop("queue_options", None)
             if self.chk_sync.isChecked():
-                bundle["printer_defaults"] = [[q, self.cfg["printers"][q]["devmode"]] for q in sorted(self.touched)
-                                              if self.cfg.get("printers", {}).get(q, {}).get("devmode")]
+                bundle["printer_defaults"] = [
+                    [q, self.cfg["printers"][q]["devmode"]]
+                    for q in sorted(self.touched)
+                    if self.cfg.get("printers", {}).get(q, {}).get("devmode")
+                ]
                 n_sys = len(bundle["printer_defaults"])
             from .. import winadmin
+
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
                 code, err, _res = winadmin.run_elevated(bundle)
@@ -891,7 +1074,9 @@ class AdminDialog(QDialog):
             finally:
                 QApplication.restoreOverrideCursor()
             if code == 126:
-                QMessageBox.information(self, tr("Abgebrochen"), tr("Administratorfreigabe abgelehnt – nichts gespeichert."))
+                QMessageBox.information(
+                    self, tr("Abgebrochen"), tr("Administratorfreigabe abgelehnt – nichts gespeichert.")
+                )
                 return
             if code != 0:
                 QMessageBox.critical(self, tr("Fehler beim Speichern"), err or f"Code {code}")
@@ -922,15 +1107,18 @@ class AdminDialog(QDialog):
 
     def _shared_text(self):
         from .. import shared
+
         st = shared.status()
         self.lbl_shared.setText(shared.status_text(st))
         self.lbl_shared.setStyleSheet(f"color: {theme.MUTED if st['ok'] else theme.ACCENT};")
         if not _platform.IS_WIN:
-            self.btn_shared.setText(tr("Erneut prüfen/einrichten …") if st["ok"] else
-                                    tr("Gemeinsamen Druckordner einrichten …"))
+            self.btn_shared.setText(
+                tr("Erneut prüfen/einrichten …") if st["ok"] else tr("Gemeinsamen Druckordner einrichten …")
+            )
 
     def _setup_shared(self):
         from .. import shared
+
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             code, out = shared.setup()
@@ -942,8 +1130,9 @@ class AdminDialog(QDialog):
         elif code != 0:
             QMessageBox.critical(self, tr("Gemeinsamer Druckordner"), out or f"Code {code}")
         else:
-            QMessageBox.information(self, tr("Gemeinsamer Druckordner"), (out + "\n\n" if out else "")
-                                    + shared.status_text())
+            QMessageBox.information(
+                self, tr("Gemeinsamer Druckordner"), (out + "\n\n" if out else "") + shared.status_text()
+            )
 
     def _saved_message(self, n_sys):
         lines = []
@@ -956,20 +1145,27 @@ class AdminDialog(QDialog):
             if pc.get("devmode"):
                 lines.append(tr("• {0}: Herstellereinstellungen gesetzt").format(q))
             if pc.get("presets"):
-                lines.append(tr("• {0}: {1} Finisher-Vorlage(n)").format(q, len(pc['presets'])))
+                lines.append(tr("• {0}: {1} Finisher-Vorlage(n)").format(q, len(pc["presets"])))
             if pc.get("trays"):
-                lines.append(tr("• {0}: Fächerbelegung mit {1} Lade(n)").format(q, len(pc['trays']))
-                             + (tr(", Füllstand live") if pc.get("tray_live") else ""))
-        msg = tr("Standards gespeichert.\n\n") + ("\n".join(lines) if lines else tr("Keine druckerspezifischen Abweichungen."))
+                lines.append(
+                    tr("• {0}: Fächerbelegung mit {1} Lade(n)").format(q, len(pc["trays"]))
+                    + (tr(", Füllstand live") if pc.get("tray_live") else "")
+                )
+        msg = tr("Standards gespeichert.\n\n") + (
+            "\n".join(lines) if lines else tr("Keine druckerspezifischen Abweichungen.")
+        )
         if n_sys:
-            msg += (tr("\n\n{0} Drucker zusätzlich als Windows-Standard gesetzt.").format(n_sys) if _platform.IS_WIN else
-                    tr("\n\n{0} Option(en) zusätzlich als CUPS-Queue-Standard gesetzt.").format(n_sys))
+            msg += (
+                tr("\n\n{0} Drucker zusätzlich als Windows-Standard gesetzt.").format(n_sys)
+                if _platform.IS_WIN
+                else tr("\n\n{0} Option(en) zusätzlich als CUPS-Queue-Standard gesetzt.").format(n_sys)
+            )
         QMessageBox.information(self, tr("Gespeichert"), msg)
         self.accept()
 
 
 def re_auto(choice) -> bool:
-    """"Automatic" entries do not belong in the assignment table."""
+    """ "Automatic" entries do not belong in the assignment table."""
     return bool(re.search(r"^auto|automat", f"{choice.value} {choice.text}", re.I))
 
 
@@ -1033,9 +1229,11 @@ class PresetDialog(QDialog):
             self.combos[k] = cb
             f.addRow(o.text + ":", cb)
         if not self.combos:
-            msg = (tr("Keine Finisher-Optionen im Treiber erkannt. ") +
-                   (tr("Nutze den Herstellerdialog unten.") if self.caps.backend == "win" else
-                    tr("„Alle Treiberoptionen anzeigen“ oder Finisher unter „Installierte Hardware“ einschalten.")))
+            msg = tr("Keine Finisher-Optionen im Treiber erkannt. ") + (
+                tr("Nutze den Herstellerdialog unten.")
+                if self.caps.backend == "win"
+                else tr("„Alle Treiberoptionen anzeigen“ oder Finisher unter „Installierte Hardware“ einschalten.")
+            )
             lbl = QLabel(msg)
             lbl.setWordWrap(True)
             f.addRow(lbl)
@@ -1044,6 +1242,7 @@ class PresetDialog(QDialog):
 
     def _dm(self):
         from ..printers_win import driver_dialog
+
         try:
             res = driver_dialog(int(self.winId()), self.printer, self.devmode)
         except Exception as e:

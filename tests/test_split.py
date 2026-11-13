@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Splitting pages (1.10.2): double pages of a wrongly exported booklet, halves, raster, rotated pages,
 trim size/bleed, right→left order, lossless (content split, not copied), command line."""
-import os, subprocess, sys, tempfile
+
+import os
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
@@ -23,7 +28,7 @@ def _booklet(path, bleed=0.0):
     c = canvas.Canvas(path)
     layout = [[0], [1, 2], [3, 4], [5]]
     for pages in layout:
-        w, h = (A4 if len(pages) == 1 else A3Q)
+        w, h = A4 if len(pages) == 1 else A3Q
         W, H = w + 2 * bleed, h + 2 * bleed
         c.setPageSize((W, H))
         for k, pg in enumerate(pages):
@@ -84,22 +89,23 @@ def test_trim_and_bleed_kept_outside():
         lt, rt = [float(x) for x in left.TrimBox], [float(x) for x in right.TrimBox]
         assert abs((lt[2] - lt[0]) - A4[0]) < 0.5 and abs((rt[2] - rt[0]) - A4[0]) < 0.5, (lt, rt)
         lm, rm = [float(x) for x in left.MediaBox], [float(x) for x in right.MediaBox]
-        assert abs(lt[0] - lm[0] - b) < 0.5 and abs(lm[2] - lt[2]) < 0.5      # left: bleed on the outside, none inside
+        assert abs(lt[0] - lm[0] - b) < 0.5 and abs(lm[2] - lt[2]) < 0.5  # left: bleed on the outside, none inside
         assert abs(rt[0] - rm[0]) < 0.5 and abs(rm[2] - rt[2] - b) < 0.5
 
 
 def test_grid_and_rotated_page():
     src = os.path.join(TMP, "r.pdf")
     c = canvas.Canvas(src, pagesize=A4)
-    for i, col in enumerate(COLORS[:4]):                 # 2×2 Felder in sichtbarer Lage (nach Drehung)
+    for i, col in enumerate(COLORS[:4]):  # 2×2 Felder in sichtbarer Lage (nach Drehung)
         c.setFillColorRGB(*col)
         c.rect((i % 2) * A4[0] / 2, (1 - i // 2) * A4[1] / 2, A4[0] / 2, A4[1] / 2, fill=1, stroke=0)
     c.showPage()
     c.save()
     data, info = split.split(src, split.SplitSettings(mode="grid", cols=2, rows=2))
     d = pdfium.PdfDocument(data)
-    assert info["pages_out"] == 4 and [_color(d[i]) for i in range(4)] == [tuple(round(x, 1) for x in c)
-                                                                        for c in COLORS[:4]]
+    assert info["pages_out"] == 4 and [_color(d[i]) for i in range(4)] == [
+        tuple(round(x, 1) for x in c) for c in COLORS[:4]
+    ]
     d.close()
     with pikepdf.open(src, allow_overwriting_input=True) as pdf:
         pdf.pages[0].Rotate = 90
@@ -107,7 +113,7 @@ def test_grid_and_rotated_page():
     data, info = split.split(src, split.SplitSettings(mode="halves_v"))
     d = pdfium.PdfDocument(data)
     w, h = d[0].get_size()
-    assert abs(w - A4[1] / 2) < 1 and abs(h - A4[0]) < 1, (w / mm, h / mm)    # sichtbar quer, links|rechts geteilt
+    assert abs(w - A4[1] / 2) < 1 and abs(h - A4[0]) < 1, (w / mm, h / mm)  # sichtbar quer, links|rechts geteilt
     d.close()
 
 
@@ -128,14 +134,37 @@ def test_cli():
     src = _booklet(os.path.join(TMP, "b4.pdf"))
     out = os.path.join(TMP, "out.pdf")
     env = dict(os.environ, PYTHONPATH=ROOT)
-    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "split", src, out, "--set", "only_spreads=true",
-                        "--quiet"], capture_output=True, text=True, env=env)
+    r = subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "split", src, out, "--set", "only_spreads=true", "--quiet"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
     assert r.returncode == 0, r.stderr
     assert len(pdfium.PdfDocument(out)) == 6
-    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "split", src, out, "--set", "mode=grid",
-                        "--set", "cols=3", "--set", "rows=1", "--pages", "1", "--quiet"], capture_output=True,
-                       text=True, env=env)
-    assert r.returncode == 0 and len(pdfium.PdfDocument(out)) == 6, r.stderr     # Seite 1 → 3, Rest bleibt
+    r = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pdfdruck.cli",
+            "split",
+            src,
+            out,
+            "--set",
+            "mode=grid",
+            "--set",
+            "cols=3",
+            "--set",
+            "rows=1",
+            "--pages",
+            "1",
+            "--quiet",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r.returncode == 0 and len(pdfium.PdfDocument(out)) == 6, r.stderr  # Seite 1 → 3, Rest bleibt
 
 
 if __name__ == "__main__":

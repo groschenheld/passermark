@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
-import os, sys, shutil, subprocess, tempfile
+import os
+import sys
+import shutil
+import tempfile
 import os as _os
-_os.environ.setdefault("PASSERMARK_LANG", "de")   # tests check German texts
+
+_os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import convert
 
@@ -18,13 +22,17 @@ def test_order():
 
 def test_libreoffice_real():
     if not shutil.which("soffice"):
-        print("  (LibreOffice nicht installiert – übersprungen)"); return
+        print("  (LibreOffice nicht installiert – übersprungen)")
+        return
     d = tempfile.mkdtemp()
-    p = os.path.join(d, "test.txt"); open(p, "w").write("Hallo Passermark\\n")
+    p = os.path.join(d, "test.txt")
+    open(p, "w").write("Hallo Passermark\\n")
     doc, used = convert.to_document(p, d, preference="libreoffice")
     assert used == "LibreOffice" and len(doc) == 1
 
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

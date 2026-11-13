@@ -14,6 +14,7 @@
   error or cancel there is never a half-written file left
 - without a GUI (no Qt) – also runs in a separate process or on the command line
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -33,8 +34,8 @@ class Cancelled(Exception):
 @dataclass
 class JobResult:
     output: str
-    info: dict = field(default_factory=dict)       # z. B. {"pages": 3, "cuts": 12}
-    notes: list = field(default_factory=list)      # hints for the user
+    info: dict = field(default_factory=dict)  # z. B. {"pages": 3, "cuts": 12}
+    notes: list = field(default_factory=list)  # hints for the user
 
 
 # --------------------------------------------------------------------------- #
@@ -66,13 +67,13 @@ def settings_from_dict(cls, data: dict | None):
 
 def compact_settings(cls, data: dict) -> dict:
     """Nur, was vom Standard abweicht – verschachtelte Einstellungen (z. B. detect.tolerance) ebenso, Listen ganz.
-        Laden ergänzt den Rest wieder mit den Standardwerten (settings_from_dict)."""
+    Laden ergänzt den Rest wieder mit den Standardwerten (settings_from_dict)."""
     default = settings_to_dict(cls())
     hints = typing.get_type_hints(cls)
     out = {}
     for k, v in data.items():
         if k not in default:
-            out[k] = v                                   # unbekannt: lieber behalten als still verlieren
+            out[k] = v  # unbekannt: lieber behalten als still verlieren
             continue
         b, t = default[k], hints.get(k)
         if isinstance(v, dict) and isinstance(b, dict) and dataclasses.is_dataclass(t):
@@ -88,6 +89,7 @@ def presets_full() -> bool:
     """Programm-Einstellung: Presets mit ALLEN Einstellungen speichern (sonst nur die Abweichungen)."""
     try:
         from . import l10n
+
         return bool(l10n.load_settings().get("presets_full", False))
     except Exception:
         return False
@@ -95,12 +97,12 @@ def presets_full() -> bool:
 
 def save_settings(path: str, kind: str, settings, full: bool | None = None) -> None:
     """Preset-Datei schreiben: {"job": kind, "settings": {…}} – nur, was vom Standard abweicht (lesbar);
-        full=True (oder Programm-Einstellung presets_full): alle Einstellungen."""
+    full=True (oder Programm-Einstellung presets_full): alle Einstellungen."""
     d = settings if isinstance(settings, dict) else settings_to_dict(settings)
     if not (presets_full() if full is None else full):
         try:
             d = compact_settings(settings_class(kind), d)
-        except ValueError:                                # unbekannter Auftrag: so lassen
+        except ValueError:  # unbekannter Auftrag: so lassen
             pass
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"job": kind, "settings": d}, f, ensure_ascii=False, indent=2)
@@ -112,8 +114,11 @@ def load_settings(path: str) -> tuple[str, dict]:
     if not isinstance(d, dict) or not isinstance(d.get("job"), str):
         name = os.path.basename(path)
         if isinstance(d, dict) and d.get("passermark") == "workflow":
-            raise ValueError(tr("„{0}“ ist ein Ablauf (mehrere Schritte), kein Preset – ausführen mit: "
-                                "passermark-cli run \"{0}\"").format(name))
+            raise ValueError(
+                tr(
+                    '„{0}“ ist ein Ablauf (mehrere Schritte), kein Preset – ausführen mit: passermark-cli run "{0}"'
+                ).format(name)
+            )
         raise ValueError(tr("„{0}“ ist keine Preset-Datei (Eintrag „job“ fehlt).").format(name))
     return d["job"], d.get("settings", {})
 
@@ -125,12 +130,12 @@ def load_settings(path: str) -> tuple[str, dict]:
 class SeparateSettings:
     detect: DetectSettings = field(default_factory=DetectSettings)
     margin_mm: float = 0.0
-    boxes: dict | None = None    # {Seite: [[x0, y0, x1, y1], …]} in pt; None = automatisch erkennen
+    boxes: dict | None = None  # {Seite: [[x0, y0, x1, y1], …]} in pt; None = automatisch erkennen
 
 
 @dataclass
 class RepairSettings:
-    mode: str = "print"          # siehe repair.MODES
+    mode: str = "print"  # siehe repair.MODES
     password: str = ""
     new_password: str = ""
     allow_print: bool = True
@@ -139,9 +144,9 @@ class RepairSettings:
 @dataclass
 class PreflightFixSettings:
     fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency | flatten_softmask
-    font_map: dict = field(default_factory=dict)        # embed_fonts: {Schriftname: Pfad}
-    dpi: int = 300                                      # flatten_transparency, flatten_softmask
-    visible: list | None = None                         # flatten_layers: sichtbare Ebenen (None = Druck-Zustand)
+    font_map: dict = field(default_factory=dict)  # embed_fonts: {Schriftname: Pfad}
+    dpi: int = 300  # flatten_transparency, flatten_softmask
+    visible: list | None = None  # flatten_layers: sichtbare Ebenen (None = Druck-Zustand)
 
 
 # --------------------------------------------------------------------------- #
@@ -170,6 +175,7 @@ def _write_atomic(dst: str, data: bytes):
 
 def _doc_bytes(doc) -> bytes:
     import io
+
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
@@ -181,10 +187,17 @@ def _doc_bytes(doc) -> bytes:
 def _job_cutcontour(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
     from . import cutcontour
+
     doc = pdfium.PdfDocument(src)
     try:
-        out, n = cutcontour.make(doc, s, opts.get("pages"), progress=progress, cancel=cancel,
-                                 workers=opts.get("workers") or cutcontour.default_workers())
+        out, n = cutcontour.make(
+            doc,
+            s,
+            opts.get("pages"),
+            progress=progress,
+            cancel=cancel,
+            workers=opts.get("workers") or cutcontour.default_workers(),
+        )
         try:
             _check(cancel)
             _write_atomic(dst, _doc_bytes(out))
@@ -198,6 +211,7 @@ def _job_cutcontour(src, dst, s, opts, progress, cancel):
 def _job_separate(src, dst, s: SeparateSettings, opts, progress, cancel):
     import pypdfium2 as pdfium
     from . import objects
+
     doc = pdfium.PdfDocument(src)
     norm = objects.normalized(doc)
     try:
@@ -233,6 +247,7 @@ def _job_manip(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
     from . import pdfmanip
     from .layout import flattened
+
     # crop_mode (format | trim | whiteout) – lesbarer Schalter für Abläufe/CLI; die Oberfläche setzt die
     # Sonderwerte direkt in crop_size (Presets daraus funktionieren weiterhin)
     if s.crop_mode == "trim":
@@ -265,6 +280,7 @@ def _job_manip(src, dst, s, opts, progress, cancel):
 
 def _job_repair(src, dst, s: RepairSettings, opts, progress, cancel):
     from . import repair
+
     _report(progress, 0, 1, tr("Bearbeite …"))
     tmp = dst + ".part.pdf"
     try:
@@ -280,6 +296,7 @@ def _job_repair(src, dst, s: RepairSettings, opts, progress, cancel):
 
 def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel):
     from . import preflight
+
     with open(src, "rb") as f:
         data = f.read()
     _report(progress, 0, 1, tr("Bearbeite …"))
@@ -287,7 +304,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
     if s.fix == "flatten_layers":
         if preflight.has_layers(data):
             out = preflight.flatten_layers(data, set(s.visible) if s.visible is not None else None)
-        else:                                    # nichts zu tun – in Ketten/Ordnern nicht abbrechen
+        else:  # nichts zu tun – in Ketten/Ordnern nicht abbrechen
             out = data
             notes.append(tr("Keine Ebenen – Datei unverändert übernommen."))
     elif s.fix == "embed_fonts":
@@ -302,6 +319,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
         def step(done, total):
             _check(cancel)
             _report(progress, done, total, tr("Verlauf {0} von {1} …").format(done + 1, total))
+
         out, more = softmask.flatten_softmask_paints(data, s.dpi, step)
         notes += more
     else:
@@ -315,6 +333,7 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
 def _job_shrink(src, dst, s, opts, progress, cancel):
     """Dateigröße verkleinern – jede Maßnahme einzeln schaltbar (siehe shrink.ShrinkOptions)."""
     from . import shrink
+
     with open(src, "rb") as f:
         data = f.read()
     _report(progress, 0, 1, tr("Bearbeite …"))
@@ -322,9 +341,10 @@ def _job_shrink(src, dst, s, opts, progress, cancel):
     def step(done, total):
         _check(cancel)
         _report(progress, done, total, tr("Bild {0} von {1} …").format(done + 1, total))
+
     out, notes = shrink.shrink(data, s, step)
     _check(cancel)
-    if len(out) >= len(data):                    # nichts gewonnen -> Original übernehmen
+    if len(out) >= len(data):  # nichts gewonnen -> Original übernehmen
         out = data
         notes = [tr("Keine Einsparung – Datei unverändert übernommen.")]
     _write_atomic(dst, out)
@@ -334,6 +354,7 @@ def _job_shrink(src, dst, s, opts, progress, cancel):
 
 def _shrink_settings():
     from .shrink import ShrinkOptions
+
     return ShrinkOptions
 
 
@@ -341,6 +362,7 @@ def _job_impose(src, dst, s, opts, progress, cancel):
     """Imposition as in the print dialog (size, multiple, booklet/signatures, poster, step & repeat) – result as PDF."""
     import pypdfium2 as pdfium
     from . import layout
+
     sheet = s.sheet_obj()
     doc = pdfium.PdfDocument(src)
     try:
@@ -371,11 +393,12 @@ def _job_impose(src, dst, s, opts, progress, cancel):
 def _job_vdp(src, dst, s, opts, progress, cancel):
     """Variable Daten: Felder je Datensatz auf eine Kopie der Vorlage legen."""
     from . import vdp
-    try:                                          # Datenprüfung: Überlauf, leere Spalten, ungültige Codes
+
+    try:  # Datenprüfung: Überlauf, leere Spalten, ungültige Codes
         chk = vdp.check(s)
-    except Exception:                             # noqa: BLE001 – die Prüfung darf das Erzeugen nie verhindern
+    except Exception:  # noqa: BLE001 – die Prüfung darf das Erzeugen nie verhindern
         chk = {"counts": {}}
-    if vdp.check_blocking(chk):                    # ungültige Codes, fehlende Bilder brechen ohnehin ab: alle auf einmal
+    if vdp.check_blocking(chk):  # ungültige Codes, fehlende Bilder brechen ohnehin ab: alle auf einmal
         raise ValueError(vdp.check_text(chk, limit=20))
     data, info = vdp.build(src, s, progress=progress, cancel=cancel, pages=opts.get("pages"))
     _check(cancel)
@@ -391,47 +414,58 @@ def _job_vdp(src, dst, s, opts, progress, cancel):
 def _job_split(src, dst, s, opts, progress, cancel):
     """Split pages (halves/grid, optionally double pages only) – lossless via clips."""
     from . import split
+
     data, info = split.split(src, s, pages=opts.get("pages"), progress=progress, cancel=cancel)
     _check(cancel)
     _write_atomic(dst, data)
-    return JobResult(dst, info, [tr("{0} Seiten geteilt: {1} → {2} Seiten.").format(
-        info["split"], info["pages_in"], info["pages_out"])])
+    return JobResult(
+        dst,
+        info,
+        [tr("{0} Seiten geteilt: {1} → {2} Seiten.").format(info["split"], info["pages_in"], info["pages_out"])],
+    )
 
 
 def _split_settings():
     from .split import SplitSettings
+
     return SplitSettings
 
 
 def _vdp_settings():
     from .vdp import VdpSettings
+
     return VdpSettings
 
 
 def _impose_settings():
     from .layout import ImposeSettings
+
     return ImposeSettings
 
 
 def _cut_settings():
     from .cutcontour import CutSettings
+
     return CutSettings
 
 
 def _job_press(src, dst, s, opts, progress, cancel):
     """Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer, optional Paket (pressexport.py)."""
     from . import pressexport
+
     r = pressexport.run(src, dst, s, progress=lambda d, t, x: _report(progress, d, t, x), cancel=cancel)
     return JobResult(dst, r["info"], r["notes"])
 
 
 def _press_settings():
     from .pressexport import PressSettings
+
     return PressSettings
 
 
 def _manip_settings():
     from .cmyk import ManipSettings
+
     return ManipSettings
 
 
@@ -456,10 +490,11 @@ def settings_class(kind: str):
     return JOBS[kind][0]()
 
 
-def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None = None,
-            progress=None, cancel=None) -> JobResult:
+def run_job(
+    kind: str, src: str, dst: str, settings=None, options: dict | None = None, progress=None, cancel=None
+) -> JobResult:
     """Run a job. settings: dict (e.g. from JSON) or the matching settings class.
-        options: {"pages": [0, 2, …]} (only these pages, where sensible).
+    options: {"pages": [0, 2, …]} (only these pages, where sensible).
     """
     cls = settings_class(kind)
     s = settings_from_dict(cls, settings) if not isinstance(settings, cls) else settings
@@ -467,8 +502,9 @@ def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None =
         raise ValueError(tr("Eingabe und Ausgabe dürfen nicht dieselbe Datei sein."))
     _check(cancel)
     pages = (options or {}).get("pages")
-    if pages:                                       # Seiten außerhalb des Dokuments: klare Meldung statt IndexError
+    if pages:  # Seiten außerhalb des Dokuments: klare Meldung statt IndexError
         import pypdfium2 as pdfium
+
         doc = pdfium.PdfDocument(src)
         try:
             n = len(doc)
@@ -476,6 +512,9 @@ def run_job(kind: str, src: str, dst: str, settings=None, options: dict | None =
             doc.close()
         bad = sorted(p + 1 for p in pages if not 0 <= p < n)
         if bad:
-            raise ValueError(tr("Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).").format(
-                ", ".join(str(b) for b in bad[:5]) + (" …" if len(bad) > 5 else ""), n))
+            raise ValueError(
+                tr("Seite {0} gibt es nicht – das Dokument hat {1} Seite(n).").format(
+                    ", ".join(str(b) for b in bad[:5]) + (" …" if len(bad) > 5 else ""), n
+                )
+            )
     return JOBS[kind][1](src, dst, s, options or {}, progress, cancel)

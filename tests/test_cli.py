@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Command line as a real process: list, settings, jobs, presets, JSON progress, return codes, cancellation."""
-import json, os, signal, subprocess, sys, tempfile, time
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, ROOT); sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)
+sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 from pdfdruck import cli
 
@@ -12,14 +21,16 @@ ENV = dict(os.environ, PYTHONPATH=ROOT, PASSERMARK_LANG="de")
 
 
 def run(*args, **kw):
-    return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True,
-                          env=ENV, timeout=600, **kw)
+    return subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", *args], capture_output=True, text=True, env=ENV, timeout=600, **kw
+    )
 
 
 def stickers():
     p = os.path.join(TMP, "stickers.pdf")
     if not os.path.exists(p):
         import test_cutcontour as tc
+
         tc.stickers().save(p)
     return p
 
@@ -50,7 +61,7 @@ def test_job_with_set_and_preset():
     out2 = os.path.join(TMP, "b.pdf")
     r = run("cutcontour", stickers(), out2, "--preset", preset, "--set", "single_shape=false")
     assert r.returncode == 0 and os.path.exists(out2) and "cuts: 3" in r.stdout, r.stdout + r.stderr
-    assert "%" in r.stderr                                    # Fortschrittsbalken
+    assert "%" in r.stderr  # Fortschrittsbalken
     r = run("separate", stickers(), out2, "--preset", preset)  # Preset passt nicht zum Auftrag
     assert r.returncode == 2
 
@@ -66,7 +77,7 @@ def test_json_progress():
 
 
 def test_exit_codes():
-    assert run("cutcontour").returncode == 2                  # Eingabe/Ausgabe fehlen
+    assert run("cutcontour").returncode == 2  # Eingabe/Ausgabe fehlen
     assert run("gibts_nicht", "a", "b").returncode == 2
     assert run("cutcontour", stickers(), os.path.join(TMP, "x.pdf"), "--pages", "0").returncode == 2
     assert run("--hilfe-gibts-nicht").returncode == 2
@@ -78,6 +89,7 @@ def _slow_input():
     if not os.path.exists(p):
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
+
         c = canvas.Canvas(p, pagesize=A4)
         for _page in range(12):
             for i in range(8):
@@ -92,9 +104,24 @@ def _slow_input():
 def test_cancel_by_signal_leaves_no_file():
     for sig in (signal.SIGINT, signal.SIGTERM):
         out = os.path.join(TMP, f"abbruch-{int(sig)}.pdf")
-        p = subprocess.Popen([sys.executable, "-m", "pdfdruck.cli", "cutcontour", _slow_input(), out, "--json-progress",
-                              "--set", "dpi=200"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=ENV)
-        first = p.stdout.readline()                              # warten, bis er wirklich rechnet
+        p = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "pdfdruck.cli",
+                "cutcontour",
+                _slow_input(),
+                out,
+                "--json-progress",
+                "--set",
+                "dpi=200",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=ENV,
+        )
+        first = p.stdout.readline()  # warten, bis er wirklich rechnet
         assert json.loads(first)["event"] == "progress", first
         time.sleep(0.5)
         p.send_signal(sig)
@@ -105,11 +132,14 @@ def test_cancel_by_signal_leaves_no_file():
 
 
 def test_main_entry_cli_flag():
-    r = subprocess.run([sys.executable, "-m", "pdfdruck", "--cli", "list"], capture_output=True, text=True, env=ENV,
-                       timeout=120)
+    r = subprocess.run(
+        [sys.executable, "-m", "pdfdruck", "--cli", "list"], capture_output=True, text=True, env=ENV, timeout=120
+    )
     assert r.returncode == 0 and "cutcontour" in r.stdout
 
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Mitgelieferte Beispiele (Variable Daten) und Anleitungen: im Paket, holen, Presets, Kommandozeile."""
-import json, os, subprocess, sys, tempfile
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
@@ -16,8 +22,9 @@ ENV = dict(os.environ, PYTHONPATH=ROOT)
 
 
 def _cli(*args, cwd=None):
-    return subprocess.run([sys.executable, "-m", "pdfdruck.cli", *args], cwd=cwd or TMP, env=ENV,
-                          capture_output=True, text=True)
+    return subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", *args], cwd=cwd or TMP, env=ENV, capture_output=True, text=True
+    )
 
 
 def _pages(p):
@@ -29,8 +36,13 @@ def _pages(p):
 
 
 def test_in_package():
-    for p in (examples.CLI_HOWTO, examples.VDP_HOWTO, os.path.join(examples.VDP_DIR, "vorlage-a6.pdf"),
-              os.path.join(examples.VDP_DIR, "daten.csv"), os.path.join(examples.VDP_DIR, "LIESMICH.txt")):
+    for p in (
+        examples.CLI_HOWTO,
+        examples.VDP_HOWTO,
+        os.path.join(examples.VDP_DIR, "vorlage-a6.pdf"),
+        os.path.join(examples.VDP_DIR, "daten.csv"),
+        os.path.join(examples.VDP_DIR, "LIESMICH.txt"),
+    ):
         assert os.path.isfile(p), p
     for stem, _ in examples.EXAMPLES:
         assert os.path.isfile(os.path.join(examples.VDP_DIR, "presets", stem + ".json")), stem
@@ -42,7 +54,7 @@ def test_in_package():
         assert s in full, s
     for s in ("Visitenkarte (vCard)", "Spalten zuordnen", "kontakte-outlook.csv"):
         assert s in full, s
-    for s in ("Business card", "phone offers", "Wi-Fi access"):          # Handbuch nie in der Systemsprache
+    for s in ("Business card", "phone offers", "Wi-Fi access"):  # Handbuch nie in der Systemsprache
         assert s not in full, s
 
 

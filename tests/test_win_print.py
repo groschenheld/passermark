@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Windows print path without Windows: win32gui/win32print/gdi32 rebuilt (tests/_winstub), the "driver" draws
 all bands onto a canvas. Checks raster (gapless, pixel-exact), JPEG, PostScript selection and the error case."""
-import os, sys
+
+import os
+import sys
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "_winstub"))
@@ -34,9 +37,9 @@ def test_raster_bands_exact_and_jpeg_smaller():
         pw.BAND_BYTES = 2 * 1024 * 1024
         assert pw.print_pdf("T", SAMPLE, "t", {}, 1, True) == 42
         bands = [c for c in g.calls if c[0] == "band"]
-        assert len(bands) > len(g.pages)                                  # wirklich in Streifen
+        assert len(bands) > len(g.pages)  # wirklich in Streifen
         for a, b in zip(bands, bands[1:]):
-            assert b[1] in (a[1] + a[2], 0)                               # gapless
+            assert b[1] in (a[1] + a[2], 0)  # gapless
         diff = np.abs(np.asarray(g.pages[0].resize(ref.size), int) - np.asarray(ref, int)).mean()
         assert diff < 6, diff
         assert all(c[3] == (4 if jpeg else 0) for c in bands)
@@ -56,8 +59,10 @@ def test_postscript_driver_uses_pdfium_ps_and_resets():
         assert [x for x in log if x[0] == "mode"] == [("mode", 3), ("mode", 0)]
         assert not any(c[0] == "band" for c in g.calls)
     finally:
-        if not had[0]: del r.FPDF_SetPrintMode
-        if not had[1]: del r.FPDF_RenderPage
+        if not had[0]:
+            del r.FPDF_SetPrintMode
+        if not had[1]:
+            del r.FPDF_RenderPage
 
 
 def test_error_aborts_job():
@@ -87,6 +92,7 @@ def test_auto_is_plain_raster_even_if_driver_claims_more():
 def test_job_log_written():
     import tempfile
     from pdfdruck import platform as pl
+
     d = tempfile.mkdtemp()
     old = pl.user_log_dir
     pl.user_log_dir = lambda: d
@@ -94,7 +100,8 @@ def test_job_log_written():
         _setup(dpi=300)
         pw.print_settings = lambda: ("auto", 0)
         pw.print_pdf("Büro-Drucker", SAMPLE, "t", {}, 1, True)
-        g = _setup(dpi=300); g.StretchDIBits = lambda *a: 0
+        g = _setup(dpi=300)
+        g.StretchDIBits = lambda *a: 0
         try:
             pw.print_pdf("Büro-Drucker", SAMPLE, "t", {}, 1, True)
         except RuntimeError:
@@ -113,17 +120,20 @@ def test_test_print_all_modes():
     try:
         res = dict(pw.test_print("T"))
     finally:
-        if not had: del r.FPDF_RenderPage
+        if not had:
+            del r.FPDF_RenderPage
     assert list(res) == [lab for _m, lab in pw.TEST_MODES]
     assert res["Raster"] == "ok" and res["Raster + JPEG"] == "ok" and res["Vektor (GDI)"] == "ok"
-    assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"    # Treiber kann es nicht -> gemeldet
+    assert "PostScript" in res["PostScript"] and res["PostScript"] != "ok"  # Treiber kann es nicht -> gemeldet
     assert len(g.pages) == 4 and ("vector",) in g.calls
 
 
 def test_custom_paper_size_devmode():
     """Custom format: DMPAPER_USER with width/length in 0.1 mm; standard formats as before."""
+
     class DM:
         Fields = 0
+
     pw.devmode_from_str = lambda printer, s: DM()
     dm = _ORIG_DEVMODE("T", {"PageSize": printers.custom_value(330, 1000)}, 1, True)
     assert dm.PaperSize == 256 and dm.PaperWidth == 3300 and dm.PaperLength == 10000
@@ -134,4 +144,6 @@ def test_custom_paper_size_devmode():
 
 if __name__ == "__main__":
     for k, f in list(globals().items()):
-        if k.startswith("test_"): f(); print("ok", k)
+        if k.startswith("test_"):
+            f()
+            print("ok", k)

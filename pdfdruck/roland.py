@@ -14,6 +14,7 @@ Only for devices recognised as Roland (name/model) – a normal printer on port 
 Printer-cutters (TrueVIS, VersaSTUDIO …) print through VersaWorks: Passermark hands them a PDF with the spot
 colour CutContour (hot folder), VersaWorks adds its own crop marks.
 """
+
 from __future__ import annotations
 
 import re
@@ -36,7 +37,7 @@ def _ask(host: str, data: bytes, port: int = PORT, timeout: float = 3.0) -> byte
         while not buf.endswith(b"\r") and len(buf) < 256:
             try:
                 chunk = s.recv(64)
-            except socket.timeout:
+            except TimeoutError:
                 break
             if not chunk:
                 break
@@ -50,8 +51,13 @@ def parse_hardclip(raw: bytes) -> dict | None:
         return None
     x1, y1, x2, y2 = nums
     dx, dy = abs(x2 - x1) * UNIT_MM, abs(y2 - y1) * UNIT_MM
-    return {"x_mm": round(dx, 1), "y_mm": round(dy, 1), "width_mm": round(dy, 1), "length_mm": round(dx, 1),
-            "raw": raw.decode("latin-1", "replace").strip()}
+    return {
+        "x_mm": round(dx, 1),
+        "y_mm": round(dy, 1),
+        "width_mm": round(dy, 1),
+        "length_mm": round(dx, 1),
+        "raw": raw.decode("latin-1", "replace").strip(),
+    }
 
 
 def query(host: str, port: int = PORT, timeout: float = 3.0) -> dict:
@@ -73,7 +79,7 @@ def hpgl(paths_mm: list, force: int = 0, speed: int = 0) -> bytes:
     for poly in paths_mm:
         if len(poly) < 2:
             continue
-        pts = [(round(y / UNIT_MM), round(x / UNIT_MM)) for x, y in poly]   # Gerät: X = Vorschub, Y = quer
+        pts = [(round(y / UNIT_MM), round(x / UNIT_MM)) for x, y in poly]  # Gerät: X = Vorschub, Y = quer
         out.append("PU{0},{1}".format(*pts[0]))
         out.append("PD" + ",".join(f"{a},{b}" for a, b in pts[1:]))
     out.append("PU0,0")

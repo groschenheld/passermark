@@ -10,6 +10,7 @@ The program only reads this file. It is written exclusively via the polkit helpe
 User changes live only in the memory of the running session -> after quitting,
 the admin defaults automatically apply again.
 """
+
 from __future__ import annotations
 
 import copy
@@ -35,17 +36,53 @@ BUILTIN = {
     "version": 1,
     "default_printer": "",
     "layout": {
-        "mode": "fit", "custom_percent": 100.0, "custom_by": "percent", "custom_mm": 210.0, "nup": 1, "cols": 0, "rows": 0,
-        "order": "horizontal", "tile_mode": "fit", "tile_percent": 100.0, "gap_mm": 0.0,
-        "borders": False, "orientation": "auto", "autorotate": True, "center": True,
-        "use_margins": True, "handling": "size",
-        "booklet_sides": "both", "booklet_binding": "left", "booklet_sheets": "", "booklet_gutter_mm": 0.0,
-        "poster_mode": "scale", "poster_percent": 200.0, "poster_cols": 2, "poster_rows": 2,
-        "poster_target": "A2", "poster_target_w_mm": 420.0, "poster_target_h_mm": 594.0,
-        "poster_overlap_mm": 10.0, "poster_marks": True, "poster_labels": True, "poster_large_only": False,
-        "mirror_h": False, "mirror_v": False, "step_repeat": False, "sr_mode": "auto", "sr_cols": 2,
-        "sr_rows": 5, "sr_gap_mm": 0.0, "sr_percent": 100.0, "sr_by": "percent", "sr_mm": 85.0,
-        "sr_orientation": "auto", "sr_rotate": "auto", "sr_join": "bleed", "crop_marks": False, "bleed_mm": 0.0,
+        "mode": "fit",
+        "custom_percent": 100.0,
+        "custom_by": "percent",
+        "custom_mm": 210.0,
+        "nup": 1,
+        "cols": 0,
+        "rows": 0,
+        "order": "horizontal",
+        "tile_mode": "fit",
+        "tile_percent": 100.0,
+        "gap_mm": 0.0,
+        "borders": False,
+        "orientation": "auto",
+        "autorotate": True,
+        "center": True,
+        "use_margins": True,
+        "handling": "size",
+        "booklet_sides": "both",
+        "booklet_binding": "left",
+        "booklet_sheets": "",
+        "booklet_gutter_mm": 0.0,
+        "poster_mode": "scale",
+        "poster_percent": 200.0,
+        "poster_cols": 2,
+        "poster_rows": 2,
+        "poster_target": "A2",
+        "poster_target_w_mm": 420.0,
+        "poster_target_h_mm": 594.0,
+        "poster_overlap_mm": 10.0,
+        "poster_marks": True,
+        "poster_labels": True,
+        "poster_large_only": False,
+        "mirror_h": False,
+        "mirror_v": False,
+        "step_repeat": False,
+        "sr_mode": "auto",
+        "sr_cols": 2,
+        "sr_rows": 5,
+        "sr_gap_mm": 0.0,
+        "sr_percent": 100.0,
+        "sr_by": "percent",
+        "sr_mm": 85.0,
+        "sr_orientation": "auto",
+        "sr_rotate": "auto",
+        "sr_join": "bleed",
+        "crop_marks": False,
+        "bleed_mm": 0.0,
     },
     # "printers": {"<queue>": {"options": {"InputSlot": "Cas1"}, "color_profile": "", "intent": "relative"}}
     "printers": {},
@@ -53,10 +90,10 @@ BUILTIN = {
     #   "driver_options": {"<PPD-Key>": "<Wert>"}}]
     "color_profiles": [],
     "allow_user_profile_choice": True,
-    "image_default_dpi": 96,        # images without a DPI value: this is how large 1 pixel becomes
-    "office_converter": "auto",     # auto | libreoffice | onlyoffice | eurooffice
-    "language": "",                 # default language for all users ("" = system language)
-    "workflow_dirs": [],            # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
+    "image_default_dpi": 96,  # images without a DPI value: this is how large 1 pixel becomes
+    "office_converter": "auto",  # auto | libreoffice | onlyoffice | eurooffice
+    "language": "",  # default language for all users ("" = system language)
+    "workflow_dirs": [],  # weitere Ablauf-Ordner für alle (z. B. Netzwerkfreigabe), nach den eigenen
     # Druckprotokoll: force = für alle an, dir = gemeinsamer Ordner ("" = je Benutzer), keep_days 0 = nie löschen
     "print_log": {"force": False, "dir": "", "keep_days": 0},
     # Materialien (Papiere): [{"id", "name", "weight" g/m², "surface", "white": [L, a, b] | None (gemessen, D50),
@@ -87,8 +124,7 @@ def load() -> dict:
 
 
 def profiles_for(cfg: dict, printer: str) -> list[dict]:
-    return [p for p in cfg.get("color_profiles", [])
-            if not p.get("printers") or printer in p.get("printers", [])]
+    return [p for p in cfg.get("color_profiles", []) if not p.get("printers") or printer in p.get("printers", [])]
 
 
 def profile_by_id(cfg: dict, pid: str) -> dict | None:

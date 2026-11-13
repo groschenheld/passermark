@@ -11,6 +11,7 @@ and editable in Excel; multi-line content with special characters never ends up 
 
 Column names are searched regardless of case.
 """
+
 from __future__ import annotations
 
 import csv
@@ -25,8 +26,8 @@ from .l10n import tr
 
 @dataclass
 class Col:
-    key: str                     # Spaltenname in der CSV (= Platzhalter {{key}})
-    hint: str = ""               # short explanation (header tooltip, manual)
+    key: str  # Spaltenname in der CSV (= Platzhalter {{key}})
+    hint: str = ""  # short explanation (header tooltip, manual)
     required: bool = False
     example: str = ""
 
@@ -35,75 +36,152 @@ class Col:
 class Kind:
     id: str
     title: str
-    field_kind: str              # passendes Feld in Variable Daten: qr | code128 | ean13 | text
+    field_kind: str  # passendes Feld in Variable Daten: qr | code128 | ean13 | text
     cols: list = field(default_factory=list)
     help: str = ""
-    free_cols: bool = False      # custom columns wanted (text)
+    free_cols: bool = False  # custom columns wanted (text)
 
 
 def _kinds() -> dict:
     """All data kinds (texts translated on every call)."""
     K = [
-        Kind("vcard", tr("QR – Visitenkarte (vCard)"), "qr", [
-            Col("Vorname", tr("Vorname"), example="Anna"),
-            Col("Nachname", tr("Nachname – Vor- oder Nachname muss ausgefüllt sein"), example="Huber"),
-            Col("Firma", tr("Firma oder Organisation"), example="Druckerei Huber"),
-            Col("Position", tr("Funktion, z. B. Geschäftsführerin"), example="Geschäftsführerin"),
-            Col("Telefon", tr("Festnetz, am besten international: +43 316 123456"), example="+43 316 123456"),
-            Col("Mobil", tr("Handynummer"), example="+43 660 1234567"),
-            Col("E-Mail", tr("E-Mail-Adresse"), example="anna@huber.at"),
-            Col("Straße", tr("Straße und Hausnummer"), example="Hauptplatz 1"),
-            Col("PLZ", tr("Postleitzahl"), example="8010"),
-            Col("Ort", tr("Ort"), example="Graz"),
-            Col("Land", tr("Land"), example="Österreich"),
-            Col("Web", tr("Webadresse"), example="https://huber.at"),
-            Col("Notiz", tr("freier Text"), example=""),
-        ], tr("Das Handy bietet beim Scannen an, den Kontakt zu speichern.")),
-        Kind("wifi", tr("QR – WLAN-Zugang"), "qr", [
-            Col("Netzname", tr("Name des WLANs (SSID), genau wie am Router"), True, "Gaeste"),
-            Col("Passwort", tr("WLAN-Passwort – leer bei offenem Netz"), example="sommer2026"),
-            Col("Verschlüsselung", tr("WPA (Standard, auch WPA2/WPA3), WEP oder keine"), example="WPA"),
-            Col("Versteckt", tr("ja, wenn das Netz seinen Namen nicht anzeigt – sonst leer"), example=""),
-        ], tr("Das Handy verbindet sich nach dem Scannen mit dem WLAN.")),
-        Kind("email", tr("QR – E-Mail"), "qr", [
-            Col("E-Mail", tr("Empfänger"), True, "info@huber.at"),
-            Col("Betreff", tr("Betreff (wird vorausgefüllt)"), example="Anfrage"),
-            Col("Text", tr("Nachricht (wird vorausgefüllt)"), example=""),
-        ], tr("Öffnet eine neue E-Mail mit Empfänger, Betreff und Text.")),
-        Kind("url", tr("QR – Webadresse"), "qr", [
-            Col("Adresse", tr("z. B. huber.at/aktion – https:// wird ergänzt"), True, "https://huber.at"),
-        ], tr("Öffnet die Webseite.")),
-        Kind("phone", tr("QR – Anruf"), "qr", [
-            Col("Telefon", tr("Nummer, am besten international: +43 316 123456"), True, "+43 316 123456"),
-        ], tr("Das Handy bietet an, die Nummer anzurufen.")),
-        Kind("sms", tr("QR – SMS"), "qr", [
-            Col("Telefon", tr("Empfänger"), True, "+43 660 1234567"),
-            Col("Text", tr("Nachricht (wird vorausgefüllt)"), example="Gewinnspiel"),
-        ], tr("Öffnet eine SMS mit Empfänger und Text.")),
-        Kind("event", tr("QR – Termin"), "qr", [
-            Col("Titel", tr("Name des Termins"), True, "Tag der offenen Tür"),
-            Col("Beginn", tr("Datum und Uhrzeit: 24.10.2026 18:00 oder 2026-10-24 18:00 – nur Datum = ganztägig"),
-                True, "24.10.2026 18:00"),
-            Col("Ende", tr("wie Beginn – leer = eine Stunde nach Beginn"), example="24.10.2026 21:00"),
-            Col("Ort", tr("Ort oder Adresse"), example="Hauptplatz 1, Graz"),
-            Col("Beschreibung", tr("freier Text"), example=""),
-        ], tr("Das Handy bietet an, den Termin in den Kalender zu übernehmen.")),
-        Kind("geo", tr("QR – Standort"), "qr", [
-            Col("Breite", tr("Breitengrad, z. B. 47.0707"), True, "47.0707"),
-            Col("Länge", tr("Längengrad, z. B. 15.4395"), True, "15.4395"),
-        ], tr("Öffnet den Ort in der Karten-App.")),
-        Kind("qrtext", tr("QR – freier Text"), "qr", [
-            Col("Inhalt", tr("beliebiger Text, Nummer oder Adresse"), True, "Ticket 0001"),
-        ], tr("Der Text steht genau so im QR-Code.")),
-        Kind("code128", tr("Strichcode – Code 128"), "code128", [
-            Col("Code", tr("Buchstaben, Ziffern und übliche Zeichen, keine Umlaute"), True, "ART-1001"),
-        ], tr("Für Artikel-, Lager- und Ticketnummern.")),
-        Kind("ean13", tr("Strichcode – EAN-13"), "ean13", [
-            Col("EAN", tr("12 Ziffern (Prüfziffer wird gerechnet) oder 13 Ziffern"), True, "4006381333931"),
-        ], tr("Artikelnummer für den Handel (bei GS1 registriert) oder intern 20…–29…")),
-        Kind("text", tr("Text – eigene Spalten"), "text", [
-            Col("Text", tr("beliebiger Text"), example="Anna Huber"),
-        ], tr("Eigene Spalten anlegen, z. B. Name, Tisch, Kategorie."), free_cols=True),
+        Kind(
+            "vcard",
+            tr("QR – Visitenkarte (vCard)"),
+            "qr",
+            [
+                Col("Vorname", tr("Vorname"), example="Anna"),
+                Col("Nachname", tr("Nachname – Vor- oder Nachname muss ausgefüllt sein"), example="Huber"),
+                Col("Firma", tr("Firma oder Organisation"), example="Druckerei Huber"),
+                Col("Position", tr("Funktion, z. B. Geschäftsführerin"), example="Geschäftsführerin"),
+                Col("Telefon", tr("Festnetz, am besten international: +43 316 123456"), example="+43 316 123456"),
+                Col("Mobil", tr("Handynummer"), example="+43 660 1234567"),
+                Col("E-Mail", tr("E-Mail-Adresse"), example="anna@huber.at"),
+                Col("Straße", tr("Straße und Hausnummer"), example="Hauptplatz 1"),
+                Col("PLZ", tr("Postleitzahl"), example="8010"),
+                Col("Ort", tr("Ort"), example="Graz"),
+                Col("Land", tr("Land"), example="Österreich"),
+                Col("Web", tr("Webadresse"), example="https://huber.at"),
+                Col("Notiz", tr("freier Text"), example=""),
+            ],
+            tr("Das Handy bietet beim Scannen an, den Kontakt zu speichern."),
+        ),
+        Kind(
+            "wifi",
+            tr("QR – WLAN-Zugang"),
+            "qr",
+            [
+                Col("Netzname", tr("Name des WLANs (SSID), genau wie am Router"), True, "Gaeste"),
+                Col("Passwort", tr("WLAN-Passwort – leer bei offenem Netz"), example="sommer2026"),
+                Col("Verschlüsselung", tr("WPA (Standard, auch WPA2/WPA3), WEP oder keine"), example="WPA"),
+                Col("Versteckt", tr("ja, wenn das Netz seinen Namen nicht anzeigt – sonst leer"), example=""),
+            ],
+            tr("Das Handy verbindet sich nach dem Scannen mit dem WLAN."),
+        ),
+        Kind(
+            "email",
+            tr("QR – E-Mail"),
+            "qr",
+            [
+                Col("E-Mail", tr("Empfänger"), True, "info@huber.at"),
+                Col("Betreff", tr("Betreff (wird vorausgefüllt)"), example="Anfrage"),
+                Col("Text", tr("Nachricht (wird vorausgefüllt)"), example=""),
+            ],
+            tr("Öffnet eine neue E-Mail mit Empfänger, Betreff und Text."),
+        ),
+        Kind(
+            "url",
+            tr("QR – Webadresse"),
+            "qr",
+            [
+                Col("Adresse", tr("z. B. huber.at/aktion – https:// wird ergänzt"), True, "https://huber.at"),
+            ],
+            tr("Öffnet die Webseite."),
+        ),
+        Kind(
+            "phone",
+            tr("QR – Anruf"),
+            "qr",
+            [
+                Col("Telefon", tr("Nummer, am besten international: +43 316 123456"), True, "+43 316 123456"),
+            ],
+            tr("Das Handy bietet an, die Nummer anzurufen."),
+        ),
+        Kind(
+            "sms",
+            tr("QR – SMS"),
+            "qr",
+            [
+                Col("Telefon", tr("Empfänger"), True, "+43 660 1234567"),
+                Col("Text", tr("Nachricht (wird vorausgefüllt)"), example="Gewinnspiel"),
+            ],
+            tr("Öffnet eine SMS mit Empfänger und Text."),
+        ),
+        Kind(
+            "event",
+            tr("QR – Termin"),
+            "qr",
+            [
+                Col("Titel", tr("Name des Termins"), True, "Tag der offenen Tür"),
+                Col(
+                    "Beginn",
+                    tr("Datum und Uhrzeit: 24.10.2026 18:00 oder 2026-10-24 18:00 – nur Datum = ganztägig"),
+                    True,
+                    "24.10.2026 18:00",
+                ),
+                Col("Ende", tr("wie Beginn – leer = eine Stunde nach Beginn"), example="24.10.2026 21:00"),
+                Col("Ort", tr("Ort oder Adresse"), example="Hauptplatz 1, Graz"),
+                Col("Beschreibung", tr("freier Text"), example=""),
+            ],
+            tr("Das Handy bietet an, den Termin in den Kalender zu übernehmen."),
+        ),
+        Kind(
+            "geo",
+            tr("QR – Standort"),
+            "qr",
+            [
+                Col("Breite", tr("Breitengrad, z. B. 47.0707"), True, "47.0707"),
+                Col("Länge", tr("Längengrad, z. B. 15.4395"), True, "15.4395"),
+            ],
+            tr("Öffnet den Ort in der Karten-App."),
+        ),
+        Kind(
+            "qrtext",
+            tr("QR – freier Text"),
+            "qr",
+            [
+                Col("Inhalt", tr("beliebiger Text, Nummer oder Adresse"), True, "Ticket 0001"),
+            ],
+            tr("Der Text steht genau so im QR-Code."),
+        ),
+        Kind(
+            "code128",
+            tr("Strichcode – Code 128"),
+            "code128",
+            [
+                Col("Code", tr("Buchstaben, Ziffern und übliche Zeichen, keine Umlaute"), True, "ART-1001"),
+            ],
+            tr("Für Artikel-, Lager- und Ticketnummern."),
+        ),
+        Kind(
+            "ean13",
+            tr("Strichcode – EAN-13"),
+            "ean13",
+            [
+                Col("EAN", tr("12 Ziffern (Prüfziffer wird gerechnet) oder 13 Ziffern"), True, "4006381333931"),
+            ],
+            tr("Artikelnummer für den Handel (bei GS1 registriert) oder intern 20…–29…"),
+        ),
+        Kind(
+            "text",
+            tr("Text – eigene Spalten"),
+            "text",
+            [
+                Col("Text", tr("beliebiger Text"), example="Anna Huber"),
+            ],
+            tr("Eigene Spalten anlegen, z. B. Name, Tisch, Kategorie."),
+            free_cols=True,
+        ),
     ]
     return {k.id: k for k in K}
 
@@ -148,31 +226,153 @@ def _v(rec: dict, key: str) -> str:
 # --------------------------------------------------------------------------- #
 # synonyms per field; "kind:field" applies only to that kind (e.g. city = town on a business card, venue
 # for an event). Comparison ignores case, spaces and punctuation; umlauts as ae/oe/ue/ss.
-_EMAIL = ["E-mail Address", "Email Address", "E-Mail-Adresse", "Email", "Mail", "E-mail 1 - Value", "Primary Email",
-          "E-Mail 1", "Emailadresse", "Correo", "Courriel", "E-mail cím"]
+_EMAIL = [
+    "E-mail Address",
+    "Email Address",
+    "E-Mail-Adresse",
+    "Email",
+    "Mail",
+    "E-mail 1 - Value",
+    "Primary Email",
+    "E-Mail 1",
+    "Emailadresse",
+    "Correo",
+    "Courriel",
+    "E-mail cím",
+]
 SYNONYMS = {
     "Vorname": ["First Name", "Firstname", "Given Name", "Forename", "Keresztnév", "Utónév", "Nombre", "Prénom"],
-    "Nachname": ["Last Name", "Lastname", "Family Name", "Surname", "Familienname", "Zuname", "Vezetéknév",
-                 "Apellido", "Apellidos", "Nom"],
-    "Firma": ["Company", "Organization", "Organisation", "Organization Name", "Organization 1 - Name", "Unternehmen",
-              "Firmenname", "Cég", "Empresa", "Entreprise", "Société"],
-    "Position": ["Job Title", "Organization Title", "Organization 1 - Title", "Funktion", "Berufsbezeichnung",
-                 "Beosztás", "Cargo", "Puesto", "Fonction"],
-    "vcard:Telefon": ["Business Phone", "Work Phone", "Phone", "Telephone", "Phone 1 - Value", "Telefon geschäftlich",
-                      "Telefonnummer", "Festnetz", "Tel", "Primary Phone", "Telefonszám", "Teléfono", "Téléphone"],
-    "Mobil": ["Mobile Phone", "Mobile", "Mobile Number", "Cell", "Cellphone", "Cell Phone", "Handy", "Mobiltelefon",
-              "Mobilnummer", "Phone 2 - Value", "Mobilszám", "Móvil", "Portable"],
+    "Nachname": [
+        "Last Name",
+        "Lastname",
+        "Family Name",
+        "Surname",
+        "Familienname",
+        "Zuname",
+        "Vezetéknév",
+        "Apellido",
+        "Apellidos",
+        "Nom",
+    ],
+    "Firma": [
+        "Company",
+        "Organization",
+        "Organisation",
+        "Organization Name",
+        "Organization 1 - Name",
+        "Unternehmen",
+        "Firmenname",
+        "Cég",
+        "Empresa",
+        "Entreprise",
+        "Société",
+    ],
+    "Position": [
+        "Job Title",
+        "Organization Title",
+        "Organization 1 - Title",
+        "Funktion",
+        "Berufsbezeichnung",
+        "Beosztás",
+        "Cargo",
+        "Puesto",
+        "Fonction",
+    ],
+    "vcard:Telefon": [
+        "Business Phone",
+        "Work Phone",
+        "Phone",
+        "Telephone",
+        "Phone 1 - Value",
+        "Telefon geschäftlich",
+        "Telefonnummer",
+        "Festnetz",
+        "Tel",
+        "Primary Phone",
+        "Telefonszám",
+        "Teléfono",
+        "Téléphone",
+    ],
+    "Mobil": [
+        "Mobile Phone",
+        "Mobile",
+        "Mobile Number",
+        "Cell",
+        "Cellphone",
+        "Cell Phone",
+        "Handy",
+        "Mobiltelefon",
+        "Mobilnummer",
+        "Phone 2 - Value",
+        "Mobilszám",
+        "Móvil",
+        "Portable",
+    ],
     "E-Mail": _EMAIL + ["Recipient", "Empfänger", "An", "To"],
-    "Straße": ["Business Street", "Street", "Address 1 - Street", "Work Address", "Strasse", "Adresse", "Anschrift",
-               "Address", "Utca", "Calle", "Rue"],
-    "PLZ": ["Business Postal Code", "Postal Code", "Zip", "Zip Code", "ZIP", "Postcode", "Address 1 - Postal Code",
-            "Work ZipCode", "Postleitzahl", "Irányítószám", "Código postal", "Code postal"],
-    "vcard:Ort": ["Business City", "City", "Address 1 - City", "Work City", "Stadt", "Wohnort", "Town", "Település",
-                  "Város", "Ciudad", "Ville"],
-    "Land": ["Business Country/Region", "Country", "Address 1 - Country", "Work Country", "Country/Region", "Staat",
-             "Ország", "País", "Pays"],
-    "Web": ["Web Page", "Website", "Website 1 - Value", "Web Page 1", "Homepage", "URL", "Internet", "Webseite",
-            "Weboldal", "Sitio web", "Site web"],
+    "Straße": [
+        "Business Street",
+        "Street",
+        "Address 1 - Street",
+        "Work Address",
+        "Strasse",
+        "Adresse",
+        "Anschrift",
+        "Address",
+        "Utca",
+        "Calle",
+        "Rue",
+    ],
+    "PLZ": [
+        "Business Postal Code",
+        "Postal Code",
+        "Zip",
+        "Zip Code",
+        "ZIP",
+        "Postcode",
+        "Address 1 - Postal Code",
+        "Work ZipCode",
+        "Postleitzahl",
+        "Irányítószám",
+        "Código postal",
+        "Code postal",
+    ],
+    "vcard:Ort": [
+        "Business City",
+        "City",
+        "Address 1 - City",
+        "Work City",
+        "Stadt",
+        "Wohnort",
+        "Town",
+        "Település",
+        "Város",
+        "Ciudad",
+        "Ville",
+    ],
+    "Land": [
+        "Business Country/Region",
+        "Country",
+        "Address 1 - Country",
+        "Work Country",
+        "Country/Region",
+        "Staat",
+        "Ország",
+        "País",
+        "Pays",
+    ],
+    "Web": [
+        "Web Page",
+        "Website",
+        "Website 1 - Value",
+        "Web Page 1",
+        "Homepage",
+        "URL",
+        "Internet",
+        "Webseite",
+        "Weboldal",
+        "Sitio web",
+        "Site web",
+    ],
     "Notiz": ["Notes", "Note", "Bemerkung", "Anmerkung", "Kommentar", "Megjegyzés", "Notas"],
     "Netzname": ["SSID", "Network", "Network Name", "Netzwerk", "WLAN", "WiFi", "Wi-Fi", "WLAN-Name", "Hálózat"],
     "Passwort": ["Password", "Kennwort", "Key", "Schlüssel", "PW", "Jelszó", "Contraseña", "Mot de passe"],
@@ -180,13 +380,46 @@ SYNONYMS = {
     "Versteckt": ["Hidden", "Rejtett", "Oculta", "Caché"],
     "Betreff": ["Subject", "Tárgy", "Asunto", "Objet"],
     "Text": ["Body", "Message", "Nachricht", "Üzenet", "Mensaje"],
-    "url:Adresse": ["URL", "Link", "Web", "Website", "Webadresse", "Homepage", "Webseite", "Weboldal", "Enlace", "Lien"],
-    "phone:Telefon": ["Phone", "Telephone", "Number", "Nummer", "Tel", "Mobile", "Handy", "Telefonnummer",
-                      "Telefonszám", "Teléfono", "Téléphone"],
+    "url:Adresse": [
+        "URL",
+        "Link",
+        "Web",
+        "Website",
+        "Webadresse",
+        "Homepage",
+        "Webseite",
+        "Weboldal",
+        "Enlace",
+        "Lien",
+    ],
+    "phone:Telefon": [
+        "Phone",
+        "Telephone",
+        "Number",
+        "Nummer",
+        "Tel",
+        "Mobile",
+        "Handy",
+        "Telefonnummer",
+        "Telefonszám",
+        "Teléfono",
+        "Téléphone",
+    ],
     "sms:Telefon": ["Phone", "Number", "Nummer", "Mobile", "Handy", "Empfänger", "Recipient", "Telefonnummer"],
     "Titel": ["Title", "Summary", "Event", "Veranstaltung", "Name", "Esemény", "Evento", "Événement"],
-    "Beginn": ["Start", "Begin", "Start Date", "Startdatum", "Von", "From", "Datum", "Date", "Kezdés", "Inicio",
-               "Début"],
+    "Beginn": [
+        "Start",
+        "Begin",
+        "Start Date",
+        "Startdatum",
+        "Von",
+        "From",
+        "Datum",
+        "Date",
+        "Kezdés",
+        "Inicio",
+        "Début",
+    ],
     "Ende": ["End", "End Date", "Enddatum", "Bis", "Until", "Vége", "Fin"],
     "event:Ort": ["Location", "Place", "Venue", "Veranstaltungsort", "Adresse", "Helyszín", "Lugar", "Lieu"],
     "Beschreibung": ["Description", "Details", "Notes", "Leírás", "Descripción"],
@@ -196,7 +429,7 @@ SYNONYMS = {
     "Code": ["Artikelnummer", "Article", "SKU", "Nummer", "Number", "ID", "Barcode", "Ticket", "Cikkszám"],
     "EAN": ["EAN13", "EAN-13", "GTIN", "EAN-Code", "EAN Code", "Barcode", "Vonalkód"],
 }
-NONE = "-"                     # in einer Zuordnung: diese Angabe bewusst leer lassen
+NONE = "-"  # in einer Zuordnung: diese Angabe bewusst leer lassen
 
 
 def _norm(s: str) -> str:
@@ -292,8 +525,7 @@ def guess_kind(cols: list) -> str:
 # --------------------------------------------------------------------------- #
 def _vesc(s: str) -> str:
     """vCard/iCal-Text maskieren."""
-    return (s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
-            .replace("\r\n", "\\n").replace("\n", "\\n"))
+    return s.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r\n", "\\n").replace("\n", "\\n")
 
 
 def _wesc(s: str) -> str:
@@ -314,8 +546,15 @@ def _yes(s: str) -> bool:
     return s.strip().lower() in ("ja", "j", "yes", "y", "true", "1", "x", "igen", "sí", "si", "oui")
 
 
-_DT_FORMATS = ("%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M",
-               "%Y-%m-%dT%H:%M:%S", "%d.%m.%y %H:%M")
+_DT_FORMATS = (
+    "%d.%m.%Y %H:%M",
+    "%d.%m.%Y %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%dT%H:%M:%S",
+    "%d.%m.%y %H:%M",
+)
 _D_FORMATS = ("%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y")
 
 
@@ -347,7 +586,7 @@ def _num(s: str) -> float:
 
 def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
     """Content of the code for one record. Foreign column names are read via the mapping (your choice, otherwise
-        automatic). Missing mandatory entries -> ValueError with an understandable message.
+    automatic). Missing mandatory entries -> ValueError with an understandable message.
     """
     k = get(kind_id)
     if not k.free_cols:
@@ -355,7 +594,7 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
     for c in k.cols:
         if c.required and not _v(rec, c.key):
             raise ValueError(tr("{0}: Spalte „{1}“ ist leer oder fehlt").format(k.title, c.key))
-    g = lambda key: _v(rec, key)                       # noqa: E731
+    g = lambda key: _v(rec, key)  # noqa: E731
     if kind_id == "url":
         a = g("Adresse")
         return a if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", a) else "https://" + a
@@ -374,8 +613,9 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
         elif enc in ("KEINE", "KEIN", "OFFEN", "NONE", "NOPASS", "-"):
             enc = "nopass"
         elif enc != "WEP":
-            raise ValueError(tr("WLAN: Verschlüsselung „{0}“ unbekannt – WPA, WEP oder keine").format(
-                g("Verschlüsselung")))
+            raise ValueError(
+                tr("WLAN: Verschlüsselung „{0}“ unbekannt – WPA, WEP oder keine").format(g("Verschlüsselung"))
+            )
         if enc != "nopass" and not g("Passwort"):
             enc = "nopass"
         parts = [f"T:{enc}", f"S:{_wesc(g('Netzname'))}"]
@@ -401,7 +641,9 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
         if g("E-Mail"):
             L.append(f"EMAIL;TYPE=INTERNET:{g('E-Mail')}")
         if any(g(c) for c in ("Straße", "PLZ", "Ort", "Land")):
-            L.append("ADR;TYPE=WORK:;;{0};{1};;{2};{3}".format(*(_vesc(g(c)) for c in ("Straße", "Ort", "PLZ", "Land"))))
+            L.append(
+                "ADR;TYPE=WORK:;;{0};{1};;{2};{3}".format(*(_vesc(g(c)) for c in ("Straße", "Ort", "PLZ", "Land")))
+            )
         if g("Web"):
             L.append(f"URL:{g('Web')}")
         if g("Notiz"):
@@ -451,6 +693,7 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
 def ean_problem(value: str) -> str:
     """Empty = fine; otherwise a message. 13 digits with a wrong check digit are reported."""
     from .vdp import check_digit
+
     raw = (value or "").strip()
     d = re.sub(r"\D", "", raw)
     if re.search(r"[^\d\s-]", raw):
@@ -508,10 +751,12 @@ def example_row(kind_id: str) -> dict:
     return {c.key: c.example for c in get(kind_id).cols}
 
 
-def series(n: int, start: int = 1, step: int = 1, digits: int = 0, prefix: str = "", suffix: str = "",
-           check: str = "none") -> list:
+def series(
+    n: int, start: int = 1, step: int = 1, digits: int = 0, prefix: str = "", suffix: str = "", check: str = "none"
+) -> list:
     """Number series for a column, e.g. T0001 … (same rules as the numbering)."""
     from .vdp import Numbering, format_number
+
     nb = Numbering(start=start, step=step, digits=digits, prefix=prefix, suffix=suffix, check=check)
     return [format_number(start + i * step, nb) for i in range(n)]
 

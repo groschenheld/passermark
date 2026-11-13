@@ -4,11 +4,12 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Document information for other programs (passermark-cli inspect): pages, formats, trim and bleed and,
-    optionally, the check results – as a plain dict (JSON). No Qt.
+optionally, the check results – as a plain dict (JSON). No Qt.
 
-    Sizes in mm in reading direction (page rotation applied), boxes in pt as stored in the PDF. Page numbers
-    1-based (as in the check). Messages in the program language (PASSERMARK_LANG); severity/category are stable keys.
+Sizes in mm in reading direction (page rotation applied), boxes in pt as stored in the PDF. Page numbers
+1-based (as in the check). Messages in the program language (PASSERMARK_LANG); severity/category are stable keys.
 """
+
 from __future__ import annotations
 
 import io
@@ -27,11 +28,13 @@ def _box(b):
     return None if b is None else [_r(x) for x in b]
 
 
-def inspect(path: str, password: str | None = None, check: bool = False, image_dpi: float = 96.0,
-            printer: str = "") -> dict:
+def inspect(
+    path: str, password: str | None = None, check: bool = False, image_dpi: float = 96.0, printer: str = ""
+) -> dict:
     """path: PDF (or image/Office file – converted first, like when opening)."""
     import pikepdf
     from . import convert, renderproc
+
     if not os.path.isfile(path):
         raise FileNotFoundError(tr("Datei nicht gefunden: {0}").format(path))
     out = {"file": os.path.abspath(path), "size_bytes": os.path.getsize(path)}
@@ -41,6 +44,7 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
     else:
         import tempfile
         import shutil
+
         work = tempfile.mkdtemp(prefix="passermark-inspect-")
         try:
             doc, used = convert.to_document(path, work, image_dpi, password)
@@ -73,7 +77,7 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
             pass
         out["metadata"] = meta
         out["details"] = _details(pdf)
-        if pdf.is_encrypted:                         # page_info braucht eine lesbare Kopie
+        if pdf.is_encrypted:  # page_info braucht eine lesbare Kopie
             buf = io.BytesIO()
             pdf.save(buf)
             data = buf.getvalue()
@@ -93,16 +97,23 @@ def inspect(path: str, password: str | None = None, check: bool = False, image_d
             b = pi.get("bleed")
             if b is not None:
                 bleed = max(0.0, min(trim[0] - b[0], trim[1] - b[1], b[2] - trim[2], b[3] - trim[3]))
-        pages.append({
-            "page": i + 1,
-            "width_mm": _r(w / MM, 1), "height_mm": _r(h / MM, 1),
-            "orientation": "landscape" if w > h + 0.5 else "portrait" if h > w + 0.5 else "square",
-            "rotate": pi["rotate"] * 90,
-            "trim_mm": None if trim is None else [_r(tw / MM, 1), _r(th / MM, 1)],
-            "bleed_mm": None if bleed is None else _r(bleed / MM, 1),
-            "boxes_pt": {"crop": _box(pi["crop"]), "trim": _box(pi.get("trim_raw")), "bleed": _box(pi.get("bleed")),
-                         "art": _box(pi.get("art"))},
-        })
+        pages.append(
+            {
+                "page": i + 1,
+                "width_mm": _r(w / MM, 1),
+                "height_mm": _r(h / MM, 1),
+                "orientation": "landscape" if w > h + 0.5 else "portrait" if h > w + 0.5 else "square",
+                "rotate": pi["rotate"] * 90,
+                "trim_mm": None if trim is None else [_r(tw / MM, 1), _r(th / MM, 1)],
+                "bleed_mm": None if bleed is None else _r(bleed / MM, 1),
+                "boxes_pt": {
+                    "crop": _box(pi["crop"]),
+                    "trim": _box(pi.get("trim_raw")),
+                    "bleed": _box(pi.get("bleed")),
+                    "art": _box(pi.get("art")),
+                },
+            }
+        )
     out["pages"] = len(pages)
     out["page_list"] = pages
     sizes = {}
@@ -120,6 +131,7 @@ def _pdf_date(v) -> str | None:
     if v is None:
         return None
     import re
+
     t = str(v)
     m = re.match(r"D?:?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([Zz+\-])?(\d{2})?'?(\d{2})?", t)
     if not m:
@@ -137,8 +149,9 @@ def _pdf_date(v) -> str | None:
 
 def _details(pdf) -> dict:
     """Weitere Eigenschaften: Rechte, Output Intent, Lesezeichen, Anhänge, Formularfelder, Kommentare,
-        Ebenen, schneller Webzugriff. Fehler einzelner Teile lassen die anderen stehen."""
+    Ebenen, schneller Webzugriff. Fehler einzelner Teile lassen die anderen stehen."""
     import pikepdf
+
     d = {}
     try:
         d["linearized"] = bool(pdf.is_linearized)
@@ -147,9 +160,14 @@ def _details(pdf) -> dict:
     if pdf.is_encrypted:
         try:
             a = pdf.allow
-            d["permissions"] = {"print": bool(a.print_highres or a.print_lowres), "print_highres": bool(a.print_highres),
-                                "modify": bool(a.modify_other), "copy": bool(a.extract),
-                                "annotate": bool(a.modify_annotation), "forms": bool(a.modify_form)}
+            d["permissions"] = {
+                "print": bool(a.print_highres or a.print_lowres),
+                "print_highres": bool(a.print_highres),
+                "modify": bool(a.modify_other),
+                "copy": bool(a.extract),
+                "annotate": bool(a.modify_annotation),
+                "forms": bool(a.modify_form),
+            }
             enc = pdf.encryption
             meth = str(getattr(enc, "stream_method", "") or "").split(".")[-1].lower()
             meth = {"aesv3": "AES", "aesv2": "AES", "rc4": "RC4"}.get(meth, meth.upper())
@@ -197,8 +215,12 @@ def _details(pdf) -> dict:
     except Exception:
         d["layers"] = 0
     try:
-        d["javascript"] = bool(root.get("/Names") is not None and "/JavaScript" in root.Names) or "/OpenAction" in root \
-            and isinstance(root.OpenAction, pikepdf.Dictionary) and root.OpenAction.get("/S") == pikepdf.Name.JavaScript
+        d["javascript"] = (
+            bool(root.get("/Names") is not None and "/JavaScript" in root.Names)
+            or "/OpenAction" in root
+            and isinstance(root.OpenAction, pikepdf.Dictionary)
+            and root.OpenAction.get("/S") == pikepdf.Name.JavaScript
+        )
     except Exception:
         d["javascript"] = False
     return d
@@ -206,24 +228,40 @@ def _details(pdf) -> dict:
 
 def _check(data: bytes, printer: str = "") -> dict:
     from . import preflight
+
     rep = preflight.analyze(data, True, pdfium_parts=True)
-    if printer:                                       # Format gegen Gerät
+    if printer:  # Format gegen Gerät
         from . import config, printers
         from .session import Session
+
         if printer not in {p.name for p in printers.list_printers()}:
             raise ValueError(tr("Drucker nicht gefunden: {0}").format(printer))
         preflight.add_device_issues(rep, Session(config.load()).caps_for(printer), printer)
     return {
         "counts": rep.counts(),
-        "issues": [{"severity": i.severity, "category": i.category, "message": i.message,
-                    "pages": sorted(i.pages),
-                    "spots": [{"page": sp.page, "box_pt": None if sp.box is None else [round(v, 2) for v in sp.box],
-                               "label": sp.label, "where": preflight.where_text(rep, sp)}
-                              for sp in getattr(i, "spots", []) or []]} for i in rep.issues],
-        "fonts": [{"name": f.name, "subtype": f.subtype, "embedded": f.embedded, "subset": f.subset,
-                   "pages": sorted(f.pages)} for f in rep.fonts],
-        "layers": [{"name": L.name, "view": L.view_on, "print": L.print_on, "locked": L.locked}
-                   for L in rep.layers],
+        "issues": [
+            {
+                "severity": i.severity,
+                "category": i.category,
+                "message": i.message,
+                "pages": sorted(i.pages),
+                "spots": [
+                    {
+                        "page": sp.page,
+                        "box_pt": None if sp.box is None else [round(v, 2) for v in sp.box],
+                        "label": sp.label,
+                        "where": preflight.where_text(rep, sp),
+                    }
+                    for sp in getattr(i, "spots", []) or []
+                ],
+            }
+            for i in rep.issues
+        ],
+        "fonts": [
+            {"name": f.name, "subtype": f.subtype, "embedded": f.embedded, "subset": f.subset, "pages": sorted(f.pages)}
+            for f in rep.fonts
+        ],
+        "layers": [{"name": L.name, "view": L.view_on, "print": L.print_on, "locked": L.locked} for L in rep.layers],
     }
 
 
@@ -235,13 +273,23 @@ def text_summary(d: dict) -> str:
     trims = [p for p in d["page_list"] if p["trim_mm"]]
     if trims:
         t = trims[0]
-        lines.append("  " + tr("Endformat {0:g} × {1:g} mm, Anschnitt {2} mm ({3} Seite(n))").format(
-            t["trim_mm"][0], t["trim_mm"][1], "–" if t["bleed_mm"] is None else f"{t['bleed_mm']:g}", len(trims)))
+        lines.append(
+            "  "
+            + tr("Endformat {0:g} × {1:g} mm, Anschnitt {2} mm ({3} Seite(n))").format(
+                t["trim_mm"][0], t["trim_mm"][1], "–" if t["bleed_mm"] is None else f"{t['bleed_mm']:g}", len(trims)
+            )
+        )
     c = d.get("check")
     if c:
-        lines.append("  " + tr("Prüfung: {0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(
-            c["counts"]["error"], c["counts"]["warning"], c["counts"]["info"]))
+        lines.append(
+            "  "
+            + tr("Prüfung: {0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(
+                c["counts"]["error"], c["counts"]["warning"], c["counts"]["info"]
+            )
+        )
         for i in c["issues"]:
             pg = ",".join(str(p) for p in i["pages"][:10]) + (" …" if len(i["pages"]) > 10 else "")
-            lines.append(f"    [{i['severity']}] {i['message']}" + ("  (" + tr("S. {0}").format(pg) + ")" if pg else ""))
+            lines.append(
+                f"    [{i['severity']}] {i['message']}" + ("  (" + tr("S. {0}").format(pg) + ")" if pg else "")
+            )
     return "\n".join(lines)

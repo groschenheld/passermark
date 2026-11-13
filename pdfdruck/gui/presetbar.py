@@ -4,14 +4,24 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Preset bar for dialogs: pick saved settings, save, delete, share as a file."""
+
 from __future__ import annotations
 
 import os
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QComboBox, QFileDialog, QHBoxLayout, QInputDialog, QLabel, QMenu, QMessageBox,
-                               QToolButton, QWidget)
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMenu,
+    QMessageBox,
+    QToolButton,
+    QWidget,
+)
 
 from .. import core, presets
 from ..l10n import tr
@@ -47,8 +57,9 @@ class PresetBar(QWidget):
         m.addSeparator()
         self.a_full = m.addAction(tr("Alle Einstellungen speichern (sonst nur Abweichungen)"))
         self.a_full.setCheckable(True)
-        self.a_full.setToolTip(tr("Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. "
-                                  "Gilt für alle Dialoge."))
+        self.a_full.setToolTip(
+            tr("Aus: Presets enthalten nur, was vom Standard abweicht – kurz und lesbar. Gilt für alle Dialoge.")
+        )
         self.a_full.setChecked(core.presets_full())
         self.a_full.toggled.connect(self._set_full)
         m.aboutToShow.connect(lambda: self.a_full.setChecked(core.presets_full()))
@@ -76,7 +87,7 @@ class PresetBar(QWidget):
     def _apply(self, s, name=None):
         try:
             self.set_settings(s)
-        except Exception as e:                   # e.g. a value out of range – better to report than to crash
+        except Exception as e:  # e.g. a value out of range – better to report than to crash
             QMessageBox.warning(self, tr("Preset"), tr("Preset konnte nicht vollständig übernommen werden:") + f"\n{e}")
 
     def _chosen(self, _i):
@@ -101,8 +112,10 @@ class PresetBar(QWidget):
             QMessageBox.warning(self, tr("Preset"), str(e))
             return
         if clean in presets.list_presets(self.kind) and clean != self.current():
-            if QMessageBox.question(self, tr("Preset"), tr("„{0}“ gibt es schon. Überschreiben?").format(clean)) \
-                    != QMessageBox.StandardButton.Yes:
+            if (
+                QMessageBox.question(self, tr("Preset"), tr("„{0}“ gibt es schon. Überschreiben?").format(clean))
+                != QMessageBox.StandardButton.Yes
+            ):
                 return
         try:
             presets.save(self.kind, clean, self.get_settings())
@@ -116,8 +129,10 @@ class PresetBar(QWidget):
         if not name:
             QMessageBox.information(self, tr("Preset"), tr("Bitte zuerst ein Preset wählen."))
             return
-        if QMessageBox.question(self, tr("Preset"), tr("Preset „{0}“ löschen?").format(name)) \
-                == QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(self, tr("Preset"), tr("Preset „{0}“ löschen?").format(name))
+            == QMessageBox.StandardButton.Yes
+        ):
             presets.delete(self.kind, name)
             self.refresh()
 
@@ -135,8 +150,10 @@ class PresetBar(QWidget):
             return
         self._apply(s)
         name = os.path.splitext(os.path.basename(p))[0]
-        if QMessageBox.question(self, tr("Preset"), tr("Unter „{0}“ in die Preset-Liste aufnehmen?").format(name)) \
-                == QMessageBox.StandardButton.Yes:
+        if (
+            QMessageBox.question(self, tr("Preset"), tr("Unter „{0}“ in die Preset-Liste aufnehmen?").format(name))
+            == QMessageBox.StandardButton.Yes
+        ):
             try:
                 presets.save(self.kind, name, s)
                 self.refresh(presets.clean_name(name))
@@ -144,8 +161,9 @@ class PresetBar(QWidget):
                 QMessageBox.warning(self, tr("Preset"), str(e))
 
     def _export(self):
-        p, _ = QFileDialog.getSaveFileName(self, tr("Preset exportieren"), (self.current() or self.kind) + ".json",
-                                           tr("Presets (*.json)"))
+        p, _ = QFileDialog.getSaveFileName(
+            self, tr("Preset exportieren"), (self.current() or self.kind) + ".json", tr("Presets (*.json)")
+        )
         if not p:
             return
         if not p.lower().endswith(".json"):
@@ -158,6 +176,7 @@ class PresetBar(QWidget):
     @staticmethod
     def _set_full(on: bool):
         from .. import l10n
+
         st = l10n.load_settings()
         st["presets_full"] = bool(on)
         try:

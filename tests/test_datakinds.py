@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Data capture (1.10): data kinds, code contents, validation, CSV, QR field with "kind", quiet zone – and the
 generated codes are actually read (QR/EAN with OpenCV if installed; Code 128 with a custom reader)."""
-import os, subprocess, sys, tempfile
+
+import os
+import subprocess
+import sys
+import tempfile
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
@@ -20,6 +25,7 @@ SAMPLE = os.path.join(HERE, "sample.pdf")
 def _a6():
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
+
     p = os.path.join(TMP, "a6.pdf")
     if not os.path.exists(p):
         c = canvas.Canvas(p, pagesize=(148 * mm, 105 * mm))
@@ -33,7 +39,7 @@ def test_kinds_complete():
     assert tuple(ks) == D.IDS
     for kid, k in ks.items():
         assert k.cols and k.field_kind in vdp.KINDS, kid
-        D.build(kid, D.example_row(kid))           # example row is valid
+        D.build(kid, D.example_row(kid))  # example row is valid
         assert D.validate(kid, D.columns(kid), [D.example_row(kid)]) == [], kid
     for t in D.QR_TYPES[1:]:
         assert D.get(t).field_kind == "qr"
@@ -41,13 +47,15 @@ def test_kinds_complete():
 
 def test_build_contents():
     assert D.build("url", {"Adresse": "huber.at/x"}) == "https://huber.at/x"
-    assert D.build("url", {"adresse": "mailto:a@b.at"}) == "mailto:a@b.at"        # upper/lower case irrelevant
+    assert D.build("url", {"adresse": "mailto:a@b.at"}) == "mailto:a@b.at"  # upper/lower case irrelevant
     assert D.build("phone", {"Telefon": "0043 316 / 12 34-56"}) == "tel:+4331612345" + "6"
     assert D.build("email", {"E-Mail": "a@b.at", "Betreff": "A & B"}) == "mailto:a@b.at?subject=A%20%26%20B"
     assert D.build("wifi", {"Netzname": "N;1", "Passwort": 'p:"x'}) == 'WIFI:T:WPA;S:N\\;1;P:p\\:\\"x;;'
     assert D.build("wifi", {"Netzname": "Offen", "Passwort": ""}) == "WIFI:T:nopass;S:Offen;;"
-    assert D.build("wifi", {"Netzname": "W", "Passwort": "x", "Verschlüsselung": "WEP", "Versteckt": "ja"}) == \
-        "WIFI:T:WEP;S:W;P:x;H:true;;"
+    assert (
+        D.build("wifi", {"Netzname": "W", "Passwort": "x", "Verschlüsselung": "WEP", "Versteckt": "ja"})
+        == "WIFI:T:WEP;S:W;P:x;H:true;;"
+    )
     v = D.build("vcard", {"Vorname": "Zoë", "Nachname": "Kovács", "Notiz": "a;b,c"})
     assert "N:Kovács;Zoë;;;" in v and "FN:Zoë Kovács" in v and "NOTE:a\\;b\\,c" in v and v.startswith("BEGIN:VCARD")
     e = D.build("event", {"Titel": "Fest", "Beginn": "24.10.2026 18:00"})
@@ -55,8 +63,13 @@ def test_build_contents():
     e = D.build("event", {"Titel": "Messe", "Beginn": "2026-11-02", "Ende": "2026-11-04"})
     assert "DTSTART;VALUE=DATE:20261102" in e
     assert D.build("geo", {"Breite": "47,0707", "Länge": "15.4395"}) == "geo:47.0707,15.4395"
-    for kid, rec in (("wifi", {"Netzname": ""}), ("vcard", {}), ("event", {"Titel": "x", "Beginn": "morgen"}),
-                     ("geo", {"Breite": "100", "Länge": "1"}), ("wifi", {"Netzname": "x", "Verschlüsselung": "ROT13"})):
+    for kid, rec in (
+        ("wifi", {"Netzname": ""}),
+        ("vcard", {}),
+        ("event", {"Titel": "x", "Beginn": "morgen"}),
+        ("geo", {"Breite": "100", "Länge": "1"}),
+        ("wifi", {"Netzname": "x", "Verschlüsselung": "ROT13"}),
+    ):
         try:
             D.build(kid, rec)
             raise AssertionError(kid)
@@ -81,9 +94,9 @@ def test_csv_roundtrip_excel_safe():
     p = os.path.join(TMP, "k.csv")
     rows = [{"Vorname": "Zoë", "Nachname": "Müller; Söhne", "Notiz": "zwei\nZeilen"}, {"Vorname": "", "Nachname": ""}]
     D.write_csv(p, D.columns("vcard"), rows)
-    assert open(p, "rb").read(3) == b"\xef\xbb\xbf"                 # BOM: Excel erkennt UTF-8
+    assert open(p, "rb").read(3) == b"\xef\xbb\xbf"  # BOM: Excel erkennt UTF-8
     cols, back = vdp.read_csv(p)
-    assert cols == D.columns("vcard") and len(back) == 1             # empty row is dropped
+    assert cols == D.columns("vcard") and len(back) == 1  # empty row is dropped
     assert back[0]["Nachname"] == "Müller; Söhne" and back[0]["Notiz"] == "zwei\nZeilen"
 
 
@@ -101,9 +114,11 @@ def test_qr_types_scan_back():
     if not C.HAVE_CV2:
         print("  (OpenCV fehlt – Lesen übersprungen)")
         return
-    extra = {"vcard": {"Vorname": "Zoë", "Nachname": "Müller-Szabó", "Notiz": "a; b, c"},
-             "wifi": {"Netzname": "Gäste;Netz", "Passwort": 'a:b"c'},
-             "email": {"Betreff": "Anfrage & Angebot", "Text": "Grüße\naus Graz"}}
+    extra = {
+        "vcard": {"Vorname": "Zoë", "Nachname": "Müller-Szabó", "Notiz": "a; b, c"},
+        "wifi": {"Netzname": "Gäste;Netz", "Passwort": 'a:b"c'},
+        "email": {"Betreff": "Anfrage & Angebot", "Text": "Grüße\naus Graz"},
+    }
     for kid in D.QR_TYPES[1:]:
         rec = D.example_row(kid)
         rec.update(extra.get(kid, {}))
@@ -125,8 +140,9 @@ def test_quiet_zone_makes_qr_readable_alone():
         return
     res = {}
     for quiet in (True, False):
-        s = vdp.VdpSettings(count=1, fields=[vdp.VdpField("qr", "https://huber.at/t/{{nr}}", 40, 10, 40, 40,
-                                                          quiet=quiet)])
+        s = vdp.VdpSettings(
+            count=1, fields=[vdp.VdpField("qr", "https://huber.at/t/{{nr}}", 40, 10, 40, 40, quiet=quiet)]
+        )
         d = pdfium.PdfDocument(vdp.build(_a6(), s)[0])
         img = C.page_gray(d[0], 6)
         d.close()
@@ -137,10 +153,21 @@ def test_quiet_zone_makes_qr_readable_alone():
 def test_code128_and_ean_scan_back():
     vals = ["T0001", "ART-1001", "Hallo Welt 123", "12345678901234"]
     p = os.path.join(TMP, "c.csv")
-    D.write_csv(p, ["Code", "EAN"], [{"Code": v, "EAN": e} for v, e in
-                                     zip(vals, ["4006381333931", "978316148410", "5901234123457", "201234500001"])])
-    s = vdp.VdpSettings(csv_path=p, fields=[vdp.VdpField("code128", "{{Code}}", 10, 10, 70, 20, size_pt=9),
-                                            vdp.VdpField("ean13", "{{EAN}}", 10, 50, 40, 28)])
+    D.write_csv(
+        p,
+        ["Code", "EAN"],
+        [
+            {"Code": v, "EAN": e}
+            for v, e in zip(vals, ["4006381333931", "978316148410", "5901234123457", "201234500001"])
+        ],
+    )
+    s = vdp.VdpSettings(
+        csv_path=p,
+        fields=[
+            vdp.VdpField("code128", "{{Code}}", 10, 10, 70, 20, size_pt=9),
+            vdp.VdpField("ean13", "{{EAN}}", 10, 50, 40, 28),
+        ],
+    )
     d = pdfium.PdfDocument(vdp.build(_a6(), s)[0])
     eans = []
     for i, v in enumerate(vals):
@@ -155,8 +182,7 @@ def test_code128_and_ean_scan_back():
 
 def test_old_presets_still_load():
     """Presets ohne qr_type/quiet (bis 1.9) laden weiter – Standard: Inhalt wie eingegeben, mit Ruhezone."""
-    s = vdp.VdpSettings(count=1, fields=[{"kind": "qr", "content": "x", "x_mm": 1, "y_mm": 1, "w_mm": 20,
-                                          "h_mm": 20}])
+    s = vdp.VdpSettings(count=1, fields=[{"kind": "qr", "content": "x", "x_mm": 1, "y_mm": 1, "w_mm": 20, "h_mm": 20}])
     f = vdp._fields(s)[0]
     assert f.qr_type == "text" and f.quiet is True
     try:
@@ -166,45 +192,145 @@ def test_old_presets_still_load():
         pass
 
 
-OUTLOOK = ["Title", "First Name", "Middle Name", "Last Name", "Suffix", "Company", "Department", "Job Title",
-           "Business Street", "Business City", "Business State", "Business Postal Code", "Business Country/Region",
-           "Business Phone", "Mobile Phone", "E-mail Address", "Web Page", "Notes"]
-GOOGLE = ["First Name", "Middle Name", "Last Name", "Organization Name", "Organization Title", "E-mail 1 - Label",
-          "E-mail 1 - Value", "Phone 1 - Label", "Phone 1 - Value", "Phone 2 - Value", "Address 1 - Street",
-          "Address 1 - City", "Address 1 - Postal Code", "Address 1 - Country", "Website 1 - Value", "Notes"]
-THUNDERBIRD = ["First Name", "Last Name", "Display Name", "Nickname", "Primary Email", "Secondary Email", "Work Phone",
-               "Home Phone", "Mobile Number", "Work Address", "Work City", "Work ZipCode", "Work Country",
-               "Job Title", "Organization", "Web Page 1", "Notes"]
+OUTLOOK = [
+    "Title",
+    "First Name",
+    "Middle Name",
+    "Last Name",
+    "Suffix",
+    "Company",
+    "Department",
+    "Job Title",
+    "Business Street",
+    "Business City",
+    "Business State",
+    "Business Postal Code",
+    "Business Country/Region",
+    "Business Phone",
+    "Mobile Phone",
+    "E-mail Address",
+    "Web Page",
+    "Notes",
+]
+GOOGLE = [
+    "First Name",
+    "Middle Name",
+    "Last Name",
+    "Organization Name",
+    "Organization Title",
+    "E-mail 1 - Label",
+    "E-mail 1 - Value",
+    "Phone 1 - Label",
+    "Phone 1 - Value",
+    "Phone 2 - Value",
+    "Address 1 - Street",
+    "Address 1 - City",
+    "Address 1 - Postal Code",
+    "Address 1 - Country",
+    "Website 1 - Value",
+    "Notes",
+]
+THUNDERBIRD = [
+    "First Name",
+    "Last Name",
+    "Display Name",
+    "Nickname",
+    "Primary Email",
+    "Secondary Email",
+    "Work Phone",
+    "Home Phone",
+    "Mobile Number",
+    "Work Address",
+    "Work City",
+    "Work ZipCode",
+    "Work Country",
+    "Job Title",
+    "Organization",
+    "Web Page 1",
+    "Notes",
+]
 
 
 def _outlook_csv(path):
     import csv
+
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(OUTLOOK)
-        w.writerow(["Dr.", "Zoë", "", "Kovács", "", "Huber GmbH", "", "Grafik", "Annenstraße 5", "Graz", "", "8020",
-                    "Österreich", "+43 316 1", "+43 664 2", "zoe@huber.at", "huber.at", "VIP"])
-        w.writerow(["", "Bálint", "", "Szabó", "", "Huber GmbH", "", "", "", "", "", "", "", "", "", "b@huber.at",
-                    "", ""])
+        w.writerow(
+            [
+                "Dr.",
+                "Zoë",
+                "",
+                "Kovács",
+                "",
+                "Huber GmbH",
+                "",
+                "Grafik",
+                "Annenstraße 5",
+                "Graz",
+                "",
+                "8020",
+                "Österreich",
+                "+43 316 1",
+                "+43 664 2",
+                "zoe@huber.at",
+                "huber.at",
+                "VIP",
+            ]
+        )
+        w.writerow(
+            ["", "Bálint", "", "Szabó", "", "Huber GmbH", "", "", "", "", "", "", "", "", "", "b@huber.at", "", ""]
+        )
     return path
 
 
 def test_auto_map_contact_exports():
     exp = {"Vorname": "First Name", "Nachname": "Last Name"}
-    for cols, extra in ((OUTLOOK, {"Firma": "Company", "Telefon": "Business Phone", "Mobil": "Mobile Phone",
-                                   "E-Mail": "E-mail Address", "Ort": "Business City", "PLZ": "Business Postal Code"}),
-                        (GOOGLE, {"Firma": "Organization Name", "Telefon": "Phone 1 - Value",
-                                  "E-Mail": "E-mail 1 - Value", "Ort": "Address 1 - City"}),
-                        (THUNDERBIRD, {"Firma": "Organization", "Telefon": "Work Phone", "Mobil": "Mobile Number",
-                                       "E-Mail": "Primary Email", "PLZ": "Work ZipCode"})):
+    for cols, extra in (
+        (
+            OUTLOOK,
+            {
+                "Firma": "Company",
+                "Telefon": "Business Phone",
+                "Mobil": "Mobile Phone",
+                "E-Mail": "E-mail Address",
+                "Ort": "Business City",
+                "PLZ": "Business Postal Code",
+            },
+        ),
+        (
+            GOOGLE,
+            {
+                "Firma": "Organization Name",
+                "Telefon": "Phone 1 - Value",
+                "E-Mail": "E-mail 1 - Value",
+                "Ort": "Address 1 - City",
+            },
+        ),
+        (
+            THUNDERBIRD,
+            {
+                "Firma": "Organization",
+                "Telefon": "Work Phone",
+                "Mobil": "Mobile Number",
+                "E-Mail": "Primary Email",
+                "PLZ": "Work ZipCode",
+            },
+        ),
+    ):
         m = D.auto_map("vcard", cols)
         for k, v in {**exp, **extra}.items():
             assert m[k] == v, (k, m[k], v)
-        assert m["Position"] != "Title"                     # Outlook „Title“ = Anrede, nicht Funktion
+        assert m["Position"] != "Title"  # Outlook „Title“ = Anrede, nicht Funktion
         assert D.guess_kind(cols) == "vcard"
     assert D.guess_kind(["SSID", "Password"]) == "wifi"
-    assert D.auto_map("wifi", ["ssid", "Kennwort"]) == {"Netzname": "ssid", "Passwort": "Kennwort",
-                                                       "Verschlüsselung": "", "Versteckt": ""}
+    assert D.auto_map("wifi", ["ssid", "Kennwort"]) == {
+        "Netzname": "ssid",
+        "Passwort": "Kennwort",
+        "Verschlüsselung": "",
+        "Versteckt": "",
+    }
     assert D.auto_map("ean13", ["GTIN", "Bezeichnung"])["EAN"] == "GTIN"
     # custom names take precedence over synonyms; startswith for "private e-mail address"
     assert D.auto_map("vcard", ["Telefon", "Phone"])["Telefon"] == "Telefon"
@@ -225,11 +351,12 @@ def test_mapping_override_and_validate():
 
 def test_outlook_export_to_vcard_qr():
     """Outlook export as an unchanged data source: QR field kind business card, mapping automatic or via preset."""
-    from pdfdruck import core, presets
+    from pdfdruck import presets
+
     csvp = _outlook_csv(os.path.join(TMP, "outlook.csv"))
     f = vdp.VdpField("qr", "", 40, 10, 60, 60, qr_type="vcard", qr_map={"Position": "Title"})
     s = vdp.VdpSettings(csv_path=csvp, fields=[f])
-    presets.save("vdp", "Outlook-Karten", s)                           # Zuordnung bleibt im Preset
+    presets.save("vdp", "Outlook-Karten", s)  # Zuordnung bleibt im Preset
     s2 = presets.load("vdp", "Outlook-Karten")
     f2 = vdp._fields(s2)[0]
     assert f2.qr_map == {"Position": "Title"} and f2.qr_type == "vcard"
@@ -243,12 +370,16 @@ def test_outlook_export_to_vcard_qr():
     assert "N:Kovács;Zoë;;;" in got[0] and "TITLE:Dr." in got[0] and "EMAIL;TYPE=INTERNET:zoe@huber.at" in got[0]
     assert "ADR;TYPE=WORK:;;Annenstraße 5;Graz;;8020;Österreich" in got[0], got[0]
     assert "N:Szabó;Bálint;;;" in got[1] and "TEL" not in got[1]
-    r = subprocess.run([sys.executable, "-m", "pdfdruck.cli", "datencheck", csvp], capture_output=True, text=True,
-                       env=dict(os.environ, PYTHONPATH=ROOT))
+    r = subprocess.run(
+        [sys.executable, "-m", "pdfdruck.cli", "datencheck", csvp],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, PYTHONPATH=ROOT),
+    )
     assert r.returncode == 0 and "vcard" in r.stdout, r.stdout + r.stderr
 
 
-GUI = r'''
+GUI = r"""
 import sys, os, types
 from pdfdruck.gui.datadialog import DataDialog, field_for
 from pdfdruck import datakinds as D, vdp
@@ -354,12 +485,13 @@ dd = DataDialog(None, op)
 assert dd.kind == "vcard" and "Vorname" not in dd.cols and "Firma" in dd.cols, dd.cols   # keine doppelten Spalten
 assert dd.problems() == [], dd.problems()
 print("ok")
-'''
+"""
 
 
 def test_gui_data_dialog():
-    env = dict(os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]),
-               QT_QPA_PLATFORM="offscreen")
+    env = dict(
+        os.environ, PYTHONPATH=os.pathsep.join([os.path.join(HERE, "_qtstub"), ROOT, HERE]), QT_QPA_PLATFORM="offscreen"
+    )
     r = subprocess.run([sys.executable, "-c", GUI, SAMPLE, TMP], capture_output=True, text=True, env=env, timeout=300)
     assert r.returncode == 0 and r.stdout.strip().endswith("ok"), r.stdout[-2000:] + r.stderr[-4000:]
 

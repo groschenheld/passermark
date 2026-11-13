@@ -4,6 +4,7 @@
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Dunkles Design mit gelbem Akzent („Konsole“, aber sachlich) + globaler Mausrad-Schutz."""
+
 from __future__ import annotations
 
 import os
@@ -11,17 +12,16 @@ import tempfile
 
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import (QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox,
-                               QSlider)
+from PySide6.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplication, QComboBox, QSlider
 
-BG = "#15171a"          # Fenster
-PANEL = "#1e2124"       # Leisten, Gruppen
-FIELD = "#0e1012"       # Eingabefelder
-VIEW = "#2a2d31"        # Hintergrund hinter den Seiten
-BORDER = "#5a6068"      # border (deliberately light enough for contrast)
+BG = "#15171a"  # Fenster
+PANEL = "#1e2124"  # Leisten, Gruppen
+FIELD = "#0e1012"  # Eingabefelder
+VIEW = "#2a2d31"  # Hintergrund hinter den Seiten
+BORDER = "#5a6068"  # border (deliberately light enough for contrast)
 TEXT = "#f3f4f5"
 MUTED = "#a9afb6"
-ACCENT = "#ffc62b"      # Gelb
+ACCENT = "#ffc62b"  # Gelb
 ACCENT_SOFT = "rgba(255, 198, 43, 0.20)"
 ERROR = "#ff6b6b"
 ICON = "#d9dde1"
@@ -120,17 +120,18 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
 def _indicator_qss() -> str:
     """Black check mark or dot on a yellow background (QSS needs image files for that)."""
     from .. import platform as _platform
+
     d = os.path.join(tempfile.gettempdir(), f"pdfdruck-theme-{_platform.user_id()}")
     os.makedirs(d, exist_ok=True)
     files = {
         "check.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M3.2 8.4l3 3 6.6-7" '
-                     'fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        'fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
         "dot.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.6" fill="#000"/></svg>',
     }
     for name, svg in files.items():
         with open(os.path.join(d, name), "w") as f:
             f.write(svg)
-    chk = os.path.join(d, "check.svg").replace("\\", "/")      # QSS wants forward slashes, even on Windows
+    chk = os.path.join(d, "check.svg").replace("\\", "/")  # QSS wants forward slashes, even on Windows
     dot = os.path.join(d, "dot.svg").replace("\\", "/")
     return f"""
 QCheckBox::indicator:checked, QListView::indicator:checked, QGroupBox::indicator:checked {{
@@ -150,7 +151,7 @@ def _scroll_area_of(target):
 
 def _guarded_wheel(self, ev):
     """Ersetzt wheelEvent von Auswahlfeldern/Drehfeldern/Schiebereglern: nie den Wert ändern, sondern die
-        Umgebung scrollen (wie vorher der Ereignisfilter – nur ohne Kosten für alle anderen Ereignisse)."""
+    Umgebung scrollen (wie vorher der Ereignisfilter – nur ohne Kosten für alle anderen Ereignisse)."""
     global _wheel_hit
     _wheel_hit = True
     area = _scroll_area_of(self)
@@ -166,11 +167,11 @@ _wheel_hit = False
 
 class WheelGuard(QObject):
     """The mouse wheel NEVER changes selection fields/spin boxes – it always scrolls the surroundings.
-        Values are changed by clicking or via the keyboard.
+    Values are changed by clicking or via the keyboard.
 
-        Nur noch Rückfall: als Filter auf der ganzen Anwendung lief jedes einzelne Ereignis (Zeichnen, Layout,
-        Fokus …) durch Python – beim Öffnen eines Reiters/Fensters zigtausendmal, das waren die 0,4–0,5-s-Ruckler
-        in theme.py eventFilter. Normal wird stattdessen wheelEvent der drei Widget-Arten ersetzt (install_wheel_guard).
+    Nur noch Rückfall: als Filter auf der ganzen Anwendung lief jedes einzelne Ereignis (Zeichnen, Layout,
+    Fokus …) durch Python – beim Öffnen eines Reiters/Fensters zigtausendmal, das waren die 0,4–0,5-s-Ruckler
+    in theme.py eventFilter. Normal wird stattdessen wheelEvent der drei Widget-Arten ersetzt (install_wheel_guard).
     """
 
     TYPES = (QComboBox, QAbstractSpinBox, QSlider)
@@ -179,7 +180,7 @@ class WheelGuard(QObject):
         if ev.type() != QEvent.Type.Wheel:
             return False
         w, target = obj, None
-        for _ in range(3):                       # auch innere Editfelder von Spin-/Comboboxen
+        for _ in range(3):  # auch innere Editfelder von Spin-/Comboboxen
             if w is None or not hasattr(w, "parentWidget"):
                 break
             if isinstance(w, self.TYPES):
@@ -196,23 +197,32 @@ class WheelGuard(QObject):
 
 def install_wheel_guard(app) -> bool:
     """wheelEvent der Auswahl-/Drehfelder/Schieberegler ersetzen und prüfen, ob Qt den Ersatz wirklich aufruft.
-        True = geklappt (kein globaler Filter nötig)."""
+    True = geklappt (kein globaler Filter nötig)."""
     global _wheel_hit
     from PySide6.QtCore import QPoint, QPointF
     from PySide6.QtGui import QWheelEvent
+
     for cls in WheelGuard.TYPES:
         cls.wheelEvent = _guarded_wheel
     try:
         probe = QComboBox()
         probe.addItems(["a", "b"])
         _wheel_hit = False
-        ev = QWheelEvent(QPointF(1, 1), QPointF(1, 1), QPoint(0, 0), QPoint(0, -120),
-                         Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+        ev = QWheelEvent(
+            QPointF(1, 1),
+            QPointF(1, 1),
+            QPoint(0, 0),
+            QPoint(0, -120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.NoScrollPhase,
+            False,
+        )
         QApplication.sendEvent(probe, ev)
         ok = _wheel_hit and probe.currentIndex() == 0
         probe.deleteLater()
         return ok
-    except Exception:                            # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -223,13 +233,21 @@ def apply(app: QApplication):
     global _guard
     app.setStyle("Fusion")
     pal = QPalette()
-    for role, col in [(QPalette.ColorRole.Window, BG), (QPalette.ColorRole.WindowText, TEXT),
-                      (QPalette.ColorRole.Base, FIELD), (QPalette.ColorRole.AlternateBase, PANEL),
-                      (QPalette.ColorRole.Text, TEXT), (QPalette.ColorRole.Button, "#2a2e33"),
-                      (QPalette.ColorRole.ButtonText, TEXT), (QPalette.ColorRole.Highlight, ACCENT),
-                      (QPalette.ColorRole.HighlightedText, "#000000"), (QPalette.ColorRole.ToolTipBase, "#000000"),
-                      (QPalette.ColorRole.ToolTipText, TEXT), (QPalette.ColorRole.PlaceholderText, MUTED),
-                      (QPalette.ColorRole.Link, ACCENT)]:
+    for role, col in [
+        (QPalette.ColorRole.Window, BG),
+        (QPalette.ColorRole.WindowText, TEXT),
+        (QPalette.ColorRole.Base, FIELD),
+        (QPalette.ColorRole.AlternateBase, PANEL),
+        (QPalette.ColorRole.Text, TEXT),
+        (QPalette.ColorRole.Button, "#2a2e33"),
+        (QPalette.ColorRole.ButtonText, TEXT),
+        (QPalette.ColorRole.Highlight, ACCENT),
+        (QPalette.ColorRole.HighlightedText, "#000000"),
+        (QPalette.ColorRole.ToolTipBase, "#000000"),
+        (QPalette.ColorRole.ToolTipText, TEXT),
+        (QPalette.ColorRole.PlaceholderText, MUTED),
+        (QPalette.ColorRole.Link, ACCENT),
+    ]:
         pal.setColor(role, QColor(col))
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, QColor(ICON_OFF))
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor(ICON_OFF))
@@ -242,6 +260,6 @@ def apply(app: QApplication):
     f.setPointSizeF(10)
     app.setFont(f)
     app.setStyleSheet(QSS + _indicator_qss())
-    if not install_wheel_guard(app):             # Rückfall: wie bisher als Filter für die ganze Anwendung
+    if not install_wheel_guard(app):  # Rückfall: wie bisher als Filter für die ganze Anwendung
         _guard = WheelGuard(app)
         app.installEventFilter(_guard)

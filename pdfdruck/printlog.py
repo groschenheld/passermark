@@ -5,13 +5,14 @@
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 """Print log: every print job with its exact settings – one JSON file per job plus printlog.csv. No Qt.
 
-    On: user setting (File → Settings) or forced by the administrator (admin settings "print_log").
-    Folder: admin "print_log.dir", otherwise Linux ~/.local/state/passermark/printlog,
-    Windows %LOCALAPPDATA%\\Passermark\\printlog – in it YYYY-MM/<time>_<file>.json and printlog.csv.
+On: user setting (File → Settings) or forced by the administrator (admin settings "print_log").
+Folder: admin "print_log.dir", otherwise Linux ~/.local/state/passermark/printlog,
+Windows %LOCALAPPDATA%\\Passermark\\printlog – in it YYYY-MM/<time>_<file>.json and printlog.csv.
 
-    Each log holds a ready workflow ("workflow") that prints the job again exactly like this:
-    passermark-cli reprint <log.json> [--in other.pdf] [--dry-run]
+Each log holds a ready workflow ("workflow") that prints the job again exactly like this:
+passermark-cli reprint <log.json> [--in other.pdf] [--dry-run]
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -30,16 +31,35 @@ KIND = "printlog"
 VERSION = 1
 FOLDER = "printlog"
 CSV_NAME = "printlog.csv"
-_CSV_HEAD = ["time", "user", "host", "source", "file", "pages", "printer", "paper", "tray", "copies", "job_id",
-             "result", "log", "roll_mm", "run_m",       # Rolle/Laufmeter: Plandruck (seit 1.18)
-             "order", "item"]                           # Bestellung/Position aus dem Ablauf (Passerlink, seit 1.18.9)
+_CSV_HEAD = [
+    "time",
+    "user",
+    "host",
+    "source",
+    "file",
+    "pages",
+    "printer",
+    "paper",
+    "tray",
+    "copies",
+    "job_id",
+    "result",
+    "log",
+    "roll_mm",
+    "run_m",  # Rolle/Laufmeter: Plandruck (seit 1.18)
+    "order",
+    "item",
+]  # Bestellung/Position aus dem Ablauf (Passerlink, seit 1.18.9)
 # Ablauf-Variablen, die mitprotokolliert werden (z. B. von Passerlink übergeben) – keine Kundendaten
 LOG_VARS = ("order", "item", "qty", "product", "shop")
 VAR_MAX = 120
 
-_ctx = {"source": "dialog",          # Quelle des laufenden Auftrags (dialog | cli | watch | rightclick)
-        "inputs": None, "before": None,   # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
-        "vars": None}                     # im Ablauf: die Variablen aus LOG_VARS
+_ctx = {
+    "source": "dialog",  # Quelle des laufenden Auftrags (dialog | cli | watch | rightclick)
+    "inputs": None,
+    "before": None,  # im Ablauf: Original-Eingaben und die Schritte vor dem Druck
+    "vars": None,
+}  # im Ablauf: die Variablen aus LOG_VARS
 _pruned = {"dir": None}
 
 
@@ -57,8 +77,8 @@ def source(name: str):
 @contextlib.contextmanager
 def in_workflow(inputs: list, before: list, variables: dict | None = None):
     """Druck mitten in einem Ablauf: geprotokolliert werden die Original-Eingaben und die Schritte davor – der
-        Nachdruck rechnet sie wieder durch (die Zwischendatei gibt es danach nicht mehr). variables: die
-        Ablauf-Variablen; davon kommen nur LOG_VARS ins Protokoll (Bestellung, Position, Menge, Produkt, Shop)."""
+    Nachdruck rechnet sie wieder durch (die Zwischendatei gibt es danach nicht mehr). variables: die
+    Ablauf-Variablen; davon kommen nur LOG_VARS ins Protokoll (Bestellung, Position, Menge, Produkt, Shop)."""
     old = (_ctx["inputs"], _ctx["before"], _ctx["vars"])
     _ctx["inputs"], _ctx["before"], _ctx["vars"] = list(inputs), list(before), log_vars(variables)
     try:
@@ -87,6 +107,7 @@ def current() -> str:
 def admin_cfg(cfg: dict | None = None) -> dict:
     if cfg is None:
         from . import config
+
         cfg = config.load()
     pl = cfg.get("print_log") or {}
     return pl if isinstance(pl, dict) else {}
@@ -97,6 +118,7 @@ def enabled(cfg: dict | None = None) -> bool:
         return True
     try:
         from . import l10n
+
         return bool(l10n.load_settings().get("print_log", False))
     except Exception:
         return False
@@ -107,6 +129,7 @@ def folder(cfg: dict | None = None) -> str:
     if d:
         return os.path.expandvars(os.path.expanduser(d))
     from .platform import user_log_dir
+
     return os.path.join(os.path.dirname(user_log_dir()), FOLDER)
 
 
@@ -136,11 +159,25 @@ def _sha256(path: str) -> str | None:
         return None
 
 
-def build(caps, printer: str, file: str | None, title: str, pages, settings, values: dict, copies: int,
-          collate: bool, reverse: bool, color: tuple, job_id, error: str | None = None, sheet_mm=None,
-          out_pages: int | None = None) -> dict:
+def build(
+    caps,
+    printer: str,
+    file: str | None,
+    title: str,
+    pages,
+    settings,
+    values: dict,
+    copies: int,
+    collate: bool,
+    reverse: bool,
+    color: tuple,
+    job_id,
+    error: str | None = None,
+    sheet_mm=None,
+    out_pages: int | None = None,
+) -> dict:
     """The log entry (dict). values = driver values as sent (incl. tray, step-2 paper).
-        out_pages: pages of the file actually sent, per copy (after imposition, n-up, booklet, step & repeat)."""
+    out_pages: pages of the file actually sent, per copy (after imposition, n-up, booklet, step & repeat)."""
     opts = {k: str(v) for k, v in caps.job_options(values).items()} if caps is not None else {}
     lay = dataclasses.asdict(settings) if dataclasses.is_dataclass(settings) else dict(settings or {})
     pkey = caps.roles.get("pagesize") if caps is not None else None
@@ -151,7 +188,7 @@ def build(caps, printer: str, file: str | None, title: str, pages, settings, val
         user = getpass.getuser()
     except Exception:
         user = ""
-    if _ctx["inputs"]:                       # im Ablauf: die Datei ist eine Zwischenstufe
+    if _ctx["inputs"]:  # im Ablauf: die Datei ist eine Zwischenstufe
         file = _ctx["inputs"][0]
     entry = {
         "time": now.isoformat(timespec="seconds"),
@@ -180,17 +217,29 @@ def build(caps, printer: str, file: str | None, title: str, pages, settings, val
         "result": "error" if error else "sent",
         "error": error,
     }
-    if _ctx["vars"]:                         # Bestellung/Position (z. B. Passerlink) – für die Zuordnung
+    if _ctx["vars"]:  # Bestellung/Position (z. B. Passerlink) – für die Zuordnung
         entry["vars"] = dict(_ctx["vars"])
-    st = {"printer": printer, "options": opts, "copies": int(copies), "collate": bool(collate),
-          "reverse": bool(reverse), "layout": lay, "profile": pid or "none", "intent": intent or "",
-          "auto_tray": False, "title": title}
+    st = {
+        "printer": printer,
+        "options": opts,
+        "copies": int(copies),
+        "collate": bool(collate),
+        "reverse": bool(reverse),
+        "layout": lay,
+        "profile": pid or "none",
+        "intent": intent or "",
+        "auto_tray": False,
+        "title": title,
+    }
     step = {"job": "print", "settings": st}
     if entry["pages"]:
         step["pages"] = entry["pages"]
-    wf = {"passermark": "workflow", "version": 1,
-          "name": f"Reprint {os.path.basename(file or title)} {now:%Y-%m-%d %H:%M}",
-          "steps": list(_ctx["before"] or []) + [step]}
+    wf = {
+        "passermark": "workflow",
+        "version": 1,
+        "name": f"Reprint {os.path.basename(file or title)} {now:%Y-%m-%d %H:%M}",
+        "steps": list(_ctx["before"] or []) + [step],
+    }
     if _ctx["inputs"]:
         wf["input"] = [os.path.abspath(p) for p in _ctx["inputs"]]
         entry["files"] = wf["input"]
@@ -226,11 +275,27 @@ def write(rec: dict, cfg: dict | None = None) -> str | None:
             w = csv.writer(f, delimiter=";")
             if new:
                 w.writerow(_CSV_HEAD)
-            w.writerow([e["time"], e["user"], e["host"], e["source"], e.get("file") or e.get("title"), e["pages"],
-                        e["printer"], e.get("paper") or "", e.get("tray") or "", e["copies"], e.get("job_id") or "",
-                        e["result"] + (f": {e['error']}" if e.get("error") else ""), os.path.relpath(path, base),
-                        _num(e.get("roll_mm")), _num(e.get("run_m")),
-                        (e.get("vars") or {}).get("order", ""), (e.get("vars") or {}).get("item", "")])
+            w.writerow(
+                [
+                    e["time"],
+                    e["user"],
+                    e["host"],
+                    e["source"],
+                    e.get("file") or e.get("title"),
+                    e["pages"],
+                    e["printer"],
+                    e.get("paper") or "",
+                    e.get("tray") or "",
+                    e["copies"],
+                    e.get("job_id") or "",
+                    e["result"] + (f": {e['error']}" if e.get("error") else ""),
+                    os.path.relpath(path, base),
+                    _num(e.get("roll_mm")),
+                    _num(e.get("run_m")),
+                    (e.get("vars") or {}).get("order", ""),
+                    (e.get("vars") or {}).get("item", ""),
+                ]
+            )
         _prune(base, cfg)
         return path
     except Exception:
@@ -246,7 +311,7 @@ def _num(v) -> str:
 
 def _upgrade_csv(path: str) -> None:
     """Ältere printlog.csv: fehlende Spalten (roll_mm/run_m seit 1.18, order/item seit 1.18.9) in der Kopfzeile
-        ergänzen, damit neue Spalten benannt sind. Alte Zeilen bleiben kürzer (= leer)."""
+    ergänzen, damit neue Spalten benannt sind. Alte Zeilen bleiben kürzer (= leer)."""
     try:
         with open(path, encoding="utf-8-sig") as f:
             first = f.readline()
@@ -288,7 +353,7 @@ def _prune(base: str, cfg: dict | None = None) -> None:
                     pass
         for d in dirs:
             try:
-                os.rmdir(os.path.join(root, d))          # nur leere Monatsordner
+                os.rmdir(os.path.join(root, d))  # nur leere Monatsordner
             except OSError:
                 pass
 
@@ -298,5 +363,6 @@ def load(path: str) -> dict:
         rec = json.load(f)
     if not isinstance(rec, dict) or rec.get("passermark") != KIND or not isinstance(rec.get("workflow"), dict):
         from .l10n import tr
+
         raise ValueError(tr("„{0}“ ist kein Druckprotokoll.").format(os.path.basename(path)))
     return rec

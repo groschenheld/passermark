@@ -11,6 +11,7 @@ Storage (per user):
 Format like `passermark-cli settings <job>`: {"job": "<job>", "settings": {…}}.
 Additionally, per job the most recently used settings (file ".zuletzt.json", not in the list).
 """
+
 from __future__ import annotations
 
 import os
@@ -20,23 +21,24 @@ from . import core
 from .l10n import tr
 
 LAST = ".zuletzt"
-PRINT = "impose"                                 # print layout (size, multiple, booklet, poster, step & repeat) = CLI job impose
+PRINT = "impose"  # print layout (size, multiple, booklet, poster, step & repeat) = CLI job impose
 _BAD = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
 
 
 def root_dir() -> str:
     from .l10n import _settings_file
+
     return os.path.join(os.path.dirname(_settings_file()), "presets")
 
 
 def settings_class(kind: str):
-    return core.settings_class(kind)             # unbekannter Auftrag -> ValueError
+    return core.settings_class(kind)  # unbekannter Auftrag -> ValueError
 
 
 def job_dir(kind: str) -> str:
     settings_class(kind)
     d = os.path.join(root_dir(), kind)
-    if kind == PRINT:                            # 1.7: Druck-Presets lagen unter „druck“
+    if kind == PRINT:  # 1.7: Druck-Presets lagen unter „druck“
         old = os.path.join(root_dir(), "druck")
         if os.path.isdir(old) and not os.path.exists(d):
             try:
@@ -103,7 +105,7 @@ def save_last(kind: str, settings) -> None:
     try:
         save(kind, LAST, settings)
     except OSError:
-        pass                                     # „zuletzt verwendet“ ist nur Komfort
+        pass  # „zuletzt verwendet“ ist nur Komfort
 
 
 def load_last(kind: str):
@@ -123,5 +125,6 @@ def resolve(kind: str, ref: str) -> str:
         p = ""
     if p and os.path.isfile(p):
         return p
-    raise FileNotFoundError(tr("Preset nicht gefunden: {0} (gespeicherte: {1})").format(
-        ref, ", ".join(list_presets(kind)) or "–"))
+    raise FileNotFoundError(
+        tr("Preset nicht gefunden: {0} (gespeicherte: {1})").format(ref, ", ".join(list_presets(kind)) or "–")
+    )

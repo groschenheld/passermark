@@ -7,6 +7,7 @@
 sidebars) – here as a tab. With only one tab, the tab bar is hidden; it then looks
 like a single window.
 """
+
 from __future__ import annotations
 
 import os
@@ -28,7 +29,7 @@ class TabHost(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
-        self.tabs.setTabBarAutoHide(True)              # ein Dokument = sieht aus wie ein normales Fenster
+        self.tabs.setTabBarAutoHide(True)  # ein Dokument = sieht aus wie ein normales Fenster
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self._current_changed)
         bar = self.tabs.tabBar()
@@ -42,7 +43,7 @@ class TabHost(QMainWindow):
         w._host = self
         w.setWindowFlags(Qt.WindowType.Widget)
         try:
-            w.menuBar().setNativeMenuBar(False)       # menu in the tab, not in a global menu bar
+            w.menuBar().setNativeMenuBar(False)  # menu in the tab, not in a global menu bar
         except Exception:
             pass
         self.tabs.addTab(w, w.windowTitle() or "Passermark")
@@ -79,7 +80,7 @@ class TabHost(QMainWindow):
     def close_tab(self, i):
         w = self.tabs.widget(i)
         if w is not None:
-            w.close()                    # asks about unsaved changes; afterwards the tab is removed
+            w.close()  # asks about unsaved changes; afterwards the tab is removed
 
     def tab_closed(self):
         """Called by the document window after closing: last tab gone -> close the frame."""
@@ -89,7 +90,7 @@ class TabHost(QMainWindow):
         try:
             if self.tabs.count() == 0:
                 self.close()
-        except RuntimeError:             # already deleted
+        except RuntimeError:  # already deleted
             pass
 
     def detach(self, w):
@@ -129,7 +130,10 @@ class TabHost(QMainWindow):
         if path and os.path.isfile(path):
             from PySide6.QtCore import QUrl
             from PySide6.QtGui import QDesktopServices
-            m.addAction(tr("Ordner öffnen"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path))))
+
+            m.addAction(
+                tr("Ordner öffnen"), lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
+            )
             m.addAction(tr("Pfad kopieren"), lambda: QApplication.clipboard().setText(path))
         m.exec(bar.mapToGlobal(pos))
 
@@ -144,7 +148,7 @@ class TabHost(QMainWindow):
     def closeEvent(self, e):
         for w in self.windows():
             self.tabs.setCurrentWidget(w)
-            if not w.close():            # cancelled at "Save changes?"
+            if not w.close():  # cancelled at "Save changes?"
                 e.ignore()
                 return
         hosts = getattr(self.ctl, "hosts", None)

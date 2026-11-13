@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 """Transparente Verläufe (Soft-Maske im Muster, wie Chrome/Canva sie exportieren):
-    Erkennung in der Prüfung, Reparatur in deckende Bilder, Nachweis per RIP-Simulation."""
+Erkennung in der Prüfung, Reparatur in deckende Bilder, Nachweis per RIP-Simulation."""
+
 import io
 import os
 import sys
+
 os.environ.setdefault("PASSERMARK_LANG", "de")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from pdfdruck import preflight, softmask
@@ -12,33 +14,72 @@ from pdfdruck import preflight, softmask
 
 def _chrome_like_pdf(in_form: bool = False) -> bytes:
     """Rotes Bild, darüber ein schwarzer Verlauf, der über eine Soft-Maske von durchsichtig (links)
-        nach deckend (rechts) läuft, darüber Text. Ohne Soft-Maske: alles schwarz."""
+    nach deckend (rechts) läuft, darüber Text. Ohne Soft-Maske: alles schwarz."""
     import pikepdf
+
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(300, 300))
     page = pdf.pages[0]
-    img = pikepdf.Stream(pdf, bytes([220, 30, 30]) * 4, Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Image,
-                         Width=2, Height=2, ColorSpace=pikepdf.Name.DeviceRGB, BitsPerComponent=8)
-    alpha = pikepdf.Dictionary(ShadingType=2, ColorSpace=pikepdf.Name.DeviceGray, Coords=[0, 0, 300, 0],
-                               Function=pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0], C1=[1], N=1),
-                               Extend=[True, True])
-    mask_form = pikepdf.Stream(pdf, b"/A sh", Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Form,
-                               BBox=[0, 0, 300, 300],
-                               Group=pikepdf.Dictionary(S=pikepdf.Name.Transparency, CS=pikepdf.Name.DeviceGray),
-                               Resources=pikepdf.Dictionary(Shading=pikepdf.Dictionary(A=alpha)))
-    gs = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState,
-                            SMask=pikepdf.Dictionary(Type=pikepdf.Name.Mask, S=pikepdf.Name.Luminosity, G=mask_form))
-    pat = pikepdf.Stream(pdf, b"/G1 gs 0 0 0 rg 0 0 300 300 re f", Type=pikepdf.Name.Pattern, PatternType=1,
-                         PaintType=1, TilingType=1, BBox=[0, 0, 300, 300], XStep=300, YStep=300,
-                         Resources=pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(G1=gs)))
+    img = pikepdf.Stream(
+        pdf,
+        bytes([220, 30, 30]) * 4,
+        Type=pikepdf.Name.XObject,
+        Subtype=pikepdf.Name.Image,
+        Width=2,
+        Height=2,
+        ColorSpace=pikepdf.Name.DeviceRGB,
+        BitsPerComponent=8,
+    )
+    alpha = pikepdf.Dictionary(
+        ShadingType=2,
+        ColorSpace=pikepdf.Name.DeviceGray,
+        Coords=[0, 0, 300, 0],
+        Function=pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0], C1=[1], N=1),
+        Extend=[True, True],
+    )
+    mask_form = pikepdf.Stream(
+        pdf,
+        b"/A sh",
+        Type=pikepdf.Name.XObject,
+        Subtype=pikepdf.Name.Form,
+        BBox=[0, 0, 300, 300],
+        Group=pikepdf.Dictionary(S=pikepdf.Name.Transparency, CS=pikepdf.Name.DeviceGray),
+        Resources=pikepdf.Dictionary(Shading=pikepdf.Dictionary(A=alpha)),
+    )
+    gs = pikepdf.Dictionary(
+        Type=pikepdf.Name.ExtGState,
+        SMask=pikepdf.Dictionary(Type=pikepdf.Name.Mask, S=pikepdf.Name.Luminosity, G=mask_form),
+    )
+    pat = pikepdf.Stream(
+        pdf,
+        b"/G1 gs 0 0 0 rg 0 0 300 300 re f",
+        Type=pikepdf.Name.Pattern,
+        PatternType=1,
+        PaintType=1,
+        TilingType=1,
+        BBox=[0, 0, 300, 300],
+        XStep=300,
+        YStep=300,
+        Resources=pikepdf.Dictionary(ExtGState=pikepdf.Dictionary(G1=gs)),
+    )
     font = pikepdf.Dictionary(Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica)
-    body = (b"q 200 0 0 200 50 50 cm /Im1 Do Q\n/Pattern cs /P1 scn 0 0 300 300 re f\n"
-            b"0 0 1 rg BT /F1 20 Tf 60 20 Td (Oben drauf) Tj ET")
-    res = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Im1=img), Pattern=pikepdf.Dictionary(P1=pat),
-                             Font=pikepdf.Dictionary(F1=font))
-    if in_form:                                   # wie Chrome: alles in einem Formular mit Transparenzgruppe
-        form = pikepdf.Stream(pdf, body, Type=pikepdf.Name.XObject, Subtype=pikepdf.Name.Form, BBox=[0, 0, 300, 300],
-                              Group=pikepdf.Dictionary(S=pikepdf.Name.Transparency), Resources=res)
+    body = (
+        b"q 200 0 0 200 50 50 cm /Im1 Do Q\n/Pattern cs /P1 scn 0 0 300 300 re f\n"
+        b"0 0 1 rg BT /F1 20 Tf 60 20 Td (Oben drauf) Tj ET"
+    )
+    res = pikepdf.Dictionary(
+        XObject=pikepdf.Dictionary(Im1=img), Pattern=pikepdf.Dictionary(P1=pat), Font=pikepdf.Dictionary(F1=font)
+    )
+    if in_form:  # wie Chrome: alles in einem Formular mit Transparenzgruppe
+        form = pikepdf.Stream(
+            pdf,
+            body,
+            Type=pikepdf.Name.XObject,
+            Subtype=pikepdf.Name.Form,
+            BBox=[0, 0, 300, 300],
+            Group=pikepdf.Dictionary(S=pikepdf.Name.Transparency),
+            Resources=res,
+        )
         page.obj.Resources = pikepdf.Dictionary(XObject=pikepdf.Dictionary(Fm=form))
         page.obj.Contents = pikepdf.Stream(pdf, b"q 1 0 0 1 0 0 cm /Fm Do Q")
     else:
@@ -52,6 +93,7 @@ def _chrome_like_pdf(in_form: bool = False) -> bytes:
 def _render(data, scale=0.5):
     import numpy as np
     import pypdfium2 as pdfium
+
     d = pdfium.PdfDocument(data)
     a = np.asarray(d[0].render(scale=scale).to_pil().convert("RGB")).astype(int)
     d.close()
@@ -79,6 +121,7 @@ def test_rip_simulation_shows_the_problem():
 
 def test_flatten_fixes_and_keeps_look():
     import numpy as np
+
     for in_form in (False, True):
         data = _chrome_like_pdf(in_form)
         new, notes = softmask.flatten_softmask_paints(data, dpi=150)
@@ -92,6 +135,7 @@ def test_flatten_fixes_and_keeps_look():
         assert not [i for i in rep.issues if i.severity == "warning" and i.category == "transparency"]
         import pypdfium2 as pdfium
         from pdfdruck import editing
+
         d = pdfium.PdfDocument(new)
         if not in_form:
             assert [L.text for L in editing.text_lines(d, 0)] == ["Oben drauf"], "Text darüber bleibt Text"
@@ -100,6 +144,7 @@ def test_flatten_fixes_and_keeps_look():
 
 def test_untouched_without_gradients():
     import pikepdf
+
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(100, 100))
     pdf.pages[0].obj.Contents = pikepdf.Stream(pdf, b"1 0 0 rg 10 10 50 50 re f")
