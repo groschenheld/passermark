@@ -935,6 +935,118 @@ def _mul_td(m, tx, ty):
     return (a, b, c, d, tx * a + ty * c + e, tx * b + ty * d + f)
 
 
+_IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+
+def _text_op_info(ops) -> list:
+    """Pass 1: for every operator (name, ordinal of the text output or None, text line matrix before, after,
+    inside BT…ET?, current transformation matrix)."""
+    I = _IDENTITY
+    info = []
+    tlm, TL, in_bt, ordinal = I, 0.0, False, -1
+    ctm, stack = I, []
+    for ins in ops:
+        op = str(getattr(ins, "operator", ""))
+        before = tlm
+        ordn = None
+        vals = _num_ops(ins) if op in POS_OPS | {"TL", "cm"} else []
+        if op == "q":
+            stack.append(ctm)
+        elif op == "Q":
+            ctm = stack.pop() if stack else I
+        elif op == "cm" and len(vals) == 6:
+            ctm = _mmul(tuple(vals), ctm)
+        if op == "BT":
+            tlm, in_bt = I, True
+        elif op == "ET":
+            in_bt = False
+        elif op == "Tm" and len(vals) == 6:
+            tlm = tuple(vals)
+        elif op == "Td" and len(vals) == 2:
+            tlm = _mul_td(tlm, vals[0], vals[1])
+        elif op == "TD" and len(vals) == 2:
+            TL = -vals[1]
+            tlm = _mul_td(tlm, vals[0], vals[1])
+        elif op == "TL" and vals:
+            TL = vals[0]
+        elif op in ("T*", "'", '"'):
+            tlm = _mul_td(tlm, 0.0, -TL)
+        if op in SHOW_OPS and _show_nonempty(ins):
+            ordinal += 1
+            ordn = ordinal
+        info.append((op, ordn, before, tlm, in_bt, ctm))
+    return info
+
+
+def _target_segments(info: list, targets: set):
+    """Pass 2: contiguous runs with target text within one BT block, as [(first, last operator)].
+    None if a run cannot be lifted out: it continues foreign text without a positioning of its own, or the
+    text behind it relies on the position the run leaves behind."""
+    segs, k = [], 0
+    while k < len(info):
+        op, ordn, _b, _a, in_bt, _c = info[k]
+        if ordn is not None and ordn in targets and in_bt:
+            # start: after the last foreign text output or after BT
+            st = k
+            while (
+                st - 1 >= 0
+                and info[st - 1][0] != "BT"
+                and not (info[st - 1][1] is not None and info[st - 1][1] not in targets)
+            ):
+                st -= 1
+            en = k
+            j = k + 1
+            while j < len(info) and info[j][0] != "ET" and not (info[j][1] is not None and info[j][1] not in targets):
+                if info[j][1] is not None:
+                    en = j
+                j += 1
+            # the first output in the section needs a positioning (or the start of a block)
+            first_show = next(i for i in range(st, en + 1) if info[i][1] is not None)
+            has_pos = (
+                any(info[i][0] in POS_OPS | {"'", '"'} for i in range(st, first_show + 1)) or info[st - 1][0] == "BT"
+            )
+            # after the section: the next output needs its own positioning
+            nxt_ok = True
+            for i in range(en + 1, len(info)):
+                if info[i][0] in POS_OPS or info[i][0] in ("'", '"') or info[i][0] == "ET":
+                    break
+                if info[i][1] is not None:
+                    nxt_ok = False
+                    break
+            if not (has_pos and nxt_ok):
+                return None
+            segs.append((st, en))
+            k = en + 1
+            continue
+        k += 1
+    return segs
+
+
+def _wrap_segments(ops: list, info: list, segs: list, page_cm) -> list:
+    """Pass 3: the operators with every segment lifted out of its text block and wrapped in q/cm/Q; the block
+    continues before and after at exactly the same text position."""
+    import pikepdf
+
+    def O(name, args=()):
+        return pikepdf.ContentStreamInstruction(list(args), pikepdf.Operator(name))
+
+    out, seg_at = [], {st: en for st, en in segs}
+    k = 0
+    while k < len(ops):
+        if k in seg_at:
+            st, en = k, seg_at[k]
+            out += [O("ET"), O("q"), O("cm", _local_cm(info[st][5], page_cm)), O("BT"), O("Tm", info[st][2])]
+            out += ops[st : en + 1]
+            out += [O("ET"), O("Q")]
+            out += [ops[i] for i in range(st, en + 1) if str(getattr(ops[i], "operator", "")) in STATE_OPS]
+            out += [O("BT"), O("Tm", info[en][3])]
+            k = en + 1
+            continue
+        out.append(ops[k])
+        k += 1
+    return out
+
+
 def transform_line_blocks(
     data: bytes, page_index: int, line: TextLine, scale=1.0, dx=0.0, dy=0.0, origin=(0.0, 0.0)
 ) -> bytes | None:
@@ -950,109 +1062,17 @@ def transform_line_blocks(
     ox, oy, s = float(origin[0]), float(origin[1]), float(scale)
     page_cm = (s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
     targets = set(line.tops)
-    I = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
-
-    def O(name, args=()):
-        return pikepdf.ContentStreamInstruction(list(args), pikepdf.Operator(name))
-
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         page = pdf.pages[page_index]
         ops = list(pikepdf.parse_content_stream(page))
-        # pass 1: per command the text line matrix (before/after), ordinal of the text output
-        info = []  # (op, ordinal or None, tlm_before, tlm_after, in_bt, ctm)
-        tlm, TL, in_bt, ordinal = I, 0.0, False, -1
-        ctm, stack = I, []
-        for ins in ops:
-            op = str(getattr(ins, "operator", ""))
-            before = tlm
-            ordn = None
-            vals = _num_ops(ins) if op in POS_OPS | {"TL", "cm"} else []
-            if op == "q":
-                stack.append(ctm)
-            elif op == "Q":
-                ctm = stack.pop() if stack else I
-            elif op == "cm" and len(vals) == 6:
-                ctm = _mmul(tuple(vals), ctm)
-            if op == "BT":
-                tlm, in_bt = I, True
-            elif op == "ET":
-                in_bt = False
-            elif op == "Tm" and len(vals) == 6:
-                tlm = tuple(vals)
-            elif op == "Td" and len(vals) == 2:
-                tlm = _mul_td(tlm, vals[0], vals[1])
-            elif op == "TD" and len(vals) == 2:
-                TL = -vals[1]
-                tlm = _mul_td(tlm, vals[0], vals[1])
-            elif op == "TL" and vals:
-                TL = vals[0]
-            elif op in ("T*", "'", '"'):
-                tlm = _mul_td(tlm, 0.0, -TL)
-            if op in SHOW_OPS and _show_nonempty(ins):
-                ordinal += 1
-                ordn = ordinal
-            info.append((op, ordn, before, tlm, in_bt, ctm))
+        info = _text_op_info(ops)
         if not targets <= {x[1] for x in info if x[1] is not None}:
             return None
-        # 2) build sections: contiguous runs with target text within one BT block
-        segs, k = [], 0
-        while k < len(info):
-            op, ordn, _b, _a, in_bt, _c = info[k]
-            if ordn is not None and ordn in targets and in_bt:
-                # start: after the last foreign text output or after BT
-                st = k
-                while (
-                    st - 1 >= 0
-                    and info[st - 1][0] != "BT"
-                    and not (info[st - 1][1] is not None and info[st - 1][1] not in targets)
-                ):
-                    st -= 1
-                en = k
-                j = k + 1
-                while (
-                    j < len(info) and info[j][0] != "ET" and not (info[j][1] is not None and info[j][1] not in targets)
-                ):
-                    if info[j][1] is not None:
-                        en = j
-                    j += 1
-                # the first output in the section needs a positioning (or the start of a block)
-                first_show = next(i for i in range(st, en + 1) if info[i][1] is not None)
-                has_pos = (
-                    any(info[i][0] in POS_OPS | {"'", '"'} for i in range(st, first_show + 1))
-                    or info[st - 1][0] == "BT"
-                )
-                # after the section: the next output needs its own positioning
-                nxt_ok = True
-                for i in range(en + 1, len(info)):
-                    if info[i][0] in POS_OPS or info[i][0] in ("'", '"') or info[i][0] == "ET":
-                        break
-                    if info[i][1] is not None:
-                        nxt_ok = False
-                        break
-                if not (has_pos and nxt_ok):
-                    return None
-                segs.append((st, en))
-                k = en + 1
-                continue
-            k += 1
+        segs = _target_segments(info, targets)
         if not segs or {info[i][1] for st, en in segs for i in range(st, en + 1) if info[i][1] is not None} != targets:
             return None
-        # 3) reassemble
-        out, seg_at = [], {st: en for st, en in segs}
-        k = 0
-        while k < len(ops):
-            if k in seg_at:
-                st, en = k, seg_at[k]
-                out += [O("ET"), O("q"), O("cm", _local_cm(info[st][5], page_cm)), O("BT"), O("Tm", info[st][2])]
-                out += ops[st : en + 1]
-                out += [O("ET"), O("Q")]
-                out += [ops[i] for i in range(st, en + 1) if str(getattr(ops[i], "operator", "")) in STATE_OPS]
-                out += [O("BT"), O("Tm", info[en][3])]
-                k = en + 1
-                continue
-            out.append(ops[k])
-            k += 1
+        out = _wrap_segments(ops, info, segs, page_cm)
         page.obj.Contents = pikepdf.Stream(pdf, pikepdf.unparse_content_stream(out))
         buf = io.BytesIO()
         pdf.save(buf)

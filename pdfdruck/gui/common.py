@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QComboBox, QToolButton, QVBoxLayout, QWidget
 
 from ..l10n import tr
 from ..layout import LayoutSettings  # noqa: F401  (früher hier gebraucht)
-from ..session import Session  # noqa: F401  (Sitzung liegt ohne Qt in pdfdruck.session)
+from ..session import Session  # noqa: F401  (the session lives without Qt in pdfdruck.session)
 from . import theme
 
 

@@ -574,6 +574,12 @@ class VdpDialog(QDialog):
         g = CollapsibleSection(tr("2. Woher kommen die Daten?"), expanded=True)
         right.addWidget(g)
         v = g.body_layout
+        self._build_csv_rows(v)
+        self._build_record_rows(v)
+        self._build_order_row(v)
+
+    def _build_csv_rows(self, v):
+        """The CSV file with its buttons, and the hint which separator and encoding were recognised."""
         row = QHBoxLayout()
         self.ed_csv = QLineEdit()
         self.ed_csv.setPlaceholderText(tr("keine – nur Nummerierung"))
@@ -617,6 +623,9 @@ class VdpDialog(QDialog):
             row,
         )
         v.addLayout(row_g)
+
+    def _build_record_rows(self, v):
+        """What the data yields, its columns, how many records without a file, and which records to use."""
         self.lbl_result = QLabel()
         self.lbl_result.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT};")
         self._field(
@@ -658,6 +667,9 @@ class VdpDialog(QDialog):
             tr("Leer = alle. Z. B. „1-50“ für einen Probedruck oder „51-“ für den Rest."),
             self.ed_records,
         )
+
+    def _build_order_row(self, v):
+        """Order of the output and pages per record."""
         row_o = QHBoxLayout()
         self.cmb_order = QComboBox()
         fill_combo(

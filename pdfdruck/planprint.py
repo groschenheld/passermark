@@ -2021,7 +2021,7 @@ def plan_files(
         if s.dry_run and printer and not is_folder(printer) and session is not None:
             try:  # dry run with a printer: also shows what would go to the device
                 info = print_items(session, printer, items, rolls, s)
-            except Exception:  # noqa: BLE001 – Drucker nicht erreichbar: nur rechnen
+            except Exception:  # noqa: BLE001 – printer not reachable: only calculate
                 info = None
         if info is not None:
             pass
@@ -2032,7 +2032,7 @@ def plan_files(
                 info["cut_options"] = {}
                 try:
                     info["cut_options"] = cut_values(session.caps_for(printer))
-                except Exception:  # noqa: BLE001 – Probelauf auch ohne erreichbaren Drucker
+                except Exception:  # noqa: BLE001 – dry run also without a reachable printer
                     pass
         else:
             from . import printlog

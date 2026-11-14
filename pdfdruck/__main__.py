@@ -18,34 +18,36 @@ import os
 import sys
 
 
-def main():
-    """Entry point of the program: parse the arguments, hand over to a running instance or start the interface."""
-    import multiprocessing
-
-    multiprocessing.freeze_support()  # bundled program file: start the worker process instead of the program
+def _special_mode(argv: list):
+    """Starts that need no interface: self-test, admin helper, command line, version. -> exit code, or None"""
     # check the finished program file (GitHub build) or AppImage root helper (via pkexec)
-    if len(sys.argv) >= 2 and sys.argv[1] == "--selftest":
+    if len(argv) >= 2 and argv[1] == "--selftest":
         from . import selftest
 
         return selftest.run()
-    if len(sys.argv) >= 2 and sys.argv[1] == "--admin-helper":
+    if len(argv) >= 2 and argv[1] == "--admin-helper":
         from . import selftest
 
-        return selftest.admin_helper(sys.argv[2:])
-    if len(sys.argv) >= 2 and sys.argv[1] == "--cli":
+        return selftest.admin_helper(argv[2:])
+    if len(argv) >= 2 and argv[1] == "--cli":
         from .cli import main as cli_main  # jobs without a GUI (AppImage: … --cli)
 
-        return cli_main(sys.argv[2:])
-    if len(sys.argv) >= 2 and sys.argv[1] == "--version":
+        return cli_main(argv[2:])
+    if len(argv) >= 2 and argv[1] == "--version":
         from . import __version__
 
         print(__version__)
         return 0
     # Windows: elevated admin helper (started via UAC) – without a GUI
-    if len(sys.argv) == 3 and sys.argv[1] == "--admin-apply":
+    if len(argv) == 3 and argv[1] == "--admin-apply":
         from . import winadmin
 
-        return winadmin.apply(sys.argv[2])
+        return winadmin.apply(argv[2])
+    return None
+
+
+def _parse_args():
+    """Arguments of the interface. -> (args, command: print | repair | merge | plan | poster | open)"""
     ap = argparse.ArgumentParser(prog="passermark")
     ap.add_argument("--print", dest="do_print", action="store_true", help="ohne Dialog drucken")
     ap.add_argument("--open", action="store_true", help="öffnen (Standard)")
@@ -55,9 +57,7 @@ def main():
     ap.add_argument("--poster", action="store_true", help="Posterdruck als eigenes Fenster (Dateien dazu)")
     ap.add_argument("files", nargs="*")
     args, _qt = ap.parse_known_args()
-    # is an instance already running? Then pass on right away – before Qt and the interface are loaded
-    # (a multiple selection in Explorer starts one process per file; this way they are gone again within a split second)
-    early_cmd = (
+    cmd = (
         "print"
         if args.do_print
         else "repair"
@@ -70,14 +70,11 @@ def main():
         if args.poster
         else "open"
     )
-    # Several processes started at once (Explorer: one per file) wait here at a start lock – exactly
-    # one becomes the main instance, the others then pass their file on to it.
-    from . import fastipc
+    return args, cmd
 
-    start_lock = fastipc.hand_over_or_lock(early_cmd, [os.path.abspath(f) for f in args.files])
-    if start_lock is None:
-        return 0
 
+def _create_app():
+    """The Qt application with name, icon, translation of the Qt standard texts and the theme."""
     from PySide6.QtWidgets import QApplication
 
     app = QApplication(sys.argv[:1])
@@ -103,26 +100,21 @@ def main():
     from .gui.common import window_modal_dialogs
 
     window_modal_dialogs()  # dialogs block only their own window, not all Passermark windows
-    from . import crashlog
-    from .gui import crashui
+    return app
 
-    logs_on = crashlog.enabled()  # can be switched off in the settings (on by default)
-    if logs_on:
-        crashlog.install("gui", on_error=crashui.show_error)  # error log (a file to send along)
-    files = [os.path.abspath(f) for f in args.files]
+
+def _become_main_instance(cmd: str, files: list, start_lock):
+    """Single instance: hand over to the running instance – or become the server yourself. Several processes
+    started at once (multiple selection in Explorer) agree on exactly one server this way.
+    -> the Controller, or None if the files went to a running instance"""
+    import time
 
     from . import app as appmod
-
-    cmd = early_cmd
-
-    # single instance: hand over to the running instance – or become the server yourself. Several at once
-    # started processes (multiple selection in Explorer) agree on exactly one server this way.
-    import time
 
     ctl = None
     for _ in range(12):
         if appmod.send_to_running(cmd, files):
-            return 0
+            return None
         ctl = ctl or appmod.Controller()
         if ctl.start_server():
             break
@@ -130,6 +122,39 @@ def main():
     if ctl is None:
         ctl = appmod.Controller()
     start_lock.release()  # the server is listening: waiting processes may pass on now
+    return ctl
+
+
+def main():
+    """Entry point of the program: parse the arguments, hand over to a running instance or start the interface."""
+    import multiprocessing
+
+    multiprocessing.freeze_support()  # bundled program file: start the worker process instead of the program
+    rc = _special_mode(sys.argv)
+    if rc is not None:
+        return rc
+    args, cmd = _parse_args()
+    # is an instance already running? Then pass on right away – before Qt and the interface are loaded
+    # (a multiple selection in Explorer starts one process per file; this way they are gone again within a split second)
+    # Several processes started at once (Explorer: one per file) wait here at a start lock – exactly
+    # one becomes the main instance, the others then pass their file on to it.
+    from . import fastipc
+
+    start_lock = fastipc.hand_over_or_lock(cmd, [os.path.abspath(f) for f in args.files])
+    if start_lock is None:
+        return 0
+
+    app = _create_app()
+    from . import crashlog
+    from .gui import crashui
+
+    logs_on = crashlog.enabled()  # can be switched off in the settings (on by default)
+    if logs_on:
+        crashlog.install("gui", on_error=crashui.show_error)  # error log (a file to send along)
+    files = [os.path.abspath(f) for f in args.files]
+    ctl = _become_main_instance(cmd, files, start_lock)
+    if ctl is None:
+        return 0
     ctl.headless = cmd in ("print", "repair")
     from PySide6.QtCore import QTimer
 

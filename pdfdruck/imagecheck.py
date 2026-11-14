@@ -37,7 +37,7 @@ class ImageUse:
     bits: int = 8
     codec: str = ""  # JPEG | ZIP | JPEG 2000 | CCITT | JBIG2 | …
     mask: bool = False  # 1-bit mask (line art)
-    key: tuple | None = None  # Objektnummer des Bildes (None = eingebettet/inline)
+    key: tuple | None = None  # object number of the image (None = inline image)
     bbox: tuple | None = None  # (x0, y0, x1, y1) in pt, page coordinates – where it lies on the page
 
     def max_mm(self, dpi: float) -> tuple:
@@ -69,7 +69,7 @@ class ColorReport:
     images: list = field(default_factory=list)  # [ImageUse]
     page_colors: dict = field(default_factory=dict)  # page -> {"RGB", "CMYK", "Grau", "Sonderfarbe X", …}
     page_size_mm: dict = field(default_factory=dict)  # page -> (w, h)
-    output_intent: str = ""  # Profilname des Output-Intents (PDF/X)
+    output_intent: str = ""  # profile name of the output intent (PDF/X)
     spots: dict = field(default_factory=dict)  # page -> {spot colour name}
     truncated: bool = False
 

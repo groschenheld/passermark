@@ -51,7 +51,7 @@ def system_info() -> str:
         try:
             m = __import__(mod)
             lines.append(f"{label}: {getattr(m, '__version__', getattr(m, 'V_PYPDFIUM2', '?'))}")
-        except Exception:  # noqa: BLE001 – Angaben sind nur Beiwerk
+        except Exception:  # noqa: BLE001 – the details are only extras
             pass
     if "PySide6.QtCore" in sys.modules:
         lines.append(f"Qt: {sys.modules['PySide6.QtCore'].qVersion()}")

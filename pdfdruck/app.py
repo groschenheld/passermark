@@ -342,7 +342,7 @@ class Controller(QObject):
         top = getattr(w, "_host", None) or w
         try:
             return any(d.isVisible() and d.isModal() for d in top.findChildren(QDialog))
-        except Exception:  # noqa: BLE001 – im Zweifel nicht gesperrt
+        except Exception:  # noqa: BLE001 – if in doubt: not locked
             return False
 
     def _target_window(self, tab_of=None):

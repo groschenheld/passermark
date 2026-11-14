@@ -862,17 +862,17 @@ def compute(
 
 
 # --------------------------------------------------------------------------- #
-def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
-    """Normalized document + results -> PDF with bleed (under the artwork) and CutContour paths.
-
-    results: {page index: CutResult}. With per_object, every object becomes its own page.
-    """
-    import numpy as np
+def _sub_dict(d, key):
+    """The dictionary d[key], created if it is missing."""
     import pikepdf
-    import pypdfium2 as pdfium
-    from PIL import Image
 
-    # define the page list: (source page, [objects], single object?)
+    if key not in d:
+        d[key] = pikepdf.Dictionary()
+    return d[key]
+
+
+def _page_plan(norm_doc, results: dict, s: CutSettings) -> list:
+    """The pages of the output: [(source page, [objects], single object?)]."""
     plan = []
     for i in range(len(norm_doc)):
         r = results.get(i)
@@ -882,6 +882,110 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
             plan += [(i, [o], True) for o in r.objects]
         else:
             plan.append((i, r.objects, False))
+    return plan
+
+
+def _set_page_boxes(page, objs: list, single: bool, s: CutSettings):
+    """Page size: the object with its margin (single) or the old page widened by what reaches beyond it.
+    A single object also gets trim size = cut line and bleed area = bleed."""
+    mb = [float(v) for v in page.MediaBox]
+    if single:
+        o = objs[0]
+        m = s.margin_mm * MM
+        box = [o.box[0] - m, o.box[1] - m, o.box[2] + m, o.box[3] + m]
+    else:
+        box = [
+            min([mb[0]] + [o.box[0] for o in objs]),
+            min([mb[1]] + [o.box[1] for o in objs]),
+            max([mb[2]] + [o.box[2] for o in objs]),
+            max([mb[3]] + [o.box[3] for o in objs]),
+        ]
+    page.MediaBox = [float(v) for v in box]
+    for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
+        if k in page.obj:
+            del page.obj[k]
+    if not single:
+        return
+    # trim size = cut line, bleed area = bleed: when imposing (step & repeat "bleed against
+    # bleed"), the bleeds then touch each other instead of the white page margins
+    pts = [pt for poly, _sm in objs[0].paths for pt in poly]
+    if pts:
+        tx0, ty0 = max(box[0], min(p_[0] for p_ in pts)), max(box[1], min(p_[1] for p_ in pts))
+        tx1, ty1 = min(box[2], max(p_[0] for p_ in pts)), min(box[3], max(p_[1] for p_ in pts))
+        if tx1 - tx0 > 2 and ty1 - ty0 > 2:
+            page.TrimBox = [float(tx0), float(ty0), float(tx1), float(ty1)]
+            ob = objs[0].box
+            page.BleedBox = [
+                float(max(box[0], min(ob[0], tx0))),
+                float(max(box[1], min(ob[1], ty0))),
+                float(min(box[2], max(ob[2], tx1))),
+                float(min(box[3], max(ob[3], ty1))),
+            ]
+
+
+def _add_image(pdf, res, arr, name: str, box) -> str:
+    """Put an RGBA array into the resources as an image with a soft mask. -> the operators that draw it into box"""
+    import numpy as np
+    import pikepdf
+    from PIL import Image
+
+    a = np.asarray(arr)
+    rgb = Image.fromarray(a[:, :, :3].astype(np.uint8), "RGB")
+    al = Image.fromarray(a[:, :, 3].astype(np.uint8), "L")
+    smask = pikepdf.Stream(pdf, al.tobytes())
+    smask.Type, smask.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
+    smask.Width, smask.Height = al.width, al.height
+    smask.ColorSpace, smask.BitsPerComponent = pikepdf.Name.DeviceGray, 8
+    im = pikepdf.Stream(pdf, rgb.tobytes())
+    im.Type, im.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
+    im.Width, im.Height = rgb.width, rgb.height
+    im.ColorSpace, im.BitsPerComponent = pikepdf.Name.DeviceRGB, 8
+    im.SMask = smask
+    _sub_dict(res, "/XObject")[name] = im
+    bx0, by0, bx1, by1 = box
+    return f"q {bx1 - bx0:.4f} 0 0 {by1 - by0:.4f} {bx0:.4f} {by0:.4f} cm {name} Do Q"
+
+
+def _content_before(objs: list, single: bool, under: list) -> tuple[str, int]:
+    """What goes in front of the original content: the bleed images, then the clipping that hides neighbours
+    (single object) and the background. -> (operators, number of graphics states left open)"""
+    pre = "\n".join(under) + "\nq\n"  # include the original: it may throw off the coordinate system
+    nq = 1
+    if single:
+        # show only this object (hide neighbors on the sheet): clip the content to bleed/object
+        o = objs[0]
+        cb = o.bleed_box or o.motif_box
+        x0, y0 = min(cb[0], o.motif_box[0]), min(cb[1], o.motif_box[1])
+        x1, y1 = max(cb[2], o.motif_box[2]), max(cb[3], o.motif_box[3])
+        pre += f"q {x0:.3f} {y0:.3f} {x1 - x0:.3f} {y1 - y0:.3f} re W n\n"
+        nq += 1
+    clips = [c for o in objs for c in o.clip]
+    if clips:
+        # knock out the background: show the original only inside the object outlines
+        pre += "q\n" + "\n".join(line_ops(c) for c in clips) + "\nW* n\n"
+        nq += 1
+    return pre, nq
+
+
+def _content_after(objs: list, s: CutSettings, over: list, nq: int) -> str:
+    """What goes behind the original content: close the graphics states, the seam overlays, the cut lines."""
+    ops = ["Q\n" * nq + "\n".join(over) + f"\nq /GSCut gs /CSCut CS 1 SCN {s.stroke_pt:.3f} w 1 j 1 J"]
+    for o in objs:
+        for poly, smooth in o.paths:
+            ops.append(bezier_ops(poly) if smooth else line_ops(poly))
+    ops.append("S Q")
+    return "\n" + "\n".join(ops) + "\n"
+
+
+def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
+    """Normalized document + results -> PDF with bleed (under the artwork) and CutContour paths.
+
+    results: {page index: CutResult}. With per_object, every object becomes its own page.
+    """
+    import pikepdf
+    import pypdfium2 as pdfium
+
+    plan = _page_plan(norm_doc, results, s)
     tmp = pdfium.PdfDocument.new()
     for i, _objs, _single in plan:
         tmp.import_pages(norm_doc, [i])
@@ -890,100 +994,27 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     tmp.close()
     pdf = pikepdf.open(io.BytesIO(buf.getvalue()))
 
+    # the cut line: a spot colour (shown as magenta) that overprints
     fn = pikepdf.Dictionary(FunctionType=2, Domain=[0, 1], C0=[0, 0, 0, 0], C1=[0, 1, 0, 0], N=1)
     cs = pikepdf.Array([pikepdf.Name.Separation, pikepdf.Name("/" + s.spot), pikepdf.Name.DeviceCMYK, fn])
     gs = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, OP=True, op=True, OPM=1)
 
-    def sub(d, key):
-        if key not in d:
-            d[key] = pikepdf.Dictionary()
-        return d[key]
-
-    for page, (src, objs, single) in zip(pdf.pages, plan):
+    for page, (_src, objs, single) in zip(pdf.pages, plan):
         if not objs:
             continue
-        mb = [float(v) for v in page.MediaBox]
-        if single:
-            o = objs[0]
-            m = s.margin_mm * MM
-            box = [o.box[0] - m, o.box[1] - m, o.box[2] + m, o.box[3] + m]
-        else:
-            box = [
-                min([mb[0]] + [o.box[0] for o in objs]),
-                min([mb[1]] + [o.box[1] for o in objs]),
-                max([mb[2]] + [o.box[2] for o in objs]),
-                max([mb[3]] + [o.box[3] for o in objs]),
-            ]
-        page.MediaBox = [float(v) for v in box]
-        for k in ("/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"):
-            if k in page.obj:
-                del page.obj[k]
-        if single:
-            # trim size = cut line, bleed area = bleed: when imposing (step & repeat "bleed against
-            # bleed"), the bleeds then touch each other instead of the white page margins
-            pts = [pt for poly, _sm in objs[0].paths for pt in poly]
-            if pts:
-                tx0, ty0 = max(box[0], min(p_[0] for p_ in pts)), max(box[1], min(p_[1] for p_ in pts))
-                tx1, ty1 = min(box[2], max(p_[0] for p_ in pts)), min(box[3], max(p_[1] for p_ in pts))
-                if tx1 - tx0 > 2 and ty1 - ty0 > 2:
-                    page.TrimBox = [float(tx0), float(ty0), float(tx1), float(ty1)]
-                    ob = objs[0].box
-                    page.BleedBox = [
-                        float(max(box[0], min(ob[0], tx0))),
-                        float(max(box[1], min(ob[1], ty0))),
-                        float(min(box[2], max(ob[2], tx1))),
-                        float(min(box[3], max(ob[3], ty1))),
-                    ]
-        res = sub(page.obj, "/Resources")
-
-        def image(arr, name, box):
-            a = np.asarray(arr)
-            rgb = Image.fromarray(a[:, :, :3].astype(np.uint8), "RGB")
-            al = Image.fromarray(a[:, :, 3].astype(np.uint8), "L")
-            smask = pikepdf.Stream(pdf, al.tobytes())
-            smask.Type, smask.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
-            smask.Width, smask.Height = al.width, al.height
-            smask.ColorSpace, smask.BitsPerComponent = pikepdf.Name.DeviceGray, 8
-            im = pikepdf.Stream(pdf, rgb.tobytes())
-            im.Type, im.Subtype = pikepdf.Name.XObject, pikepdf.Name.Image
-            im.Width, im.Height = rgb.width, rgb.height
-            im.ColorSpace, im.BitsPerComponent = pikepdf.Name.DeviceRGB, 8
-            im.SMask = smask
-            sub(res, "/XObject")[name] = im
-            bx0, by0, bx1, by1 = box
-            return f"q {bx1 - bx0:.4f} 0 0 {by1 - by0:.4f} {bx0:.4f} {by0:.4f} cm {name} Do Q"
-
+        _set_page_boxes(page, objs, single, s)
+        res = _sub_dict(page.obj, "/Resources")
         under, over = [], []
         for j, o in enumerate(objs):
             if o.bleed_rgba is not None:
-                under.append(image(o.bleed_rgba, f"/PTBleed{j}", o.bleed_box))
+                under.append(_add_image(pdf, res, o.bleed_rgba, f"/PTBleed{j}", o.bleed_box))
             if o.overlay_rgba is not None:
-                over.append(image(o.overlay_rgba, f"/PTSeam{j}", o.overlay_box))
-        pre = "\n".join(under) + "\nq\n"  # include the original: it may throw off the coordinate system
-        nq = 1
-        if single:
-            # show only this object (hide neighbors on the sheet): clip the content to bleed/object
-            o = objs[0]
-            cb = o.bleed_box or o.motif_box
-            x0, y0 = min(cb[0], o.motif_box[0]), min(cb[1], o.motif_box[1])
-            x1, y1 = max(cb[2], o.motif_box[2]), max(cb[3], o.motif_box[3])
-            pre += f"q {x0:.3f} {y0:.3f} {x1 - x0:.3f} {y1 - y0:.3f} re W n\n"
-            nq += 1
-        clips = [c for o in objs for c in o.clip]
-        if clips:
-            # knock out the background: show the original only inside the object outlines
-            pre += "q\n" + "\n".join(line_ops(c) for c in clips) + "\nW* n\n"
-            nq += 1
+                over.append(_add_image(pdf, res, o.overlay_rgba, f"/PTSeam{j}", o.overlay_box))
+        pre, nq = _content_before(objs, single, under)
         page.contents_add(pikepdf.Stream(pdf, pre.encode()), prepend=True)
-        post = "Q\n" * nq
-        sub(res, "/ColorSpace")["/CSCut"] = cs
-        sub(res, "/ExtGState")["/GSCut"] = gs
-        ops = [post + "\n".join(over) + f"\nq /GSCut gs /CSCut CS 1 SCN {s.stroke_pt:.3f} w 1 j 1 J"]
-        for o in objs:
-            for poly, smooth in o.paths:
-                ops.append(bezier_ops(poly) if smooth else line_ops(poly))
-        ops.append("S Q")
-        page.contents_add(pikepdf.Stream(pdf, ("\n" + "\n".join(ops) + "\n").encode()), prepend=False)
+        _sub_dict(res, "/ColorSpace")["/CSCut"] = cs
+        _sub_dict(res, "/ExtGState")["/GSCut"] = gs
+        page.contents_add(pikepdf.Stream(pdf, _content_after(objs, s, over, nq).encode()), prepend=False)
     out = io.BytesIO()
     pdf.save(out)
     pdf.close()

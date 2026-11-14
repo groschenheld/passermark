@@ -291,7 +291,7 @@ class _print_pump:
             flags = QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
             printers_win.PUMP = lambda: QApplication.processEvents(flags)
             self._mod = printers_win
-        except Exception:  # noqa: BLE001 – ohne Pumpe druckt es wie bisher
+        except Exception:  # noqa: BLE001 – without the pump it prints as before
             self._mod = None
 
     def close(self):
@@ -1553,7 +1553,7 @@ class PrintDialog(QDialog):
                     x = scr.left()
                 y = max(scr.top(), min(g.top(), scr.bottom() - h))
                 self.sr_win.move(x, y)
-            except Exception:  # noqa: BLE001 – Platzierung ist nur Komfort
+            except Exception:  # noqa: BLE001 – the placement is only a convenience
                 pass
         self.sr_win.showNormal()
         self.sr_win.raise_()
@@ -2970,6 +2970,7 @@ class PrintDialog(QDialog):
         self.lbl_warn.setText("\n".join(warns[:4]) + (" …" if len(warns) > 4 else ""))
 
     def _render_sheet(self):
+        """Show the current sheet in the preview and describe it below (paper, scale, arrangement, warnings)."""
         s = self._eff_settings()
         if layout.is_step2(s) and getattr(self, "plans2", None):
             return self._render_sheet2(s)
@@ -2977,6 +2978,19 @@ class PrintDialog(QDialog):
         st = self._pair_step() if n else 1
         if st == 2:  # duplex: always start at the front side of a sheet
             self.sheet_index -= self.sheet_index % 2
+        self._show_sheet_label(n, st)
+        self.btn_prev.setEnabled(self.sheet_index > 0)
+        self.btn_next.setEnabled(self.sheet_index + st < n)
+        if not n:
+            self.preview.set_content(None, None, False)
+            return
+        sheet = self._sheet()
+        sp = self.plans[self.sheet_index]
+        self._request_sheet_preview(sheet, sp)
+        self._show_sheet_info(s, sheet, sp)
+
+    def _show_sheet_label(self, n: int, st: int):
+        """ "Sheet x of y" above the preview; st = 2 when front and back are shown together."""
         if n:
             lab = self.plans[self.sheet_index].label
             if st == 2:
@@ -2990,13 +3004,9 @@ class PrintDialog(QDialog):
                 )
         else:
             self.lbl_sheet.setText(tr("Keine Seiten"))
-        self.btn_prev.setEnabled(self.sheet_index > 0)
-        self.btn_next.setEnabled(self.sheet_index + st < n)
-        if not n:
-            self.preview.set_content(None, None, False)
-            return
-        sheet = self._sheet()
-        sp = self.plans[self.sheet_index]
+
+    def _request_sheet_preview(self, sheet, sp):
+        """Have the sheet rendered (in the background, or here if that is not possible) and show it when ready."""
         target_h = max(200, self.preview.height() - 32)
         ph = sheet.width if sp.landscape else sheet.height
         scale = target_h / ph
@@ -3029,17 +3039,8 @@ class PrintDialog(QDialog):
             local,
         )
 
-        # Info
-        key = self.caps.roles.get("pagesize")
-        fmt = self.caps.options[key].choices if key else []
-        fmt_txt = next((c.text for c in fmt if c.value == self.values.get(key)), "")
-        src_key = self.caps.roles.get("source")
-        src_txt = ""
-        if src_key:
-            src_txt = next(
-                (c.text for c in self.caps.options[src_key].choices if c.value == self.values.get(src_key)), ""
-            )
-        scales = sorted({round(p.scale * 100, 1) for p in sp.placements})
+    def _size_text(self, sp) -> str:
+        """Size of the first page on the sheet; also fills the hints below "step and repeat" and "custom scale"."""
         size_txt = ""
         if sp.placements:
             pl = sp.placements[0]
@@ -3063,6 +3064,10 @@ class PrintDialog(QDialog):
                         nw / layout.MM, nh / layout.MM, pl.scale * 100, pl.src + 1
                     )
                 )
+        return size_txt
+
+    def _join_text(self, s) -> str:
+        """Arrangement and gaps for several pages per sheet / step and repeat."""
         # Effective step-and-repeat arrangement + gaps (step and repeat/several): cell gap
         # = distance of the cut lines; white gap = visibly free space between
         # the cards (the mirrored bleed fills the rest)
@@ -3083,6 +3088,22 @@ class PrintDialog(QDialog):
             )
             if s.bleed_mm > 0 and white > 0.05:
                 join_txt += tr(" (davon {0:.1f} mm sichtbar weiß)").format(white)
+        return join_txt
+
+    def _show_sheet_info(self, s, sheet, sp):
+        """The lines below the preview: paper, tray, orientation, scale, arrangement, size – and the warnings."""
+        key = self.caps.roles.get("pagesize")
+        fmt = self.caps.options[key].choices if key else []
+        fmt_txt = next((c.text for c in fmt if c.value == self.values.get(key)), "")
+        src_key = self.caps.roles.get("source")
+        src_txt = ""
+        if src_key:
+            src_txt = next(
+                (c.text for c in self.caps.options[src_key].choices if c.value == self.values.get(src_key)), ""
+            )
+        scales = sorted({round(p.scale * 100, 1) for p in sp.placements})
+        size_txt = self._size_text(sp)
+        join_txt = self._join_text(s)
         self.lbl_info.setText(
             tr("Papier: {0} ({1:.0f} × {2:.0f} mm)").format(fmt_txt, sheet.width / layout.MM, sheet.height / layout.MM)
             + (tr(" · Fach: {0}").format(src_txt) if src_txt else "")

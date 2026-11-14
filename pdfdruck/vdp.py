@@ -486,7 +486,7 @@ class Images:
                 got = {"size": (float(w), float(h)), "px": (w, h), "pdf": False}
             if got["size"][0] <= 0 or got["size"][1] <= 0:
                 raise ValueError(tr("leeres Bild"))
-        except Exception as e:  # noqa: BLE001 – jede Ursache als „nicht lesbar“
+        except Exception as e:  # noqa: BLE001 – every cause counts as "not readable"
             why = (
                 tr("kein bekanntes Bildformat")
                 if type(e).__name__ == "UnidentifiedImageError"

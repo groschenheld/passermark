@@ -2343,7 +2343,7 @@ class PlanDialog(QDialog):
                 self.tree.blockSignals(False)
             self.s0 = load_settings(self.kind)
             self._fill_from(self.s0)
-        except Exception:  # noqa: BLE001 – das Fenster bleibt jedenfalls
+        except Exception:  # noqa: BLE001 – the window stays in any case
             import traceback
             from .. import crashlog
 
