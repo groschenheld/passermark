@@ -380,7 +380,7 @@ class Controller(QObject):
         (Explorer starts one process per file) end up in the same dialog that is already open.
         """
         from . import convert
-        from .gui.viewer import MergeDialog
+        from .gui.mergedialog import MergeDialog
 
         paths = [os.path.abspath(p) for p in paths if os.path.isfile(p) and convert.is_supported(p)]
         if not paths:
@@ -397,7 +397,7 @@ class Controller(QObject):
 
     def merge_into_window(self, paths: list[str], window=None):
         """Merge ``paths`` into one document and show it in ``window`` (default: the current target window)."""
-        from .gui.viewer import merge_files
+        from .gui.fileopen import merge_files
 
         w = window or self._target_window()
         doc, notes = merge_files(w, self, paths)

@@ -1621,7 +1621,7 @@ class PlanDialog(QDialog):
     def _load(self, path: str):
         try:
             if self.ctl is not None:
-                from .viewer import load_any
+                from .fileopen import load_any
 
                 return load_any(self, self.ctl, path)
             import pypdfium2 as pdfium

@@ -36,7 +36,8 @@ class E:
     def modifiers(s): return 0
 w.view.mouse_press(pw, E(100, 100)); w.view.mouse_move(pw, E(200, 110)); w.view.mouse_release(pw, E(200, 110))
 w.view.mouse_double(pw, E(100, 100)); w.view.select_page_text(); w.copy_text()
-w.view.paint_overlay(pw, viewer.QPainter())
+from PySide6.QtGui import QPainter
+w.view.paint_overlay(pw, QPainter())
 if "edit_panel" in w.__dict__:
     # edit mode with the mouse: grab + drag text, grab + drag a layer, corner handle, undo
     from pdfdruck import editing, preflight

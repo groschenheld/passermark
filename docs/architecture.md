@@ -128,10 +128,11 @@ tested against fake printers. See CONTRIBUTING.md for the style rules (`ruff for
 Listed so that a reader does not mistake them for intent. They are tracked for clean-up.
 
 - **Very large interface modules**: `gui/viewer.py`, `gui/printdialog.py` and `gui/plandialog.py` build their
-  whole window in one class, some of it in single functions of several hundred lines.
+  whole window in one class. The long functions are split up (1.18.24–1.18.32); `gui/viewer.py` is being split
+  into modules (thumbnails, merge dialog, small widgets and opening files are out since 1.18.34).
+  The plan is in the project notes ("Stufe 5").
 - **Imports against the layer rule**: `preflight.py` uses three helpers from `planprint.py`; `workflow.py`
-  imports `cli.py` (and the reverse); `gui/plandialog.py` uses `load_any` from `gui/viewer.py`;
-  `printers.py` and `printers_win.py` import each other. These are done inside functions to avoid import cycles.
+  imports `cli.py` (and the reverse); `printers.py` and `printers_win.py` import each other. These are done inside functions to avoid import cycles.
 - **Imports inside functions** are common. Some are deliberate (fast start, optional dependencies such as
   pywin32 or pycups), many are not.
 - **Broad `except Exception`** is used widely so that a device or driver quirk never crashes the interface;
@@ -227,6 +228,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/datadialog.py` | Dialog "Enter data": create a data table for variable data right inside Passermark. |
 | `pdfdruck/gui/docscroll.py` | Scroll bar for the whole document in the single-page view. |
 | `pdfdruck/gui/editpanel.py` | Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace, scale/move). |
+| `pdfdruck/gui/fileopen.py` | Opening files |
 | `pdfdruck/gui/hdrdialog.py` | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
 | `pdfdruck/gui/iccimport.py` | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |
 | `pdfdruck/gui/icons.py` | Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme. |
@@ -236,7 +238,9 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/materialsdialog.py` | Farbe → Papiere und Messungen |
 | `pdfdruck/gui/materialtab.py` | Materials (papers) |
 | `pdfdruck/gui/measuredialog.py` | Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand. |
+| `pdfdruck/gui/mergedialog.py` | Dialog "Zusammenführen": put files (PDF, images, Office) in order and combine them into one PDF. |
 | `pdfdruck/gui/objectsdialog.py` | Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters). |
+| `pdfdruck/gui/pagewidgets.py` | Small widgets of the document view: one page, the rulers, smooth scrolling and the page number field. |
 | `pdfdruck/gui/pipettedialog.py` | Colour pipette: small tool window next to the page. |
 | `pdfdruck/gui/plandialog.py` | Plan & Poster → Plandruck … and Rollen … |
 | `pdfdruck/gui/preflightpanel.py` | Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window). |
@@ -253,6 +257,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/stallwatch.py` | Stall log: notices when the interface hangs and records what the main window is doing at that moment. |
 | `pdfdruck/gui/tabhost.py` | Window frame with tabs: every document is a full Passermark window (menus, bars, sidebars) – here as a tab. |
 | `pdfdruck/gui/theme.py` | Dark theme with a yellow accent + global mouse wheel guard. |
+| `pdfdruck/gui/thumbs.py` | Thumbnails of the pages in the side bar: list, drawing of an entry, loading in the background. |
 | `pdfdruck/gui/vdpdialog.py` | Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview of any record. |
 | `pdfdruck/gui/viewer.py` | Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations. |
 <!-- modules:end -->
