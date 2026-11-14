@@ -47,7 +47,7 @@ class TabHost(QMainWindow):
         w.setWindowFlags(Qt.WindowType.Widget)
         try:
             w.menuBar().setNativeMenuBar(False)  # menu in the tab, not in a global menu bar
-        except Exception:
+        except Exception:  # noqa: BLE001 – platform without this menu option
             pass
         self.tabs.addTab(w, w.windowTitle() or "Passermark")
         if activate:

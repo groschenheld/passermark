@@ -130,7 +130,7 @@ def apply_and_verify(data: bytes, page: int, op: str, kwargs: dict, boxes: list)
     """
     try:
         new, notes = OPS[op](data, page, **kwargs)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 – reported to the caller
         return {"new": None, "error": str(e), "notes": []}
     if new is None:
         return {"new": None, "unsafe": True, "notes": notes}

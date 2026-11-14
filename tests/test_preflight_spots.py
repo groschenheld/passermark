@@ -114,7 +114,7 @@ print("OK")
 def test_click_jumps_and_marks():
     try:
         import PySide6.QtWidgets  # noqa: F401
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         print("   (übersprungen: kein Qt)")
         return
     d = tempfile.mkdtemp(prefix="pm-pfspots-")

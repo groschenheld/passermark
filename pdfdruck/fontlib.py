@@ -178,7 +178,7 @@ def similar_fonts(family: str, n: int = 6) -> list[str]:
 
     try:
         lst = _get_json(FONTSOURCE)
-    except Exception:
+    except Exception:  # noqa: BLE001 – font list not reachable (offline): no suggestions
         return []
     fams = [f.get("family", "") for f in lst if isinstance(f, dict)]
     low = {f.lower(): f for f in fams}
@@ -216,7 +216,7 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
             raise FontNotFound(used, similar_fonts(used)) from e
         meta = None
         api_err = e
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 – reported to the caller
         meta = None
         api_err = e
     if meta is None:
@@ -248,7 +248,7 @@ def download_font(family: str, progress=None) -> tuple[list[str], str]:
                     urllib.request.Request(u, headers={"User-Agent": "Passermark"}), timeout=30
                 ) as r:
                     data = r.read()
-            except Exception:
+            except Exception:  # noqa: BLE001 – style not available (e.g. no italic)
                 continue  # style not available (e.g. no italic)
             with open(dst, "wb") as f:
                 f.write(data)

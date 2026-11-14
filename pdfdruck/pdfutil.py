@@ -14,7 +14,7 @@ def obj_key(obj) -> str:
         og = obj.objgen
         if og != (0, 0):
             return f"{og[0]} {og[1]}"
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     return f"id{id(obj)}"
 

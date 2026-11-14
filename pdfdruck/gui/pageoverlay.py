@@ -7,10 +7,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor
 
 from . import theme
+
+log = logging.getLogger(__name__)
 
 
 class PageOverlayMixin:
@@ -35,7 +39,7 @@ class PageOverlayMixin:
                 if r.width() < vw:
                     hb.setValue(int(w.x() + r.center().x() - vw / 2))
             except Exception:
-                pass
+                log.warning("Markierung nicht gezeichnet", exc_info=True)
         for pw in self.pages:
             pw.update()
         if not hasattr(self, "_pf_mark_timer"):
@@ -58,7 +62,7 @@ class PageOverlayMixin:
             self._paint_overlay_items(w, p)
             self._paint_check_mark(w, p)
         except Exception:
-            pass
+            log.warning("Auswahl nicht gezeichnet", exc_info=True)
 
     def _paint_selection(self, w, p):
         """Selected text."""

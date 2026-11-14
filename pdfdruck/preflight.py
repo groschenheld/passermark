@@ -22,6 +22,7 @@ Repairs:
 from __future__ import annotations
 
 import io
+import logging
 import re
 from dataclasses import dataclass, field
 
@@ -29,6 +30,8 @@ from .fontlib import suggest_font
 from .l10n import tr
 from .pdflayers import layers_outside, list_layers
 from .pdfutil import obj_key, page_resources
+
+log = logging.getLogger(__name__)
 
 STANDARD14 = {
     "Courier",
@@ -165,7 +168,7 @@ def _walk_resources(res, page_no, visit, seen):
             try:
                 if x.get("/Subtype") == pikepdf.Name.Form:
                     _walk_resources(x.get("/Resources"), page_no, visit, seen)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
 
 
@@ -203,7 +206,7 @@ class _ResourceScan:
                 try:
                     if k in gs and float(gs[k]) < 0.999:
                         self.trans.setdefault(pno, set()).add("alpha")
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     pass
             if gs.get("/OP") is True or gs.get("/op") is True:
                 self.trans.setdefault(pno, set()).add("overprint")
@@ -215,7 +218,7 @@ class _ResourceScan:
 
                 if pattern_has_softmask(pat):
                     self.trans.setdefault(pno, set()).add("pattern_smask")
-            except Exception:
+            except Exception:  # noqa: BLE001 – optional module
                 pass
         for _n, x in (res.get("/XObject") or {}).items():
             try:
@@ -227,7 +230,7 @@ class _ResourceScan:
                     and x.Group.get("/S") == pikepdf.Name.Transparency
                 ):
                     self.trans.setdefault(pno, set()).add("group")
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
 
 
@@ -237,14 +240,14 @@ def _scan_page(page, i: int, rep: Report, scan: _ResourceScan):
 
     try:
         rep.boxes[i] = tuple(float(v) for v in page.MediaBox)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     try:
         rep.geometry[i] = _page_geometry(page.obj)
         _page_forms(page.obj, i, rep)
         if _content_len(page.obj) < 20000 and not (page_resources(page).get("/XObject") or {}):
             rep._blank_candidates.append(i)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     seen: dict = {}
     _walk_resources(page_resources(page), i, scan.visit, seen)
@@ -254,7 +257,7 @@ def _scan_page(page, i: int, rep: Report, scan: _ResourceScan):
             n = ap.get("/N") if ap is not None else None
             if isinstance(n, pikepdf.Stream):
                 _walk_resources(n.get("/Resources"), i, scan.visit, seen)
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
     g = page.obj.get("/Group")
     if g is not None and g.get("/S") == pikepdf.Name.Transparency:
@@ -285,7 +288,7 @@ def _confirm_pattern_masks(pdf, trans: dict):
                     trans[p].discard("pattern_smask")
                     trans[p].add("smask")
         except Exception:
-            pass
+            log.warning("Prüfung: Softmasken nicht geprüft", exc_info=True)
 
 
 def _sub_reports(pdf, data: bytes, rep: Report):
@@ -293,18 +296,21 @@ def _sub_reports(pdf, data: bytes, rep: Report):
     try:
         rep.hdr = hdr_aux_pages(pdf)
     except Exception:
+        log.warning("Prüfung: HDR-Hilfsseiten nicht geprüft", exc_info=True)
         rep.hdr = []
     try:
         from . import imagecheck
 
         rep.colors = imagecheck.analyze(pdf)
     except Exception:
+        log.warning("Prüfung: Farben/Bilder nicht geprüft", exc_info=True)
         rep.colors = None
     try:
         from . import shrink
 
         rep.size = shrink.analyze(data, pdf, rep.colors)
     except Exception:
+        log.warning("Prüfung: Dateigröße nicht analysiert", exc_info=True)
         rep.size = None
 
 
@@ -328,7 +334,7 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
         try:
             _doc_checks(pdf, rep)
         except Exception:
-            pass
+            log.warning("Prüfung: Dokumentprüfungen unvollständig", exc_info=True)
         rep.layers = list_layers(pdf)
         _sub_reports(pdf, data, rep)
     finally:
@@ -346,20 +352,22 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
     try:
         rep.located = _locate(data, rep)
     except Exception:
+        log.warning("Prüfung: Fundstellen nicht ermittelt", exc_info=True)
         rep.located = {}
     try:
         _hairlines(data, rep)
     except Exception:
+        log.warning("Prüfung: Haarlinien nicht geprüft", exc_info=True)
         rep.hairlines = {}
     try:
         _render_checks(data, rep)
     except Exception:
-        pass
+        log.warning("Prüfung: Render-Prüfungen nicht ausgeführt", exc_info=True)
     if deep_layers and rep.layers:
         try:
             layers_outside(data, rep.layers)
         except Exception:
-            pass
+            log.warning("Prüfung: Ebenen außerhalb nicht geprüft", exc_info=True)
     rep.issues = _issues(rep)
     return rep
 
@@ -392,7 +400,7 @@ def _box(v):
         if len(a) != 4:
             return None
         return (min(a[0], a[2]), min(a[1], a[3]), max(a[0], a[2]), max(a[1], a[3]))
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return None
 
 
@@ -400,11 +408,11 @@ def _page_geometry(obj) -> dict:
     media = _box(_inh(obj, "/MediaBox")) or (0.0, 0.0, 612.0, 792.0)
     try:
         rot = int(_inh(obj, "/Rotate") or 0) % 360
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         rot = 0
     try:
         uu = float(obj.get("/UserUnit") or 1.0)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         uu = 1.0
     return {
         "media": media,
@@ -463,7 +471,7 @@ def _content_len(obj) -> int:
     for st in items:
         try:
             n += int(st.get("/Length") or 0)
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             n += 100000
     if obj.get("/Annots"):
         n += 100000  # annotations/forms: do not count as empty
@@ -479,7 +487,7 @@ def _page_forms(obj, pno: int, rep: Report):
             fl = int(a.get("/F") or 0)
             prints = bool(fl & 4) and not (fl & 2) and a.get("/AP") is not None
             f.append((pno, _box(a.get("/Rect")), prints))
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
 
 
@@ -491,7 +499,7 @@ def _doc_checks(pdf, rep: Report):
         if pdf.is_encrypted:
             sec["print"] = bool(pdf.allow.print_lowres)
             sec["print_high"] = bool(pdf.allow.print_highres)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     rep.security = sec
     ver = ""
@@ -499,13 +507,13 @@ def _doc_checks(pdf, rep: Report):
         info = pdf.trailer.get("/Info")
         if info is not None and info.get("/GTS_PDFXVersion") is not None:
             ver = str(info.GTS_PDFXVersion)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     if not ver:
         try:
             with pdf.open_metadata() as md:
                 ver = str(md.get("pdfxid:GTS_PDFXVersion") or md.get("pdfx:GTS_PDFXVersion") or "")
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             ver = ""
     intent, noprof = "", False
     try:
@@ -514,7 +522,7 @@ def _doc_checks(pdf, rep: Report):
                 intent = str(oi.get("/OutputConditionIdentifier") or oi.get("/Info") or "?")
                 noprof = oi.get("/DestOutputProfile") is None
                 break
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     rep.pdfx = {
         "version": ver,
@@ -526,7 +534,7 @@ def _doc_checks(pdf, rep: Report):
         af = pdf.Root.get("/AcroForm")
         rep.forms["fields"] = len(af.get("/Fields") or []) if af is not None else 0
         rep.forms["need_ap"] = bool(af is not None and af.get("/NeedAppearances") is True)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         rep.forms.setdefault("fields", 0)
 
 
@@ -888,7 +896,7 @@ def _font_info(f, k) -> FontInfo:
         try:
             d = f.DescendantFonts[0]
             desc = d.get("/FontDescriptor")
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             desc = None
     else:
         desc = f.get("/FontDescriptor")
@@ -1000,7 +1008,7 @@ def _text_fonts_in_order(data: bytes) -> dict:
             cur, seq = "", []
             try:
                 ops = pikepdf.parse_content_stream(page)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 continue
             for ins in ops:
                 op = str(getattr(ins, "operator", ""))
@@ -1225,7 +1233,7 @@ def _single_image(page):
 
     try:
         ops = list(pikepdf.parse_content_stream(page))
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return None
     names = [str(getattr(i, "operator", "")) for i in ops]
     if any(n not in ("q", "Q", "cm", "Do") for n in names) or names.count("Do") != 1:
@@ -1250,7 +1258,7 @@ def _components(img) -> int:
     try:
         if isinstance(cs, pikepdf.Array) and cs[0] == pikepdf.Name.ICCBased:
             return int(cs[1].get("/N", 0))
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     return 0
 
@@ -1267,7 +1275,7 @@ def hdr_aux_pages(pdf) -> list:
             ia, ib = a[1], b[1]
             try:
                 aw, ah, bw, bh = int(ia.Width), int(ia.Height), int(ib.Width), int(ib.Height)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 aw = ah = bw = bh = 0
             if (
                 aw
@@ -1318,7 +1326,7 @@ def remove_hdr_aux(data: bytes, size: str = "aux", merge: bool = False) -> bytes
                 icc = None
                 try:
                     icc = pikepdf.PdfImage(img).icc.tobytes() if pikepdf.PdfImage(img).icc else None
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     icc = None
                 jpg = images.merge_gain_map(base, gm, icc)
                 img.write(jpg, filter=pikepdf.Name.DCTDecode)

@@ -22,10 +22,13 @@ import datetime
 import getpass
 import hashlib
 import json
+import logging
 import os
 import re
 import socket
 import time
+
+log = logging.getLogger(__name__)
 
 KIND = "printlog"
 VERSION = 1
@@ -124,7 +127,7 @@ def enabled(cfg: dict | None = None) -> bool:
         from . import l10n
 
         return bool(l10n.load_settings().get("print_log", False))
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return False
 
 
@@ -191,7 +194,7 @@ def build(
     now = datetime.datetime.now().astimezone()
     try:
         user = getpass.getuser()
-    except Exception:
+    except Exception:  # noqa: BLE001 – user name not known
         user = ""
     if _ctx["inputs"]:  # in a workflow: the file is an intermediate stage
         file = _ctx["inputs"][0]
@@ -304,6 +307,7 @@ def write(rec: dict, cfg: dict | None = None) -> str | None:
         _prune(base, cfg)
         return path
     except Exception:
+        log.warning("Druckverlauf: Ordner nicht verfügbar", exc_info=True)
         return None
 
 

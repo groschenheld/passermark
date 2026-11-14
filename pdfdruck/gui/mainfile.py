@@ -98,7 +98,7 @@ class MainFileMixin:
             return
         try:
             doc = load_any(self, self.ctl, path)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Umwandeln"), str(e))
             return
         self._sources = [tr("{0} (umgewandelt)").format(path)]
@@ -109,7 +109,7 @@ class MainFileMixin:
         """Open several images as one document in this window."""
         try:
             doc = images.images_to_document(paths, self.ctl.image_dpi, ask_hdr(self, paths, self.ctl.image_dpi))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Bild öffnen"), str(e))
             return
         base = os.path.splitext(os.path.basename(paths[0]))[0]
@@ -174,7 +174,7 @@ class MainFileMixin:
             self.doc.close()  # release the file if it is the same one
             self.doc = None
             os.replace(tmp, path)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Speichern"), tr("Speichern fehlgeschlagen:\n{0}").format(e))
             if self.doc is None and self.path and os.path.exists(self.path):
                 self.open(self.path)
@@ -216,7 +216,7 @@ class MainFileMixin:
             out.import_pages(self.doc, pages)
             out.save(path)
             out.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Exportieren"), tr("Export fehlgeschlagen:\n{0}").format(e))
             return
         QMessageBox.information(
@@ -257,7 +257,7 @@ class MainFileMixin:
                 out.save(os.path.join(folder, name))
                 out.close()
                 done += 1
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 errors.append(f"{name}: {e}")
         if errors:
             QMessageBox.critical(
@@ -308,7 +308,7 @@ class MainFileMixin:
                 self.doc.import_pages(part, index=pos)
                 part.close()
                 pos += n
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Einfügen"), str(e))
         self._changed_doc(start, list(range(start, pos)))
         self.statusBar().showMessage(tr("{0} Seite(n) eingefügt.").format(pos - start), 6000)

@@ -570,7 +570,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         txt = tr("Seite {0}/{1}   ·   {2}").format(i + 1, len(self.doc), page_size_text(w, h))
         try:
             ti = self.view.trim_info(i)  # without loading the page in the program
-        except Exception:
+        except Exception:  # noqa: BLE001 – page boxes not known (yet): no trim display
             ti = None
         if ti:
             txt += "   ·   " + tr("Endformat {0:.1f} × {1:.1f} mm, Anschnitt {2:.1f} mm").format(*ti)
@@ -622,7 +622,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
             self.view.release_render()  # close the document in the render process
             self._thumb_src.release()
             self.view.doc = None  # the view must no longer touch the document that is about to be closed
-        except Exception:
+        except Exception:  # noqa: BLE001 – closing: the timer may already be gone
             pass
         if self.doc is not None:
             self.doc.close()

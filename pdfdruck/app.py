@@ -14,6 +14,7 @@ window is closed. If nothing is running, printing uses the admin defaults.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 
@@ -25,6 +26,8 @@ from . import config, images, printjob
 from . import platform as _platform
 from .gui.common import Session
 from .l10n import tr
+
+log = logging.getLogger(__name__)
 
 
 def server_name() -> str:
@@ -97,7 +100,7 @@ class Controller(QObject):
             st["sendto_created"] = True
             l10n.save_settings(st)
         except Exception:
-            pass
+            log.warning("Kontextmenü-Verknüpfung „Senden an“ nicht angelegt", exc_info=True)
 
     def _start_stallwatch(self):
         """Stall log (ruckler.txt in the folder of the error logs): hangs of the interface with their cause."""
@@ -118,6 +121,7 @@ class Controller(QObject):
 
             self._stallwatch = StallWatch(os.path.join(crashlog.log_dir(), "ruckler.txt"), ctx).start(self)
         except Exception:
+            log.warning("Ruckler-Protokoll nicht gestartet", exc_info=True)
             self._stallwatch = None
 
     # ---------------------------------------------------------------- #
@@ -161,7 +165,7 @@ class Controller(QObject):
             if getattr(w, "doc", None) is not None:
                 try:
                     w.doc.close()
-                except Exception:
+                except Exception:  # noqa: BLE001 – closing on exit, the document may already be gone
                     pass
         for p in getattr(self, "_cache_files", []):
             try:
@@ -317,7 +321,7 @@ class Controller(QObject):
             if tab_of is not None:
                 try:
                     host.move(tab_of.window().pos().x() + 40, tab_of.window().pos().y() + 40)
-                except Exception:
+                except Exception:  # noqa: BLE001 – window placement is cosmetic
                     pass
         host.add(w)
         host.show_tab(w)
@@ -444,7 +448,7 @@ class Controller(QObject):
                     printer, jid = printjob.print_file(p, self.session, password)
                     ok.append(tr("{0} → {1} (Auftrag {2})").format(os.path.basename(p), printer, jid))
                     break
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 – shown to the user (password prompt or error list)
                     if "password" in str(e).lower():
                         from PySide6.QtWidgets import QInputDialog, QLineEdit
 

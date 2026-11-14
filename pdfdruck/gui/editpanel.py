@@ -10,6 +10,7 @@ scale/move). Selection via the list or by clicking on the page.
 from __future__ import annotations
 
 import io
+import logging
 import os
 import traceback
 
@@ -39,6 +40,8 @@ from PySide6.QtWidgets import (
 from .. import editing, fontlib, pdflayers, preflight
 from ..l10n import tr
 from . import theme
+
+log = logging.getLogger(__name__)
 
 MM = 72.0 / 25.4
 SEL_TEXT = theme.SELECT_TEXT
@@ -466,7 +469,7 @@ class EditPanel(QWidget):
             else:
                 self._fill_layers()
             self._loaded = (self.page, self.tabs.currentIndex())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
         self.sel_box = None
         self._overlay()
@@ -764,7 +767,7 @@ class EditPanel(QWidget):
                 self.btn_undo.setEnabled(True)
                 self._replace_doc(new, [self.page])
                 self._reselect_layer(L.key)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _reselect_text(self, box):
@@ -865,7 +868,7 @@ class EditPanel(QWidget):
                 new = editing.reorder_layer_blocks(data, self.page, layer_key, where)
             else:
                 new = editing.reorder_objects(data, self.page, items, where)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
             return
         if new is None:
@@ -976,6 +979,7 @@ class EditPanel(QWidget):
                         else editing.limit_objects(editing.page_objects(d, key[1]))
                     )
                 except Exception:
+                    log.warning("Bearbeiten: Liste nicht ermittelt", exc_info=True)
                     result = [] if key[2] == "text" else ([], 0)
             self._lists[key] = result
             if key[0] == self.win.view._gen and key[1] == self.page and self.win.a_edit.isChecked():
@@ -1112,7 +1116,7 @@ class EditPanel(QWidget):
                 "notes"
             ):
                 QMessageBox.information(self, tr("Hinweis"), "\n\n".join(holder["notes"]))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _text_delete(self):
@@ -1127,7 +1131,7 @@ class EditPanel(QWidget):
                 kwargs={"lines": sel},
             ):
                 self._overlay(None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _text_color(self):
@@ -1192,7 +1196,7 @@ class EditPanel(QWidget):
                 QMessageBox.information(
                     self, tr("Farbe"), tr("{0} Bild(er) in der Auswahl wurden nicht umgefärbt.").format(skipped)
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _text_edit(self, fn, ignore_boxes, notes=None, op=None, kwargs=None, info=None) -> bool:
@@ -1446,7 +1450,7 @@ class EditPanel(QWidget):
                 kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin},
             ):
                 self._reselect_object(self._grow_box(moved, scale) if len(sel) == 1 else moved)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _object_delete(self):
@@ -1466,7 +1470,7 @@ class EditPanel(QWidget):
                 kwargs={"objs": sel},
             ):
                 self._overlay(None)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     @staticmethod
@@ -1541,7 +1545,7 @@ class EditPanel(QWidget):
             del self.undo[:-20]
             self.btn_undo.setEnabled(True)
             self._replace_doc(new)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             _err(self, e)
 
     def _layer_toggle(self):

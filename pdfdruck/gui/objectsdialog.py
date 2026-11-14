@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import math
 import traceback
 
@@ -36,6 +37,8 @@ from .. import cutcontour, objects
 from ..l10n import tr
 from . import theme
 from .common import fill_combo, fit_width, split_panels
+
+log = logging.getLogger(__name__)
 
 MODES = [("auto", "Automatisch"), ("transparent", "Vektor/Transparenz (exakt)"), ("color", "Hintergrundfarbe (Scans)")]
 SHAPES = [
@@ -572,7 +575,7 @@ class _CutWorker(QThread):
     def run(self):
         try:
             self.done.emit(self.gen, cutcontour.compute(None, self.s, self.rgba, self.size, trim=self.trim), "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             import traceback
 
             self.done.emit(self.gen, None, f"{e}\n\n{traceback.format_exc()}")
@@ -627,7 +630,7 @@ class CutContourDialog(QDialog):
             try:
                 self._load_settings(last, preview=False)
             except Exception:
-                pass
+                log.warning("Letzte Einstellungen nicht übernommen", exc_info=True)
         self._sync()
         self._preview()
 
@@ -866,7 +869,7 @@ class CutContourDialog(QDialog):
                 if sig is not None:
                     try:
                         sig.connect(self._pv_timer.start)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 – signal not available in this Qt version
                         pass
 
     def _build_bottom(self, right):
@@ -1041,7 +1044,7 @@ class CutContourDialog(QDialog):
             from ..layout import page_trims_one
 
             return page_trims_one(self.doc, self.page)
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional module
             return None
 
     def _preview(self):
@@ -1063,7 +1066,7 @@ class CutContourDialog(QDialog):
                 rgba = objects.render_rgba(pg, s.dpi)
             finally:
                 pg.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.lbl_info.setText("⚠ " + str(e))
             show_error(self, tr("Vorschau"), e)
             return

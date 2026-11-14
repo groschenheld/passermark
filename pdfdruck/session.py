@@ -7,8 +7,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from . import printers
 from .layout import LayoutSettings
+
+log = logging.getLogger(__name__)
 
 
 class Session:
@@ -41,7 +45,7 @@ class Session:
             try:
                 printers.apply_custom_sizes(self.caps[name])  # the user's custom sizes
             except Exception:
-                pass
+                log.warning("Eigene Papierformate nicht übernommen", exc_info=True)
         return self.caps[name]
 
     def refresh_custom_sizes(self):

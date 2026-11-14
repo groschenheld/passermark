@@ -128,16 +128,27 @@ def test_separation_route(monkeypatch=None):
         rot = proof.proofed_render(pg, 2.0, 90, None, spec, path, 0)
         assert rot.size == (200, 400) and rot.getpixel((100, 10))[0] < 100  # rotated: cyan at the top
         assert "-dUseCropBox" in calls[0][2] and any(a.startswith("-sOutputICCProfile=") for a in calls[0][2])
+        assert calls[0][1] == 288  # small page: separated twice as fine (smooth text), then scaled down
         n = len(calls)
         proof.proofed_render(pg, 2.0, 0, None, spec, path, 0)
         assert len(calls) == n  # cached
         big = proof.proofed_render(pg, 8.0, 0, (0, 0, 150, 50), spec, path, 0)
-        assert calls[-1][1] == proof.PROOF_MAX_DPI and big.size == (400, 400), big.size  # at most 300 dpi
+        assert calls[-1][1] == 2 * proof.PROOF_MAX_DPI and big.size == (400, 400), big.size  # at most 300 dpi (x2)
         pg.close()
         doc.close()
     finally:
         cmyk._render, _pl.ghostscript = old
         proof._SEP_CACHE.clear()
+
+
+def test_supersample_factor():
+    """Finer separation only while the page stays small enough (large plans stay fast)."""
+    assert proof.supersample_factor(595, 842, 144) == 2.0  # A4 at 144 dpi: 8 Mpx at double resolution
+    assert proof.supersample_factor(1800, 1125, 216) == 1.0  # large page: would be far too many pixels
+    f = proof.supersample_factor(1800, 1125, 144)
+    assert 1.3 <= f < 2.0, f
+    k = f * 144 / 72
+    assert 1800 * 1125 * k * k <= proof.PROOF_SUPERSAMPLE_PIXELS * 1.01
 
 
 def test_render_server_proof():
@@ -154,6 +165,7 @@ def test_render_server_proof():
         spec = {"icc": f, "space": "CMYK", "name": "t", "paper": True}
         h, d = s(op="render", id=3, doc="x", page=0, scale=1.0, proof=spec)
         assert h["ok"] and h["fmt"] == "bgrx", h
+        assert min(d[3::4]) == 255  # 4th byte opaque: Qt reads it as alpha (Format_RGB32), 0 = page turns white
         pr = _arr(h, d)
         assert pr.shape == plain.shape
         assert pr[50, 100].sum() < plain[50, 100].sum() - 6  # paper white: the white centre gets darker

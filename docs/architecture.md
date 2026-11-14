@@ -117,6 +117,31 @@ Source strings are German and wrapped in `tr("…")`. Translations live in `pdfd
 (en, hu, es, fr). `tests/test_l10n.py` fails if a string in the code has no translation. Comments and docstrings
 are English.
 
+## Error handling
+
+A device, driver or broken PDF must never take the interface down, so errors are caught at many places. The
+rule is that no error disappears without a trace: every `except Exception` does one of three things, and
+`ruff check` (rule BLE001) enforces it.
+
+- **Show it.** At the boundary to the user (dialogs, menu actions) the error ends up in a message box, a status
+  text or an error list. The handler says so: `# noqa: BLE001 – shown to the user`.
+- **Log it.** Where the program works around an error it did not expect (a check that could not run, a page
+  that could not be rendered, a fallback taken), it writes a warning with the traceback:
+  `log.warning("Prüfung: Haarlinien nicht geprüft", exc_info=True)`, with `log = logging.getLogger(__name__)`.
+  The message is German like the rest of the log.
+- **Say why it is expected.** Broken objects in a PDF, an optional module that is not installed, a driver that
+  does not answer a query, cleanup of something that may already be gone. The reason goes next to the handler:
+  `# noqa: BLE001 – malformed PDF object: skipped or default value`.
+
+Where the warnings go: in the GUI `crashlog.install` writes them to the error log as "Hinweis" entries – the file
+is kept so it can be sent along, but it is not reported as a crash at the next start, and the same note is
+written at most three times per run. The render process writes them to its stderr; if the process ends
+unexpectedly, the GUI copies the end of that output into the error log. Without a log (CLI, tests) they stay
+silent (`NullHandler` in `pdfdruck/__init__.py`).
+
+`try/except/pass` is preferred over `contextlib.suppress` (ruff SIM105 is off): the except line is where the
+reason is written.
+
 ## Tests
 
 `tests/test_<module>.py`, each runnable on its own (`python3 tests/test_layout.py`). GUI tests run against a
@@ -137,8 +162,9 @@ Listed so that a reader does not mistake them for intent. They are tracked for c
   imports `cli.py` (and the reverse); `printers.py` and `printers_win.py` import each other. These are done inside functions to avoid import cycles.
 - **Imports inside functions** are common. Some are deliberate (fast start, optional dependencies such as
   pywin32 or pycups), many are not.
-- **Broad `except Exception`** is used widely so that a device or driver quirk never crashes the interface;
-  in a number of places the error is dropped without a log entry.
+- **Broad `except Exception`** is still used widely so that a device or driver quirk never crashes the
+  interface. Each one now shows, logs or explains the error (see Error handling), but many could catch a
+  narrower exception type.
 - `LayoutSettings` / `ManipSettings` have hand-written `from_dict`/`to_dict`; newer settings use
   `core.settings_from_dict`.
 

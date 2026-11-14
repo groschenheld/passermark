@@ -42,7 +42,7 @@ class _Analyze(QThread):
     def run(self):
         try:
             self.done.emit(shrink.analyze(self.data), "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.done.emit(None, f"{e}\n{traceback.format_exc()}")
 
 

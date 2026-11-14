@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -38,6 +39,8 @@ from .. import cmyk, config, pdfmanip
 from ..l10n import tr
 from . import theme
 from .common import fill_combo, fit_width
+
+log = logging.getLogger(__name__)
 
 MODES = [
     ("rgb_only", "RGB/Graustufen → CMYK, vorhandenes CMYK unverändert"),
@@ -297,6 +300,7 @@ class ManipPanel(QWidget):
                 self.doc.save(buf)
                 self._facts = colorlab.doc_color_facts(buf.getvalue())
             except Exception:
+                log.warning("Dokumentfakten nicht ermittelt", exc_info=True)
                 self._facts = ([], True)
         ois, has_cmyk = self._facts or ([], True)
         rec = colorlab.recommend_conversion(ois, has_cmyk, target, colorlab.candidates(self.cfg))
@@ -381,7 +385,7 @@ class ManipPanel(QWidget):
         if crop and self.doc is not None:
             try:
                 self.lbl_crop.setText(pdfmanip.describe_crop(self.doc, self.settings(), self.current))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 self.lbl_crop.setText(str(e))
 
     def _changed(self, *_):
@@ -519,7 +523,7 @@ class _PreviewWorker(QThread):
         try:
             path, page, s, dpi, paper, white = self.args
             self.done.emit(cmyk.render_preview(path, page, s, dpi, paper, white), "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.done.emit(None, str(e))
 
 

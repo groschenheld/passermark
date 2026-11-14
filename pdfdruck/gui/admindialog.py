@@ -99,7 +99,7 @@ class AdminDialog(QDialog):
         self.removed_icc: set[str] = set()
         try:
             self.plist = printers.list_printers()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("CUPS"), str(e))
             self.plist = []
 
@@ -455,7 +455,7 @@ class AdminDialog(QDialog):
             return
         try:
             caps = self.s.caps_for(name, reload=True)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.p_area.setWidget(QLabel(tr("Fehler: {0}").format(e)))
             return
         self.caps = caps
@@ -745,7 +745,7 @@ class AdminDialog(QDialog):
         pc = self._pcfg(name)
         try:
             res = driver_dialog(int(self.winId()), name, pc.get("devmode"))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
             return
         if res:
@@ -1094,7 +1094,7 @@ class AdminDialog(QDialog):
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
                 code, err, _res = winadmin.run_elevated(bundle)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 code, err = 1, str(e)
             finally:
                 QApplication.restoreOverrideCursor()
@@ -1270,7 +1270,7 @@ class PresetDialog(QDialog):
 
         try:
             res = driver_dialog(int(self.winId()), self.printer, self.devmode)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
             return
         if res:

@@ -719,7 +719,7 @@ def reorder_objects(data: bytes, page_index: int, objs: list, where: str) -> byt
                 try:
                     if x is not None and x.get("/Subtype") == pikepdf.Name.Image:
                         image_dos.add(k)
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     pass
         runs = _z_runs(names, image_dos)
         path_runs = [(s, e) for s, e, k in runs if k == "path"]

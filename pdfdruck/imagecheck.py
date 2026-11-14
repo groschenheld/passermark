@@ -95,7 +95,7 @@ def icc_name(data: bytes) -> str:
                 rlen = int.from_bytes(data[off + 20 : off + 24], "big")
                 roff = int.from_bytes(data[off + 24 : off + 28], "big")
                 return data[off + roff : off + roff + rlen].decode("utf-16-be", "replace").strip("\x00 ").strip()
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     return ""
 
@@ -103,7 +103,7 @@ def icc_name(data: bytes) -> str:
 def _icc_of(stream) -> str:
     try:
         return icc_name(stream.read_bytes())
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return ""
 
 
@@ -234,7 +234,7 @@ def _output_intent(pdf) -> str:
             name = name or str(oi.get("/OutputConditionIdentifier", "") or "")
             if name:
                 break
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     return name
 
@@ -275,7 +275,7 @@ class _ColourScan:
             return
         try:
             w, h = int(img.get("/Width", 0)), int(img.get("/Height", 0))
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             return
         if not w or not h:
             return
@@ -294,7 +294,7 @@ class _ColourScan:
                 space = tr("im JPEG 2000 enthalten")
         try:
             key = img.objgen if img.objgen != (0, 0) else None
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             key = None
         pts = [
             (ctm[4] + ctm[0] * u + ctm[2] * v, ctm[5] + ctm[1] * u + ctm[3] * v)
@@ -339,7 +339,7 @@ class _ColourScan:
                     continue
                 try:
                     sub = x.get("/Subtype")
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     continue
                 if sub == pikepdf.Name.Image:
                     self.image_use(pno, nm, x, ctm, res)
@@ -350,7 +350,7 @@ class _ColourScan:
                     m = tuple(float(v) for v in x.get("/Matrix", [1, 0, 0, 1, 0, 0]))
                     try:
                         sub_ops = pikepdf.parse_content_stream(x)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                         continue
                     self.walk(pno, sub_ops, x.get("/Resources") or res, _mul(m, ctm), depth + 1, seen_forms | {og})
             elif op == "INLINE IMAGE":
@@ -359,7 +359,7 @@ class _ColourScan:
                     d = ii.obj if hasattr(ii, "obj") else None
                     if d is not None:
                         self.image_use(pno, tr("(eingebettet)"), d, ctm, res)
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     pass
 
 
@@ -382,7 +382,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                 0,
                 frozenset(),
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             continue
     return rep
 

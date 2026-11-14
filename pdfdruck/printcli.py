@@ -118,7 +118,7 @@ def unavailable(caps: printers.PrinterCaps, values: dict, key: str, value: str) 
         return False
     try:
         return key in caps.conflicts(dict(values, **{key: value}))
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         return False
 
 
@@ -248,7 +248,7 @@ def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=No
     names = None
     try:
         names = [p.name for p in printers.list_printers()]
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         pass
     if names is not None and printer not in names:
         raise ValueError(tr("Drucker nicht gefunden: {0} (vorhanden: {1})").format(printer, ", ".join(names) or "–"))

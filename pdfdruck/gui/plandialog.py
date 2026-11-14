@@ -13,6 +13,7 @@ planprint (same as passermark-cli plan / the workflow step "plan"); the rolls co
 from __future__ import annotations
 
 import dataclasses
+import logging
 import os
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -48,6 +49,8 @@ from .plantexts import (
     PREVIEW_PX,
     ROTATE_TEXT,
 )
+
+log = logging.getLogger(__name__)
 
 SETTINGS_KEY = "plan"  # user setting: last used plan settings
 PRINTER_KEY = "plan_printer"
@@ -215,7 +218,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
 
         try:
             plist = [p for p in printers.list_printers() if p.name != printers.PDF_TARGET]
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer/driver query: works without the value
             plist = []
         for p in plist:
             self.cmb_printer.addItem(p.name + (f" – {p.model}" if p.model else ""), p.name)
@@ -487,7 +490,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
                         it.doc, it.page, s.hairline_mm, pp.factor(it.area, pp.eff(s, it)) * 100.0
                     )
                 except Exception:
-                    pass
+                    log.warning("Haarlinien nicht geprüft", exc_info=True)
         self._refresh()
 
     def _analyze_next(self):
@@ -1313,6 +1316,6 @@ class PlanDialog(PlanBuildMixin, QDialog):
         for d in self.owned + self._retired:
             try:
                 d.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
         self.owned, self._retired = [], []

@@ -21,7 +21,7 @@ def run() -> int:
         try:
             r = fn()
             lines.append(f"OK   {name}" + (f": {r}" if r else ""))
-        except Exception:
+        except Exception:  # noqa: BLE001 – a failing test is recorded with its traceback
             ok = False
             lines.append(f"FAIL {name}\n" + traceback.format_exc())
 
@@ -113,7 +113,7 @@ def run() -> int:
         pass
     try:
         print(text)
-    except Exception:
+    except Exception:  # noqa: BLE001 – console without encoding: the result still counts
         pass
     return 0 if ok else 1
 

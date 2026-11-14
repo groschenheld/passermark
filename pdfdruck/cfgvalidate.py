@@ -221,21 +221,28 @@ def _check_layout(cfg: dict):
             raise ValueError(f"layout.{k} unbekannt")
 
 
+def _list(v, what: str) -> list:
+    """v must be a list (JSON array) – otherwise ValueError instead of a TypeError further down."""
+    if not isinstance(v, list):
+        raise ValueError(f"{what}: Liste erwartet")
+    return v
+
+
 def _check_profiles(cfg: dict, icc_dir: str, windows: bool) -> set:
     """Colour profiles; the file must lie in icc_dir under the name of its id. -> the ids"""
     ids = set()
-    for p in cfg.get("color_profiles", []):
-        if not isinstance(p, dict) or not RX_ID.match(str(p.get("id", ""))):
+    for p in _list(cfg.get("color_profiles", []), "color_profiles"):
+        if not isinstance(p, dict) or not isinstance(p.get("id"), str) or not RX_ID.match(p["id"]):
             raise ValueError("Farbprofil: id ungültig")
         ids.add(p["id"])
         if os.path.normcase(str(p.get("file", ""))) != os.path.normcase(os.path.join(icc_dir, p["id"] + ".icc")):
             raise ValueError(f"Farbprofil {p['id']}: Datei muss in {icc_dir} liegen")
         if not isinstance(p.get("name", ""), str) or len(p.get("name", "")) > 128:
             raise ValueError("Farbprofil: Name ungültig")
-        for q in p.get("printers", []):
+        for q in _list(p.get("printers", []), f"Farbprofil {p['id']}: printers"):
             if not _queue_ok(q, windows):
                 raise ValueError("Farbprofil: Druckername ungültig")
-        if any(i not in INTENTS for i in p.get("intents", [])):
+        if any(not isinstance(i, str) or i not in INTENTS for i in _list(p.get("intents", []), "Farbprofil: intents")):
             raise ValueError("Farbprofil: Intent ungültig")
         check_opts(p.get("driver_options", {}), f"Profil {p['id']}")
     return ids
@@ -304,9 +311,10 @@ def _check_printer(q: str, pc, ids: set, windows: bool):
     check_opts(pc.get("options", {}), f"Drucker {q}")
     check_devmode(pc.get("devmode"), f"Drucker {q}")
     prof = pc.get("color_profile", "")
-    if prof and prof not in ids:
-        raise ValueError(f"Drucker {q}: unbekanntes Profil {prof}")
-    if pc.get("intent", "relative") not in INTENTS:
+    if prof and (not isinstance(prof, str) or prof not in ids):
+        raise ValueError(f"Drucker {q}: unbekanntes Profil {prof!r}")
+    intent = pc.get("intent", "relative")
+    if not isinstance(intent, str) or intent not in INTENTS:
         raise ValueError(f"Drucker {q}: Intent ungültig")
     _check_trays(q, pc)
     _check_presets(q, pc)
@@ -314,6 +322,13 @@ def _check_printer(q: str, pc, ids: set, windows: bool):
 
 def validate(cfg, icc_dir: str, windows: bool = False):
     """Validate the admin configuration before the root helper writes it; raises ValueError with the reason."""
+    try:
+        _validate(cfg, icc_dir, windows)
+    except (TypeError, AttributeError, KeyError) as e:  # a value of the wrong type in a place not checked by name
+        raise ValueError(f"Konfiguration ungültig: falscher Typ ({e})") from e
+
+
+def _validate(cfg, icc_dir: str, windows: bool):
     if not isinstance(cfg, dict):
         raise ValueError("Konfiguration muss ein Objekt sein")
     allowed = {

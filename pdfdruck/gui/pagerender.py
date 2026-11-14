@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 from PySide6.QtCore import QRect, QRectF
@@ -14,6 +15,8 @@ from PySide6.QtGui import QImage
 
 from .common import MAX_RENDER_EDGE
 from .viewlayout import PAGE_GAP
+
+log = logging.getLogger(__name__)
 
 
 def _remove_quiet(path):
@@ -56,6 +59,7 @@ class PageRenderMixin:
                         self.doc.save(f)
                 self._tmp = path
         except Exception:
+            log.warning("Render-Prozess nicht nutzbar, Ansicht rendert im Programm", exc_info=True)
             self._local = True
             return
         self._src_path = path
@@ -268,6 +272,7 @@ class PageRenderMixin:
         try:
             img = self._render_image(req)
         except Exception:
+            log.warning("Seite nicht gerendert (im Programm)", exc_info=True)
             return
         saved = self._rkey
         self.render_done(dict(req, doc=saved), img, None)
@@ -313,6 +318,7 @@ class PageRenderMixin:
             try:
                 img = self._render_image(req)
             except Exception:
+                log.warning("Seite nicht gerendert (im Programm)", exc_info=True)
                 self._rfail.add(req["page"])
                 continue
             self.render_done(dict(req, doc=self._rkey), img, None)

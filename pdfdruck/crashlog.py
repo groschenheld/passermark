@@ -9,6 +9,8 @@
 - captures: Python errors (the GUI keeps running), errors in threads, hard crashes (faulthandler),
   errors from background jobs (record)
 - after a hard crash, the next start reports the log (pending_crashes)
+- recoverable errors the program works around (logger warnings, see docs/architecture.md, error handling)
+  go in as "Hinweis": the file is kept so it can be sent along, but it is not reported as a crash
 - at most MAX_LOGS logs containing errors are kept
 """
 
@@ -17,6 +19,7 @@ from __future__ import annotations
 import atexit
 import datetime
 import faulthandler
+import logging
 import os
 import platform as _pyplatform
 import sys
@@ -26,10 +29,11 @@ import traceback
 from . import platform as _platform
 
 MAX_LOGS = 10
+NOTE_REPEATS = 3  # the same note is written at most this often per run
 SEEN_MARK = "== bereits gemeldet =="
 CRASH_MARKERS = ("Fatal Python error", "Traceback (most recent call last)", "== Fehler")
 
-_state = {"file": None, "path": None, "error": False, "on_error": None, "kind": ""}
+_state = {"file": None, "path": None, "error": False, "notes": False, "on_error": None, "kind": ""}
 _lock = threading.Lock()
 
 
@@ -102,7 +106,8 @@ def install(kind: str = "gui", on_error=None) -> str | None:
     f.write(f"== Passermark-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")
     f.write(system_info() + "\n\n")
     f.flush()
-    _state.update(file=f, path=path, error=False, on_error=on_error, kind=kind)
+    _state.update(file=f, path=path, error=False, notes=False, on_error=on_error, kind=kind)
+    logging.getLogger("pdfdruck").addHandler(_NoteHandler())
     faulthandler.enable(file=f, all_threads=True)  # hard crashes (e.g. in pdfium) -> file
     prev_hook = sys.excepthook
 
@@ -159,13 +164,45 @@ def record(title: str, details: str = "") -> None:
             pass
 
 
+class _NoteHandler(logging.Handler):
+    """Logger warnings (recoverable errors) -> "Hinweis" in the log, the same one at most NOTE_REPEATS times."""
+
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self._seen: dict = {}
+
+    def emit(self, rec: logging.LogRecord) -> None:
+        """Write one warning as a note (called by the logging module)."""
+        f = _state["file"]
+        if f is None:
+            return
+        key = (rec.name, rec.msg)
+        n = self._seen[key] = self._seen.get(key, 0) + 1
+        if n > NOTE_REPEATS:
+            return
+        text = f"== Hinweis {datetime.datetime.now().isoformat(timespec='seconds')}: {rec.name}: {rec.getMessage()}\n"
+        if rec.exc_info:
+            # without the "Traceback (most recent call last)" header: a note is not a crash (CRASH_MARKERS)
+            tb = "".join(traceback.format_exception(*rec.exc_info))
+            text += tb.replace("Traceback (most recent call last):", "Verlauf:")
+        if n == NOTE_REPEATS:
+            text += "(weitere gleiche Hinweise werden nicht protokolliert)\n"
+        with _lock:
+            try:
+                f.write(text + "\n")
+                f.flush()
+                _state["notes"] = True
+            except (OSError, ValueError):
+                pass
+
+
 def current_path() -> str | None:
     """Path of the log file of this run, or None if nothing has been logged."""
     return _state["path"]
 
 
 def _finish():
-    """Normal program end: delete the log again if it contains no errors."""
+    """Normal program end: delete the log again if it contains no errors and no notes."""
     f, path = _state["file"], _state["path"]
     if f is None:
         return
@@ -173,8 +210,8 @@ def _finish():
         faulthandler.disable()
     except Exception:  # noqa: BLE001
         pass
-    if _state["error"]:
-        try:  # errors were already shown -> do not report again
+    if _state["error"] or _state["notes"]:
+        try:  # errors were already shown, notes are no crash -> do not report again
             f.write(f"{SEEN_MARK}\n")
         except (OSError, ValueError):
             pass
@@ -183,7 +220,7 @@ def _finish():
     except OSError:
         pass
     _state["file"] = None
-    if not _state["error"] and path:
+    if not (_state["error"] or _state["notes"]) and path:
         try:
             os.remove(path)
         except OSError:

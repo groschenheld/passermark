@@ -7,7 +7,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import Qt
+
+log = logging.getLogger(__name__)
 
 
 class PageInteractionMixin:
@@ -89,7 +93,7 @@ class PageInteractionMixin:
                                 n_seg = 0
                                 try:
                                     n_seg = _r.FPDFPath_CountSegments(obj.raw)
-                                except Exception:
+                                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                                     pass
                                 for si in range(min(n_seg, 4000)):
                                     try:
@@ -98,14 +102,14 @@ class PageInteractionMixin:
                                         if _r.FPDFPath_GetSegmentPoint(seg, _ct.byref(sx_), _ct.byref(sy_)):
                                             ox.add(sx_.value)
                                             oy.add(sy_.value)
-                                    except Exception:
+                                    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                                         pass
-                    except Exception:
+                    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                         pass
-            except Exception:
+            except Exception:  # noqa: BLE001 – optional part: works without it
                 pass
         except Exception:
-            pass
+            log.warning("Objekte zum Messen nicht gelesen", exc_info=True)
         out = (sorted(bx), sorted(by), sorted(ox), sorted(oy))
         self._snap[w.index] = out
         # diagnostics (once per page in the terminal): shows whether candidates were found

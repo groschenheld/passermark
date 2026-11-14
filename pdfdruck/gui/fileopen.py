@@ -57,7 +57,7 @@ def merge_files(parent, ctl, paths: list[str]):
                 return None, []
             try:
                 part = load_any(parent, ctl, p, work, notes)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 lines = str(e).splitlines()
                 box = QMessageBox(
                     QMessageBox.Icon.Warning,

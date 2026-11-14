@@ -19,8 +19,9 @@ docstring-code-format = false
 
 [tool.ruff.lint]
 # E/W: pycodestyle, F: pyflakes (unused/undefined names), B: likely bugs, UP: outdated syntax for py310,
-# SIM: needless complexity
-select = ["E", "W", "F", "B", "UP", "SIM"]
+# SIM: needless complexity, BLE: "except Exception" must log, re-raise or say why (see docs/architecture.md,
+# error handling)
+select = ["E", "W", "F", "B", "UP", "SIM", "BLE"]
 ignore = [
     "E501",     # line length is the formatter's job (long strings may exceed it)
     "E731",     # small lambdas bound to a name are used for Qt callbacks

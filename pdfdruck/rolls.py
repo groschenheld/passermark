@@ -306,7 +306,7 @@ def model_of(printer: str) -> str:
         for p in printers.list_printers():
             if p.name == printer:
                 return f"{p.model} {p.info}"
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     return ""
 
@@ -375,7 +375,7 @@ def host_for(session, printer: str) -> str:
 
                 return port_host(p.uri, p.name)
             return ipp.host_from_device_uri(p.uri)
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     return ""
 
@@ -385,7 +385,7 @@ def for_printer(session, printer: str, live: bool = True, force: bool = False) -
     caps = None
     try:
         caps = session.caps_for(printer) if session is not None else None
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer not reachable: no driver values
         caps = None
     st = RollState([], "none")
     if live:

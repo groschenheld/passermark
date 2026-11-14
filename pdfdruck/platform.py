@@ -137,7 +137,7 @@ def notify(title: str, body: str, error: bool = False):
                 QSystemTrayIcon.MessageIcon.Critical if error else QSystemTrayIcon.MessageIcon.Information,
                 6000,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional part: works without it
             pass
         return
     if shutil.which("notify-send"):

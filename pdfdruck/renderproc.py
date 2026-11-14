@@ -27,10 +27,13 @@ verification after editing) – so neither blocks the other and the GUI never wa
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pickle
 import sys
 from collections import OrderedDict
+
+log = logging.getLogger(__name__)
 
 KEEP_PAGES = 4  # open pages per document: pdfium keeps decoded images as long as the page is open
 
@@ -57,7 +60,7 @@ def page_info(data: bytes) -> list:
         try:
             a = [float(x) for x in v]
             return (min(a[0], a[2]), min(a[1], a[3]), max(a[0], a[2]), max(a[1], a[3])) if len(a) == 4 else None
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             return None
 
     out = []
@@ -74,7 +77,7 @@ def page_info(data: bytes) -> list:
                     crop = media
             try:
                 rot = int(attr(o, "/Rotate") or 0)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 rot = 0
             trim, bleed = box(attr(o, "/TrimBox")), box(attr(o, "/BleedBox"))
             raw = {"trim_raw": trim, "art": box(attr(o, "/ArtBox"))}  # for the status line (like page_trims)
@@ -154,7 +157,7 @@ def _close_quiet(*docs):
             seen.add(id(d))
             try:
                 d.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
 
 
@@ -201,7 +204,7 @@ def _call_sheet(
     if mode == "sheet" and plans:
         try:
             sub = _raster_source(src, plans, only if only is not None else range(min(len(plans), limit)), scale)
-        except Exception:
+        except Exception:  # noqa: BLE001 – fallback: render directly (like the output)
             sub = None  # then directly (like the output)
         if sub is not None:
             src = sub
@@ -322,14 +325,14 @@ class _Server:
         for k in [k for k in self.pages if k[0] == key]:
             try:
                 self.pages.pop(k).close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
         self.paths.pop(key, None)
         d = self.docs.pop(key, None)
         if d is not None:
             try:
                 d.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
 
     def close_all(self):
@@ -350,7 +353,7 @@ class _Server:
             old = same.pop(0)
             try:
                 self.pages.pop(old).close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
         return pg
 
@@ -363,7 +366,7 @@ class _Server:
                 self.send({"id": rid, "ok": False, "error": f"unknown op {op!r}"})
             else:
                 fn(req, rid, req.get("doc", ""))
-        except Exception as e:  # report the error, the server keeps running
+        except Exception as e:  # noqa: BLE001 – report the error, the server keeps running
             self.send({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})
 
     def op_open(self, req, rid, key):
@@ -377,7 +380,7 @@ class _Server:
         self.paths[key] = (req["path"], req.get("password") or None)
         try:
             info = page_info(data)
-        except Exception:
+        except Exception:  # noqa: BLE001 – e.g. encrypted: the view uses pdfium
             info = None  # e.g. encrypted: the view uses pdfium
         self.send({"id": rid, "ok": True, "pages": len(self.docs[key]), "fmt": "pickle"}, pickle.dumps(info))
 
@@ -476,6 +479,7 @@ def serve(inp, out) -> int:
             try:
                 req["args"] = pickle.loads(raw)
             except Exception:
+                log.warning("Argumente nicht lesbar", exc_info=True)
                 req["args"] = None
         if req.get("op") == "quit":
             break
@@ -493,6 +497,9 @@ def main() -> int:
     except OSError:
         pass
     sys.stdout = sys.stderr
+    handler = logging.StreamHandler(sys.stderr)  # the GUI reads stderr when this process ends unexpectedly
+    handler.setFormatter(logging.Formatter("%(asctime)s %(name)s: %(message)s"))
+    logging.getLogger("pdfdruck").addHandler(handler)
     try:
         return serve(sys.stdin.buffer, out)
     except (BrokenPipeError, KeyboardInterrupt):

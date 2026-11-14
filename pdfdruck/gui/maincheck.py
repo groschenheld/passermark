@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 from PySide6.QtCore import Qt, QTimer
@@ -18,6 +19,8 @@ from PySide6.QtWidgets import (
 from ..l10n import tr
 from . import theme
 from .common import responsive
+
+log = logging.getLogger(__name__)
 
 
 class MainCheckMixin:
@@ -182,7 +185,7 @@ class MainCheckMixin:
                 if not enc:
                     with open(p, "rb") as f:
                         return f.read()
-            except Exception:
+            except Exception:  # noqa: BLE001 – optional module
                 pass
         return self._doc_bytes()
 
@@ -255,7 +258,7 @@ class MainCheckMixin:
         try:
             # unchanged: check the file itself (no re-saving in the main window, size as on disk)
             data = self._doc_bytes() if self.modified else self._file_bytes()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.pf_panel.set_error(str(e))
             return
         w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
@@ -270,7 +273,7 @@ class MainCheckMixin:
             try:
                 preflight.finish(rep, data)  # pdfium parts in the main thread
             except Exception:
-                pass
+                log.warning("Prüfung: pdfium-Teil nicht abgeschlossen", exc_info=True)
             self._pf_show(rep)
 
         w.done.connect(done)

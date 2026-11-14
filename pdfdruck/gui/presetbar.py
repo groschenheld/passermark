@@ -89,7 +89,7 @@ class PresetBar(QWidget):
     def _apply(self, s, name=None):
         try:
             self.set_settings(s)
-        except Exception as e:  # e.g. a value out of range – better to report than to crash
+        except Exception as e:  # noqa: BLE001 – e.g. a value out of range – better to report than to crash
             QMessageBox.warning(self, tr("Preset"), tr("Preset konnte nicht vollständig übernommen werden:") + f"\n{e}")
 
     def _chosen(self, _i):
@@ -98,7 +98,7 @@ class PresetBar(QWidget):
             return
         try:
             s = presets.load(self.kind, name)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.warning(self, tr("Preset"), str(e))
             self.refresh()
             return
@@ -150,7 +150,7 @@ class PresetBar(QWidget):
             if kind != self.kind:
                 raise ValueError(tr("Preset ist für „{0}“, nicht für „{1}“").format(kind, self.kind))
             s = core.settings_from_dict(presets.settings_class(self.kind), d)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.warning(self, tr("Preset"), str(e))
             return
         self._apply(s)

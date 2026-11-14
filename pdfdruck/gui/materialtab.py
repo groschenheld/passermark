@@ -120,7 +120,7 @@ class UserHost:
             from .. import printers
 
             return [p.name for p in printers.list_printers()]
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional module
             return []
 
     def profile_items(self) -> list:

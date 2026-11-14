@@ -48,7 +48,7 @@ class MainDialogsMixin:
 
         try:
             dlg = CutContourDialog(self, self.doc, self.view.current)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             from .objectsdialog import show_error
 
             show_error(self, tr("Fehler"), e)
@@ -71,7 +71,7 @@ class MainDialogsMixin:
             dlg = VdpDialog(self, self.doc, self.view.current)
             if data:
                 dlg.use_data(*data)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             from .objectsdialog import show_error
 
             show_error(self, tr("Fehler"), e)
@@ -122,7 +122,7 @@ class MainDialogsMixin:
             open(dst, "wb").close()  # reserve names (several jobs at once)
             job = jobproc.JobProcess(kind, src, dst, settings, pages, lang=l10n.current())
             job.start()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             from .objectsdialog import show_error
 
             show_error(self, tr("Fehler"), e)
@@ -196,7 +196,7 @@ class MainDialogsMixin:
         path = self.ctl.cache_file(base + suffix + ".pdf")
         try:
             new_doc.save(path)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             from .objectsdialog import show_error
 
             show_error(self, tr("Fehler"), e)
@@ -443,7 +443,7 @@ class MainDialogsMixin:
 
         try:
             names = [p.name for p in _pr.list_printers() if p.name != _pr.PDF_TARGET]
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer/driver query: works without the value
             names = []
         if not names:
             QMessageBox.information(self, tr("Rollen"), tr("Kein Drucker eingerichtet."))

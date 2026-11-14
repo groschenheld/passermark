@@ -195,7 +195,7 @@ def _msoffice_available() -> bool:
 
         winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application"))
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional part: works without it
         return False
 
 
@@ -487,7 +487,7 @@ def office_to_pdf(path: str, outdir: str, preference: str = "auto", timeout: int
             if key == "msoffice":
                 return _msoffice(path, work, timeout), "Microsoft Office"
             return _x2t(available[key], path, work, timeout), CONVERTERS[key]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – reported to the caller
             errors.append(f"{CONVERTERS[key]}: {e}")
     raise RuntimeError(
         tr("„{0}“ konnte nicht umgewandelt werden.\n").format(os.path.basename(path)) + "\n".join(errors)

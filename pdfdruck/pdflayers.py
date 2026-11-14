@@ -54,7 +54,7 @@ def list_layers(pdf) -> list[LayerInfo]:
         try:
             ps = g.Usage.Print.PrintState
             pr = ps == pikepdf.Name.ON
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
         out[k] = LayerInfo(k, str(g.get("/Name", "?")), view, pr, k in locked)
     # pages per layer (BDC /OC in contents and XObjects with /OC)
@@ -87,7 +87,7 @@ def _oc_keys_in_stream(obj, props, res, seen) -> set:
     keys = set()
     try:
         ops = pikepdf.parse_content_stream(obj)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return keys
     xo = res.get("/XObject") if res is not None else None
     for ins in ops:
@@ -190,7 +190,7 @@ def _rewrite(pdf, obj, props, res, visible, strip, done):
     done.add(ok)
     try:
         ops = pikepdf.parse_content_stream(obj)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return
     xo = res.get("/XObject") if res is not None else None
     out, stack, skip = [], [], 0

@@ -67,7 +67,7 @@ class _Worker(QThread):
                 out.append(("ok", repair.process(src, dst, mode, pw, npw, allow)))
             except repair.PasswordRequired:
                 out.append(("err", tr("{0}: falsches oder fehlendes Passwort").format(os.path.basename(src))))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 out.append(("err", f"{os.path.basename(src)}: {e}"))
         self.done.emit(out)
 

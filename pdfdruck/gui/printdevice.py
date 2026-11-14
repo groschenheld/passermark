@@ -98,7 +98,7 @@ class PrintDeviceMixin:
     def _load_printers(self):
         try:
             plist = printers.list_printers()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("CUPS"), tr("Drucker können nicht abgefragt werden:\n{0}").format(e))
             plist = []
         plist = list(plist) + [printers.pdf_target_info()]  # always available: Save as PDF
@@ -135,7 +135,7 @@ class PrintDeviceMixin:
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             self.caps = self.s.caps_for(p.name)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Drucker"), tr("Treiberoptionen nicht lesbar:\n{0}").format(e))
             self.caps = None
@@ -446,7 +446,7 @@ class PrintDeviceMixin:
         try:
             with paused():  # Windows dialog with its own loop: not a stall
                 res = driver_dialog(int(self.winId()), self.caps.name, self.values.get(DEVMODE_KEY))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.critical(self, tr("Treiberdialog"), str(e))
             return
         if res:

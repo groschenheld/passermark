@@ -16,6 +16,7 @@ before (PASSERMARK_RENDER=local forces that, e.g. for troubleshooting).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pickle
 import subprocess
@@ -23,6 +24,8 @@ import tempfile
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
 from PySide6.QtGui import QImage
+
+log = logging.getLogger(__name__)
 
 
 def _clean_leftovers():
@@ -68,7 +71,7 @@ class _Reader(QThread):
                         img = QImage(data, head["w"], head["h"], head["stride"], fmt).copy()
                 self.got.emit(head, img)
         except Exception:
-            pass
+            log.warning("Antworten des Render-Prozesses nicht lesbar", exc_info=True)
         self.dead.emit()
 
 
@@ -90,7 +93,7 @@ class RenderService(QObject):
                 app = QApplication.instance()
                 if app is not None and svc.thread() is not app.thread():
                     svc.moveToThread(app.thread())
-            except Exception:
+            except Exception:  # noqa: BLE001 – no QApplication (tests, CLI)
                 pass
             cls._instances[name] = svc
         return cls._instances[name]
@@ -111,7 +114,7 @@ class RenderService(QObject):
             from PySide6.QtWidgets import QApplication
 
             QApplication.instance().aboutToQuit.connect(self.stop)
-        except Exception:
+        except Exception:  # noqa: BLE001 – no QApplication (tests, CLI)
             pass
 
     # ------------------------------------------------------------------ #
@@ -138,6 +141,7 @@ class RenderService(QObject):
                 **_platform.hidden_subprocess_kwargs(),
             )
         except Exception:
+            log.warning("Render-Prozess nicht gestartet", exc_info=True)
             self.ok = False
             return False
         self.reader = _Reader(self.proc.stdout)
@@ -154,10 +158,10 @@ class RenderService(QObject):
                 p.stdin.write(b'{"op": "quit"}\n')
                 p.stdin.flush()
                 p.wait(2)
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 try:
                     p.kill()
-                except Exception:
+                except Exception:  # noqa: BLE001 – cleanup
                     pass
         if self.reader is not None:
             self.reader.wait(2000)
@@ -168,7 +172,7 @@ class RenderService(QObject):
             self.proc.stdin.write(json.dumps(req).encode("utf-8") + b"\n" + payload)
             self.proc.stdin.flush()
             return True
-        except Exception:
+        except Exception:  # noqa: BLE001 – process gone: handled by _on_dead
             return False
 
     # ------------------------------------------------------------------ #
@@ -224,6 +228,7 @@ class RenderService(QObject):
                 try:
                     r = src.next_render()
                 except Exception:
+                    log.warning("Render-Anfrage nicht ermittelt", exc_info=True)
                     r = None
                 if r:
                     req = dict(r, op="render", source=src)
@@ -260,31 +265,32 @@ class RenderService(QObject):
             try:
                 cb(err) if req.get("op") != "open" else cb(err, img)
             except Exception:
-                pass
+                log.warning("Rückmeldung des Render-Prozesses fehlgeschlagen", exc_info=True)
         cb2 = req.get("cb2")
         if cb2 is not None:
             try:
                 cb2(err, img)
             except Exception:
-                pass
+                log.warning("Rückmeldung des Render-Prozesses fehlgeschlagen", exc_info=True)
         src = req.get("source")
         if src is not None and src in self.sources:
             try:
                 src.render_done(req, img, err)
             except Exception:
-                pass
+                log.warning("Seitenbild nicht übernommen", exc_info=True)
         self.kick()
 
     def _on_dead(self):
         """Process gone: restart once (reopen the open documents), the second time render in the program."""
         req, self.busy = self.busy, None
+        self._record_death(self.proc, req)
         self.proc = None
         self.restarts += 1
         if req is not None and req.get("cb2") is not None:
             try:
                 req["cb2"]("render process ended", None)
             except Exception:
-                pass
+                log.warning("Rückmeldung nach Prozessende fehlgeschlagen", exc_info=True)
         if self.restarts > 2:
             self._fail_all()
             return
@@ -292,13 +298,32 @@ class RenderService(QObject):
             try:
                 src.render_reset()  # the source reopens its document
             except Exception:
-                pass
+                log.warning("Dokument nach Neustart nicht neu geöffnet", exc_info=True)
         if req is not None and req.get("source") is not None:
             try:
                 req["source"].render_done(req, None, "render process ended")
             except Exception:
-                pass
+                log.warning("Rückmeldung nach Prozessende fehlgeschlagen", exc_info=True)
         self.kick()
+
+    def _record_death(self, proc, req):
+        """Unexpected end of the render process -> error log, with the end of its error output."""
+        if proc is None:
+            return  # stopped on purpose (stop())
+        code = proc.poll()
+        tail = ""
+        if self._stderr is not None:
+            try:
+                self._stderr.seek(0, os.SEEK_END)
+                size = self._stderr.tell()
+                self._stderr.seek(max(0, size - 4000))
+                tail = self._stderr.read().decode("utf-8", "replace")
+            except (OSError, ValueError):
+                tail = ""
+        from .. import crashlog
+
+        what = f"{req.get('op')} Seite {req.get('page')}" if req else "–"
+        crashlog.record(f"Render-Prozess beendet (Code {code}, Anfrage: {what})", tail)
 
     def _fail_all(self):
         self.ok = False
@@ -307,10 +332,10 @@ class RenderService(QObject):
                 try:
                     op["cb2"]("render process unavailable", None)
                 except Exception:
-                    pass
+                    log.warning("Rückmeldung (Render-Prozess nicht verfügbar) fehlgeschlagen", exc_info=True)
         self.ops = []
         for src in list(self.sources):
             try:
                 src.render_fallback()
             except Exception:
-                pass
+                log.warning("Umschalten auf Rendern im Programm fehlgeschlagen", exc_info=True)

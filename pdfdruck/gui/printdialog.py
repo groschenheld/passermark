@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 
@@ -33,6 +34,8 @@ from .printbuild import PrintBuildMixin
 from .printdevice import PrintDeviceMixin
 from .printpreview import PrintPreviewMixin
 from .printwidgets import PageBox, Preview, SideTab, _print_pump  # noqa: F401
+
+log = logging.getLogger(__name__)
 
 
 class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog):
@@ -176,7 +179,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
                     w, h, _ia = self.caps.sheet_for({key: v})
                     self.spn_sr2w.setValue(w / layout.MM)
                     self.spn_sr2h.setValue(h / layout.MM)
-                except Exception:
+                except Exception:  # noqa: BLE001 – driver cannot compute this sheet
                     pass
         self._sync_enabled()
 
@@ -207,7 +210,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
                 raise RuntimeError(tr("Nichts zu montieren (Seiten-/Bogenbereich leer?)"))
             plans2 = self.plans2
             out = layout.impose_step2(self._print_doc(), sheet, plans1, s, plans2=plans2)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Schritt 2"), str(e))
             return
@@ -233,7 +236,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         try:
             self._ensure_trims()
             out, notes = layout.booklet_spreads(self._base_print_doc(), pages, s, self.trims)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckbögen"), str(e))
             return
@@ -582,6 +585,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
             else:
                 self.trims, self.doc_bleeds = layout.page_trims(self.doc), layout.page_doc_bleeds(self.doc)
         except Exception:
+            log.warning("Endformate nicht ermittelt", exc_info=True)
             self.trims, self.doc_bleeds = [], []
 
     def _make_plans(self, pages):
@@ -670,6 +674,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         try:
             sh = self._sheet() if self.caps else None
         except Exception:
+            log.warning("Bogen nicht berechnet", exc_info=True)
             sh = None
         if sh is not None:
             from ..printers import STD_SIZES_MM
@@ -743,7 +748,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
                 from .renderclient import RenderService
 
                 RenderService.get().call("sheet_release", {}, lambda *_a: None)
-            except Exception:
+            except Exception:  # noqa: BLE001 – no render service: preview renders in the program
                 pass
         if getattr(self, "_ov_busy", False):
             self._ov_busy = False
@@ -843,7 +848,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
                     self.chk_reverse.isChecked(),
                     values=dict(self.values, __out__=out, __password__=pw),
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 QApplication.restoreOverrideCursor()
                 QMessageBox.critical(self, tr("Speichern"), str(e))
                 return
@@ -895,7 +900,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
                 values=values,
                 file=self.path if self.path and os.path.isfile(self.path) else None,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             pump.close()
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Druckfehler"), str(e))

@@ -46,6 +46,31 @@ def test_python_error_logged_and_shown_once():
     assert r.stdout.strip() == "0", r.stdout  # already shown -> not again at start
 
 
+def test_notes_kept_but_not_reported_as_crash():
+    """Logger warnings (recoverable errors): file kept with the cause, same note at most NOTE_REPEATS times,
+    nothing shown and no crash report at the next start."""
+    st = tempfile.mkdtemp()
+    code = (
+        PRE
+        + "import logging\nlog = logging.getLogger('pdfdruck.test')\n"
+        + "for i in range(5):\n"
+        + "    try:\n        raise ValueError('kaputt %d' % i)\n"
+        + "    except ValueError:\n        log.warning('Testhinweis', exc_info=True)\n"
+        + "log.info('nur Info')\nprint('GEZEIGT', len(seen))"
+    )
+    r = _run(code, st)
+    logs = _logs(st)
+    assert r.returncode == 0 and "GEZEIGT 0" in r.stdout and len(logs) == 1, (r.stdout, r.stderr, logs)
+    text = open(logs[0], encoding="utf-8").read()
+    assert text.count("== Hinweis") == 3 and "pdfdruck.test: Testhinweis" in text, text
+    assert "kaputt 0" in text and "kaputt 4" not in text and "nur Info" not in text
+    assert "Traceback (most recent call last)" not in text and "== Fehler" not in text
+    r = _run("from pdfdruck import crashlog\ncrashlog.install('gui')\nprint(len(crashlog.pending_crashes()))", st)
+    assert r.stdout.strip() == "0", r.stdout
+    r = _run("import logging, pdfdruck\nlogging.getLogger('pdfdruck.x').warning('still')", st)
+    assert r.returncode == 0 and "still" not in r.stderr, r.stderr  # without a log: silent (CLI, tests)
+
+
 def test_hard_crash_reported_once():
     st = tempfile.mkdtemp()
     r = _run(PRE + "import ctypes\nctypes.string_at(0)", st)  # real memory access error

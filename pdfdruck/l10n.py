@@ -81,7 +81,7 @@ def _admin_default() -> str:
 
         with open(os.path.join(_platform.config_dir(), "defaults.json"), encoding="utf-8") as f:
             return str(json.load(f).get("language", "") or "")
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return ""
 
 
@@ -93,11 +93,11 @@ def system_language() -> str:
             import ctypes
 
             cands.insert(0, locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage(), ""))
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional module
             pass
     try:
         cands.append(locale.getlocale()[0] or "")
-    except Exception:
+    except Exception:  # noqa: BLE001 – locale unknown: try the next candidate
         pass
     for c in cands:
         for part in c.split(":"):
@@ -133,7 +133,7 @@ def _cat() -> dict:
         if lang != "de":
             try:
                 _catalog = importlib.import_module(f"{__package__}.lang.{lang}").MESSAGES
-            except Exception:
+            except Exception:  # noqa: BLE001 – language file missing: German texts
                 _catalog = {}
     return _catalog
 

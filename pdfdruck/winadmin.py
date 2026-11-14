@@ -103,7 +103,7 @@ def apply(bundle_path: str) -> int:
             )
         result["ok"] = True
         code = 0
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 – reported to the caller
         result["error"] = str(e)
         code = 1
     try:

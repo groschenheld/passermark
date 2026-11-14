@@ -22,7 +22,7 @@ class PageGeometryMixin:
             try:
                 tp.close()
                 pg.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 – cleanup
                 pass
         self._tp = {}
 
@@ -57,7 +57,7 @@ class PageGeometryMixin:
                         return self.doc[i]
 
                 self._lazy_boxes[i] = _pb(_One())[0]
-            except Exception:
+            except Exception:  # noqa: BLE001 – boxes not readable: the page is shown without them
                 self._lazy_boxes[i] = (None, None)
         return self._lazy_boxes[i]
 

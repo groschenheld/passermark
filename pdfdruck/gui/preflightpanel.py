@@ -76,7 +76,7 @@ class _Worker(QThread):
     def run(self):
         try:
             self.done.emit(self.fn(*self.args), "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.done.emit(None, f"{e}\n\n{traceback.format_exc()}")
 
 
@@ -653,7 +653,7 @@ class PreflightPanel(QWidget):
     def _font_choice(self, cb):
         try:
             self._font_choice_inner(cb)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             box = QMessageBox(QMessageBox.Icon.Critical, tr("Fehler"), str(e), parent=self)
             box.setDetailedText(traceback.format_exc())
             box.exec()
@@ -704,7 +704,7 @@ class PreflightPanel(QWidget):
                         continue
                     QMessageBox.warning(self, tr("Herunterladen"), str(e))
                     return
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 – shown to the user
                     QApplication.restoreOverrideCursor()
                     QMessageBox.warning(self, tr("Herunterladen"), str(e))
                     return

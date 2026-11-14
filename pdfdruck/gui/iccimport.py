@@ -160,7 +160,7 @@ class IccImportDialog(QDialog):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             infos = iccfetch.extract_icc(path, self.workdir)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QApplication.restoreOverrideCursor()
             QMessageBox.critical(self, tr("Entpacken"), str(e))
             return
@@ -185,7 +185,7 @@ class IccImportDialog(QDialog):
 
         try:
             path = iccfetch.download(url, self.workdir, progress)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             dlg.close()
             QMessageBox.critical(self, tr("Download"), str(e))
             return

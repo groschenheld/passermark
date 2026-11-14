@@ -756,7 +756,7 @@ class _Run:
             if k in conditions.FACTS:
                 try:
                     return conditions._show(self.facts().get(k))
-                except Exception:
+                except Exception:  # noqa: BLE001 – unknown placeholder stays as written
                     return m.group(0)
             return m.group(0)
 
@@ -881,7 +881,7 @@ class _Run:
             d_ = pdfium.PdfDocument(plan.output)
             pages = len(d_)
             d_.close()
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional part: works without it
             pass
         return dict(base, output=plan.output, pages=pages)
 

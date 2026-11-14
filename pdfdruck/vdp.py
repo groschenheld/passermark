@@ -405,7 +405,7 @@ def _color(c: str):
 
     try:
         return HexColor(c)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return black
 
 
@@ -1246,14 +1246,14 @@ def _remove_placeholder_text(pdf) -> int:
                 if x.get("/Subtype") != "/Form":
                     continue
                 key = x.objgen
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 continue
             if key in seen:
                 continue
             seen.add(key)
             try:
                 ops, n = _strip_ph(pdf, pikepdf.parse_content_stream(x))
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 continue
             if n:
                 x.write(pikepdf.unparse_content_stream(ops))
@@ -1266,7 +1266,7 @@ def _remove_placeholder_text(pdf) -> int:
             if n:
                 page.Contents = pdf.make_stream(pikepdf.unparse_content_stream(ops))
                 removed += n
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
         walk_res(page.obj.get("/Resources"))
     return removed

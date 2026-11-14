@@ -301,7 +301,7 @@ def tac_limit_for(icc_path: str, default: int = 300) -> int:
         from .colorlab import profile_desc
 
         text += " " + profile_desc(icc_path).lower()
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     text = re.sub(r"[^a-z0-9]", "", text)
     for p in STANDARD_PROFILES:  # exactly this profile

@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Qt, Signal
+import logging
+
+from PySide6.QtCore import QObject, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QLineEdit,
@@ -15,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 from . import theme
+
+log = logging.getLogger(__name__)
 
 
 class _Smoother(QObject):
@@ -40,7 +44,8 @@ class _Smoother(QObject):
 
         self._jobs: dict = {}
         self._cv = threading.Condition()
-        self.done.connect(self._deliver)
+        # queued: the result is created in the worker thread, but QPixmap and repainting belong to the main thread
+        self.done.connect(self._deliver, Qt.ConnectionType.QueuedConnection)
         threading.Thread(target=self._run, daemon=True, name="passermark-smooth").start()
 
     def request(self, widget, key, img, tw, th):
@@ -61,11 +66,11 @@ class _Smoother(QObject):
                     tw, th, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation
                 )
             except Exception:
+                log.warning("Seitenbild nicht geglättet", exc_info=True)
                 continue
             self.done.emit(widget, key, out)
 
-    @staticmethod
-    def _deliver(widget, key, img):
+    def _deliver(self, widget, key, img):
         try:
             widget.smooth_ready(key, img)
         except RuntimeError:  # the page is gone in the meantime
@@ -102,7 +107,15 @@ class PageWidget(QWidget):
     def paintEvent(self, _):
         p = QPainter(self)
         p.fillRect(self.rect().adjusted(3, 3, 3, 3), QColor(0, 0, 0, 60))  # shadow
-        if self.master is not None:
+        if self.master is not None and self._enlarged():
+            # zoomed beyond the page image: no enlarged copy (that would be the whole page at full zoom size);
+            # Qt scales only the visible part while painting, the sharp section is drawn on top anyway
+            self._scaled, self._skey = None, None
+            p.save()
+            p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+            p.drawImage(QRectF(0, 0, self.width(), self.height()), self.master)
+            p.restore()
+        elif self.master is not None:
             dpr = self.devicePixelRatioF()
             tw, th = max(1, round(self.width() * dpr)), max(1, round(self.height() * dpr))
             key = (tw, th, self.master.cacheKey())
@@ -129,8 +142,13 @@ class PageWidget(QWidget):
         if self.view is not None:
             self.view.paint_overlay(self, p)
 
+    def _enlarged(self) -> bool:
+        """Is the page shown larger than its page image (more device pixels than the image has)?"""
+        dpr = self.devicePixelRatioF()
+        return self.width() * dpr * self.height() * dpr > self.master.width() * self.master.height() * 1.01
+
     def smooth_ready(self, key, img):
-        """Cleanly downscaled page image from the background – accept only if it still fits."""
+        """Cleanly downscaled page image from the background (main thread) – accept only if it still fits."""
         if key != self._skey or self.master is None:
             return
         pm = QPixmap.fromImage(img)

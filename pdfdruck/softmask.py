@@ -71,7 +71,7 @@ def _has_smask_gs(res, seen=None) -> bool:
     seen = seen if seen is not None else set()
     try:
         k = res.objgen if res.objgen != (0, 0) else id(res)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         k = id(res)
     if k in seen:
         return False
@@ -90,7 +90,7 @@ def _has_smask_gs(res, seen=None) -> bool:
                 eg = x.get("/ExtGState")  # shading pattern with its own graphics state
                 if eg is not None and eg.get("/SMask") is not None and str(eg.get("/SMask")) != "/None":
                     return True
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
     return False
 
@@ -102,7 +102,7 @@ def pattern_has_softmask(pat) -> bool:
             return _has_smask_gs(pat.get("/Resources"))
         eg = pat.get("/ExtGState")
         return eg is not None and eg.get("/SMask") is not None and str(eg.get("/SMask")) != "/None"
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return False
 
 
@@ -209,7 +209,7 @@ def scan(pdf) -> Scan:
                 try:
                     if x is None or x.get("/Subtype") != pikepdf.Name.Form:
                         continue
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     continue
                 og = x.objgen
                 out.form_uses[og] = out.form_uses.get(og, 0) + 1
@@ -410,7 +410,7 @@ def rip_simulation(data: bytes) -> bytes:
                     and "/SMask" in o
                 ):
                     del o["/SMask"]
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
 
         # also direct (not indirect) ExtGState entries
@@ -425,7 +425,7 @@ def rip_simulation(data: bytes) -> bytes:
                 for _n, x in (res.get(sub) or {}).items():
                     try:
                         strip(x.get("/Resources"), seen)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                         pass
 
         seen = set()

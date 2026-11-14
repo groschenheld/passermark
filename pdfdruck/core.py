@@ -100,7 +100,7 @@ def presets_full() -> bool:
         from . import l10n
 
         return bool(l10n.load_settings().get("presets_full", False))
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return False
 
 

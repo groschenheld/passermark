@@ -881,7 +881,7 @@ def material_of(s: PlanSettings):
         from . import printmat
 
         return printmat.find(s.material, s.printer)
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return None
 
 
@@ -1994,7 +1994,7 @@ def plan_files(
     elif printer and not s.dry_run:
         try:
             names = [p.name for p in printers.list_printers()]
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer/driver query: works without the value
             names = None
         if names is not None and printer not in names:
             raise ValueError(

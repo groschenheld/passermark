@@ -81,20 +81,20 @@ def devmode_from_str(printer: str, s: str | None):
             return dm
         try:
             d = json.loads(base64.b64decode(s))
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer/driver query: works without the value
             return dm
         for f in PUBLIC_FIELDS:
             if f in d:
                 try:
                     setattr(dm, f, d[f])
-                except Exception:
+                except Exception:  # noqa: BLE001 – printer/driver query: works without the value
                     pass
         data = base64.b64decode(d.get("DriverData", "") or b"")
         # take over private driver data only if they match the same driver/size
         if data and len(data) == len(bytes(dm.DriverData or b"")):
             try:
                 dm.DriverData = data
-            except Exception:
+            except Exception:  # noqa: BLE001 – printer/driver query: works without the value
                 pass
         return dm
     finally:
@@ -232,7 +232,7 @@ def _caps(printer, port, cap):
     try:
         r = win32print.DeviceCapabilities(printer, port, cap)
         return list(r) if r else []
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         return []
 
 
@@ -284,7 +284,7 @@ def load_caps(name: str) -> PrinterCaps:
     )
     try:
         duplex = win32print.DeviceCapabilities(name, port, DC_DUPLEX)
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         duplex = 0
     if duplex == 1:
         add(
@@ -296,7 +296,7 @@ def load_caps(name: str) -> PrinterCaps:
         )
     try:
         color = win32print.DeviceCapabilities(name, port, DC_COLORDEVICE)
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         color = 0
     if color:
         add("ColorModel", tr("Farbmodus"), [2, 1], [tr("Farbe"), tr("Graustufen")], getattr(dm, "Color", 2))
@@ -437,7 +437,7 @@ def _escape_supported(gdi, hdc, esc) -> bool:
     v = ctypes.c_int(esc)
     try:
         return gdi.ExtEscape(hdc, QUERYESCSUPPORT, ctypes.sizeof(v), ctypes.byref(v), 0, None) > 0
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         return False
 
 
@@ -450,7 +450,7 @@ def _jpeg_ok(gdi, hdc, data: bytes) -> bool:
             gdi.ExtEscape(hdc, CHECKJPEGFORMAT, len(data), data, ctypes.sizeof(res), ctypes.byref(res)) > 0
             and res.value == 1
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         return False
 
 
@@ -460,7 +460,7 @@ def print_settings() -> tuple[str, int]:
         from .l10n import load_settings
 
         st = load_settings()
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         st = {}
     mode = st.get("win_print_mode", "auto")
     dpi = int(st.get("win_raster_dpi", 0) or 0)
@@ -488,7 +488,7 @@ def _pump():
     if PUMP is not None:
         try:
             PUMP()
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer/driver query: works without the value
             pass
 
 
@@ -653,14 +653,14 @@ def print_pdf(
         _log_job(info)
         try:
             win32print.AbortDoc(hdc)
-        except Exception:
+        except Exception:  # noqa: BLE001 – cleanup
             pass
         raise
     finally:
         if mode == "postscript" and set_mode is not None:
             try:
                 set_mode(getattr(r, "FPDF_PRINTMODE_EMF", FPDF_PRINTMODE_EMF))
-            except Exception:
+            except Exception:  # noqa: BLE001 – printer/driver query: works without the value
                 pass
         doc.close()
         win32gui.DeleteDC(hdc)

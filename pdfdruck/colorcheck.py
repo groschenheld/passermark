@@ -21,11 +21,14 @@ Everything here only reads – the GUI (gui/colorpanel.py), the assistant (gui/p
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 
 from .l10n import tr
+
+log = logging.getLogger(__name__)
 
 SEV_ORDER = {"error": 0, "warning": 1, "info": 2, "ok": 3}
 
@@ -180,6 +183,7 @@ def facts(data: bytes, target: Target | None = None, tac: bool = True, tac_pages
         try:
             f.tac = measure_tac(data, target, max_pages=tac_pages, cancel=cancel)
         except Exception:
+            log.warning("Farbauftrag nicht messbar", exc_info=True)
             f.tac = None
     return f
 
@@ -268,7 +272,7 @@ def estimate_tac(data: bytes, limit: int = 300, max_pages: int = 50, cancel=None
                 for ins in pikepdf.parse_content_stream(page):
                     if str(ins.operator) in ("k", "K") and len(ins.operands) == 4:
                         mx = max(mx, sum(float(v) for v in ins.operands) * 100.0)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
             res = page.obj.get("/Resources") or {}
             for _n, x in (res.get("/XObject") or {}).items():
@@ -310,7 +314,7 @@ def _image_tac(x) -> float:
 
         a = np.asarray(pil, dtype=np.uint16)
         return float(a.sum(axis=2).max()) * 100.0 / 255.0
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return 0.0
 
 

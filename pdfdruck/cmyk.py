@@ -123,7 +123,7 @@ def _desc(path):
         d = (ImageCms.getProfileDescription(ImageCms.getOpenProfile(path)) or "").strip()
         if d:
             return d
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional part: works without it
         pass
     return os.path.splitext(os.path.basename(path))[0]
 

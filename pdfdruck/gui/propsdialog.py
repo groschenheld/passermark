@@ -188,7 +188,7 @@ class PropertiesDialog(QDialog):
             from .. import docinfo
 
             self._done(None, docinfo.inspect(src, check=True))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self._done(str(e), None)
 
     def _save_temp(self) -> str | None:
@@ -200,7 +200,7 @@ class PropertiesDialog(QDialog):
                 self.win.doc.save(f)
             self._tmp = path
             return path
-        except Exception:
+        except Exception:  # noqa: BLE001 – no temporary file: properties are read in the program
             return None
 
     def done(self, r):

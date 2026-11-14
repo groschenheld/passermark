@@ -40,7 +40,7 @@ def send_ex(cmd: str, files: list, timeout: float = 3.0) -> str:
         if os.name == "nt":
             return _send_pipe(msg, timeout)
         return _send_unix(msg, timeout)
-    except Exception:
+    except Exception:  # noqa: BLE001 – when in doubt: treat as busy
         return "busy"
 
 
@@ -121,7 +121,7 @@ class StartLock:
             if os.name == "nt":
                 return self._acquire_win(timeout)
             return self._acquire_posix(timeout)
-        except Exception:
+        except Exception:  # noqa: BLE001 – when in doubt: continue without a lock
             return False  # when in doubt continue without a lock
 
     def _acquire_win(self, timeout: float) -> bool:
@@ -171,7 +171,7 @@ class StartLock:
 
                 fcntl.flock(self._f.fileno(), fcntl.LOCK_UN)
                 self._f.close()
-        except Exception:
+        except Exception:  # noqa: BLE001 – cleanup
             pass
         self._h = self._f = None
 

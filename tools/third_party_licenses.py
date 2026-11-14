@@ -82,7 +82,7 @@ def _marker_ok(req: str) -> bool:
         from packaging.markers import Marker
 
         return Marker(marker).evaluate()
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return True
 
 
@@ -185,7 +185,7 @@ def debian_copyright(dist, dest: str) -> str:
         return ""
     try:
         r = subprocess.run(["dpkg", "-S", meta_dir], capture_output=True, text=True, timeout=60)
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional tool step
         return ""
     for line in r.stdout.splitlines():
         pkg = line.split(":", 1)[0].split(",")[0].strip()
@@ -231,7 +231,7 @@ def dpkg_packages(dirs: list[str]) -> dict:
         chunk = names[i : i + 200]
         try:
             r = subprocess.run(["dpkg", "-S", *["*/" + n for n in chunk]], capture_output=True, text=True, timeout=120)
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional tool step
             continue
         for line in r.stdout.splitlines():
             if ": " not in line or line.startswith("diversion"):
@@ -252,7 +252,7 @@ def dpkg_version(pkg: str) -> str:
     try:
         r = subprocess.run(["dpkg-query", "-W", "-f=${Version}", pkg], capture_output=True, text=True, timeout=30)
         return r.stdout.strip()
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional tool step
         return ""
 
 

@@ -1525,7 +1525,7 @@ def _is_printer(name: str) -> bool:
         from . import printers
 
         return any(p.name == name for p in printers.list_printers())
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         return False
 
 

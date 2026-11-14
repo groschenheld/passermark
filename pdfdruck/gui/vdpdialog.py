@@ -1352,7 +1352,7 @@ class VdpDialog(QDialog):
             try:
                 self.cols, _recs = vdp.read_csv(p)
                 self._sample = dict(_recs[0]) if _recs else {}
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 QMessageBox.warning(self, tr("CSV"), str(e))
         self._csv = os.path.abspath(p) if p else ""
         self.lst_cols.clear()
@@ -1397,7 +1397,7 @@ class VdpDialog(QDialog):
 
                 self._trims = page_trims(self.doc) or []
                 self._doc_bleeds = page_doc_bleeds(self.doc) or []
-            except Exception:
+            except Exception:  # noqa: BLE001 – trim boxes not readable: preview without them
                 self._trims, self._doc_bleeds = [], []
         t = self._trims[self.page] if self.page < len(self._trims) else None
         b = self._doc_bleeds[self.page] if self.page < len(self._doc_bleeds) else 0.0
@@ -1544,7 +1544,7 @@ class VdpDialog(QDialog):
             qi = QImage(data, img.width, img.height, 3 * img.width, QImage.Format.Format_RGB888).copy()
             self.canvas.pix = QPixmap.fromImage(qi)
             self.lbl_info.setText("")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self.lbl_info.setText("⚠ " + str(e))
         self.canvas.update()
 
@@ -1581,7 +1581,7 @@ class VdpDialog(QDialog):
             return
         try:
             _cols, recs = vdp.records(copy.deepcopy(s))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             QMessageBox.warning(self, tr("Variable Daten"), str(e))
             return
         if not recs:

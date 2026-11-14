@@ -146,7 +146,7 @@ def profile_desc(path: str) -> str:
         d = (ImageCms.getProfileDescription(ImageCms.getOpenProfile(path)) or "").strip()
         if d:
             return d
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional part: works without it
         pass
     return os.path.splitext(os.path.basename(path))[0]
 
@@ -175,7 +175,7 @@ def profile_white(path: str):
         )
         px = ImageCms.applyTransform(Image.new(mode, (4, 4), val), tf).getpixel((0, 0))
         lab = (round(px[0] * 100 / 255, 1), float(px[1] - 128), float(px[2] - 128))
-    except Exception:
+    except Exception:  # noqa: BLE001 – profile without readable white point
         lab = None
     _WHITE_CACHE[key] = lab
     return lab
@@ -445,7 +445,7 @@ def all_materials(cfg: dict) -> list:
         from . import usercolor
 
         out += [dict(m, scope="user") for m in usercolor.load_materials()]
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     return out
 
@@ -755,7 +755,7 @@ def doc_color_facts(path, max_pages: int = 50) -> tuple:
                         if str(getattr(ins, "operator", "")) in ("k", "K"):
                             cmyk = True
                             break
-                except Exception:
+                except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                     pass
                 if cmyk:
                     break
@@ -768,9 +768,9 @@ def doc_color_facts(path, max_pages: int = 50) -> tuple:
                         elif isinstance(cs, pikepdf.Array) and len(cs) > 1 and cs[0] == pikepdf.Name.ICCBased:
                             try:
                                 cmyk = cmyk or int(cs[1].get("/N", 0)) == 4
-                            except Exception:
+                            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                                 pass
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     return [o for o in ois if o], cmyk
 

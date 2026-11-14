@@ -74,7 +74,7 @@ def inspect(
                 v = _pdf_date(di.get("/" + k))
                 if v:
                     meta[key] = v
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
         out["metadata"] = meta
         out["details"] = _details(pdf)
@@ -157,7 +157,7 @@ def _details(pdf) -> dict:
     d = {}
     try:
         d["linearized"] = bool(pdf.is_linearized)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
     if pdf.is_encrypted:
         try:
@@ -174,13 +174,13 @@ def _details(pdf) -> dict:
             meth = str(getattr(enc, "stream_method", "") or "").split(".")[-1].lower()
             meth = {"aesv3": "AES", "aesv2": "AES", "rc4": "RC4"}.get(meth, meth.upper())
             d["encryption"] = (meth + (f" {enc.bits} Bit" if getattr(enc, "bits", 0) else "")).strip()
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
     root = pdf.Root
     try:
         oi = root.get("/OutputIntents") or []
         d["output_intents"] = [str(o.get("/OutputConditionIdentifier") or o.get("/Info") or "?") for o in oi]
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["output_intents"] = []
     try:
         with pdf.open_outline() as ol:
@@ -190,17 +190,17 @@ def _details(pdf) -> dict:
                 n += 1
                 stack.extend(it.children)
         d["bookmarks"] = n
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["bookmarks"] = 0
     try:
         d["attachments"] = sorted(pdf.attachments.keys())
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["attachments"] = []
     try:
         af = root.get("/AcroForm")
         fields = af.get("/Fields") if af is not None else None
         d["form_fields"] = len(fields) if fields is not None else 0
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["form_fields"] = 0
     try:
         n = 0
@@ -209,12 +209,12 @@ def _details(pdf) -> dict:
                 if a.get("/Subtype") not in (pikepdf.Name.Link, pikepdf.Name.Widget, pikepdf.Name.Popup):
                     n += 1
         d["annotations"] = n
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["annotations"] = 0
     try:
         oc = root.get("/OCProperties")
         d["layers"] = len(oc.get("/OCGs") or []) if oc is not None else 0
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["layers"] = 0
     try:
         d["javascript"] = (
@@ -223,7 +223,7 @@ def _details(pdf) -> dict:
             and isinstance(root.OpenAction, pikepdf.Dictionary)
             and root.OpenAction.get("/S") == pikepdf.Name.JavaScript
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         d["javascript"] = False
     return d
 

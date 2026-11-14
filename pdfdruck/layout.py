@@ -16,10 +16,13 @@ Coordinates: PDF points (1/72 inch), origin bottom left.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 
 from .l10n import tr
+
+log = logging.getLogger(__name__)
 
 MM = 72.0 / 25.4
 
@@ -1744,7 +1747,7 @@ def flattened(doc):
     try:
         cp.init_forms()  # creates missing field appearances
     except Exception:
-        pass
+        log.warning("Formularfelder ohne Darstellung", exc_info=True)
     for i in range(len(cp)):
         pg = cp[i]
         if r.FPDFPage_GetAnnotCount(pg.raw):

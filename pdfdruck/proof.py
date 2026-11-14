@@ -13,10 +13,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 
 from .l10n import tr
+
+log = logging.getLogger(__name__)
 
 RX = {
     "brightness": re.compile(r"bright|hellig", re.I),
@@ -111,7 +114,8 @@ def apply(img, adj: dict, icc: str | None = None, intent: str = "relative", bpc:
         try:
             img = ImageCms_apply(img, _proof_transform(icc, intent, bpc))
         except Exception:
-            pass  # broken/incompatible profile -> without soft proof
+            # broken/incompatible profile -> without soft proof
+            log.warning("Softproof: Profil nicht anwendbar", exc_info=True)
     if adj.get("gray"):
         img = ImageOps.grayscale(img).convert("RGB")
     t = adj.get("saturation", 0.0)
@@ -167,6 +171,18 @@ def describe(adj: dict, profile_name: str | None) -> str:
 # RGB/grey -> profile) and these CMYK values are shown – exactly the colours that would be printed.
 # Otherwise (RGB printer profile, no Ghostscript): image of the page (sRGB) -> profile -> screen.
 PROOF_MAX_DPI = 300
+# Ghostscript does not smooth text on the CMYK separation: render finer and scale down cleanly, as long as the
+# finer page stays below this many pixels (large plans stay fast and are then shown without the extra smoothing)
+PROOF_SUPERSAMPLE_PIXELS = 20_000_000
+
+
+def supersample_factor(width_pt: float, height_pt: float, dpi: float) -> float:
+    """How much finer to separate (1 = not at all, at most 2) so the page stays within PROOF_SUPERSAMPLE_PIXELS."""
+    px = max(1.0, width_pt * height_pt * (dpi / 72.0) ** 2)
+    f = min(2.0, (PROOF_SUPERSAMPLE_PIXELS / px) ** 0.5)
+    return round(f, 2) if f >= 1.3 else 1.0
+
+
 GAMUT_COLOR = (255, 0, 255)
 TAC_COLOR = (255, 0, 64)
 _BRADFORD_D50_D65 = (
@@ -401,9 +417,10 @@ def can_separate(spec) -> bool:
 _SEP_CACHE: dict = {}
 
 
-def separated_page(path: str, index: int, dpi: float, spec, password: str | None = None):
+def separated_page(path: str, index: int, dpi: float, spec, password: str | None = None, supersample: float = 1.0):
     """Separate the page with Ghostscript (like the CMYK conversion "RGB/grey only") and prepare it for the
     screen -> PIL RGB of the whole page (CropBox, /Rotate applied). Cached.
+    supersample > 1: separate that much finer and scale down (smooth text, see supersample_factor).
     """
     import shutil
     import tempfile
@@ -414,7 +431,8 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
 
     st = os.stat(path)
     dpi = round(max(18.0, min(float(dpi), PROOF_MAX_DPI)))
-    key = (os.path.realpath(path), st.st_mtime_ns, st.st_size, index, round(dpi, 1), spec_key(spec))
+    key = (os.path.realpath(path), st.st_mtime_ns, st.st_size, index, round(dpi, 1), supersample, spec_key(spec))
+    rdpi = round(dpi * supersample) if supersample > 1 else dpi  # resolution Ghostscript renders at
     hit = _SEP_CACHE.get(key)
     if hit is not None:
         return hit
@@ -432,10 +450,13 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
     tmp = tempfile.mkdtemp(prefix="passermark-proof-")
     try:
         out = os.path.join(tmp, "p.tif")
-        cmyk._render(gs, path, index, dpi, "tiff32nc", extra, out)
+        cmyk._render(gs, path, index, rdpi, "tiff32nc", extra, out)
         c = Image.open(out)
         c.load()
         c = c.convert("CMYK") if c.mode != "CMYK" else c
+        size = (max(1, round(c.width * dpi / rdpi)), max(1, round(c.height * dpi / rdpi)))
+        if c.size != size:
+            c = c.resize(size, Image.Resampling.LANCZOS)
         rgb = None
         if spec.get("warn") == "gamut":
             r = os.path.join(tmp, "r.png")
@@ -443,12 +464,14 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
                 gs,
                 path,
                 index,
-                dpi,
+                rdpi,
                 "png16m",
                 ["-dUseCropBox"] + ([f"-sPDFPassword={password}"] if password else []),
                 r,
             )
             rgb = Image.open(r).convert("RGB")
+            if rgb.size != size:
+                rgb = rgb.resize(size, Image.Resampling.LANCZOS)
         img = softproof_cmyk(c, spec, rgb)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -470,7 +493,8 @@ def proofed_render(
     if path and can_separate(spec):
         try:
             dpi = round(max(18.0, min(scale * 72.0, PROOF_MAX_DPI)))
-            full = separated_page(path, index, dpi, spec, password)
+            ss = supersample_factor(page.get_width(), page.get_height(), dpi)
+            full = separated_page(path, index, dpi, spec, password, ss)
             rot = rotation % 360
             if rot:
                 full = full.transpose(
@@ -496,7 +520,8 @@ def proofed_render(
             )
             return part.resize((w, h), Image.Resampling.LANCZOS) if (w, h) != part.size else part
         except Exception:
-            pass  # e.g. Ghostscript error -> via the page image
+            # e.g. Ghostscript error -> via the page image
+            log.warning("Softproof: Ghostscript-Separation fehlgeschlagen, Seitenbild wird verwendet", exc_info=True)
     bmp = page.render(scale=scale, rotation=rotation % 360, crop=crop, may_draw_forms=True, draw_annots=True)
     try:
         img = bmp.to_pil().convert("RGB")
@@ -505,4 +530,5 @@ def proofed_render(
     try:
         return softproof_rgb(img, spec)
     except Exception:
+        log.warning("Softproof: Profil nicht anwendbar", exc_info=True)
         return img  # broken profile: without soft proof

@@ -73,7 +73,7 @@ def needs_password(path: str) -> bool:
         return False
     except pikepdf.PasswordError:
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 – broken for another reason: not a password question
         return False
 
 
@@ -91,7 +91,7 @@ def _pages(path: str, password: str | None = None) -> int:
         pdf = _open(path, password)
     except PasswordRequired:
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return 0
     try:
         return len(pdf.pages)
@@ -241,7 +241,7 @@ def process(
             _pike_save(src, clean, password, None)
         except PasswordRequired:
             raise
-        except Exception as e:  # badly broken: try Ghostscript directly
+        except Exception as e:  # noqa: BLE001 – badly broken: try Ghostscript directly
             notes.append(tr("Strukturreparatur nicht möglich ({0}) – Neuaufbau direkt.").format(e.__class__.__name__))
             clean = src
         if mode == "repair":

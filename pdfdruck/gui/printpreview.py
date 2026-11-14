@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 from PySide6.QtCore import Qt
@@ -23,6 +24,8 @@ from .. import config, layout, printers, proof
 from ..l10n import tr
 from . import theme
 from .common import render_pixmap
+
+log = logging.getLogger(__name__)
 
 
 class PrintPreviewMixin:
@@ -47,7 +50,7 @@ class PrintPreviewMixin:
         self.sheet_index = min(self.sheet_index, max(0, len(self.plans) - 1))
         try:
             self._render_sheet()
-        except Exception as e:  # the preview must never take the program down with it
+        except Exception as e:  # noqa: BLE001 – the preview must never take the program down with it
             self.lbl_warn.setText(tr("Vorschau nicht möglich: {0}").format(e))
 
     def _pair_step(self) -> int:
@@ -55,6 +58,7 @@ class PrintPreviewMixin:
         try:
             return 2 if self._duplex_layout() else 1
         except Exception:
+            log.warning("Duplex-Anordnung nicht ermittelt", exc_info=True)
             return 1
 
     def _step_sheet(self, d: int):
@@ -179,7 +183,7 @@ class PrintPreviewMixin:
                     with os.fdopen(fd, "wb") as f:
                         self._spr_doc.save(f)
                     self._spr_file = path
-                except Exception:
+                except Exception:  # noqa: BLE001 – no temporary file: preview renders in the program
                     return None
             return self._spr_file, False
         if self.src_path and os.path.isfile(self.src_path):
@@ -242,7 +246,7 @@ class PrintPreviewMixin:
         if svc is None:
             try:
                 show(local())
-            except Exception as e:  # the preview must never take the program down with it
+            except Exception as e:  # noqa: BLE001 – the preview must never take the program down with it
                 failed(str(e))
             return
         path, flat = self._pv_source()
@@ -264,14 +268,14 @@ class PrintPreviewMixin:
                         failed(str(err))
                 else:
                     show([self._to_pixmap(w, h, data, dpr) for (w, h, data) in res])
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 – shown to the user
                 failed(str(e))
             if nxt is not None:
                 self._pv_send(nxt)
 
         try:
             svc.call("sheet", args, back)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 – shown to the user
             self._pv_busy = False
             failed(str(e))
 

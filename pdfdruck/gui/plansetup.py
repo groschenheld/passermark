@@ -90,7 +90,7 @@ class RollsDialog(QDialog):
         self.caps = None
         try:
             self.caps = session.caps_for(printer)
-        except Exception:
+        except Exception:  # noqa: BLE001 – printer not reachable: no driver values
             self.caps = None
         self._q = None
         v = QVBoxLayout(self)

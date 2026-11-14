@@ -27,10 +27,13 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import zlib
 from dataclasses import dataclass, field
 
 from .l10n import tr
+
+log = logging.getLogger(__name__)
 
 MB = 1024 * 1024
 A4_M2 = 0.210 * 0.297
@@ -145,7 +148,7 @@ def _walk_streams(obj, out: set, depth=0):
         for _k, v in items:
             if isinstance(v, (pikepdf.Stream, pikepdf.Dictionary, pikepdf.Array)):
                 _walk_streams(v, out, depth + 1)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         pass
 
 
@@ -184,19 +187,19 @@ def _object_roles(pdf) -> _Roles:
                     r.smasks.add(sm.objgen)
                 if d.get("/Type") == pikepdf.Name.EmbeddedFile:
                     r.attach.add(o.objgen)
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             continue
     for p in pdf.pages:
         if "/Thumb" in p.obj:
             try:
                 r.thumbs.add(p.obj.Thumb.objgen)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
         c = p.obj.get("/Contents")
         for s in c if isinstance(c, pikepdf.Array) else [c] if c is not None else []:
             try:
                 r.content.add(s.objgen)
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
     return r
 
@@ -211,7 +214,7 @@ def _image_resolutions(pdf, colors) -> dict:
             if u.key is not None:
                 best[u.key] = min(best.get(u.key, 1e9), u.dpi)
     except Exception:
-        pass
+        log.warning("Verkleinern: Bildrollen nicht ermittelt", exc_info=True)
     return best
 
 
@@ -272,7 +275,7 @@ def _measure_streams(pdf, rep: SizeReport, roles: _Roles, best: dict):
             continue
         try:
             n = len(o.read_raw_bytes())
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             continue
         streams_total += n
         cat = _part_of(o, roles)
@@ -290,7 +293,7 @@ def _measure_streams(pdf, rep: SizeReport, roles: _Roles, best: dict):
             try:
                 rep.images.append(_image_info(o, n, best, roles))
             except Exception:
-                pass
+                log.warning("Verkleinern: Bild nicht analysiert", exc_info=True)
     parts["other"] += max(0, rep.size - streams_total)
     rep.parts = parts
     rep.private_bytes, rep.thumb_bytes, rep.attachment_bytes = (
@@ -317,7 +320,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
         try:
             if pdf.is_linearized and rep.revisions:
                 rep.revisions -= 1  # linearised: the second %%EOF belongs to the fast web view
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
         for p in pdf.pages:
             mb = [float(v) for v in p.mediabox]
@@ -329,7 +332,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
             layers = list_layers(pdf)
             vis = current_visible(pdf)
             rep.has_hidden_layers = any(L.key not in vis for L in layers)
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional part: works without it
             pass
         _measure_streams(pdf, rep, roles, _image_resolutions(pdf, colors))
     finally:
@@ -523,7 +526,7 @@ def _replace_refs(container, dup: dict, depth: int = 0):
         return
     try:
         items = list(container.items()) if isinstance(container, pikepdf.Dictionary) else list(enumerate(container))
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return
     for k, v in items:
         try:
@@ -534,7 +537,7 @@ def _replace_refs(container, dup: dict, depth: int = 0):
                     container[k] = dup[v.objgen]
             else:
                 _replace_refs(v, dup, depth + 1)
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             pass
 
 
@@ -544,7 +547,7 @@ def _is_icc(sd) -> bool:
     """
     try:
         return "/N" in sd and "/Subtype" not in sd and "/Type" not in sd and int(sd.N) in (1, 3, 4)
-    except Exception:
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
         return False
 
 
@@ -634,7 +637,7 @@ def _image(img, im: ImageInfo, opts: ShrinkOptions, note, done: set):
     if wrapped:
         try:  # resolve only the outer filters, the JPEG stays as it is
             jpeg = _undo_filters(img.read_raw_bytes(), fl[:-1])
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             jpeg = b""
         if not jpeg.startswith(b"\xff\xd8"):
             jpeg, wrapped = None, False
@@ -833,7 +836,7 @@ def _drop_hidden_layers(src: bytes, tally: _Tally) -> bytes:
             before = len(src)
             src = pdflayers.flatten_layers(src)
             tally.note("hidden", before - len(src))
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     return src
 
@@ -849,7 +852,7 @@ def _drop_extras(pdf, opts: ShrinkOptions, rep, tally: _Tally):
                 if isinstance(d, pikepdf.Dictionary) and "/PieceInfo" in d:
                     del d["/PieceInfo"]
                     tally.counts["private"] = tally.counts.get("private", 0) + 1
-            except Exception:
+            except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
                 pass
         tally.saved["private"] = rep.private_bytes
     if opts.thumbs:
@@ -885,6 +888,7 @@ def _shrink_images(pdf, opts: ShrinkOptions, rep, tally: _Tally, progress=None):
         try:
             _image(img, im, opts, tally.note, done)
         except Exception:
+            log.warning("Verkleinern: Bild übersprungen", exc_info=True)
             continue
 
 
@@ -908,7 +912,7 @@ def _merge_duplicates(pdf, tally: _Tally):
             continue
         try:
             raw = o.read_raw_bytes()
-        except Exception:
+        except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
             continue
         if len(raw) < 256:
             continue
@@ -994,7 +998,7 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
         if opts.unreferenced:
             try:
                 pdf.remove_unreferenced_resources()
-            except Exception:
+            except Exception:  # noqa: BLE001 – unreferenced resources stay in, the file is still valid
                 pass
         out = _save(pdf, opts)
     finally:

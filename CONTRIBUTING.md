@@ -35,6 +35,8 @@ If we agree on a change:
 - code style: run `ruff format` before committing (settings in `pyproject.toml`, 120 columns); comments and
   docstrings in English; every public class and function has a docstring (`tests/test_docs.py`);
   `ruff check` must pass (the CI checks both),
+- errors: an `except Exception` shows the error, logs it (`log.warning(…, exc_info=True)`) or says in a
+  `# noqa: BLE001 – …` comment why it is expected (see docs/architecture.md, Error handling),
 - colours of the interface only in `pdfdruck/gui/theme.py` – use the names from there (`tests/test_theme.py`),
 - tests: add or adapt `tests/test_<name>.py` and run them (`python3 tests/test_<name>.py`),
 - user-visible texts go through `tr("…")` (German source text) – translations are added afterwards,
@@ -85,6 +87,9 @@ Wenn wir uns auf eine Änderung einigen:
 - Code-Stil: vor dem Commit `ruff format` ausführen (Einstellungen in `pyproject.toml`, 120 Spalten); Kommentare
   und Docstrings auf Englisch; jede öffentliche Klasse und Funktion hat einen Docstring (`tests/test_docs.py`);
   `ruff check` muss sauber durchlaufen (die CI prüft beides),
+- Fehler: ein `except Exception` zeigt den Fehler an, protokolliert ihn (`log.warning(…, exc_info=True)`) oder
+  begründet in einem `# noqa: BLE001 – …`-Kommentar, warum er erwartet ist (siehe docs/architecture.md,
+  Error handling),
 - Farben der Oberfläche nur in `pdfdruck/gui/theme.py` – die Namen von dort verwenden (`tests/test_theme.py`),
 - Tests: `tests/test_<name>.py` ergänzen oder anpassen und ausführen (`python3 tests/test_<name>.py`),
 - sichtbare Texte über `tr("…")` (deutscher Ausgangstext) – Übersetzungen kommen danach dazu,

@@ -107,7 +107,7 @@ class StallWatch:
         self.last = {"seconds": dur, "stack": top}
         try:
             ctx = self.context()
-        except Exception:
+        except Exception:  # noqa: BLE001 – the watchdog thread must never fail
             ctx = ""
         line = (
             time.strftime("%Y-%m-%d %H:%M:%S")

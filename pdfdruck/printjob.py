@@ -120,7 +120,7 @@ def default_printer(session) -> str | None:
         return session.printer
     try:
         plist = printers.list_printers()
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         return None
     return next((p.name for p in plist if p.is_default), plist[0].name if plist else None)
 

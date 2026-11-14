@@ -157,7 +157,7 @@ def _lang():
                 v = json.load(f).get(key, "")
             if v and v != "auto":
                 return v
-        except Exception:
+        except Exception:  # noqa: BLE001 – optional tool step
             pass
     for v in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
         code = (os.environ.get(v) or "")[:2].lower()

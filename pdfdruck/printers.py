@@ -483,7 +483,7 @@ class PrinterCaps:
                     from .printers_win import imageable_for
 
                     cache[val] = imageable_for(self.name, values)
-                except Exception:
+                except Exception:  # noqa: BLE001 – optional module
                     cache[val] = None
             if cache[val]:
                 ia, (w, h) = cache[val]
@@ -710,7 +710,7 @@ def load_caps(name: str) -> PrinterCaps:
     c = _conn()
     try:
         ppd_file = c.getPPD(name)
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         ppd_file = None
     if ppd_file:
         try:
@@ -855,7 +855,7 @@ def _caps_from_ppd(name: str, ppd_file: str) -> PrinterCaps:
     ppd = cups.PPD(ppd_file)
     try:
         ppd.localize()
-    except Exception:
+    except Exception:  # noqa: BLE001 – printer/driver query: works without the value
         pass
     caps = PrinterCaps(name=name, backend="ppd", _ppd=ppd)
     for g, prefix in _walk_groups(ppd.optionGroups):
@@ -893,13 +893,13 @@ def _caps_from_ppd(name: str, ppd_file: str) -> PrinterCaps:
                     dim = ppd.findAttr("PaperDimension", ch.value)
                     w, h = (float(v) for v in dim.value.replace(",", ".").split()[:2])
                     dims[ch.value] = (w, h)
-                except Exception:
+                except Exception:  # noqa: BLE001 – printer/driver query: works without the value
                     pass
             if ch.value not in areas:
                 try:
                     ia = ppd.findAttr("ImageableArea", ch.value)
                     areas[ch.value] = tuple(float(v) for v in ia.value.replace(",", ".").split()[:4])
-                except Exception:
+                except Exception:  # noqa: BLE001 – printer/driver query: works without the value
                     pass
         fill_page_sizes(caps, ps, dims, areas, info["code"], info["problems"])
     _assign_roles(caps)

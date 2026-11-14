@@ -110,7 +110,7 @@ def icc_info(path: str) -> IccInfo | None:
         from PIL import ImageCms
 
         desc = (ImageCms.getProfileDescription(ImageCms.getOpenProfile(path)) or "").strip()
-    except Exception:
+    except Exception:  # noqa: BLE001 – optional module
         pass
     name = os.path.basename(path)
     return IccInfo(

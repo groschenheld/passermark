@@ -157,7 +157,7 @@ def window_modal_dialogs():
         try:
             if self.parentWidget() is not None and self.windowModality() != _Qt.WindowModality.WindowModal:
                 self.setWindowModality(_Qt.WindowModality.WindowModal)
-        except Exception:
+        except Exception:  # noqa: BLE001 – window placement is cosmetic
             pass
         try:  # own windows: wrap rows of buttons, wrap forms
             if type(self).__module__.startswith("pdfdruck") and not getattr(self, "_pm_responsive", False):
@@ -166,14 +166,14 @@ def window_modal_dialogs():
                 scr = (self.parentWidget() or self).screen().availableGeometry()
                 if self.minimumSizeHint().height() > scr.height() - 60:
                     scroll_body(self)  # taller than the screen: the content scrolls, the buttons stay
-        except Exception:
+        except Exception:  # noqa: BLE001 – window placement is cosmetic
             pass
         try:  # never larger than the screen (small notebooks)
             scr = (self.parentWidget() or self).screen().availableGeometry()
             w, h = min(self.width(), scr.width() - 40), min(self.height(), scr.height() - 60)
             if (w, h) != (self.width(), self.height()):
                 self.resize(max(320, w), max(240, h))
-        except Exception:
+        except Exception:  # noqa: BLE001 – window placement is cosmetic
             pass
         return orig(self, *a, **k)
 
