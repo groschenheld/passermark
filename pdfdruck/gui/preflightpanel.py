@@ -376,7 +376,7 @@ class PreflightPanel(QWidget):
                 cb.addItem(f.suggestion_name or tr("(kein Ersatz)"), f.suggestion)
                 cb.addItem(tr("Schriftdatei wählen …"), "__file__")
                 cb.addItem(tr("Freie Schrift herunterladen …"), "__download__")
-                cb.setProperty("font", f.name)
+                cb.setProperty("font_name", f.name)  # not "font": that is a built-in property of every widget (QFont)
                 cb.activated.connect(lambda _i=0, c=cb: self._font_choice(c))
                 self.tbl_fonts.setCellWidget(r, 3, cb)
                 if f.suggestion:
@@ -659,7 +659,7 @@ class PreflightPanel(QWidget):
             box.exec()
 
     def _font_choice_inner(self, cb):
-        name = cb.property("font")
+        name = cb.property("font_name")
         what = cb.currentData()
         if what == "__file__":
             p, _ = QFileDialog.getOpenFileName(

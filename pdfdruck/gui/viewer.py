@@ -24,18 +24,19 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDockWidget,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
-    QFrame,
     QListWidgetItem,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QScrollBar,
     QStyle,
     QStyledItemDelegate,
     QToolButton,
@@ -44,7 +45,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import images
-from . import theme
+from . import docscroll, theme
 from .common import MAX_RENDER_EDGE, render_pixmap, responsive
 from .icons import icon as svg_icon
 
@@ -447,9 +448,9 @@ class PageView(QScrollArea):
         self.sel = None  # text selection: (page, start character, end character)
         self._drag = None
         self._tp = {}  # page -> (PdfPage, PdfTextPage)
-        self.imode = "text"  # Maus: text = Textauswahl; edit = Bearbeiten-Modus (Klicks an edit_click)
+        self.imode = "text"  # mouse: text = select text; edit = edit mode (clicks go to edit_click)
         self.edit_click = None  # callback (page, x, y in page coordinates, shift)
-        self.meas = None  # Messung: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
+        self.meas = None  # measuring: {"page", "a": (x, y) pt, "b": (x, y) pt | None, "done": bool}
         self.on_measure = None  # callback (text for the status bar)
         self.on_cursor = None  # callback (page widget, mouse position) for the rulers
         self.on_pipette = None  # callback (page, x, y) – colour pipette (imode "pipette")
@@ -475,7 +476,17 @@ class PageView(QScrollArea):
         self._pinfo = None  # per page boxes/rotation (renderproc.page_info) – without loading a page
         self._lazy_boxes = {}  # fallback: boxes via pdfium, only when needed
         self._chars = {}  # page -> character boxes (numpy) for the text cursor, "pending" = requested
+        # single-page view: the scroll area only holds one page, so a scroll bar of our own stands for the
+        # whole document (see docscroll.py); the area's own vertical bar is hidden meanwhile
+        self._docbar = QScrollBar(Qt.Orientation.Vertical, self)
+        self._docbar.setPageStep(docscroll.UNITS)
+        self._docbar.setSingleStep(docscroll.UNITS // 10)
+        self._docbar.hide()
+        self._docbar_on = False
+        self._docbar_busy = False  # the user is moving the bar: do not set its value from the view
+        self._docbar.valueChanged.connect(self._docbar_moved)
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+        self.verticalScrollBar().valueChanged.connect(lambda _v: self._sync_docbar())
         self.verticalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
         self.horizontalScrollBar().valueChanged.connect(lambda _v: self.viewMoved.emit())
 
@@ -855,6 +866,7 @@ class PageView(QScrollArea):
                 w.show()
                 y += hh + PAGE_GAP
             self.container.resize(cw, y)
+        self._sync_docbar()
         self.zoomChanged.emit(self.zoom)
         self.viewMoved.emit()
         self._timer.start()
@@ -862,6 +874,46 @@ class PageView(QScrollArea):
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self.relayout()
+
+    # ---------------- scroll bar for the whole document (single-page view) ---------------- #
+    def _sync_docbar(self):
+        """Show the document scroll bar when it is needed and move it to where the view is."""
+        bar = self._docbar
+        want = bool(self.single and self.doc is not None and len(self.pages) > 1)
+        if want != self._docbar_on:
+            self._docbar_on = want
+            self.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff if want else Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            )
+            self.setViewportMargins(0, 0, bar.sizeHint().width() if want else 0, 0)
+            bar.setVisible(want)
+        if not want:
+            return
+        w = bar.sizeHint().width()
+        hb = self.horizontalScrollBar()
+        bar.setGeometry(self.width() - w, 0, w, self.height() - (hb.height() if hb.isVisible() else 0))
+        bar.raise_()
+        if self._docbar_busy:
+            return
+        vb = self.verticalScrollBar()
+        bar.blockSignals(True)
+        bar.setRange(0, docscroll.maximum(len(self.pages)))
+        bar.setValue(docscroll.to_value(self.current, vb.value(), vb.maximum()))
+        bar.blockSignals(False)
+
+    def _docbar_moved(self, value: int):
+        """The user moved the document scroll bar: show that page, scrolled as far as the bar says."""
+        if not self._docbar_on or self._docbar_busy:
+            return
+        page, share = docscroll.from_value(value, len(self.pages))
+        self._docbar_busy = True
+        try:
+            if page != self.current:
+                self.goto(page)
+            vb = self.verticalScrollBar()
+            vb.setValue(round(share * vb.maximum()))
+        finally:
+            self._docbar_busy = False
 
     def _on_scroll(self, _):
         self._timer.start()
@@ -2239,6 +2291,11 @@ class PageEdit(QLineEdit):
         super().__init__()
         self._n = 0
         self._cur = 0
+        self._typed = False  # the user has typed since the field got the focus
+        self.textEdited.connect(self._on_typed)
+        # only a click puts the cursor here: the field must not get the focus by itself (when a dialog closes
+        # or a panel is locked) – it would then hold on to an old page number
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFont(theme.mono_font(10))
         self.setFixedWidth(64)
@@ -2267,7 +2324,14 @@ class PageEdit(QLineEdit):
         self.setFixedWidth(max(56, fm.horizontalAdvance(f"{self._n} / {self._n}") + 24))
 
     # ---- input: leading number, Enter/leaving jumps to the page ----
+    def _on_typed(self, _text):
+        self._typed = True
+
     def _page_from_text(self) -> int | None:
+        """The page number that was typed (1-based); None if nothing was typed since the field got the focus –
+        the text it shows may be older than the page the view is on by now."""
+        if not self._typed:
+            return None
         digits = ""
         for ch in self.text():
             if ch.isdigit():
@@ -2282,6 +2346,7 @@ class PageEdit(QLineEdit):
     def keyPressEvent(self, e):
         if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             p = self._page_from_text()
+            self._typed = False
             self.clearFocus()
             if p is not None and p - 1 != self._cur:
                 self.gotoRequested.emit(p - 1)
@@ -2292,6 +2357,7 @@ class PageEdit(QLineEdit):
     def focusOutEvent(self, e):
         super().focusOutEvent(e)
         p = self._page_from_text()
+        self._typed = False
         if p is not None and self._n and p - 1 != self._cur:
             self.gotoRequested.emit(p - 1)
         self._refresh()
@@ -2299,6 +2365,7 @@ class PageEdit(QLineEdit):
     def focusInEvent(self, e):
         """On focus show only the page number, selected, ready for typing."""
         super().focusInEvent(e)
+        self._typed = False
         self.setText(str(self._cur + 1))  # when typing only the bare number
         self.selectAll()
 

@@ -225,6 +225,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/crashui.py` | Error log in the interface: message on unexpected errors, notice after a crash. |
 | `pdfdruck/gui/customsizes.py` | Manage custom sizes: name, width, height – stored permanently, for all printers and "Save as PDF". |
 | `pdfdruck/gui/datadialog.py` | Dialog "Enter data": create a data table for variable data right inside Passermark. |
+| `pdfdruck/gui/docscroll.py` | Scroll bar for the whole document in the single-page view. |
 | `pdfdruck/gui/editpanel.py` | Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace, scale/move). |
 | `pdfdruck/gui/hdrdialog.py` | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
 | `pdfdruck/gui/iccimport.py` | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |

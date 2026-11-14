@@ -3107,7 +3107,8 @@ class PrintDialog(QDialog):
         self.lbl_info.setText(
             tr("Papier: {0} ({1:.0f} × {2:.0f} mm)").format(fmt_txt, sheet.width / layout.MM, sheet.height / layout.MM)
             + (tr(" · Fach: {0}").format(src_txt) if src_txt else "")
-            + f" · {'Querformat' if sp.landscape else 'Hochformat'}"
+            + " · "
+            + (tr("Querformat") if sp.landscape else tr("Hochformat"))
             + tr(" · Maßstab: {0}").format(", ".join(f"{s:g} %" for s in scales))
             + join_txt
             + (f"\n{size_txt}" if size_txt else "")
