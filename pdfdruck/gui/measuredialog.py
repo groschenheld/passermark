@@ -84,7 +84,30 @@ class MeasureDialog(QDialog):
         intro.setWordWrap(True)
         intro.setStyleSheet(f"color: {theme.MUTED};")
         v.addWidget(intro)
+        self._build_device_box(v)
+        self._build_manual_box(v)
+        # measurements
+        self.lst = QListWidget()
+        self.lst.setMaximumHeight(130)
+        v.addWidget(self.lst)
+        h = QHBoxLayout()
+        self.lbl_mean = QLabel()
+        h.addWidget(self.lbl_mean, 1)
+        b = QPushButton(tr("Entfernen"))
+        b.clicked.connect(self._remove)
+        h.addWidget(b)
+        v.addLayout(h)
+        self.bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.bb.accepted.connect(self.accept)
+        self.bb.rejected.connect(self.reject)
+        v.addWidget(self.bb)
+        if start:
+            self._add(tuple(start), tr("bisheriger Wert"))
+        self._refresh()
+        self.resize(640, 10)
 
+    def _build_device_box(self, v):
+        """Group for the measuring device: search, port, calibration, start/stop, status and log."""
         # measuring device
         box = QGroupBox(tr("Messgerät (ArgyllCMS spotread)"))
         bv = QVBoxLayout(box)
@@ -147,6 +170,8 @@ class MeasureDialog(QDialog):
             w.setEnabled(bool(self.exe))
         v.addWidget(box)
 
+    def _build_manual_box(self, v):
+        """Group "Ohne Gerät": read a measurement file or type Lab values."""
         # file / by hand
         box = QGroupBox(tr("Ohne Gerät"))
         bh = QHBoxLayout(box)
@@ -167,26 +192,6 @@ class MeasureDialog(QDialog):
         b.clicked.connect(self._add_manual)
         bh.addWidget(b)
         v.addWidget(box)
-
-        # measurements
-        self.lst = QListWidget()
-        self.lst.setMaximumHeight(130)
-        v.addWidget(self.lst)
-        h = QHBoxLayout()
-        self.lbl_mean = QLabel()
-        h.addWidget(self.lbl_mean, 1)
-        b = QPushButton(tr("Entfernen"))
-        b.clicked.connect(self._remove)
-        h.addWidget(b)
-        v.addLayout(h)
-        self.bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        self.bb.accepted.connect(self.accept)
-        self.bb.rejected.connect(self.reject)
-        v.addWidget(self.bb)
-        if start:
-            self._add(tuple(start), tr("bisheriger Wert"))
-        self._refresh()
-        self.resize(640, 10)
 
     # ---------------------------------------------------------------- #
     def result_lab(self):

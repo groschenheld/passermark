@@ -203,7 +203,7 @@ def _pages_str(pages) -> str:
 
 
 def _walk_resources(res, page_no, visit, seen):
-    """Ressourcen inkl. Form-XObjects (verschachtelt) besuchen."""
+    """Visit resources including (nested) form XObjects. seen: key -> object, per page."""
     import pikepdf
 
     if res is None:
@@ -211,7 +211,7 @@ def _walk_resources(res, page_no, visit, seen):
     rk = _key(res)
     if rk in seen:
         return
-    seen.add(rk)
+    seen[rk] = res  # hold on to the object: a key made from id() must not be handed out again while we walk
     visit(res, page_no)
     xo = res.get("/XObject")
     if xo is not None:
@@ -226,6 +226,139 @@ def _walk_resources(res, page_no, visit, seen):
 # --------------------------------------------------------------------------- #
 # analysis
 # --------------------------------------------------------------------------- #
+class _ResourceScan:
+    """Collects fonts and transparency while walking the resources of all pages."""
+
+    def __init__(self):
+        self.fonts: dict[str, FontInfo] = {}
+        self.trans: dict[int, set] = {}
+        self._alive: list = []
+
+    def visit(self, res, pno):
+        """Note the fonts and the kinds of transparency one resource dictionary of page pno brings along."""
+        import pikepdf
+
+        for _n, f in (res.get("/Font") or {}).items():
+            k = _key(f)
+            if k not in self.fonts:
+                self.fonts[k] = _font_info(f, k)
+                self._alive.append(f)  # as above: keeps id()-based keys unique
+            self.fonts[k].pages.add(pno)
+        for _n, gs in (res.get("/ExtGState") or {}).items():
+            sm = gs.get("/SMask")
+            if sm is not None and str(sm) != "/None":
+                self.trans.setdefault(pno, set()).add("smask")
+            bm = gs.get("/BM")
+            if bm is not None:
+                names = [str(b) for b in (bm if isinstance(bm, pikepdf.Array) else [bm])]
+                if any(n not in ("/Normal", "/Compatible") for n in names):
+                    self.trans.setdefault(pno, set()).add("blend")
+            for k in ("/CA", "/ca"):
+                try:
+                    if k in gs and float(gs[k]) < 0.999:
+                        self.trans.setdefault(pno, set()).add("alpha")
+                except Exception:
+                    pass
+            if gs.get("/OP") is True or gs.get("/op") is True:
+                self.trans.setdefault(pno, set()).add("overprint")
+        for _n, pat in (res.get("/Pattern") or {}).items():
+            # gradient with a soft mask in the pattern (Chrome/Skia, Canva …): RIPs that ignore the mask
+            # print it as a black area – images underneath disappear
+            try:
+                from .softmask import pattern_has_softmask
+
+                if pattern_has_softmask(pat):
+                    self.trans.setdefault(pno, set()).add("pattern_smask")
+            except Exception:
+                pass
+        for _n, x in (res.get("/XObject") or {}).items():
+            try:
+                if x.get("/Subtype") == pikepdf.Name.Image and "/SMask" in x:
+                    self.trans.setdefault(pno, set()).add("image_alpha")
+                if x.get("/Subtype") == pikepdf.Name.Form and "/Group" in x:
+                    if x.Group.get("/S") == pikepdf.Name.Transparency:
+                        self.trans.setdefault(pno, set()).add("group")
+            except Exception:
+                pass
+
+
+def _scan_page(page, i: int, rep: Report, scan: _ResourceScan):
+    """Boxes, geometry and form fields of page i; then its resources, those of its annotations, and its group."""
+    import pikepdf
+
+    try:
+        rep.boxes[i] = tuple(float(v) for v in page.MediaBox)
+    except Exception:
+        pass
+    try:
+        rep.geometry[i] = _page_geometry(page.obj)
+        _page_forms(page.obj, i, rep)
+        if _content_len(page.obj) < 20000 and not (_resources(page).get("/XObject") or {}):
+            rep._blank_candidates.append(i)
+    except Exception:
+        pass
+    seen: dict = {}
+    _walk_resources(_resources(page), i, scan.visit, seen)
+    for a in page.obj.get("/Annots") or []:
+        try:
+            ap = a.get("/AP")
+            n = ap.get("/N") if ap is not None else None
+            if isinstance(n, pikepdf.Stream):
+                _walk_resources(n.get("/Resources"), i, scan.visit, seen)
+        except Exception:
+            pass
+    g = page.obj.get("/Group")
+    if g is not None and g.get("/S") == pikepdf.Name.Transparency:
+        scan.trans.setdefault(i, set()).add("group")
+
+
+def _suggest_fonts(rep: Report):
+    """A replacement for every font that is missing and can be replaced by its name."""
+    for f in rep.fonts:
+        if (
+            f.status in ("missing", "std14")
+            and f.encoding != "private"
+            and not (f.cid and f.encoding.startswith("Identity"))
+        ):
+            f.suggestion, f.suggestion_name = suggest_font(f.name)
+
+
+def _confirm_pattern_masks(pdf, trans: dict):
+    """Soft masks in patterns: only report where one is really painted with (after the repair: no longer)."""
+    flagged = [p for p, k in trans.items() if "pattern_smask" in k]
+    if flagged:  # only report where it is really painted with (after the repair: no longer)
+        try:
+            from .softmask import scan
+
+            painted = {t.page + 1 for t in scan(pdf).targets}
+            for p in flagged:
+                if p not in painted:
+                    trans[p].discard("pattern_smask")
+                    trans[p].add("smask")
+        except Exception:
+            pass
+
+
+def _sub_reports(pdf, data: bytes, rep: Report):
+    """HDR auxiliary pages, the colour report and the size report – each one optional if it fails."""
+    try:
+        rep.hdr = hdr_aux_pages(pdf)
+    except Exception:
+        rep.hdr = []
+    try:
+        from . import imagecheck
+
+        rep.colors = imagecheck.analyze(pdf)
+    except Exception:
+        rep.colors = None
+    try:
+        from . import shrink
+
+        rep.size = shrink.analyze(data, pdf, rep.colors)
+    except Exception:
+        rep.size = None
+
+
 def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
     """Check the document. pdfium_parts=False: only the parts without pdfium (for background threads – pdfium is not
     thread-safe); complete the rest afterwards in the main thread with finish().
@@ -236,119 +369,19 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         rep.pages = len(pdf.pages)
-        fonts: dict[str, FontInfo] = {}
-        trans: dict[int, set] = {}
-
-        def visit(res, pno):
-            for _n, f in (res.get("/Font") or {}).items():
-                k = _key(f)
-                if k not in fonts:
-                    fonts[k] = _font_info(f, k)
-                fonts[k].pages.add(pno)
-            for _n, gs in (res.get("/ExtGState") or {}).items():
-                sm = gs.get("/SMask")
-                if sm is not None and str(sm) != "/None":
-                    trans.setdefault(pno, set()).add("smask")
-                bm = gs.get("/BM")
-                if bm is not None:
-                    names = [str(b) for b in (bm if isinstance(bm, pikepdf.Array) else [bm])]
-                    if any(n not in ("/Normal", "/Compatible") for n in names):
-                        trans.setdefault(pno, set()).add("blend")
-                for k in ("/CA", "/ca"):
-                    try:
-                        if k in gs and float(gs[k]) < 0.999:
-                            trans.setdefault(pno, set()).add("alpha")
-                    except Exception:
-                        pass
-                if gs.get("/OP") is True or gs.get("/op") is True:
-                    trans.setdefault(pno, set()).add("overprint")
-            for _n, pat in (res.get("/Pattern") or {}).items():
-                # gradient with a soft mask in the pattern (Chrome/Skia, Canva …): RIPs that ignore the mask
-                # print it as a black area – images underneath disappear
-                try:
-                    from .softmask import pattern_has_softmask
-
-                    if pattern_has_softmask(pat):
-                        trans.setdefault(pno, set()).add("pattern_smask")
-                except Exception:
-                    pass
-            for _n, x in (res.get("/XObject") or {}).items():
-                try:
-                    if x.get("/Subtype") == pikepdf.Name.Image and "/SMask" in x:
-                        trans.setdefault(pno, set()).add("image_alpha")
-                    if x.get("/Subtype") == pikepdf.Name.Form and "/Group" in x:
-                        if x.Group.get("/S") == pikepdf.Name.Transparency:
-                            trans.setdefault(pno, set()).add("group")
-                except Exception:
-                    pass
-
+        scan = _ResourceScan()
         for i, page in enumerate(pdf.pages, start=1):
-            try:
-                rep.boxes[i] = tuple(float(v) for v in page.MediaBox)
-            except Exception:
-                pass
-            try:
-                rep.geometry[i] = _page_geometry(page.obj)
-                _page_forms(page.obj, i, rep)
-                if _content_len(page.obj) < 20000 and not (_resources(page).get("/XObject") or {}):
-                    rep._blank_candidates.append(i)
-            except Exception:
-                pass
-            seen = set()
-            _walk_resources(_resources(page), i, visit, seen)
-            for a in page.obj.get("/Annots") or []:
-                try:
-                    ap = a.get("/AP")
-                    n = ap.get("/N") if ap is not None else None
-                    if isinstance(n, pikepdf.Stream):
-                        _walk_resources(n.get("/Resources"), i, visit, seen)
-                except Exception:
-                    pass
-            g = page.obj.get("/Group")
-            if g is not None and g.get("/S") == pikepdf.Name.Transparency:
-                trans.setdefault(i, set()).add("group")
-        rep.fonts = sorted(fonts.values(), key=lambda f: (f.status == "ok", f.name.lower()))
-        for f in rep.fonts:
-            if (
-                f.status in ("missing", "std14")
-                and f.encoding != "private"
-                and not (f.cid and f.encoding.startswith("Identity"))
-            ):
-                f.suggestion, f.suggestion_name = suggest_font(f.name)
-        flagged = [p for p, k in trans.items() if "pattern_smask" in k]
-        if flagged:  # only report where it is really painted with (after the repair: no longer)
-            try:
-                from .softmask import scan
-
-                painted = {t.page + 1 for t in scan(pdf).targets}
-                for p in flagged:
-                    if p not in painted:
-                        trans[p].discard("pattern_smask")
-                        trans[p].add("smask")
-            except Exception:
-                pass
-        rep.transparency = trans
+            _scan_page(page, i, rep, scan)
+        rep.fonts = sorted(scan.fonts.values(), key=lambda f: (f.status == "ok", f.name.lower()))
+        _suggest_fonts(rep)
+        _confirm_pattern_masks(pdf, scan.trans)
+        rep.transparency = scan.trans
         try:
             _doc_checks(pdf, rep)
         except Exception:
             pass
         rep.layers = _layers(pdf)
-        try:
-            rep.hdr = hdr_aux_pages(pdf)
-        except Exception:
-            rep.hdr = []
-        try:
-            from . import imagecheck
-
-            rep.colors = imagecheck.analyze(pdf)
-        except Exception:
-            rep.colors = None
-        try:
-            from . import shrink
-
-            rep.size = shrink.analyze(data, pdf, rep.colors)
-        except Exception:
-            rep.size = None
+        _sub_reports(pdf, data, rep)
     finally:
         pdf.close()
     if pdfium_parts:

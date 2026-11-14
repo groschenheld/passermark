@@ -227,6 +227,35 @@ def test_download_cdn_fallback(tmp_dir="/tmp/_pm_fonts2"):
         urllib.request.urlopen, preflight.user_font_dir = orig, od
 
 
+def test_fonts_in_forms_found_on_every_page():
+    """Resources that are written directly into the page (no object number) used to be told apart by their
+    memory address – which Python hands out again, so a form's fonts were sometimes skipped. Every run must
+    find the font on all pages."""
+    pdf = pikepdf.new()
+    font = pdf.make_indirect(
+        pikepdf.Dictionary(Type=pikepdf.Name.Font, Subtype=pikepdf.Name.Type1, BaseFont=pikepdf.Name.Helvetica)
+    )
+    for _ in range(6):
+        forms = {}
+        for k in range(4):  # several forms per page, each with resources of its own (direct dictionaries)
+            fx = pdf.make_stream(b"BT /F1 12 Tf 10 10 Td (x) Tj ET")
+            fx["/Type"], fx["/Subtype"], fx["/BBox"] = pikepdf.Name.XObject, pikepdf.Name.Form, [0, 0, 100, 100]
+            fx["/Resources"] = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font)) if k == 3 else pikepdf.Dictionary()
+            forms[f"/X{k}"] = fx
+        page = pikepdf.Dictionary(
+            Type=pikepdf.Name.Page,
+            MediaBox=[0, 0, 200, 200],
+            Resources=pikepdf.Dictionary(XObject=pikepdf.Dictionary(forms)),
+            Contents=pdf.make_stream(b"/X0 Do /X1 Do /X2 Do /X3 Do"),
+        )
+        pdf.pages.append(pikepdf.Page(pdf.make_indirect(page)))
+    buf = io.BytesIO()
+    pdf.save(buf)
+    for _ in range(25):
+        rep = preflight.analyze(buf.getvalue(), pdfium_parts=False)
+        assert [sorted(f.pages) for f in rep.fonts] == [[1, 2, 3, 4, 5, 6]], [sorted(f.pages) for f in rep.fonts]
+
+
 if __name__ == "__main__":
     for k, f in list(globals().items()):
         if k.startswith("test_"):

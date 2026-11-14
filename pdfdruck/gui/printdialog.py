@@ -1105,7 +1105,6 @@ class PrintDialog(QDialog):
 
     def _build_scale_section(self):
         """Section "Wie aufs Blatt?": scaling, orientation, crop marks and bleed, step-and-repeat arrangement and gap."""
-        L = self.s.layout
         # the mode group is already anchored in v (right after creation)
 
         # How does the page get onto the sheet? – fits every print mode
@@ -1117,6 +1116,13 @@ class PrintDialog(QDialog):
         self.scale_box = QWidget()
         sec.body_layout.insertWidget(0, self.scale_box)
         sf = QFormLayout(self.scale_box)
+        self._build_scale_choice(sf)
+        self._build_orientation_rows(wf)
+        self._build_marks_section()
+
+    def _build_scale_choice(self, sf):
+        """Fit, actual size, shrink oversized pages, or a custom scale by percent or millimetres."""
+        L = self.s.layout
         self.rb_fit = QRadioButton(tr("Anpassen"))
         self.rb_actual = QRadioButton(tr("Tatsächliche Größe"))
         self.rb_shrink = QRadioButton(tr("Übergroße Seiten verkleinern"))
@@ -1157,6 +1163,10 @@ class PrintDialog(QDialog):
         crow.addWidget(self.spn_custom_mm)
         sf.addRow("", crow)
         sf.addRow("", self.lbl_custom)
+
+    def _build_orientation_rows(self, wf):
+        """Orientation, automatic rotation, centring and printer margins."""
+        L = self.s.layout
         self.cmb_orient = QComboBox()
         fill_combo(
             self.cmb_orient,
@@ -1181,6 +1191,9 @@ class PrintDialog(QDialog):
         hb.setChecked(True)
         self.stack.setCurrentIndex(hb.property("page"))
 
+    def _build_marks_section(self):
+        """Section "Schnittmarken und Anschnitt": crop marks, bleed, step-and-repeat arrangement and gap."""
+        L = self.s.layout
         sec = self._section(tr("Schnittmarken und Anschnitt"))
         f = sec.form
         self.chk_marks = QCheckBox(tr("Schnittmarken drucken"))

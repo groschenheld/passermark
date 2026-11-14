@@ -37,81 +37,11 @@ class SettingsDialog(QDialog):
         self.resize(460, 220)
         self.settings = l10n.load_settings()
         v = QVBoxLayout(self)
-        g = QGroupBox(tr("Sprache"))
-        f = QFormLayout(g)
-        self.cmb = QComboBox()
-        self.cmb.addItem(tr("Automatisch (Systemsprache)"), "auto")
-        for code, name in l10n.LANGS.items():  # language names always in their own language
-            self.cmb.addItem(name, code)
-        i = self.cmb.findData(self.settings.get("language", "auto"))
-        self.cmb.setCurrentIndex(max(0, i))
-        f.addRow(tr("Oberflächensprache:"), self.cmb)
-        note = QLabel(tr("Die Sprache wird nach einem Neustart von Passermark wirksam."))
-        note.setWordWrap(True)
-        note.setStyleSheet(f"color: {theme.MUTED};")
-        f.addRow(note)
-        v.addWidget(g)
-        g2 = QGroupBox(tr("Dokumentprüfung"))
-        f2 = QFormLayout(g2)
-        self.chk_pf = QCheckBox(tr("Dokumente beim Öffnen automatisch prüfen (Schriften, Ebenen, Transparenz)"))
-        self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
-        f2.addRow(self.chk_pf)
-        v.addWidget(g2)
-        from .. import printlog
-
-        g5 = QGroupBox(tr("Druckprotokoll"))
-        f5 = QFormLayout(g5)
-        self.chk_plog = QCheckBox(tr("Jeden Druckauftrag mit allen Einstellungen protokollieren"))
-        forced = bool(printlog.admin_cfg().get("force"))
-        self.chk_plog.setChecked(forced or bool(self.settings.get("print_log", False)))
-        self.chk_plog.setEnabled(not forced)
-        if forced:
-            self.chk_plog.setToolTip(tr("Vom Administrator für alle eingeschaltet"))
-        f5.addRow(self.chk_plog)
-        lbl = QLabel(
-            tr("Ordner: {0}").format(printlog.folder())
-            + "\n"
-            + tr(
-                "Je Auftrag eine JSON-Datei plus printlog.csv – nochmal genauso drucken: "
-                "passermark-cli reprint <datei.json>"
-            )
-        )
-        lbl.setWordWrap(True)
-        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
-        lbl.setStyleSheet(f"color: {theme.MUTED};")
-        f5.addRow(lbl)
-        v.addWidget(g5)
-        from .. import crashlog
-
-        g6 = QGroupBox(tr("Fehlerprotokolle"))
-        f6 = QFormLayout(g6)
-        self.chk_errlog = QCheckBox(tr("Fehler und Ruckler protokollieren und melden"))
-        self.chk_errlog.setChecked(bool(self.settings.get(crashlog.SETTING, True)))
-        self.chk_errlog.setToolTip(
-            tr(
-                "Aus: keine Fehlerprotokolle, kein Fenster bei unerwarteten Fehlern oder nach "
-                "einem Absturz, keine Ruckler-Liste. Gilt ab dem nächsten Start."
-            )
-        )
-        f6.addRow(self.chk_errlog)
-        lbl = QLabel(tr("Ordner: {0}").format(crashlog.log_dir()))
-        lbl.setWordWrap(True)
-        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
-        lbl.setStyleSheet(f"color: {theme.MUTED};")
-        f6.addRow(lbl)
-        v.addWidget(g6)
-        g4 = QGroupBox(tr("Fenster"))
-        f4 = QFormLayout(g4)
-        self.chk_tabs = QCheckBox(tr("Im Programm Geöffnetes als Reiter im selben Fenster"))
-        self.chk_tabs.setChecked(bool(self.settings.get("open_in_tabs", True)))
-        self.chk_tabs.setToolTip(
-            tr(
-                "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. "
-                "Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster."
-            )
-        )
-        f4.addRow(self.chk_tabs)
-        v.addWidget(g4)
+        self._build_language_group(v)
+        self._build_check_group(v)
+        self._build_print_log_group(v)
+        self._build_error_log_group(v)
+        self._build_window_group(v)
         from .. import platform as _platform
 
         self.cmb_wmode = self.cmb_wdpi = None
@@ -155,6 +85,96 @@ class SettingsDialog(QDialog):
         bb.accepted.connect(self._ok)
         bb.rejected.connect(self.reject)
         v.addWidget(bb)
+
+    def _build_language_group(self, v):
+        """Group "Sprache"."""
+        g = QGroupBox(tr("Sprache"))
+        f = QFormLayout(g)
+        self.cmb = QComboBox()
+        self.cmb.addItem(tr("Automatisch (Systemsprache)"), "auto")
+        for code, name in l10n.LANGS.items():  # language names always in their own language
+            self.cmb.addItem(name, code)
+        i = self.cmb.findData(self.settings.get("language", "auto"))
+        self.cmb.setCurrentIndex(max(0, i))
+        f.addRow(tr("Oberflächensprache:"), self.cmb)
+        note = QLabel(tr("Die Sprache wird nach einem Neustart von Passermark wirksam."))
+        note.setWordWrap(True)
+        note.setStyleSheet(f"color: {theme.MUTED};")
+        f.addRow(note)
+        v.addWidget(g)
+
+    def _build_check_group(self, v):
+        """Group "Dokumentprüfung"."""
+        g2 = QGroupBox(tr("Dokumentprüfung"))
+        f2 = QFormLayout(g2)
+        self.chk_pf = QCheckBox(tr("Dokumente beim Öffnen automatisch prüfen (Schriften, Ebenen, Transparenz)"))
+        self.chk_pf.setChecked(bool(self.settings.get("preflight_on_open", True)))
+        f2.addRow(self.chk_pf)
+        v.addWidget(g2)
+
+    def _build_print_log_group(self, v):
+        """Group "Druckprotokoll": whether to log, where, and how long to keep."""
+        from .. import printlog
+
+        g5 = QGroupBox(tr("Druckprotokoll"))
+        f5 = QFormLayout(g5)
+        self.chk_plog = QCheckBox(tr("Jeden Druckauftrag mit allen Einstellungen protokollieren"))
+        forced = bool(printlog.admin_cfg().get("force"))
+        self.chk_plog.setChecked(forced or bool(self.settings.get("print_log", False)))
+        self.chk_plog.setEnabled(not forced)
+        if forced:
+            self.chk_plog.setToolTip(tr("Vom Administrator für alle eingeschaltet"))
+        f5.addRow(self.chk_plog)
+        lbl = QLabel(
+            tr("Ordner: {0}").format(printlog.folder())
+            + "\n"
+            + tr(
+                "Je Auftrag eine JSON-Datei plus printlog.csv – nochmal genauso drucken: "
+                "passermark-cli reprint <datei.json>"
+            )
+        )
+        lbl.setWordWrap(True)
+        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
+        lbl.setStyleSheet(f"color: {theme.MUTED};")
+        f5.addRow(lbl)
+        v.addWidget(g5)
+
+    def _build_error_log_group(self, v):
+        """Group "Fehlerprotokolle": logging of errors and stutters, and the way to the log folder."""
+        from .. import crashlog
+
+        g6 = QGroupBox(tr("Fehlerprotokolle"))
+        f6 = QFormLayout(g6)
+        self.chk_errlog = QCheckBox(tr("Fehler und Ruckler protokollieren und melden"))
+        self.chk_errlog.setChecked(bool(self.settings.get(crashlog.SETTING, True)))
+        self.chk_errlog.setToolTip(
+            tr(
+                "Aus: keine Fehlerprotokolle, kein Fenster bei unerwarteten Fehlern oder nach "
+                "einem Absturz, keine Ruckler-Liste. Gilt ab dem nächsten Start."
+            )
+        )
+        f6.addRow(self.chk_errlog)
+        lbl = QLabel(tr("Ordner: {0}").format(crashlog.log_dir()))
+        lbl.setWordWrap(True)
+        lbl.setTextInteractionFlags(lbl.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse)
+        lbl.setStyleSheet(f"color: {theme.MUTED};")
+        f6.addRow(lbl)
+        v.addWidget(g6)
+
+    def _build_window_group(self, v):
+        """Group "Fenster"."""
+        g4 = QGroupBox(tr("Fenster"))
+        f4 = QFormLayout(g4)
+        self.chk_tabs = QCheckBox(tr("Im Programm Geöffnetes als Reiter im selben Fenster"))
+        self.chk_tabs.setChecked(bool(self.settings.get("open_in_tabs", True)))
+        self.chk_tabs.setToolTip(
+            tr(
+                "Öffnen-Knopf, Hineinziehen und Ergebnisse (CutContour, CMYK …) kommen als Reiter. "
+                "Programmstart und Doppelklick im Dateimanager öffnen immer ein eigenes Fenster."
+            )
+        )
+        f4.addRow(self.chk_tabs)
+        v.addWidget(g4)
 
     def _ok(self):
         new = self.cmb.currentData()

@@ -174,6 +174,145 @@ def check_materials(mats, profile_ids: set, windows: bool):
                 raise ValueError(f"Material {m['id']}: unbekanntes Profil {pid!r}")
 
 
+def _check_general(cfg: dict, windows: bool):
+    """Resolution, language, converter, workflow folders."""
+    dpi = cfg.get("image_default_dpi", 96)
+    if not isinstance(dpi, (int, float)) or not 10 <= dpi <= 2400:
+        raise ValueError("image_default_dpi außerhalb 10–2400")
+    if cfg.get("language", "") not in ("", "de", "en", "hu", "es", "fr"):
+        raise ValueError("language ungültig")
+    if cfg.get("office_converter", "auto") not in CONVERTERS:
+        raise ValueError("office_converter ungültig")
+    check_dirs(cfg.get("workflow_dirs", []), windows)
+
+
+def _check_print_log(cfg: dict, windows: bool):
+    """The print log block."""
+    pl = cfg.get("print_log", {})
+    if not isinstance(pl, dict) or set(pl) - {"force", "dir", "keep_days"}:
+        raise ValueError("print_log ungültig")
+    if not isinstance(pl.get("force", False), bool):
+        raise ValueError("print_log.force muss bool sein")
+    kd = pl.get("keep_days", 0)
+    if not isinstance(kd, int) or isinstance(kd, bool) or not 0 <= kd <= 36500:
+        raise ValueError("print_log.keep_days außerhalb 0–36500")
+    if pl.get("dir"):
+        check_dirs([pl["dir"]], windows)
+
+
+def _check_layout(cfg: dict):
+    """Defaults of the print dialog: only known keys with values of the right kind and range."""
+    lay = cfg.get("layout", {})
+    if not isinstance(lay, dict):
+        raise ValueError("layout ungültig")
+    for k, v in lay.items():
+        if k in LAYOUT:
+            if v not in LAYOUT[k]:
+                raise ValueError(f"layout.{k} ungültig")
+        elif k in NUMS:
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or not NUMS[k][0] <= v <= NUMS[k][1]:
+                raise ValueError(f"layout.{k} außerhalb des Bereichs")
+        elif k in BOOLS:
+            if not isinstance(v, bool):
+                raise ValueError(f"layout.{k} muss bool sein")
+        elif k in STRS:
+            if not isinstance(v, str) or not STRS[k].match(v):
+                raise ValueError(f"layout.{k} ungültig")
+        else:
+            raise ValueError(f"layout.{k} unbekannt")
+
+
+def _check_profiles(cfg: dict, icc_dir: str, windows: bool) -> set:
+    """Colour profiles; the file must lie in icc_dir under the name of its id. -> the ids"""
+    ids = set()
+    for p in cfg.get("color_profiles", []):
+        if not isinstance(p, dict) or not RX_ID.match(str(p.get("id", ""))):
+            raise ValueError("Farbprofil: id ungültig")
+        ids.add(p["id"])
+        if os.path.normcase(str(p.get("file", ""))) != os.path.normcase(os.path.join(icc_dir, p["id"] + ".icc")):
+            raise ValueError(f"Farbprofil {p['id']}: Datei muss in {icc_dir} liegen")
+        if not isinstance(p.get("name", ""), str) or len(p.get("name", "")) > 128:
+            raise ValueError("Farbprofil: Name ungültig")
+        for q in p.get("printers", []):
+            if not _queue_ok(q, windows):
+                raise ValueError("Farbprofil: Druckername ungültig")
+        if any(i not in INTENTS for i in p.get("intents", [])):
+            raise ValueError("Farbprofil: Intent ungültig")
+        check_opts(p.get("driver_options", {}), f"Profil {p['id']}")
+    return ids
+
+
+def _check_trays(q: str, pc: dict):
+    """Tray assignment of printer q."""
+    trays = pc.get("trays", [])
+    if not isinstance(trays, list) or len(trays) > 40:
+        raise ValueError(f"Drucker {q}: Fächerbelegung ungültig")
+    for t in trays:
+        if not isinstance(t, dict) or set(t) - {"slot", "size", "weight", "media", "ipp"}:
+            raise ValueError(f"Drucker {q}: Fachzeile ungültig")
+        check_opts(
+            {
+                "slot": t.get("slot", ""),
+                "size": t.get("size", ""),
+                "media": t.get("media", ""),
+                "ipp": t.get("ipp", ""),
+            },
+            f"Drucker {q}, Fach",
+        )
+        w = t.get("weight", 0)
+        if not isinstance(w, int) or isinstance(w, bool) or not 0 <= w <= 2000:
+            raise ValueError(f"Drucker {q}: Grammatur ungültig")
+    for k in ("tray_auto", "tray_live"):
+        if not isinstance(pc.get(k, False), bool):
+            raise ValueError(f"Drucker {q}: {k} muss bool sein")
+    if not re.match(r"^[A-Za-z0-9.:_\[\]-]{0,253}$", str(pc.get("tray_host", ""))):
+        raise ValueError(f"Drucker {q}: Geräteadresse ungültig")
+
+
+def _check_presets(q: str, pc: dict):
+    """Print presets of printer q."""
+    presets = pc.get("presets", [])
+    if not isinstance(presets, list) or len(presets) > 50:
+        raise ValueError(f"Drucker {q}: Vorlagen ungültig")
+    for pr in presets:
+        if not isinstance(pr, dict) or not RX_NAME.match(str(pr.get("name", ""))):
+            raise ValueError(f"Drucker {q}: Vorlagenname ungültig")
+        if set(pr) - {"name", "options", "devmode", "booklet"}:
+            raise ValueError(f"Drucker {q}: Vorlage mit unbekannten Feldern")
+        check_opts(pr.get("options", {}), f"Vorlage {pr['name']}")
+        check_devmode(pr.get("devmode"), f"Vorlage {pr['name']}")
+        if not isinstance(pr.get("booklet", False), bool):
+            raise ValueError(f"Vorlage {pr['name']}: booklet muss bool sein")
+
+
+def _check_printer(q: str, pc, ids: set, windows: bool):
+    """One printer: known keys, driver options, profile, intent, trays, presets."""
+    if not _queue_ok(q, windows) or not isinstance(pc, dict):
+        raise ValueError(f"Drucker {q!r} ungültig")
+    unknown = set(pc) - {
+        "options",
+        "color_profile",
+        "intent",
+        "devmode",
+        "presets",
+        "trays",
+        "tray_auto",
+        "tray_live",
+        "tray_host",
+    }
+    if unknown:
+        raise ValueError(f"Drucker {q}: unbekannte Schlüssel {sorted(unknown)}")
+    check_opts(pc.get("options", {}), f"Drucker {q}")
+    check_devmode(pc.get("devmode"), f"Drucker {q}")
+    prof = pc.get("color_profile", "")
+    if prof and prof not in ids:
+        raise ValueError(f"Drucker {q}: unbekanntes Profil {prof}")
+    if pc.get("intent", "relative") not in INTENTS:
+        raise ValueError(f"Drucker {q}: Intent ungültig")
+    _check_trays(q, pc)
+    _check_presets(q, pc)
+
+
 def validate(cfg, icc_dir: str, windows: bool = False):
     """Validate the admin configuration before the root helper writes it; raises ValueError with the reason."""
     if not isinstance(cfg, dict):
@@ -195,119 +334,16 @@ def validate(cfg, icc_dir: str, windows: bool = False):
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
-    dpi = cfg.get("image_default_dpi", 96)
-    if not isinstance(dpi, (int, float)) or not 10 <= dpi <= 2400:
-        raise ValueError("image_default_dpi außerhalb 10–2400")
-    if cfg.get("language", "") not in ("", "de", "en", "hu", "es", "fr"):
-        raise ValueError("language ungültig")
-    if cfg.get("office_converter", "auto") not in CONVERTERS:
-        raise ValueError("office_converter ungültig")
-    check_dirs(cfg.get("workflow_dirs", []), windows)
-    pl = cfg.get("print_log", {})
-    if not isinstance(pl, dict) or set(pl) - {"force", "dir", "keep_days"}:
-        raise ValueError("print_log ungültig")
-    if not isinstance(pl.get("force", False), bool):
-        raise ValueError("print_log.force muss bool sein")
-    kd = pl.get("keep_days", 0)
-    if not isinstance(kd, int) or isinstance(kd, bool) or not 0 <= kd <= 36500:
-        raise ValueError("print_log.keep_days außerhalb 0–36500")
-    if pl.get("dir"):
-        check_dirs([pl["dir"]], windows)
+    _check_general(cfg, windows)
+    _check_print_log(cfg, windows)
     dp = cfg.get("default_printer", "")
     if dp and not _queue_ok(dp, windows):
         raise ValueError("default_printer ungültig")
-    lay = cfg.get("layout", {})
-    if not isinstance(lay, dict):
-        raise ValueError("layout ungültig")
-    for k, v in lay.items():
-        if k in LAYOUT:
-            if v not in LAYOUT[k]:
-                raise ValueError(f"layout.{k} ungültig")
-        elif k in NUMS:
-            if not isinstance(v, (int, float)) or isinstance(v, bool) or not NUMS[k][0] <= v <= NUMS[k][1]:
-                raise ValueError(f"layout.{k} außerhalb des Bereichs")
-        elif k in BOOLS:
-            if not isinstance(v, bool):
-                raise ValueError(f"layout.{k} muss bool sein")
-        elif k in STRS:
-            if not isinstance(v, str) or not STRS[k].match(v):
-                raise ValueError(f"layout.{k} ungültig")
-        else:
-            raise ValueError(f"layout.{k} unbekannt")
-    ids = set()
-    for p in cfg.get("color_profiles", []):
-        if not isinstance(p, dict) or not RX_ID.match(str(p.get("id", ""))):
-            raise ValueError("Farbprofil: id ungültig")
-        ids.add(p["id"])
-        if os.path.normcase(str(p.get("file", ""))) != os.path.normcase(os.path.join(icc_dir, p["id"] + ".icc")):
-            raise ValueError(f"Farbprofil {p['id']}: Datei muss in {icc_dir} liegen")
-        if not isinstance(p.get("name", ""), str) or len(p.get("name", "")) > 128:
-            raise ValueError("Farbprofil: Name ungültig")
-        for q in p.get("printers", []):
-            if not _queue_ok(q, windows):
-                raise ValueError("Farbprofil: Druckername ungültig")
-        if any(i not in INTENTS for i in p.get("intents", [])):
-            raise ValueError("Farbprofil: Intent ungültig")
-        check_opts(p.get("driver_options", {}), f"Profil {p['id']}")
+    _check_layout(cfg)
+    ids = _check_profiles(cfg, icc_dir, windows)
     check_materials(cfg.get("materials", []), ids, windows)
     printers = cfg.get("printers", {})
     if not isinstance(printers, dict):
         raise ValueError("printers ungültig")
     for q, pc in printers.items():
-        if not _queue_ok(q, windows) or not isinstance(pc, dict):
-            raise ValueError(f"Drucker {q!r} ungültig")
-        unknown = set(pc) - {
-            "options",
-            "color_profile",
-            "intent",
-            "devmode",
-            "presets",
-            "trays",
-            "tray_auto",
-            "tray_live",
-            "tray_host",
-        }
-        if unknown:
-            raise ValueError(f"Drucker {q}: unbekannte Schlüssel {sorted(unknown)}")
-        check_opts(pc.get("options", {}), f"Drucker {q}")
-        check_devmode(pc.get("devmode"), f"Drucker {q}")
-        prof = pc.get("color_profile", "")
-        if prof and prof not in ids:
-            raise ValueError(f"Drucker {q}: unbekanntes Profil {prof}")
-        if pc.get("intent", "relative") not in INTENTS:
-            raise ValueError(f"Drucker {q}: Intent ungültig")
-        trays = pc.get("trays", [])
-        if not isinstance(trays, list) or len(trays) > 40:
-            raise ValueError(f"Drucker {q}: Fächerbelegung ungültig")
-        for t in trays:
-            if not isinstance(t, dict) or set(t) - {"slot", "size", "weight", "media", "ipp"}:
-                raise ValueError(f"Drucker {q}: Fachzeile ungültig")
-            check_opts(
-                {
-                    "slot": t.get("slot", ""),
-                    "size": t.get("size", ""),
-                    "media": t.get("media", ""),
-                    "ipp": t.get("ipp", ""),
-                },
-                f"Drucker {q}, Fach",
-            )
-            w = t.get("weight", 0)
-            if not isinstance(w, int) or isinstance(w, bool) or not 0 <= w <= 2000:
-                raise ValueError(f"Drucker {q}: Grammatur ungültig")
-        for k in ("tray_auto", "tray_live"):
-            if not isinstance(pc.get(k, False), bool):
-                raise ValueError(f"Drucker {q}: {k} muss bool sein")
-        if not re.match(r"^[A-Za-z0-9.:_\[\]-]{0,253}$", str(pc.get("tray_host", ""))):
-            raise ValueError(f"Drucker {q}: Geräteadresse ungültig")
-        presets = pc.get("presets", [])
-        if not isinstance(presets, list) or len(presets) > 50:
-            raise ValueError(f"Drucker {q}: Vorlagen ungültig")
-        for pr in presets:
-            if not isinstance(pr, dict) or not RX_NAME.match(str(pr.get("name", ""))):
-                raise ValueError(f"Drucker {q}: Vorlagenname ungültig")
-            if set(pr) - {"name", "options", "devmode", "booklet"}:
-                raise ValueError(f"Drucker {q}: Vorlage mit unbekannten Feldern")
-            check_opts(pr.get("options", {}), f"Vorlage {pr['name']}")
-            check_devmode(pr.get("devmode"), f"Vorlage {pr['name']}")
-            if not isinstance(pr.get("booklet", False), bool):
-                raise ValueError(f"Vorlage {pr['name']}: booklet muss bool sein")
+        _check_printer(q, pc, ids, windows)

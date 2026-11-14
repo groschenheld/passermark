@@ -702,6 +702,12 @@ class CutContourDialog(QDialog):
         f.addRow(tr("Abstand zum Motiv:"), self.spn_off)
         self.spn_corner = self._mm_spin(self.s.corner_mm, 0, 200)
         f.addRow(tr("Eckenradius:"), self.spn_corner)
+        self._build_size_rows(f)
+        self._build_bleed_rows(f)
+        right.addWidget(g)
+
+    def _build_size_rows(self, f):
+        """Fixed size and shift of a basic shape, smoothing of a contour."""
         row = QHBoxLayout()
         self.spn_fw, self.spn_fh = self._mm_spin(0, 0, 2000), self._mm_spin(0, 0, 2000)
         self.spn_fw.valueChanged.connect(lambda v: self.cmb_shape.currentData() == "circle" and self.spn_fh.setValue(v))
@@ -746,6 +752,9 @@ class CutContourDialog(QDialog):
             tr("Buchten und Lücken schmaler als das Doppelte werden überbrückt, Ecken gerundet – nötig zum Entgittern"),
         )
         f.addRow(tr("Glättung:"), self.spn_smooth)
+
+    def _build_bleed_rows(self, f):
+        """Bleed: whether to create it, how far, and its colour."""
         self.spn_bleed = self._mm_spin(
             self.s.bleed_mm, 0, 10, tr("So weit wird das Motiv über die Schnittlinie hinaus verlängert")
         )
@@ -788,7 +797,6 @@ class CutContourDialog(QDialog):
             )
         )
         f.addRow(self.chk_seams)
-        right.addWidget(g)
 
     def _build_output_group(self):
         """Group "Ausgabe": sheet or single pages, spot colour, stroke, accuracy, margin."""

@@ -224,31 +224,54 @@ def _nums(ins):
 # --------------------------------------------------------------------------- #
 # analysis
 # --------------------------------------------------------------------------- #
-def analyze(pdf, max_uses: int = 2000) -> ColorReport:
-    """pikepdf-Dokument -> ColorReport."""
-    import math
-    import pikepdf
-
-    rep = ColorReport()
+def _output_intent(pdf) -> str:
+    """Name of the first output intent that has one ("" = none)."""
+    name = ""
     try:
         for oi in pdf.Root.get("/OutputIntents") or []:
             prof = oi.get("/DestOutputProfile")
             name = _icc_of(prof) if prof is not None else ""
-            rep.output_intent = name or str(oi.get("/OutputConditionIdentifier", "") or "")
-            if rep.output_intent:
+            name = name or str(oi.get("/OutputConditionIdentifier", "") or "")
+            if name:
                 break
     except Exception:
         pass
+    return name
 
-    def add_color(pno, label):
+
+def _page_resources(page):
+    """Resources of a page, inherited from the page tree if the page has none of its own."""
+    import pikepdf
+
+    res = page.obj.get("/Resources")
+    if res is None:
+        node = page.obj.get("/Parent")
+        while node is not None and res is None:
+            res = node.get("/Resources")
+            node = node.get("/Parent")
+    return res or pikepdf.Dictionary()
+
+
+class _ColourScan:
+    """Walks the content of the pages and collects colour spaces and image placements in a ColorReport."""
+
+    def __init__(self, rep: ColorReport, max_uses: int):
+        self.rep = rep
+        self.max_uses = max_uses
+
+    def add_color(self, pno, label):
+        """Note a colour space used on page pno (and the spot colours it stands for)."""
         if label and label != "Muster":
-            rep.page_colors.setdefault(pno, set()).add(label)
+            self.rep.page_colors.setdefault(pno, set()).add(label)
             if label in SPOT_NAMES:
-                rep.spots.setdefault(pno, set()).update(SPOT_NAMES[label])
+                self.rep.spots.setdefault(pno, set()).update(SPOT_NAMES[label])
 
-    def image_use(pno, name, img, ctm, res):
-        if len(rep.images) >= max_uses:
-            rep.truncated = True
+    def image_use(self, pno, name, img, ctm, res):
+        """Note one placement of an image: size on the page, effective resolution, colour space, position."""
+        import math
+
+        if len(self.rep.images) >= self.max_uses:
+            self.rep.truncated = True
             return
         try:
             w, h = int(img.get("/Width", 0)), int(img.get("/Height", 0))
@@ -278,13 +301,16 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
             for u, v in ((0, 0), (1, 0), (0, 1), (1, 1))
         ]
         bbox = (min(x for x, _ in pts), min(y for _, y in pts), max(x for x, _ in pts), max(y for _, y in pts))
-        rep.images.append(
+        self.rep.images.append(
             ImageUse(pno, name, (w, h), (pw, ph), dpi, space, prof, bits, _codec(img), is_mask, key, bbox)
         )
         if not is_mask:
-            add_color(pno, space)
+            self.add_color(pno, space)
 
-    def walk(pno, ops, res, ctm, depth, seen_forms):
+    def walk(self, pno, ops, res, ctm, depth, seen_forms):
+        """Follow the content operators (recursively into form XObjects), tracking the transformation matrix."""
+        import pikepdf
+
         if depth > 10:
             return
         stack = []
@@ -299,13 +325,13 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                 if len(v) == 6:
                     ctm = _mul(tuple(v), ctm)
             elif op in ("rg", "RG"):
-                add_color(pno, "RGB")
+                self.add_color(pno, "RGB")
             elif op in ("k", "K"):
-                add_color(pno, "CMYK")
+                self.add_color(pno, "CMYK")
             elif op in ("g", "G"):
-                add_color(pno, "Grau")
+                self.add_color(pno, "Grau")
             elif op in ("cs", "CS") and ins.operands:
-                add_color(pno, describe_space(ins.operands[0], res)[0])
+                self.add_color(pno, describe_space(ins.operands[0], res)[0])
             elif op == "Do" and ins.operands:
                 nm = str(ins.operands[0])
                 x = (res.get("/XObject") or {}).get(nm)
@@ -316,7 +342,7 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                 except Exception:
                     continue
                 if sub == pikepdf.Name.Image:
-                    image_use(pno, nm, x, ctm, res)
+                    self.image_use(pno, nm, x, ctm, res)
                 elif sub == pikepdf.Name.Form:
                     og = x.objgen
                     if og in seen_forms:  # prevent recursion
@@ -326,30 +352,32 @@ def analyze(pdf, max_uses: int = 2000) -> ColorReport:
                         sub_ops = pikepdf.parse_content_stream(x)
                     except Exception:
                         continue
-                    walk(pno, sub_ops, x.get("/Resources") or res, _mul(m, ctm), depth + 1, seen_forms | {og})
+                    self.walk(pno, sub_ops, x.get("/Resources") or res, _mul(m, ctm), depth + 1, seen_forms | {og})
             elif op == "INLINE IMAGE":
                 try:
                     ii = ins.iimage
                     d = ii.obj if hasattr(ii, "obj") else None
                     if d is not None:
-                        image_use(pno, tr("(eingebettet)"), d, ctm, res)
+                        self.image_use(pno, tr("(eingebettet)"), d, ctm, res)
                 except Exception:
                     pass
 
+
+def analyze(pdf, max_uses: int = 2000) -> ColorReport:
+    """pikepdf document -> ColorReport."""
+    import pikepdf
+
+    rep = ColorReport()
+    rep.output_intent = _output_intent(pdf)
+    scan = _ColourScan(rep, max_uses)
     for pno, page in enumerate(pdf.pages, start=1):
         try:
             mb = [float(v) for v in page.mediabox]
             rep.page_size_mm[pno] = ((mb[2] - mb[0]) / MM, (mb[3] - mb[1]) / MM)
-            res = page.obj.get("/Resources")
-            if res is None:
-                node = page.obj.get("/Parent")
-                while node is not None and res is None:
-                    res = node.get("/Resources")
-                    node = node.get("/Parent")
-            walk(
+            scan.walk(
                 pno,
                 pikepdf.parse_content_stream(page),
-                res or pikepdf.Dictionary(),
+                _page_resources(page),
                 (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
                 0,
                 frozenset(),
