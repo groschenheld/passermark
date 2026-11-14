@@ -25,6 +25,8 @@ _SHAPES = {
     "rot_l": '<path d="M4.5 12.5A7.5 7.5 0 1 0 7 6.6"/><path d="M4 3.5V8h4.5"/>',
     "rot_r": '<path d="M19.5 12.5A7.5 7.5 0 1 1 17 6.6"/><path d="M20 3.5V8h-4.5"/>',
     "single": '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9 8h6M9 11h6M9 14h4"/>',
+    "continuous": '<path d="M6 2v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2"/><rect x="6" y="13" width="12" height="9" rx="1"/>',
+    "facing": '<rect x="2.5" y="5" width="9" height="14" rx="1"/><rect x="12.5" y="5" width="9" height="14" rx="1"/>',
     "grid": '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
     "merge": '<rect x="3" y="3" width="9" height="12" rx="1"/><rect x="12" y="9" width="9" height="12" rx="1"/>',
     "settings": '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="{bg}"/><circle cx="15" cy="12" r="2" fill="{bg}"/><circle cx="7" cy="18" r="2" fill="{bg}"/>',

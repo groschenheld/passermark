@@ -8,13 +8,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox,
+    QMenu,
     QToolButton,
 )
 
 from ..l10n import tr
+from . import viewlayout
 from .icons import icon as svg_icon
 from .pagewidgets import PageEdit
 from .viewlayout import ZOOM_STEPS
@@ -258,10 +260,8 @@ class MainActionsMixin:
         """Menu "Ansicht": single page, rulers, measuring, trim size, soft proof, sidebar, zoom, rotation."""
         A = self._act
         m = mb.addMenu(tr("&Ansicht"))
-        self.a_single = A(tr("Einzelseite (zur nächsten Seite springen)"), self._toggle_single, "Ctrl+4", "single")
-        self.a_single.setCheckable(True)
-        self.a_single.setChecked(self.view.single)
-        m.addAction(self.a_single)
+        self.m_layout = self._layout_menu()
+        m.addMenu(self.m_layout)
         m.addSeparator()
         self.a_rulers = A(tr("Lineale anzeigen"), lambda: None, "Ctrl+R", "ruler")
         self.a_rulers.setCheckable(True)
@@ -377,16 +377,80 @@ class MainActionsMixin:
         tb.addSeparator()
         tb.addAction(self.a_fitpage)
         tb.addAction(self.a_fitwidth)
-        tb.addAction(self.a_single)
+        self.btn_layout = QToolButton()
+        self.btn_layout.setMenu(self._layout_menu())
+        self.btn_layout.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.btn_layout.setToolTip(tr("Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster"))
+        tb.addWidget(self.btn_layout)
+        self._sync_layout_actions()
         tb.addSeparator()
         tb.addAction(self.a_vrot_l)
         tb.addAction(self.a_vrot_r)
 
-    def _toggle_single(self, checked=None):
-        single = self.a_single.isChecked()
-        self.ctl.view_single = single  # applies to new windows of this session
-        self.view.set_single(single)
+    # ---- page layout (gui/viewlayout.py): one set of actions, shown in the menu and behind the toolbar button
+    def _layout_actions(self):
+        """Create the page layout actions once: four modes (exclusive), cover alone, grid columns."""
+        if getattr(self, "a_layout", None) is not None:
+            return
+        A = self._act
+        self.a_layout = {
+            "single": A(tr("Einzelseite (zur nächsten Seite springen)"), lambda: self._set_layout("single"), "Ctrl+4"),
+            "continuous": A(tr("Fortlaufend"), lambda: self._set_layout("continuous"), "Ctrl+5", "continuous"),
+            "facing": A(tr("Doppelseite"), lambda: self._set_layout("facing"), "Ctrl+6", "facing"),
+            "grid": A(tr("Raster"), lambda: self._set_layout("grid"), "Ctrl+7", "grid"),
+        }
+        self.a_layout["single"].setIcon(svg_icon("single"))
+        group = QActionGroup(self)
+        for a in self.a_layout.values():
+            a.setCheckable(True)
+            group.addAction(a)
+        self.a_cover = A(tr("Titelseite allein"), lambda: self._set_layout("facing"))
+        self.a_cover.setCheckable(True)
+        self.a_cover.setChecked(True)
+        self.a_columns = {}
+        cgroup = QActionGroup(self)
+        for n in viewlayout.Grid.COLUMNS:
+            a = A(tr("{0} Spalten").format(n), lambda _c=False, n=n: self._set_layout("grid", columns=n))
+            a.setCheckable(True)
+            cgroup.addAction(a)
+            self.a_columns[n] = a
+
+    def _layout_menu(self):
+        """A menu with the page layout actions (for the menu bar and for the toolbar button)."""
+        self._layout_actions()
+        m = QMenu(tr("Seitenanordnung"), self)
+        for key in viewlayout.MODES:
+            m.addAction(self.a_layout[key])
+        m.addSeparator()
+        m.addAction(self.a_cover)
+        for a in self.a_columns.values():
+            m.addAction(a)
+        return m
+
+    def _set_layout(self, mode: str, columns: int | None = None):
+        """Switch the page layout of this window; new windows of this session start with it too."""
+        spec = {"mode": mode}
+        if mode == "facing":
+            spec["cover_alone"] = self.a_cover.isChecked()
+        if mode == "grid":
+            cur = self.view.view_mode
+            spec["columns"] = columns or (cur.columns if isinstance(cur, viewlayout.Grid) else 3)
+        self.ctl.view_mode = spec
+        self.view.set_view_mode(viewlayout.make(spec))
+        self._sync_layout_actions()
         self.view.setFocus()
+
+    def _sync_layout_actions(self):
+        """Tick the current layout in the menus and show it on the toolbar button."""
+        mode = self.view.view_mode
+        self.a_layout[mode.name].setChecked(True)
+        if isinstance(mode, viewlayout.Facing):
+            self.a_cover.setChecked(mode.cover_alone)
+        if isinstance(mode, viewlayout.Grid):
+            self.a_columns[mode.columns].setChecked(True)
+        btn = getattr(self, "btn_layout", None)
+        if btn is not None:
+            btn.setIcon(self.a_layout[mode.name].icon())
 
     def _update_actions(self):
         has = self.doc is not None

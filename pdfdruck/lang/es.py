@@ -3039,4 +3039,11 @@ MESSAGES = {
     'Produktionsdruck (schnell)': 'Impresión de producción (rápida)',
     'Qualitätsdruck (höchste Qualität)': 'Impresión de calidad (máxima calidad)',
     'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'Ajusta la calidad del controlador al nivel más bajo (impresión de producción) o al más alto (impresión de calidad). Tiene prioridad una calidad indicada en un material de la misma categoría.',
+    "Fortlaufend": "Continua",
+    "Doppelseite": "Páginas enfrentadas",
+    "Raster": "Cuadrícula",
+    "Titelseite allein": "Portada sola",
+    "{0} Spalten": "{0} columnas",
+    "Seitenanordnung": "Disposición de páginas",
+    "Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster": "Disposición de páginas: página única, continua, páginas enfrentadas o cuadrícula",
 }

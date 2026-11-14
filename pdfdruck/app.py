@@ -68,6 +68,7 @@ class Controller(QObject):
         self.hosts = []  # window frames (each with one or more tabs)
         self.server: QLocalServer | None = None
         self.view_single = True  # single page with jumping as the default (the view can be switched)
+        self.view_mode = None  # page layout chosen in this session (viewlayout.make values); None = view_single
         self._start_stallwatch()
         self._ensure_sendto()
 

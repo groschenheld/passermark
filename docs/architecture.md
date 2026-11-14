@@ -157,7 +157,8 @@ Listed so that a reader does not mistake them for intent. They are tracked for c
   topic (`main*.py`, `print*.py`, `plan*.py`). The parts still share the window's attributes freely; separating
   them further (own objects instead of mixins) is left for where the redesign changes them anyway. The document
   view (`gui/pageview.py`) is split the same way, except for the arrangement of the pages, which is a
-  separate object (`gui/viewlayout.py`) so that new view modes are one more class.
+  separate object (`gui/viewlayout.py`: single page, continuous, facing pages, grid) so that a new view mode is
+  one more class.
 - **Imports against the layer rule**: `preflight.py` uses three helpers from `planprint.py`; `workflow.py`
   imports `cli.py` (and the reverse); `printers.py` and `printers_win.py` import each other. These are done inside functions to avoid import cycles.
 - **Imports inside functions** are common. Some are deliberate (fast start, optional dependencies such as

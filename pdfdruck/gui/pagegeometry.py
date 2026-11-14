@@ -154,13 +154,17 @@ class PageGeometryMixin:
         return QRectF(min(a[0], b[0]), min(a[1], b[1]), abs(a[0] - b[0]), abs(a[1] - b[1]))
 
     def ruler_geometry(self):
-        """(top left page corner in viewport pixels, pixels per mm) of the current page – or None."""
+        """(top left page corner in viewport pixels, pixels per mm) of the page under the mouse (else the current
+        page) – or None."""
         from PySide6.QtCore import QPoint
 
         if not self.doc or not (0 <= self.current < len(self.pages)):
             return None
-        w = self.pages[self.current]
-        pw, _ph = self._rot_size(self.current)
+        i = self.ruler_page
+        if i is None or not (0 <= i < len(self.pages)) or not self.pages[i].isVisibleTo(self.container):
+            i = self.current
+        w = self.pages[i]
+        pw, _ph = self._rot_size(i)
         if pw <= 0 or w.width() <= 0:
             return None
         return w.mapTo(self.viewport(), QPoint(0, 0)), w.width() / pw * 72.0 / 25.4

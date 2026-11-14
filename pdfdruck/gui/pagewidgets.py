@@ -177,8 +177,8 @@ class PageWidget(QWidget):
 
 
 class Ruler(QWidget):
-    """Ruler in mm at the edge of the page view; origin = top left corner of the current page.
-    It stays put while scrolling, and the scale follows (zoom, page, rotation).
+    """Ruler in mm at the edge of the page view; origin = top left corner of the page under the mouse (else the
+    current page), marked. It stays put while scrolling, and the scale follows (zoom, page, rotation).
     """
 
     SIZE = 22
@@ -227,6 +227,12 @@ class Ruler(QWidget):
                     p.rotate(-90)
                     p.drawText(0, 0, f"{mm:g}")
                     p.restore()
+        if 0 <= o0 <= length:  # zero point: corner of the page the scale refers to
+            p.setPen(QPen(QColor(theme.ACCENT), 2))
+            if self.horizontal:
+                p.drawLine(int(o0), 0, int(o0), self.SIZE)
+            else:
+                p.drawLine(0, int(o0), self.SIZE, int(o0))
         if self.cursor_px is not None:
             c = self.mapFromGlobal(self.cursor_px)
             p.setPen(QPen(QColor(theme.ACCENT), 1))

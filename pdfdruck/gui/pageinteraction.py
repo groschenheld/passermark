@@ -280,6 +280,7 @@ class PageInteractionMixin:
 
     def mouse_move(self, w, e):
         """Mouse moved over page widget ``w``: update the cursor and the running interaction."""
+        self.ruler_page = w.index  # rulers: zero at the corner of this page
         if self.imode == "measure":
             w.setCursor(Qt.CursorShape.CrossCursor)
             self._measure_move(w, e)

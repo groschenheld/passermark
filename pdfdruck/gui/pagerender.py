@@ -14,7 +14,6 @@ from PySide6.QtCore import QRect, QRectF
 from PySide6.QtGui import QImage
 
 from .common import MAX_RENDER_EDGE
-from .viewlayout import PAGE_GAP
 
 log = logging.getLogger(__name__)
 
@@ -123,8 +122,7 @@ class PageRenderMixin:
     def _master_scale(self, i: int) -> float:
         pw, ph = self._rot_size(i)
         s = self._dpi_scale()
-        vw = max(50, self.viewport().width() - 2 * PAGE_GAP - 4)
-        vh = max(50, self.viewport().height() - 2 * PAGE_GAP)
+        vw, vh = self.view_mode.fit_area(self, i)  # the space of one page (smaller with facing pages, grid)
         fit = min(vw / (pw * s), vh / (ph * s)) * s * self.devicePixelRatioF()
         cap = min(
             MAX_RENDER_EDGE / max(1.0, pw),

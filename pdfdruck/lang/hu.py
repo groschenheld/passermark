@@ -3039,4 +3039,11 @@ MESSAGES = {
     'Produktionsdruck (schnell)': 'Termelési nyomtatás (gyors)',
     'Qualitätsdruck (höchste Qualität)': 'Minőségi nyomtatás (legjobb minőség)',
     'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'A nyomtató-illesztőprogram minőségét a legalacsonyabb (termelési nyomtatás) vagy a legmagasabb szintre (minőségi nyomtatás) állítja. Elsőbbséget élvez az azonos kategóriájú anyagnál megadott minőség.',
+    "Fortlaufend": "Folyamatos",
+    "Doppelseite": "Egymás melletti oldalak",
+    "Raster": "Rács",
+    "Titelseite allein": "Címlap külön",
+    "{0} Spalten": "{0} oszlop",
+    "Seitenanordnung": "Oldalelrendezés",
+    "Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster": "Oldalelrendezés: egyoldalas, folyamatos, egymás melletti oldalak vagy rács",
 }

@@ -3039,4 +3039,11 @@ MESSAGES = {
     'Produktionsdruck (schnell)': 'Production print (fast)',
     'Qualitätsdruck (höchste Qualität)': 'Quality print (highest quality)',
     'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': "Sets the driver's print quality to the lowest (production print) or highest level (quality print). A quality set for a material of the same category takes precedence.",
+    "Fortlaufend": "Continuous",
+    "Doppelseite": "Facing pages",
+    "Raster": "Grid",
+    "Titelseite allein": "Cover page alone",
+    "{0} Spalten": "{0} columns",
+    "Seitenanordnung": "Page layout",
+    "Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster": "Page layout: single page, continuous, facing pages or grid",
 }

@@ -66,7 +66,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self.display_name = ""
         self.modified = False
 
-        self.view = PageView(single=getattr(ctl, "view_single", True))
+        self.view = PageView(single=getattr(ctl, "view_single", True), mode=getattr(ctl, "view_mode", None))
         self._jobs = []  # running jobs (separate processes)
         # rulers at the top/left edge of the view (stay in place when scrolling)
         from PySide6.QtWidgets import QGridLayout

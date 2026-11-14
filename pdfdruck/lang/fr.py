@@ -3039,4 +3039,11 @@ MESSAGES = {
     'Produktionsdruck (schnell)': 'Impression production (rapide)',
     'Qualitätsdruck (höchste Qualität)': 'Impression qualité (qualité maximale)',
     'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': 'Règle la qualité du pilote au niveau le plus bas (impression production) ou le plus haut (impression qualité). Une qualité définie pour un matériau de la même catégorie est prioritaire.',
+    "Fortlaufend": "Continue",
+    "Doppelseite": "Pages en vis-à-vis",
+    "Raster": "Grille",
+    "Titelseite allein": "Couverture seule",
+    "{0} Spalten": "{0} colonnes",
+    "Seitenanordnung": "Disposition des pages",
+    "Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster": "Disposition des pages : page unique, continue, pages en vis-à-vis ou grille",
 }

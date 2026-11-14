@@ -24,12 +24,11 @@ from .viewlayout import PAGE_GAP
 
 
 class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRenderMixin, QScrollArea):
-    """Page view.
+    """Page view. How the pages are arranged is the view mode (gui/viewlayout.py):
 
-    single=True  (default): always exactly one page, centered. Inside the page it
-                 scrolls; at the end of the page the next wheel-/page-down jumps to
-                 the next page (start), at the start of the page to the previous one (end).
-    single=False: continuous as before.
+    single page (default): always exactly one page, centred. Inside the page it scrolls; at the end of the page
+                 the next wheel-/page-down jumps to the next page (start), at the start to the previous one (end).
+    continuous, facing pages, grid: all pages in the scroll area, one row below the other.
     """
 
     pageChanged = Signal(int)
@@ -45,7 +44,7 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
     JUMP_THRESHOLD = 120  # one mouse wheel notch; touchpad fractions are accumulated
     JUMP_COOLDOWN = 0.30  # s – prevents kinetic scrolling from skipping several pages
 
-    def __init__(self, single: bool = True):
+    def __init__(self, single: bool = True, mode: dict | None = None):
         super().__init__()
         self.setWidgetResizable(False)
         self.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -57,7 +56,9 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
         self.zoom = 1.0  # actual scale of the current page (display only)
         self.rotation = 0
         self.current = 0
-        self.view_mode = viewlayout.for_single(single)  # how the pages are arranged (gui/viewlayout.py)
+        # how the pages are arranged (gui/viewlayout.py); mode = viewlayout.make() values, else the single switch
+        self.view_mode = viewlayout.make(mode) if mode else viewlayout.for_single(single)
+        self.ruler_page = None  # page under the mouse: the rulers and measuring refer to it
         self._acc = 0.0
         self._block_until = 0.0
         self.pages: list[PageWidget] = []
@@ -162,8 +163,14 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
 
     def set_single(self, single: bool):
         """Switch between single-page and continuous view."""
+        self.set_view_mode(viewlayout.for_single(single))
+
+    def set_view_mode(self, mode):
+        """Arrange the pages differently (a viewlayout.ViewMode). The zoom stays; with "fit width/page" the
+        pages are fitted anew in the new arrangement."""
         cur = self.current
-        self.view_mode = viewlayout.for_single(single)
+        self.view_mode = mode
+        self.ruler_page = None
         self.relayout()
         self.goto(cur, force=True)
 
@@ -267,12 +274,12 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
         self.pageChanged.emit(i)
 
     def next_page(self):
-        """Go to the next page."""
-        self.goto(self.current + 1)
+        """Go to the next page (facing pages: the next spread, grid: the next row)."""
+        self.goto(self.view_mode.step(self, self.current, 1))
 
     def prev_page(self, at_end: bool = False):
-        """Go to the previous page."""
-        self.goto(self.current - 1, at_end=at_end)
+        """Go to the previous page (spread, row)."""
+        self.goto(self.view_mode.step(self, self.current, -1), at_end=at_end)
 
     def set_zoom(self, mode: str, value: float | None = None):
         """mode: width | page  (factor 1)  or  fixed + value (scale, 1.0 = actual size)."""
@@ -298,10 +305,11 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
             return
         hb, vb = self.horizontalScrollBar(), self.verticalScrollBar()
         cx, cy = hb.value() + pos.x(), vb.value() + pos.y()
-        page = next(
-            (w for w in self.pages if w.isVisibleTo(self.container) and w.y() <= cy <= w.y() + w.height() + PAGE_GAP),
-            None,
-        )
+        in_row = [
+            w for w in self.pages if w.isVisibleTo(self.container) and w.y() <= cy <= w.y() + w.height() + PAGE_GAP
+        ]
+        # several pages side by side (facing pages, grid): the one under the mouse, else the first of the row
+        page = next((w for w in in_row if w.x() <= cx <= w.x() + w.width()), in_row[0] if in_row else None)
         if page is not None:
             fx = (cx - page.x()) / max(1, page.width())
             fy = (cy - page.y()) / max(1, page.height())
