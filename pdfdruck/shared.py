@@ -29,11 +29,7 @@ GROUP = "passermark"
 
 
 def root() -> str:
-    """Root of the shared print folder. PASSERMARK_SHARED_ROOT overrides it – meant for tests, so that they do not
-    touch the real folder of the machine."""
-    override = os.environ.get("PASSERMARK_SHARED_ROOT")
-    if override:
-        return override
+    """Root of the shared print folder."""
     if IS_WIN:
         return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Passermark")
     return "/srv/passermark"

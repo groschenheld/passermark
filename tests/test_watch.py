@@ -24,7 +24,6 @@ ENV = dict(
     os.environ,
     PYTHONPATH=ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
     PASSERMARK_LANG="de",
-    PASSERMARK_SHARED_ROOT=os.path.join(TMP, "shared"),  # never touch the real shared folder of the machine
     XDG_CONFIG_HOME=os.path.join(TMP, "cfg"),
     PDFDRUCK_CONFIG_DIR=os.path.join(TMP, "etc"),
 )
@@ -260,9 +259,20 @@ def test_init_never_overwrites():
     os.makedirs(home)
     env = dict(ENV, HOME=home, XDG_CONFIG_HOME=os.path.join(home, "cfg"), PDFDRUCK_CONFIG_DIR=os.path.join(home, "etc"))
 
+    # The shared print folder of the machine must stay untouched (and must not influence the test when it is
+    # already set up): the child process gets shared.root() replaced by a folder below TMP. This is done here in
+    # the test launcher – the program itself has no switch for it.
+    shared_root = os.path.join(TMP, "shared")
+    launcher = (
+        "import sys\n"
+        "from pdfdruck import cli, shared\n"
+        "shared.root = lambda: sys.argv[1]\n"
+        "sys.exit(cli.main(sys.argv[2:]))\n"
+    )
+
     def cli(*a):
         return subprocess.run(
-            [sys.executable, "-m", "pdfdruck.cli", "serve", *a],
+            [sys.executable, "-c", launcher, shared_root, "serve", *a],
             capture_output=True,
             text=True,
             env=env,
@@ -286,6 +296,8 @@ def test_init_never_overwrites():
     )
     r = cli("--init", "--system")  # for everyone: own place, also never overwritten
     assert r.returncode == 0 and os.path.isfile(os.path.join(home, "etc", "watch.json"))
+    drop = json.load(open(os.path.join(home, "etc", "watch.json"), encoding="utf-8"))["folders"][0]["in"]
+    assert os.path.abspath(drop).startswith(shared_root + os.sep), drop  # the stand-in folder, not the real one
 
 
 if __name__ == "__main__":

@@ -950,25 +950,22 @@ def _field_label(f: VdpField, k: int) -> str:
     return tr("Feld {0} ({1}: {2})").format(k + 1, f.kind, c[:30] + ("…" if len(c) > 30 else ""))
 
 
-def check(s: VdpSettings) -> dict:
-    """Check the data against the fields before anything is generated: text too long for its field (width/height),
-    empty columns, unknown placeholders, invalid EAN-13, empty codes, missing/unreadable images, images with too
-    low a resolution.
-    -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {kind: count}, "records": n}.
-    row = row in the CSV (header row = 1), record = record in the output.
-    """
-    from reportlab.pdfbase import pdfmetrics
+class _DataCheck:
+    """State of one check(): the problems found, how often each kind occurred, and what was already reported."""
 
-    fields = all_fields(s)
-    cols, recs = records(s)
-    colmap = {c.lower(): c for c in cols}
-    probs, counts, unknown_done, lowres_done = [], {}, set(), set()
-    base, images = image_base(s), Images()
+    def __init__(self, s: VdpSettings, cols: list):
+        self.colmap = {c.lower(): c for c in cols}
+        self.probs: list = []
+        self.counts: dict = {}
+        self.unknown_done: set = set()  # (field, placeholder) – reported only once per field
+        self.lowres_done: set = set()  # (field, image path) – measured only once
+        self.base, self.images = image_base(s), Images()
 
-    def add(kind, sev, rec, k, f, msg):
-        counts[kind] = counts.get(kind, 0) + 1
-        if len(probs) < CHECK_MAX:
-            probs.append(
+    def add(self, kind, sev, rec, k, f, msg):
+        """Count a problem and, up to CHECK_MAX, keep it for the report."""
+        self.counts[kind] = self.counts.get(kind, 0) + 1
+        if len(self.probs) < CHECK_MAX:
+            self.probs.append(
                 {
                     "row": rec.get("_row") if rec else None,
                     "record": int(rec["i"]) if rec else None,
@@ -979,107 +976,144 @@ def check(s: VdpSettings) -> dict:
                 }
             )
 
+    def field(self, rec, k, f):
+        """Check field number k for one record."""
+        if f.kind == "qr" and (getattr(f, "qr_type", "text") or "text") != "text":
+            try:
+                value = field_value(f, rec)
+            except Exception as e:  # noqa: BLE001 – report every cause
+                self.add("invalid", "error", rec, k, f, str(e))
+                return
+        else:
+            value = self._filled(rec, k, f)
+        if f.kind == "image":
+            self._image(rec, k, f, value)
+        elif f.kind == "text":
+            self._text(rec, k, f, value)
+        elif not value.strip():
+            self.add("empty", "error", rec, k, f, tr("Code ohne Inhalt – wird nicht gedruckt"))
+        elif f.kind == "ean13":
+            self._ean13(rec, k, f, value)
+
+    def _filled(self, rec, k, f) -> str:
+        """The content with the placeholders filled in; reports empty columns and unknown placeholders."""
+        for key in PH.findall(f.content or ""):
+            col = self.colmap.get(key.lower())
+            if f.kind != "image" and col is not None and not str(rec.get(col, "") or "").strip():
+                self.add("empty", "warning", rec, k, f, tr("Spalte „{0}“ ist leer").format(col))
+        value = fill(f.content, rec)
+        for key in PH.findall(value):
+            if (k, key) not in self.unknown_done:  # only once per field
+                self.unknown_done.add((k, key))
+                self.add(
+                    "unknown",
+                    "warning",
+                    rec,
+                    k,
+                    f,
+                    tr("Platzhalter {{{{{0}}}}} gibt es weder als Spalte noch als Variable").format(key),
+                )
+        return value
+
+    def _image(self, rec, k, f, value):
+        """Image field: file missing or unreadable, fallback used, resolution too low for the field."""
+        path, kind, sev, msg = pick_image(f, value, self.base, self.images)
+        if kind:
+            self.add(kind, sev, rec, k, f, msg)
+        if path and (k, path) not in self.lowres_done:
+            self.lowres_done.add((k, path))
+            w, h = _field_size_pt(f)
+            ppi = self.images.ppi(path, w, h, getattr(f, "fit", "contain") or "contain")
+            if ppi is not None and ppi < IMAGE_MIN_PPI:
+                self.add(
+                    "lowres",
+                    "warning",
+                    rec,
+                    k,
+                    f,
+                    tr("{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})").format(
+                        os.path.basename(path), int(ppi), IMAGE_MIN_PPI
+                    ),
+                )
+
+    def _text(self, rec, k, f, value):
+        """Text field: too wide or too tall for its field."""
+        from reportlab.pdfbase import pdfmetrics
+
+        if not value:
+            return
+        w, h = _field_size_pt(f)
+        try:
+            fn = _font_for(f.font, value)
+            lines = value.split("\n")
+            widest = max(pdfmetrics.stringWidth(ln, fn, f.size_pt) for ln in lines)
+        except Exception:  # noqa: BLE001
+            return
+        if widest > w + 0.5:
+            self.add(
+                "overflow",
+                "error",
+                rec,
+                k,
+                f,
+                tr("Text zu lang: {0} mm breit, Feld {1} mm – „{2}“").format(
+                    _n1(widest / MM), _n1(w / MM), value[:40] + ("…" if len(value) > 40 else "")
+                ),
+            )
+        tall = (len(lines) - 1) * f.size_pt * 1.15 + f.size_pt * 0.9
+        if tall > h + 0.5:
+            self.add(
+                "overflow",
+                "error",
+                rec,
+                k,
+                f,
+                tr("Text zu hoch: {0} Zeile(n) passen nicht in {1} mm").format(len(lines), _n1(h / MM)),
+            )
+
+    def _ean13(self, rec, k, f, value):
+        """EAN-13: number of digits and check digit."""
+        digits = re.sub(r"\D", "", value)
+        if len(digits) not in (12, 13):
+            self.add("invalid", "error", rec, k, f, tr("EAN-13 braucht 12 oder 13 Ziffern: „{0}“").format(value))
+        elif len(digits) == 13 and check_digit(digits[:12], "ean") != digits[12]:
+            self.add(
+                "invalid",
+                "error",
+                rec,
+                k,
+                f,
+                tr("EAN-13 „{0}“: Prüfziffer falsch – richtig wäre {1}").format(
+                    value, digits[:12] + check_digit(digits[:12], "ean")
+                ),
+            )
+
+
+def _field_size_pt(f: VdpField) -> tuple[float, float]:
+    """Width and height of a field in points as the content sees them (swapped when rotated by 90°/270°)."""
+    rot = int(f.rotate) % 360
+    w = (f.h_mm if rot in (90, 270) else f.w_mm) * MM
+    h = (f.w_mm if rot in (90, 270) else f.h_mm) * MM
+    return w, h
+
+
+def check(s: VdpSettings) -> dict:
+    """Check the data against the fields before anything is generated: text too long for its field (width/height),
+    empty columns, unknown placeholders, invalid EAN-13, empty codes, missing/unreadable images, images with too
+    low a resolution.
+    -> {"problems": [{"row", "record", "field", "severity", "message"}], "counts": {kind: count}, "records": n}.
+    row = row in the CSV (header row = 1), record = record in the output.
+    """
+    fields = all_fields(s)
+    cols, recs = records(s)
+    c = _DataCheck(s, cols)
     for rec0 in recs:
         rec = dict(rec0)  # page variables only exist when generating: assume wide
         rec["_sys"] = dict(rec0.get("_sys") or {}, seite="999", seiten="999", vorlagenseite="9")
         for k, f in enumerate(fields):
-            if f.kind == "qr" and (getattr(f, "qr_type", "text") or "text") != "text":
-                try:
-                    value = field_value(f, rec)
-                except Exception as e:  # noqa: BLE001 – jede Ursache melden
-                    add("invalid", "error", rec, k, f, str(e))
-                    continue
-            else:
-                for key in PH.findall(f.content or ""):
-                    col = colmap.get(key.lower())
-                    if f.kind != "image" and col is not None and not str(rec.get(col, "") or "").strip():
-                        add("empty", "warning", rec, k, f, tr("Spalte „{0}“ ist leer").format(col))
-                value = fill(f.content, rec)
-                for key in PH.findall(value):
-                    if (k, key) not in unknown_done:  # only once per field
-                        unknown_done.add((k, key))
-                        add(
-                            "unknown",
-                            "warning",
-                            rec,
-                            k,
-                            f,
-                            tr("Platzhalter {{{{{0}}}}} gibt es weder als Spalte noch als Variable").format(key),
-                        )
-            if f.kind == "image":
-                path, kind, sev, msg = pick_image(f, value, base, images)
-                if kind:
-                    add(kind, sev, rec, k, f, msg)
-                if path and (k, path) not in lowres_done:
-                    lowres_done.add((k, path))
-                    rot = int(f.rotate) % 360
-                    w = (f.h_mm if rot in (90, 270) else f.w_mm) * MM
-                    h = (f.w_mm if rot in (90, 270) else f.h_mm) * MM
-                    ppi = images.ppi(path, w, h, getattr(f, "fit", "contain") or "contain")
-                    if ppi is not None and ppi < IMAGE_MIN_PPI:
-                        add(
-                            "lowres",
-                            "warning",
-                            rec,
-                            k,
-                            f,
-                            tr("{0}: nur {1} ppi in diesem Feld (empfohlen ab {2})").format(
-                                os.path.basename(path), int(ppi), IMAGE_MIN_PPI
-                            ),
-                        )
-                continue
-            if f.kind == "text":
-                if not value:
-                    continue
-                rot = int(f.rotate) % 360
-                w = (f.h_mm if rot in (90, 270) else f.w_mm) * MM
-                h = (f.w_mm if rot in (90, 270) else f.h_mm) * MM
-                try:
-                    fn = _font_for(f.font, value)
-                    lines = value.split("\n")
-                    widest = max(pdfmetrics.stringWidth(ln, fn, f.size_pt) for ln in lines)
-                except Exception:  # noqa: BLE001
-                    continue
-                if widest > w + 0.5:
-                    add(
-                        "overflow",
-                        "error",
-                        rec,
-                        k,
-                        f,
-                        tr("Text zu lang: {0} mm breit, Feld {1} mm – „{2}“").format(
-                            _n1(widest / MM), _n1(w / MM), value[:40] + ("…" if len(value) > 40 else "")
-                        ),
-                    )
-                tall = (len(lines) - 1) * f.size_pt * 1.15 + f.size_pt * 0.9
-                if tall > h + 0.5:
-                    add(
-                        "overflow",
-                        "error",
-                        rec,
-                        k,
-                        f,
-                        tr("Text zu hoch: {0} Zeile(n) passen nicht in {1} mm").format(len(lines), _n1(h / MM)),
-                    )
-            elif not value.strip():
-                add("empty", "error", rec, k, f, tr("Code ohne Inhalt – wird nicht gedruckt"))
-            elif f.kind == "ean13":
-                digits = re.sub(r"\D", "", value)
-                if len(digits) not in (12, 13):
-                    add("invalid", "error", rec, k, f, tr("EAN-13 braucht 12 oder 13 Ziffern: „{0}“").format(value))
-                elif len(digits) == 13 and check_digit(digits[:12], "ean") != digits[12]:
-                    add(
-                        "invalid",
-                        "error",
-                        rec,
-                        k,
-                        f,
-                        tr("EAN-13 „{0}“: Prüfziffer falsch – richtig wäre {1}").format(
-                            value, digits[:12] + check_digit(digits[:12], "ean")
-                        ),
-                    )
-    images.close()
-    return {"problems": probs, "counts": counts, "records": len(recs)}
+            c.field(rec, k, f)
+    c.images.close()
+    return {"problems": c.probs, "counts": c.counts, "records": len(recs)}
 
 
 BLOCKING = ("invalid", "missing", "unreadable")  # these errors abort generating
@@ -1238,20 +1272,12 @@ def _remove_placeholder_text(pdf) -> int:
     return removed
 
 
-def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, strip=False) -> tuple[bytes, dict]:
-    """Output PDF (bytes) + info. pages = only these template pages (0-based, None = all).
-    progress(done, total, text); cancel() -> True aborts.
-    """
-    import pikepdf
+def _read_template(src: str, s: VdpSettings):
+    """Read the template once: page sizes, trim and bleed, the fields from {{placeholders}}, and the pages
+    themselves unrotated from (0, 0) – field coordinates then refer to the visible page.
+    -> (sizes, pdf bytes, trims, bleeds, placeholder fields)"""
     import pypdfium2 as pdfium
-    from reportlab.pdfgen import canvas
     from .objects import normalized
-
-    fields = _fields(s)
-    if not getattr(s, "doc_name", ""):
-        import dataclasses
-
-        s = dataclasses.replace(s, doc_name=os.path.basename(src))
     from .layout import page_trims, page_doc_bleeds
 
     src_doc = pdfium.PdfDocument(src)
@@ -1264,19 +1290,16 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         ph_extra = []
         if s.placeholders:
             ph_extra = placeholder_fields(norm)
-            if not window_mode(s):
-                fields = fields + ph_extra
         sizes = [norm.get_page_size(i) for i in range(len(norm))]
         buf = io.BytesIO()
         norm.save(buf)
     finally:
         norm.close()
-    if not fields and not window_mode(s):
-        raise ValueError(tr("Keine Felder angelegt."))
-    cols, recs = records(s)
-    if not recs:
-        raise ValueError(tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
-    npages = len(sizes)
+    return sizes, buf.getvalue(), trims, bleeds, ph_extra
+
+
+def _fields_with_pages(s: VdpSettings, fields: list, ph_extra: list, npages: int):
+    """The fields to draw and, for each, the set of template pages it appears on. -> (fields, pages_of)"""
     if window_mode(s):
         # window mode: the set of pages comes from the window, not from the individual field
         fields = []
@@ -1292,9 +1315,11 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
             raise ValueError(tr("Keine Felder angelegt."))
     else:
         pages_of = [(_page_set(f.pages, npages) if f.pages.strip() else set(range(npages))) for f in fields]
-    tpl = [p for p in (pages if pages else range(npages)) if 0 <= p < npages]
-    if not tpl:
-        raise ValueError(tr("Keine Seiten ausgewählt."))
+    return fields, pages_of
+
+
+def _output_sequence(s: VdpSettings, recs: list, tpl: list) -> list:
+    """Order of the output pages: [(record index, template page), …]."""
     if window_mode(s):
         # window mode: every record one complete round over the template pages;
         # "page by page" remains available as a sort order via order == "page".
@@ -1306,7 +1331,13 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
             seq = sequence("page" if s.order == "page" else "record", len(recs), tpl)
     else:
         seq = sequence(s.order, len(recs), tpl, s.pages_per_record)
-    # 1) all overlays in one PDF (one page per output page)
+    return seq
+
+
+def _draw_overlays(s: VdpSettings, fields, pages_of, recs, seq, sizes, progress=None, cancel=None):
+    """All overlays in one PDF, one page per output page. -> (pdf bytes, Images, log rows)"""
+    from reportlab.pdfgen import canvas
+
     ov = io.BytesIO()
     cv = canvas.Canvas(ov, pageCompression=1)
     log = []
@@ -1344,16 +1375,21 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
         if vals:
             log.append((k + 1, r, p, vals))
     cv.save()
-    if progress is not None:
-        progress(total, total, tr("Schreibe PDF …"))
-    # 2) copy the template per output page and put the overlay on top
-    base = pikepdf.open(io.BytesIO(buf.getvalue()))
-    removed = _remove_placeholder_text(base) if (s.placeholders or strip) else 0
-    over = pikepdf.open(io.BytesIO(ov.getvalue()))
+    return ov.getvalue(), images, log
+
+
+def _assemble(template: bytes, overlays: bytes, images, seq, sizes, trims, bleeds, strip: bool):
+    """Copy the template per output page and put its overlay on top. strip = remove the {{placeholder}} text.
+    -> (pdf bytes, number of placeholders removed)"""
+    import pikepdf
+
+    base = pikepdf.open(io.BytesIO(template))
+    removed = _remove_placeholder_text(base) if strip else 0
+    over = pikepdf.open(io.BytesIO(overlays))
     images.attach(over)  # attach vector PDF images to their pages
     out = pikepdf.new()
     # template once per page as a form XObject; every output page = template + its own overlay (small, separate)
-    base_x = [out.copy_foreign(base.pages[p].as_form_xobject()) for p in range(npages)]
+    base_x = [out.copy_foreign(base.pages[p].as_form_xobject()) for p in range(len(sizes))]
     for k, (r, p) in enumerate(seq):
         W, H = sizes[p]
         ox = out.copy_foreign(over.pages[k].as_form_xobject())
@@ -1375,22 +1411,61 @@ def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, stri
     for d in (out, over, base):
         d.close()
     images.close()
-    # log and counters
-    if s.log_path:
-        with open(s.log_path, "w", newline="", encoding="utf-8-sig") as fh:
-            wr = csv.writer(fh, delimiter=";")
-            wr.writerow(
-                [tr("Ausgabeseite"), tr("Datensatz"), tr("Vorlagenseite")]
-                + [f"{i + 1}:{f.kind}" for i, f in enumerate(fields)]
-            )
-            for page_no, r, p, vals in log:
-                wr.writerow([page_no, r + 1, p + 1] + [vals.get(i, "") for i in range(len(fields))])
+    return data.getvalue(), removed
+
+
+def _write_log(s: VdpSettings, fields: list, log: list):
+    """CSV log: which record and which values went onto which output page."""
+    with open(s.log_path, "w", newline="", encoding="utf-8-sig") as fh:
+        wr = csv.writer(fh, delimiter=";")
+        wr.writerow(
+            [tr("Ausgabeseite"), tr("Datensatz"), tr("Vorlagenseite")]
+            + [f"{i + 1}:{f.kind}" for i, f in enumerate(fields)]
+        )
+        for page_no, r, p, vals in log:
+            wr.writerow([page_no, r + 1, p + 1] + [vals.get(i, "") for i in range(len(fields))])
+
+
+def _advance_counter(s: VdpSettings, recs: list):
+    """Continuous numbering: remember where the next run goes on."""
     nb = s.numbering if isinstance(s.numbering, Numbering) else Numbering(**(s.numbering or {}))
     if nb.continue_key and recs:
         last = max(rec["_n"] for rec in recs) if nb.step >= 0 else min(rec["_n"] for rec in recs)
         _save_counter(nb.continue_key, last + nb.step)
+
+
+def build(src: str, s: VdpSettings, progress=None, cancel=None, pages=None, strip=False) -> tuple[bytes, dict]:
+    """Output PDF (bytes) + info. pages = only these template pages (0-based, None = all).
+    progress(done, total, text); cancel() -> True aborts.
+    """
+    fields = _fields(s)
+    if not getattr(s, "doc_name", ""):
+        import dataclasses
+
+        s = dataclasses.replace(s, doc_name=os.path.basename(src))
+    sizes, template, trims, bleeds, ph_extra = _read_template(src, s)
+    if s.placeholders and not window_mode(s):
+        fields = fields + ph_extra
+    if not fields and not window_mode(s):
+        raise ValueError(tr("Keine Felder angelegt."))
+    cols, recs = records(s)
+    if not recs:
+        raise ValueError(tr("Keine Datensätze (CSV leer oder Anzahl 0)."))
+    npages = len(sizes)
+    fields, pages_of = _fields_with_pages(s, fields, ph_extra, npages)
+    tpl = [p for p in (pages if pages else range(npages)) if 0 <= p < npages]
+    if not tpl:
+        raise ValueError(tr("Keine Seiten ausgewählt."))
+    seq = _output_sequence(s, recs, tpl)
+    overlays, images, log = _draw_overlays(s, fields, pages_of, recs, seq, sizes, progress, cancel)
+    if progress is not None:
+        progress(len(seq), len(seq), tr("Schreibe PDF …"))
+    data, removed = _assemble(template, overlays, images, seq, sizes, trims, bleeds, bool(s.placeholders or strip))
+    if s.log_path:
+        _write_log(s, fields, log)
+    _advance_counter(s, recs)
     info = {"records": len(recs), "pages": len(seq), "placeholders_removed": removed, "columns": cols}
-    return data.getvalue(), info
+    return data, info
 
 
 def _preview_value(f: VdpField, rec: dict, base: str, images: Images) -> str:

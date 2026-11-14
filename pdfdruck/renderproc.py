@@ -290,51 +290,178 @@ CALLS = {
 }
 
 
-def serve(inp, out) -> int:
-    """Main loop of the render process: read requests from ``inp``, write answers to ``out``."""
-    import pypdfium2 as pdfium
+class _Server:
+    """State of the render process: the open documents, a few loaded pages per document, and the answer channel."""
 
-    docs: dict = {}
-    paths: dict = {}  # document -> (path, password) for the soft proof
-    pages: OrderedDict = OrderedDict()
+    def __init__(self, out):
+        self.out = out
+        self.docs: dict = {}
+        self.paths: dict = {}  # document -> (path, password) for the soft proof
+        self.pages: OrderedDict = OrderedDict()
+        self.ops = {
+            "open": self.op_open,
+            "chars": self.op_chars,
+            "lists": self.op_lists,
+            "call": self.op_call,
+            "close": self.op_close,
+            "render": self.op_render,
+        }
 
-    def send(head: dict, payload: bytes = b""):
+    def send(self, head: dict, payload: bytes = b""):
+        """Write one answer: a JSON line, then the payload of head["n"] bytes."""
         head["n"] = len(payload)
-        out.write(json.dumps(head).encode("utf-8") + b"\n")
+        self.out.write(json.dumps(head).encode("utf-8") + b"\n")
         if payload:
-            out.write(payload)
-        out.flush()
+            self.out.write(payload)
+        self.out.flush()
 
-    def close_doc(key):
-        for k in [k for k in pages if k[0] == key]:
+    def close_doc(self, key):
+        """Close a document and its loaded pages."""
+        for k in [k for k in self.pages if k[0] == key]:
             try:
-                pages.pop(k).close()
+                self.pages.pop(k).close()
             except Exception:
                 pass
-        paths.pop(key, None)
-        d = docs.pop(key, None)
+        self.paths.pop(key, None)
+        d = self.docs.pop(key, None)
         if d is not None:
             try:
                 d.close()
             except Exception:
                 pass
 
-    def page_of(key, i):
+    def close_all(self):
+        """Close every document (end of the process)."""
+        for key in list(self.docs):
+            self.close_doc(key)
+
+    def page_of(self, key, i):
+        """Page i of a document; the last KEEP_PAGES pages per document stay loaded."""
         k = (key, i)
-        if k in pages:
-            pages.move_to_end(k)
-            return pages[k]
-        pg = docs[key][i]
-        pages[k] = pg
-        same = [x for x in pages if x[0] == key]
+        if k in self.pages:
+            self.pages.move_to_end(k)
+            return self.pages[k]
+        pg = self.docs[key][i]
+        self.pages[k] = pg
+        same = [x for x in self.pages if x[0] == key]
         while len(same) > KEEP_PAGES:
             old = same.pop(0)
             try:
-                pages.pop(old).close()
+                self.pages.pop(old).close()
             except Exception:
                 pass
         return pg
 
+    def handle(self, req: dict):
+        """Answer one request; an error is reported to the caller, the server keeps running."""
+        op, rid = req.get("op"), req.get("id")
+        try:
+            fn = self.ops.get(op)
+            if fn is None:
+                self.send({"id": rid, "ok": False, "error": f"unknown op {op!r}"})
+            else:
+                fn(req, rid, req.get("doc", ""))
+        except Exception as e:  # report the error, the server keeps running
+            self.send({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})
+
+    def op_open(self, req, rid, key):
+        """Open a document (replacing one with the same key) and answer with its page geometry."""
+        import pypdfium2 as pdfium
+
+        self.close_doc(key)
+        with open(req["path"], "rb") as f:  # into memory: the file stays free (Windows:
+            data = f.read()  # save via the open file, delete the intermediate file)
+        self.docs[key] = pdfium.PdfDocument(data, password=req.get("password") or None)
+        self.paths[key] = (req["path"], req.get("password") or None)
+        try:
+            info = page_info(data)
+        except Exception:
+            info = None  # e.g. encrypted: the view uses pdfium
+        self.send({"id": rid, "ok": True, "pages": len(self.docs[key]), "fmt": "pickle"}, pickle.dumps(info))
+
+    def op_chars(self, req, rid, key):
+        """Boxes of all characters of a page (for selecting text)."""
+        pg = self.page_of(key, int(req["page"]))
+        tp = pg.get_textpage()
+        try:
+            n = tp.count_chars()
+            boxes = [tp.get_charbox(i) for i in range(n)] if n < 200000 else []
+        finally:
+            tp.close()
+        self.send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(boxes))
+
+    def op_lists(self, req, rid, key):
+        """Text lines or objects of a page for the edit panel."""
+        from . import editing
+
+        page = int(req["page"])
+        if req.get("kind") == "text":
+            res = editing.text_lines(self.docs[key], page, include_undecodable=True)
+        else:
+            res = editing.limit_objects(editing.page_objects(self.docs[key], page))  # (selection, total)
+        self.send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(res))
+
+    def op_call(self, req, rid, key):
+        """Run one of the functions in CALLS with the given arguments."""
+        result = CALLS[req["fn"]](**(req.get("args") or {}))
+        self.send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(result))
+
+    def op_close(self, req, rid, key):
+        """Close a document."""
+        self.close_doc(key)
+        self.send({"id": rid, "ok": True})
+
+    def op_render(self, req, rid, key):
+        """Render a page (or a part of it) as raw pixels, on request as a soft proof."""
+        pg = self.page_of(key, int(req["page"]))
+        crop = tuple(float(c) for c in req["crop"]) if req.get("crop") else (0, 0, 0, 0)
+        if req.get("proof"):
+            from . import proof
+
+            path, pw = self.paths.get(key, (None, None))
+            img = proof.proofed_render(
+                pg,
+                float(req["scale"]),
+                int(req.get("rotation", 0)),
+                crop,
+                req["proof"],
+                path,
+                int(req["page"]),
+                pw,
+            )
+            self.send(
+                {"id": rid, "ok": True, "w": img.width, "h": img.height, "stride": img.width * 4, "fmt": "bgrx"},
+                img.tobytes("raw", "BGRX"),
+            )
+            return
+        bmp = pg.render(
+            scale=float(req["scale"]),
+            rotation=int(req.get("rotation", 0)) % 360,
+            crop=crop,
+            prefer_bgrx=True,
+            may_draw_forms=True,
+            draw_annots=True,
+        )
+        try:
+            data = bytes(bmp.buffer)
+            self.send(
+                {
+                    "id": rid,
+                    "ok": True,
+                    "w": bmp.width,
+                    "h": bmp.height,
+                    "stride": bmp.stride,
+                    "fmt": "bgrx" if bmp.n_channels == 4 else "bgr",
+                },
+                data,
+            )
+        finally:
+            bmp.close()
+
+
+def serve(inp, out) -> int:
+    """Main loop of the render process: read requests from ``inp``, write answers to ``out``."""
+    server = _Server(out)
     for line in inp:
         if not line.strip():
             continue
@@ -348,103 +475,10 @@ def serve(inp, out) -> int:
                 req["args"] = pickle.loads(raw)
             except Exception:
                 req["args"] = None
-        op, rid, key = req.get("op"), req.get("id"), req.get("doc", "")
-        if op == "quit":
+        if req.get("op") == "quit":
             break
-        try:
-            if op == "open":
-                close_doc(key)
-                with open(req["path"], "rb") as f:  # into memory: the file stays free (Windows:
-                    data = f.read()  # save via the open file, delete the intermediate file)
-                docs[key] = pdfium.PdfDocument(data, password=req.get("password") or None)
-                paths[key] = (req["path"], req.get("password") or None)
-                try:
-                    info = page_info(data)
-                except Exception:
-                    info = None  # e.g. encrypted: the view uses pdfium
-                send({"id": rid, "ok": True, "pages": len(docs[key]), "fmt": "pickle"}, pickle.dumps(info))
-            elif op == "chars":
-                pg = page_of(key, int(req["page"]))
-                tp = pg.get_textpage()
-                try:
-                    n = tp.count_chars()
-                    boxes = [tp.get_charbox(i) for i in range(n)] if n < 200000 else []
-                finally:
-                    tp.close()
-                send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(boxes))
-            elif op == "lists":
-                from . import editing
-
-                page = int(req["page"])
-                if req.get("kind") == "text":
-                    res = editing.text_lines(docs[key], page, include_undecodable=True)
-                else:
-                    res = editing.limit_objects(editing.page_objects(docs[key], page))  # (selection, total)
-                send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(res))
-            elif op == "call":
-                result = CALLS[req["fn"]](**(req.get("args") or {}))
-                send({"id": rid, "ok": True, "fmt": "pickle"}, pickle.dumps(result))
-            elif op == "close":
-                close_doc(key)
-                send({"id": rid, "ok": True})
-            elif op == "render":
-                pg = page_of(key, int(req["page"]))
-                crop = tuple(float(c) for c in req["crop"]) if req.get("crop") else (0, 0, 0, 0)
-                if req.get("proof"):
-                    from . import proof
-
-                    path, pw = paths.get(key, (None, None))
-                    img = proof.proofed_render(
-                        pg,
-                        float(req["scale"]),
-                        int(req.get("rotation", 0)),
-                        crop,
-                        req["proof"],
-                        path,
-                        int(req["page"]),
-                        pw,
-                    )
-                    send(
-                        {
-                            "id": rid,
-                            "ok": True,
-                            "w": img.width,
-                            "h": img.height,
-                            "stride": img.width * 4,
-                            "fmt": "bgrx",
-                        },
-                        img.tobytes("raw", "BGRX"),
-                    )
-                    continue
-                bmp = pg.render(
-                    scale=float(req["scale"]),
-                    rotation=int(req.get("rotation", 0)) % 360,
-                    crop=crop,
-                    prefer_bgrx=True,
-                    may_draw_forms=True,
-                    draw_annots=True,
-                )
-                try:
-                    data = bytes(bmp.buffer)
-                    send(
-                        {
-                            "id": rid,
-                            "ok": True,
-                            "w": bmp.width,
-                            "h": bmp.height,
-                            "stride": bmp.stride,
-                            "fmt": "bgrx" if bmp.n_channels == 4 else "bgr",
-                        },
-                        data,
-                    )
-                finally:
-                    bmp.close()
-            else:
-                send({"id": rid, "ok": False, "error": f"unknown op {op!r}"})
-        except Exception as e:  # report the error, the server keeps running
-            send({"id": rid, "ok": False, "error": f"{type(e).__name__}: {e}"})
-    for key in list(docs):
-        close_doc(key)
+        server.handle(req)
+    server.close_all()
     return 0
 
 

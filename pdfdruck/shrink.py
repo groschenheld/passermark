@@ -149,12 +149,163 @@ def _walk_streams(obj, out: set, depth=0):
         pass
 
 
+class _Roles:
+    """Which stream objects play which part in the file (sets of object numbers)."""
+
+    def __init__(self):
+        self.fontfiles: set = set()
+        self.iccs: set = set()
+        self.private: set = set()
+        self.thumbs: set = set()
+        self.attach: set = set()
+        self.content: set = set()
+        self.smasks: set = set()
+
+
+def _object_roles(pdf) -> _Roles:
+    """Find out what the streams are used for – that cannot be seen from a stream itself."""
+    import pikepdf
+
+    r = _Roles()
+    for o in pdf.objects:
+        try:
+            if isinstance(o, pikepdf.Dictionary) and o.get("/Type") == pikepdf.Name.FontDescriptor:
+                for k in ("/FontFile", "/FontFile2", "/FontFile3"):
+                    if k in o and o[k].objgen != (0, 0):
+                        r.fontfiles.add(o[k].objgen)
+            if isinstance(o, pikepdf.Array) and len(o) == 2 and o[0] == pikepdf.Name.ICCBased:
+                r.iccs.add(o[1].objgen)
+            if isinstance(o, (pikepdf.Dictionary, pikepdf.Stream)):
+                d = o.stream_dict if isinstance(o, pikepdf.Stream) else o
+                if "/PieceInfo" in d:
+                    _walk_streams(d["/PieceInfo"], r.private)
+                sm = d.get("/SMask")
+                if isinstance(sm, pikepdf.Stream):
+                    r.smasks.add(sm.objgen)
+                if d.get("/Type") == pikepdf.Name.EmbeddedFile:
+                    r.attach.add(o.objgen)
+        except Exception:
+            continue
+    for p in pdf.pages:
+        if "/Thumb" in p.obj:
+            try:
+                r.thumbs.add(p.obj.Thumb.objgen)
+            except Exception:
+                pass
+        c = p.obj.get("/Contents")
+        for s in c if isinstance(c, pikepdf.Array) else [c] if c is not None else []:
+            try:
+                r.content.add(s.objgen)
+            except Exception:
+                pass
+    return r
+
+
+def _image_resolutions(pdf, colors) -> dict:
+    """Effective resolution per image object: smallest dpi = largest placement."""
+    from . import imagecheck
+
+    best: dict = {}
+    try:
+        for u in (colors or imagecheck.analyze(pdf, max_uses=20000)).images:
+            if u.key is not None:
+                best[u.key] = min(best.get(u.key, 1e9), u.dpi)
+    except Exception:
+        pass
+    return best
+
+
+def _part_of(o, roles: _Roles) -> str:
+    """The part of the file a stream counts towards (a key of PART_NAMES)."""
+    import pikepdf
+
+    og = o.objgen
+    sub = o.stream_dict.get("/Subtype")
+    if og in roles.private:
+        return "private"
+    if og in roles.thumbs:
+        return "thumbs"
+    if og in roles.attach:
+        return "attachments"
+    if sub == pikepdf.Name.Image:
+        return "images"
+    if og in roles.fontfiles:
+        return "fonts"
+    if og in roles.iccs or _is_icc(o.stream_dict):
+        return "icc"
+    if o.stream_dict.get("/Type") == pikepdf.Name.Metadata:
+        return "metadata"
+    if og in roles.content or sub == pikepdf.Name.Form:
+        return "content"
+    return "other"
+
+
+def _image_info(o, n: int, best: dict, roles: _Roles) -> ImageInfo:
+    """Size, depth, codec and resolution of one image stream of n bytes."""
+    og = o.objgen
+    bpc = int(o.stream_dict.get("/BitsPerComponent", 8) or 8)
+    is_mask = bool(o.stream_dict.get("/ImageMask", False))
+    return ImageInfo(
+        og,
+        int(o.stream_dict.get("/Width", 0)),
+        int(o.stream_dict.get("/Height", 0)),
+        1 if is_mask else bpc,
+        1 if is_mask else _components(o),
+        _codec(o),
+        n,
+        best.get(og),
+        "/SMask" in o.stream_dict,
+        is_mask,
+        og in roles.smasks,
+    )
+
+
+def _measure_streams(pdf, rep: SizeReport, roles: _Roles, best: dict):
+    """Add up the streams by part, count duplicates and list the images – filled into rep."""
+    import pikepdf
+
+    parts = {k: 0 for k in PART_NAMES}
+    hashes: dict = {}
+    streams_total = 0
+    for o in pdf.objects:
+        if not isinstance(o, pikepdf.Stream):
+            continue
+        try:
+            n = len(o.read_raw_bytes())
+        except Exception:
+            continue
+        streams_total += n
+        cat = _part_of(o, roles)
+        parts[cat] += n
+        if cat in ("images", "fonts", "icc") and n > 256:
+            h = hashlib.sha1(o.read_raw_bytes()).hexdigest() + str(
+                sorted((k, str(v)) for k, v in o.stream_dict.items() if k not in ("/Length", "/SMask", "/Metadata"))
+            )
+            if h in hashes:
+                rep.duplicates += 1
+                rep.duplicate_bytes += n
+            else:
+                hashes[h] = o.objgen
+        if o.stream_dict.get("/Subtype") == pikepdf.Name.Image:
+            try:
+                rep.images.append(_image_info(o, n, best, roles))
+            except Exception:
+                pass
+    parts["other"] += max(0, rep.size - streams_total)
+    rep.parts = parts
+    rep.private_bytes, rep.thumb_bytes, rep.attachment_bytes = (
+        parts["private"],
+        parts["thumbs"],
+        parts["attachments"],
+    )
+    rep.images.sort(key=lambda i: -i.raw)
+
+
 def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
     """What takes up the space? (pikepdf, may run in the background).
     colors: an existing imagecheck.ColorReport (saves the second pass).
     """
     import pikepdf
-    from . import imagecheck
 
     rep = SizeReport(size=len(data))
     rep.revisions = max(0, data.count(b"%%EOF") - 1)
@@ -171,38 +322,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
         for p in pdf.pages:
             mb = [float(v) for v in p.mediabox]
             rep.area_m2 += abs(mb[2] - mb[0]) * abs(mb[3] - mb[1]) / (72 / 0.0254) ** 2
-        fontfiles, iccs, private, thumbs, attach, content, smasks = set(), set(), set(), set(), set(), set(), set()
-        for o in pdf.objects:
-            try:
-                if isinstance(o, pikepdf.Dictionary) and o.get("/Type") == pikepdf.Name.FontDescriptor:
-                    for k in ("/FontFile", "/FontFile2", "/FontFile3"):
-                        if k in o and o[k].objgen != (0, 0):
-                            fontfiles.add(o[k].objgen)
-                if isinstance(o, pikepdf.Array) and len(o) == 2 and o[0] == pikepdf.Name.ICCBased:
-                    iccs.add(o[1].objgen)
-                if isinstance(o, (pikepdf.Dictionary, pikepdf.Stream)):
-                    d = o.stream_dict if isinstance(o, pikepdf.Stream) else o
-                    if "/PieceInfo" in d:
-                        _walk_streams(d["/PieceInfo"], private)
-                    sm = d.get("/SMask")
-                    if isinstance(sm, pikepdf.Stream):
-                        smasks.add(sm.objgen)
-                    if d.get("/Type") == pikepdf.Name.EmbeddedFile:
-                        attach.add(o.objgen)
-            except Exception:
-                continue
-        for p in pdf.pages:
-            if "/Thumb" in p.obj:
-                try:
-                    thumbs.add(p.obj.Thumb.objgen)
-                except Exception:
-                    pass
-            c = p.obj.get("/Contents")
-            for s in c if isinstance(c, pikepdf.Array) else [c] if c is not None else []:
-                try:
-                    content.add(s.objgen)
-                except Exception:
-                    pass
+        roles = _object_roles(pdf)
         try:
             from .preflight import current_visible, _layers
 
@@ -211,84 +331,7 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
             rep.has_hidden_layers = any(L.key not in vis for L in layers)
         except Exception:
             pass
-        # effective resolution per image object: smallest dpi = largest placement
-        best: dict = {}
-        try:
-            for u in (colors or imagecheck.analyze(pdf, max_uses=20000)).images:
-                if u.key is not None:
-                    best[u.key] = min(best.get(u.key, 1e9), u.dpi)
-        except Exception:
-            pass
-        parts = {k: 0 for k in PART_NAMES}
-        hashes: dict = {}
-        streams_total = 0
-        for o in pdf.objects:
-            if not isinstance(o, pikepdf.Stream):
-                continue
-            try:
-                n = len(o.read_raw_bytes())
-            except Exception:
-                continue
-            streams_total += n
-            og = o.objgen
-            sub = o.stream_dict.get("/Subtype")
-            if og in private:
-                cat = "private"
-            elif og in thumbs:
-                cat = "thumbs"
-            elif og in attach:
-                cat = "attachments"
-            elif sub == pikepdf.Name.Image:
-                cat = "images"
-            elif og in fontfiles:
-                cat = "fonts"
-            elif og in iccs or _is_icc(o.stream_dict):
-                cat = "icc"
-            elif o.stream_dict.get("/Type") == pikepdf.Name.Metadata:
-                cat = "metadata"
-            elif og in content or sub == pikepdf.Name.Form:
-                cat = "content"
-            else:
-                cat = "other"
-            parts[cat] += n
-            if cat in ("images", "fonts", "icc") and n > 256:
-                h = hashlib.sha1(o.read_raw_bytes()).hexdigest() + str(
-                    sorted((k, str(v)) for k, v in o.stream_dict.items() if k not in ("/Length", "/SMask", "/Metadata"))
-                )
-                if h in hashes:
-                    rep.duplicates += 1
-                    rep.duplicate_bytes += n
-                else:
-                    hashes[h] = og
-            if sub == pikepdf.Name.Image:
-                try:
-                    bpc = int(o.stream_dict.get("/BitsPerComponent", 8) or 8)
-                    is_mask = bool(o.stream_dict.get("/ImageMask", False))
-                    rep.images.append(
-                        ImageInfo(
-                            og,
-                            int(o.stream_dict.get("/Width", 0)),
-                            int(o.stream_dict.get("/Height", 0)),
-                            1 if is_mask else bpc,
-                            1 if is_mask else _components(o),
-                            _codec(o),
-                            n,
-                            best.get(og),
-                            "/SMask" in o.stream_dict,
-                            is_mask,
-                            og in smasks,
-                        )
-                    )
-                except Exception:
-                    pass
-        parts["other"] += max(0, rep.size - streams_total)
-        rep.parts = parts
-        rep.private_bytes, rep.thumb_bytes, rep.attachment_bytes = (
-            parts["private"],
-            parts["thumbs"],
-            parts["attachments"],
-        )
-        rep.images.sort(key=lambda i: -i.raw)
+        _measure_streams(pdf, rep, roles, _image_resolutions(pdf, colors))
     finally:
         if own:
             pdf.close()
@@ -768,123 +811,137 @@ def _resized(img, w, h, comps, bpc, nw, nh):
     )
 
 
-def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list]:
-    """Reduce according to opts. -> (new data, notes with the saving per measure)."""
+class _Tally:
+    """What each measure saved: bytes and number of objects, by the key of the measure."""
+
+    def __init__(self):
+        self.saved: dict = {}
+        self.counts: dict = {}
+
+    def note(self, k, b, n=1):
+        """Add b bytes and n objects to measure k."""
+        self.saved[k] = self.saved.get(k, 0) + b
+        self.counts[k] = self.counts.get(k, 0) + n
+
+
+def _drop_hidden_layers(src: bytes, tally: _Tally) -> bytes:
+    """Remove layers that are switched off; the data unchanged if there are none or it fails."""
+    try:
+        from . import preflight
+
+        if preflight.has_layers(src):
+            before = len(src)
+            src = preflight.flatten_layers(src)
+            tally.note("hidden", before - len(src))
+    except Exception:
+        pass
+    return src
+
+
+def _drop_extras(pdf, opts: ShrinkOptions, rep, tally: _Tally):
+    """Editing data of the creating program, page thumbnails, attachments."""
     import pikepdf
 
-    saved: dict = {}
-    counts: dict = {}
-
-    def note(k, b, n=1):
-        saved[k] = saved.get(k, 0) + b
-        counts[k] = counts.get(k, 0) + n
-
-    src = data
-    if opts.hidden:
-        try:
-            from . import preflight
-
-            if preflight.has_layers(src):
-                before = len(src)
-                src = preflight.flatten_layers(src)
-                note("hidden", before - len(src))
-        except Exception:
-            pass
-    rep = analyze(src)
-    pdf = pikepdf.open(io.BytesIO(src))
-    try:
-        # 1) editing data, thumbnails, attachments
-        if opts.private:
-            for o in list(pdf.objects) + [pdf.Root] + [p.obj for p in pdf.pages]:
-                try:
-                    d = o.stream_dict if isinstance(o, pikepdf.Stream) else o
-                    if isinstance(d, pikepdf.Dictionary) and "/PieceInfo" in d:
-                        del d["/PieceInfo"]
-                        counts["private"] = counts.get("private", 0) + 1
-                except Exception:
-                    pass
-            saved["private"] = rep.private_bytes
-        if opts.thumbs:
-            for p in pdf.pages:
-                if "/Thumb" in p.obj:
-                    del p.obj["/Thumb"]
-                    counts["thumbs"] = counts.get("thumbs", 0) + 1
-            saved["thumbs"] = rep.thumb_bytes
-        if opts.attachments:
-            names = pdf.Root.get("/Names")
-            if names is not None and "/EmbeddedFiles" in names:
-                del names["/EmbeddedFiles"]
-                note("attachments", rep.attachment_bytes)
-            if "/AF" in pdf.Root:
-                del pdf.Root["/AF"]
-        # 2) images: downsample / 16 -> 8 bit / pack losslessly / unpack ZIP+JPEG
-        info = {im.key: im for im in rep.images}
-        imgs = [
-            o
-            for o in pdf.objects
-            if isinstance(o, pikepdf.Stream) and o.stream_dict.get("/Subtype") == pikepdf.Name.Image
-        ]
-        done = set()
-        for n, img in enumerate(imgs):
-            if progress:
-                progress(n, len(imgs))
-            im = info.get(img.objgen)
-            if im is None or im.is_mask or im.bpc == 1 or img.objgen in done:
-                continue
+    if opts.private:
+        for o in list(pdf.objects) + [pdf.Root] + [p.obj for p in pdf.pages]:
             try:
-                _image(img, im, opts, note, done)
-            except Exception:
-                continue
-        # 3) merge duplicates
-        if opts.dedupe:
-            canon, dup = {}, {}
-            for o in pdf.objects:
-                if not isinstance(o, pikepdf.Stream):
-                    continue
-                sd = o.stream_dict
-                if (
-                    sd.get("/Subtype") != pikepdf.Name.Image
-                    and "/Length1" not in sd
-                    and "/Length2" not in sd
-                    and sd.get("/Subtype")
-                    not in (pikepdf.Name("/Type1C"), pikepdf.Name("/CIDFontType0C"), pikepdf.Name("/OpenType"))
-                    and not _is_icc(sd)
-                ):
-                    continue
-                try:
-                    raw = o.read_raw_bytes()
-                except Exception:
-                    continue
-                if len(raw) < 256:
-                    continue
-                key = hashlib.sha1(raw).hexdigest() + str(
-                    sorted((k, str(v)) for k, v in sd.items() if k not in ("/Length",))
-                )
-                if key in canon:
-                    dup[o.objgen] = canon[key]
-                    note("dedupe", len(raw))
-                else:
-                    canon[key] = o
-            if dup:
-                for o in list(pdf.objects):
-                    if isinstance(o, (pikepdf.Stream, pikepdf.Dictionary, pikepdf.Array)):
-                        _replace_refs(o.stream_dict if isinstance(o, pikepdf.Stream) else o, dup)
-                _replace_refs(pdf.trailer, dup)
-        if opts.unreferenced:
-            try:
-                pdf.remove_unreferenced_resources()
+                d = o.stream_dict if isinstance(o, pikepdf.Stream) else o
+                if isinstance(d, pikepdf.Dictionary) and "/PieceInfo" in d:
+                    del d["/PieceInfo"]
+                    tally.counts["private"] = tally.counts.get("private", 0) + 1
             except Exception:
                 pass
-        buf = io.BytesIO()
-        if opts.rewrite:
-            pdf.save(
-                buf, object_stream_mode=pikepdf.ObjectStreamMode.generate, compress_streams=True, recompress_flate=True
-            )
+        tally.saved["private"] = rep.private_bytes
+    if opts.thumbs:
+        for p in pdf.pages:
+            if "/Thumb" in p.obj:
+                del p.obj["/Thumb"]
+                tally.counts["thumbs"] = tally.counts.get("thumbs", 0) + 1
+        tally.saved["thumbs"] = rep.thumb_bytes
+    if opts.attachments:
+        names = pdf.Root.get("/Names")
+        if names is not None and "/EmbeddedFiles" in names:
+            del names["/EmbeddedFiles"]
+            tally.note("attachments", rep.attachment_bytes)
+        if "/AF" in pdf.Root:
+            del pdf.Root["/AF"]
+
+
+def _shrink_images(pdf, opts: ShrinkOptions, rep, tally: _Tally, progress=None):
+    """Images: downsample / 16 -> 8 bit / pack losslessly / unpack ZIP+JPEG."""
+    import pikepdf
+
+    info = {im.key: im for im in rep.images}
+    imgs = [
+        o for o in pdf.objects if isinstance(o, pikepdf.Stream) and o.stream_dict.get("/Subtype") == pikepdf.Name.Image
+    ]
+    done = set()
+    for n, img in enumerate(imgs):
+        if progress:
+            progress(n, len(imgs))
+        im = info.get(img.objgen)
+        if im is None or im.is_mask or im.bpc == 1 or img.objgen in done:
+            continue
+        try:
+            _image(img, im, opts, tally.note, done)
+        except Exception:
+            continue
+
+
+def _merge_duplicates(pdf, tally: _Tally):
+    """Keep identical fonts, profiles and images only once and point all references to the copy kept."""
+    import pikepdf
+
+    canon, dup = {}, {}
+    for o in pdf.objects:
+        if not isinstance(o, pikepdf.Stream):
+            continue
+        sd = o.stream_dict
+        if (
+            sd.get("/Subtype") != pikepdf.Name.Image
+            and "/Length1" not in sd
+            and "/Length2" not in sd
+            and sd.get("/Subtype")
+            not in (pikepdf.Name("/Type1C"), pikepdf.Name("/CIDFontType0C"), pikepdf.Name("/OpenType"))
+            and not _is_icc(sd)
+        ):
+            continue
+        try:
+            raw = o.read_raw_bytes()
+        except Exception:
+            continue
+        if len(raw) < 256:
+            continue
+        key = hashlib.sha1(raw).hexdigest() + str(sorted((k, str(v)) for k, v in sd.items() if k not in ("/Length",)))
+        if key in canon:
+            dup[o.objgen] = canon[key]
+            tally.note("dedupe", len(raw))
         else:
-            pdf.save(buf)
-        out = buf.getvalue()
-    finally:
-        pdf.close()
+            canon[key] = o
+    if dup:
+        for o in list(pdf.objects):
+            if isinstance(o, (pikepdf.Stream, pikepdf.Dictionary, pikepdf.Array)):
+                _replace_refs(o.stream_dict if isinstance(o, pikepdf.Stream) else o, dup)
+        _replace_refs(pdf.trailer, dup)
+
+
+def _save(pdf, opts: ShrinkOptions) -> bytes:
+    """Write the PDF, on request packed anew (object streams, recompressed)."""
+    import pikepdf
+
+    buf = io.BytesIO()
+    if opts.rewrite:
+        pdf.save(
+            buf, object_stream_mode=pikepdf.ObjectStreamMode.generate, compress_streams=True, recompress_flate=True
+        )
+    else:
+        pdf.save(buf)
+    return buf.getvalue()
+
+
+def _shrink_notes(data: bytes, out: bytes, opts: ShrinkOptions, rep, tally: _Tally) -> list:
+    """Size before and after, and one line per measure that did something."""
+    saved, counts = tally.saved, tally.counts
     labels = {
         "hidden": tr("Ausgeblendete Ebenen entfernt"),
         "private": tr("Bearbeitungsdaten entfernt"),
@@ -918,4 +975,28 @@ def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list
             notes.append(f"{labels[k]}: {counts.get(k, 0)} · −{max(0, saved.get(k, 0)) / MB:.1f} MB")
     if opts.rewrite and rep.revisions:
         notes.append(tr("{0} alte(r) Speicherstand/-stände entfernt.").format(rep.revisions))
-    return out, notes
+    return notes
+
+
+def shrink(data: bytes, opts: ShrinkOptions, progress=None) -> tuple[bytes, list]:
+    """Reduce according to opts. -> (new data, notes with the saving per measure)."""
+    import pikepdf
+
+    tally = _Tally()
+    src = _drop_hidden_layers(data, tally) if opts.hidden else data
+    rep = analyze(src)
+    pdf = pikepdf.open(io.BytesIO(src))
+    try:
+        _drop_extras(pdf, opts, rep, tally)
+        _shrink_images(pdf, opts, rep, tally, progress)
+        if opts.dedupe:
+            _merge_duplicates(pdf, tally)
+        if opts.unreferenced:
+            try:
+                pdf.remove_unreferenced_resources()
+            except Exception:
+                pass
+        out = _save(pdf, opts)
+    finally:
+        pdf.close()
+    return out, _shrink_notes(data, out, opts, rep, tally)
