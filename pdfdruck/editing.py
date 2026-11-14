@@ -20,7 +20,7 @@ import ctypes
 import io
 from dataclasses import dataclass, field
 
-from . import preflight
+from . import pdflayers, pdfutil, preflight
 from .l10n import tr
 
 MM = 72.0 / 25.4
@@ -83,9 +83,9 @@ def _font_name(obj) -> str:
 def _bounds(obj):
     import pypdfium2.raw as r
 
-    l, b, rr, t = (ctypes.c_float() for _ in range(4))
-    r.FPDFPageObj_GetBounds(obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t))
-    return l.value, b.value, rr.value, t.value
+    left, b, rr, t = (ctypes.c_float() for _ in range(4))
+    r.FPDFPageObj_GetBounds(obj, ctypes.byref(left), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t))
+    return left.value, b.value, rr.value, t.value
 
 
 def _size(obj) -> float:
@@ -181,6 +181,7 @@ def text_lines(doc, page_index: int, include_undecodable: bool = False) -> list[
     """
     import ctypes
     import math
+
     import pypdfium2.raw as r
 
     page = doc[page_index]
@@ -525,8 +526,8 @@ def transform_objects_bulk(
 
     page = doc[page_index]
     try:
-        for O in objs:
-            for i in O.objs:
+        for obj in objs:
+            for i in obj.objs:
                 o = r.FPDFPage_GetObject(page.raw, i)
                 ox, oy = float(origin[0]), float(origin[1])
                 s = float(scale)
@@ -542,8 +543,8 @@ def delete_objects_bulk(doc, page_index: int, objs: list):
 
     page = doc[page_index]
     try:
-        for O in objs:
-            for o in [r.FPDFPage_GetObject(page.raw, i) for i in O.objs]:
+        for obj in objs:
+            for o in [r.FPDFPage_GetObject(page.raw, i) for i in obj.objs]:
                 r.FPDFPage_RemoveObject(page.raw, o)
                 r.FPDFPageObj_Destroy(o)
         r.FPDFPage_GenerateContent(page.raw)
@@ -674,9 +675,9 @@ def reorder_objects(data: bytes, page_index: int, objs: list, where: str) -> byt
     """Move objects in the drawing order (up/down/front/back) without rebuilding.
     objs: list of PageObject (selection). None if the structure was not recognised safely.
     """
+    import pikepdf
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
-    import pikepdf
 
     # ordinals of the target objects per kind (pdfium order = original content order)
     want = []
@@ -773,8 +774,8 @@ def reorder_layer_blocks(data: bytes, page_index: int, key: str, where: str) -> 
         props = res.get("/Properties") or {}
         keys = {}  # Properties name -> OCG key
         for n, oc in props.items():
-            for g in preflight._ocgs_of(oc):
-                keys[str(n)] = preflight._key(g)
+            for g in pdflayers.ocgs_of(oc):
+                keys[str(n)] = pdfutil.obj_key(g)
                 break
         ops = list(pikepdf.parse_content_stream(page))
         names = [str(getattr(ins, "operator", "")) for ins in ops]
@@ -941,10 +942,10 @@ _IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
 def _text_op_info(ops) -> list:
     """Pass 1: for every operator (name, ordinal of the text output or None, text line matrix before, after,
     inside BT…ET?, current transformation matrix)."""
-    I = _IDENTITY
+    ident = _IDENTITY
     info = []
-    tlm, TL, in_bt, ordinal = I, 0.0, False, -1
-    ctm, stack = I, []
+    tlm, TL, in_bt, ordinal = ident, 0.0, False, -1
+    ctm, stack = ident, []
     for ins in ops:
         op = str(getattr(ins, "operator", ""))
         before = tlm
@@ -953,11 +954,11 @@ def _text_op_info(ops) -> list:
         if op == "q":
             stack.append(ctm)
         elif op == "Q":
-            ctm = stack.pop() if stack else I
+            ctm = stack.pop() if stack else ident
         elif op == "cm" and len(vals) == 6:
             ctm = _mmul(tuple(vals), ctm)
         if op == "BT":
-            tlm, in_bt = I, True
+            tlm, in_bt = ident, True
         elif op == "ET":
             in_bt = False
         elif op == "Tm" and len(vals) == 6:
@@ -1027,7 +1028,7 @@ def _wrap_segments(ops: list, info: list, segs: list, page_cm) -> list:
     continues before and after at exactly the same text position."""
     import pikepdf
 
-    def O(name, args=()):
+    def make_op(name, args=()):
         return pikepdf.ContentStreamInstruction(list(args), pikepdf.Operator(name))
 
     out, seg_at = [], {st: en for st, en in segs}
@@ -1035,11 +1036,17 @@ def _wrap_segments(ops: list, info: list, segs: list, page_cm) -> list:
     while k < len(ops):
         if k in seg_at:
             st, en = k, seg_at[k]
-            out += [O("ET"), O("q"), O("cm", _local_cm(info[st][5], page_cm)), O("BT"), O("Tm", info[st][2])]
+            out += [
+                make_op("ET"),
+                make_op("q"),
+                make_op("cm", _local_cm(info[st][5], page_cm)),
+                make_op("BT"),
+                make_op("Tm", info[st][2]),
+            ]
             out += ops[st : en + 1]
-            out += [O("ET"), O("Q")]
+            out += [make_op("ET"), make_op("Q")]
             out += [ops[i] for i in range(st, en + 1) if str(getattr(ops[i], "operator", "")) in STATE_OPS]
-            out += [O("BT"), O("Tm", info[en][3])]
+            out += [make_op("BT"), make_op("Tm", info[en][3])]
             k = en + 1
             continue
         out.append(ops[k])
@@ -1142,6 +1149,7 @@ def path_text_center(doc, page_index: int, line: TextLine) -> tuple | None:
     """
     import ctypes
     import math
+
     import pypdfium2.raw as r
 
     if len(line.objs) < 3:
@@ -1216,8 +1224,8 @@ def verify_edit(before: bytes, after: bytes, page_index: int, ignore_boxes: list
             tp = pg.get_textpage()
             n = 0
             for i in range(tp.count_chars()):
-                l, b, r, t = tp.get_charbox(i)
-                if r > l and outside((l + r) / 2, (b + t) / 2):
+                left, b, r, t = tp.get_charbox(i)
+                if r > left and outside((left + r) / 2, (b + t) / 2):
                     n += 1
             tp.close()
             pg.close()
@@ -1321,7 +1329,7 @@ def recolor(
         d = pdfium.PdfDocument(data)
         try:
             page = d[page_index]
-            pord, wanted = -1, {i for O in objs for i in O.objs}
+            pord, wanted = -1, {i for obj_ in objs for i in obj_.objs}
             for i in range(r.FPDFPage_CountObjects(page.raw)):
                 if r.FPDFPageObj_GetType(r.FPDFPage_GetObject(page.raw, i)) == r.FPDF_PAGEOBJ_PATH:
                     pord += 1
@@ -1333,18 +1341,18 @@ def recolor(
             d.close()
     if not text_targets and not path_targets:
         return data
-    I = pikepdf.ContentStreamInstruction
-    O = pikepdf.Operator
+    Instr = pikepdf.ContentStreamInstruction
+    obj_ = pikepdf.Operator
 
     def cs_for(ins, table, cs_op):
         """For sc/scn after g/rg/k: set the matching colour space explicitly."""
-        return I([pikepdf.Name(table[str(ins.operator)])], O(cs_op))
+        return Instr([pikepdf.Name(table[str(ins.operator)])], obj_(cs_op))
 
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         pg = pdf.pages[page_index]
         out = []
-        fcol, scol = [I([0], O("g"))], [I([0], O("G"))]  # initial state: black
+        fcol, scol = [Instr([0], obj_("g"))], [Instr([0], obj_("G"))]  # initial state: black
         stack = []
         in_bt, path_start, pord, tord = False, None, -1, -1
         new_fill = color_ops(color) if fill else []
@@ -1466,11 +1474,11 @@ def overlay_text(data: bytes, page_index: int, text: str, font: tuple, size: flo
         form = pdf.copy_foreign(src.pages[0].as_form_xobject())
         src.close()
         page = pdf.pages[page_index]
-        res = preflight._resources(page)
+        res = pdfutil.page_resources(page)
         xo = res.get("/XObject")
         if xo is None:
             xo = res.XObject = pikepdf.Dictionary()
-        name = pikepdf.Name("/PMText%d" % len(xo))
+        name = pikepdf.Name(f"/PMText{len(xo)}")
         xo[name] = form
         ops = list(pikepdf.parse_content_stream(page))
         q_, Q_ = (pikepdf.ContentStreamInstruction([], pikepdf.Operator(n)) for n in ("q", "Q"))
@@ -1609,7 +1617,7 @@ def layer_map(data: bytes, page_index: int, keys: list[str] | None = None, max_s
             return LayerMap(page_index, 1.0)
         ocgs = list(ocp.OCGs)
         if keys is not None:
-            ocgs = [g for g in ocgs if preflight._key(g) in keys]
+            ocgs = [g for g in ocgs if pdfutil.obj_key(g) in keys]
         pg = pdf.pages[page_index]
         x0, y0, x1, y1 = [float(v) for v in (pg.obj.get("/CropBox") or pg.MediaBox)]
         w, h = x1 - x0, y1 - y0
@@ -1623,7 +1631,7 @@ def layer_map(data: bytes, page_index: int, keys: list[str] | None = None, max_s
         pdf = pikepdf.open(io.BytesIO(data))
         try:
             ocp = pdf.Root.OCProperties
-            tgt = [g for g in ocp.OCGs if preflight._key(g) in on_keys]
+            tgt = [g for g in ocp.OCGs if pdfutil.obj_key(g) in on_keys]
             d = ocp.get("/D") or pikepdf.Dictionary()
             ocp.D = d
             d.BaseState = pikepdf.Name.OFF
@@ -1646,7 +1654,7 @@ def layer_map(data: bytes, page_index: int, keys: list[str] | None = None, max_s
 
     # base content (no layer visible) as reference – only what the layer changes is counted
     base = render(set())
-    for g_key in [preflight._key(g) for g in ocgs]:
+    for g_key in [pdfutil.obj_key(g) for g in ocgs]:
         img = render({g_key})
         a = np.abs(img - base).max(axis=2) > 24
         if not a.any():
@@ -1679,7 +1687,7 @@ def set_visible(data: bytes, key: str, visible: bool) -> bytes:
     rep = preflight.analyze(data, deep_layers=False)
     st = {L.key: (L.view_on, L.view_on if L.print_on is None else L.print_on) for L in rep.layers}
     st[key] = (visible, visible)
-    return preflight.set_layer_states(data, st)
+    return pdflayers.set_layer_states(data, st)
 
 
 def _layer_props(res, key):
@@ -1687,13 +1695,13 @@ def _layer_props(res, key):
     names = set()
     props = res.get("/Properties") or {}
     for n, oc in props.items():
-        if any(preflight._key(g) == key for g in preflight._ocgs_of(oc)):
+        if any(pdfutil.obj_key(g) == key for g in pdflayers.ocgs_of(oc)):
             names.add(n)
     return names
 
 
 def _matches(oc, key) -> bool:
-    return oc is not None and any(preflight._key(g) == key for g in preflight._ocgs_of(oc))
+    return oc is not None and any(pdfutil.obj_key(g) == key for g in pdflayers.ocgs_of(oc))
 
 
 def transform_layer(
@@ -1711,24 +1719,24 @@ def transform_layer(
     ox, oy = float(origin[0]), float(origin[1])
     scale, dx, dy = float(scale), float(dx), float(dy)
     page_cm = (scale, 0.0, 0.0, scale, ox - scale * ox + dx, oy - scale * oy + dy)
-    I = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    ident = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         for pi, page in enumerate(pdf.pages):
             if pages is not None and pi not in pages:
                 continue
-            res = preflight._resources(page)
+            res = pdfutil.page_resources(page)
             props = res.get("/Properties") or {}
             xo = res.get("/XObject") or {}
             out, stack = [], []
-            ctm, gstack = I, []
+            ctm, gstack = ident, []
             for ins in pikepdf.parse_content_stream(page):
                 op = str(getattr(ins, "operator", ""))
                 operands = getattr(ins, "operands", [])
                 if op == "q":
                     gstack.append(ctm)
                 elif op == "Q":
-                    ctm = gstack.pop() if gstack else I
+                    ctm = gstack.pop() if gstack else ident
                 elif op == "cm":
                     v = _num_ops(ins)
                     if len(v) == 6:
@@ -1778,13 +1786,13 @@ def replace_layer(
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         page = pdf.pages[page_index]
-        res = preflight._resources(page)
+        res = pdfutil.page_resources(page)
         props = res.get("/Properties")
         if props is None:
             props = res.Properties = pikepdf.Dictionary()
         names = _layer_props(res, key)
         # remove the layer's old content on this page
-        out, stack, skip = [], [], 0
+        out, skip = [], 0
         for ins in pikepdf.parse_content_stream(page):
             op = str(getattr(ins, "operator", ""))
             operands = getattr(ins, "operands", [])
@@ -1801,7 +1809,7 @@ def replace_layer(
                     continue
             out.append(ins)
         # property name for the layer
-        ocg = next(g for g in pdf.Root.OCProperties.OCGs if preflight._key(g) == key)
+        ocg = next(g for g in pdf.Root.OCProperties.OCGs if pdfutil.obj_key(g) == key)
         name = next(iter(sorted(names)), None)
         if name is None:
             name = pikepdf.Name("/PMOC")
@@ -1816,7 +1824,7 @@ def replace_layer(
         xo = res.get("/XObject")
         if xo is None:
             xo = res.XObject = pikepdf.Dictionary()
-        xname = pikepdf.Name("/PMRepl%d" % len(xo))
+        xname = pikepdf.Name(f"/PMRepl{len(xo)}")
         xo[xname] = form
         if box is None:
             box = [float(v) for v in (page.obj.get("/CropBox") or page.MediaBox)]
@@ -1872,7 +1880,7 @@ def object_ordinals(data: bytes, page_index: int, objs: list) -> tuple | None:
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
 
-    wanted = {i for O in objs for i in O.objs}
+    wanted = {i for obj in objs for i in obj.objs}
     paths, images, pord, iord = set(), set(), -1, -1
     d = pdfium.PdfDocument(data)
     try:
@@ -1922,7 +1930,7 @@ def edit_objects_content(
         return data
     s, ox, oy = float(scale), float(origin[0]), float(origin[1])
     T = (s, 0.0, 0.0, s, ox - s * ox + float(dx), oy - s * oy + float(dy))
-    I, Op = pikepdf.ContentStreamInstruction, pikepdf.Operator
+    Instr, Op = pikepdf.ContentStreamInstruction, pikepdf.Operator
 
     def wrap_ops(ctm):
         """q + cm so that the object is moved by T in page space: M = C·T·C⁻¹ (C = current CTM)."""
@@ -1930,7 +1938,7 @@ def edit_objects_content(
         if inv is None:
             raise ValueError("ctm")
         M = _mat_mul(_mat_mul(ctm, T), inv)
-        return [I([], Op("q")), I([round(v, 6) for v in M], Op("cm"))]
+        return [Instr([], Op("q")), Instr([round(v, 6) for v in M], Op("cm"))]
 
     pdf = pikepdf.open(io.BytesIO(data))
     try:
@@ -1948,7 +1956,7 @@ def edit_objects_content(
                     if iord in images:
                         if action == "delete":
                             continue
-                        out += wrap_ops(ctm) + [ins, I([], Op("Q"))]
+                        out += wrap_ops(ctm) + [ins, Instr([], Op("Q"))]
                         continue
                     out.append(ins)
                     continue
@@ -1970,7 +1978,7 @@ def edit_objects_content(
                         if iord in images:
                             if action == "delete":
                                 continue
-                            out += wrap_ops(ctm) + [ins, I([], Op("Q"))]
+                            out += wrap_ops(ctm) + [ins, Instr([], Op("Q"))]
                             continue
                 if not in_bt and op in PATH_CONSTR_OPS and path_start is None:
                     path_start, path_clip = len(out), False
@@ -1981,14 +1989,14 @@ def edit_objects_content(
                     if pord in paths:
                         if action == "delete":
                             if path_clip:
-                                out.append(I([], Op("n")))  # keep the clip, just do not paint
+                                out.append(Instr([], Op("n")))  # keep the clip, just do not paint
                             else:
                                 del out[path_start:]
                         else:
                             if path_clip:
                                 return None  # the clip would move along – other way
                             out[path_start:path_start] = wrap_ops(ctm)
-                            out += [ins, I([], Op("Q"))]
+                            out += [ins, Instr([], Op("Q"))]
                         path_start = None
                         continue
                     path_start = None

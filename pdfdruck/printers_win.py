@@ -250,7 +250,7 @@ def load_caps(name: str) -> PrinterCaps:
     caps = PrinterCaps(name=name, backend="win")
 
     def add(key, text, values, names, default):
-        ch = [Choice(str(v), str(n).strip() or str(v)) for v, n in zip(values, names)]
+        ch = [Choice(str(v), str(n).strip() or str(v)) for v, n in zip(values, names, strict=False)]
         if ch:
             d = str(default) if str(default) in [c.value for c in ch] else ch[0].value
             caps.options[key] = Option(key, text, tr("Allgemein"), ch, d)
@@ -258,7 +258,7 @@ def load_caps(name: str) -> PrinterCaps:
     papers, pnames = _caps(name, port, DC_PAPERS), _caps(name, port, DC_PAPERNAMES)
     sizes = _caps(name, port, DC_PAPERSIZE)
     add("PageSize", tr("Papierformat"), papers, pnames, getattr(dm, "PaperSize", ""))
-    for pid, sz, pname in zip(papers, sizes, list(pnames) + [""] * max(0, len(papers) - len(pnames))):
+    for pid, sz, pname in zip(papers, sizes, list(pnames) + [""] * max(0, len(papers) - len(pnames)), strict=False):
         try:
             x, y = (sz["x"], sz["y"]) if isinstance(sz, dict) else sz  # Zehntel-mm
         except (TypeError, ValueError, KeyError):
@@ -329,10 +329,10 @@ def imageable_for(printer: str, values: dict):
     finally:
         win32gui.DeleteDC(hdc)
     k = 72.0 / dx, 72.0 / dy
-    l, t = ox * k[0], oy * k[1]
+    left, t = ox * k[0], oy * k[1]
     r, b = (ox + hr) * k[0], (oy + vr) * k[1]
     H = ph * k[1]
-    return (l, H - b, r, H - t), (pw * k[0], ph * k[1])
+    return (left, H - b, r, H - t), (pw * k[0], ph * k[1])
 
 
 # --------------------------------------------------------------------------- #

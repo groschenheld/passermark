@@ -4,6 +4,7 @@ import ctypes
 import io
 import sys
 import types
+
 from PIL import Image
 
 

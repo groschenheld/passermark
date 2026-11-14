@@ -4,14 +4,15 @@
 # Public License, Version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 import os
-import sys
 import os as _os
+import sys
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 import test_backend as tb  # fake pycups
-from pdfdruck import printers, printjob, layout, config
+
+from pdfdruck import config, layout, printers, printjob
 
 SENT = []
 
@@ -145,6 +146,7 @@ def test_booklet_spreads_print_pdf():
     """
     import io
     import tempfile
+
     import pikepdf
     import pypdfium2 as pdfium
     from reportlab.pdfgen import canvas
@@ -184,10 +186,12 @@ def test_borderless():
     laser without borderless; with bleed in the document the trim size lies exactly on the sheet.
     """
     import io
+
     import pikepdf
     import pypdfium2 as pdfium
     from reportlab.pdfgen import canvas
-    from pdfdruck.printers import PrinterCaps, Option, Choice
+
+    from pdfdruck.printers import Choice, Option, PrinterCaps
 
     mm = 72 / 25.4
     c = PrinterCaps("Epson", "ppd")

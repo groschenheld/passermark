@@ -402,14 +402,14 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
 
         note = ""
         if mode in ("auto", "frame") and inner is not None:
-            (t, b, l, r) = outer
-            x0, x1 = xpt(l[1] + 1), xpt(r[0])
+            (t, b, ln, r) = outer
+            x0, x1 = xpt(ln[1] + 1), xpt(r[0])
             y1, y0 = ypt(t[1] + 1), ypt(b[0])
             span_x = (x0 + (x1 - x0) * 0.3, x1 - (x1 - x0) * 0.3)
             span_y = (y0 + (y1 - y0) * 0.3, y1 - (y1 - y0) * 0.3)
             ft = _refine(page, W, H, "t", (ypt(t[0]) + ypt(t[1] + 1)) / 2, span_x[0], span_x[1])
             fb = _refine(page, W, H, "b", (ypt(b[0]) + ypt(b[1] + 1)) / 2, span_x[0], span_x[1])
-            fl = _refine(page, W, H, "l", (xpt(l[0]) + xpt(l[1] + 1)) / 2, span_y[0], span_y[1])
+            fl = _refine(page, W, H, "l", (xpt(ln[0]) + xpt(ln[1] + 1)) / 2, span_y[0], span_y[1])
             fr = _refine(page, W, H, "r", (xpt(r[0]) + xpt(r[1] + 1)) / 2, span_y[0], span_y[1])
             # slightly inwards so that nothing of the line remains
             e = 0.15 * MM
@@ -467,8 +467,8 @@ def extra_mm(s: PlanSettings) -> float:
 def finished_size(area: Area, s: PlanSettings) -> tuple:
     """Size ``(width, height)`` in mm of the printed piece: the scaled print area plus the margins."""
     f = factor(area, s)
-    l, b, r, t = margins_mm(s)
-    return area.w_mm * f + l + r, area.h_mm * f + b + t
+    left, b, r, t = margins_mm(s)
+    return area.w_mm * f + left + r, area.h_mm * f + b + t
 
 
 def choose(w: float, h: float, rolls: list, rotate: str = "auto") -> Fit | None:
@@ -585,6 +585,7 @@ def job_order(items: list, copies: int, collate: bool, order: str, rolls: list |
 # --------------------------------------------------------------------------- #
 def _walk_paths(container, count_fn, get_fn, matrix, out: list, depth: int = 0):
     import ctypes
+
     import pypdfium2.raw as r
 
     n = count_fn(container)
@@ -631,6 +632,7 @@ def hairlines(doc, i: int, min_mm: float = 0.1, scale_pct: float = 100.0) -> int
 def hairline_boxes(doc, i: int, min_mm: float = 0.1, max_objs: int = 200000) -> tuple:
     """(count, [area (x0, y0, x1, y1) pt]) of the lines thinner than min_mm – for the preflight."""
     import ctypes
+
     import pypdfium2.raw as r
 
     page = doc[i]
@@ -645,10 +647,10 @@ def hairline_boxes(doc, i: int, min_mm: float = 0.1, max_objs: int = 200000) -> 
             if w * f >= lim - 1e-6:
                 continue
             n += 1
-            l, b, rr, t = (ctypes.c_float() for _ in range(4))
-            if not r.FPDFPageObj_GetBounds(obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t)):
+            left, b, rr, t = (ctypes.c_float() for _ in range(4))
+            if not r.FPDFPageObj_GetBounds(obj, ctypes.byref(left), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t)):
                 continue
-            box = (l.value, b.value, rr.value, t.value)
+            box = (left.value, b.value, rr.value, t.value)
             if parent is not None:
                 pts = [
                     (x * parent[0] + y * parent[2] + parent[4], x * parent[1] + y * parent[3] + parent[5])
@@ -665,6 +667,7 @@ def hairline_boxes(doc, i: int, min_mm: float = 0.1, max_objs: int = 200000) -> 
 def fix_hairlines(doc, pages, min_mm: float = 0.1, scale_pct: float = 100.0):
     """Copy of the document in which lines thinner than min_mm are raised to min_mm. -> (copy, count)."""
     import io
+
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
 
@@ -884,7 +887,7 @@ def material_of(s: PlanSettings):
 
 def _narrowest(rolls: list, across: float, idx: list):
     best = None
-    for k, r in zip(idx, rolls):
+    for k, r in zip(idx, rolls, strict=False):
         if getattr(r, "empty", False) or across > r.width_mm + TOL_MM:
             continue
         if best is None or r.width_mm < best[1]:
@@ -931,7 +934,7 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
     idx = [rolls.index(r) for r in use]
     widest = max(r.width_mm for r in use)
     f = factor(it.area, s)
-    l, b, r_, t = margins_mm(s)
+    left, b, r_, t = margins_mm(s)
     x0, y0, x1, y1 = it.area.rect
     cw, ch = it.area.w_mm * f, it.area.h_mm * f
     best = None
@@ -939,8 +942,8 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
         if rot and s.rotate == "keep":
             continue
         # across the roll: unrotated the page width, rotated the height
-        c_across, m_across = (ch, b + t) if rot else (cw, l + r_)
-        c_along, m_along = (cw, l + r_) if rot else (ch, b + t)
+        c_across, m_across = (ch, b + t) if rot else (cw, left + r_)
+        c_along, m_along = (cw, left + r_) if rot else (ch, b + t)
         avail = widest - m_across
         if avail <= 10:
             continue
@@ -1104,6 +1107,7 @@ def _rect(page, x, y, w, h, rgb, m):
 
 def _line(page, x0, y0, x1, y1, m, width=0.25, gray=0, dash=None):
     import ctypes
+
     import pypdfium2.raw as r
 
     o = r.FPDFPageObj_CreateNewPath(x0, y0)
@@ -1186,11 +1190,10 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     f = factor(p.item.area, s)
     x0, y0, x1, y1 = p.rect
     cw, ch = (x1 - x0) * f, (y1 - y0) * f
-    marks = MARKS_MM * MM if (s.crop_marks or s.printcut_marks) else 0.0
-    l, b, r_, t = (v * MM for v in margins_mm(s))
+    left, b, r_, t = (v * MM for v in margins_mm(s))
     hem = {k: (max(0.0, s.hem_mm) * MM if (s.hem_mm > 0 and k in s.hem_sides) else 0.0) for k in "lbrt"}
     bl, bb, br, bt = ((0.0 if hem[k] else max(0.0, s.bleed_mm) * MM) for k in "lbrt")
-    PW, PH = cw + l + r_, ch + b + t
+    PH = ch + b + t
     rot = layout._rot90ccw(PH) if p.rotated else (1, 0, 0, 1, 0, 0)
     m = layout._mul(rot, layout._translate(ox, oy))
     # 1 content clipped to the section
@@ -1201,7 +1204,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     t1.gen_content()
     t1.close()
     k1 = len(tiles) - 1
-    content, cx, cy = k1, l, b
+    content, cx, cy = k1, left, b
     if s.bleed_mode == "mirror" and (bl or bb or br or bt):
         t2 = tiles.new_page(cw + bl + br, ch + bb + bt)
         for dx in ([-1] if bl else []) + [0] + ([1] if br else []):
@@ -1220,14 +1223,14 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
                 t2.insert_obj(xo)
         t2.gen_content()
         t2.close()
-        content, cx, cy = len(tiles) - 1, l - bl, b - bb
+        content, cx, cy = len(tiles) - 1, left - bl, b - bb
     if s.bleed_mode == "color" and (bl or bb or br or bt):
         rgb = _hex_rgb(s.bleed_color)
         for rx, ry, rw, rh in (
-            (l - bl, b - bb, cw + bl + br, bb),
-            (l - bl, b + ch, cw + bl + br, bt),
-            (l - bl, b, bl, ch),
-            (l + cw, b, br, ch),
+            (left - bl, b - bb, cw + bl + br, bb),
+            (left - bl, b + ch, cw + bl + br, bt),
+            (left - bl, b, bl, ch),
+            (left + cw, b, br, ch),
         ):
             if rw > 0 and rh > 0:
                 _rect(page, rx, ry, rw, rh, rgb, m)
@@ -1235,7 +1238,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     xo.transform(M(*layout._mul(layout._translate(cx, cy), m)))
     page.insert_obj(xo)
     # cut edge = trim size + hem
-    CX0, CY0, CX1, CY1 = l - hem["l"], b - hem["b"], l + cw + hem["r"], b + ch + hem["t"]
+    CX0, CY0, CX1, CY1 = left - hem["l"], b - hem["b"], left + cw + hem["r"], b + ch + hem["t"]
     if s.crop_marks:
         o_ = max(bl, bb, br, bt) + layout.MARK_OFFSET
         L = layout.MARK_LEN
@@ -1257,10 +1260,10 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
             _rect(page, min(ax, ax + sx * L), min(ay, ay + sy * w_), L, w_, (0, 0, 0), m)
             _rect(page, min(ax, ax + sx * w_), min(ay, ay + sy * L), w_, L, (0, 0, 0), m)
     for k, (xa, ya, xb, yb) in (
-        ("l", (l, b, l, b + ch)),
-        ("r", (l + cw, b, l + cw, b + ch)),
-        ("b", (l, b, l + cw, b)),
-        ("t", (l, b + ch, l + cw, b + ch)),
+        ("l", (left, b, left, b + ch)),
+        ("r", (left + cw, b, left + cw, b + ch)),
+        ("b", (left, b, left + cw, b)),
+        ("t", (left, b + ch, left + cw, b + ch)),
     ):
         if hem[k]:  # fold line of the hem: dashed inside the hem
             dx, dy = {"l": (-1, 0), "r": (1, 0), "b": (0, -1), "t": (0, 1)}[k]
@@ -1269,7 +1272,7 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
     if s.grommet_spacing_mm > 0:
         rad = max(1.0, s.grommet_d_mm / 2) * MM
         for gx, gy in grommet_points(cw / MM, ch / MM, s.grommet_inset_mm, s.grommet_spacing_mm, s.grommet_sides):
-            X, Y = l + gx * MM, b + gy * MM
+            X, Y = left + gx * MM, b + gy * MM
             _circle_obj(page, X, Y, rad, m)
             _line(page, X - 1.5 * MM, Y, X + 1.5 * MM, Y, m, 0.3, 90)
             _line(page, X, Y - 1.5 * MM, X, Y + 1.5 * MM, m, 0.3, 90)
@@ -1277,13 +1280,13 @@ def _draw_piece(out, page, tiles, src, p: Piece, s: PlanSettings, ox: float, oy:
         xs, ys = fold_positions(cw / MM, ch / MM)
         T = 5.0 * MM
         for x in xs:
-            X = l + x * MM
+            X = left + x * MM
             _line(page, X, b, X, b + T, m, 0.3, 0)
             _line(page, X, b + ch - T, X, b + ch, m, 0.3, 0)
         for y in ys:
             Y = b + y * MM
-            _line(page, l, Y, l + T, Y, m, 0.3, 0)
-            _line(page, l + cw - T, Y, l + cw, Y, m, 0.3, 0)
+            _line(page, left, Y, left + T, Y, m, 0.3, 0)
+            _line(page, left + cw - T, Y, left + cw, Y, m, 0.3, 0)
     if s.cut_contour:
         pts = [(X * m[0] + Y * m[2] + m[4], X * m[1] + Y * m[3] + m[5]) for X in (CX0, CX1) for Y in (CY0, CY1)]
         cuts.append((min(q[0] for q in pts), min(q[1] for q in pts), max(q[0] for q in pts), max(q[1] for q in pts)))
@@ -1961,6 +1964,7 @@ def print_pdf(path: str, s: PlanSettings, pages: list | None = None, session=Non
 
 def _open(path: str):
     import pypdfium2 as pdfium
+
     from . import images
 
     if images.is_image(path):

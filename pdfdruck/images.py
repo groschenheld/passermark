@@ -12,11 +12,11 @@ Without a DPI value in the image, the admin default applies (image_default_dpi).
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import io
 import logging
 import os
+
+from .l10n import tr
 
 IMAGE_EXT = {
     ".jpg",
@@ -106,6 +106,7 @@ def svg_to_pdf_bytes(path: str) -> bytes:
     import shutil
     import subprocess
     import tempfile
+
     from . import platform as _platform
 
     errors = []
@@ -340,10 +341,10 @@ def image_to_pdf_bytes(path: str, default_dpi: float = 96.0, hdr: dict | None = 
     if ext in HEIF_EXT:
         try:
             import pillow_heif
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
                 tr("HEIC/HEIF wird nicht unterstützt – pillow-heif fehlt (install.sh erneut ausführen).")
-            )
+            ) from e
         pillow_heif.register_heif_opener()
 
     with Image.open(path) as img:

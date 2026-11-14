@@ -31,7 +31,7 @@ GROUP = "passermark"
 def root() -> str:
     """Root of the shared print folder."""
     if IS_WIN:
-        return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Passermark")
+        return os.path.join(os.environ.get("PROGRAMDATA", r"C:\ProgramData"), "Passermark")
     return "/srv/passermark"
 
 
@@ -52,7 +52,7 @@ def in_home(p: str) -> bool:
         return False
     a = os.path.normcase(os.path.abspath(os.path.expanduser(p)))
     if IS_WIN:
-        users = os.path.normcase(os.path.join(os.environ.get("SystemDrive", "C:") + os.sep, "Users"))
+        users = os.path.normcase(os.path.join(os.environ.get("SYSTEMDRIVE", "C:") + os.sep, "Users"))
         return a == users or a.startswith(users + os.sep)
     return a == "/home" or a.startswith("/home/") or a == "/root" or a.startswith("/root/")
 

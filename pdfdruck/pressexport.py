@@ -50,7 +50,7 @@ class PressSettings:
 
 
 def _target(s: PressSettings, cfg: dict | None):
-    from . import colorcheck, colorlab, colorconv
+    from . import colorcheck, colorconv, colorlab
 
     if not s.target:
         raise ValueError(tr("Keine Druckbedingung: target = Pfad zum CMYK-Profil (.icc) angeben."))
@@ -257,8 +257,9 @@ def report_text(src_name: str, t, s: PressSettings, p: dict, before, after, find
 
 def run(src: str, dst: str, s: PressSettings, cfg: dict | None = None, progress=None, cancel=None) -> dict:
     """-> {"info": {...}, "notes": [...], "report": text, "findings": [...], "package": path|""}"""
-    from . import cmyk, colorcheck
     import pikepdf
+
+    from . import cmyk, colorcheck
 
     def step(i, text):
         if progress is not None:

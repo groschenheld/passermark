@@ -3,12 +3,13 @@
 """Save as PDF + form values when printing (flatten)."""
 
 import os
-import sys
 import os as _os
+import sys
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
+
 from pdfdruck import config, layout, printers, printjob
 
 HERE = os.path.dirname(__file__)

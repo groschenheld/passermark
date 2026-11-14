@@ -14,8 +14,6 @@ the installer) and puts the result in <file>.result.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import json
 import os
 import sys
@@ -23,6 +21,7 @@ import tempfile
 
 from . import cfgvalidate
 from . import platform as _platform
+from .l10n import tr
 
 MAX_BUNDLE = 4 << 20
 MAX_ICC = 20 << 20

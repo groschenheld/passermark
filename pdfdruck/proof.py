@@ -287,6 +287,7 @@ def lab_to_screen(lab_img, white=None):
     """
     import numpy as np
     from PIL import Image
+
     from .colorlab import D50, lab_to_xyz
 
     L, A, B = _lab_arrays(lab_img)
@@ -406,7 +407,9 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
     """
     import shutil
     import tempfile
+
     from PIL import Image
+
     from . import cmyk
 
     st = os.stat(path)

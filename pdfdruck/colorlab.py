@@ -114,7 +114,7 @@ def delta_e(lab1, lab2) -> float:
 
 def fmt_lab(lab) -> str:
     """Format a Lab value for display; a dash if there is none."""
-    return "L {0:.1f}  a {1:+.1f}  b {2:+.1f}".format(*lab) if lab else "–"
+    return "L {:.1f}  a {:+.1f}  b {:+.1f}".format(*lab) if lab else "–"
 
 
 def mean_lab(labs):
@@ -739,6 +739,7 @@ def doc_color_facts(path, max_pages: int = 50) -> tuple:
     of images and resources (the first max_pages pages). path = file or PDF bytes.
     """
     import io
+
     import pikepdf
 
     ois, cmyk = [], False

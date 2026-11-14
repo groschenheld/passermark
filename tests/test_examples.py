@@ -16,6 +16,7 @@ os.environ["APPDATA"] = TMP
 os.environ["HOME"] = TMP
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pypdfium2 as pdfium
+
 from pdfdruck import examples, presets, vdp
 
 ENV = dict(os.environ, PYTHONPATH=ROOT)

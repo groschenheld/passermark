@@ -15,8 +15,6 @@ OnlyOffice or Euro-Office.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import glob
 import os
 import shutil
@@ -25,6 +23,7 @@ import tempfile
 
 from . import images
 from . import platform as _platform
+from .l10n import tr
 
 OFFICE_EXT = {
     ".doc",
@@ -393,7 +392,9 @@ def _x2t(exe: str, path: str, outdir: str, timeout: int) -> str:
     )
     if not os.path.exists(out) or os.path.getsize(out) < 100:
         detail = (r.stderr or r.stdout or "").strip()
-        first = next((l for l in detail.splitlines() if "error" in l.lower()), detail.splitlines()[0] if detail else "")
+        first = next(
+            (ln for ln in detail.splitlines() if "error" in ln.lower()), detail.splitlines()[0] if detail else ""
+        )
         raise RuntimeError(tr("Konverter-Code {0}").format(r.returncode) + (f" – {first[:160]}" if first else ""))
     return out
 

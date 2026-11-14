@@ -19,7 +19,9 @@ sys.path.insert(0, ROOT)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-plan-cfg-")
 import pypdfium2 as pdfium
-from pdfdruck import planprint as pp, printers, rolls
+
+from pdfdruck import planprint as pp
+from pdfdruck import printers, rolls
 from pdfdruck.printers import Choice, Option, PrinterCaps, PrinterInfo
 
 TMP = tempfile.mkdtemp(prefix="pm-plan-")
@@ -36,10 +38,10 @@ def plan_pdf(name, W, H, frames=2, outer=10, gaps=(20, 5, 5, 5), thin=False, pag
         if frames >= 1:
             c.setLineWidth(0.13 * MM)
             c.rect(outer * MM, outer * MM, (W - 2 * outer) * MM, (H - 2 * outer) * MM)
-        l, b, r, t = gaps
+        left, b, r, t = gaps
         if frames >= 2:
             c.setLineWidth(0.5 * MM)
-            c.rect((outer + l) * MM, (outer + b) * MM, (W - 2 * outer - l - r) * MM, (H - 2 * outer - b - t) * MM)
+            c.rect((outer + left) * MM, (outer + b) * MM, (W - 2 * outer - left - r) * MM, (H - 2 * outer - b - t) * MM)
         c.setLineWidth((0.05 if thin else 0.3) * MM)
         for i in range(10):
             c.line((outer + 40) * MM, (outer + 40 + i * 8) * MM, (W / 2) * MM, (outer + 60 + i * 8) * MM)
@@ -383,6 +385,7 @@ def test_media_of_loaded_roll():
 def test_history():
     """History: the file is saved along (the original may be gone), newest first, at most MAX_ENTRIES, clean-up."""
     import shutil
+
     from pdfdruck import planhistory
 
     planhistory.clear()

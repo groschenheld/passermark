@@ -1168,11 +1168,11 @@ def find_placeholders(doc) -> list[tuple[int, str, tuple]]:
                     rects = [tp.get_rect(k) for k in range(n)]
                     if not rects:
                         continue
-                    l = min(r[0] for r in rects)
+                    ln = min(r[0] for r in rects)
                     b = min(r[1] for r in rects)
                     r_ = max(r[2] for r in rects)
                     t = max(r[3] for r in rects)
-                    out.append((i, m.group(0), (l / MM, (H - t) / MM, (r_ - l) / MM, (t - b) / MM)))
+                    out.append((i, m.group(0), (ln / MM, (H - t) / MM, (r_ - ln) / MM, (t - b) / MM)))
             finally:
                 tp.close()
         finally:
@@ -1277,8 +1277,9 @@ def _read_template(src: str, s: VdpSettings):
     themselves unrotated from (0, 0) – field coordinates then refer to the visible page.
     -> (sizes, pdf bytes, trims, bleeds, placeholder fields)"""
     import pypdfium2 as pdfium
+
+    from .layout import page_doc_bleeds, page_trims
     from .objects import normalized
-    from .layout import page_trims, page_doc_bleeds
 
     src_doc = pdfium.PdfDocument(src)
     try:
@@ -1390,7 +1391,7 @@ def _assemble(template: bytes, overlays: bytes, images, seq, sizes, trims, bleed
     out = pikepdf.new()
     # template once per page as a form XObject; every output page = template + its own overlay (small, separate)
     base_x = [out.copy_foreign(base.pages[p].as_form_xobject()) for p in range(len(sizes))]
-    for k, (r, p) in enumerate(seq):
+    for k, (_r, p) in enumerate(seq):
         W, H = sizes[p]
         ox = out.copy_foreign(over.pages[k].as_form_xobject())
         res = pikepdf.Dictionary(XObject=pikepdf.Dictionary(B=base_x[p], O=ox))
@@ -1484,8 +1485,9 @@ def page_for_record(s: VdpSettings, record: int, npages: int) -> int:
 
 def preview(src_doc, page: int, s: VdpSettings, record: int = 0):
     """One page with the fields of the chosen record – as a pypdfium2 document (for the preview)."""
-    import pypdfium2 as pdfium
     import tempfile
+
+    import pypdfium2 as pdfium
 
     s2 = VdpSettings(**{k: v for k, v in asdict(s).items()})
     s2.numbering = s.numbering if isinstance(s.numbering, Numbering) else Numbering(**(s.numbering or {}))

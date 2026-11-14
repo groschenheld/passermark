@@ -14,6 +14,7 @@ sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import numpy as np
 from PIL import Image
+
 from pdfdruck import colorlab, proof
 
 TMP = tempfile.mkdtemp(prefix="pm-proof-")
@@ -90,7 +91,9 @@ def _page_pdf(path, w=200, h=100):
 def test_separation_route(monkeypatch=None):
     """CMYK path (Ghostscript imitated): section and rotation match the whole page pixel for pixel."""
     import pypdfium2 as pdfium
-    from pdfdruck import cmyk, platform as _pl
+
+    from pdfdruck import cmyk
+    from pdfdruck import platform as _pl
 
     f = cmyk_profile()
     path = _page_pdf(os.path.join(TMP, "sep.pdf"))

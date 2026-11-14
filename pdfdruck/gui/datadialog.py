@@ -219,7 +219,7 @@ class DataDialog(QDialog):
         while len(self.rows) < count:
             self.rows.append({c: "" for c in self.cols})
         vals = datakinds.series(len(self.rows), start, step, digits, prefix, suffix)
-        for r, v in zip(self.rows, vals):
+        for r, v in zip(self.rows, vals, strict=False):
             if not only_empty or not str(r.get(col, "")).strip():
                 r[col] = v
         self.dirty = True
@@ -386,7 +386,7 @@ class DataDialog(QDialog):
                     return True
                 if (
                     ev.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace)
-                    and not self.tbl.state() == QAbstractItemView.State.EditingState
+                    and self.tbl.state() != QAbstractItemView.State.EditingState
                 ):
                     for it in self.tbl.selectedItems():
                         it.setText("")

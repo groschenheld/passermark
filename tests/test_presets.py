@@ -118,6 +118,7 @@ def test_cli_preset_by_name():
 def test_pdf_with_password():
     import pikepdf
     import pypdfium2 as pdfium
+
     from pdfdruck import printers, printjob
 
     caps = printers.pdf_caps()
@@ -149,21 +150,21 @@ def test_pdf_with_password():
 
 GUI = r"""
 import sys, types
-from pdfdruck.gui import viewer
-viewer.PageView._dpi_scale = lambda self: 1.0
-viewer.PageView.page_zoom = lambda self, i: 1.0
+from pdfdruck.gui import mainwindow, pageview
+pageview.PageView._dpi_scale = lambda self: 1.0
+pageview.PageView.page_zoom = lambda self, i: 1.0
 from pdfdruck import config, l10n
 from pdfdruck.gui.common import Session, window_modal_dialogs
 window_modal_dialogs(); window_modal_dialogs()      # twice: must not hook in twice
 import pypdfium2 as pdfium
-w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 assert w.workspace == "view"
 for k in ("prep", "edit", "auto", "view", "prep"):
     w.set_workspace(k)
     assert w.workspace == k
 assert l10n.load_settings()["workspace"] == "prep"
-w2 = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+w2 = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 assert w2.workspace == "prep"                       # a new window starts in the most recently chosen workspace
 # Bearbeiten einschalten wechselt in den Bereich Bearbeiten
 w._edit_mode(True)
@@ -265,7 +266,10 @@ def test_gui_workspaces_and_presetbars():
 
 def test_shortcuts_unique():
     """Every keyboard shortcut in the main window only once (otherwise Qt triggers neither of the two)."""
-    src = open(os.path.join(ROOT, "pdfdruck", "gui", "viewer.py"), encoding="utf-8").read()
+    gui = os.path.join(ROOT, "pdfdruck", "gui")
+    src = "".join(
+        open(os.path.join(gui, f), encoding="utf-8").read() for f in sorted(os.listdir(gui)) if f.startswith("main")
+    )
     keys = re.findall(r'\bA\(tr\("[^"]*"\),\s*[^\n]*?,\s*"((?:Ctrl|Alt|Shift|F\d|Home|End)[^"]*)"', src)
     seen = {}
     for k in keys:

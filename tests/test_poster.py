@@ -19,8 +19,10 @@ os.environ.setdefault("PASSERMARK_LANG", "de")
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-poster-cfg-")
 import pikepdf
 import pypdfium2 as pdfium
-from pdfdruck import planprint as pp, printmat, roland, rolls
 import test_planprint as T
+
+from pdfdruck import planprint as pp
+from pdfdruck import printmat, roland, rolls
 
 MM = 72 / 25.4
 
@@ -147,8 +149,8 @@ def test_hotfolder_output_and_log():
 
 def test_material_values():
     from pdfdruck import config
-    from pdfdruck.session import Session
     from pdfdruck.printers import Choice, Option
+    from pdfdruck.session import Session
 
     caps = T.plotter_caps()
     caps.options["EPIJ_Dens"] = Option(

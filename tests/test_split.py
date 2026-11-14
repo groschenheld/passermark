@@ -17,6 +17,7 @@ import pikepdf
 import pypdfium2 as pdfium
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+
 from pdfdruck import split
 
 A4, A3Q = (210 * mm, 297 * mm), (420 * mm, 297 * mm)

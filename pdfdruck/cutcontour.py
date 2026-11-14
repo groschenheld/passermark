@@ -742,8 +742,8 @@ def fast_result(size, trim, s: CutSettings) -> CutResult:
     of the trim size from the page edge in pt (layout.page_trims) or None = whole page. Size/distance/offset as elsewhere.
     """
     W, H = size
-    l, b, r, t = trim or (0.0, 0.0, 0.0, 0.0)
-    x0, y0, x1, y1 = l, b, W - r, H - t
+    left, b, r, t = trim or (0.0, 0.0, 0.0, 0.0)
+    x0, y0, x1, y1 = left, b, W - r, H - t
     w, h = x1 - x0, y1 - y0
     if s.shape == "circle" and not (s.width_mm > 0):
         w = h = min(w, h)  # circle into the trim size
@@ -846,7 +846,7 @@ def compute(
         jobs.append((obj, rgbw, (wy0, wy1, wx0, wx1), (ox0, oy0, ox1, oy1)))
     ctx = _ObjCtx(s, pad, px, H, off, sm, bl, use_bleed, bg_rgb, knock is not None)
     results = _run_objects(ctx, jobs, workers, progress, cancel, pool)
-    for (cobj, patch), (_o, _r, (wy0, wy1, wx0, wx1), _b) in zip(results, jobs):
+    for (cobj, patch), (_o, _r, (wy0, wy1, wx0, wx1), _b) in zip(results, jobs, strict=False):
         if cobj is None:
             continue
         if patch is not None:
@@ -999,7 +999,7 @@ def build_pdf(norm_doc, results: dict, s: CutSettings) -> bytes:
     cs = pikepdf.Array([pikepdf.Name.Separation, pikepdf.Name("/" + s.spot), pikepdf.Name.DeviceCMYK, fn])
     gs = pikepdf.Dictionary(Type=pikepdf.Name.ExtGState, OP=True, op=True, OPM=1)
 
-    for page, (_src, objs, single) in zip(pdf.pages, plan):
+    for page, (_src, objs, single) in zip(pdf.pages, plan, strict=False):
         if not objs:
             continue
         _set_page_boxes(page, objs, single, s)

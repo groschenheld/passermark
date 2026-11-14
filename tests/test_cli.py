@@ -69,7 +69,7 @@ def test_job_with_set_and_preset():
 def test_json_progress():
     out = os.path.join(TMP, "j.pdf")
     r = run("cutcontour", stickers(), out, "--json-progress")
-    evs = [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
+    evs = [json.loads(ln) for ln in r.stdout.splitlines() if ln.strip()]
     assert r.returncode == 0 and evs[0]["event"] == "progress" and evs[-1]["event"] == "done"
     assert evs[-1]["output"] == out and evs[-1]["info"]["cuts"] >= 3
     r = run("cutcontour", os.path.join(TMP, "fehlt.pdf"), out, "--json-progress")
@@ -126,7 +126,7 @@ def test_cancel_by_signal_leaves_no_file():
         time.sleep(0.5)
         p.send_signal(sig)
         rest, _err = p.communicate(timeout=300)
-        last = json.loads([l for l in rest.splitlines() if l.strip()][-1])
+        last = json.loads([ln for ln in rest.splitlines() if ln.strip()][-1])
         assert p.returncode == 130 and last["event"] == "cancelled", (sig, p.returncode, last)
         assert not os.path.exists(out) and not os.path.exists(out + ".part")
 

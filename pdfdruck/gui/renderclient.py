@@ -128,7 +128,7 @@ class RenderService(QObject):
         cmd, env_extra = cli_command()
         env = dict(os.environ, **env_extra)
         try:
-            self._stderr = tempfile.TemporaryFile(mode="w+b")
+            self._stderr = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115 – lives as long as the render process
             self.proc = subprocess.Popen(
                 cmd + ["render-server"],
                 stdin=subprocess.PIPE,

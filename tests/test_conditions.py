@@ -16,6 +16,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import test_printcli as T
+
 from pdfdruck import conditions, watch, workflow
 
 TMP = tempfile.mkdtemp(prefix="pm-cond-")

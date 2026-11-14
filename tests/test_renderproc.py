@@ -124,6 +124,7 @@ def test_sheet_preview_call():
     import numpy as np
     import pikepdf
     import pypdfium2 as pdfium
+
     from pdfdruck import layout, printjob, renderproc
 
     d = tempfile.mkdtemp()

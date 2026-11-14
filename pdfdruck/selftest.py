@@ -87,6 +87,7 @@ def run() -> int:
 
     def barcodes():  # variable data: reportlab barcodes are loaded dynamically
         import io
+
         from reportlab.graphics import renderPDF
         from reportlab.graphics.barcode import createBarcodeDrawing
         from reportlab.pdfgen import canvas

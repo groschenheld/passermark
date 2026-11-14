@@ -12,8 +12,6 @@ open the sources -> download a file -> import here (file, ZIP, .exe/.dmg/.cab or
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import os
 import re
 import shutil
@@ -23,6 +21,8 @@ import urllib.parse
 import urllib.request
 import zipfile
 from dataclasses import dataclass
+
+from .l10n import tr
 
 MAX_DOWNLOAD = 400 << 20  # driver packages can be large
 ICC_EXT = (".icc", ".icm")
@@ -229,7 +229,8 @@ def extract_icc(path: str, dest: str) -> list[IccInfo]:
         info = icc_info(f)
         if not info:
             continue
-        h = hashlib.sha1(open(f, "rb").read()).hexdigest()
+        with open(f, "rb") as fh:
+            h = hashlib.sha1(fh.read()).hexdigest()
         if h in seen:
             continue
         seen.add(h)

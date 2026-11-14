@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 import os
-import sys
 import os as _os
+import sys
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
-from pdfdruck import trays, ipp, printers as P
+from pdfdruck import ipp, trays
+from pdfdruck import printers as P
 
 T = [
     trays.Tray("Cas1", "A4", 80, "", "tray-1"),

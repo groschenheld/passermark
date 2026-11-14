@@ -79,8 +79,9 @@ def test_prune_keeps_max():
 
 
 def test_job_crash_details_reach_gui():
-    from pdfdruck import jobproc
     import test_cutcontour as tc
+
+    from pdfdruck import jobproc
 
     tmp = tempfile.mkdtemp()
     src = os.path.join(tmp, "b.pdf")

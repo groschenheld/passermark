@@ -5,8 +5,8 @@ import glob
 import os
 import sys
 import tempfile
-import time
 import threading
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -14,6 +14,7 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pypdfium2 as pdfium
+
 from pdfdruck import jobproc
 
 TMP = tempfile.mkdtemp(prefix="pm-job-")

@@ -76,9 +76,9 @@ def judge(res: dict, cal: float, baseline: dict):
 
 def _poster():
     """A4 poster like in everyday use: blotchy paper background, several motifs (fixed, no external randomness)."""
-    from PIL import Image, ImageDraw, ImageFilter
-    import pypdfium2 as pdfium
     import img2pdf
+    import pypdfium2 as pdfium
+    from PIL import Image, ImageDraw, ImageFilter
 
     W, H = 1240, 1754  # 150 dpi
     rng = np.random.default_rng(1)

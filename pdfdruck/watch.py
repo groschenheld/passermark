@@ -85,7 +85,7 @@ def load_config(path: str) -> dict:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except ValueError as e:
-        raise WatchError([("", tr("kein gültiges JSON: {0}").format(e))])
+        raise WatchError([("", tr("kein gültiges JSON: {0}").format(e))]) from e
     base = os.path.dirname(os.path.abspath(path))
     probs = []
     if not isinstance(data, dict):

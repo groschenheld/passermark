@@ -224,7 +224,7 @@ def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, st
     # prefer sizes without borderless/special variants, otherwise the shortest name
     plain = [v for v in hits if not re.search(r"borderless|fullbleed|full.bleed|randlos|\.", v, re.I)]
     best = sorted(plain or hits, key=lambda v: (len(v), v))[0]
-    mixed = any(abs(a - b) > tol for sz in sizes_pt[1:] for a, b in zip(sorted(need(sz)), sorted((w, h))))
+    mixed = any(abs(a - b) > tol for sz in sizes_pt[1:] for a, b in zip(sorted(need(sz)), sorted((w, h)), strict=False))
     note = (
         tr("Unterschiedliche Seitenformate – Papier nach der ersten Seite gewählt: {0}").format(best) if mixed else ""
     )
@@ -234,7 +234,9 @@ def auto_paper(caps: printers.PrinterCaps, sizes_pt: list, lay) -> tuple[str, st
 def print_pdf(path: str, s: PrintSettings, pages: list | None = None, session=None, progress=None) -> dict:
     """Print a PDF as from the print dialog. -> {"printer", "job_id", "sheets", "options", "dry_run"}."""
     import os
+
     import pypdfium2 as pdfium
+
     from . import config, layout, printjob
     from .session import Session
 
@@ -361,9 +363,8 @@ def printers_info() -> list:
 
 def caps_info(name: str) -> dict:
     """Capabilities of a printer (options by role, paper sizes, trays, borderless) for ``passermark-cli caps``."""
-    from . import layout
+    from . import config, layout
     from .session import Session
-    from . import config
 
     sess = Session(config.load())
     caps = sess.caps_for(name)

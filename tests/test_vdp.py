@@ -18,8 +18,9 @@ os.environ["XDG_CONFIG_HOME"] = TMP
 os.environ["APPDATA"] = TMP
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pypdfium2 as pdfium
+
 from pdfdruck import layout, vdp
-from pdfdruck.layout import LayoutSettings, Sheet, MM
+from pdfdruck.layout import MM, LayoutSettings, Sheet
 
 SAMPLE = os.path.join(HERE, "sample.pdf")
 CSV = os.path.join(TMP, "daten.csv")
@@ -187,7 +188,7 @@ def test_code128_klartext_in_schriftgroesse():
     tp = d[0].get_textpage()
     assert "T1" in tp.get_text_range()
     i = tp.get_text_range().index("T1")
-    l, b, r, t = tp.get_charbox(i)
+    left, b, r, t = tp.get_charbox(i)
     assert (t - b) < 12, t - b  # 9 pt type, not stretched to 40 mm box height
     d.close()
 

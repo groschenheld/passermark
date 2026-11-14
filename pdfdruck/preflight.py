@@ -22,16 +22,13 @@ Repairs:
 from __future__ import annotations
 
 import io
-import json
-import os
 import re
-import shutil
-import subprocess
-import tempfile
 from dataclasses import dataclass, field
 
-from . import platform as _platform
+from .fontlib import suggest_font
 from .l10n import tr
+from .pdflayers import layers_outside, list_layers
+from .pdfutil import obj_key, page_resources
 
 STANDARD14 = {
     "Courier",
@@ -50,20 +47,6 @@ STANDARD14 = {
     "ZapfDingbats",
 }
 
-# metrically compatible free substitute fonts (same character widths -> text does not shift)
-METRIC = [
-    (r"arial|helvetica|arimo", "Liberation Sans"),
-    (r"timesnewroman|times|tinos", "Liberation Serif"),
-    (r"couriernew|courier|cousine", "Liberation Mono"),
-    (r"calibri", "Carlito"),
-    (r"cambria", "Caladea"),
-    (r"isocp|isoct|isocpeur|isocteur", "osifont"),
-    (r"^symbol$|symbolmt", "Standard Symbols PS"),
-    (r"zapfdingbats", "D050000L"),
-    (r"verdana", "DejaVu Sans"),
-    (r"tahoma|segoeui", "DejaVu Sans"),
-    (r"georgia", "Gelasio"),
-]
 
 SEV_ORDER = {"error": 0, "warning": 1, "info": 2}
 
@@ -119,19 +102,6 @@ class FontInfo:
 
 
 @dataclass
-class LayerInfo:
-    """A layer (optional content group) with its visibility on screen and in print."""
-
-    key: str
-    name: str
-    view_on: bool
-    print_on: bool | None  # None = no print setting of its own (follows the view)
-    locked: bool = False
-    pages: set = field(default_factory=set)
-    outside_pct: float | None = None
-
-
-@dataclass
 class Report:
     """Result of the document check: fonts, layers, findings and facts about the pages."""
 
@@ -163,30 +133,6 @@ class Report:
         return c
 
 
-# --------------------------------------------------------------------------- #
-# helpers
-# --------------------------------------------------------------------------- #
-def _key(obj) -> str:
-    try:
-        og = obj.objgen
-        if og != (0, 0):
-            return f"{og[0]} {og[1]}"
-    except Exception:
-        pass
-    return f"id{id(obj)}"
-
-
-def _resources(page):
-    import pikepdf
-
-    node = page.obj
-    while node is not None:
-        if "/Resources" in node:
-            return node.Resources
-        node = node.get("/Parent")
-    return pikepdf.Dictionary()
-
-
 def _pages_str(pages) -> str:
     ps = sorted(pages)
     if not ps:
@@ -208,7 +154,7 @@ def _walk_resources(res, page_no, visit, seen):
 
     if res is None:
         return
-    rk = _key(res)
+    rk = obj_key(res)
     if rk in seen:
         return
     seen[rk] = res  # hold on to the object: a key made from id() must not be handed out again while we walk
@@ -239,7 +185,7 @@ class _ResourceScan:
         import pikepdf
 
         for _n, f in (res.get("/Font") or {}).items():
-            k = _key(f)
+            k = obj_key(f)
             if k not in self.fonts:
                 self.fonts[k] = _font_info(f, k)
                 self._alive.append(f)  # as above: keeps id()-based keys unique
@@ -275,9 +221,12 @@ class _ResourceScan:
             try:
                 if x.get("/Subtype") == pikepdf.Name.Image and "/SMask" in x:
                     self.trans.setdefault(pno, set()).add("image_alpha")
-                if x.get("/Subtype") == pikepdf.Name.Form and "/Group" in x:
-                    if x.Group.get("/S") == pikepdf.Name.Transparency:
-                        self.trans.setdefault(pno, set()).add("group")
+                if (
+                    x.get("/Subtype") == pikepdf.Name.Form
+                    and "/Group" in x
+                    and x.Group.get("/S") == pikepdf.Name.Transparency
+                ):
+                    self.trans.setdefault(pno, set()).add("group")
             except Exception:
                 pass
 
@@ -293,12 +242,12 @@ def _scan_page(page, i: int, rep: Report, scan: _ResourceScan):
     try:
         rep.geometry[i] = _page_geometry(page.obj)
         _page_forms(page.obj, i, rep)
-        if _content_len(page.obj) < 20000 and not (_resources(page).get("/XObject") or {}):
+        if _content_len(page.obj) < 20000 and not (page_resources(page).get("/XObject") or {}):
             rep._blank_candidates.append(i)
     except Exception:
         pass
     seen: dict = {}
-    _walk_resources(_resources(page), i, scan.visit, seen)
+    _walk_resources(page_resources(page), i, scan.visit, seen)
     for a in page.obj.get("/Annots") or []:
         try:
             ap = a.get("/AP")
@@ -380,7 +329,7 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
             _doc_checks(pdf, rep)
         except Exception:
             pass
-        rep.layers = _layers(pdf)
+        rep.layers = list_layers(pdf)
         _sub_reports(pdf, data, rep)
     finally:
         pdf.close()
@@ -408,7 +357,7 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
         pass
     if deep_layers and rep.layers:
         try:
-            _layers_outside(data, rep.layers)
+            layers_outside(data, rep.layers)
         except Exception:
             pass
     rep.issues = _issues(rep)
@@ -474,7 +423,7 @@ def _isect(a, b):
 
 
 def _differs(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
-    return any(abs(x - y) > tol_mm * MM_PT for x, y in zip(a, b))
+    return any(abs(x - y) > tol_mm * MM_PT for x, y in zip(a, b, strict=False))
 
 
 def _inside(a, b, tol_mm: float = BOX_TOL_MM) -> bool:
@@ -586,6 +535,7 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
     bleed.
     """
     import pypdfium2 as pdfium
+
     from .planprint import _render_gray
 
     edge = [
@@ -615,7 +565,7 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
                     a = _render_gray(pg, sc)
                     H, W = a.shape[:2]
 
-                    def px(X, Y):
+                    def px(X, Y, crop=crop, sc=sc):
                         return int(round((X - crop[0]) * sc)), int(round((crop[3] - Y) * sc))
 
                     band = 1.5 * MM_PT
@@ -973,6 +923,7 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
     page (pdfium, page coordinates). Only for fonts that have a finding.
     """
     import ctypes
+
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
 
@@ -1002,12 +953,12 @@ def _locate(data: bytes, rep: Report, max_pages: int = 300, max_objs: int = 4000
                 for k in range(n):
                     obj = r.FPDFPage_GetObject(pg.raw, k)
                     typ = r.FPDFPageObj_GetType(obj)
-                    l, b, rr, t = (ctypes.c_float() for _ in range(4))
+                    left, b, rr, t = (ctypes.c_float() for _ in range(4))
                     if not r.FPDFPageObj_GetBounds(
-                        obj, ctypes.byref(l), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t)
+                        obj, ctypes.byref(left), ctypes.byref(b), ctypes.byref(rr), ctypes.byref(t)
                     ):
                         continue
-                    box = (l.value, b.value, rr.value, t.value)
+                    box = (left.value, b.value, rr.value, t.value)
                     if has_tr is not None and p in tpages and has_tr(obj):
                         out.setdefault(("transparency",), {}).setdefault(p, []).append(box)
                     if typ == r.FPDF_PAGEOBJ_TEXT:
@@ -1045,7 +996,7 @@ def _text_fonts_in_order(data: bytes) -> dict:
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         for i, page in enumerate(pdf.pages, start=1):
-            fonts = (_resources(page).get("/Font") or {}) if _resources(page) is not None else {}
+            fonts = (page_resources(page).get("/Font") or {}) if page_resources(page) is not None else {}
             cur, seq = "", []
             try:
                 ops = pikepdf.parse_content_stream(page)
@@ -1122,648 +1073,6 @@ def _garbled(data: bytes) -> dict:
     finally:
         doc.close()
     return out
-
-
-# --------------------------------------------------------------------------- #
-# layers
-# --------------------------------------------------------------------------- #
-def _ocp(pdf):
-    return pdf.Root.get("/OCProperties")
-
-
-def _layers(pdf) -> list[LayerInfo]:
-    import pikepdf
-
-    ocp = _ocp(pdf)
-    if ocp is None:
-        return []
-    d = ocp.get("/D") or pikepdf.Dictionary()
-    base_on = d.get("/BaseState", pikepdf.Name.ON) != pikepdf.Name.OFF
-    on = {_key(o) for o in d.get("/ON") or []}
-    off = {_key(o) for o in d.get("/OFF") or []}
-    locked = {_key(o) for o in d.get("/Locked") or []}
-    out = {}
-    for g in ocp.get("/OCGs") or []:
-        k = _key(g)
-        view = (k in on) or (base_on and k not in off)
-        pr = None
-        try:
-            ps = g.Usage.Print.PrintState
-            pr = ps == pikepdf.Name.ON
-        except Exception:
-            pass
-        out[k] = LayerInfo(k, str(g.get("/Name", "?")), view, pr, k in locked)
-    # pages per layer (BDC /OC in contents and XObjects with /OC)
-    for i, page in enumerate(pdf.pages, start=1):
-        res = _resources(page)
-        props = res.get("/Properties") or {}
-        for kk in _oc_keys_in_stream(page, props, res, set()):
-            if kk in out:
-                out[kk].pages.add(i)
-    return list(out.values())
-
-
-def _ocgs_of(oc) -> list:
-    import pikepdf
-
-    if oc is None:
-        return []
-    if oc.get("/Type") == pikepdf.Name.OCMD:
-        o = oc.get("/OCGs")
-        if o is None:
-            return []
-        return list(o) if isinstance(o, pikepdf.Array) else [o]
-    return [oc]
-
-
-def _oc_keys_in_stream(obj, props, res, seen) -> set:
-    import pikepdf
-
-    keys = set()
-    try:
-        ops = pikepdf.parse_content_stream(obj)
-    except Exception:
-        return keys
-    xo = res.get("/XObject") if res is not None else None
-    for ins in ops:
-        op = str(getattr(ins, "operator", ""))
-        operands = getattr(ins, "operands", [])
-        if op == "BDC" and len(operands) >= 2 and operands[0] == pikepdf.Name.OC:
-            oc = props.get(operands[1]) if isinstance(operands[1], pikepdf.Name) else operands[1]
-            for g in _ocgs_of(oc):
-                keys.add(_key(g))
-        elif op == "Do" and xo is not None and operands:
-            x = xo.get(operands[0])
-            if x is None:
-                continue
-            if "/OC" in x:
-                for g in _ocgs_of(x.OC):
-                    keys.add(_key(g))
-            xk = _key(x)
-            if x.get("/Subtype") == pikepdf.Name.Form and xk not in seen:
-                seen.add(xk)
-                xr = x.get("/Resources") or res
-                keys |= _oc_keys_in_stream(x, xr.get("/Properties") or {}, xr, seen)
-    return keys
-
-
-def _layers_outside(data: bytes, layers: list[LayerInfo], max_layers=40, max_pages=6):
-    """Per layer: how much of its content lies outside the page? (Rendered individually, page enlarged.)"""
-    import pikepdf
-    import pypdfium2 as pdfium
-
-    for L in layers[:max_layers]:
-        if not L.pages:
-            continue
-        pdf = pikepdf.open(io.BytesIO(data))
-        try:
-            ocp = _ocp(pdf)
-            target = [g for g in ocp.OCGs if _key(g) == L.key]
-            if not target:
-                continue
-            d = ocp.D
-            d.BaseState = pikepdf.Name.OFF
-            d.ON = pikepdf.Array(target)
-            d.OFF = pikepdf.Array()
-            if "/AS" in d:
-                del d["/AS"]
-            pages = sorted(L.pages)[:max_pages]
-            boxes = {}
-            for p in pages:
-                pg = pdf.pages[p - 1]
-                x0, y0, x1, y1 = [float(v) for v in (pg.obj.get("/CropBox") or pg.MediaBox)]
-                w, h = x1 - x0, y1 - y0
-                boxes[p] = (w, h)
-                big = [x0 - w, y0 - h, x1 + w, y1 + h]
-                pg.MediaBox = big
-                pg.CropBox = big
-            buf = io.BytesIO()
-            pdf.save(buf)
-        finally:
-            pdf.close()
-        doc = pdfium.PdfDocument(buf.getvalue())
-        tot = outside = 0
-        try:
-            for p in pages:
-                w, h = boxes[p]
-                scale = 160.0 / max(w, h)
-                bmp = doc[p - 1].render(scale=scale, fill_color=(255, 255, 255, 0))
-                a = bmp.to_numpy()[:, :, 3] > 20
-                H, W = a.shape
-                ys, xs = slice(H // 3, H - H // 3), slice(W // 3, W - W // 3)
-                inner = a[ys, xs].sum()
-                total = a.sum()
-                tot += total
-                outside += total - inner
-        finally:
-            doc.close()
-        L.outside_pct = (100.0 * outside / tot) if tot else None
-
-
-def _visible(oc, visible: set) -> bool:
-    import pikepdf
-
-    if oc is None:
-        return True
-    if oc.get("/Type") == pikepdf.Name.OCMD:
-        groups = [_key(g) for g in _ocgs_of(oc)]
-        if not groups:
-            return True
-        states = [g in visible for g in groups]
-        pol = str(oc.get("/P", "/AnyOn"))
-        return {"/AllOn": all(states), "/AnyOff": not all(states), "/AllOff": not any(states)}.get(pol, any(states))
-    return _key(oc) in visible
-
-
-def _rewrite(pdf, obj, props, res, visible, strip, done):
-    """Filter a content stream: remove invisible OC content; with strip also remove the OC markers."""
-    import pikepdf
-
-    ok = _key(obj)
-    if ok in done:
-        return
-    done.add(ok)
-    try:
-        ops = pikepdf.parse_content_stream(obj)
-    except Exception:
-        return
-    xo = res.get("/XObject") if res is not None else None
-    out, stack, skip = [], [], 0
-    for ins in ops:
-        op = str(getattr(ins, "operator", ""))
-        operands = getattr(ins, "operands", [])
-        if skip:
-            if op in ("BDC", "BMC"):
-                skip += 1
-            elif op == "EMC":
-                skip -= 1
-            continue
-        if op == "BDC" and len(operands) >= 2 and operands[0] == pikepdf.Name.OC:
-            oc = props.get(operands[1]) if isinstance(operands[1], pikepdf.Name) else operands[1]
-            if not _visible(oc, visible):
-                skip = 1
-                continue
-            stack.append("drop" if strip else "keep")
-            if not strip:
-                out.append(ins)
-            continue
-        if op in ("BDC", "BMC"):
-            stack.append("keep")
-        elif op == "EMC":
-            if (stack.pop() if stack else "keep") == "drop":
-                continue
-        elif op == "Do" and xo is not None and operands:
-            x = xo.get(operands[0])
-            if x is not None:
-                if "/OC" in x and not _visible(x.OC, visible):
-                    continue
-                if x.get("/Subtype") == pikepdf.Name.Form:
-                    xr = x.get("/Resources") or res
-                    _rewrite(pdf, x, xr.get("/Properties") or {}, xr, visible, strip, done)
-                    if strip and "/OC" in x:
-                        del x["/OC"]
-        out.append(ins)
-    data = pikepdf.unparse_content_stream(out)
-    if isinstance(obj, pikepdf.Page):
-        obj.obj.Contents = pikepdf.Stream(pdf, data)
-    else:
-        obj.write(data)
-
-
-def _apply_visibility(pdf, visible: set, strip: bool):
-    import pikepdf
-
-    done = set()
-    for page in pdf.pages:
-        res = _resources(page)
-        props = res.get("/Properties") or {}
-        _rewrite(pdf, page, props, res, visible, strip, done)
-        annots = page.obj.get("/Annots")
-        if annots is not None:
-            keep = pikepdf.Array([a for a in annots if "/OC" not in a or _visible(a.OC, visible)])
-            if strip:
-                for a in keep:
-                    if "/OC" in a:
-                        del a["/OC"]
-            page.obj.Annots = keep
-
-
-def current_visible(pdf, use_print=True) -> set:
-    """Visible layers: for printing (print setting, otherwise view) or for the view."""
-    vis = set()
-    for L in _layers(pdf):
-        on = L.print_on if (use_print and L.print_on is not None) else L.view_on
-        if on:
-            vis.add(L.key)
-    return vis
-
-
-def has_layers(data: bytes) -> bool:
-    """Whether the PDF defines layers (optional content)."""
-    import pikepdf
-
-    with pikepdf.open(io.BytesIO(data)) as pdf:
-        return _ocp(pdf) is not None
-
-
-def flatten_layers(data: bytes, visible: set | None = None) -> bytes:
-    """Pin the visible state: remove hidden layer content, dissolve the layers.
-    Afterwards every printer/viewer prints exactly what is visible.
-    """
-    import pikepdf
-
-    pdf = pikepdf.open(io.BytesIO(data))
-    try:
-        if _ocp(pdf) is None:
-            raise ValueError(tr("Das Dokument hat keine Ebenen."))
-        vis = current_visible(pdf) if visible is None else visible
-        _apply_visibility(pdf, vis, strip=True)
-        del pdf.Root["/OCProperties"]
-        out = io.BytesIO()
-        pdf.save(out)
-        return out.getvalue()
-    finally:
-        pdf.close()
-
-
-def remove_layers(data: bytes, keys: set) -> bytes:
-    """Remove layers including their content; the remaining layers are preserved."""
-    import pikepdf
-
-    pdf = pikepdf.open(io.BytesIO(data))
-    try:
-        ocp = _ocp(pdf)
-        if ocp is None:
-            raise ValueError(tr("Das Dokument hat keine Ebenen."))
-        all_keys = {_key(g) for g in ocp.OCGs}
-        _apply_visibility(pdf, all_keys - set(keys), strip=False)
-
-        def clean(arr):
-            out = pikepdf.Array()
-            for it in arr:
-                if isinstance(it, pikepdf.Array):
-                    sub = clean(it)
-                    if len(sub):
-                        out.append(sub)
-                elif isinstance(it, pikepdf.Dictionary) and _key(it) in keys:
-                    continue
-                else:
-                    out.append(it)
-            return out
-
-        ocp.OCGs = clean(ocp.OCGs)
-        d = ocp.get("/D")
-        if d is not None:
-            for k in ("/ON", "/OFF", "/Order", "/Locked", "/RBGroups"):
-                if k in d:
-                    d[k] = clean(d[k])
-        if not len(ocp.OCGs):
-            del pdf.Root["/OCProperties"]
-        out = io.BytesIO()
-        pdf.save(out)
-        return out.getvalue()
-    finally:
-        pdf.close()
-
-
-def set_layer_states(data: bytes, states: dict) -> bytes:
-    """states: {key: (view on, print on)} -> set the default state in the document (layers stay)."""
-    import pikepdf
-
-    pdf = pikepdf.open(io.BytesIO(data))
-    try:
-        ocp = _ocp(pdf)
-        if ocp is None:
-            raise ValueError(tr("Das Dokument hat keine Ebenen."))
-        d = ocp.get("/D")
-        if d is None:
-            d = ocp.D = pikepdf.Dictionary()
-        on, off = pikepdf.Array(), pikepdf.Array()
-        printers = []
-        for g in ocp.OCGs:
-            view, prn = states.get(_key(g), (True, True))
-            (on if view else off).append(g)
-            usage = g.get("/Usage")
-            if usage is None:
-                usage = g.Usage = pikepdf.Dictionary()
-            usage.Print = pikepdf.Dictionary(PrintState=pikepdf.Name.ON if prn else pikepdf.Name.OFF)
-            usage.View = pikepdf.Dictionary(ViewState=pikepdf.Name.ON if view else pikepdf.Name.OFF)
-            printers.append(g)
-        d.BaseState = pikepdf.Name.ON
-        d.ON, d.OFF = on, off
-        # apply the print state automatically (viewers that evaluate Usage)
-        d.AS = pikepdf.Array(
-            [
-                pikepdf.Dictionary(
-                    Event=pikepdf.Name.Print, Category=pikepdf.Array([pikepdf.Name.Print]), OCGs=pikepdf.Array(printers)
-                ),
-                pikepdf.Dictionary(
-                    Event=pikepdf.Name.View, Category=pikepdf.Array([pikepdf.Name.View]), OCGs=pikepdf.Array(printers)
-                ),
-            ]
-        )
-        out = io.BytesIO()
-        pdf.save(out)
-        return out.getvalue()
-    finally:
-        pdf.close()
-
-
-# --------------------------------------------------------------------------- #
-# fonts
-# --------------------------------------------------------------------------- #
-def _norm(name: str) -> tuple[str, bool, bool]:
-    """BaseFont -> (Familie normalisiert, fett, kursiv)."""
-    n = name.split("+", 1)[-1]
-    low = n.lower()
-    bold = bool(re.search(r"bold|black|heavy|semibold|demi", low))
-    italic = bool(re.search(r"italic|oblique|kursiv", low))
-    fam = re.split(r"[,-]", n)[0]
-    fam = re.sub(r"(PSMT|MT|PS)$", "", fam)
-    fam = re.sub(r"(Bold|Italic|Oblique|Regular)+$", "", fam, flags=re.I)
-    return re.sub(r"[^a-z0-9]", "", fam.lower()), bold, italic
-
-
-def font_dirs() -> list[str]:
-    """Folders that are searched for font files on this system."""
-    home = os.path.expanduser("~")
-    if _platform.IS_WIN:
-        win = os.environ.get("WINDIR", r"C:\Windows")
-        return [
-            os.path.join(win, "Fonts"),
-            os.path.join(os.environ.get("LOCALAPPDATA", home), "Microsoft", "Windows", "Fonts"),
-            user_font_dir(),
-        ]
-    return [
-        "/usr/share/fonts",
-        "/usr/local/share/fonts",
-        os.path.join(home, ".local", "share", "fonts"),
-        os.path.join(home, ".fonts"),
-        user_font_dir(),
-    ]
-
-
-def user_font_dir() -> str:
-    """Folder for fonts downloaded by Passermark for the current user."""
-    if _platform.IS_WIN:
-        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-        return os.path.join(base, "Passermark", "fonts")
-    return os.path.join(os.path.expanduser("~"), ".local", "share", "fonts", "passermark")
-
-
-def _fc_match(family: str, bold: bool, italic: bool) -> str:
-    fc = shutil.which("fc-match")
-    if not fc:
-        return ""
-    style = ("Bold " if bold else "") + ("Italic" if italic else "")
-    pat = family + (f":style={style.strip()}" if style.strip() else "")
-    try:
-        r = subprocess.run([fc, "-f", "%{family}|%{file}", pat], capture_output=True, text=True, timeout=10)
-        fam, _, path = r.stdout.partition("|")
-        if path and family.split()[0].lower() in fam.lower().replace(" ", ""):
-            return path
-        if path and family.lower() in fam.lower():
-            return path
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return ""
-
-
-def _scan_files(family: str, bold: bool, italic: bool) -> str:
-    want = re.sub(r"[^a-z0-9]", "", family.lower())
-    best, score_best = "", -1
-    for d in font_dirs():
-        if not os.path.isdir(d):
-            continue
-        for root, _dirs, files in os.walk(d):
-            for fn in files:
-                if not fn.lower().endswith((".ttf", ".otf")):
-                    continue
-                base = re.sub(r"[^a-z0-9]", "", fn.lower().rsplit(".", 1)[0])
-                if not base.startswith(want):
-                    continue
-                rest = base[len(want) :]
-                b, i = "bold" in rest, ("italic" in rest or "oblique" in rest)
-                score = (b == bold) * 2 + (i == italic) * 2 - len(rest) / 100
-                if score > score_best:
-                    best, score_best = os.path.join(root, fn), score
-    return best
-
-
-def find_font_file(family: str, bold=False, italic=False) -> str:
-    """Path of an installed font file for ``family`` in the given style, or an empty string."""
-    return _fc_match(family, bold, italic) or _scan_files(family, bold, italic)
-
-
-def suggest_font(name: str) -> tuple[str, str]:
-    """(path, display name) of a suitable substitute font – preferably metrically compatible."""
-    fam, bold, italic = _norm(name)
-    for pat, repl in METRIC:
-        if re.search(pat, fam):
-            p = find_font_file(repl, bold, italic)
-            if p:
-                return p, repl + (" Bold" if bold else "") + (" Italic" if italic else "")
-    # a font of the same name in the system?
-    p = _scan_files(fam, bold, italic)
-    if p:
-        return p, os.path.basename(p)
-    # CAD standard fonts without osifont: narrow sans-serif fallback (widths stay from the PDF)
-    if re.search(r"isocp|isoct|romans|simplex|txt|cad|norm", fam):
-        for fb in ("DejaVu Sans Condensed", "Liberation Sans Narrow", "DejaVu Sans"):
-            p = find_font_file(fb, bold, italic)
-            if p:
-                return p, fb + tr(" (Ausweichschrift)")
-    return "", ""
-
-
-# commercial fonts -> free, metrically identical twin on fontsource.org (same character widths)
-DOWNLOAD_ALIAS = [
-    (r"arial|helvetica|arimo", "Arimo"),
-    (r"timesnewroman|times|tinos", "Tinos"),
-    (r"couriernew|courier|cousine", "Cousine"),
-    (r"calibri|carlito", "Carlito"),
-    (r"cambria|caladea", "Caladea"),
-    (r"georgia|gelasio", "Gelasio"),
-    (r"segoeui|tahoma|verdana", "Open Sans"),
-]
-FONTSOURCE = "https://api.fontsource.org/v1/fonts"
-
-
-def free_alternative(name: str) -> str:
-    """Free (mostly metrically compatible) twin of a commercial font – or ""."""
-    fam = _norm(name)[0]
-    for pat, alt in DOWNLOAD_ALIAS:
-        if re.search(pat, fam):
-            return alt
-    return ""
-
-
-def _get_json(url):
-    import urllib.request  # only when needed: loads SSL – cost noticeable time for the first window
-
-    req = urllib.request.Request(url, headers={"User-Agent": "Passermark"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read().decode("utf-8"))
-
-
-def similar_fonts(family: str, n: int = 6) -> list[str]:
-    """Similarly named free fonts on fontsource.org (for "Did you mean …?")."""
-    import difflib
-
-    try:
-        lst = _get_json(FONTSOURCE)
-    except Exception:
-        return []
-    fams = [f.get("family", "") for f in lst if isinstance(f, dict)]
-    low = {f.lower(): f for f in fams}
-    q = family.lower().strip()
-    hits = [low[k] for k in difflib.get_close_matches(q, list(low), n=n, cutoff=0.6)]
-    hits += [f for f in fams if q and q in f.lower() and f not in hits]
-    return hits[:n]
-
-
-class FontNotFound(RuntimeError):
-    """Raised when a font cannot be downloaded; carries similar family names as suggestions."""
-
-    def __init__(self, family, suggestions):
-        self.family, self.suggestions = family, suggestions
-        msg = tr("Schrift „{0}“ gibt es auf fontsource.org nicht (dort liegen nur freie Schriften).").format(family)
-        if suggestions:
-            msg += "\n" + tr("Ähnliche freie Schriften: {0}").format(", ".join(suggestions))
-        super().__init__(msg)
-
-
-def download_font(family: str, progress=None) -> tuple[list[str], str]:
-    """Fetch a free font (OFL/Apache) from fontsource.org -> (file paths, family actually loaded).
-    Commercial names (Arial, Calibri …) are redirected to their free twin.
-    """
-    import urllib.error
-    import urllib.request
-
-    used = free_alternative(family) or family.strip()
-    fid = re.sub(r"[^a-z0-9]+", "-", used.lower()).strip("-")
-    cdn = "https://cdn.jsdelivr.net/fontsource/fonts/{0}@latest/latin-{1}-{2}.ttf"
-    try:
-        meta = _get_json(f"{FONTSOURCE}/{fid}")
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            raise FontNotFound(used, similar_fonts(used))
-        meta = None
-        api_err = e
-    except Exception as e:
-        meta = None
-        api_err = e
-    if meta is None:
-        # API not reachable: directly from the fontsource CDN (same files)
-        meta = {
-            "family": used,
-            "variants": {
-                w: {st: {"latin": {"url": {"ttf": cdn.format(fid, w, st)}}} for st in ("normal", "italic")}
-                for w in ("400", "700")
-            },
-        }
-    variants = meta.get("variants") or {}
-    out_dir = user_font_dir()
-    os.makedirs(out_dir, exist_ok=True)
-    paths = []
-    for weight in ("400", "700"):
-        for style in ("normal", "italic"):
-            v = (variants.get(weight) or {}).get(style) or {}
-            sub = v.get("latin") or (next(iter(v.values())) if v else None)
-            if not sub:
-                continue
-            u = (sub.get("url") or {}).get("ttf")
-            if not u:
-                continue
-            fn = f"{fid}-{weight}-{style}.ttf"
-            dst = os.path.join(out_dir, fn)
-            try:
-                with urllib.request.urlopen(
-                    urllib.request.Request(u, headers={"User-Agent": "Passermark"}), timeout=30
-                ) as r:
-                    data = r.read()
-            except Exception:
-                continue  # style not available (e.g. no italic)
-            with open(dst, "wb") as f:
-                f.write(data)
-            paths.append(dst)
-            if progress:
-                progress(fn)
-    if not paths:
-        if "api_err" in locals():
-            raise RuntimeError(tr("Kein Zugriff auf fontsource.org ({0}).").format(api_err))
-        raise RuntimeError(tr("Für „{0}“ gibt es keine TTF-Dateien zum Herunterladen.").format(used))
-    if shutil.which("fc-cache"):
-        subprocess.run(["fc-cache", "-f", out_dir], capture_output=True, timeout=60)
-    return paths, meta.get("family", used)
-
-
-def _gs(args: list, src: bytes) -> bytes:
-    gs = _platform.ghostscript()
-    if not gs:
-        raise RuntimeError(tr("Für diese Reparatur wird Ghostscript benötigt."))
-    tmp = tempfile.mkdtemp(prefix="passermark-pf-")
-    try:
-        i, o = os.path.join(tmp, "in.pdf"), os.path.join(tmp, "out.pdf")
-        with open(i, "wb") as f:
-            f.write(src)
-        cmd = [
-            gs,
-            "-q",
-            "-dNOPAUSE",
-            "-dBATCH",
-            "-dSAFER",
-            "-sDEVICE=pdfwrite",
-            "-dAutoRotatePages=/None",
-            "-dDownsampleColorImages=false",
-            "-dDownsampleGrayImages=false",
-            "-dDownsampleMonoImages=false",
-            *[a.replace("{TMP}", tmp) for a in args],
-            "-o",
-            o,
-            i,
-        ]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, **_platform.hidden_subprocess_kwargs())
-        if r.returncode != 0 or not os.path.exists(o):
-            raise RuntimeError(tr("Ghostscript-Fehler:\n") + (r.stderr or r.stdout or "")[-1500:])
-        with open(o, "rb") as f:
-            return f.read()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def _ps_str(s: str) -> str:
-    return "(" + s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") + ")"
-
-
-def embed_fonts(data: bytes, mapping: dict) -> bytes:
-    """Embed all fonts; replace missing ones via the mapping {font name: path} (Ghostscript fontmap)."""
-    tmp = tempfile.mkdtemp(prefix="passermark-fm-")
-    try:
-        fm = os.path.join(tmp, "Fontmap")
-        dirs = set()
-        with open(fm, "w", encoding="utf-8") as f:
-            for name, path in mapping.items():
-                if path and os.path.exists(path):
-                    f.write(f"/{name} {_ps_str(path)} ;\n")
-                    dirs.add(os.path.dirname(path))
-        permits = [f"--permit-file-read={d.rstrip(os.sep)}{os.sep}" for d in dirs | {tmp}]
-        args = ["-dCompatibilityLevel=1.7", "-dEmbedAllFonts=true", "-dSubsetFonts=true", f"-sFONTMAP={fm}", *permits]
-        if dirs:
-            args.append("-sFONTPATH=" + os.pathsep.join(sorted(dirs)))
-        return _gs(args, data)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def outline_text(data: bytes) -> bytes:
-    """Convert text to paths (looks the same everywhere, but is no longer searchable)."""
-    return _gs(["-dCompatibilityLevel=1.7", "-dNoOutputFonts"], data)
-
-
-def flatten_transparency(data: bytes, dpi: int = 300) -> bytes:
-    """Reduce transparency (PDF 1.3) – for older printers/RIPs. Transparent areas are rasterized."""
-    return _gs(["-dCompatibilityLevel=1.3", f"-r{dpi}"], data)
 
 
 # --------------------------------------------------------------------------- #
@@ -1922,7 +1231,7 @@ def _single_image(page):
     if any(n not in ("q", "Q", "cm", "Do") for n in names) or names.count("Do") != 1:
         return None
     nm = str(ops[names.index("Do")].operands[0])
-    x = (_resources(page).get("/XObject") or {}).get(nm)
+    x = (page_resources(page).get("/XObject") or {}).get(nm)
     if x is None or x.get("/Subtype") != pikepdf.Name.Image:
         return None
     return nm, x
@@ -2047,6 +1356,7 @@ def _mm_num(v: float) -> str:
 def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
     """Hairlines per page (count + areas in rep.located[("line",)])."""
     import pypdfium2 as pdfium
+
     from .planprint import hairline_boxes
 
     doc = pdfium.PdfDocument(data)

@@ -203,6 +203,7 @@ def _doc_bytes(doc) -> bytes:
 # --------------------------------------------------------------------------- #
 def _job_cutcontour(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
+
     from . import cutcontour
 
     doc = pdfium.PdfDocument(src)
@@ -227,6 +228,7 @@ def _job_cutcontour(src, dst, s, opts, progress, cancel):
 
 def _job_separate(src, dst, s: SeparateSettings, opts, progress, cancel):
     import pypdfium2 as pdfium
+
     from . import objects
 
     doc = pdfium.PdfDocument(src)
@@ -262,6 +264,7 @@ def _job_separate(src, dst, s: SeparateSettings, opts, progress, cancel):
 
 def _job_manip(src, dst, s, opts, progress, cancel):
     import pypdfium2 as pdfium
+
     from . import pdfmanip
     from .layout import flattened
 
@@ -312,24 +315,24 @@ def _job_repair(src, dst, s: RepairSettings, opts, progress, cancel):
 
 
 def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel):
-    from . import preflight
+    from . import fontlib, pdflayers
 
     with open(src, "rb") as f:
         data = f.read()
     _report(progress, 0, 1, tr("Bearbeite …"))
     notes = []
     if s.fix == "flatten_layers":
-        if preflight.has_layers(data):
-            out = preflight.flatten_layers(data, set(s.visible) if s.visible is not None else None)
+        if pdflayers.has_layers(data):
+            out = pdflayers.flatten_layers(data, set(s.visible) if s.visible is not None else None)
         else:  # nothing to do – do not abort in chains/folders
             out = data
             notes.append(tr("Keine Ebenen – Datei unverändert übernommen."))
     elif s.fix == "embed_fonts":
-        out = preflight.embed_fonts(data, s.font_map)
+        out = fontlib.embed_fonts(data, s.font_map)
     elif s.fix == "outline_text":
-        out = preflight.outline_text(data)
+        out = fontlib.outline_text(data)
     elif s.fix == "flatten_transparency":
-        out = preflight.flatten_transparency(data, s.dpi)
+        out = fontlib.flatten_transparency(data, s.dpi)
     elif s.fix == "flatten_softmask":
         from . import softmask
 
@@ -378,6 +381,7 @@ def _shrink_settings():
 def _job_impose(src, dst, s, opts, progress, cancel):
     """Imposition as in the print dialog (size, multiple, booklet/signatures, poster, step & repeat) – result as PDF."""
     import pypdfium2 as pdfium
+
     from . import layout
 
     sheet = s.sheet_obj()

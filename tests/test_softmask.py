@@ -136,6 +136,7 @@ def test_flatten_fixes_and_keeps_look():
         rep = preflight.analyze(new, deep_layers=False, pdfium_parts=False)
         assert not [i for i in rep.issues if i.severity == "warning" and i.category == "transparency"]
         import pypdfium2 as pdfium
+
         from pdfdruck import editing
 
         d = pdfium.PdfDocument(new)

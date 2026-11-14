@@ -75,7 +75,7 @@ def _send_pipe(msg: bytes, timeout: float) -> str:
     end = time.monotonic() + max(1.0, timeout)
     while f is None:
         try:
-            f = open(path, "r+b", buffering=0)
+            f = open(path, "r+b", buffering=0)  # noqa: SIM115 – kept by the caller for the lifetime of the connection
         except FileNotFoundError:
             return "none"  # no instance
         except OSError:  # pipe busy right now (many at once): wait briefly
@@ -147,7 +147,7 @@ class StartLock:
         import fcntl
 
         path = os.path.join(os.environ.get("TMPDIR") or "/tmp", server_name() + ".startlock")
-        f = open(path, "a+")
+        f = open(path, "a+")  # noqa: SIM115 – holds the start lock; released by the caller
         end = time.monotonic() + timeout
         while True:
             try:

@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pypdfium2 as pdfium
+
 from pdfdruck import cmyk, pdfmanip
 
 MM = 72 / 25.4
@@ -44,8 +45,8 @@ def test_crop_symmetric():
     assert sz[1] == (297.0, 210.0)  # landscape follows the target in landscape
     assert sz[2] == (200.0, 297.0) and small == [3]  # too narrow -> the width stays, note
     assert sz[3] == (210.0, 297.0)
-    l, b, r, t = out[0].get_cropbox()
-    assert abs(l / MM - 3) < 0.05 and abs(b / MM - 3) < 0.05  # centred: left 3, bottom 3
+    left, b, r, t = out[0].get_cropbox()
+    assert abs(left / MM - 3) < 0.05 and abs(b / MM - 3) < 0.05  # centred: left 3, bottom 3
 
 
 def test_crop_rotated_page():
@@ -134,7 +135,7 @@ def test_softproof_and_tac():
     img = Image.new("CMYK", (4, 1))
     img.putdata([(0, 0, 0, 0), (255, 255, 255, 255), (255, 0, 0, 0), (200, 200, 200, 255)])
     rgb = cmyk.cmyk_to_screen(img, FOGRA)
-    white, black, cyan, rich = rgb.getpixel((0, 0)), rgb.getpixel((1, 0)), rgb.getpixel((2, 0)), rgb.getpixel((3, 0))
+    white, black, cyan = rgb.getpixel((0, 0)), rgb.getpixel((1, 0)), rgb.getpixel((2, 0))
     assert min(white) > 245  # paper white (relative) = white
     assert max(black) < 60  # 400 % ≈ deep black
     assert cyan[2] > cyan[0] + 100  # cyan appears blue-green
@@ -155,6 +156,7 @@ def test_find_profiles():
 def test_crop_file_then_print_end_to_end():
     """Flow as in the UI: crop -> file in the clipboard -> open -> print normally."""
     from reportlab.pdfgen import canvas
+
     from pdfdruck import config, layout, printers, printjob
 
     c = canvas.Canvas("/tmp/_rand.pdf", pagesize=(216 * MM, 303 * MM))
@@ -208,8 +210,8 @@ def test_trim_edges_all_rotations_asymmetric():
     # displayed -> unrotated: which PDF edge lies left/top/right/bottom (display rotated clockwise)
     shown = {0: ("l", "t", "r", "b"), 90: ("b", "l", "t", "r"), 180: ("r", "b", "l", "t"), 270: ("t", "r", "b", "l")}
     for rot, edges in shown.items():
-        (l, b, r, t), orig = pdfmanip.trim_box_for(box, rot, S)
-        cut = {"l": l / MM, "b": b / MM, "r": (box[2] - r) / MM, "t": (box[3] - t) / MM}
+        (left, b, r, t), orig = pdfmanip.trim_box_for(box, rot, S)
+        cut = {"l": left / MM, "b": b / MM, "r": (box[2] - r) / MM, "t": (box[3] - t) / MM}
         got = tuple(round(cut[e], 3) for e in edges)  # left, top, right, bottom as displayed
         assert got == (1.0, 2.0, 3.0, 4.0), (rot, got)
         assert orig == (1.0, 2.0, 3.0, 4.0)
@@ -220,6 +222,7 @@ def test_white_bbox_large_and_tinted_content():
     (the background comes from the page edge, not from the median of the whole page).
     """
     import io
+
     from reportlab.pdfgen import canvas
 
     for frac, tint in ((0.3, None), (0.9, None), (0.9, (0.95, 0.93, 0.88))):

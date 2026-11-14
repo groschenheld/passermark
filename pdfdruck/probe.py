@@ -57,6 +57,7 @@ def _port(host: str, port: int, timeout: float) -> bool:
 def _ipp_all(host: str, timeout: float) -> dict:
     import ssl
     import urllib.request
+
     from . import ipp
 
     errors = []

@@ -19,6 +19,7 @@ PDF = os.path.join(ROOT, "pdfdruck", "docs", "passermark-cli-anleitung.pdf")
 
 def test_pdf_in_package():
     import pypdfium2 as pdfium
+
     import pdfdruck
 
     assert os.path.isfile(PDF)
@@ -131,6 +132,7 @@ def _workflows():
 def test_workflow_examples_valid():
     """The workflows shown are valid (also the print workflow – checked without a printer)."""
     import json
+
     from pdfdruck import workflow
 
     tmp = tempfile.mkdtemp(prefix="pm-howto-wf-")

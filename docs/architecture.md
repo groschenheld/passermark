@@ -17,7 +17,7 @@ PassCount) only use the command line.
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ pdfdruck/gui/      windows, dialogs, panels (PySide6)                        │
-│   viewer.py (main window) · printdialog.py · plandialog.py · …               │
+│   mainwindow.py · pageview.py · printdialog.py · plandialog.py · …           │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ pdfdruck/app.py    Controller: one per process – configuration, print        │
 │                    session, open windows, single instance                    │
@@ -58,7 +58,7 @@ before Qt is loaded) and exits; `Controller.queue_request` receives them.
 1. `pdfdruck/__main__.py` parses the arguments (`--print`, `--merge`, `--repair`, `--plan`, `--poster`, files).
 2. If an instance is running, the request is passed on and the process ends.
 3. Otherwise a `Controller` (`app.py`) is created. It loads the admin configuration (`config.py`), creates the
-   print `Session` (`session.py`) and opens the main window (`gui/viewer.py`) or the requested dialog.
+   print `Session` (`session.py`) and opens the main window (`gui/mainwindow.py`) or the requested dialog.
 4. Plan and poster printing are separate top-level windows (`gui/plandialog.py`); the program ends when the last
    window of any kind is closed.
 
@@ -127,10 +127,12 @@ tested against fake printers. See CONTRIBUTING.md for the style rules (`ruff for
 
 Listed so that a reader does not mistake them for intent. They are tracked for clean-up.
 
-- **Very large interface modules**: `gui/viewer.py`, `gui/printdialog.py` and `gui/plandialog.py` build their
-  whole window in one class. The long functions are split up (1.18.24–1.18.32); `gui/viewer.py` is being split
-  into modules (thumbnails, merge dialog, small widgets and opening files are out since 1.18.34).
-  The plan is in the project notes ("Stufe 5").
+- **Windows built from mixins**: the main window (`gui/mainwindow.py`), the print dialog (`gui/printdialog.py`)
+  and the plan window (`gui/plandialog.py`) are each one class whose methods are spread over several modules by
+  topic (`main*.py`, `print*.py`, `plan*.py`). The parts still share the window's attributes freely; separating
+  them further (own objects instead of mixins) is left for where the redesign changes them anyway. The document
+  view (`gui/pageview.py`) is split the same way, except for the arrangement of the pages, which is a
+  separate object (`gui/viewlayout.py`) so that new view modes are one more class.
 - **Imports against the layer rule**: `preflight.py` uses three helpers from `planprint.py`; `workflow.py`
   imports `cli.py` (and the reverse); `printers.py` and `printers_win.py` import each other. These are done inside functions to avoid import cycles.
 - **Imports inside functions** are common. Some are deliberate (fast start, optional dependencies such as
@@ -169,6 +171,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/editops.py` | Edit mode: the changes as named operations (no user interface). |
 | `pdfdruck/examples.py` | Bundled examples (variable data) and manuals. |
 | `pdfdruck/fastipc.py` | Hand a request to the running instance – without Qt, at the very start of the program. |
+| `pdfdruck/fontlib.py` | Fonts |
 | `pdfdruck/i18n.py` | German names for typical (English) driver options and values. |
 | `pdfdruck/iccfetch.py` | Obtaining ICC profiles: download via link, unpacking (ZIP, driver packages via 7z), validation. |
 | `pdfdruck/imagecheck.py` | Check images and colours: colour space (RGB/CMYK/grey/spot) with the ICC profile name, the effective resolution of every placed image (also inside forms, also when used several times) and the resulting maximum print size. |
@@ -182,7 +185,9 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/pagegeom.py` | Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix. |
 | `pdfdruck/pageops.py` | Page operations on the open document (pdfium), no user interface. |
 | `pdfdruck/papersizes.py` | Paper sizes in ONE place (mm, portrait) – no Qt. |
+| `pdfdruck/pdflayers.py` | Layers (optional content) of a PDF |
 | `pdfdruck/pdfmanip.py` | Document manipulation: cropping to a target size and CMYK conversion. |
+| `pdfdruck/pdfutil.py` | Small helpers for pikepdf objects that several checks share |
 | `pdfdruck/pipette.py` | Colour pipette: what is at a given point of the page? |
 | `pdfdruck/planhistory.py` | History of plan and poster printing |
 | `pdfdruck/planprint.py` | Plan printing on roll printers (production print, usually 75/80 g paper). No Qt. |
@@ -233,6 +238,12 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/iccimport.py` | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |
 | `pdfdruck/gui/icons.py` | Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme. |
 | `pdfdruck/gui/jobs.py` | Jobs in the interface: shown in the status bar with progress and cancel. |
+| `pdfdruck/gui/mainactions.py` | Main window: the actions, the menus and the main toolbar. |
+| `pdfdruck/gui/maincheck.py` | Main window: the document check in the background, the edit mode, rulers and measuring. |
+| `pdfdruck/gui/maincolour.py` | Main window |
+| `pdfdruck/gui/maindialogs.py` | Main window |
+| `pdfdruck/gui/mainfile.py` | Main window: opening, saving and exporting, and the operations on pages (insert, delete, rotate, move, split). |
+| `pdfdruck/gui/mainwindow.py` | Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations. |
 | `pdfdruck/gui/manipdialog.py` | Document manipulation: control panel (tab in the print dialog + its own dialog) and colour preview. |
 | `pdfdruck/gui/mapdialog.py` | Dialog "Map columns": which column of your CSV provides which piece of a QR code with a kind (business card, WLAN …). |
 | `pdfdruck/gui/materialsdialog.py` | Farbe → Papiere und Messungen |
@@ -240,13 +251,25 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/measuredialog.py` | Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand. |
 | `pdfdruck/gui/mergedialog.py` | Dialog "Zusammenführen": put files (PDF, images, Office) in order and combine them into one PDF. |
 | `pdfdruck/gui/objectsdialog.py` | Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters). |
+| `pdfdruck/gui/pagegeometry.py` | Geometry of the document view |
+| `pdfdruck/gui/pageinteraction.py` | Mouse in the document view: selecting text, measuring with snapping to edges, edit mode and pipette clicks. |
+| `pdfdruck/gui/pageoverlay.py` | What the document view draws on top of the page image |
+| `pdfdruck/gui/pagerender.py` | Rendering of the document view |
+| `pdfdruck/gui/pageview.py` | The document view: a scroll area with one widget per page. |
 | `pdfdruck/gui/pagewidgets.py` | Small widgets of the document view: one page, the rulers, smooth scrolling and the page number field. |
 | `pdfdruck/gui/pipettedialog.py` | Colour pipette: small tool window next to the page. |
+| `pdfdruck/gui/planbuild.py` | Plan and poster window |
 | `pdfdruck/gui/plandialog.py` | Plan & Poster → Plandruck … and Rollen … |
+| `pdfdruck/gui/plansetup.py` | Setup dialogs of plan and poster printing |
+| `pdfdruck/gui/plantexts.py` | Display texts and small helpers shared by the plan and poster window modules (plandialog, planbuild, plansetup). |
 | `pdfdruck/gui/preflightpanel.py` | Sidebar "Check": findings, fonts, layers, transparency – with repairs (result in a new window). |
 | `pdfdruck/gui/presetbar.py` | Preset bar for dialogs: pick saved settings, save, delete, share as a file. |
 | `pdfdruck/gui/pressdialog.py` | Farbe → Für Druckerei ausgeben … – assistant in four steps |
+| `pdfdruck/gui/printbuild.py` | Print dialog |
+| `pdfdruck/gui/printdevice.py` | Print dialog |
 | `pdfdruck/gui/printdialog.py` | Own print dialog (Acrobat layout): settings on the left, live preview on the right. |
+| `pdfdruck/gui/printpreview.py` | Print dialog |
+| `pdfdruck/gui/printwidgets.py` | Widgets of the print dialog |
 | `pdfdruck/gui/propsdialog.py` | Datei → Eigenschaften: location, file, document, pages, fonts, check. |
 | `pdfdruck/gui/renderclient.py` | Page rendering in the background: one render process for the whole program (see renderproc.py). |
 | `pdfdruck/gui/repairdialog.py` | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
@@ -259,5 +282,5 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/theme.py` | Dark theme with a yellow accent + global mouse wheel guard. |
 | `pdfdruck/gui/thumbs.py` | Thumbnails of the pages in the side bar: list, drawing of an entry, loading in the background. |
 | `pdfdruck/gui/vdpdialog.py` | Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview of any record. |
-| `pdfdruck/gui/viewer.py` | Acrobat-like main window: thumbnails on the left, continuous view, toolbar, page operations. |
+| `pdfdruck/gui/viewlayout.py` | View modes of the document view: how the pages are arranged in the scroll area. |
 <!-- modules:end -->

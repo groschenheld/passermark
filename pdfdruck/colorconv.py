@@ -12,9 +12,9 @@ options per profile (e.g. the driver color matching OFF).
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import subprocess
+
+from .l10n import tr
 
 INTENT_NUM = {"perceptual": 0, "relative": 1, "saturation": 2, "absolute": 3}
 

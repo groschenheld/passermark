@@ -30,7 +30,7 @@ def config_dir() -> str:
     if env:
         return env
     if IS_WIN:
-        return os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "Passermark")
+        return os.path.join(os.environ.get("PROGRAMDATA", r"C:\ProgramData"), "Passermark")
     return "/etc/passermark"
 
 

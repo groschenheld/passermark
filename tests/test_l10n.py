@@ -40,14 +40,14 @@ def ph(s):
 
 def test_catalogs_complete_and_consistent():
     need = code_strings()
-    cats = {l: importlib.import_module(f"pdfdruck.lang.{l}").MESSAGES for l in LANGS}
+    cats = {ln: importlib.import_module(f"pdfdruck.lang.{ln}").MESSAGES for ln in LANGS}
     keys = set(cats["en"])
-    for l, c in cats.items():
-        assert set(c) == keys, f"{l}: Schlüssel weichen von en ab"
+    for ln, c in cats.items():
+        assert set(c) == keys, f"{ln}: Schlüssel weichen von en ab"
         missing = need - set(c)
-        assert not missing, f"{l}: fehlende Übersetzungen: {sorted(missing)[:5]}"
+        assert not missing, f"{ln}: fehlende Übersetzungen: {sorted(missing)[:5]}"
         bad = [k for k, v in c.items() if ph(k) != ph(v)]
-        assert not bad, f"{l}: Platzhalter abweichend: {bad[:3]}"
+        assert not bad, f"{ln}: Platzhalter abweichend: {bad[:3]}"
 
 
 def test_switch_and_fallback():

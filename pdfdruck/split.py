@@ -172,6 +172,7 @@ def spreads(sizes: list, cols: int, rows: int) -> set:
 def split(src: str, s: SplitSettings, pages=None, progress=None, cancel=None) -> tuple[bytes, dict]:
     """Split the selected pages (pages, 0-based; None = all or all double pages). Result PDF + info."""
     import io
+
     import pikepdf
 
     cols, rows = grid_of(s)

@@ -7,9 +7,9 @@
 
 import json
 import os
+import os as _os
 import sys
 import types
-import os as _os
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

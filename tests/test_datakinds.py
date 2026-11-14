@@ -15,9 +15,11 @@ TMP = tempfile.mkdtemp(prefix="pm-dk-")
 os.environ["XDG_CONFIG_HOME"] = TMP
 os.environ["APPDATA"] = TMP
 os.environ.setdefault("PASSERMARK_LANG", "de")
-import pypdfium2 as pdfium
-from pdfdruck import datakinds as D, vdp
 import _codes as C
+import pypdfium2 as pdfium
+
+from pdfdruck import datakinds as D
+from pdfdruck import vdp
 
 SAMPLE = os.path.join(HERE, "sample.pdf")
 
@@ -426,12 +428,12 @@ assert fi.kind == "image" and fi.content == "{{Foto}}" and fi.align == "center",
 vd._select(len(vd.fields) - 1); vd._field_changed(); vd._select(0)  # Bildfeld-Bedienelemente (Qt-Attrappe)
 assert any(f.get("kind") == "image" for f in vd._settings().fields)
 # main window: data capture (without and with a document), variable data with a passed table
-from pdfdruck.gui import viewer
+from pdfdruck.gui import mainwindow, pageview
 from pdfdruck import config
 from pdfdruck.gui.common import Session
-viewer.PageView._dpi_scale = lambda self: 1.0
-viewer.PageView.page_zoom = lambda self, i: 1.0
-w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+pageview.PageView._dpi_scale = lambda self: 1.0
+pageview.PageView.page_zoom = lambda self, i: 1.0
+w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w.data_dialog()
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 w.data_dialog()

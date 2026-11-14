@@ -7,12 +7,22 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QComboBox, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QFrame,
+    QLabel,
+    QPlainTextEdit,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ..l10n import tr
-from ..layout import LayoutSettings  # noqa: F401  (früher hier gebraucht)
+from ..layout import LayoutSettings  # noqa: F401  (used to be needed here)
 from ..session import Session  # noqa: F401  (the session lives without Qt in pdfdruck.session)
 from . import theme
 
@@ -382,3 +392,61 @@ def scroll_body(dlg) -> bool:
     sa.setWidget(inner)
     top.insertWidget(0, sa, 1)
     return True
+
+
+class MsgBox(QPlainTextEdit):
+    """Message to read, select and copy: grows up to ``lines`` rows, then scrolls – moves nothing."""
+
+    def __init__(self, lines: int = 3, color: str = "", parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        self.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setStyleSheet("QPlainTextEdit { background: transparent; %s }" % (f"color: {color};" if color else ""))
+        self._lines = max(1, lines)
+        self.document().contentsChanged.connect(self._fit)
+        self._fit()
+
+    def setText(self, text: str):
+        """Set the message; an empty text hides the box."""
+        self.setPlainText(text or "")
+        self.setVisible(bool(text))
+        QTimer.singleShot(0, self._fit)  # the number of rows is only known after wrapping
+
+    def text(self) -> str:
+        """The current message."""
+        return self.toPlainText()
+
+    def _fit(self):
+        fm = self.fontMetrics()
+        rows = max(1, min(self._lines, int(self.document().size().height()) or 1))
+        m = self.contentsMargins()
+        self.setFixedHeight(rows * fm.lineSpacing() + 2 * int(self.document().documentMargin()) + m.top() + m.bottom())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._fit()
+
+
+def make_responsive(w: QWidget):
+    """Long entries (rolls, materials, messages) must not widen the window or push the
+    settings into each other: shorten combo boxes, wrap forms.
+    """
+    for c in w.findChildren(QComboBox):
+        c.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        c.setMinimumContentsLength(8)
+        c.view().setTextElideMode(Qt.TextElideMode.ElideNone)
+        c.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    for f in w.findChildren(QFormLayout):
+        f.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        f.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    for lb in w.findChildren(QLabel):
+        if lb.wordWrap():
+            lb.setMinimumWidth(0)
+            lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())

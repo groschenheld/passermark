@@ -82,7 +82,7 @@ def hpgl(paths_mm: list, force: int = 0, speed: int = 0) -> bytes:
         if len(poly) < 2:
             continue
         pts = [(round(y / UNIT_MM), round(x / UNIT_MM)) for x, y in poly]  # device: X = feed, Y = across
-        out.append("PU{0},{1}".format(*pts[0]))
+        out.append("PU{},{}".format(*pts[0]))
         out.append("PD" + ",".join(f"{a},{b}" for a, b in pts[1:]))
     out.append("PU0,0")
     return (";".join(out) + ";").encode("ascii")

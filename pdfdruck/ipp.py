@@ -14,13 +14,13 @@ uses a vendor driver (UFR II, PS). Evaluated:
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import re
 import ssl
 import struct
 import urllib.request
 from dataclasses import dataclass, field
+
+from .l10n import tr
 
 # Tags
 T_OPERATION, T_PRINTER, T_END = 0x01, 0x04, 0x03

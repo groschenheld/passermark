@@ -3,7 +3,7 @@
 
 In the single-page view the scroll area only holds the current page, so its own scroll bar only covers that
 page (and disappears when the page fits). This module maps a position in the whole document – page plus how far
-that page is scrolled – to one scroll bar value and back. Pure arithmetic, no Qt: the widget lives in viewer.py.
+that page is scrolled – to one scroll bar value and back. Pure arithmetic, no Qt: the widget lives in pageview.py.
 """
 
 from __future__ import annotations

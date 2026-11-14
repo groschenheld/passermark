@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from ..l10n import tr
-
 import copy
 import json
 import os
@@ -45,6 +43,7 @@ from PySide6.QtWidgets import (
 
 from .. import colorconv, config, i18n, layout, printers
 from .. import platform as _platform
+from ..l10n import tr
 from . import theme
 from .common import Session, fill_combo, fit_width
 
@@ -719,7 +718,9 @@ class AdminDialog(QDialog):
             slot = trays.slot_for_source(caps, src)
             size = trays.size_for_mm(caps, t.size_mm) if t.size_mm else None
             if not slot or not size:
-                unmapped.append(f"{t.name or src}: {('%.0f × %.0f mm' % t.size_mm) if t.size_mm else 'Format ?'}")
+                unmapped.append(
+                    f"{t.name or src}: {('{:.0f} × {:.0f} mm'.format(*t.size_mm)) if t.size_mm else 'Format ?'}"
+                )
                 continue
             rows.append({"slot": slot, "size": size, "weight": int(t.weight or 0), "media": "", "ipp": src})
         if not rows:
@@ -992,6 +993,7 @@ class AdminDialog(QDialog):
 
     def _download_profiles(self):
         import tempfile
+
         from .. import iccfetch
         from .iccimport import IccImportDialog
 

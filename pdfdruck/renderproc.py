@@ -41,6 +41,7 @@ def page_info(data: bytes) -> list:
     Values are inherited via /Parent as in pdfium.
     """
     import io
+
     import pikepdf
 
     def attr(obj, key):
@@ -124,6 +125,7 @@ _SHEET_SRC: OrderedDict = OrderedDict()  # (path, flat) -> (stamp, document) –
 def _sheet_source(path: str, flatten: bool):
     """Source of the print preview, loaded once per file (with forms/comments flattened)."""
     import pypdfium2 as pdfium
+
     from . import layout
 
     st = os.stat(path)
@@ -431,7 +433,7 @@ class _Server:
             )
             self.send(
                 {"id": rid, "ok": True, "w": img.width, "h": img.height, "stride": img.width * 4, "fmt": "bgrx"},
-                img.tobytes("raw", "BGRX"),
+                img.convert("RGBA").tobytes("raw", "BGRA"),
             )
             return
         bmp = pg.render(

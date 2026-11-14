@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Passermark – Copyright (C) 2026 Hias
 import os
+import os as _os
 import sys
 import zipfile
-import os as _os
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pikepdf
-from pdfdruck import repair, iccfetch
+
+from pdfdruck import iccfetch, repair
 
 HERE = os.path.dirname(__file__)
 SRC = os.path.join(HERE, "sample.pdf")

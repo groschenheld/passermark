@@ -221,7 +221,7 @@ def dpkg_packages(dirs: list[str]) -> dict:
         return {}
     names = set()
     for d in dirs:
-        for base, _sub, files in os.walk(d):
+        for _base, _sub, files in os.walk(d):
             for fn in files:
                 if ".so" in fn:
                     names.add(fn)

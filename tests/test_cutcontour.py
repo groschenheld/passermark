@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import numpy as np
 import pypdfium2 as pdfium
+
 from pdfdruck import cutcontour, objects
 
 MM = 72 / 25.4
@@ -225,6 +226,7 @@ def test_full_page_motif():
 def test_bleed_visible_on_opaque_background():
     """Raster image with white background: bleed must not be covered by the background (sheet + single pages)."""
     from PIL import Image, ImageDraw
+
     from pdfdruck import images
 
     im = Image.new("RGB", (900, 900), "white")
@@ -250,6 +252,7 @@ def test_bleed_visible_on_opaque_background():
 def test_soft_raster_solid_bleed_and_inner_hole():
     """Blurred raster on white: bleed in full colour (no mixed tone), inner cut gets bleed."""
     from PIL import Image, ImageDraw, ImageFilter
+
     from pdfdruck import images
 
     im = Image.new("RGB", (900, 700), "white")
@@ -302,6 +305,7 @@ def test_bleed_off_white_border():
     """Bleed off: motif unchanged (no bleed, no punching), only the cut line – e.g. a white border."""
     import pikepdf
     from PIL import Image, ImageDraw
+
     from pdfdruck import images
 
     im = Image.new("RGB", (900, 900), "white")
@@ -335,6 +339,7 @@ def test_fast_shape_on_trim_without_rendering():
     """Basic shape onto the trim size: render no page, no worker process; line exactly on the TrimBox (± offset)."""
     import io
     import re
+
     import pikepdf
     from reportlab.pdfgen import canvas
 

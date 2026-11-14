@@ -12,11 +12,11 @@ the order applies.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import re
 import time
 from dataclasses import dataclass
+
+from .l10n import tr
 
 LIVE_CACHE_S = 20
 

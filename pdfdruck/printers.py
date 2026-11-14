@@ -16,15 +16,13 @@ in full with every job.
 
 from __future__ import annotations
 
-from . import papersizes
-from .l10n import tr
-
 import os
 import re
 import sys
 from dataclasses import dataclass, field
 
-from . import i18n
+from . import i18n, papersizes
+from .l10n import tr
 
 try:
     import cups  # python3-cups / pycups
@@ -209,11 +207,9 @@ def parse_ppd_dimensions(path: str):
 
 def ppd_lines(name: str, w: float, h: float, area=None) -> str:
     """The PPD lines that make a paper size known (for the warning): pt with a decimal point."""
-    l, b, r, t = area or (0.0, 0.0, w, h)
+    left, b, r, t = area or (0.0, 0.0, w, h)
     f = lambda v: f"{v:.2f}".rstrip("0").rstrip(".")
-    return (
-        f'*PaperDimension {name}/{name}: "{f(w)} {f(h)}"\n*ImageableArea {name}/{name}: "{f(l)} {f(b)} {f(r)} {f(t)}"'
-    )
+    return f'*PaperDimension {name}/{name}: "{f(w)} {f(h)}"\n*ImageableArea {name}/{name}: "{f(left)} {f(b)} {f(r)} {f(t)}"'
 
 
 IPP_QUALITY = {"3": "Entwurf", "4": "Normal", "5": "Hoch"}
@@ -540,7 +536,7 @@ class PrinterCaps:
             sz = self.page_sizes.get(out.get("media", ""))
             if sz:  # borderless: size + margin 0 as media-col (replaces media …)
                 parts = [
-                    "media-size={x-dimension=%d y-dimension=%d}" % (round(sz[0] / 72 * 2540), round(sz[1] / 72 * 2540))
+                    f"media-size={{x-dimension={round(sz[0] / 72 * 2540)} y-dimension={round(sz[1] / 72 * 2540)}}}"
                 ]
                 parts += [f"media-{e}-margin=0" for e in ("top", "bottom", "left", "right")]
                 for k in ("media-source", "media-type"):
@@ -666,8 +662,8 @@ def apply_custom_sizes(caps: PrinterCaps, sizes: list[dict] | None = None) -> No
         ref = opt.default if opt.default in caps.imageable else next(iter(caps.imageable), None)
         if ref is not None and ref in caps.page_sizes:
             W, H = caps.page_sizes[ref]
-            l, b, r, t = caps.imageable[ref]
-            margins = (l, b, W - r, H - t)
+            left, b, r, t = caps.imageable[ref]
+            margins = (left, b, W - r, H - t)
         else:
             margins = (12.0, 12.0, 12.0, 12.0)
     for e in sizes:
@@ -743,10 +739,10 @@ def fill_page_sizes(
     """
     code, problems = code or {}, problems or {}
     margins = []
-    for v, (l, b, r, t) in areas.items():
+    for v, (left, b, r, t) in areas.items():
         if v in dims:
             w, h = dims[v]
-            margins.append((l, b, w - r, h - t))
+            margins.append((left, b, w - r, h - t))
     med = None
     if margins:
         med = tuple(sorted(m[i] for m in margins)[len(margins) // 2] for i in range(4))
@@ -782,9 +778,9 @@ def fill_page_sizes(
         if borderless:
             caps.imageable[v] = (0.0, 0.0, w, h)
         else:
-            l, b, r, t = med or (12.0, 12.0, 12.0, 12.0)
-            if w - l - r > 36 and h - b - t > 36:
-                caps.imageable[v] = (l, b, w - r, h - t)
+            left, b, r, t = med or (12.0, 12.0, 12.0, 12.0)
+            if w - left - r > 36 and h - b - t > 36:
+                caps.imageable[v] = (left, b, w - r, h - t)
 
 
 def find_paper(caps: PrinterCaps, w: float, h: float, tol: float = 2 * 72 / 25.4) -> str | None:

@@ -8,10 +8,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "_winstub"))
+import fakewin
 import numpy as np
 import pypdfium2 as pdfium
 import pypdfium2.raw as r
-import fakewin
+
 from pdfdruck import printers  # noqa: F401  load first: on Windows printers.py pulls in printers_win
 from pdfdruck import printers_win as pw
 
@@ -91,6 +92,7 @@ def test_auto_is_plain_raster_even_if_driver_claims_more():
 
 def test_job_log_written():
     import tempfile
+
     from pdfdruck import platform as pl
 
     d = tempfile.mkdtemp()

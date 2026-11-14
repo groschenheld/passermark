@@ -413,7 +413,7 @@ def load(path: str) -> dict:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except ValueError as e:
-        raise WorkflowError([("", tr("kein gültiges JSON: {0}").format(e))])
+        raise WorkflowError([("", tr("kein gültiges JSON: {0}").format(e))]) from e
     if not isinstance(data, dict):
         raise WorkflowError([("", tr("Objekt erwartet"))])
     return data
@@ -811,9 +811,11 @@ class _Run:
         from . import core, printlog
 
         if st.job == PLAN:
-            from .planprint import PlanSettings as settings_class, print_pdf
+            from .planprint import PlanSettings as settings_class
+            from .planprint import print_pdf
         else:
-            from .printcli import PrintSettings as settings_class, print_pdf
+            from .printcli import PrintSettings as settings_class
+            from .printcli import print_pdf
 
         ps = core.settings_from_dict(settings_class, st.settings)
         before = [

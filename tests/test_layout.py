@@ -3,14 +3,30 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # Public License, Version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-import sys
 import os
 import os as _os
+import sys
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pypdfium2 as pdfium
-from pdfdruck.layout import *
+
+from pdfdruck.layout import (
+    MM,
+    LayoutSettings,
+    Sheet,
+    booklet_order,
+    booklet_spreads,
+    build_pdf,
+    impose_with,
+    page_doc_bleeds,
+    page_trims,
+    parse_ranges,
+    plan,
+    plan_step2,
+    plan_step_repeat,
+    select_pages,
+)
 
 A4 = Sheet(595.28, 841.89, (12, 12, 583.28, 829.89))  # ~4.2 mm margin
 A3 = Sheet(841.89, 1190.55, (12, 12, 829.89, 1178.55))
@@ -119,8 +135,8 @@ def test_render_new(tmp="/tmp/pdfdruck_test"):
 
 
 def test_step_repeat_bleed_marks():
-    from reportlab.pdfgen import canvas
     from reportlab.lib.units import mm as _mm
+    from reportlab.pdfgen import canvas
 
     c = canvas.Canvas("/tmp/_vk.pdf", pagesize=(85 * _mm, 55 * _mm))
     c.rect(0, 0, 10, 10)
@@ -190,7 +206,7 @@ def test_step_repeat_guard():
 
 
 def test_step2_nutzen():
-    from pdfdruck.layout import is_step2, step2_sheet, plan_step2, _logical
+    from pdfdruck.layout import _logical, is_step2, plan_step2, step2_sheet
 
     A4s = Sheet(595.28, 841.89, None)  # step 1 sheet = chosen paper (A4)
     s = LayoutSettings(
@@ -270,8 +286,6 @@ def test_step_repeat_trim_show_edge():
     plans = plan(sizes, [0], sheet, s, trims, bleeds)
     assert len(plans[0].placements) == 9
     for pl in plans[0].placements:
-        c = round((pl.x - min(p.x for p in plans[0].placements)) // (pl.w + 17.0))
-        c = min(2, int(round((pl.x - min(p.x for p in plans[0].placements)) / (pl.w + 17.001))))
         # trim_show_edge only on the outer sides of the block
         assert pl.trim_show_edge[0] == (pl.x == min(p.x for p in plans[0].placements))
         assert pl.trim_show_edge[2] == (pl.x + pl.w == max(p.x + p.w for p in plans[0].placements))
@@ -298,7 +312,7 @@ def test_step2_raster_exakt():
     Auto in step 2 places as many sheets as fit on the target size
     (2 × A4 on A3).
     """
-    from pdfdruck.layout import plan_step2, _logical
+    from pdfdruck.layout import _logical, plan_step2
 
     A4t = (595.28, 841.89)
     A3 = Sheet(297 * MM, 420 * MM, None)
@@ -336,6 +350,7 @@ def test_booklet_spreads():
     side by side/one above the other; afterwards step-and-repeat mode imposes them without a warning.
     """
     import io
+
     import pikepdf
     from reportlab.pdfgen import canvas
 

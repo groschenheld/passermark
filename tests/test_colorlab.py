@@ -13,8 +13,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
-from pdfdruck import cfgvalidate, colorlab
 from test_softproof import cmyk_profile
+
+from pdfdruck import cfgvalidate, colorlab
 
 TMP = tempfile.mkdtemp(prefix="pm-color-")
 

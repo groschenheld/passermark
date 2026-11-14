@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import editing, preflight
+from .. import editing, fontlib, pdflayers, preflight
 from ..l10n import tr
 from . import theme
 
@@ -269,6 +269,7 @@ class EditPanel(QWidget):
 
     def _build_move_box(self):
         from PySide6.QtWidgets import QCheckBox, QGroupBox
+
         from .common import FlowLayout
 
         self._move_loading = True
@@ -426,7 +427,8 @@ class EditPanel(QWidget):
         return dx, dy, guides
 
     def _move_status(self, box, dx, dy):
-        from .. import l10n, measure as ms
+        from .. import l10n
+        from .. import measure as ms
 
         try:
             crop = tuple(self.win.view._textpage(self.page)[0].get_cropbox())
@@ -503,6 +505,7 @@ class EditPanel(QWidget):
         if not svc.ok or self.win.view._local:
             return editing.verify_edit(data, new, self.page, ignore_boxes), None
         import tempfile
+
         from PySide6.QtCore import QEventLoop
 
         paths = []
@@ -675,15 +678,15 @@ class EditPanel(QWidget):
                 if L is not None:
                     self.win.statusBar().showMessage(tr("Neue Größe: {0:.1f} pt").format(L.size * s), 2000)
             elif self.tabs.currentIndex() == 1 and self.objects:
-                O = (
+                obj = (
                     self.objects[self.lst_objects.currentRow()]
                     if 0 <= self.lst_objects.currentRow() < len(self.objects)
                     else None
                 )
-                if O is not None:
+                if obj is not None:
                     self.win.statusBar().showMessage(
                         tr("Neue Größe: {0:.1f} × {1:.1f} mm").format(
-                            (O.bbox[2] - O.bbox[0]) / MM * s, (O.bbox[3] - O.bbox[1]) / MM * s
+                            (obj.bbox[2] - obj.bbox[0]) / MM * s, (obj.bbox[3] - obj.bbox[1]) / MM * s
                         ),
                         2000,
                     )
@@ -745,7 +748,7 @@ class EditPanel(QWidget):
 
                 if self._text_edit(
                     run_obj,
-                    [O.bbox for O in objs] + [nb],
+                    [obj.bbox for obj in objs] + [nb],
                     op="move_objects",
                     kwargs={"objs": objs, "s": s, "dx": dx, "dy": dy, "origin": origin},
                 ):
@@ -785,7 +788,8 @@ class EditPanel(QWidget):
             return
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
         best = min(
-            self.objects, key=lambda O: abs((O.bbox[0] + O.bbox[2]) / 2 - cx) + abs((O.bbox[1] + O.bbox[3]) / 2 - cy)
+            self.objects,
+            key=lambda obj: abs((obj.bbox[0] + obj.bbox[2]) / 2 - cx) + abs((obj.bbox[1] + obj.bbox[3]) / 2 - cy),
         )
         if self.lst_objects.currentRow() == best.index:
             self._object_selected(best.index)  # same row: no signal -> select directly
@@ -840,15 +844,15 @@ class EditPanel(QWidget):
             if not self.objects:
                 self.lbl_object.setText(tr("Keine Vektor- oder Bildobjekte auf dieser Seite."))
             return
-        boxes = [(O.bbox[0] - 1, O.bbox[1] - 1, O.bbox[2] + 1, O.bbox[3] + 1, SEL_TEXT) for O in sel]
+        boxes = [(obj.bbox[0] - 1, obj.bbox[1] - 1, obj.bbox[2] + 1, obj.bbox[3] + 1, SEL_TEXT) for obj in sel]
         u = self._union([b[:4] for b in boxes])
         self._overlay([(u[0], u[1], u[2], u[3], SEL_TEXT)] + boxes)
         row = self.lst_objects.currentRow()
-        if any(O.index == row for O in sel):
-            O = next(O for O in sel if O.index == row)
+        if any(obj.index == row for obj in sel):
+            obj = next(obj for obj in sel if obj.index == row)
             self.lbl_object.setText(
                 tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
-                    (O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM
+                    (obj.bbox[2] - obj.bbox[0]) / MM, (obj.bbox[3] - obj.bbox[1]) / MM
                 )
             )
 
@@ -1037,7 +1041,7 @@ class EditPanel(QWidget):
     def _font_activated(self, idx):
         if self.cmb_font.itemData(idx) == "__file__":
             p, _ = QFileDialog.getOpenFileName(
-                self, tr("Schriftdatei wählen"), preflight.user_font_dir(), tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
+                self, tr("Schriftdatei wählen"), fontlib.user_font_dir(), tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
             )
             if p:
                 self.cmb_font.insertItem(idx, os.path.basename(p), ("file", p))
@@ -1055,7 +1059,7 @@ class EditPanel(QWidget):
         sel = self._selected_objects()
         if not sel and 0 <= self.lst_objects.currentRow() < len(self.objects):
             sel = [self.objects[self.lst_objects.currentRow()]]
-        return sorted(sel, key=lambda O: O.index)
+        return sorted(sel, key=lambda obj: obj.index)
 
     def _text_apply(self):
         sel = self._sel_or_current_lines()
@@ -1104,9 +1108,10 @@ class EditPanel(QWidget):
                 return cur
 
         try:
-            if self._text_edit(run, [self._wide_box(L) for L in sel], op=op, kwargs=kw, info=holder):
-                if holder.get("notes"):
-                    QMessageBox.information(self, tr("Hinweis"), "\n\n".join(holder["notes"]))
+            if self._text_edit(run, [self._wide_box(L) for L in sel], op=op, kwargs=kw, info=holder) and holder.get(
+                "notes"
+            ):
+                QMessageBox.information(self, tr("Hinweis"), "\n\n".join(holder["notes"]))
         except Exception as e:
             _err(self, e)
 
@@ -1141,7 +1146,7 @@ class EditPanel(QWidget):
                 self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite).")
             )
             return
-        paths = [O for O in sel if O.kind == "path"]
+        paths = [obj for obj in sel if obj.kind == "path"]
         if not paths:
             QMessageBox.information(
                 self, tr("Objekte"), tr("Bilder lassen sich nicht umfärben – bitte Vektorobjekte wählen.")
@@ -1159,7 +1164,7 @@ class EditPanel(QWidget):
         if not (fill or stroke):
             return
         self._last_color = color
-        boxes = [L.bbox for L in lines] + [O.bbox for O in objs]
+        boxes = [L.bbox for L in lines] + [obj.bbox for obj in objs]
         holder = {}
 
         def run(data):
@@ -1251,6 +1256,7 @@ class EditPanel(QWidget):
         is locked until the result is there. -> (error of the process, result)
         """
         from PySide6.QtCore import QEventLoop
+
         from .renderclient import RenderService
 
         res = {}
@@ -1360,14 +1366,16 @@ class EditPanel(QWidget):
         self.objects, total = got
         self.lst_objects.blockSignals(True)
         self.lst_objects.clear()
-        for O in self.objects:
-            w_mm = (O.bbox[2] - O.bbox[0]) / MM
-            h_mm = (O.bbox[3] - O.bbox[1]) / MM
+        for obj in self.objects:
+            w_mm = (obj.bbox[2] - obj.bbox[0]) / MM
+            h_mm = (obj.bbox[3] - obj.bbox[1]) / MM
             self.lst_objects.addItem(
-                QListWidgetItem(f"{O.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if O.in_layer else ""))
+                QListWidgetItem(
+                    f"{obj.text}\n{w_mm:.1f} × {h_mm:.1f} mm" + (" · " + tr("Ebene") if obj.in_layer else "")
+                )
             )
         self.lst_objects.blockSignals(False)
-        n_path = sum(1 for O in self.objects if O.kind == "path")
+        n_path = sum(1 for obj in self.objects if obj.kind == "path")
         n_img = len(self.objects) - n_path
         kind = self.cmb_objkind.currentData() or "all"
         self.cmb_objkind.blockSignals(True)
@@ -1395,19 +1403,21 @@ class EditPanel(QWidget):
     def _object_filter(self, *_):
         """Show only vectors / only images (rows stay and are hidden – indexes remain valid)."""
         kind = self.cmb_objkind.currentData() or "all"
-        for O in self.objects:
-            hide = kind != "all" and O.kind != kind
-            self.lst_objects.setRowHidden(O.index, hide)
-            if hide and self.lst_objects.item(O.index).isSelected():
-                self.lst_objects.item(O.index).setSelected(False)
+        for obj in self.objects:
+            hide = kind != "all" and obj.kind != kind
+            self.lst_objects.setRowHidden(obj.index, hide)
+            if hide and self.lst_objects.item(obj.index).isSelected():
+                self.lst_objects.item(obj.index).setSelected(False)
 
     def _object_selected(self, row):
         if not (0 <= row < len(self.objects)):
             return
-        O = self.objects[row]
-        self._overlay([(O.bbox[0] - 1, O.bbox[1] - 1, O.bbox[2] + 1, O.bbox[3] + 1, SEL_TEXT)])
+        obj = self.objects[row]
+        self._overlay([(obj.bbox[0] - 1, obj.bbox[1] - 1, obj.bbox[2] + 1, obj.bbox[3] + 1, SEL_TEXT)])
         self.lbl_object.setText(
-            tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format((O.bbox[2] - O.bbox[0]) / MM, (O.bbox[3] - O.bbox[1]) / MM)
+            tr("Ausdehnung: {0:.1f} × {1:.1f} mm").format(
+                (obj.bbox[2] - obj.bbox[0]) / MM, (obj.bbox[3] - obj.bbox[1]) / MM
+            )
         )
 
     def _object_transform(self):
@@ -1417,7 +1427,7 @@ class EditPanel(QWidget):
                 self, tr("Objekte"), tr("Bitte zuerst ein Objekt wählen (Liste oder Klick auf die Seite).")
             )
             return
-        box = self._union([O.bbox for O in sel])
+        box = self._union([obj.bbox for obj in sel])
         name = sel[0].text if len(sel) == 1 else tr("{0} Objekte").format(len(sel))
         dlg = _TransformDialog(self, name, box, what=tr("Objekt"), with_pages=False)
         if not dlg.exec():
@@ -1431,7 +1441,7 @@ class EditPanel(QWidget):
 
             if self._text_edit(
                 lambda data: editops.move_objects(data, self.page, sel, scale, dx, dy, origin)[0],
-                [O.bbox for O in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
+                [obj.bbox for obj in sel] + [self._grow_box(box, scale), self._grow_box(moved, scale)],
                 op="move_objects",
                 kwargs={"objs": sel, "s": scale, "dx": dx, "dy": dy, "origin": origin},
             ):
@@ -1451,7 +1461,7 @@ class EditPanel(QWidget):
 
             if self._text_edit(
                 lambda data: editops.delete_objects(data, self.page, sel)[0],
-                [O.bbox for O in sel],
+                [obj.bbox for obj in sel],
                 op="delete_objects",
                 kwargs={"objs": sel},
             ):
@@ -1546,7 +1556,7 @@ class EditPanel(QWidget):
                 != QMessageBox.StandardButton.Yes
             ):
                 return None
-            return preflight.remove_layers(d, {L.key})
+            return pdflayers.remove_layers(d, {L.key})
 
         self._run_layer(fn)
 
@@ -1568,7 +1578,8 @@ class EditPanel(QWidget):
             )
             if not p:
                 return None
-            src = open(p, "rb").read()
+            with open(p, "rb") as fh:
+                src = fh.read()
             import pypdfium2 as pdfium
 
             n = len(pdfium.PdfDocument(src))
@@ -1605,21 +1616,23 @@ class EditPanel(QWidget):
         elif self.tabs.currentIndex() == 1:
             kind = self.cmb_objkind.currentData() or "all"
             hits = [
-                O
-                for O in self.objects
-                if O.bbox[0] <= x <= O.bbox[2] and O.bbox[1] <= y <= O.bbox[3] and (kind == "all" or O.kind == kind)
+                obj
+                for obj in self.objects
+                if obj.bbox[0] <= x <= obj.bbox[2]
+                and obj.bbox[1] <= y <= obj.bbox[3]
+                and (kind == "all" or obj.kind == kind)
             ]
             if hits:
-                O = min(hits, key=lambda o: (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))
+                obj = min(hits, key=lambda o: (o.bbox[2] - o.bbox[0]) * (o.bbox[3] - o.bbox[1]))
                 if additive:
-                    it = self.lst_objects.item(O.index)
+                    it = self.lst_objects.item(obj.index)
                     it.setSelected(not it.isSelected())
                     if it.isSelected():
-                        self.lst_objects.setCurrentRow(O.index)
-                elif self.lst_objects.currentRow() == O.index:
-                    self._object_selected(O.index)
+                        self.lst_objects.setCurrentRow(obj.index)
+                elif self.lst_objects.currentRow() == obj.index:
+                    self._object_selected(obj.index)
                 else:
-                    self.lst_objects.setCurrentRow(O.index)
+                    self.lst_objects.setCurrentRow(obj.index)
         elif self.lmap is not None:
             hits = editing.layers_at(self.lmap, x, y)
             if not hits:
@@ -1783,10 +1796,10 @@ class _ColorDialog(QDialog):
         kind, vals = last
         if kind == "rgb":
             self.cmb_model.setCurrentIndex(1)
-            for k, v in zip("rgb", vals):
+            for k, v in zip("rgb", vals, strict=False):
                 self.spins[k].setValue(round(v * 255))
         else:
-            for k, v in zip("cmyk", vals):
+            for k, v in zip("cmyk", vals, strict=False):
                 self.spins[k].setValue(round(v * 100))
         self.cmb_model.currentIndexChanged.connect(self._model_changed)
         self._model_changed()
@@ -1814,7 +1827,7 @@ class _ColorDialog(QDialog):
 
         c = QColorDialog.getColor(QColor(*self._rgb()), self, tr("Farbe auswählen"))
         if c.isValid():
-            for k, v in zip("rgb", (c.red(), c.green(), c.blue())):
+            for k, v in zip("rgb", (c.red(), c.green(), c.blue()), strict=False):
                 self.spins[k].setValue(v)
 
     def values(self):

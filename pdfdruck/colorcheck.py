@@ -203,6 +203,7 @@ def measure_tac(data: bytes, target: Target, dpi: int = 30, max_pages: int = 12,
     gs = cmyk.ghostscript()
     if gs:
         import tempfile
+
         import numpy as np
         from PIL import Image
 
@@ -253,6 +254,7 @@ def estimate_tac(data: bytes, limit: int = 300, max_pages: int = 50, cancel=None
     CMYK images (evaluated at reduced size). RGB is not considered (only the conversion computes that).
     """
     import io
+
     import pikepdf
 
     best, per = (0.0, 0), {}

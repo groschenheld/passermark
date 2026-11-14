@@ -33,6 +33,7 @@ def inspect(
 ) -> dict:
     """path: PDF (or image/Office file – converted first, like when opening)."""
     import pikepdf
+
     from . import convert, renderproc
 
     if not os.path.isfile(path):
@@ -42,8 +43,8 @@ def inspect(
         with open(path, "rb") as f:
             data = f.read()
     else:
-        import tempfile
         import shutil
+        import tempfile
 
         work = tempfile.mkdtemp(prefix="passermark-inspect-")
         try:
@@ -57,8 +58,8 @@ def inspect(
         out["converted"] = used or "image"
     try:
         pdf = pikepdf.open(io.BytesIO(data), password=password or "")
-    except pikepdf.PasswordError:
-        raise PermissionError(tr("Passwortgeschützt – Passwort mit --password angeben."))
+    except pikepdf.PasswordError as e:
+        raise PermissionError(tr("Passwortgeschützt – Passwort mit --password angeben.")) from e
     with pdf:
         out["encrypted"] = bool(pdf.is_encrypted)
         out["pdf_version"] = str(pdf.pdf_version)

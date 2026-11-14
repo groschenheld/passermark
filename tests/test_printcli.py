@@ -372,9 +372,9 @@ def test_step2_printed_like_saved():
             assert "Schritt 2" in str(e) and "500 × 700" in str(e), e
     # printed == saved: the same sheets as "Als PDF speichern"
     import pypdfium2 as pdfium
-    from pdfdruck import layout, printjob
+
+    from pdfdruck import config, layout, printjob
     from pdfdruck.session import Session
-    from pdfdruck import config
 
     with FakePrinter() as fp:
         sess = Session(config.load())
@@ -393,6 +393,7 @@ def test_step2_printed_like_saved():
 def test_cli_run_print_only():
     """passermark-cli run with only a print step (no output file): a message instead of a crash."""
     import contextlib
+
     from pdfdruck import cli
 
     src = doc(3)

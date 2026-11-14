@@ -113,12 +113,15 @@ class PresetBar(QWidget):
         except ValueError as e:
             QMessageBox.warning(self, tr("Preset"), str(e))
             return
-        if clean in presets.list_presets(self.kind) and clean != self.current():
-            if (
+        if (
+            clean in presets.list_presets(self.kind)
+            and clean != self.current()
+            and (
                 QMessageBox.question(self, tr("Preset"), tr("„{0}“ gibt es schon. Überschreiben?").format(clean))
                 != QMessageBox.StandardButton.Yes
-            ):
-                return
+            )
+        ):
+            return
         try:
             presets.save(self.kind, clean, self.get_settings())
         except OSError as e:

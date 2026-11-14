@@ -324,9 +324,9 @@ def analyze(data: bytes, pdf=None, colors=None) -> SizeReport:
             rep.area_m2 += abs(mb[2] - mb[0]) * abs(mb[3] - mb[1]) / (72 / 0.0254) ** 2
         roles = _object_roles(pdf)
         try:
-            from .preflight import current_visible, _layers
+            from .pdflayers import current_visible, list_layers
 
-            layers = _layers(pdf)
+            layers = list_layers(pdf)
             vis = current_visible(pdf)
             rep.has_hidden_layers = any(L.key not in vis for L in layers)
         except Exception:
@@ -827,11 +827,11 @@ class _Tally:
 def _drop_hidden_layers(src: bytes, tally: _Tally) -> bytes:
     """Remove layers that are switched off; the data unchanged if there are none or it fails."""
     try:
-        from . import preflight
+        from . import pdflayers
 
-        if preflight.has_layers(src):
+        if pdflayers.has_layers(src):
             before = len(src)
-            src = preflight.flatten_layers(src)
+            src = pdflayers.flatten_layers(src)
             tally.note("hidden", before - len(src))
     except Exception:
         pass

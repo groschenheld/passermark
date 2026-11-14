@@ -19,7 +19,8 @@ import subprocess
 import sys
 import tempfile
 
-from . import core, platform as _platform
+from . import core
+from . import platform as _platform
 from .l10n import tr
 
 
@@ -85,7 +86,8 @@ class JobProcess:
         if self.lang:
             env["PASSERMARK_LANG"] = self.lang
         env["PYTHONIOENCODING"] = "utf-8"
-        self._stderr_file = tempfile.TemporaryFile(mode="w+b")  # do not let stderr fill up (no pipe congestion)
+        # stderr goes to a file that lives as long as the job: a pipe could fill up and block the job
+        self._stderr_file = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115
         self.proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,

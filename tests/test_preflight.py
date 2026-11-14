@@ -10,7 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pikepdf
 import pypdfium2 as pdfium
-from pdfdruck import preflight
+
+from pdfdruck import fontlib, pdflayers, preflight
 
 
 def problem_pdf() -> bytes:
@@ -81,10 +82,10 @@ def test_analyze():
     rep = preflight.analyze(problem_pdf())
     names = {f.name: f for f in rep.fonts}
     assert names["ArialMT"].status == "missing" and names["Helvetica"].status == "std14"
-    L = {l.name: l for l in rep.layers}
+    L = {ln.name: ln for ln in rep.layers}
     assert not L["Bemaßung"].view_on and L["Hilfslinien"].view_on and L["Hilfslinien"].print_on is False
     assert L["Verrutscht"].outside_pct is not None and L["Verrutscht"].outside_pct > 50
-    assert all(l.pages == {1} for l in rep.layers)
+    assert all(ln.pages == {1} for ln in rep.layers)
     assert "alpha" in rep.transparency[1]
     sev = [(i.severity, i.category) for i in rep.issues]
     assert ("error", "font") in sev and sev.count(("warning", "layer")) >= 3
@@ -94,7 +95,7 @@ def test_analyze():
 def test_flatten_layers_print_state():
     data = problem_pdf()
     assert px(data, 100, 625)[:3] == (255, 255, 255)  # dimension layer (off) is hidden
-    out = preflight.flatten_layers(data)
+    out = pdflayers.flatten_layers(data)
     pk = pikepdf.open(io.BytesIO(out))
     assert "/OCProperties" not in pk.Root
     content = pk.pages[0].Contents.read_bytes()
@@ -107,10 +108,10 @@ def test_flatten_layers_print_state():
 
 def test_remove_layer_keeps_others():
     data = problem_pdf()
-    key = next(l.key for l in preflight.analyze(data, deep_layers=False).layers if l.name == "Verrutscht")
-    out = preflight.remove_layers(data, {key})
+    key = next(ln.key for ln in preflight.analyze(data, deep_layers=False).layers if ln.name == "Verrutscht")
+    out = pdflayers.remove_layers(data, {key})
     rep = preflight.analyze(out, deep_layers=False)
-    assert sorted(l.name for l in rep.layers) == ["Bemaßung", "Hilfslinien"]
+    assert sorted(ln.name for ln in rep.layers) == ["Bemaßung", "Hilfslinien"]
     pk = pikepdf.open(io.BytesIO(out))
     content = pk.pages[0].Contents.read_bytes()
     assert b"0 1 0 rg" not in content and b"/OC /L1 BDC" in content
@@ -119,18 +120,18 @@ def test_remove_layer_keeps_others():
 def test_set_layer_states():
     data = problem_pdf()
     rep = preflight.analyze(data, deep_layers=False)
-    st = {l.key: (True, True) for l in rep.layers}
-    out = preflight.set_layer_states(data, st)
+    st = {ln.key: (True, True) for ln in rep.layers}
+    out = pdflayers.set_layer_states(data, st)
     r = px(out, 100, 625)[:3]
     assert r[0] > 200 and r[1] < 60  # dimension layer now visible (red)
     rep2 = preflight.analyze(out, deep_layers=False)
-    assert all(l.view_on and l.print_on for l in rep2.layers)
+    assert all(ln.view_on and ln.print_on for ln in rep2.layers)
 
 
 def test_font_name_normalize():
-    assert preflight._norm("ABCDEF+Arial-BoldMT") == ("arial", True, False)
-    assert preflight._norm("TimesNewRomanPS-ItalicMT") == ("timesnewroman", False, True)
-    assert preflight._norm("Calibri,Bold") == ("calibri", True, False)
+    assert fontlib.parse_font_name("ABCDEF+Arial-BoldMT") == ("arial", True, False)
+    assert fontlib.parse_font_name("TimesNewRomanPS-ItalicMT") == ("timesnewroman", False, True)
+    assert fontlib.parse_font_name("Calibri,Bold") == ("calibri", True, False)
 
 
 def test_download_alias_and_suggestions(tmp_dir="/tmp/_pm_fonts"):
@@ -141,10 +142,10 @@ def test_download_alias_and_suggestions(tmp_dir="/tmp/_pm_fonts"):
     import urllib.request
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
-    assert preflight.free_alternative("ArialMT") == "Arimo"
-    assert preflight.free_alternative("Calibri-Bold") == "Carlito"
-    assert preflight.free_alternative("TimesNewRomanPSMT") == "Tinos"
-    assert preflight.free_alternative("Roboto") == ""
+    assert fontlib.free_alternative("ArialMT") == "Arimo"
+    assert fontlib.free_alternative("Calibri-Bold") == "Carlito"
+    assert fontlib.free_alternative("TimesNewRomanPSMT") == "Tinos"
+    assert fontlib.free_alternative("Roboto") == ""
     calls = []
 
     class Resp(io.BytesIO):
@@ -166,20 +167,20 @@ def test_download_alias_and_suggestions(tmp_dir="/tmp/_pm_fonts"):
             return Resp(b"\x00\x01\x00\x00fake-ttf")
         raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
 
-    orig, orig_dir = urllib.request.urlopen, preflight.user_font_dir
+    orig, orig_dir = urllib.request.urlopen, fontlib.user_font_dir
     urllib.request.urlopen = fake_urlopen
-    preflight.user_font_dir = lambda: tmp_dir
+    fontlib.user_font_dir = lambda: tmp_dir
     try:
-        paths, used = preflight.download_font("arial")
+        paths, used = fontlib.download_font("arial")
         assert used == "Arimo" and len(paths) == 1 and os.path.exists(paths[0])
         assert calls[0].endswith("/fonts/arimo")
         try:
-            preflight.download_font("Robotto")
+            fontlib.download_font("Robotto")
             assert False
-        except preflight.FontNotFound as e:
+        except fontlib.FontNotFound as e:
             assert "Roboto" in e.suggestions and "Roboto" in str(e)
     finally:
-        urllib.request.urlopen, preflight.user_font_dir = orig, orig_dir
+        urllib.request.urlopen, fontlib.user_font_dir = orig, orig_dir
 
 
 def test_testfile_findings():
@@ -218,13 +219,13 @@ def test_download_cdn_fallback(tmp_dir="/tmp/_pm_fonts2"):
             return Resp(b"ttf")
         raise urllib.error.HTTPError(url, 404, "nf", {}, None)
 
-    orig, od = urllib.request.urlopen, preflight.user_font_dir
-    urllib.request.urlopen, preflight.user_font_dir = fake, (lambda: tmp_dir)
+    orig, od = urllib.request.urlopen, fontlib.user_font_dir
+    urllib.request.urlopen, fontlib.user_font_dir = fake, (lambda: tmp_dir)
     try:
-        paths, used = preflight.download_font("Calibri")
+        paths, used = fontlib.download_font("Calibri")
         assert used == "Carlito" and len(paths) == 2 and all("carlito" in p for p in paths)
     finally:
-        urllib.request.urlopen, preflight.user_font_dir = orig, od
+        urllib.request.urlopen, fontlib.user_font_dir = orig, od
 
 
 def test_fonts_in_forms_found_on_every_page():

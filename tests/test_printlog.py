@@ -23,6 +23,7 @@ os.environ["PDFDRUCK_CONFIG_DIR"] = os.path.join(TMP, "etc")
 os.makedirs(os.environ["PDFDRUCK_CONFIG_DIR"], exist_ok=True)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import test_printcli as T
+
 from pdfdruck import cli, l10n, printcli, printlog, workflow
 
 LOGDIR = os.path.join(TMP, "state", "passermark", "printlog")

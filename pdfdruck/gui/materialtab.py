@@ -460,7 +460,7 @@ class MaterialTab(QWidget):
         if m.get("weight"):
             extra.append(f"{m['weight']} g/m²")
         if m.get("white"):
-            extra.append("L {0:.0f}".format(m["white"][0]))
+            extra.append("L {:.0f}".format(m["white"][0]))
         it.setText((m.get("name") or m["id"]) + (f"  ({', '.join(extra)})" if extra else ""))
 
     def _store_profiles(self, *_):

@@ -10,9 +10,9 @@ ROOT = os.path.dirname(HERE)
 
 SCRIPT = r"""
 import os, sys, tempfile, threading, time, types
-from pdfdruck.gui import viewer, objectsdialog as od
-viewer.PageView._dpi_scale = lambda self: 1.0      # Qt stand-in: no screen -> fixed values
-viewer.PageView.page_zoom = lambda self, i: 1.0
+from pdfdruck.gui import maindialogs, mainwindow, pageview, objectsdialog as od
+pageview.PageView._dpi_scale = lambda self: 1.0      # Qt stand-in: no screen -> fixed values
+pageview.PageView.page_zoom = lambda self, i: 1.0
 from pdfdruck import config, core
 from pdfdruck.gui.common import Session
 import pypdfium2 as pdfium
@@ -27,18 +27,18 @@ class Ctl:
             p, i = os.path.join(tmp, f"{base}_{i}{ext}"), i + 1
         return p
     def new_window(s, tab_of=None):
-        w = viewer.MainWindow(s); s.made.append(w); return w
+        w = mainwindow.MainWindow(s); s.made.append(w); return w
 ctl = Ctl()
 tc.stickers().save(os.path.join(tmp, "bogen.pdf"))
-w = viewer.MainWindow(ctl)
+w = mainwindow.MainWindow(ctl)
 w._set_doc(pdfium.PdfDocument(os.path.join(tmp, "bogen.pdf")), os.path.join(tmp, "bogen.pdf"), "bogen.pdf", False)
 msgs = []
 w.statusBar = lambda: types.SimpleNamespace(addWidget=lambda x: None, removeWidget=lambda x: None,
                                              showMessage=lambda m, t=0: msgs.append(m))
 boxes = []
-viewer.QMessageBox = lambda *a, **k: types.SimpleNamespace(setDetailedText=lambda d: boxes.append(("details", d)),
+maindialogs.QMessageBox = lambda *a, **k: types.SimpleNamespace(setDetailedText=lambda d: boxes.append(("details", d)),
                                                            exec=lambda: boxes.append(("box", a[2] if len(a) > 2 else "")))
-viewer.QMessageBox.Icon = types.SimpleNamespace(Critical=0)
+maindialogs.QMessageBox.Icon = types.SimpleNamespace(Critical=0)
 
 def run_sync(entry_index=-1):
     w._jobs[entry_index]["reader"].run()          # the Qt stub starts no threads: run the read loop directly
@@ -54,7 +54,7 @@ assert len(res_win.doc) == 1 and res_win._temp_path == dst and os.path.exists(ds
 print("Erfolg ok:", os.path.basename(dst))
 
 # 2) cancel in the middle of the computation
-w2 = viewer.MainWindow(ctl); w2.statusBar = w.statusBar
+w2 = mainwindow.MainWindow(ctl); w2.statusBar = w.statusBar
 slow = tcl._slow_input()
 w2._set_doc(pdfium.PdfDocument(slow), slow, "slow.pdf", False)
 w2.start_job("cutcontour", {}, None, suffix="_CutContour", title="CutContour")

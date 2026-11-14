@@ -24,7 +24,7 @@ select = ["E", "W", "F", "B", "UP", "SIM"]
 ignore = [
     "E501",     # line length is the formatter's job (long strings may exceed it)
     "E731",     # small lambdas bound to a name are used for Qt callbacks
-    "SIM105",   # try/except/pass vs. contextlib.suppress: tracked separately (error-handling cleanup)
+    "SIM105",   # try/except/pass vs. contextlib.suppress – see docs/architecture.md, error handling
     "SIM108",   # ternary instead of if/else – readability call, not enforced
     "B008",     # Qt default arguments such as QModelIndex()
 ]

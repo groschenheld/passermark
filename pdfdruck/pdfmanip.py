@@ -16,18 +16,19 @@ for files that already come at the right size with bleed. Only the page boxes ar
 """
 
 from __future__ import annotations
+
 import io
 import os
 import tempfile
 
 from . import cmyk as _cmyk
 from .l10n import tr
+from .papersizes import UI_FORMATS as _UI_FORMATS
 
 MM = 72.0 / 25.4
 
 TRIM_MODE = "__trim__"
 WHITEOUT_MODE = "__whiteout__"
-from .papersizes import UI_FORMATS as _UI_FORMATS
 
 FORMATS = {  # display order; mm, portrait – standard sizes from the shared table (papersizes.py)
     **_UI_FORMATS,
@@ -40,19 +41,16 @@ FORMATS = {  # display order; mm, portrait – standard sizes from the shared ta
 
 def target_pt(s: _cmyk.ManipSettings) -> tuple[float, float]:
     """Target size of the crop in pt as ``(width, height)``."""
-    if s.crop_size in FORMATS:
-        w, h = FORMATS[s.crop_size]
-    else:
-        w, h = s.crop_w_mm, s.crop_h_mm
+    w, h = FORMATS.get(s.crop_size, (s.crop_w_mm, s.crop_h_mm))
     return w * MM, h * MM
 
 
 def _inset_box(box, s) -> tuple:
     """First subtract the original's white margin all around (crop_inset_mm); never smaller than 1 mm."""
     m = max(0.0, getattr(s, "crop_inset_mm", 0.0)) * MM
-    l, b, r, t = box
-    m = min(m, (r - l - MM) / 2, (t - b - MM) / 2)
-    return (l + m, b + m, r - m, t - m) if m > 0 else tuple(box)
+    left, b, r, t = box
+    m = min(m, (r - left - MM) / 2, (t - b - MM) / 2)
+    return (left + m, b + m, r - m, t - m) if m > 0 else tuple(box)
 
 
 def _oriented(W: float, H: float, target, follow: bool):
@@ -71,8 +69,8 @@ def fill_geometry(W: float, H: float, target, follow: bool):
 
 def crop_box_for(box, rotation: int, target, follow: bool):
     """New box (l, b, r, t) in the unrotated page system + notes. box: (l, b, r, t) of the visible page."""
-    l, b, r, t = box
-    W, H = r - l, t - b
+    left, b, r, t = box
+    W, H = r - left, t - b
     tw, th = target
     if rotation % 180:  # the target is given in reading direction
         tw, th = th, tw
@@ -81,19 +79,19 @@ def crop_box_for(box, rotation: int, target, follow: bool):
     dx, dy = W - tw, H - th
     notes = []
     if dx > 0.05:
-        l, r = l + dx / 2, r - dx / 2
+        left, r = left + dx / 2, r - dx / 2
     elif dx < -0.5:
         notes.append("w")
     if dy > 0.05:
         b, t = b + dy / 2, t - dy / 2
     elif dy < -0.5:
         notes.append("h")
-    return (l, b, r, t), max(dx, 0) / 2, max(dy, 0) / 2, notes
+    return (left, b, r, t), max(dx, 0) / 2, max(dy, 0) / 2, notes
 
 
 def trim_box_for(box, rotation, s):
     """Cut off edges without a target size: new box + (l, t, r, b) in reading direction."""
-    l, b, r, t = box
+    left, b, r, t = box
     lmm, tmm, rmm, bmm = s.trim_l_mm, s.trim_t_mm, s.trim_r_mm, s.trim_b_mm
     rot = rotation % 360
     if rot == 90:  # display rotated 90° clockwise
@@ -102,8 +100,8 @@ def trim_box_for(box, rotation, s):
         lmm, tmm, rmm, bmm = rmm, bmm, lmm, tmm
     elif rot == 270:
         lmm, tmm, rmm, bmm = bmm, lmm, tmm, rmm
-    l, b, r, t = l + lmm * MM, b + bmm * MM, r - rmm * MM, t - tmm * MM
-    return (l, b, r, t), (s.trim_l_mm, s.trim_t_mm, s.trim_r_mm, s.trim_b_mm)
+    left, b, r, t = left + lmm * MM, b + bmm * MM, r - rmm * MM, t - tmm * MM
+    return (left, b, r, t), (s.trim_l_mm, s.trim_t_mm, s.trim_r_mm, s.trim_b_mm)
 
 
 def _white_bbox(pg, dpi=72, tol=12):
@@ -157,6 +155,7 @@ def _white_bbox(pg, dpi=72, tol=12):
 def whiteout_doc(doc, s: _cmyk.ManipSettings):
     """Remove white space: detected bbox + margin = new page size (content stays 1:1)."""
     import pypdfium2 as pdfium
+
     from .layout import flattened
     from .objects import normalized
 
@@ -181,13 +180,13 @@ def whiteout_doc(doc, s: _cmyk.ManipSettings):
                 skipped.append(i + 1)
                 continue
             m = s.white_margin_mm * MM
-            l, b, r, t = bb[0] - m, bb[1] - m, bb[2] + m, bb[3] + m
-            l, b = max(l, 0.0), max(b, 0.0)
+            left, b, r, t = bb[0] - m, bb[1] - m, bb[2] + m, bb[3] + m
+            left, b = max(left, 0.0), max(b, 0.0)
             r, t = min(r, W0), min(t, H0)  # the margin must not extend beyond the page
-            pg_out = out.new_page(max(r - l, 1.0), max(t - b, 1.0))
+            pg_out = out.new_page(max(r - left, 1.0), max(t - b, 1.0))
             xo = norm.page_as_xobject(i, out)
             po = xo.as_pageobject()
-            po.transform(pdfium.PdfMatrix().translate(-l, -b))  # only move, do not scale
+            po.transform(pdfium.PdfMatrix().translate(-left, -b))  # only move, do not scale
             pg_out.insert_obj(po)
             pg_out.gen_content()
             pg_out.close()
@@ -254,6 +253,7 @@ def describe_crop(doc, s: _cmyk.ManipSettings, page: int) -> str:
 def fill_doc(doc, s: _cmyk.ManipSettings):
     """Copy: every page scaled until it covers the target, overhang trimmed on both sides (vectorial)."""
     import pypdfium2 as pdfium
+
     from .layout import flattened
     from .objects import normalized
 
@@ -268,13 +268,15 @@ def fill_doc(doc, s: _cmyk.ManipSettings):
     try:
         for i in range(len(norm)):
             W0, H0 = norm.get_page_size(i)
-            l, b, r, t = _inset_box((0.0, 0.0, W0, H0), s)
-            W, H = r - l, t - b
+            left, b, r, t = _inset_box((0.0, 0.0, W0, H0), s)
+            W, H = r - left, t - b
             tw, th, k, _cx, _cy = fill_geometry(W, H, tgt, s.crop_follow)
             pg = out.new_page(tw, th)
             xo = norm.page_as_xobject(i, out)
             po = xo.as_pageobject()
-            po.transform(pdfium.PdfMatrix().translate(-l, -b).scale(k, k).translate((tw - W * k) / 2, (th - H * k) / 2))
+            po.transform(
+                pdfium.PdfMatrix().translate(-left, -b).scale(k, k).translate((tw - W * k) / 2, (th - H * k) / 2)
+            )
             pg.insert_obj(po)
             pg.gen_content()
             pg.close()

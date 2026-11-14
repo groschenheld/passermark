@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import preflight
+from .. import fontlib, pdflayers, preflight
 from ..l10n import tr
 from . import theme
 
@@ -194,7 +194,7 @@ class PreflightPanel(QWidget):
         b1.clicked.connect(self._embed)
         b2 = QPushButton(tr("Text in Pfade"))
         b2.setToolTip(tr("Sieht überall gleich aus, Text ist danach aber nicht mehr durchsuchbar"))
-        b2.clicked.connect(lambda: self._run(preflight.outline_text, tr("_Pfade"), [tr("Text in Pfade umgewandelt.")]))
+        b2.clicked.connect(lambda: self._run(fontlib.outline_text, tr("_Pfade"), [tr("Text in Pfade umgewandelt.")]))
         row.addWidget(b1)
         row.addWidget(b2)
         lv.addLayout(row)
@@ -240,7 +240,7 @@ class PreflightPanel(QWidget):
         b = QPushButton(tr("Transparenzen reduzieren (300 dpi)"))
         b.setToolTip(tr("Für ältere Drucker/RIPs: transparente Bereiche werden gerastert (PDF 1.3)"))
         b.clicked.connect(
-            lambda: self._run(preflight.flatten_transparency, tr("_ohneTransparenz"), [tr("Transparenzen reduziert.")])
+            lambda: self._run(fontlib.flatten_transparency, tr("_ohneTransparenz"), [tr("Transparenzen reduziert.")])
         )
         lv.addWidget(b)
         b = QPushButton(tr("Transparente Verläufe in Bilder umwandeln (300 dpi)"))
@@ -580,7 +580,7 @@ class PreflightPanel(QWidget):
         if not self.rep or not self.rep.layers:
             return
         st = self._layer_states()
-        self._run(lambda d: preflight.set_layer_states(d, st), tr("_Ebenen"), [tr("Ebenen-Zustand übernommen.")])
+        self._run(lambda d: pdflayers.set_layer_states(d, st), tr("_Ebenen"), [tr("Ebenen-Zustand übernommen.")])
 
     def _ask_basis(self, states) -> str | None:
         """If view and print differ, ask which state is made permanent."""
@@ -621,7 +621,7 @@ class PreflightPanel(QWidget):
             return
         vis = {k for k, (v, p) in st.items() if (p if basis == "print" else v)}
         self._run(
-            lambda d: preflight.flatten_layers(d, vis),
+            lambda d: pdflayers.flatten_layers(d, vis),
             tr("_festgeschrieben"),
             [tr("Ebenen festgeschrieben – es wird genau das Sichtbare gedruckt.")],
         )
@@ -633,7 +633,7 @@ class PreflightPanel(QWidget):
             return
         keys = {self.tbl_layers.item(r, 0).data(Qt.ItemDataRole.UserRole) for r in rows}
         self._run(
-            lambda d: preflight.remove_layers(d, keys), tr("_Ebenen"), [tr("{0} Ebene(n) entfernt.").format(len(keys))]
+            lambda d: pdflayers.remove_layers(d, keys), tr("_Ebenen"), [tr("{0} Ebene(n) entfernt.").format(len(keys))]
         )
 
     def _font_action(self, what):
@@ -672,7 +672,7 @@ class PreflightPanel(QWidget):
                 self.font_map[name] = p
         elif what == "__download__":
             cb.setCurrentIndex(0)
-            alt = preflight.free_alternative(name)
+            alt = fontlib.free_alternative(name)
             text = tr("Name der Schrift (fontsource.org, freie Lizenzen), z. B. „Roboto“:")
             if alt:
                 text = (
@@ -689,8 +689,8 @@ class PreflightPanel(QWidget):
             while ok and fam.strip():
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
-                    paths, used = preflight.download_font(fam.strip())
-                except preflight.FontNotFound as e:
+                    paths, used = fontlib.download_font(fam.strip())
+                except fontlib.FontNotFound as e:
                     QApplication.restoreOverrideCursor()
                     if e.suggestions:
                         fam, ok = QInputDialog.getItem(
@@ -709,7 +709,7 @@ class PreflightPanel(QWidget):
                     QMessageBox.warning(self, tr("Herunterladen"), str(e))
                     return
                 QApplication.restoreOverrideCursor()
-                _fam, bold, italic = preflight._norm(name)
+                _fam, bold, italic = fontlib.parse_font_name(name)
                 pick = next((p for p in paths if ("700" in p) == bold and ("italic" in p) == italic), paths[0])
                 cb.setItemText(0, f"{used} ({os.path.basename(pick)})")
                 cb.setItemData(0, pick)
@@ -741,7 +741,7 @@ class PreflightPanel(QWidget):
             return
         mp = dict(self.font_map)
         self._run(
-            lambda d: preflight.embed_fonts(d, mp),
+            lambda d: fontlib.embed_fonts(d, mp),
             tr("_Schriften"),
             [tr("Schriften eingebettet ({0} ersetzt).").format(len(mp))],
         )
@@ -757,7 +757,7 @@ class PreflightPanel(QWidget):
             if basis is None:
                 return
             vis = {k for k, (v, p) in st.items() if (p if basis == "print" else v)}
-            steps.append(lambda d: preflight.flatten_layers(d, vis))
+            steps.append(lambda d: pdflayers.flatten_layers(d, vis))
             notes.append(
                 tr("Ebenen festgeschrieben ({0}).").format(
                     tr("wie beim Druck") if basis == "print" else tr("wie am Bildschirm")
@@ -771,7 +771,7 @@ class PreflightPanel(QWidget):
             return
         if missing:
             mp = dict(self.font_map)
-            steps.append(lambda d: preflight.embed_fonts(d, mp))
+            steps.append(lambda d: fontlib.embed_fonts(d, mp))
             notes.append(tr("Schriften eingebettet."))
         if not steps:
             QMessageBox.information(self, tr("Prüfung"), tr("Keine automatischen Reparaturen nötig."))

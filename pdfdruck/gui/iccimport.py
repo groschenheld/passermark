@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from ..l10n import tr
-
 import html
 
 from PySide6.QtCore import Qt
@@ -31,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import iccfetch
+from ..l10n import tr
 from . import theme
 from .common import fill_combo, fit_width
 

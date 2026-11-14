@@ -36,10 +36,10 @@ def insert_blank(doc, index: int, ref: int | None = None, count: int = 1) -> int
             pg.close()
     for k in range(count):
         if boxes:
-            l, b, r, t = boxes["media"]
-            new = doc.new_page(r - l, t - b, index + k)
+            left, b, r, t = boxes["media"]
+            new = doc.new_page(r - left, t - b, index + k)
             try:
-                new.set_mediabox(l, b, r, t)
+                new.set_mediabox(left, b, r, t)
                 for name in ("crop", "bleed", "trim", "art"):
                     if boxes[name] is not None:
                         getattr(new, f"set_{name}box")(*boxes[name])

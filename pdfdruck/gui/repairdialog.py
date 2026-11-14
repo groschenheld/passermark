@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from ..l10n import tr
-
 import os
 
 from PySide6.QtCore import QThread, Signal
@@ -32,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import repair
+from ..l10n import tr
 from . import theme
 from .common import fit_width
 

@@ -13,8 +13,6 @@ window is closed. If nothing is running, printing uses the admin defaults.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import json
 import os
 import sys
@@ -26,6 +24,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import config, images, printjob
 from . import platform as _platform
 from .gui.common import Session
+from .l10n import tr
 
 
 def server_name() -> str:
@@ -307,7 +306,7 @@ class Controller(QObject):
         """New document window. tab_of = window it originates from: then as a tab next to it
         (setting "Open inside the program as a tab"). Otherwise a standalone window.
         """
-        from .gui.viewer import MainWindow
+        from .gui.mainwindow import MainWindow
 
         w = MainWindow(self)
         self.windows.append(w)

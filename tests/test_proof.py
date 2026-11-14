@@ -4,13 +4,15 @@
 # Public License, Version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
 import os
-import sys
 import os as _os
+import sys
 
 _os.environ.setdefault("PASSERMARK_LANG", "de")  # tests check German texts
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from PIL import Image, ImageCms
-from pdfdruck import proof, printers as P
+
+from pdfdruck import printers as P
+from pdfdruck import proof
 
 
 def caps():

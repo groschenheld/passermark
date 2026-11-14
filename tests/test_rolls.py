@@ -15,9 +15,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-rolls-cfg-")
+from test_ipp import a
+
 from pdfdruck import ipp, rolls, snmp
 from pdfdruck.printers import Choice, Option, PrinterCaps
-from test_ipp import a
 
 
 def roll_col(first, src, w, weight, mtype, info=""):

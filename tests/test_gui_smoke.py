@@ -12,16 +12,16 @@ SAMPLE = os.path.join(HERE, "sample.pdf")
 
 SCRIPT = r"""
 import sys, types
-from pdfdruck.gui import viewer
-viewer.PageView._dpi_scale = lambda self: 1.0
-viewer.PageView.page_zoom = lambda self, i: 1.0
+from pdfdruck.gui import mainwindow, pageview
+pageview.PageView._dpi_scale = lambda self: 1.0
+pageview.PageView.page_zoom = lambda self, i: 1.0
 import pdfdruck.__main__ as m
 sys.argv = ["prog", sys.argv[1]]
 assert m.main() == 0
 from pdfdruck import config
 from pdfdruck.gui.common import Session
 import pypdfium2 as pdfium
-w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 pw = w.view.pages[0]
 pw.width = lambda: 600; pw.height = lambda: 800
@@ -32,7 +32,7 @@ class P:
 class E:
     def __init__(s, x, y): s.p = P(x, y)
     def position(s): return s.p
-    def button(s): return viewer.Qt.MouseButton.LeftButton
+    def button(s): return mainwindow.Qt.MouseButton.LeftButton
     def modifiers(s): return 0
 w.view.mouse_press(pw, E(100, 100)); w.view.mouse_move(pw, E(200, 110)); w.view.mouse_release(pw, E(200, 110))
 w.view.mouse_double(pw, E(100, 100)); w.view.select_page_text(); w.copy_text()

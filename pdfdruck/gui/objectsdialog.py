@@ -8,9 +8,8 @@
 from __future__ import annotations
 
 import dataclasses
-import traceback
-
 import math
+import traceback
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
@@ -36,7 +35,7 @@ from PySide6.QtWidgets import (
 from .. import cutcontour, objects
 from ..l10n import tr
 from . import theme
-from .common import split_panels, fill_combo, fit_width
+from .common import fill_combo, fit_width, split_panels
 
 MODES = [("auto", "Automatisch"), ("transparent", "Vektor/Transparenz (exakt)"), ("color", "Hintergrundfarbe (Scans)")]
 SHAPES = [

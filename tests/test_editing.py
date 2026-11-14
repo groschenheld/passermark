@@ -11,8 +11,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 try:
     import pypdfium2 as pdfium
-    from pdfdruck import preflight
     import test_preflight as tp
+
+    from pdfdruck import preflight
 except ModuleNotFoundError:  # pure logic tests run without PDF libraries
     pdfium = None
 from pdfdruck import editing
@@ -28,24 +29,24 @@ def plan():
 def test_text_lines_edit_and_font():
     d = pdfium.PdfDocument(plan())
     lines = editing.text_lines(d, 0)
-    L = next(l for l in lines if l.text.startswith("Hallo"))
+    L = next(ln for ln in lines if ln.text.startswith("Hallo"))
     assert L.font == "ArialMT" and abs(L.size - 24) < 0.1
     assert editing.line_at(lines, (L.bbox[0] + L.bbox[2]) / 2, (L.bbox[1] + L.bbox[3]) / 2) is L
     editing.edit_line(d, 0, L, "Hallo Passermark")
     buf = io.BytesIO()
     d.save(buf)
     d2 = pdfium.PdfDocument(buf.getvalue())
-    L2 = next(l for l in editing.text_lines(d2, 0) if l.text.startswith("Hallo"))
+    L2 = next(ln for ln in editing.text_lines(d2, 0) if ln.text.startswith("Hallo"))
     assert L2.text == "Hallo Passermark" and L2.font == "ArialMT"
     editing.edit_line(d2, 0, L2, "Neue Schrift", font=("std", "Times-Bold"), size=30)
     buf = io.BytesIO()
     d2.save(buf)
     d3 = pdfium.PdfDocument(buf.getvalue())
-    L3 = next(l for l in editing.text_lines(d3, 0) if l.text == "Neue Schrift")
+    L3 = next(ln for ln in editing.text_lines(d3, 0) if ln.text == "Neue Schrift")
     assert "Times" in L3.font and abs(L3.size - 30) < 0.1
     assert abs(L3.bbox[0] - L.bbox[0]) < 2  # same position
     editing.delete_line(d3, 0, L3)
-    assert not any(l.text == "Neue Schrift" for l in editing.text_lines(d3, 0))
+    assert not any(ln.text == "Neue Schrift" for ln in editing.text_lines(d3, 0))
 
 
 def test_layer_map_click_transform_replace():
@@ -120,19 +121,19 @@ BT /T3 40 Tf 1 0 0 -1 100 200 Tm (A) Tj 30 0 Td (B) Tj 30 0 Td (C) Tj
 def test_chrome_like_type3_edits():
     data = chrome_like()
     lines = editing.text_lines(pdfium.PdfDocument(data), 0)
-    assert [l.text for l in lines] == ["ABC", "CABA"], [l.text for l in lines]
+    assert [ln.text for ln in lines] == ["ABC", "CABA"], [ln.text for ln in lines]
     L, other = lines
     # moving/scaling: the line is detached from the shared text block, into page coordinates
     new = editing.transform_line_blocks(data, 0, L, 1.0, 40, -30)
     assert new is not None
     after = editing.text_lines(pdfium.PdfDocument(new), 0)
-    moved = next(l for l in after if l.text == "ABC")
-    still = next(l for l in after if l.text == "CABA")
+    moved = next(ln for ln in after if ln.text == "ABC")
+    still = next(ln for ln in after if ln.text == "CABA")
     assert abs(moved.bbox[0] - (L.bbox[0] + 40)) < 1 and abs(moved.bbox[1] - (L.bbox[1] - 30)) < 1
     assert abs(still.bbox[0] - other.bbox[0]) < 0.5 and abs(still.bbox[1] - other.bbox[1]) < 0.5  # the rest stays
     assert editing.verify_edit(data, new, 0, [L.bbox, moved.bbox]) == ""
     big = editing.transform_line_blocks(data, 0, L, 2.0, 0, 0, (L.bbox[0], L.bbox[1]))
-    b2 = next(l for l in editing.text_lines(pdfium.PdfDocument(big), 0) if l.text == "ABC")
+    b2 = next(ln for ln in editing.text_lines(pdfium.PdfDocument(big), 0) if ln.text == "ABC")
     assert abs((b2.bbox[2] - b2.bbox[0]) - 2 * (L.bbox[2] - L.bbox[0])) < 2
     # changing text: the direct route loses the Type3 text -> fallback overlays, the rest remains
     out, notes = editing.edit_line_bytes(data, 0, L, "NEU")
@@ -141,9 +142,9 @@ def test_chrome_like_type3_edits():
     assert editing.verify_edit(data, out, 0, [(0, L.bbox[1] - 40, 595, L.bbox[3] + 40)]) == ""
     # deleting without regeneration
     gone = editing.remove_line_ops(data, 0, L)
-    rest = [l.text for l in editing.text_lines(pdfium.PdfDocument(gone), 0)]
+    rest = [ln.text for ln in editing.text_lines(pdfium.PdfDocument(gone), 0)]
     assert rest == ["CABA"], rest
-    st = next(l for l in editing.text_lines(pdfium.PdfDocument(gone), 0))
+    st = next(ln for ln in editing.text_lines(pdfium.PdfDocument(gone), 0))
     assert abs(st.bbox[0] - other.bbox[0]) < 0.5 and abs(st.bbox[1] - other.bbox[1]) < 0.5
 
 
@@ -173,6 +174,7 @@ def _path_text_pdf() -> bytes:
     plus a black bar as page content that must stay unchanged.
     """
     import math
+
     import pikepdf
 
     pdf = pikepdf.new()
@@ -188,8 +190,7 @@ def _path_text_pdf() -> bytes:
         x, y = cx + rad * math.cos(a), cy + rad * math.sin(a)
         parts.append(
             (
-                "BT /F1 24 Tf %f %f %f %f %f %f Tm (%s) Tj ET"
-                % (math.cos(th), math.sin(th), -math.sin(th), math.cos(th), x, y, ch)
+                f"BT /F1 24 Tf {math.cos(th):f} {math.sin(th):f} {-math.sin(th):f} {math.cos(th):f} {x:f} {y:f} Tm ({ch}) Tj ET"
             ).encode("ascii")
         )
     page.obj.Contents = pikepdf.Stream(pdf, b"\n".join(parts))
@@ -273,14 +274,14 @@ def test_path_text_font_size():
     d = pdfium.PdfDocument(data)
     lines = editing.text_lines(d, 0)
     d.close()
-    L = next(l for l in lines if l.text.replace(" ", "") == "ldr")
+    L = next(ln for ln in lines if ln.text.replace(" ", "") == "ldr")
     assert len(L.objs) == 3, "Pfadtext-Buchstaben als eine Zeile erkannt"
     assert L.path_center is not None, "Bogenzentrum erkannt (path_center gesetzt)"
     # change size: scale around the arc centre, the page otherwise stays untouched
     new, notes = editing.edit_line_bytes(data, 0, L, L.text, None, 36)
     assert editing.verify_edit(data, new, 0, [(167.5, 370.0, 427.5, 630.0)]) == ""
     d2 = pdfium.PdfDocument(new)
-    L2 = next(l for l in editing.text_lines(d2, 0) if l.text.replace(" ", "") == "ldr")
+    L2 = next(ln for ln in editing.text_lines(d2, 0) if ln.text.replace(" ", "") == "ldr")
     d2.close()
     assert abs(L2.size - 36) < 2 and len(L2.objs) == 3
     # changing text is not possible for text on a path: a clear message instead of half a page
@@ -318,8 +319,8 @@ def test_reorder_objects_and_lines():
     """Z-order: bring a red rectangle behind a blue one to the front (pixel check),
     move several rows together.
     """
-    import pikepdf
     import numpy as np
+    import pikepdf
 
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(300, 300))
@@ -461,6 +462,7 @@ def test_objects_in_content_keep_text():
     """
     import numpy as np
     from reportlab.pdfgen import canvas
+
     from pdfdruck import editops
 
     buf = io.BytesIO()
@@ -498,17 +500,17 @@ def test_objects_in_content_keep_text():
         finally:
             d.close()
 
-    for k, O in enumerate(objs):
+    for k, obj in enumerate(objs):
         for act in ("delete", "transform"):
-            kw = {} if act == "delete" else dict(scale=1.5, dx=10, dy=-5, origin=(O.bbox[0], O.bbox[1]))
-            a = editing.edit_objects_content(data, 0, [O], act, **kw)
+            kw = {} if act == "delete" else dict(scale=1.5, dx=10, dy=-5, origin=(obj.bbox[0], obj.bbox[1]))
+            a = editing.edit_objects_content(data, 0, [obj], act, **kw)
             if a is None:
                 assert act == "transform" and k == 3, (k, act)  # move a path with a clip: pdfium way
                 continue
             if act == "delete":
-                b = editops.pdfium_edit(data, 0, lambda d: editing.delete_objects(d, 0, [O]))[0]
+                b = editops.pdfium_edit(data, 0, lambda d: editing.delete_objects(d, 0, [obj]))[0]
             else:
-                b = editops.pdfium_edit(data, 0, lambda d: editing.transform_objects_bulk(d, 0, [O], **kw))[0]
+                b = editops.pdfium_edit(data, 0, lambda d: editing.transform_objects_bulk(d, 0, [obj], **kw))[0]
             ra, na = look(a)
             rb, _nb = look(b)
             assert na == n_chars and (np.abs(ra - rb).max(axis=2) > 40).sum() == 0, (k, act)

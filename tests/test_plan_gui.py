@@ -16,6 +16,7 @@ import os, sys, tempfile
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-plangui-")
 from PySide6 import QtWidgets as W
 from pdfdruck.gui import plandialog as P
+from pdfdruck.gui import plansetup as PS
 
 
 class Combo(W.QComboBox):
@@ -66,7 +67,9 @@ class Edit(W.QLineEdit):
         self.t = t
 
 
-P.QComboBox, P.QSpinBox, P.QDoubleSpinBox, P.QCheckBox, P.QLineEdit = Combo, Spin, Spin, Check, Edit
+from pdfdruck.gui import planbuild as PB
+for _m in (P, PB, PS):  # the window is built in planbuild, the setup dialogs live in plansetup
+    _m.QComboBox, _m.QSpinBox, _m.QDoubleSpinBox, _m.QCheckBox, _m.QLineEdit = Combo, Spin, Spin, Check, Edit
 import pypdfium2 as pdfium
 import test_planprint as T
 from pdfdruck import config, rolls
@@ -140,7 +143,7 @@ with T.FakePlotter() as fp:
     d.close()
     dlg._cleanup(0)
     # rolls window
-    rd = P.RollsDialog(None, sess, "Plotter")
+    rd = PS.RollsDialog(None, sess, "Plotter")
     rd._remove()
     # poster printing: default single (side by side can be switched on), crop when too wide; banner settings
     doc2 = pdfium.PdfDocument(T.plan_pdf("gui_poster.pdf", 420, 594, frames=0))
@@ -165,11 +168,11 @@ with T.FakePlotter() as fp:
     w2 = P.open_window(sess, None, "poster", files=[src])
     assert w2 is not w1 and len(w2.items) == 2 and len(P.open_windows()) == 2
     P._WINDOWS.clear()
-    md = P.MaterialsDialog(None, sess, "Plotter", T.plotter_caps())
+    md = PS.MaterialsDialog(None, sess, "Plotter", T.plotter_caps())
     md._add({"name": "PVC 510", "category": "quality"})
-    fd = P.FoldersDialog(None)
+    fd = PS.FoldersDialog(None)
     from pdfdruck import probe
-    P.ProbeDialog(None, probe.run("", "CW"))._save
+    PS.ProbeDialog(None, probe.run("", "CW"))._save
 assert planhistory.clear() >= 1 and planhistory.entries() == []
 print("PLAN-GUI-OK")
 """

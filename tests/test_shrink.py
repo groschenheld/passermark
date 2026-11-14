@@ -35,11 +35,11 @@ def _pdf() -> bytes:
     pdf = pikepdf.new()
     pdf.add_blank_page(page_size=(595, 842))
     pg = pdf.pages[0]
-    X, I = pikepdf.Name.XObject, pikepdf.Name.Image
+    X, Instr = pikepdf.Name.XObject, pikepdf.Name.Image
 
     def img(data, w, h, cs, bpc=8, **kw):
         return pikepdf.Stream(
-            pdf, data, Type=X, Subtype=I, Width=w, Height=h, ColorSpace=cs, BitsPerComponent=bpc, **kw
+            pdf, data, Type=X, Subtype=Instr, Width=w, Height=h, ColorSpace=cs, BitsPerComponent=bpc, **kw
         )
 
     a = _photo(600, 600, 3).astype(">u2") * 257
@@ -297,6 +297,7 @@ def test_ascii85_wrapped_jpeg():
     """JPEG behind ASCII85 (ReportLab): recognised, downsampled and unpacked."""
     import base64
     import io as _io
+
     import pikepdf
     from PIL import Image
 

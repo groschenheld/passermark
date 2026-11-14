@@ -96,7 +96,7 @@ def install(kind: str = "gui", on_error=None) -> str | None:
         _prune()
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path = os.path.join(d, f"passermark-{kind}-{stamp}-{os.getpid()}.log")
-        f = open(path, "w", encoding="utf-8", buffering=1)
+        f = open(path, "w", encoding="utf-8", buffering=1)  # noqa: SIM115 – the log of this run, kept open until the program ends
     except OSError:
         return None  # no log possible – the program still runs
     f.write(f"== Passermark-Protokoll ({kind}) {datetime.datetime.now().isoformat(timespec='seconds')}\n")

@@ -131,6 +131,7 @@ def test_preflight_finds_and_repairs_two_page_hdr():
     grey extra page and repairs it.
     """
     import pypdfium2 as pdfium
+
     from pdfdruck import preflight
 
     p = _hdr_jpeg()
@@ -163,6 +164,7 @@ def test_preflight_finds_and_repairs_two_page_hdr():
 def test_preflight_no_false_hdr():
     """Two image pages that do not belong together (different aspect ratio or both coloured): no finding."""
     from PIL import Image
+
     from pdfdruck import preflight
 
     paths = []

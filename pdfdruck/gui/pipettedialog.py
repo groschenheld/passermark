@@ -173,7 +173,8 @@ class PipetteDialog(QDialog):
             self.lbl_note.setText(str(e))
             return
         pw = ""  # _doc_bytes is already decrypted
-        from .. import l10n, measure as ms
+        from .. import l10n
+        from .. import measure as ms
 
         self.lbl_where.setText(
             tr("Seite {0} · x {1} mm, y {2} mm – messe …").format(
@@ -196,7 +197,8 @@ class PipetteDialog(QDialog):
         self._show(s)
 
     def _show(self, s):
-        from .. import l10n, measure as ms
+        from .. import l10n
+        from .. import measure as ms
 
         lang = l10n.current()
         self.lbl_where.setText(
@@ -205,7 +207,7 @@ class PipetteDialog(QDialog):
             )
         )
         if s.screen:
-            self.swatch.setStyleSheet("background: #%02x%02x%02x;" % tuple(s.screen))
+            self.swatch.setStyleSheet("background: #{:02x}{:02x}{:02x};".format(*tuple(s.screen)))
         kinds = {
             "text": tr("Text"),
             "path": tr("Vektorfläche"),
@@ -227,7 +229,7 @@ class PipetteDialog(QDialog):
             defined += "  (ICC)"
         self.lbl_def.setText(defined)
         if s.ink is not None:
-            self.lbl_ink.setText("   ".join(f"{k} {round(v)} %" for k, v in zip("CMYK", s.ink)))
+            self.lbl_ink.setText("   ".join(f"{k} {round(v)} %" for k, v in zip("CMYK", s.ink, strict=False)))
             tot = s.ink_total
             txt = tr("{0} % gesamt").format(ms.fmt(tot, lang, 0))
             if s.limit and tot > s.limit + 0.5:

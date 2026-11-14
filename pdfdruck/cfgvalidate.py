@@ -115,8 +115,8 @@ def check_devmode(s, where):
         raise ValueError(f"{where}: Treiberdaten zu groß")
     try:
         base64.b64decode(s, validate=True)
-    except Exception:
-        raise ValueError(f"{where}: Treiberdaten ungültig")
+    except Exception as e:
+        raise ValueError(f"{where}: Treiberdaten ungültig") from e
 
 
 SURFACES = ("", "coated", "uncoated", "matte", "glossy", "silk", "recycled", "special")
@@ -149,15 +149,14 @@ def check_materials(mats, profile_ids: set, windows: bool):
         if m.get("surface", "") not in SURFACES:
             raise ValueError(f"Material {m['id']}: Oberfläche ungültig")
         wh = m.get("white")
-        if wh is not None:
-            if (
-                not isinstance(wh, list)
-                or len(wh) != 3
-                or not all(_num(x) for x in wh)
-                or not 0 <= wh[0] <= 100
-                or not all(-128 <= x <= 128 for x in wh[1:])
-            ):
-                raise ValueError(f"Material {m['id']}: Papierweiß (Lab) ungültig")
+        if wh is not None and (
+            not isinstance(wh, list)
+            or len(wh) != 3
+            or not all(_num(x) for x in wh)
+            or not 0 <= wh[0] <= 100
+            or not all(-128 <= x <= 128 for x in wh[1:])
+        ):
+            raise ValueError(f"Material {m['id']}: Papierweiß (Lab) ungültig")
         for k, lim in (("white_source", 200), ("notes", 2000)):
             t = m.get(k, "")
             if not isinstance(t, str) or len(t) > lim or not RX_TEXT.match(t):

@@ -87,20 +87,20 @@ class VdpCanvas(QWidget):
         else:
             p.fillRect(QRectF(ox, oy, W * s, H * s), QColor("#ffffff"))
         if self.trim is not None:
-            l, t, r, b = self.trim
+            left, t, r, b = self.trim
             p.setBrush(Qt.BrushStyle.NoBrush)
             pen = QPen(QColor(theme.MARK_OK), 1)  # inner frame: trim size/inner distance
             p.setPen(pen)
-            p.drawRect(QRectF(ox + l * s, oy + t * s, max(1.0, W - l - r) * s, max(1.0, H - t - b) * s))
+            p.drawRect(QRectF(ox + left * s, oy + t * s, max(1.0, W - left - r) * s, max(1.0, H - t - b) * s))
             if self.bleed > 0:  # outside: bleed
                 pen = QPen(QColor(theme.MARK_ERROR), 1)
                 pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen)
                 p.drawRect(
                     QRectF(
-                        ox + (l - self.bleed) * s,
+                        ox + (left - self.bleed) * s,
                         oy + (t - self.bleed) * s,
-                        (W - l - r + 2 * self.bleed) * s,
+                        (W - left - r + 2 * self.bleed) * s,
                         (H - t - b + 2 * self.bleed) * s,
                     )
                 )
@@ -1393,7 +1393,7 @@ class VdpDialog(QDialog):
         """
         if self._trims is None:
             try:
-                from ..layout import page_trims, page_doc_bleeds
+                from ..layout import page_doc_bleeds, page_trims
 
                 self._trims = page_trims(self.doc) or []
                 self._doc_bleeds = page_doc_bleeds(self.doc) or []

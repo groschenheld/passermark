@@ -345,6 +345,7 @@ def send_prepared(
 def print_file(path: str, session, password: str | None = None) -> tuple[str, int]:
     """Right-click printing: the whole file with the current session or admin defaults."""
     import pypdfium2 as pdfium
+
     from . import images
 
     printer = default_printer(session)

@@ -279,6 +279,7 @@ class ManipPanel(QWidget):
         CMYK).
         """
         import io
+
         from .. import colorlab
 
         m = colorlab.material_by_id(self.cfg, self.cmb_material.currentData() or "")

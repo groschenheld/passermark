@@ -86,6 +86,7 @@ def _create_app():
     _ic = os.path.join(os.path.dirname(__file__), "gui", "passermark.svg")
     app.setWindowIcon(QIcon.fromTheme("passermark", QIcon(_ic)))
     from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
+
     from . import l10n
 
     _lang = l10n.current()

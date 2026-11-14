@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import pypdfium2 as pdfium
+
 from pdfdruck import objects
 
 MM = 72 / 25.4
@@ -83,8 +84,8 @@ def test_gap_merges_parts():
 
 def test_raster_scan():
     """Scan: grey paper with noise, two photos -> colour mode."""
-    import numpy as np
     import img2pdf
+    import numpy as np
     from PIL import Image
 
     rng = np.random.default_rng(1)

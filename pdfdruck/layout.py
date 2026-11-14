@@ -16,10 +16,10 @@ Coordinates: PDF points (1/72 inch), origin bottom left.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import re
 from dataclasses import dataclass, field
+
+from .l10n import tr
 
 MM = 72.0 / 25.4
 
@@ -61,9 +61,9 @@ class Sheet:
         if self.width > self.height:  # always portrait as the reference
             self.width, self.height = self.height, self.width
             if self.imageable:
-                l, b, r, t = self.imageable
+                left, b, r, t = self.imageable
                 # Querformat-Angabe in Hochformat drehen (selten, defensiv)
-                self.imageable = (b, self.height - r, t, self.height - l)
+                self.imageable = (b, self.height - r, t, self.height - left)
 
 
 @dataclass
@@ -276,11 +276,11 @@ def select_pages(
 def _logical(sheet: Sheet, landscape: bool):
     """Logical sheet size and printable area (x,y,w,h)."""
     W, H = sheet.width, sheet.height
-    l, b, r, t = sheet.imageable or (0.0, 0.0, W, H)
+    left, b, r, t = sheet.imageable or (0.0, 0.0, W, H)
     if not landscape:
-        return W, H, (l, b, r - l, t - b)
+        return W, H, (left, b, r - left, t - b)
     # physical (X,Y) -> logical (x,y) = (Y, W - X)
-    return H, W, (b, W - r, t - b, r - l)
+    return H, W, (b, W - r, t - b, r - left)
 
 
 def _area(sheet: Sheet, landscape: bool, use_margins: bool):
@@ -504,14 +504,14 @@ def plan_nup(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPlan]:
             # the gap that was set (edge: they really touch).
             colw = [0.0] * cols
             rowh = [0.0] * rows
-            for pl, (c, r) in zip(plan.placements, rcs):
+            for pl, (c, r) in zip(plan.placements, rcs, strict=False):
                 colw[c] = max(colw[c], pl.w)
                 rowh[r] = max(rowh[r], pl.h)
             bw = sum(colw) + gap * (cols - 1)
             bh = sum(rowh) + gap * (rows - 1)
             x0 = area[0] + (area[2] - bw) / 2
             bottom0 = area[1] + (area[3] - bh) / 2
-            for pl, (c, r) in zip(plan.placements, rcs):
+            for pl, (c, r) in zip(plan.placements, rcs, strict=False):
                 cx = x0 + sum(colw[:c]) + gap * c
                 cw2, ch2 = colw[c], rowh[r]
                 cy = bottom0 + sum(rowh[r + 1 :]) + gap * (rows - 1 - r)
@@ -650,9 +650,9 @@ def plan_booklet(sizes, pages, sheet: Sheet, s: LayoutSettings) -> list[SheetPla
         # keep the margin free for the marks (fold marks 5 mm, registration marks at 4 mm) – only where missing
         need = 8 * MM
         ax0, ay0, aw0, ah0 = area
-        l, b = max(ax0, need), max(ay0, need)
+        left, b = max(ax0, need), max(ay0, need)
         r, t = min(ax0 + aw0, LW - need), min(ay0 + ah0, LH - need)
-        area = (l, b, r - l, t - b)
+        area = (left, b, r - left, t - b)
     g = s.booklet_gutter_mm * MM / 2
     ax, ay, aw, ah = area
     if land:  # left | right, fold at LW/2
@@ -1131,6 +1131,7 @@ def booklet_spreads(src, pages: list[int], s: LayoutSettings, trims=None):
     Returns (pypdfium2 document, notes).
     """
     import io
+
     import pikepdf
     import pypdfium2 as pdfium
 
@@ -1280,6 +1281,7 @@ def impose_step2(src, sheet: Sheet, plans1: list, s: LayoutSettings, plans2=None
         plans2 = plan_step2((sheet.width, sheet.height), len(plans1), s)
     import os
     import tempfile
+
     import pypdfium2 as pdfium
 
     mid = impose(src, sheet, plans1)
@@ -1534,6 +1536,7 @@ def _add_border(tpage, x, y, w, h, cw, ch):
 
 def _add_mark(doc, page, m, to_phys):
     import ctypes
+
     import pypdfium2.raw as r
 
     if m[0] == "line":
@@ -1644,8 +1647,9 @@ def doc_bleeds_from_info(info: list) -> list:
 
 
 def _has_box(pg, name: str) -> bool:
-    import pypdfium2.raw as r
     import ctypes
+
+    import pypdfium2.raw as r
 
     f = {"TrimBox": r.FPDFPage_GetTrimBox, "ArtBox": r.FPDFPage_GetArtBox, "BleedBox": r.FPDFPage_GetBleedBox}[name]
     v = [ctypes.c_float() for _ in range(4)]
@@ -1720,6 +1724,7 @@ def flattened(doc):
     returned unchanged.
     """
     import io
+
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
 

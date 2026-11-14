@@ -59,6 +59,7 @@ def test_one_server_for_parallel_starts():
 def test_insert_blank_takes_neighbour_format():
     import pikepdf
     import pypdfium2 as pdfium
+
     from pdfdruck import pageops
 
     pk = pikepdf.new()

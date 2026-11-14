@@ -96,8 +96,8 @@ def test_sources_and_sizes():
     # printable area: from the driver, borderless = whole sheet, otherwise the margins of the other sizes
     assert caps.imageable["A4"] == (8.4, 8.4, 586.8, 833.28)
     assert caps.imageable["TA4"] == (0.0, 0.0, 595.2, 841.68)
-    l, b, r, t = caps.imageable["SRA4"]
-    assert (round(l, 2), round(b, 2)) == (8.4, 8.4) and round(637.8 - r, 2) == 8.4 and round(907.09 - t, 2) == 8.4
+    left, b, r, t = caps.imageable["SRA4"]
+    assert (round(left, 2), round(b, 2)) == (8.4, 8.4) and round(637.8 - r, 2) == 8.4 and round(907.09 - t, 2) == 8.4
 
 
 def test_dialog_notes():

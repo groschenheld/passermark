@@ -16,15 +16,15 @@ ROOT = os.path.dirname(HERE)
 
 STUB = r"""
 import os, sys, types
-from pdfdruck.gui import viewer
-viewer.PageView._dpi_scale = lambda self: 1.0
-viewer.PageView.page_zoom = lambda self, i: 1.0
+from pdfdruck.gui import mainwindow, pageview
+pageview.PageView._dpi_scale = lambda self: 1.0
+pageview.PageView.page_zoom = lambda self, i: 1.0
 import test_colorcheck as T
 from pdfdruck import colorcheck, colorlab, config, pressexport, usercolor
 from pdfdruck.gui.common import Session
 import pypdfium2 as pdfium
 F = T.cmyk_profile()
-w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 path = T.write(T.sample_pdf())
 w._set_doc(pdfium.PdfDocument(path), path, "x.pdf", False)
 

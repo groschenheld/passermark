@@ -649,9 +649,7 @@ def build(kind_id: str, rec: dict, mapping: dict | None = None) -> str:
         if g("E-Mail"):
             L.append(f"EMAIL;TYPE=INTERNET:{g('E-Mail')}")
         if any(g(c) for c in ("Straße", "PLZ", "Ort", "Land")):
-            L.append(
-                "ADR;TYPE=WORK:;;{0};{1};;{2};{3}".format(*(_vesc(g(c)) for c in ("Straße", "Ort", "PLZ", "Land")))
-            )
+            L.append("ADR;TYPE=WORK:;;{};{};;{};{}".format(*(_vesc(g(c)) for c in ("Straße", "Ort", "PLZ", "Land"))))
         if g("Web"):
             L.append(f"URL:{g('Web')}")
         if g("Notiz"):

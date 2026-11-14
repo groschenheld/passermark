@@ -12,7 +12,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 from pdfdruck import layout
-from pdfdruck.layout import LayoutSettings, Sheet, MM
+from pdfdruck.layout import MM, LayoutSettings, Sheet
 
 A3 = Sheet(297 * MM, 420 * MM)
 A4 = (210 * MM, 297 * MM)
@@ -284,6 +284,7 @@ def test_cutcontour_objects_bleed_to_bleed():
     Now: trim size = cut line, bleed area = bleed -> the bleeds touch each other."""
     sys.path.insert(0, HERE)
     import test_cutcontour as tc
+
     from pdfdruck import cutcontour
 
     out, _n = cutcontour.make(tc.stickers(), cutcontour.CutSettings(per_object=True, bleed_mm=2, margin_mm=6, dpi=150))

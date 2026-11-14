@@ -15,6 +15,7 @@ sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
 import numpy as np
 import pypdfium2 as pdfium
+
 from pdfdruck import cutcontour, objects
 
 
@@ -101,6 +102,7 @@ def test_pages_parallel_equals_serial():
 
 def test_cancel_leaves_no_workers():
     import test_cli as tcl
+
     from pdfdruck import core
 
     calls = []
@@ -145,7 +147,7 @@ def test_cli_parallel_with_object_progress():
         env=env,
         timeout=600,
     )
-    evs = [json.loads(l) for l in r.stdout.splitlines() if l.strip()]
+    evs = [json.loads(ln) for ln in r.stdout.splitlines() if ln.strip()]
     assert r.returncode == 0 and evs[-1]["event"] == "done" and evs[-1]["info"]["cuts"] == 80, r.stderr[-2000:]
     assert any("Objekt" in e.get("text", "") for e in evs), [e.get("text") for e in evs][:5]
 

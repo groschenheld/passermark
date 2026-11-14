@@ -25,6 +25,7 @@ jobs:
         run: |
           .venv/bin/pip install ruff
           .venv/bin/ruff format --check .
+          .venv/bin/ruff check .
       - name: Tests
         run: |
           .venv/bin/pip install reportlab numpy

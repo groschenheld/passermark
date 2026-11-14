@@ -10,17 +10,17 @@ ROOT = os.path.dirname(HERE)
 
 SCRIPT = r"""
 import sys, types
-from pdfdruck.gui import viewer
-viewer.PageView._dpi_scale = lambda self: 1.0
-viewer.PageView.page_zoom = lambda self, i: 1.0
-viewer.Qt.KeyboardModifier = types.SimpleNamespace(ShiftModifier=1, ControlModifier=2)
-viewer.Qt.Key = types.SimpleNamespace(Key_Escape=27, Key_PageDown=-1, Key_Space=-2, Key_PageUp=-3, Key_Down=-4, Key_Up=-5)
+from pdfdruck.gui import mainwindow, pageview
+pageview.PageView._dpi_scale = lambda self: 1.0
+pageview.PageView.page_zoom = lambda self, i: 1.0
+mainwindow.Qt.KeyboardModifier = types.SimpleNamespace(ShiftModifier=1, ControlModifier=2)
+mainwindow.Qt.Key = types.SimpleNamespace(Key_Escape=27, Key_PageDown=-1, Key_Space=-2, Key_PageUp=-3, Key_Down=-4, Key_Up=-5)
 from pdfdruck import config
 from pdfdruck.gui.common import Session
 import pypdfium2 as pdfium
 from reportlab.pdfgen import canvas
 c = canvas.Canvas("/tmp/_a4.pdf"); c.drawString(100, 700, "x"); c.showPage(); c.save()
-w = viewer.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
+w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument("/tmp/_a4.pdf"), "/tmp/_a4.pdf", "a4.pdf", False)
 out = []
 w.view.on_measure = out.append
@@ -35,10 +35,12 @@ class P:
 class E:
     def __init__(s, x, y, mod=0, key=None): s.p, s.m, s.k = P(x, y), mod, key
     def position(s): return s.p
-    def button(s): return viewer.Qt.MouseButton.LeftButton
+    def button(s): return mainwindow.Qt.MouseButton.LeftButton
     def modifiers(s): return s.m
     def key(s): return s.k
-viewer.QPointF = lambda x, y: P(x, y)            # Qt stand-in: real point instead of a placeholder
+from pdfdruck.gui import pagegeometry, pageoverlay
+for _m in (pagegeometry, pageoverlay):  # Qt stand-in: real point instead of a placeholder
+    _m.QPointF = lambda x, y: P(x, y)
 def strecke(a, b, shift=0):
     w.view.mouse_press(pg, E(*a)); w.view.mouse_move(pg, E(*b, mod=shift)); w.view.mouse_press(pg, E(*b, mod=shift))
     return w.view.meas, out[-1]

@@ -334,7 +334,8 @@ def build():
     )
     s.append(Spacer(1, 4))
     s.append(P("Inhalt von " + c("daten.csv") + ":", NOTE))
-    s.append(code(open(os.path.join(VDP_DIR, "daten.csv"), encoding="utf-8").read()))
+    with open(os.path.join(VDP_DIR, "daten.csv"), encoding="utf-8") as fh:
+        s.append(code(fh.read()))
 
     # ------------------------------------------------------------------ 3 GUI basics
     s.append(PageBreak())

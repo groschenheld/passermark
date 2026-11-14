@@ -177,7 +177,8 @@ def page_colors(data: bytes, page_index: int) -> dict:
      ("text", n): {"fill": …, "stroke": …, "mode": Tr}, ("image", n): {"name": XObject name | None}}.
     """
     import pikepdf
-    from .editing import PATH_PAINT_OPS, PATH_CONSTR_OPS, SHOW_OPS, _show_nonempty
+
+    from .editing import PATH_CONSTR_OPS, PATH_PAINT_OPS, SHOW_OPS, _show_nonempty
 
     gray = ({"space": "Gray", "n": 1, "spot": "", "icc": False}, [0.0])
     out = {}
@@ -341,6 +342,7 @@ def ink_color(
     """Ink in print at the point: [C, M, Y, K] in % (Ghostscript separation with the profile)."""
     import numpy as np
     from PIL import Image
+
     from . import cmyk
 
     crop, rot, (pw, ph) = _geometry(data, page_index)
@@ -379,6 +381,7 @@ def _object_at(data: bytes, page_index: int, x: float, y: float, screen: tuple) 
     -> (kind, ordinal per kind, pdfium index, certain?, matrix for images) or ("", -1, -1, True, None).
     """
     import ctypes
+
     import pypdfium2 as pdfium
     import pypdfium2.raw as r
 

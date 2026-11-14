@@ -19,13 +19,13 @@ output. Without a new password, the output is saved unprotected.
 
 from __future__ import annotations
 
-from .l10n import tr
-
 import os
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
+
+from .l10n import tr
 
 MODES = {
     "repair": "Nur reparieren (Inhalt unverändert)",
@@ -82,8 +82,8 @@ def _open(path: str, password: str | None):
 
     try:
         return pikepdf.open(path, password=password or "", attempt_recovery=True)
-    except pikepdf.PasswordError:
-        raise PasswordRequired(os.path.basename(path))
+    except pikepdf.PasswordError as e:
+        raise PasswordRequired(os.path.basename(path)) from e
 
 
 def _pages(path: str, password: str | None = None) -> int:

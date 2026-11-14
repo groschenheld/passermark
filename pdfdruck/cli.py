@@ -261,9 +261,8 @@ def _cmd_settings(a) -> int:
 
 def _cmd_examples(a) -> int:
     """ "beispiele [folder]": install the example files and presets."""
-    from .l10n import tr
-
     from . import examples
+    from .l10n import tr
 
     try:
         d = examples.install(a.input)
@@ -273,7 +272,7 @@ def _cmd_examples(a) -> int:
     print(d)
     print("  " + tr("Presets: {0}").format(", ".join(n for _, n in examples.EXAMPLES)))
     print(
-        '  passermark-cli vdp "{0}" aus.pdf --preset "{1}"'.format(
+        '  passermark-cli vdp "{}" aus.pdf --preset "{}"'.format(
             os.path.join(d, "vorlage-a6.pdf"), examples.EXAMPLES[-1][1]
         )
     )
@@ -282,9 +281,7 @@ def _cmd_examples(a) -> int:
 
 def _cmd_presets(a) -> int:
     """ "presets [job]": list the saved presets."""
-    from . import core
-
-    from . import presets
+    from . import core, presets
 
     kinds = [a.input] if a.input else list(core.JOBS)
     for kind in kinds:
@@ -696,6 +693,7 @@ def tidy_data(data: dict, full: bool = False) -> dict:
     admin setting there). full=True: preset with all settings (presets only).
     """
     import copy
+
     from . import core, workflow
     from .l10n import tr
 
@@ -876,7 +874,7 @@ class _ServeOutput:
             if ev["recovered"]:
                 say(tr("{0} unterbrochene Datei(en) zurück in den Eingang gelegt").format(ev["recovered"]))
         elif e == "file":
-            say("{0}: {1} → {2}".format(ev["folder"], os.path.basename(ev["file"]), os.path.basename(ev["workflow"])))
+            say("{}: {} → {}".format(ev["folder"], os.path.basename(ev["file"]), os.path.basename(ev["workflow"])))
         elif e == "file_done":
             parts = []
             for pr in ev["prints"]:
@@ -930,7 +928,7 @@ def _serve(a, rep, fail) -> int:
     logf = None
     if a.log:
         try:
-            logf = open(a.log, "a", encoding="utf-8")
+            logf = open(a.log, "a", encoding="utf-8")  # noqa: SIM115 – stays open while the watcher runs
         except OSError as e:
             return fail(workflow.E_USAGE, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
     out = _ServeOutput(a, rep, logf)
@@ -1060,7 +1058,8 @@ def _cmd_printers(a, rep, fail) -> int:
 
 def _roll_state(a):
     """Rolls of printer a.printer: from the device at a.host if given, otherwise as the session finds them."""
-    from . import config, rolls as rl
+    from . import config
+    from . import rolls as rl
     from .session import Session
 
     sess = Session(config.load())
@@ -1188,7 +1187,9 @@ def _cmd_shared_folder(a, rep, fail) -> int:
 def _probe_target(a) -> tuple[str, str]:
     """(host, printer) for the device check: TARGET is a printer name or, if it looks like one, an address."""
     import re
-    from . import config, rolls as rl
+
+    from . import config
+    from . import rolls as rl
     from .session import Session
 
     if a.host:
@@ -1568,9 +1569,10 @@ def plan_text(i: dict) -> str:
 
 
 def _plan_cmd(a, rep, fail) -> int:
-    from . import core, planprint, rolls as rl, workflow
-    from .planprint import mm_text
+    from . import core, planprint, workflow
+    from . import rolls as rl
     from .l10n import tr
+    from .planprint import mm_text
 
     try:
         sett = dict(planprint.defaults_for(a.kind))
