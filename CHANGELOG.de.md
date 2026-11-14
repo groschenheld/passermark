@@ -2,6 +2,25 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.19 – 1.18.37
+
+### Neue Ansichten: Doppelseite und Raster
+- Doppelseite wie ein offenes Buch (Seite 1 allein rechts, danach 2|3, 4|5 …) und Raster mit 2, 3 oder 4 Spalten für den Überblick.
+- Gewählt über den neuen Knopf neben dem Zoom und über Ansicht → Seitenanordnung; Kürzel Strg+4 Einzelseite, Strg+5 fortlaufend, Strg+6 Doppelseite, Strg+7 Raster. Strg+4 wählt die Einzelseite jetzt an, statt sie ein- und auszuschalten.
+- „An Breite/Seite anpassen" passt sich der Anordnung an; ein fester Zoom bleibt beim Blättern und Umschalten erhalten.
+- Die Einzelseiten-Ansicht hat jetzt eine Scrollleiste für das ganze Dokument; Ziehen blättert durch die Seiten.
+
+### Korrekturen
+- Absturz beim Herunterladen einer freien Schrift.
+- Dokumentprüfung: Schriften und Transparenzen in eingebetteten Objekten fehlten manchmal, mit unterschiedlichen Ergebnissen von Lauf zu Lauf; solche Befunde können jetzt erscheinen, wo sie vorher fehlten.
+- Sprung auf eine andere Seite beim Bearbeiten, wenn das Seitenzahl-Feld unbemerkt den Fokus bekommen hatte.
+- Verwaltungs-Einstellungen mit falschem Datentyp melden sich jetzt verständlich statt mit einem Programmfehler.
+- Nicht abgefangene Fehler stehen als Hinweis im Protokoll, ohne Absturzmeldung beim nächsten Start; stirbt der Render-Prozess, steht seine letzte Ausgabe im Protokoll.
+- „Querformat"/„Hochformat" in der Infozeile der Blattvorschau folgt jetzt der Sprache.
+- Der Softproof rendert die Schrift deutlich weicher.
+
+### Intern
+- Aufräumarbeiten: lange Funktionen zerlegt, Kommentare und Docstrings auf Englisch, alle Oberflächen-Farben in einem Theme-Modul, abgefangene Fehler eingeordnet und das Viewer-Modul in Ansichts- und Hauptfenster-Teile aufgeteilt. Keine weiteren Verhaltensänderungen.
 ## 1.18.18
 
 ### Eigenes Fenster für Plan- und Posterdruck

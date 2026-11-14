@@ -1,4 +1,4 @@
-# Passermark 1.18.18
+# Passermark 1.18.37
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -25,6 +25,7 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 
 - **View and print** PDFs, images (incl. HEIC, SVG) and Office files (via LibreOffice). Uses the printer
   drivers already installed on your system (CUPS on Linux, Windows drivers) with all their options. Borderless printing where the driver supports it – paper variants, driver options and IPP queues alike, with PDFs with bleed running over the edge.
+- **View modes:** single page, continuous, facing (cover on its own, open-book look) and a grid with 2–4 columns for an overview; fit-to-width and fit-to-page follow the arrangement, the zoom is kept while paging. View → Page arrangement or Ctrl+4 … Ctrl+7.
 - **Imposition:** fit/scale, N-up, poster tiling, step & repeat; booklets as saddle stitch, grouped signatures
   or stacked single sheets (perfect binding), with creep, blank-page filling, fold/registration/collation marks
   and a sheet overview. Also on the command line (`passermark-cli impose`). Step & repeat can mount the finished sheet a second time onto a freely chosen target format (step 2) – now also when printing directly from the print dialog.

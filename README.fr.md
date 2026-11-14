@@ -1,4 +1,4 @@
-# Passermark 1.18.18
+# Passermark 1.18.37
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -28,6 +28,7 @@ Logiciel libre (GPL-3.0-or-later).
 - **Afficher et imprimer** des PDF, des images (y compris HEIC, SVG) et des fichiers Office (via
   LibreOffice). Utilise les pilotes d'imprimante déjà installés (CUPS sous Linux, pilotes Windows) avec
   toutes leurs options. Impression sans marge quand le pilote le propose – variante de papier, option du pilote ou file IPP ; les PDF avec fond perdu passent par le bord.
+- **Vues :** page simple, continu, double page (couverture seule, comme un livre ouvert) et grille de 2–4 colonnes pour un aperçu ; l'ajustement à la largeur/à la page suit la disposition, le zoom est conservé en tournant les pages. Affichage → Disposition des pages ou Ctrl+4 … Ctrl+7.
 - **Imposition :** ajuster/mettre à l'échelle, N pages par feuille, poster, pas de répétition (step & repeat) ;
   brochures en piqûre à cheval, cahiers groupés ou feuilles simples empilées (dos carré collé), avec
   décalage (creep), pages blanches, repères de pli, de repérage et d'empilement et aperçu des feuilles.

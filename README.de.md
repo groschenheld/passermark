@@ -1,4 +1,4 @@
-# Passermark 1.18.18
+# Passermark 1.18.37
 
 PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und Windows**. Freie Software
 (GPL-3.0-or-later).
@@ -27,6 +27,7 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 
 - **Anzeigen und Drucken** von PDFs, Bildern (auch HEIC, SVG) und Office-Dateien (über LibreOffice). Verwendet
   die vorhandenen Druckertreiber (CUPS unter Linux, Windows-Treiber) mit allen ihren Optionen. Randlos drucken, wo der Treiber es anbietet – egal ob Papiervariante, Treiberoption oder IPP-Warteschlange; PDFs mit Anschnitt laufen über den Rand.
+- **Ansichten:** Einzelseite, fortlaufend, Doppelseite (Titelseite allein, offenes Buch) und Raster mit 2–4 Spalten für den Überblick; „An Breite/Seite anpassen“ folgt der Anordnung, der Zoom bleibt beim Blättern erhalten. Ansicht → Seitenanordnung oder Strg+4 … Strg+7.
 - **Ausschießen:** einpassen/skalieren, mehrere Seiten pro Blatt, Poster, Nutzen; Broschüren als
   Sammelheftung, gruppierte Lagen oder gestapelte Einzelbögen (Klebebindung), mit Bundzug, Leerseiten, Falz-,
   Passer- und Flattermarken und Bogenübersicht. Auch auf der Kommandozeile (`passermark-cli impose`). Nutzen lassen sich ein zweites Mal auf ein frei wählbares Zielformat montieren (Schritt 2) – jetzt auch beim direkten Drucken aus dem Druckdialog.

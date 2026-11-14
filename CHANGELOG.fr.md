@@ -5,6 +5,25 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.18.19 – 1.18.37
+
+### Nouvelles vues : double page et grille
+- Double page comme un livre ouvert (page 1 seule à droite, puis 2|3, 4|5 …) et une grille de 2, 3 ou 4 colonnes pour un aperçu.
+- Choix via le nouveau bouton à côté du zoom et dans Affichage → Disposition des pages ; raccourcis Ctrl+4 page simple, Ctrl+5 continu, Ctrl+6 double page, Ctrl+7 grille. Ctrl+4 sélectionne désormais la page simple au lieu de l'activer/désactiver.
+- Ajuster à la largeur / à la page s'adapte à la disposition ; un zoom fixe est conservé en tournant les pages et en changeant de mode.
+- La vue page simple a désormais une barre de défilement pour tout le document ; la faire glisser feuillette les pages.
+
+### Corrections
+- Plantage lors du téléchargement d'une police libre.
+- Vérification du document : les polices et transparences dans les objets incorporés manquaient parfois, avec des résultats variables d'une exécution à l'autre ; ces constats peuvent désormais apparaître là où ils manquaient.
+- Saut vers une autre page pendant l'édition lorsque le champ du numéro de page avait pris le focus sans qu'on s'en aperçoive.
+- Un paramètre d'administration au mauvais type donne désormais un message clair au lieu d'une erreur de programme.
+- Les erreurs non interceptées sont consignées comme note, sans message de plantage au démarrage suivant ; si le processus de rendu meurt, sa dernière sortie figure dans le journal.
+- « Paysage »/« Portrait » dans la ligne d'info de l'aperçu suit désormais la langue de l'interface.
+- L'épreuvage (soft proof) rend le texte nettement plus lisse.
+
+### Interne
+- Nettoyage du code : longues fonctions scindées, commentaires et docstrings en anglais, toutes les couleurs de l'interface dans un module de thème, exceptions interceptées classées, et le module de visionneuse scindé en parties vue et fenêtre principale. Aucun autre changement de comportement.
 ## 1.18.18
 
 ### Fenêtre propre pour l'impression de plans et posters

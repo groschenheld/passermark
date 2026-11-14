@@ -5,6 +5,25 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.18.19 – 1.18.37
+
+### Nuevas vistas: doble página y cuadrícula
+- Doble página como un libro abierto (página 1 sola a la derecha, luego 2|3, 4|5 …) y cuadrícula de 2, 3 o 4 columnas para una vista general.
+- Se elige con el nuevo botón junto al zoom y en Ver → Disposición de páginas; atajos Ctrl+4 página simple, Ctrl+5 continuo, Ctrl+6 doble página, Ctrl+7 cuadrícula. Ctrl+4 ahora selecciona la página simple en lugar de activarla y desactivarla.
+- Ajustar a la anchura / a la página se adapta a la disposición; un zoom fijo se conserva al pasar páginas y cambiar de modo.
+- La vista de página simple tiene ahora una barra de desplazamiento para todo el documento; arrastrarla pasa las páginas.
+
+### Correcciones
+- Fallo al descargar una fuente gratuita.
+- Verificación del documento: las fuentes y transparencias dentro de objetos incrustados a veces no aparecían, con resultados variables entre ejecuciones; esos hallazgos ya pueden aparecer donde antes faltaban.
+- Salto a otra página al editar cuando el campo del número de página había recibido el foco sin darse cuenta.
+- Un ajuste de administración con tipo erróneo da ahora un mensaje claro en lugar de un error del programa.
+- Los errores no capturados quedan en el registro como nota, sin mensaje de fallo en el siguiente arranque; si el proceso de render muere, su última salida queda registrada.
+- «Horizontal»/«Vertical» en la línea de información de la vista previa sigue ahora el idioma de la interfaz.
+- La prueba de imprenta (soft proof) muestra el texto notablemente más suave.
+
+### Interno
+- Limpieza de código: funciones largas divididas, comentarios y docstrings en inglés, todos los colores de la interfaz en un módulo de tema, excepciones capturadas clasificadas, y el módulo del visor dividido en partes de vista y ventana principal. Sin otros cambios de comportamiento.
 ## 1.18.18
 
 ### Ventana propia para impresión de planos y pósters

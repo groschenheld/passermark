@@ -5,6 +5,25 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.18.19 – 1.18.37
+
+### Új nézetek: kétoldalas és rács
+- Kétoldalas nézet, mint egy nyitott könyv (az 1. oldal egyedül jobb oldalt, majd 2|3, 4|5 …), valamint 2, 3 vagy 4 oszlopos rács áttekintéshez.
+- Választás a nagyítás melletti új gombbal és a Nézet → Oldalelrendezés menüben; Ctrl+4 egy oldal, Ctrl+5 folyamatos, Ctrl+6 kétoldalas, Ctrl+7 rács. A Ctrl+4 most kiválasztja az egyoldalas nézetet, nem pedig be-/kikapcsolja.
+- A szélesség/oldalhoz igazítás az elrendezéshez alkalmazkodik; a rögzített nagyítás lapozás és váltás közben megmarad.
+- Az egyoldalas nézetnek most a teljes dokumentumra érvényes görgetősávja van; húzva lapozható.
+
+### Javítások
+- Összeomlás szabad betűtípus letöltésekor.
+- Dokumentum-ellenőrzés: a beágyazott objektumokban szereplő betűtípusok és átlátszóságok néha hiányoztak, futásonként eltérő eredménnyel; az ilyen leletek most ott jelennek meg, ahol korábban hiányoztak.
+- Ugrás másik oldalra szerkesztéskor, ha az oldalszám-mező észrevétlenül fókuszt kapott.
+- A rossz típusú adminisztrációs beállítás most érthető üzenetet ad programhiba helyett.
+- A nem kezelt hibák megjegyzésként a naplóba kerülnek, a következő indításkor nem jelenik meg összeomlás-üzenet; ha a renderelési folyamat meghal, utolsó kimenete a naplóba kerül.
+- A lapvézsgálat infósorában a „Fekvő"/„Álló" most a felület nyelvét követi.
+- A nyomásszimuláció (soft proof) érzhetően simább szöveget jelenít meg.
+
+### Belső
+- Kódtisztítás: a hosszú függvények szétbontva, a megjegyzések és docstringek angolul, minden felületi szín egy témamodulban, az elkapott kivételek osztályozva, és a nézetmodul nézet- és főablak-részekre bontva. További viselkedésváltozás nincs.
 ## 1.18.18
 
 ### Saját ablak a terv- és poszternyomtatáshoz

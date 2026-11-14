@@ -2,6 +2,25 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.18.19 – 1.18.37
+
+### New view modes: facing and grid
+- Facing pages like an open book (page 1 alone on the right, then 2|3, 4|5 …) and a grid with 2, 3 or 4 columns for an overview.
+- Chosen via the new button next to the zoom and via View → Page arrangement; shortcuts Ctrl+4 single page, Ctrl+5 continuous, Ctrl+6 facing, Ctrl+7 grid. Ctrl+4 now selects single page instead of toggling it.
+- Fit to width / fit to page adapts to the arrangement; a fixed zoom is kept while paging and switching modes.
+- Single-page view now has one scrollbar for the whole document; dragging it flips through the pages.
+
+### Fixes
+- Crash when downloading a free font.
+- Preflight: fonts and transparencies inside embedded objects were sometimes missed, with results varying between runs; such findings can now appear where they were missing before.
+- Jump to another page while editing when the page number field had gained focus unnoticed.
+- Admin settings with a wrong type now give a clear message instead of a program error.
+- Uncaught errors are logged as a note without a crash message at the next start; if the render process dies, its last output is captured in the log.
+- "Landscape"/"Portrait" in the sheet preview info line now follows the interface language.
+- Soft proof renders text noticeably smoother.
+
+### Internal
+- Code cleanup: long functions split up, comments and docstrings in English, all GUI colours in one theme module, caught errors classified, and the viewer module split into view and main window parts. No further functional changes.
 ## 1.18.18
 
 ### Own window for plan and poster printing
