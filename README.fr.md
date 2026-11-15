@@ -19,10 +19,10 @@ Logiciel libre (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Vérification du document dans la fenêtre principale](docs/screenshots/preflight_example.png) | ![Conversion CMYK avec aperçu des couleurs](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Réglage de l'épreuvage](docs/screenshots/softproof_example.png) | ![Boîte de dialogue d'impression avec pas de répétition](docs/screenshots/step_and_repeat_example.png) |
-| ![CutContour pour traceurs de découpe](docs/screenshots/cut_contour_example.png) | ![Rogner au format](docs/screenshots/trim_example.png) |
-| ![Fenêtre principale avec la boîte à outils](docs/screenshots/toolbox_example.png) | ![Données variables](docs/screenshots/variable_data_example.png) |
+| ![Vérification du document dans la fenêtre principale](docs/screenshots/proof%20and%20repair.png) | ![Conversion CMYK avec aperçu des couleurs](docs/screenshots/cmyk.png) |
+| ![Réglage de l'épreuvage](docs/screenshots/softproof.png) | ![Boîte de dialogue d'impression avec pas de répétition](docs/screenshots/print.png) |
+| ![CutContour pour traceurs de découpe](docs/screenshots/cutcontour.png) | ![Rogner au format](docs/screenshots/trim.png) |
+| ![Fenêtre principale avec la boîte à outils](docs/screenshots/toolbox.png) | ![Données variables](docs/screenshots/variable_data.png) |
 
 ## Fonctionnalités
 

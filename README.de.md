@@ -19,10 +19,10 @@ PDF-Betrachter, Druckwerkzeug und Druckvorstufen-Werkzeugkasten für **Linux und
 
 | | |
 |---|---|
-| ![Dokumentprüfung mit Befunden im Hauptfenster](docs/screenshots/preflight_example.png) | ![CMYK-Umwandlung mit Farbvorschau](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Softproof einrichten](docs/screenshots/softproof_example.png) | ![Druckdialog mit Nutzen (Step & Repeat)](docs/screenshots/step_and_repeat_example.png) |
-| ![CutContour für Schneideplotter](docs/screenshots/cut_contour_example.png) | ![Auf Format beschneiden](docs/screenshots/trim_example.png) |
-| ![Hauptfenster mit Werkzeugbox](docs/screenshots/toolbox_example.png) | ![Variable Daten](docs/screenshots/variable_data_example.png) |
+| ![Dokumentprüfung mit Befunden im Hauptfenster](docs/screenshots/proof%20and%20repair.png) | ![CMYK-Umwandlung mit Farbvorschau](docs/screenshots/cmyk.png) |
+| ![Softproof einrichten](docs/screenshots/softproof.png) | ![Druckdialog mit Nutzen (Step & Repeat)](docs/screenshots/print.png) |
+| ![CutContour für Schneideplotter](docs/screenshots/cutcontour.png) | ![Auf Format beschneiden](docs/screenshots/trim.png) |
+| ![Hauptfenster mit Werkzeugbox](docs/screenshots/toolbox.png) | ![Variable Daten](docs/screenshots/variable_data.png) |
 
 ## Funktionen
 

@@ -17,10 +17,10 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 
 | | |
 |---|---|
-| ![Preflight check with findings in the main window](docs/screenshots/preflight_example.png) | ![CMYK conversion with colour preview](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Soft proof setup](docs/screenshots/softproof_example.png) | ![Print dialog with step & repeat](docs/screenshots/step_and_repeat_example.png) |
-| ![CutContour for cutting plotters](docs/screenshots/cut_contour_example.png) | ![Trim to size](docs/screenshots/trim_example.png) |
-| ![Main window with the tool box](docs/screenshots/toolbox_example.png) | ![Variable data](docs/screenshots/variable_data_example.png) |
+| ![Preflight check with findings in the main window](docs/screenshots/proof%20and%20repair.png) | ![CMYK conversion with colour preview](docs/screenshots/cmyk.png) |
+| ![Soft proof setup](docs/screenshots/softproof.png) | ![Print dialog with step & repeat](docs/screenshots/print.png) |
+| ![CutContour for cutting plotters](docs/screenshots/cutcontour.png) | ![Trim to size](docs/screenshots/trim.png) |
+| ![Main window with the tool box](docs/screenshots/toolbox.png) | ![Variable data](docs/screenshots/variable_data.png) |
 
 ## Features
 

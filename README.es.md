@@ -20,10 +20,10 @@ Software libre (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Comprobación del documento en la ventana principal](docs/screenshots/preflight_example.png) | ![Conversión CMYK con vista previa de color](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Configurar prueba de imprenta](docs/screenshots/softproof_example.png) | ![Diálogo de impresión con paso y repetición](docs/screenshots/step_and_repeat_example.png) |
-| ![CutContour para plotteras de corte](docs/screenshots/cut_contour_example.png) | ![Recortar al formato](docs/screenshots/trim_example.png) |
-| ![Ventana principal con caja de herramientas](docs/screenshots/toolbox_example.png) | ![Datos variables](docs/screenshots/variable_data_example.png) |
+| ![Comprobación del documento en la ventana principal](docs/screenshots/proof%20and%20repair.png) | ![Conversión CMYK con vista previa de color](docs/screenshots/cmyk.png) |
+| ![Configurar prueba de imprenta](docs/screenshots/softproof.png) | ![Diálogo de impresión con paso y repetición](docs/screenshots/print.png) |
+| ![CutContour para plotteras de corte](docs/screenshots/cutcontour.png) | ![Recortar al formato](docs/screenshots/trim.png) |
+| ![Ventana principal con caja de herramientas](docs/screenshots/toolbox.png) | ![Datos variables](docs/screenshots/variable_data.png) |
 
 ## Funciones
 

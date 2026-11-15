@@ -19,10 +19,10 @@ szoftver (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Dokumentum-ellenőrzés a főablakban](docs/screenshots/preflight_example.png) | ![CMYK-átalakítás színelőnézettel](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Nyomásszimuláció beállítása](docs/screenshots/softproof_example.png) | ![Nyomtatási párbeszédablak haszonmintákkal](docs/screenshots/step_and_repeat_example.png) |
-| ![CutContour vágóplotterekhez](docs/screenshots/cut_contour_example.png) | ![Formátumra vágás](docs/screenshots/trim_example.png) |
-| ![Főablak eszközdobozzal](docs/screenshots/toolbox_example.png) | ![Változó adatok](docs/screenshots/variable_data_example.png) |
+| ![Dokumentum-ellenőrzés a főablakban](docs/screenshots/proof%20and%20repair.png) | ![CMYK-átalakítás színelőnézettel](docs/screenshots/cmyk.png) |
+| ![Nyomásszimuláció beállítása](docs/screenshots/softproof.png) | ![Nyomtatási párbeszédablak haszonmintákkal](docs/screenshots/print.png) |
+| ![CutContour vágóplotterekhez](docs/screenshots/cutcontour.png) | ![Formátumra vágás](docs/screenshots/trim.png) |
+| ![Főablak eszközdobozzal](docs/screenshots/toolbox.png) | ![Változó adatok](docs/screenshots/variable_data.png) |
 
 ## Funkciók
 
