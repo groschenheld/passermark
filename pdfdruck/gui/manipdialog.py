@@ -115,7 +115,7 @@ class ManipPanel(QWidget):
             f.setRowVisible(self.cmb_material, False)
         self.lbl_rec = QLabel()
         self.lbl_rec.setWordWrap(True)
-        self.lbl_rec.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_rec.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self.lbl_rec.hide()
         f.addRow(self.lbl_rec)
         self.cmb_mode = QComboBox()
@@ -254,7 +254,7 @@ class ManipPanel(QWidget):
         f.addRow(self.spn_wm)
         self.lbl_crop = QLabel()
         self.lbl_crop.setWordWrap(True)
-        self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_crop.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         f.addRow(self.lbl_crop)
         v.addWidget(g)
 

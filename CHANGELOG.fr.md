@@ -5,6 +5,11 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.19.3
+
+### Refonte de la fenêtre principale
+- Nouvel aspect avec barre de titre propre (en option) : les onglets se trouvent dans la bordure en haut à droite, la boîte à outils en bas à gauche de la zone de page, repliable avec une flèche, son état mémorisé d'un démarrage à l'autre. Les groupes de la barre d'outils s'expliquent par des info-bulles ; un clic sur la bordure vide va à la fenêtre derrière. Avec le cadre système, tout reste comme avant.
+- Recherche de mises à jour dans le menu Aide (« Nach Aktualisierungen suchen … ») : l'icône tourne pendant la recherche et affiche un point d'exclamation rouge quand une nouvelle version est disponible. Les pré-versions n'apparaissent qu'avec le réglage d'administration. Nouvelle icône du programme.
 ## 1.18.19 – 1.18.37
 
 ### Nouvelles vues : double page et grille

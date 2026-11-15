@@ -3,15 +3,81 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme."""
+"""Line icons of the interface. Since 1.19.0 Hias' own set (gui/svgicons/*.svg, drawn with ``currentColor`` so the
+program colours them per state); the few names without a file of their own keep the older built-in shapes below.
+"""
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import QByteArray, QRectF, Qt
-from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtGui import QIcon, QPainter, QPixmap, QTransform
 from PySide6.QtSvg import QSvgRenderer
 
 from . import theme
+
+SVG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svgicons")
+
+# icon name used in the program -> (file in svgicons/, mirrored)
+_FILES = {
+    "open": ("oeffnen", False),
+    "save": ("speichern", False),
+    "print": ("drucken", False),
+    "prev": ("nach_oben", False),
+    "next": ("nach_unten", False),
+    "zoom_in": ("groesser", False),
+    "zoom_out": ("kleiner", False),
+    "rot_r": ("aktualisieren", False),
+    "rot_l": ("aktualisieren", True),
+    "update": ("aktualisieren", False),
+    "single": ("einzelseite", False),
+    "multi": ("mehrere_seiten", False),
+    "facing": ("mehrere_seiten", False),
+    "grid": ("mehrere_seiten", False),
+    "continuous": ("scrollen", False),
+    "scroll": ("scrollen", False),
+    "merge": ("zusammenfuehren", False),
+    "split": ("teilen", False),
+    "edit": ("bearbeiten", False),
+    "settings": ("einstellungen", False),
+    "insert": ("einfuegen", False),
+    "fit_width": ("seitenbreite", False),
+    "proof": ("softproof", False),
+    "material": ("papiermessung", False),
+    "ruler": ("lineal", False),
+    "measure": ("messen", False),
+    "pipette": ("pipette", False),
+    "vdp": ("variable_daten", False),
+    "table": ("daten_erfassen", False),
+    "qr": ("beispiele", False),
+    "book": ("anleitung", False),
+    "folder_gear": ("automatisierung", False),
+    "plan": ("plan", False),
+    "poster": ("poster", False),
+    "cut": ("cutcontour", False),
+    "cmyk": ("cmyk", False),
+    "color": ("farbe", False),
+    "crop": ("beschneiden", False),
+    "boxes": ("endformat_und_anschnitt", False),
+    "bleed": ("beschnitt", False),
+    "separate": ("objekte_trennen", False),
+    "check": ("preflight", False),
+    "repair": ("reparieren", False),
+    "shrink": ("komprimieren", False),
+    "step_repeat": ("step_repeat", False),
+    "tools": ("werkzeuge", False),
+    "sidebar": ("seitenleiste_schliessen", False),
+    "sidebar_open": ("seitenleiste_oeffnen", False),
+    "sidebar_close": ("seitenleiste_schliessen", False),
+    "win_min": ("minimieren", False),
+    "win_max": ("vergroessern", False),
+    "win_close": ("schliessen", False),
+    "grip": ("greifer_fuer_fenster_vergroesserung", False),
+    "scroll_grip": ("scrolling", False),
+    "left": ("links", False),
+    "right": ("rechts", False),
+}
 
 _SHAPES = {
     "open": '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>',
@@ -70,36 +136,77 @@ _SHAPES = {
 }
 
 
+def has_file(name: str) -> bool:
+    """Does ``name`` come from Hias' icon set (gui/svgicons)?"""
+    return name in _FILES
+
+
+# drawn in black and white for a light ground: on the dark interface black becomes ``color`` and white the
+# panel colour (the blue slider knob of "Werkzeuge" stays blue)
+_BLACK_WHITE = {"tools"}
+
+
 def _svg(name: str, color: str) -> bytes:
+    if name in _FILES:
+        with open(os.path.join(SVG_DIR, _FILES[name][0] + ".svg"), encoding="utf-8") as f:
+            text = f.read().replace("currentColor", color)
+        if name in _BLACK_WHITE:
+            text = (
+                text.replace("stroke:black", f"stroke:{color}")
+                .replace("fill:white", f"fill:{theme.PANEL}")
+                .replace("stroke:white", f"stroke:{theme.PANEL}")
+                .replace("<svg ", f'<svg fill="{color}" ', 1)
+            )
+        return text.encode()
     body = _SHAPES[name].replace("{bg}", theme.PANEL)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" '
-        f'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
+        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
     ).encode()
 
 
-def _pixmap(name: str, color: str, size: int) -> QPixmap:
+def pixmap(name: str, color: str, size: int) -> QPixmap:
+    """Icon ``name`` in ``color``, ``size`` pixels square; icons that are not square keep their proportions."""
     pm = QPixmap(size, size)
     pm.fill(Qt.GlobalColor.transparent)
     r = QSvgRenderer(QByteArray(_svg(name, color)))
+    vb = r.viewBoxF()
+    w, h = (vb.width(), vb.height()) if vb.width() > 0 and vb.height() > 0 else (1.0, 1.0)
+    k = size / max(w, h)
+    target = QRectF((size - w * k) / 2, (size - h * k) / 2, w * k, h * k)
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    r.render(p, QRectF(0, 0, size, size))
+    r.render(p, target)
     p.end()
+    if name in _FILES and _FILES[name][1]:
+        pm = pm.transformed(QTransform().scale(-1, 1))
     return pm
 
 
 _cache: dict[str, QIcon] = {}
 
 
+def icon_in(name: str, color: str) -> QIcon:
+    """Icon ``name`` always in ``color`` (e.g. the window buttons in the accent), dimmed when disabled."""
+    key = f"{name}@{color}"
+    if key not in _cache:
+        ic = QIcon()
+        for size in (16, 20, 24, 32):
+            ic.addPixmap(pixmap(name, color, size), QIcon.Mode.Normal, QIcon.State.Off)
+            ic.addPixmap(pixmap(name, theme.ICON_OFF, size), QIcon.Mode.Disabled, QIcon.State.Off)
+        _cache[key] = ic
+    return _cache[key]
+
+
 def icon(name: str) -> QIcon:
-    """The line icon ``name`` as a QIcon in several sizes (cached)."""
+    """The line icon ``name`` as a QIcon in several sizes (cached): normal, under the mouse/checked in the accent,
+    disabled dimmed."""
     if name not in _cache:
         ic = QIcon()
         for size in (16, 20, 24, 32, 48):
-            ic.addPixmap(_pixmap(name, theme.ICON, size), QIcon.Mode.Normal, QIcon.State.Off)
-            ic.addPixmap(_pixmap(name, theme.ACCENT, size), QIcon.Mode.Active, QIcon.State.Off)
-            ic.addPixmap(_pixmap(name, theme.ACCENT, size), QIcon.Mode.Normal, QIcon.State.On)
-            ic.addPixmap(_pixmap(name, theme.ICON_OFF, size), QIcon.Mode.Disabled, QIcon.State.Off)
+            ic.addPixmap(pixmap(name, theme.ICON, size), QIcon.Mode.Normal, QIcon.State.Off)
+            ic.addPixmap(pixmap(name, theme.ACCENT_TEXT, size), QIcon.Mode.Active, QIcon.State.Off)
+            ic.addPixmap(pixmap(name, theme.ACCENT_TEXT, size), QIcon.Mode.Normal, QIcon.State.On)
+            ic.addPixmap(pixmap(name, theme.ICON_OFF, size), QIcon.Mode.Disabled, QIcon.State.Off)
         _cache[name] = ic
     return _cache[name]

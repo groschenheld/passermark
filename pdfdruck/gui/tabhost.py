@@ -6,14 +6,19 @@
 """Window frame with tabs: every document is a full Passermark window (menus, bars,
 sidebars) – here as a tab. With only one tab, the tab bar is hidden; it then looks
 like a single window.
+
+With the own title bar (titlebar.py) the frame is transparent at the right: the tabs of the current document stand
+there, outside the page area (design sheet 1.19). A window mask lets clicks into the empty margin through to
+whatever lies behind the window.
 """
 
 from __future__ import annotations
 
 import os
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QTabWidget
+from PySide6.QtCore import QEvent, QPoint, Qt, QTimer
+from PySide6.QtGui import QRegion
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QMainWindow, QMenu, QTabWidget, QWidget
 
 from ..l10n import tr
 
@@ -24,8 +29,14 @@ class TabHost(QMainWindow):
     def __init__(self, ctl):
         super().__init__()
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        # tool tips also when the window manager does not report the (frameless) window as active
+        self.setAttribute(Qt.WidgetAttribute.WA_AlwaysShowToolTips, True)
         self.ctl = ctl
-        self.resize(1280, 860)
+        from .titlebar import make_frameless, wanted
+
+        self.outside = wanted()  # tabs outside the page area (transparent margin)
+        self._edge_l, self._edge_r = (self.EDGE_L, self.EDGE_R) if self.outside else (0, 0)
+        self.resize(1280 + self._edge_l + self._edge_r, 860)
         self.setWindowTitle("Passermark")
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
@@ -38,21 +49,85 @@ class TabHost(QMainWindow):
         bar.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         bar.customContextMenuRequested.connect(self._tab_menu)
         bar.setElideMode(Qt.TextElideMode.ElideMiddle)
-        self.setCentralWidget(self.tabs)
+        if self.outside:
+            self.setObjectName("passermarkHost")
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.frame = QWidget()
+            self.frame.setObjectName("hostFrame")
+            lay = self._frame_lay = QHBoxLayout(self.frame)
+            lay.setContentsMargins(self._edge_l, 0, self._edge_r, 0)
+            lay.setSpacing(0)
+            lay.addWidget(self.tabs)
+            self.tabs.setAutoFillBackground(True)  # the page area itself stays opaque
+            self.setCentralWidget(self.frame)
+            self._edge_timer = QTimer(self)
+            self._edge_timer.setSingleShot(True)
+            self._edge_timer.setInterval(0)
+            self._edge_timer.timeout.connect(self._place_edges)
+            self.tabs.currentChanged.connect(lambda _i: self._edge_timer.start())
+        else:
+            self.setCentralWidget(self.tabs)
+        # own title bar (in each document window) -> no system frame; the grips sit at the page area
+        self._grips = make_frameless(self, insets=lambda: (self._edge_l, self._edge_r))
+
+    EDGE_L = 0  # width of the transparent margins
+    EDGE_R = 52
 
     # -------------------------------------------------------------- #
     def add(self, w, activate: bool = True):
         """Add a document window as a tab."""
         w._host = self
         w.setWindowFlags(Qt.WindowType.Widget)
-        try:
-            w.menuBar().setNativeMenuBar(False)  # menu in the tab, not in a global menu bar
-        except Exception:  # noqa: BLE001 – platform without this menu option
-            pass
+        mb = getattr(w, "mbar", None)  # not menuBar(): with the own title bar that would replace it
+        if mb is not None:
+            mb.setNativeMenuBar(False)  # menu in the tab, not in a global menu bar
+        if getattr(w, "edges_outside", False):
+            if self.outside:
+                w.edge_right.setParent(self.frame)  # at once: the old frame of a detached tab may close soon
+                w.edge_right.hide()
+                for obj in (w, w.centralWidget()):
+                    obj.installEventFilter(self)
+            else:  # frame from before the setting was changed: keep them inside
+                w.edges_inside()
         self.tabs.addTab(w, w.windowTitle() or "Passermark")
         if activate:
             self.tabs.setCurrentWidget(w)
         self.update_tab(w)
+        if self.outside:
+            self._edge_timer.start()
+
+    # ---------- tabs in the transparent margin ---------- #
+    def eventFilter(self, obj, ev):
+        if self.outside and ev.type() in (QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show):
+            self._edge_timer.start()
+        return False
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if self.outside:
+            self._edge_timer.start()
+
+    def _place_edges(self):
+        """Put the tabs of the current document into the margin; the window mask = page area + tabs."""
+        cur = self.tabs.currentWidget()
+        for w in self.windows():
+            if w is not cur and getattr(w, "edges_outside", False):
+                w.edge_right.hide()
+        fw = self.frame
+        off = fw.pos()
+        region = QRegion(off.x() + self._edge_l, off.y(), fw.width() - self._edge_l - self._edge_r, fw.height())
+        if cur is not None and getattr(cur, "edges_outside", False):
+            right = cur.edge_right
+            top = cur.centralWidget().mapTo(fw, QPoint(0, 0)).y() + 10
+            right.setGeometry(fw.width() - self._edge_r, top, right.width(), right.sizeHint().height())
+            right.layout().activate()
+            right.show()
+            right.raise_()
+            for t in right.tabs:
+                region += QRegion(t.geometry().translated(right.pos() + off))
+        self.setMask(region)
+        if self._grips is not None:
+            self._grips.place()
 
     def windows(self) -> list:
         """The document windows in this frame."""

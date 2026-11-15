@@ -2,6 +2,11 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.3
+
+### Redesign of the main window
+- New look with an optional own title bar: the tabs sit in the border at the top right, the tool box at the bottom left of the page area, collapsible with an arrow, its state remembered across restarts. The groups of the tool bar explain themselves with tool tips; clicks on the empty border go to the window behind it. With the system frame everything stays as before.
+- Update check in the Help menu ("Nach Aktualisierungen suchen ..."): the icon spins during the search and shows a red exclamation mark when a new version is available. Pre-release versions only appear with the admin setting. New program icon.
 ## 1.18.19 – 1.18.37
 
 ### New view modes: facing and grid

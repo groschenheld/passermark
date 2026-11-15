@@ -109,7 +109,7 @@ class SplitDialog(QDialog):
         right.addLayout(f)
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
-        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         right.addWidget(self.lbl_info)
         right.addStretch()
         bb = QDialogButtonBox()

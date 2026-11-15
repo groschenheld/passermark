@@ -34,6 +34,8 @@ install -D -m 755 -o root -g root admin/passermark-admin /usr/libexec/passermark
 install -D -m 644 data/at.hias.passermark.policy /usr/share/polkit-1/actions/at.hias.passermark.policy
 install -D -m 644 data/passermark.desktop /usr/share/applications/passermark.desktop
 install -D -m 644 data/passermark.svg /usr/share/icons/hicolor/scalable/apps/passermark.svg
+# fixed-size copies from older installations would win over the scalable symbol -> remove them
+rm -f /usr/share/icons/hicolor/*/apps/passermark.png
 # Nautilus context menu (images: "Open as PDF", PDFs: "Print")
 install -D -m 644 data/passermark_nautilus.py /usr/share/nautilus-python/extensions/passermark_nautilus.py
 

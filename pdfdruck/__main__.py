@@ -84,7 +84,8 @@ def _create_app():
     from PySide6.QtGui import QIcon
 
     _ic = os.path.join(os.path.dirname(__file__), "gui", "passermark.svg")
-    app.setWindowIcon(QIcon.fromTheme("passermark", QIcon(_ic)))
+    # the symbol shipped with the program first: an icon theme may still hold the symbol of an older installation
+    app.setWindowIcon(QIcon(_ic) if os.path.isfile(_ic) else QIcon.fromTheme("passermark"))
     from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
 
     from . import l10n

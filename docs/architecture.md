@@ -117,6 +117,37 @@ Source strings are German and wrapped in `tr("…")`. Translations live in `pdfd
 (en, hu, es, fr). `tests/test_l10n.py` fails if a string in the code has no translation. Comments and docstrings
 are English.
 
+## Look of the main window (1.19.0)
+
+The design follows Hias' sheet: one black title row with gear, menu and the word mark (`gui/titlebar.py`, the
+window is then frameless and resized at its edges; File → Settings switches back to the system frame), one
+toolbar in groups (file, navigation, tools on the page, rotate/layout, zoom), the thumbnails at the left, a small tool box over the page, tabs at the right edge (Werkzeuge opens the tools panel, Plan and Poster their windows –
+`gui/sidepanels.py`), and the status bar with the check result, the page and the update state.
+
+With the own title bar the tabs stand outside the page area (since 1.19.1): the window frame (`gui/tabhost.py`)
+is transparent at the right, places the tabs of the current document there and sets a window mask (page area +
+tabs), so clicks into the empty margin reach what lies behind. The edge grips sit at the page area. With the
+system frame the tabs stay inside the window (`MainWindow.edges_inside`). The tool box (merge, split, edit) lies
+over the page, right of the sidebar, and folds away with an arrow (`sidepanels.ToolboxOverlay`, since 1.19.3).
+The grip symbol marks the separators between sidebar, page and tools panel and (turned) the size grip in the
+window corner; the scroll symbol sits on the handles of the two large scroll bars (`QScrollBar#bigScroll`). QSS
+needs image files for both, so `theme.py` writes them, coloured in the accent, next to the check mark.
+
+Colours come only from `gui/theme.py` (Hias' palette), icons only from `gui/svgicons/` (Hias' set, drawn with
+`currentColor`, coloured per state by `gui/icons.py`; a name used in the program maps to its file in `_FILES`).
+
+## Updates
+
+`pdfdruck/updates.py` asks the GitHub releases of the repository (at most once a day at start, from Help, or by a
+click on the symbol in the status bar) and compares versions. The stable channel only takes plain tags
+(`v1.19.1`); a tag with a suffix or a release marked as pre-release only reaches the test channel. A version
+remembered as available is asked for again at the next start, in case it was withdrawn. How an update is applied depends on the installation: the AppImage swaps itself, the Windows
+setup runs silently and starts Passermark again (`/AUTOUPDATE`, `windows/passermark.iss`), an install.sh
+installation downloads the source package and lets root install it (`passermark-admin update`, which fetches the
+checksum itself instead of trusting the caller). Every download is checked against the `<file>.sha256` that the
+release workflows publish with it; without it nothing is installed. The administrator can switch the check off or
+allow test versions (admin configuration `updates`). The window side is `gui/updatestatus.py`.
+
 ## Error handling
 
 A device, driver or broken PDF must never take the interface down, so errors are caught at many places. The
@@ -242,6 +273,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/softmask.py` | Convert transparent gradients (soft masks) into opaque images where needed – without Ghostscript. |
 | `pdfdruck/split.py` | Splitting pages: halve a page vertically/horizontally or cut it into a grid – every piece becomes its own page. |
 | `pdfdruck/trays.py` | Automatic tray selection: size (+ grammage) -> first matching, non-empty tray. |
+| `pdfdruck/updates.py` | Updates from the GitHub releases of Passermark (no Qt – the window shows the state, see gui/updatestatus.py). |
 | `pdfdruck/usercolor.py` | Own materials and ICC profiles of the user – no admin rights, no Qt. |
 | `pdfdruck/vdp.py` | Variable data |
 | `pdfdruck/watch.py` | Drop folders (passermark-cli serve): files dropped into a folder run through a workflow. No Qt. |
@@ -263,7 +295,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/fileopen.py` | Opening files |
 | `pdfdruck/gui/hdrdialog.py` | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
 | `pdfdruck/gui/iccimport.py` | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |
-| `pdfdruck/gui/icons.py` | Own single-colour line icons (24×24, drawn as SVG) – plain, matching the dark theme. |
+| `pdfdruck/gui/icons.py` | Line icons of the interface. |
 | `pdfdruck/gui/jobs.py` | Jobs in the interface: shown in the status bar with progress and cancel. |
 | `pdfdruck/gui/mainactions.py` | Main window: the actions, the menus and the main toolbar. |
 | `pdfdruck/gui/maincheck.py` | Main window: the document check in the background, the edit mode, rulers and measuring. |
@@ -302,12 +334,15 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/repairdialog.py` | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
 | `pdfdruck/gui/settingsdialog.py` | File → Settings: the user's personal settings (currently: language). |
 | `pdfdruck/gui/shrinkdialog.py` | Reduce file size: breakdown of the file size and every measure on/off separately. |
+| `pdfdruck/gui/sidepanels.py` | Parts of the 1.19.0 main window at its edges |
 | `pdfdruck/gui/softproofdialog.py` | Set up the soft proof of the page view: printing condition (material or profile), intent, paper white, black, warnings. |
 | `pdfdruck/gui/splitdialog.py` | Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines. |
 | `pdfdruck/gui/stallwatch.py` | Stall log: notices when the interface hangs and records what the main window is doing at that moment. |
 | `pdfdruck/gui/tabhost.py` | Window frame with tabs: every document is a full Passermark window (menus, bars, sidebars) – here as a tab. |
-| `pdfdruck/gui/theme.py` | Dark theme with a yellow accent + global mouse wheel guard. |
+| `pdfdruck/gui/theme.py` | Dark theme in Hias' colours (1.19.0: blue accent #007DAF, black/#272727 surfaces) + global mouse wheel guard. |
 | `pdfdruck/gui/thumbs.py` | Thumbnails of the pages in the side bar: list, drawing of an entry, loading in the background. |
+| `pdfdruck/gui/titlebar.py` | Own title bar (1.19.0 design) |
+| `pdfdruck/gui/updatestatus.py` | Update state in the status bar of every window, the update dialog and applying an update (pdfdruck/updates.py). |
 | `pdfdruck/gui/vdpdialog.py` | Dialog "Variable data": create fields and place them with the mouse, CSV data source, numbering, preview of any record. |
 | `pdfdruck/gui/viewlayout.py` | View modes of the document view: how the pages are arranged in the scroll area. |
 <!-- modules:end -->

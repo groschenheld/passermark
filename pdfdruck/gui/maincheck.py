@@ -111,8 +111,8 @@ class MainCheckMixin:
             self.a_pipette.setChecked(False)
         if on and self.edit_panel.rulers_wanted() and not self.a_rulers.isChecked():
             self.a_rulers.setChecked(True)  # rulers while editing (can be switched off in the Move section)
-        if on and getattr(self, "workspace", "edit") != "edit":
-            self.set_workspace("edit")
+        if on:
+            self._pages_dock.show()  # the edit panel sits next to the thumbnails
         self.view.imode = "edit" if on else "text"
         self.view.sel = None
         if on:
@@ -158,8 +158,9 @@ class MainCheckMixin:
         self.btn_pf.setFlat(True)
         self.btn_pf.setToolTip(tr("Dokumentprüfung anzeigen"))
         self.btn_pf.clicked.connect(lambda: (self.pf_dock.show(), self.pf_dock.raise_()))
+        self.btn_pf.setObjectName("pfChip")
         self.btn_pf.hide()
-        self.statusBar().addPermanentWidget(self.btn_pf)
+        self.statusBar().addWidget(self.btn_pf)  # far left (design: "Prüfung OK")
         self._pf_timer = QTimer(self, singleShot=True, interval=700, timeout=self._pf_start)
         self._pf_gen = 0
         self._pf_worker = None
@@ -245,10 +246,10 @@ class MainCheckMixin:
         c = rep.counts()
         if c["error"] or c["warning"]:
             self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]))
-            self.btn_pf.setStyleSheet(f"color: {theme.ERROR if c['error'] else theme.ACCENT};")
+            self.btn_pf.setStyleSheet(_chip(theme.ERROR if c["error"] else theme.WARN))
         else:
             self.btn_pf.setText("✓ " + tr("Prüfung OK"))
-            self.btn_pf.setStyleSheet(f"color: {theme.MUTED};")
+            self.btn_pf.setStyleSheet(_chip(theme.OK))
 
     def _pf_start_thread(self, gen):
         """Fallback without the analysis process: pikepdf part in a background thread, pdfium part in the window."""
@@ -289,3 +290,12 @@ class MainCheckMixin:
         w = getattr(self, "_pf_worker", None)
         if w is not None and w.isRunning():
             w.wait(15000)
+
+
+def _chip(color: str) -> str:
+    """Style of the check result at the left of the status bar: coloured text on a dark rounded field."""
+    return (
+        f"QPushButton#pfChip {{ color: {color}; background: {theme.PANEL}; border: 1px solid {theme.BORDER_SUBTLE};"
+        " border-radius: 6px; padding: 3px 12px; font-weight: 600; }"
+        f"QPushButton#pfChip:hover {{ border-color: {color}; }}"
+    )

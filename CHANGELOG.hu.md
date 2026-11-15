@@ -5,6 +5,11 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.19.3
+
+### A főablak újratervezése
+- Új megjelenés, választható saját címsorral: a fülek a keretben felül jobb oldalt, az eszközdoboz a lap területének bal alsó sarkában, nyíllal összecsukható, állapota újraindítás után is megmarad. Az eszközsáv csoportjai tippjeikkel magyarázzák magukat; a kattintás az üres kereten a mögötte lévő ablakra megy. Rendszerkerettel minden a régi marad.
+- Frissítéskeresés a Súgó menüben („Nach Aktualisierungen suchen …“): a keresés alatt forog az ikon, és piros felkiáltójelet mutat, ha új verzió érhető el. Előzetes verziók csak a adminisztrációs beállítással jelennek meg. Új programikon.
 ## 1.18.19 – 1.18.37
 
 ### Új nézetek: kétoldalas és rács

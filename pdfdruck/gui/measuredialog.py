@@ -159,7 +159,7 @@ class MeasureDialog(QDialog):
             )
         )
         self.lbl_state.setWordWrap(True)
-        self.lbl_state.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_state.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         bv.addWidget(self.lbl_state)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)

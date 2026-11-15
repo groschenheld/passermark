@@ -361,7 +361,7 @@ class PropertiesDialog(QDialog):
         missing = [fo["name"] for fo in fonts if not fo.get("embedded")]
         if missing:
             lb = _label(tr("Nicht eingebettet: {0}").format(", ".join(missing)))
-            lb.setStyleSheet(f"color: {theme.ACCENT};")
+            lb.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
             lay.addWidget(lb)
 
     def _fill_check(self, c):

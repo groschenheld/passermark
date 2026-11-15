@@ -1,4 +1,4 @@
-# Passermark 1.18.37
+# Passermark 1.19.3
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).
@@ -20,9 +20,10 @@ Software libre (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Comprobación del documento con avisos y notas](docs/screenshots/preflight_example.jpg) | ![Conversión CMYK con vista previa de color](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Step & repeat](docs/screenshots/step_and_repeat_example.png) | ![CutContour para plotter de corte](docs/screenshots/cut_contour_example.png) |
-| ![Recorte](docs/screenshots/trim_example.png) | ![Datos variables](docs/screenshots/variable_data_example.png) |
+| ![Comprobación del documento en la ventana principal](docs/screenshots/preflight_example.png) | ![Conversión CMYK con vista previa de color](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Configurar prueba de imprenta](docs/screenshots/softproof_example.png) | ![Diálogo de impresión con paso y repetición](docs/screenshots/step_and_repeat_example.png) |
+| ![CutContour para plotteras de corte](docs/screenshots/cut_contour_example.png) | ![Recortar al formato](docs/screenshots/trim_example.png) |
+| ![Ventana principal con caja de herramientas](docs/screenshots/toolbox_example.png) | ![Datos variables](docs/screenshots/variable_data_example.png) |
 
 ## Funciones
 

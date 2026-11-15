@@ -116,6 +116,8 @@ Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\hotfolde
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\ausgabe"" /grant *S-1-5-32-545:(OI)(CI)M *S-1-5-19:(OI)(CI)M *S-1-5-20:(OI)(CI)M"; Flags: runhidden waituntilterminated
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\Passermark\archiv"" /grant *S-1-5-32-545:(OI)(CI)M *S-1-5-19:(OI)(CI)M *S-1-5-20:(OI)(CI)M"; Flags: runhidden waituntilterminated
 Filename: "{app}\passermark.exe"; Description: "{cm:Launch}"; Flags: postinstall nowait skipifsilent unchecked
+; update from within Passermark (silent, /AUTOUPDATE – pdfdruck/updates.py): start it again, as the user, not as admin
+Filename: "{app}\passermark.exe"; Flags: nowait runasoriginaluser; Check: IsAutoUpdate
 Filename: "{app}\passermark-cli.exe"; Parameters: "serve --init --system"; Flags: runhidden
 
 [Registry]
@@ -332,6 +334,11 @@ Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passerm
 Root: HKLM; Subkey: "Software\Classes\SystemFileAssociations\.svgz\shell\passermark.merge\command"; ValueType: string; ValueName: ""; ValueData: """{app}\passermark.exe"" --merge ""%1"""
 
 [Code]
+function IsAutoUpdate: Boolean;
+begin
+  Result := Pos('/AUTOUPDATE', UpperCase(GetCmdTail)) > 0;
+end;
+
 const
   EnvKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
 

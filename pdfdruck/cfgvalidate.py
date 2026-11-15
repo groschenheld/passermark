@@ -185,6 +185,17 @@ def _check_general(cfg: dict, windows: bool):
     check_dirs(cfg.get("workflow_dirs", []), windows)
 
 
+def _check_updates(cfg: dict):
+    """The update block: {"enabled": bool, "channel": "stable"|"test"} (pdfdruck/updates.py)."""
+    u = cfg.get("updates", {})
+    if not isinstance(u, dict) or set(u) - {"enabled", "channel"}:
+        raise ValueError("updates ungültig")
+    if not isinstance(u.get("enabled", True), bool):
+        raise ValueError("updates.enabled muss bool sein")
+    if u.get("channel", "stable") not in ("stable", "test"):
+        raise ValueError("updates.channel muss stable oder test sein")
+
+
 def _check_print_log(cfg: dict, windows: bool):
     """The print log block."""
     pl = cfg.get("print_log", {})
@@ -344,12 +355,14 @@ def _validate(cfg, icc_dir: str, windows: bool):
         "workflow_dirs",
         "print_log",
         "materials",
+        "updates",
     }
     extra = set(cfg) - allowed
     if extra:
         raise ValueError(f"Unbekannte Schlüssel: {sorted(extra)}")
     _check_general(cfg, windows)
     _check_print_log(cfg, windows)
+    _check_updates(cfg)
     dp = cfg.get("default_printer", "")
     if dp and not _queue_ok(dp, windows):
         raise ValueError("default_printer ungültig")

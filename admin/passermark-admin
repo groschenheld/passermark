@@ -15,6 +15,9 @@ from user paths), validates everything, writes atomically.
      group passermark, hotfolder/ausgabe/archiv, root:passermark 2770 + ACL per program user (works at once),
      services passermark*/passerlink*/passcount* found automatically: their users get access, systemd drop-in
      ReadWritePaths=/srv/passermark, restart. Without users: the calling user (pkexec/sudo). Idempotent.
+  passermark-admin update <version> <passermark-src-<version>.tar.gz>
+     Update an install.sh installation: fetches the checksum of the release itself from GitHub (not from the
+     caller), checks the package against it, unpacks it and runs its install.sh.
   passermark-admin apply <bundle.json>   (everything in one call = one password prompt)
      {"import_icc": [{"src": "...", "id": "..."}], "remove_icc": ["id"],
       "queue_options": [["printer", "key", "value"]], "config": {...}}
@@ -150,6 +153,64 @@ def cmd_apply(src):
         cmd_set_queue_option(str(q), str(k), str(v))
     if "config" in b:
         atomic_write(DEFAULTS, json.dumps(b["config"], indent=2, ensure_ascii=False).encode("utf-8"))
+
+
+UPDATE_REPO = "groschenheld/passermark"
+RX_VERSION = re.compile(r"^\d+\.\d+\.\d+(?:-[A-Za-z0-9.]{1,20})?$")
+MAX_SOURCE = 200 << 20
+
+
+def cmd_update(version, src):
+    """Install a released source package (see update in the text above)."""
+    import hashlib
+    import tarfile
+    import urllib.request
+
+    if not RX_VERSION.match(version):
+        die("Version ungültig")
+    name = f"passermark-src-{version}.tar.gz"
+    url = f"https://github.com/{UPDATE_REPO}/releases/download/v{version}/{name}.sha256"
+    try:
+        with urllib.request.urlopen(url, timeout=30) as r:  # fixed https URL, chosen here, not by the caller
+            text = r.read(4096).decode("utf-8", "replace")
+    except OSError as e:
+        die(f"Prüfsumme nicht ladbar: {e}")
+    want = next((ln.split()[0].lower() for ln in text.splitlines()
+                 if ln.split() and re.fullmatch(r"[0-9a-fA-F]{64}", ln.split()[0])), None)
+    if not want:
+        die("Prüfsumme nicht lesbar")
+    work = tempfile.mkdtemp(prefix="passermark-update-")  # root-owned: the caller cannot swap files in here
+    try:
+        pkg = os.path.join(work, name)
+        size = 0
+        h = hashlib.sha256()
+        with open(src, "rb") as fin, open(pkg, "wb") as fout:
+            for block in iter(lambda: fin.read(1 << 20), b""):
+                size += len(block)
+                if size > MAX_SOURCE:
+                    die("Paket zu groß")
+                h.update(block)
+                fout.write(block)
+        if h.hexdigest() != want:
+            die("Prüfsumme stimmt nicht – nichts installiert.")
+        dest = os.path.join(work, "src")
+        with tarfile.open(pkg, "r:gz") as tf:
+            if hasattr(tarfile, "data_filter"):
+                tf.extractall(dest, filter="data")
+            else:  # Python < 3.12: refuse anything that leaves the folder
+                for m in tf.getmembers():
+                    target = os.path.realpath(os.path.join(dest, m.name))
+                    if not target.startswith(os.path.realpath(dest) + os.sep) or m.issym() or m.islnk():
+                        die("Paket enthält ungültige Pfade")
+                tf.extractall(dest)
+        tops = os.listdir(dest)
+        root = os.path.join(dest, tops[0]) if len(tops) == 1 else dest
+        if not os.path.isfile(os.path.join(root, "install.sh")):
+            die("install.sh fehlt im Paket")
+        r = subprocess.run(["sh", "install.sh"], cwd=root)
+        sys.exit(r.returncode)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def _tool(name):
@@ -359,6 +420,8 @@ def main():
         cmd_apply(a[1])
     elif len(a) == 4 and a[0] == "set-queue-option":
         cmd_set_queue_option(a[1], a[2], a[3])
+    elif len(a) == 3 and a[0] == "update":
+        cmd_update(a[1], a[2])
     elif len(a) >= 1 and a[0] == "shared-folder":
         cmd_shared_folder(a[1:])
     else:

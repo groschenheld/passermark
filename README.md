@@ -1,4 +1,4 @@
-# Passermark 1.18.37
+# Passermark 1.19.3
 PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free software (GPL-3.0-or-later).
 
 **English** · [Deutsch](README.de.md) · [Magyar](README.hu.md) · [Français](README.fr.md) · [Español](README.es.md)
@@ -17,9 +17,10 @@ PDF viewer, print tool and prepress toolbox for **Linux and Windows**. Free soft
 
 | | |
 |---|---|
-| ![Preflight check with warnings and notes](docs/screenshots/preflight_example.jpg) | ![CMYK conversion with colour preview](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Step & repeat](docs/screenshots/step_and_repeat_example.png) | ![CutContour for cutting plotters](docs/screenshots/cut_contour_example.png) |
-| ![Trim](docs/screenshots/trim_example.png) | ![Variable data](docs/screenshots/variable_data_example.png) |
+| ![Preflight check with findings in the main window](docs/screenshots/preflight_example.png) | ![CMYK conversion with colour preview](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Soft proof setup](docs/screenshots/softproof_example.png) | ![Print dialog with step & repeat](docs/screenshots/step_and_repeat_example.png) |
+| ![CutContour for cutting plotters](docs/screenshots/cut_contour_example.png) | ![Trim to size](docs/screenshots/trim_example.png) |
+| ![Main window with the tool box](docs/screenshots/toolbox_example.png) | ![Variable data](docs/screenshots/variable_data_example.png) |
 
 ## Features
 

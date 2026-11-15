@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDockWidget,
@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QScrollArea,
+    QToolBar,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -80,10 +81,14 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self.ruler_corner = QWidget()
         self.ruler_corner.setFixedSize(Ruler.SIZE, Ruler.SIZE)
         self.ruler_corner.setStyleSheet(f"background: {theme.PANEL};")
-        grid.addWidget(self.ruler_corner, 0, 0)
-        grid.addWidget(self.ruler_h, 0, 1)
-        grid.addWidget(self.ruler_v, 1, 0)
-        grid.addWidget(self.view, 1, 1)
+        self.side_strip = QWidget()  # narrow column left of the page: opens/closes the sidebar (design)
+        self.side_strip.setObjectName("sideStrip")
+        self.side_strip.setFixedWidth(34)
+        grid.addWidget(self.side_strip, 0, 0, 2, 1)
+        grid.addWidget(self.ruler_corner, 0, 1)
+        grid.addWidget(self.ruler_h, 0, 2)
+        grid.addWidget(self.ruler_v, 1, 1)
+        grid.addWidget(self.view, 1, 2)
         for r in (self.ruler_corner, self.ruler_h, self.ruler_v):
             r.hide()
         self._rulers_on = False
@@ -102,6 +107,9 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self.thumbs.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.thumbs.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.thumbs.setItemDelegate(ThumbDelegate(self.thumbs))
+        # the two large scroll bars carry Hias' scroll symbol on the handle (theme.py: QScrollBar#bigScroll)
+        for bar in (self.view.verticalScrollBar(), self.view.horizontalScrollBar(), self.thumbs.verticalScrollBar()):
+            bar.setObjectName("bigScroll")
         self.thumbs.setStyleSheet(
             f"QListWidget {{ background: {theme.BG}; border: none; }}"
             "QListWidget::item, QListWidget::item:selected { background: transparent; }"
@@ -129,16 +137,16 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
 
         self._build_actions(dock)
         self.lbl_size = QLabel()
-        self.lbl_size.setContentsMargins(8, 0, 8, 0)
+        self.lbl_size.setContentsMargins(12, 0, 8, 0)
         self.lbl_size.setFont(theme.mono_font(9.5))
-        self.statusBar().addPermanentWidget(self.lbl_size)
         self._build_preflight(dock)
+        self.statusBar().addWidget(self.lbl_size)  # left, after the check result (design)
         self._build_color(dock)
         self._build_edit(dock)
         self._dock_widths = {}
         for d in (dock, self.pf_dock, self.color_dock, self.edit_dock):
             d.visibilityChanged.connect(lambda vis, d=d: self._dock_vis(d, vis))
-        self._build_workspaces(dock)
+        self._build_edges(dock)
         self.lbl_measure = QLabel()
         self.lbl_measure.setContentsMargins(8, 0, 8, 0)
         self.lbl_measure.setFont(theme.mono_font(9.5))
@@ -147,157 +155,114 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self.view.on_measure = self.lbl_measure.setText
         self.lbl_proof = QLabel()
         self.lbl_proof.setContentsMargins(8, 0, 8, 0)
-        self.lbl_proof.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_proof.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self.lbl_proof.hide()
         self.statusBar().addPermanentWidget(self.lbl_proof)
+        from .updatestatus import UpdateStatus, start_background_check
+
+        self.update_status = UpdateStatus()
+        self.statusBar().addPermanentWidget(self.update_status)
+        if not MainWindow._update_check_started:  # once per program run, a little after the first window
+            MainWindow._update_check_started = True
+            start_background_check()
         self._update_title()
 
-    # ---------------- workspaces ---------------- #
-    WORKSPACES = ("view", "prep", "edit", "vdp", "plot", "auto")
+    _update_check_started = False
 
-    def _build_workspaces(self, pages_dock):
-        """Second bar: choose the work area; the tools of that area to its right."""
-        from PySide6.QtGui import QActionGroup
+    # ---------------- parts at the edges (1.19.0 design) ---------------- #
+    def _build_edges(self, pages_dock):
+        """Sidebar button left of the page, tabs at the right edge with the tools panel, tool box under the
+        thumbnails, rotate buttons in the thumbnail header (gui/sidepanels.py)."""
+        from . import sidepanels
 
         self._pages_dock = pages_dock
-        self.a_presets = self._act(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
-        self.a_cli = self._act(tr("Kommandozeile – Anleitung (PDF)"), self._open_cli_howto, None, "terminal")
-        self.a_vdp_howto = self._act(tr("Variable Daten – Anleitung (PDF)"), self._open_vdp_howto, None, "book")
-        self.a_examples = self._act(tr("Beispiele für Variable Daten holen …"), self._get_examples, None, "qr")
-        tools = {
-            "view": [(self.a_copy, tr("Text kopieren"))],
-            "prep": [
-                (self.a_preflight, tr("Prüfen")),
-                (self.a_colorcheck, tr("Farbe")),
-                (self.a_pipette, tr("Pipette")),
-                (self.a_press, tr("Für Druckerei")),
-                (self.a_manip_cmyk, tr("CMYK")),
-                (self.a_manip_crop, tr("Beschneiden")),
-                (self.a_cut, tr("CutContour")),
-                (self.a_separate, tr("Objekte trennen")),
-                (self.a_repair, tr("Reparieren")),
-            ],
-            "edit": [
-                (self.a_edit, tr("Text/Ebenen")),
-                (self.a_pipette, tr("Pipette")),
-                (self.a_ins_after, tr("Einfügen")),
-                (self.a_delete, tr("Löschen")),
-                (self.a_rot_l, tr("Links drehen")),
-                (self.a_rot_r, tr("Rechts drehen")),
-                (self.a_up, tr("Nach vorne")),
-                (self.a_down, tr("Nach hinten")),
-                (self.a_split, tr("Teilen")),
-                (self.a_merge, tr("Zusammenführen")),
-                (self.a_export, tr("Exportieren")),
-            ],
-            "vdp": [
-                (self.a_vdp, tr("Variable Daten")),
-                (self.a_data, tr("Daten erfassen")),
-                (self.a_examples, tr("Beispiele")),
-                (self.a_vdp_howto, tr("Anleitung")),
-            ],
-            "plot": [(self.a_plan, tr("Plandruck")), (self.a_poster, tr("Posterdruck")), (self.a_rolls, tr("Rollen"))],
-            "auto": [(self.a_presets, tr("Presets")), (self.a_cli, tr("Anleitung"))],
-        }
-        self.addToolBarBreak()
-        tb = self.ws_bar = self.addToolBar(tr("Arbeitsbereich"))
-        tb.setObjectName("workspaces")
-        tb.setMovable(False)
-        tb.setIconSize(QSize(18, 18))
-        grp = QActionGroup(self)
-        grp.setExclusive(True)
-        self.ws_actions = {}
-        names = {
-            "view": tr("Anzeigen & Drucken"),
-            "prep": tr("Druckaufbereitung"),
-            "edit": tr("Bearbeiten"),
-            "vdp": tr("Variable Daten"),
-            "plot": tr("Plan & Poster"),
-            "auto": tr("Automatisierung"),
-        }
-        for key in self.WORKSPACES:
-            a = QAction(names[key], self)
-            a.setCheckable(True)
-            a.setData(key)
-            grp.addAction(a)
-            tb.addAction(a)
-            btn = tb.widgetForAction(a)
-            if isinstance(btn, QToolButton):
-                btn.setObjectName("workspace")
-            self.ws_actions[key] = a
-        tb.setStyleSheet(
-            f"QToolButton#workspace {{ padding: 3px 10px; border-bottom: 2px solid transparent; }}"
-            f"QToolButton#workspace:checked {{ color: {theme.ACCENT}; border-bottom: 2px solid {theme.ACCENT};"
-            f" background: transparent; }}"
-        )
-        # The tools of the workspace live in their own bar: if the window gets narrow, it moves to the next
-        # row (instead of disappearing behind the » arrow) – see _fit_toolbars
-        tb = self.ws_tools_bar = self.addToolBar(tr("Werkzeuge des Arbeitsbereichs"))
-        tb.setObjectName("workspace_tools")
-        tb.setMovable(False)
-        tb.setIconSize(QSize(18, 18))
-        self.ws_tools = {}
-        for key, acts in tools.items():
-            holders = []
-            for a, text in acts:
-                a.setIconText(text)  # short text for bars; menus keep showing the full text
-                b = QToolButton()
-                b.setDefaultAction(a)
-                b.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-                holders.append(tb.addWidget(b))
-            self.ws_tools[key] = holders
-        grp.triggered.connect(lambda a: self.set_workspace(a.data()))
-        from .. import l10n
+        # left of the page: open/close the sidebar
+        lay = QVBoxLayout(self.side_strip)
+        lay.setContentsMargins(3, 6, 3, 6)
+        self.btn_sidebar = QToolButton()
+        self.btn_sidebar.setCheckable(True)
+        self.btn_sidebar.setChecked(True)
+        self.btn_sidebar.setIconSize(QSize(20, 20))
+        self.btn_sidebar.setToolTip(tr("Seitenleiste ein-/ausblenden"))
+        self.btn_sidebar.toggled.connect(self._toggle_sidebar)
+        pages_dock.visibilityChanged.connect(self._sidebar_shown)
+        self._sidebar_shown()
+        lay.addWidget(self.btn_sidebar)
+        lay.addStretch(1)
+        # thumbnail header: rotate the selected pages (permanently), as in the design
+        for a in (self.a_rot_l, self.a_rot_r):
+            b = QToolButton()
+            b.setDefaultAction(a)
+            b.setAutoRaise(True)
+            self._thumb_bar.insertWidget(self._thumb_bar.count() - 2, b)
+        # "Werkzeuge" opens the tools panel (dock between page and tabs, own head as in the design sheet)
+        self.tools_dock = QDockWidget(tr("Werkzeuge"), self)
+        self.tools_dock.setObjectName("toolsDock")
+        self.tools_dock.setTitleBarWidget(sidepanels.tools_header(self))
+        self.tools_dock.setWidget(self._dock_scroll(sidepanels.tools_panel(self)))
+        self.tools_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.tools_dock)
+        self.tools_dock.hide()
+        # tool box: over the page, right of the sidebar, folds away with an arrow
+        self.toolbox = sidepanels.ToolboxOverlay(self, self.centralWidget(), self.view)
+        # tabs (right edge): with the own title bar the window frame (TabHost) puts them outside, into its
+        # transparent margin; with the system frame they stay inside the window
+        from .titlebar import wanted as own_frame
 
-        key = l10n.load_settings().get("workspace", "view")
-        self.set_workspace(key if key in self.ws_actions else "view", remember=False)
+        self.edge_right = sidepanels.build_rail(self)
+        self.edges_outside = own_frame()
+        if self.edges_outside:
+            self.edge_right.hide()
+        else:
+            self.edges_inside()
 
-    def _fit_toolbars(self):
-        """Toolbar of the workspace next to the workspaces if there is room – otherwise in its own row."""
-        tb, tt = getattr(self, "ws_bar", None), getattr(self, "ws_tools_bar", None)
-        if tb is None or tt is None:
-            return
-        want = tb.sizeHint().width() + tt.sizeHint().width() + 24 > self.width()
-        if want != bool(self.toolBarBreak(tt)):
-            if want:
-                self.insertToolBarBreak(tt)
-            else:
-                self.removeToolBarBreak(tt)
+    def edges_inside(self):
+        """Tabs as a bar at the right edge (window with the system frame)."""
+        self.edges_outside = False
+        rail = QToolBar(tr("Reiter"))
+        rail.setObjectName("rail")
+        rail.setMovable(False)
+        rail.addWidget(self.edge_right)
+        self.edge_right.show()
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, rail)
 
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self._fit_toolbars()
+    def _left_docks(self) -> list:
+        """The panels of the sidebar (Seiten, Prüfung, Farbe, Bearbeiten …: docked at the left, not floating)."""
+        out = []
+        seen = self.__dict__.setdefault("_left_watched", set())
+        for d in self.findChildren(QDockWidget):
+            if d.isFloating() or self.dockWidgetArea(d) != Qt.DockWidgetArea.LeftDockWidgetArea:
+                continue
+            out.append(d)
+            if id(d) not in seen:  # the button follows every panel of the sidebar
+                seen.add(id(d))
+                d.visibilityChanged.connect(self._sidebar_shown)
+        return out
 
-    def set_workspace(self, key: str, remember: bool = True):
-        """Switch to workspace ``key`` and show its tools (``remember``: store it as the user's choice)."""
-        self.workspace = key
-        self.ws_actions[key].setChecked(True)
-        for k, holders in self.ws_tools.items():
-            for h in holders:
-                h.setVisible(k == key)
-        self._fit_toolbars()
-        if key != "edit" and self.a_edit.isChecked():
-            self.a_edit.setChecked(False)  # edit mode belongs to the Edit area
-        if key == "prep":
-            self.pf_dock.show()
-            self.pf_dock.raise_()
-        elif key == "edit":
-            self._pages_dock.show()
-            if not self.a_edit.isChecked():
-                self.a_edit.setChecked(True)  # start edit mode: fill the dock + lists
-            self.edit_dock.raise_()  # bring the dock in front of the page overview
-        elif self._pages_dock.isVisible():
-            self._pages_dock.raise_()
-        if remember:
-            from .. import l10n
+    def _toggle_sidebar(self, show: bool):
+        """Collapse the whole sidebar (all its tabs) and open it again with the tab that was in front.
+        Hiding only "Seiten" would just bring the next tab (Prüfung) to the front."""
+        docks = self._left_docks()
+        if not show:
+            self._sidebar_open = [d for d in docks if d.toggleViewAction().isChecked()]
+            front = [d for d in self._sidebar_open if d.isVisible()]
+            self._sidebar_front = front[0] if front else None
+            for d in docks:
+                d.hide()
+        else:
+            for d in getattr(self, "_sidebar_open", None) or [self._pages_dock]:
+                d.show()
+            front = getattr(self, "_sidebar_front", None) or self._pages_dock
+            if front.toggleViewAction().isChecked():
+                front.raise_()
+        self._sidebar_shown()
 
-            st = l10n.load_settings()
-            if st.get("workspace") != key:
-                st["workspace"] = key
-                try:
-                    l10n.save_settings(st)
-                except OSError:
-                    pass
+    def _sidebar_shown(self, _vis=None):
+        vis = any(d.toggleViewAction().isChecked() for d in self._left_docks())
+        self.btn_sidebar.blockSignals(True)
+        self.btn_sidebar.setChecked(vis)
+        self.btn_sidebar.blockSignals(False)
+        self.btn_sidebar.setIcon(svg_icon("sidebar_close" if vis else "sidebar_open"))
 
     @staticmethod
     def licenses_path() -> str:
@@ -396,10 +361,10 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
 
         st = l10n.load_settings()
         box = QWidget()
-        v = QVBoxLayout(box)
+        v = self._thumb_box = QVBoxLayout(box)  # the tool box is added at the bottom later (_build_edges)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(0)
-        bar = QHBoxLayout()
+        bar = self._thumb_bar = QHBoxLayout()  # rotate buttons are inserted later (_build_edges)
         bar.setContentsMargins(6, 3, 6, 3)
         bar.setSpacing(2)
         self.btn_thumb_col = QToolButton()
@@ -628,6 +593,9 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
             self.doc.close()
             self.doc = None
         super().closeEvent(e)
+        if getattr(self, "edges_outside", False):  # they live in the frame, but belong to this window
+            self.edge_right.hide()
+            self.edge_right.deleteLater()
         host = getattr(self, "_host", None)
         if host is not None:
             host.tab_closed()

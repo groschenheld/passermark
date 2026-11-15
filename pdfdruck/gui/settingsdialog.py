@@ -174,6 +174,17 @@ class SettingsDialog(QDialog):
             )
         )
         f4.addRow(self.chk_tabs)
+        from . import titlebar
+
+        self.chk_titlebar = QCheckBox(tr("Eigene Titelleiste (Menü und Fensterknöpfe in einer Zeile)"))
+        self.chk_titlebar.setChecked(titlebar.wanted())
+        self.chk_titlebar.setToolTip(
+            tr(
+                "Aus: normaler Fensterrahmen des Systems und eigene Menüzeile – falls das Fenster auf diesem "
+                "Desktop nicht richtig zu verschieben oder zu vergrößern ist. Gilt für neue Fenster."
+            )
+        )
+        f4.addRow(self.chk_titlebar)
         v.addWidget(g4)
 
     def _ok(self):
@@ -185,6 +196,9 @@ class SettingsDialog(QDialog):
             self.settings["win_raster_dpi"] = int(self.cmb_wdpi.currentData() or 0)
         self.settings["preflight_on_open"] = self.chk_pf.isChecked()
         self.settings["open_in_tabs"] = self.chk_tabs.isChecked()
+        from . import titlebar
+
+        self.settings[titlebar.SETTING] = self.chk_titlebar.isChecked()
         if self.chk_plog.isEnabled():
             self.settings["print_log"] = self.chk_plog.isChecked()
         from .. import crashlog

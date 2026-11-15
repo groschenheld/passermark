@@ -1,4 +1,4 @@
-# Passermark 1.18.37
+# Passermark 1.19.3
 
 PDF-megjelenítő, nyomtatóeszköz és nyomdai előkészítési szerszámosládája **Linuxra és Windowsra**. Szabad
 szoftver (GPL-3.0-or-later).
@@ -19,9 +19,10 @@ szoftver (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Dokumentum-ellenőrzés figyelmeztetésekkel és megjegyzésekkel](docs/screenshots/preflight_example.jpg) | ![CMYK-átalakítás színelőnézettel](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Nutzen (step & repeat)](docs/screenshots/step_and_repeat_example.png) | ![CutContour vágóplotterekhez](docs/screenshots/cut_contour_example.png) |
-| ![Kivágás](docs/screenshots/trim_example.png) | ![Változó adatok](docs/screenshots/variable_data_example.png) |
+| ![Dokumentum-ellenőrzés a főablakban](docs/screenshots/preflight_example.png) | ![CMYK-átalakítás színelőnézettel](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Nyomásszimuláció beállítása](docs/screenshots/softproof_example.png) | ![Nyomtatási párbeszédablak haszonmintákkal](docs/screenshots/step_and_repeat_example.png) |
+| ![CutContour vágóplotterekhez](docs/screenshots/cut_contour_example.png) | ![Formátumra vágás](docs/screenshots/trim_example.png) |
+| ![Főablak eszközdobozzal](docs/screenshots/toolbox_example.png) | ![Változó adatok](docs/screenshots/variable_data_example.png) |
 
 ## Funkciók
 

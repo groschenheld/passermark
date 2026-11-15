@@ -228,7 +228,7 @@ class MaterialTab(QWidget):
             )
         )
         self.lbl_empty.setWordWrap(True)
-        self.lbl_empty.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_empty.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         left.addWidget(self.lbl_empty)
         row = QHBoxLayout()
         for text, fn, tip in (
@@ -337,7 +337,7 @@ class MaterialTab(QWidget):
         sv.addWidget(self.tree)
         self.lbl_tip = QLabel()
         self.lbl_tip.setWordWrap(True)
-        self.lbl_tip.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_tip.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         sv.addWidget(self.lbl_tip)
         right.addWidget(sbox, 1)
 

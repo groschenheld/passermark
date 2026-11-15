@@ -223,7 +223,7 @@ class VdpDialog(QDialog):
         left.addLayout(nav)
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)
-        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         left.addWidget(self.lbl_info)
         return left
 
@@ -399,7 +399,7 @@ class VdpDialog(QDialog):
         self.cmb_qrtype.currentIndexChanged.connect(self._qrtype_changed)
         self.lbl_qrcols = QLabel()
         self.lbl_qrcols.setWordWrap(True)
-        self.lbl_qrcols.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_qrcols.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         box = QVBoxLayout()
         row_qt = QHBoxLayout()
         row_qt.addWidget(self.cmb_qrtype, 1)
@@ -600,7 +600,7 @@ class VdpDialog(QDialog):
         row_g = QHBoxLayout()
         self.lbl_guess = QLabel()
         self.lbl_guess.setWordWrap(True)
-        self.lbl_guess.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_guess.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self.btn_guess = QPushButton(tr("Passendes Feld anlegen"))
         self.btn_guess.setToolTip(
             tr(
@@ -627,7 +627,7 @@ class VdpDialog(QDialog):
     def _build_record_rows(self, v):
         """What the data yields, its columns, how many records without a file, and which records to use."""
         self.lbl_result = QLabel()
-        self.lbl_result.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT};")
+        self.lbl_result.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT_TEXT};")
         self._field(
             v,
             tr("Ergebnis"),
@@ -761,7 +761,7 @@ class VdpDialog(QDialog):
         self.ed_cont = QLineEdit()
         self.ed_cont.setPlaceholderText(tr("leer = jedes Mal ab der ersten Nummer"))
         self.lbl_cont = QLabel()
-        self.lbl_cont.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_cont.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self._field(
             v,
             tr("Beim nächsten Auftrag weiterzählen"),

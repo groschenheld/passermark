@@ -7,7 +7,8 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 root = os.path.abspath(os.path.join(SPECPATH, ".."))
 datas = [(os.path.join(root, "pdfdruck", "gui", "passermark.svg"), "pdfdruck/gui"),
          (os.path.join(root, "LICENSE"), "."), (os.path.join(root, "README.md"), "."),
-         (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs")]
+         (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs"),
+         (os.path.join(root, "pdfdruck", "gui", "svgicons"), "pdfdruck/gui/svgicons")]
 datas += collect_data_files("pypdfium2") + collect_data_files("pypdfium2_raw") + collect_data_files("reportlab")
 binaries = collect_dynamic_libs("pypdfium2_raw") + collect_dynamic_libs("pikepdf")
 RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (loaded dynamically)
@@ -18,7 +19,7 @@ HIDDEN = ["win32print", "win32gui", "win32con", "win32event", "win32process", "p
           "PySide6.QtSvg", "PySide6.QtNetwork", "pillow_heif", "img2pdf", "pikepdf", "numpy", "scipy", "contourpy", *RL, *LANGS,
           "pdfdruck.renderproc", "pdfdruck.gui.renderclient", "pdfdruck.editops", "pdfdruck.pagegeom",
           "pdfdruck.gui.stallwatch", "pdfdruck.fastipc", "pdfdruck.workflow", "pdfdruck.docinfo",
-          "pdfdruck.printcli", "pdfdruck.session", "pdfdruck.watch", "pdfdruck.conditions", "pdfdruck.printlog", "pdfdruck.papersizes", "pdfdruck.colorlab", "pdfdruck.gui.softproofdialog", "pdfdruck.gui.measuredialog", "pdfdruck.gui.materialtab", "pdfdruck.usercolor", "pdfdruck.colorcheck", "pdfdruck.pressexport", "pdfdruck.gui.colorpanel", "pdfdruck.gui.pressdialog", "pdfdruck.gui.materialsdialog", "pdfdruck.fontlib", "pdfdruck.pdflayers", "pdfdruck.pdfutil"]   # Render-/Analyse-Prozess (passermark-cli render-server), Ruckler-Protokoll
+          "pdfdruck.printcli", "pdfdruck.session", "pdfdruck.watch", "pdfdruck.conditions", "pdfdruck.printlog", "pdfdruck.papersizes", "pdfdruck.colorlab", "pdfdruck.gui.softproofdialog", "pdfdruck.gui.measuredialog", "pdfdruck.gui.materialtab", "pdfdruck.usercolor", "pdfdruck.colorcheck", "pdfdruck.pressexport", "pdfdruck.gui.colorpanel", "pdfdruck.gui.pressdialog", "pdfdruck.gui.materialsdialog", "pdfdruck.fontlib", "pdfdruck.pdflayers", "pdfdruck.pdfutil", "pdfdruck.updates"]   # Render-/Analyse-Prozess (passermark-cli render-server), Ruckler-Protokoll
 a = Analysis([os.path.join(SPECPATH, "launcher.py")], pathex=[root], binaries=binaries, datas=datas,
              hiddenimports=HIDDEN, excludes=["cups", "tkinter"], noarchive=False)
 pyz = PYZ(a.pure)

@@ -175,6 +175,29 @@ class AdminDialog(QDialog):
             tr("Gilt für alle Benutzer, die unter Datei → Einstellungen „Automatisch“ gewählt haben")
         )
         f.addRow(tr("Standardsprache:"), self.cmb_lang)
+        self._general_updates(f)
+
+    def _general_updates(self, f):
+        """Updates: allowed at all, stable versions only or test versions too (pdfdruck/updates.py)."""
+        from .. import updates
+
+        u = updates.settings(self.cfg)
+        row = QHBoxLayout()
+        self.chk_updates = QCheckBox(tr("Nach neuen Versionen suchen"))
+        self.chk_updates.setChecked(u["enabled"])
+        self.chk_updates.setToolTip(
+            tr("Einmal am Tag beim Start; installiert wird nur nach Bestätigung. Aus: auf diesem Rechner keine Suche")
+        )
+        self.cmb_channel = QComboBox()
+        self.cmb_channel.addItem(tr("Nur stabile Versionen"), "stable")
+        self.cmb_channel.addItem(tr("Auch Testversionen"), "test")
+        self.cmb_channel.setCurrentIndex(max(0, self.cmb_channel.findData(u["channel"])))
+        self.chk_updates.toggled.connect(self.cmb_channel.setEnabled)
+        self.cmb_channel.setEnabled(u["enabled"])
+        row.addWidget(self.chk_updates)
+        row.addWidget(self.cmb_channel)
+        row.addStretch(1)
+        f.addRow(tr("Aktualisierungen:"), row)
 
     def _general_workflow_folders(self, f):
         """Further workflow folders for everyone, e.g. a network share."""
@@ -388,6 +411,7 @@ class AdminDialog(QDialog):
         self.cfg["image_default_dpi"] = self.spn_imgdpi.value()
         self.cfg["office_converter"] = self.cmb_conv.currentData()
         self.cfg["language"] = self.cmb_lang.currentData() or ""
+        self.cfg["updates"] = {"enabled": self.chk_updates.isChecked(), "channel": self.cmb_channel.currentData()}
         self.cfg["workflow_dirs"] = [self.lst_wfdirs.item(i).text() for i in range(self.lst_wfdirs.count())]
         self.cfg["print_log"] = {
             "force": self.chk_plog.isChecked(),

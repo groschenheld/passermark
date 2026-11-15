@@ -35,8 +35,18 @@ jobs:
           name: Passermark-Windows
           path: dist/Passermark-*-Setup.exe
           if-no-files-found: error
+      - name: Checksum for the update function (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/Passermark-*-Setup.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Out-File -Encoding ascii -NoNewline "$($_.FullName).sha256"
+          }
       - name: Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Passermark-*-Setup.exe
+          files: |
+            dist/Passermark-*-Setup.exe
+            dist/Passermark-*-Setup.exe.sha256

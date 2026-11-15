@@ -438,7 +438,6 @@ w.data_dialog()
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
 w.data_dialog()
 w.vdp_dialog((p, "wifi"))
-w.set_workspace("vdp")
 # foreign header row: kind recognised, matching field, change the mapping
 import csv as _csv
 op = os.path.join(tmp, "ol.csv")

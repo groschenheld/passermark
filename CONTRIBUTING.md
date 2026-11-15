@@ -37,6 +37,8 @@ If we agree on a change:
   `ruff check` must pass (the CI checks both),
 - errors: an `except Exception` shows the error, logs it (`log.warning(…, exc_info=True)`) or says in a
   `# noqa: BLE001 – …` comment why it is expected (see docs/architecture.md, Error handling),
+- icons only from `pdfdruck/gui/svgicons/` (24×24, `currentColor`); a new one gets its name in `_FILES` of
+  `pdfdruck/gui/icons.py`,
 - colours of the interface only in `pdfdruck/gui/theme.py` – use the names from there (`tests/test_theme.py`),
 - tests: add or adapt `tests/test_<name>.py` and run them (`python3 tests/test_<name>.py`),
 - user-visible texts go through `tr("…")` (German source text) – translations are added afterwards,
@@ -90,6 +92,8 @@ Wenn wir uns auf eine Änderung einigen:
 - Fehler: ein `except Exception` zeigt den Fehler an, protokolliert ihn (`log.warning(…, exc_info=True)`) oder
   begründet in einem `# noqa: BLE001 – …`-Kommentar, warum er erwartet ist (siehe docs/architecture.md,
   Error handling),
+- Symbole nur aus `pdfdruck/gui/svgicons/` (24×24, `currentColor`); ein neues bekommt seinen Namen in `_FILES` in
+  `pdfdruck/gui/icons.py`,
 - Farben der Oberfläche nur in `pdfdruck/gui/theme.py` – die Namen von dort verwenden (`tests/test_theme.py`),
 - Tests: `tests/test_<name>.py` ergänzen oder anpassen und ausführen (`python3 tests/test_<name>.py`),
 - sichtbare Texte über `tr("…")` (deutscher Ausgangstext) – Übersetzungen kommen danach dazu,

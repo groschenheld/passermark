@@ -42,7 +42,7 @@ class CollapsibleSection(QWidget):
         self.btn.setCheckable(True)
         self.btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.btn.setArrowType(Qt.ArrowType.RightArrow)
-        self.btn.setStyleSheet(f"QToolButton {{ font-weight: bold; border: none; color: {theme.ACCENT}; }}")
+        self.btn.setStyleSheet(f"QToolButton {{ font-weight: bold; border: none; color: {theme.ACCENT_TEXT}; }}")
         self.btn.toggled.connect(self._toggle)
         v.addWidget(self.btn)
         self.body = QWidget()

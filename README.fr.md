@@ -1,4 +1,4 @@
-# Passermark 1.18.37
+# Passermark 1.19.3
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).
@@ -19,9 +19,10 @@ Logiciel libre (GPL-3.0-or-later).
 
 | | |
 |---|---|
-| ![Contrôle du document avec avertissements et notes](docs/screenshots/preflight_example.jpg) | ![Conversion CMJN avec aperçu des couleurs](docs/screenshots/cmyk_adjustment_example.png) |
-| ![Step & repeat (Nutzen)](docs/screenshots/step_and_repeat_example.png) | ![CutContour pour traceurs de découpe](docs/screenshots/cut_contour_example.png) |
-| ![Découpe (trim)](docs/screenshots/trim_example.png) | ![Données variables](docs/screenshots/variable_data_example.png) |
+| ![Vérification du document dans la fenêtre principale](docs/screenshots/preflight_example.png) | ![Conversion CMYK avec aperçu des couleurs](docs/screenshots/cmyk_adjustment_example.png) |
+| ![Réglage de l'épreuvage](docs/screenshots/softproof_example.png) | ![Boîte de dialogue d'impression avec pas de répétition](docs/screenshots/step_and_repeat_example.png) |
+| ![CutContour pour traceurs de découpe](docs/screenshots/cut_contour_example.png) | ![Rogner au format](docs/screenshots/trim_example.png) |
+| ![Fenêtre principale avec la boîte à outils](docs/screenshots/toolbox_example.png) | ![Données variables](docs/screenshots/variable_data_example.png) |
 
 ## Fonctionnalités
 

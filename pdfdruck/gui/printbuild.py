@@ -537,7 +537,7 @@ class PrintBuildMixin:
         self.sr_win.resize(520, 640)
         _wl = QVBoxLayout(self.sr_win)
         self.chk_sr = QCheckBox(tr("Step && Repeat aktiv (Mehrfachnutzen)"))
-        self.chk_sr.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT};")
+        self.chk_sr.setStyleSheet(f"font-weight: bold; color: {theme.ACCENT_TEXT};")
         self.chk_sr.setChecked(bool(L.step_repeat or getattr(L, "sr_multi", False)))
         self.chk_sr.setToolTip(
             tr(
@@ -615,7 +615,7 @@ class PrintBuildMixin:
         f.addRow(tr("Nutzengröße:"), row)
         self.lbl_srsize = QLabel()
         self.lbl_srsize.setWordWrap(True)
-        self.lbl_srsize.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_srsize.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         f.addRow("", self.lbl_srsize)
         self.cmb_srorient = QComboBox()
         fill_combo(
@@ -771,7 +771,7 @@ class PrintBuildMixin:
         self.spn_custom_mm.setValue(L.custom_mm)
         self.lbl_custom = QLabel()
         self.lbl_custom.setWordWrap(True)
-        self.lbl_custom.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_custom.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self.mode_group = QButtonGroup(self)
         for rb, m in [
             (self.rb_fit, "fit"),

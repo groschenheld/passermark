@@ -159,16 +159,18 @@ window_modal_dialogs(); window_modal_dialogs()      # twice: must not hook in tw
 import pypdfium2 as pdfium
 w = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
 w._set_doc(pdfium.PdfDocument(sys.argv[1]), sys.argv[1], "x.pdf", False)
-assert w.workspace == "view"
-for k in ("prep", "edit", "auto", "view", "prep"):
-    w.set_workspace(k)
-    assert w.workspace == k
-assert l10n.load_settings()["workspace"] == "prep"
-w2 = mainwindow.MainWindow(types.SimpleNamespace(view_single=True, session=Session(config.BUILTIN), windows=[]))
-assert w2.workspace == "prep"                       # a new window starts in the most recently chosen workspace
-# Bearbeiten einschalten wechselt in den Bereich Bearbeiten
+# 1.19.0: no workspaces – tab "Werkzeuge" opens the tools panel, the layout switches follow the view mode
+w.tab_tools.setChecked(True); w.tab_tools.setChecked(False)  # (the stub cannot tell visibility – must not fail)
+assert w.view.view_mode.name == "single"
+w._set_layout("continuous")
+assert w.view.view_mode.name == "continuous"
+w._set_layout("grid", columns=4)
+assert w.view.view_mode.spec() == {"mode": "grid", "columns": 4} and w._last_multi == "grid"
+w._set_layout("facing")
+assert w._last_multi == "facing"
+w._set_layout("single")
+assert w.view.view_mode.name == "single"
 w._edit_mode(True)
-assert w.workspace == "edit"
 w._open_presets_dir()
 # dialogs with a preset bar can be built and adopt presets
 from pdfdruck.gui import objectsdialog as od, manipdialog as md

@@ -3,7 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Dark theme with a yellow accent + global mouse wheel guard."""
+"""Dark theme in Hias' colours (1.19.0: blue accent #007DAF, black/#272727 surfaces) + global mouse wheel guard."""
 
 from __future__ import annotations
 
@@ -17,37 +17,44 @@ from PySide6.QtWidgets import QAbstractScrollArea, QAbstractSpinBox, QApplicatio
 # All colours of the user interface live here – nothing else in gui/ names a colour of its own (paper white and
 # the colours a user picks for their document are not interface colours).
 
+# Hias' palette (13.11.2026): #007DAF main colour, #F20D0D error, #50BC26 ok, #E5F20D warning, #F4A122 selection,
+# #000000 and #272727 surfaces. The in-between greys are derived from the two surfaces (neutral, no tint – the
+# surroundings of the page must not change how colours look, soft proof).
+
 # surfaces
-BG = "#15171a"  # window
-PANEL = "#1e2124"  # bars, groups
-FIELD = "#0e1012"  # input fields
-VIEW = "#2a2d31"  # background behind the pages
-BUTTON = "#2a2e33"  # push buttons
-PLACEHOLDER = "#2c2f33"  # thumbnail that is not selected
+BG = "#000000"  # window frame: title bar, status bar
+PANEL = "#272727"  # bars, side panels, groups
+FIELD = "#161616"  # input fields
+VIEW = "#2f2f2f"  # background behind the pages (neutral grey)
+BUTTON = "#1c1c1c"  # push buttons
+PLACEHOLDER = "#3a3a3a"  # thumbnail that is not selected
 TIP_BG = "#000000"  # tool tips
-SCROLL = "#4a5057"  # handle of the scroll bars
+SCROLL = "#4d4d4d"  # handle of the scroll bars
 
 # lines
-BORDER = "#5a6068"  # border (deliberately light enough for contrast)
-BORDER_HOVER = "#8a9099"  # border under the mouse / with focus; check boxes
-BORDER_SUBTLE = "#3a3e43"  # faint border (thumbnails, page number field)
-BORDER_OFF = "#34383d"  # disabled button
-BORDER_OFF_FIELD = "#2e3236"  # disabled input field
+BORDER = "#4a4a4a"  # border (light enough for contrast on both surfaces)
+BORDER_HOVER = "#808080"  # border under the mouse / with focus; check boxes
+BORDER_SUBTLE = "#383838"  # faint border (thumbnails, page number field)
+BORDER_OFF = "#333333"  # disabled button
+BORDER_OFF_FIELD = "#2c2c2c"  # disabled input field
 
 # text and icons
-TEXT = "#f3f4f5"
-MUTED = "#a9afb6"
-ICON = "#d9dde1"
-ICON_OFF = "#5c6168"
+TEXT = "#f2f2f2"
+MUTED = "#a6a6a6"
+ICON = "#e6e6e6"
+ICON_OFF = "#5e5e5e"
 
 # accent: what is active, chosen or to be clicked next
-ACCENT = "#ffc62b"  # yellow
-ACCENT_OFF = "#6b5a1f"  # checked but disabled – a dimmed ACCENT, change both together
-ON_ACCENT = "#000000"  # text and check marks on the accent colour
+ACCENT = "#007DAF"  # blue: fills, frames, icons
+ACCENT_TEXT = "#3AAEE0"  # the accent as text or thin line on the dark surfaces (#007DAF has only ~3.3:1 there)
+ACCENT_OFF = "#1d4252"  # checked but disabled – a dimmed ACCENT, change both together
+ON_ACCENT = "#FFFFFF"  # text and check marks on the accent colour
 
 # status
-ERROR = "#ff6b6b"
-OK = "#3fa34d"
+ERROR = "#F20D0D"
+OK = "#50BC26"
+WARN = "#E5F20D"  # warnings (always together with a symbol, never colour alone)
+SELECT = "#F4A122"  # chosen / marked
 INVALID_FIELD = "#ffd6d6"  # background of a field with an invalid entry
 
 # drawn on top of the page (must stand out against paper and artwork, not against the dark interface)
@@ -74,7 +81,7 @@ def _rgba(color: str, opacity: str) -> str:
     return f"rgba({r}, {g}, {b}, {opacity})"
 
 
-ACCENT_SOFT = _rgba(ACCENT, "0.20")
+ACCENT_SOFT = _rgba(ACCENT, "0.36")  # Hias: backgrounds in the accent at 36 % opacity
 
 UI_FONTS = ["IBM Plex Sans", "Inter", "Segoe UI Variable Text", "Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans"]
 MONO_FONTS = ["IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", "Ubuntu Mono", "DejaVu Sans Mono"]
@@ -99,15 +106,16 @@ def mono_font(size: float = 9.5) -> QFont:
 QSS = f"""
 * {{ color: {TEXT}; }}
 QMainWindow, QDialog {{ background: {BG}; }}
+QMainWindow#passermarkHost, QWidget#hostFrame {{ background: transparent; }}
 QWidget {{ selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
 QToolTip {{ background: {TIP_BG}; color: {TEXT}; border: 1px solid {ACCENT}; padding: 4px; }}
 
 QMenuBar {{ background: {PANEL}; border-bottom: 1px solid {BORDER}; }}
 QMenuBar::item {{ padding: 4px 10px; background: transparent; }}
-QMenuBar::item:selected {{ background: {ACCENT_SOFT}; color: {ACCENT}; }}
+QMenuBar::item:selected {{ background: {ACCENT_SOFT}; color: {TEXT}; }}
 QMenu {{ background: {PANEL}; border: 1px solid {BORDER}; padding: 4px; }}
 QMenu::item {{ padding: 5px 24px 5px 22px; }}
-QMenu::item:selected {{ background: {ACCENT_SOFT}; color: {ACCENT}; }}
+QMenu::item:selected {{ background: {ACCENT_SOFT}; color: {TEXT}; }}
 QMenu::item:disabled {{ color: {ICON_OFF}; }}
 QMenu::separator {{ height: 1px; background: {BORDER}; margin: 4px 8px; }}
 
@@ -115,7 +123,7 @@ QToolBar {{ background: {PANEL}; border: none; border-bottom: 1px solid {BORDER}
 QToolBar::separator {{ background: {BORDER}; width: 1px; margin: 4px 6px; }}
 QToolButton {{ background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px; }}
 QToolButton:hover {{ border-color: {ACCENT}; background: {ACCENT_SOFT}; }}
-QToolButton:pressed, QToolButton:checked {{ background: {ACCENT_SOFT}; border-color: {ACCENT}; color: {ACCENT}; }}
+QToolButton:pressed, QToolButton:checked {{ background: {ACCENT_SOFT}; border-color: {ACCENT}; color: {TEXT}; }}
 QToolButton:disabled {{ color: {ICON_OFF}; }}
 
 QPushButton {{ background: {BUTTON}; border: 1px solid {BORDER}; border-radius: 4px; padding: 5px 14px; }}
@@ -135,7 +143,7 @@ QComboBox QAbstractItemView {{ background: {FIELD}; border: 1px solid {ACCENT}; 
     selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
 
 QGroupBox {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 5px; margin-top: 14px; padding-top: 8px; }}
-QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 4px; color: {ACCENT}; font-weight: 600; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 4px; color: {ACCENT_TEXT}; font-weight: 600; }}
 
 QCheckBox::indicator, QRadioButton::indicator {{ width: 14px; height: 14px; border: 1px solid {BORDER_HOVER}; background: {FIELD}; }}
 QCheckBox::indicator {{ border-radius: 2px; }}
@@ -146,17 +154,35 @@ QCheckBox:disabled, QRadioButton:disabled {{ color: {ICON_OFF}; }}
 
 QTabWidget::pane {{ border: 1px solid {BORDER}; top: -1px; background: {BG}; }}
 QTabBar::tab {{ background: {PANEL}; border: 1px solid {BORDER}; padding: 6px 14px; margin-right: 2px; }}
-QTabBar::tab:selected {{ border-bottom: 2px solid {ACCENT}; color: {ACCENT}; }}
-QTabBar::tab:hover {{ color: {ACCENT}; }}
+QTabBar::tab:selected {{ border-bottom: 2px solid {ACCENT}; color: {ACCENT_TEXT}; }}
+QTabBar::tab:hover {{ color: {ACCENT_TEXT}; }}
 
 QDockWidget {{ titlebar-close-icon: none; }}
 QDockWidget::title {{ background: {PANEL}; padding: 5px; border-bottom: 1px solid {BORDER}; }}
-QStatusBar {{ background: {PANEL}; border-top: 1px solid {BORDER}; }}
+QStatusBar {{ background: {BG}; border-top: 1px solid {BORDER_SUBTLE}; }}
+QStatusBar::item {{ border: none; }}
 QStatusBar QLabel {{ color: {TEXT}; }}
 
 QListWidget {{ background: {FIELD}; border: 1px solid {BORDER}; outline: none; }}
-QListWidget::item:selected {{ background: {ACCENT_SOFT}; color: {ACCENT}; }}
+QListWidget::item:selected {{ background: {ACCENT_SOFT}; color: {TEXT}; }}
 QScrollArea {{ border: none; }}
+
+QToolBar#mainBar {{ background: {PANEL}; border: none; border-bottom: 2px solid {BG}; padding: 4px 8px; spacing: 4px; }}
+QToolBar#rail {{ background: {BG}; border: none; padding: 0; spacing: 0; }}
+QWidget#rail {{ background: transparent; }}
+QWidget#sideStrip {{ background: {PANEL}; border-right: 1px solid {BG}; }}
+QFrame#toolbox {{ background: transparent; border: none; }}
+QFrame#toolbox QToolButton {{ border: none; padding: 2px 0; }}
+QFrame#toolbox QToolButton:hover {{ color: {ACCENT_TEXT}; }}
+QToolButton#toolboxArrow {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 0; padding: 0; }}
+QToolButton#toolboxArrow:hover {{ border-color: {ACCENT}; }}
+QWidget#toolsPanel, QWidget#toolsHead {{ background: {PANEL}; }}
+QToolButton#toolsClose {{ border: 1px solid {ACCENT}; border-radius: 3px; background: {BG}; }}
+QLabel#toolsGroup {{ color: {ACCENT_TEXT}; border-bottom: 1px dotted {ACCENT}; padding: 0 6px 2px 6px; }}
+QLabel#toolsHelp {{ color: {TEXT}; border: 1px solid {TEXT}; border-radius: 8px; font-size: 7pt; font-weight: 600; }}
+QPushButton#updateNow {{ padding: 1px 8px; background: {PANEL}; border-color: {WARN}; color: {TEXT}; }}
+QStatusBar QSizeGrip {{ width: 14px; height: 14px; }}
+QScrollBar#bigScroll {{ background: {FIELD}; }}
 
 QScrollBar:vertical {{ background: {BG}; width: 11px; margin: 0; }}
 QScrollBar:horizontal {{ background: {BG}; height: 11px; margin: 0; }}
@@ -167,8 +193,37 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: none; }}
 """
 
 
+def _svg_file(name: str) -> str:
+    """One of Hias' symbols (gui/svgicons) in the accent colour, as SVG text ("" if missing)."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svgicons", name + ".svg")
+    try:
+        with open(p, encoding="utf-8") as f:
+            return f.read().replace("currentColor", ACCENT)
+    except OSError:
+        return ""
+
+
+def _rotated(svg: str, degrees: float) -> str:
+    """``svg`` turned by ``degrees`` about its middle, in a box that just holds the turned symbol."""
+    import math
+    import re
+
+    m = re.search(r'viewBox="\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*"', svg)
+    start, end = svg.find(">", svg.find("<svg")) + 1, svg.rfind("</svg>")
+    if not m or start <= 0 or end < 0:
+        return svg
+    x, y, w, h = (float(v) for v in m.groups())
+    c, s = abs(math.cos(math.radians(degrees))), abs(math.sin(math.radians(degrees)))
+    bw, bh = round(w * c + h * s, 3), round(w * s + h * c, 3)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {bw:g} {bh:g}" width="{bw:g}" height="{bh:g}" '
+        f'fill="none"><g transform="translate({bw / 2:g} {bh / 2:g}) rotate({degrees:g}) '
+        f'translate({-(x + w / 2):g} {-(y + h / 2):g})">{svg[start:end]}</g></svg>'
+    )
+
+
 def _indicator_qss() -> str:
-    """Black check mark or dot on a yellow background (QSS needs image files for that)."""
+    """Check mark and dot of check boxes/radio buttons, grip and scroll symbols (QSS needs image files for them)."""
     from .. import platform as _platform
 
     d = os.path.join(tempfile.gettempdir(), f"pdfdruck-theme-{_platform.user_id()}")
@@ -182,18 +237,46 @@ def _indicator_qss() -> str:
         + ON_ACCENT
         + '"/></svg>',
     }
+    # Hias' grip and scroll symbols in the accent: separators and window corner (grip), large scroll bars (scroll)
+    grip = _svg_file("greifer_fuer_fenster_vergroesserung")
+    scroll = _svg_file("scrolling")
+    if grip:
+        files["grip.svg"] = grip
+        files["grip_corner.svg"] = _rotated(grip, -45)
+    if scroll:
+        files["scroll_v.svg"] = scroll
+        files["scroll_h.svg"] = _rotated(scroll, -90)
     for name, svg in files.items():
-        with open(os.path.join(d, name), "w") as f:
+        with open(os.path.join(d, name), "w", encoding="utf-8") as f:
             f.write(svg)
-    chk = os.path.join(d, "check.svg").replace("\\", "/")  # QSS wants forward slashes, even on Windows
-    dot = os.path.join(d, "dot.svg").replace("\\", "/")
-    return f"""
+
+    def url(name: str) -> str:
+        return os.path.join(d, name).replace("\\", "/")  # QSS wants forward slashes, even on Windows
+
+    chk, dot = url("check.svg"), url("dot.svg")
+    extra = ""
+    if grip:
+        extra += f"""
+QMainWindow::separator {{ background: {BG}; width: 12px; height: 12px; image: url({url("grip.svg")}); }}
+QStatusBar QSizeGrip {{ width: 16px; height: 16px; image: url({url("grip_corner.svg")}); }}
+"""
+    if scroll:
+        extra += f"""
+QScrollBar#bigScroll:vertical {{ width: 15px; }}
+QScrollBar#bigScroll:horizontal {{ height: 15px; }}
+QScrollBar#bigScroll::handle:vertical {{ image: url({url("scroll_v.svg")}); min-height: 52px; }}
+QScrollBar#bigScroll::handle:horizontal {{ image: url({url("scroll_h.svg")}); min-width: 52px; }}
+"""
+    return (
+        extra
+        + f"""
 QCheckBox::indicator:checked, QListView::indicator:checked, QGroupBox::indicator:checked {{
     image: url({chk}); background: {ACCENT}; border-color: {ACCENT}; }}
 QRadioButton::indicator:checked {{ image: url({dot}); background: {ACCENT}; border-color: {ACCENT}; }}
 QListView::indicator {{ width: 14px; height: 14px; border: 1px solid {BORDER_HOVER}; background: {FIELD}; border-radius: 2px; }}
 QCheckBox::indicator:checked:disabled, QRadioButton::indicator:checked:disabled {{ background: {ACCENT_OFF}; border-color: {ACCENT_OFF}; }}
 """
+    )
 
 
 def _scroll_area_of(target):

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" width="21" height="21" fill="none">
+  <path d="M2.5,0.5 L18.5,0.5 C 19.605,0.5 20.5,1.395 20.5,2.5 L20.5,18.5 C 20.5,19.605 19.605,20.5 18.5,20.5 L2.5,20.5 C 1.395,20.5 0.5,19.605 0.5,18.5 L0.5,2.5 C 0.5,1.395 1.395,0.5 2.5,0.5 Z" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M7.814,0.5 L7.814,20.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1.901,3.288 L3.159,3.288 L3.159,4.288 L1.901,4.288 Z M3.285,3.288 L4.543,3.288 L4.543,4.288 L3.285,4.288 Z M5.298,3.288 L6.556,3.288 L6.556,4.288 L5.298,4.288 Z" fill="currentColor"/>
+  <path d="M1.265,4.943 L2.695,4.943 L2.695,5.943 L1.265,5.943 Z M2.838,4.943 L4.268,4.943 L4.268,5.943 L2.838,5.943 Z M5.126,4.943 L6.556,4.943 L6.556,5.943 L5.126,5.943 Z" fill="currentColor"/>
+  <path d="M2.281,6.678 L3.436,6.678 L3.436,7.678 L2.281,7.678 Z M3.552,6.678 L4.707,6.678 L4.707,7.678 L3.552,7.678 Z M5.4,6.678 L6.556,6.678 L6.556,7.678 L5.4,7.678 Z" fill="currentColor"/>
+  <path d="M1.265,8.409 L2.695,8.409 L2.695,9.409 L1.265,9.409 Z M2.838,8.409 L4.268,8.409 L4.268,9.409 L2.838,9.409 Z M5.126,8.409 L6.556,8.409 L6.556,9.409 L5.126,9.409 Z" fill="currentColor"/>
+  <path d="M3.078,10 L4.018,10 L4.018,11 L3.078,11 Z M4.112,10 L5.052,10 L5.052,11 L4.112,11 Z M5.616,10 L6.556,10 L6.556,11 L5.616,11 Z" fill="currentColor"/>
+  <path d="M10.023,10.5 L16.174,10.5" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13.793,12.881 L16.174,10.5 L13.793,8.119" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

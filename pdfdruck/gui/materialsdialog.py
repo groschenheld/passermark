@@ -156,7 +156,7 @@ class StandardProfilesDialog(QDialog):
         v.addWidget(lic)
         self.lbl = QLabel()
         self.lbl.setWordWrap(True)
-        self.lbl.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         v.addWidget(self.lbl)
         bb = QDialogButtonBox()
         self.btn = bb.addButton(tr("Holen"), QDialogButtonBox.ButtonRole.ActionRole)

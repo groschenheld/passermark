@@ -479,7 +479,7 @@ class SeparateDialog(QDialog):
         row.addWidget(b4)
         v2.addLayout(row)
         self.lbl_count = QLabel()
-        self.lbl_count.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_count.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         v2.addWidget(self.lbl_count)
         right.addWidget(g2)
         right.addStretch()
@@ -662,7 +662,7 @@ class CutContourDialog(QDialog):
         nav.addWidget(QLabel(f"/ {len(self.norm)}"))
         nav.addStretch()
         self.lbl_info = QLabel()
-        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_info.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         nav.addWidget(self.lbl_info)
         left.addLayout(nav)
         return left

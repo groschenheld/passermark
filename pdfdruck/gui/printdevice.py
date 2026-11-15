@@ -340,7 +340,7 @@ class PrintDeviceMixin:
         self.paper_form.addRow(tr("Rand:"), row)
         self.lbl_borderless = QLabel()
         self.lbl_borderless.setWordWrap(True)
-        self.lbl_borderless.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_borderless.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         self.paper_form.addRow("", self.lbl_borderless)
         self._borderless_sync()
 

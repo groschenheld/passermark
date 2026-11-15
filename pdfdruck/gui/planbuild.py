@@ -222,7 +222,7 @@ class PlanBuildMixin:
         f.addRow(tr("Versand:"), self.cmb_copies)
         self.lbl_scope = QLabel()
         self.lbl_scope.setWordWrap(True)
-        self.lbl_scope.setStyleSheet(f"color: {theme.ACCENT};")
+        self.lbl_scope.setStyleSheet(f"color: {theme.ACCENT_TEXT};")
         f.addRow(self.lbl_scope)
         self.cmb_order = QComboBox()
         fill_combo(self.cmb_order, [(k, tr(t)) for k, t in ORDER_TEXT.items()], s0.order)

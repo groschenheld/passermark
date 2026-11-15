@@ -5,6 +5,11 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.19.3
+
+### Rediseño de la ventana principal
+- Nueva apariencia con barra de título propia (opcional): las pestañas están en el borde arriba a la derecha, la caja de herramientas abajo a la izquierda de la zona de página, plegable con una flecha, y su estado se recuerda entre reinicios. Los grupos de la barra de herramientas se explican con consejos; un clic en el borde vacío va a la ventana de detrás. Con el marco del sistema todo queda como antes.
+- Búsqueda de actualizaciones en el menú Ayuda (« Nach Aktualisierungen suchen … »): el icono gira durante la búsqueda y muestra un signo de exclamación rojo cuando hay una versión nueva. Las versiones preliminares solo aparecen con el ajuste de administración. Nuevo icono del programa.
 ## 1.18.19 – 1.18.37
 
 ### Nuevas vistas: doble página y cuadrícula

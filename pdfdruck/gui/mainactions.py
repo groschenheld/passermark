@@ -12,7 +12,9 @@ from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox,
     QMenu,
+    QMenuBar,
     QToolButton,
+    QWidget,
 )
 
 from ..l10n import tr
@@ -46,15 +48,26 @@ class MainActionsMixin:
         """Create all actions, then the menu bar and the main toolbar."""
         A = self._act
         self._create_actions()
-        mb = self.menuBar()
+        # own menu bar object: with the own title bar it sits in that bar (QMainWindow.menuBar() would replace it)
+        self.mbar = mb = QMenuBar()
         self._menu_file(mb)
         self._menu_pages(mb)
-        self._menu_document(mb)
-        self._menu_manipulation(mb)
-        self._menu_colour(mb)
-        self._menu_plan(mb)
+        doc = self._menu_document(mb)
+        # 1.19.0 design: six menus – manipulation, colour and plan/poster are submenus of "Dokument"
+        doc.addSeparator()
+        self._menu_manipulation(doc)
+        self._menu_colour(doc)
+        self._menu_plan(doc)
         self._menu_view(mb, dock)
         self._menu_admin_and_help(mb)
+        from . import titlebar
+
+        if titlebar.wanted():
+            self.titlebar = titlebar.TitleBar(mb, self.settings_dialog)
+            self.setMenuWidget(self.titlebar)
+        else:
+            self.titlebar = None
+            self.setMenuBar(mb)
         self._build_main_toolbar(dock)
         A(tr("Erste Seite"), lambda: self.view.goto(0), "Home")
         A(tr("Letzte Seite"), lambda: self.view.goto(len(self.view.pages) - 1), "End")
@@ -72,7 +85,7 @@ class MainActionsMixin:
         self.a_merge = A(tr("Dokumente zusammenführen…"), self.merge_dialog, "Ctrl+M", "merge")
         self.a_print = A(tr("Drucken…"), self.print_dialog, QKeySequence.StandardKey.Print, "print")
         self.a_repair = A(tr("Reparieren, optimieren, Passwort…"), self.repair_dialog, "Ctrl+Shift+R", "repair")
-        self.a_shrink = A(tr("Datei verkleinern …"), self.shrink_dialog, None, "repair")
+        self.a_shrink = A(tr("Datei verkleinern …"), self.shrink_dialog, None, "shrink")
         self.a_close = A(tr("Schließen"), self.close, QKeySequence.StandardKey.Close)
         self.a_props = A(tr("Eigenschaften …"), self.properties_dialog, "Ctrl+D", "info")
         self.a_copy = A(tr("Markierten Text kopieren"), self.copy_text, QKeySequence.StandardKey.Copy, "copy")
@@ -185,10 +198,11 @@ class MainActionsMixin:
             "check",
         )
         m.addAction(self.a_preflight)
+        return m
 
     def _menu_manipulation(self, mb):
         """Menu "Dokument-Manipulation": editing, CMYK, cropping, objects, CutContour, variable data."""
-        m = mb.addMenu(tr("Dokument-&Manipulation"))
+        m = mb.addMenu(svg_icon("edit"), tr("Dokument-&Manipulation"))
         for a in (
             self.a_edit,
             None,
@@ -208,11 +222,11 @@ class MainActionsMixin:
     def _menu_colour(self, mb):
         """Menu "Farbe": colour check, pipette, soft proof, output for the print shop, papers and profiles."""
         A = self._act
-        m = mb.addMenu(tr("&Farbe"))
+        m = mb.addMenu(svg_icon("color"), tr("&Farbe"))
         self.a_proof = A(tr("Softproof (Druckfarben anzeigen)"), lambda: None, "Ctrl+Y", "proof")
         self.a_proof.setCheckable(True)
         self.a_proof.toggled.connect(self._toggle_proof)
-        self.a_colorcheck = A(tr("Farbprüfung …"), self.color_check, "Ctrl+Shift+F", "check")
+        self.a_colorcheck = A(tr("Farbprüfung …"), self.color_check, "Ctrl+Shift+F", "color")
         self.a_colorcheck.setToolTip(tr("Dokument gegen eine Druckbedingung prüfen – mit Empfehlungen"))
         self.a_press = A(tr("Für Druckerei ausgeben …"), lambda: self.press_dialog(), None, "export")
         self.a_press.setToolTip(tr("Umwandeln, Output Intent einbetten, prüfen, speichern – optional als Paket"))
@@ -227,26 +241,29 @@ class MainActionsMixin:
         self.a_pipette.toggled.connect(self._pipette_mode)
         for a in (self.a_colorcheck, self.a_pipette, self.a_proof):
             m.addAction(a)
-        m.addAction(A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y"))
+        self.a_softproof_setup = A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y", "proof")
+        m.addAction(self.a_softproof_setup)
         m.addSeparator()
         m.addAction(self.a_press)
         m.addAction(self.a_manip_cmyk)
         m.addSeparator()
-        m.addAction(A(tr("Papiere und Messungen …"), lambda: self.materials_dialog(), None, "material"))
-        m.addAction(A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None))
+        self.a_materials = A(tr("Papiere und Messungen …"), lambda: self.materials_dialog(), None, "material")
+        self.a_std_profiles = A(tr("Standardprofile holen …"), lambda: self.standard_profiles(), None, "color")
+        m.addAction(self.a_materials)
+        m.addAction(self.a_std_profiles)
         m.addSeparator()
         m.addAction(A(tr("Farbmanagement kurz erklärt"), self._color_help, None, "info"))
 
     def _menu_plan(self, mb):
         """Menu "Plan & Poster": plan and poster printing, recent prints, rolls."""
         A = self._act
-        m = mb.addMenu(tr("Pla&n && Poster"))
+        m = mb.addMenu(svg_icon("plan"), tr("Pla&n && Poster"))
         self.a_plan = A(tr("Plandruck (Rollen, Laufmeter) …"), lambda: self.plan_dialog("plan"), "Ctrl+Alt+P", "plan")
         self.a_plan.setToolTip(tr("Pläne auf Rollendrucker: Außenlinien, Rollenwahl, Laufmeter, Reihenfolge"))
         self.a_rolls = A(tr("Rollen der Drucker …"), self.rolls_dialog, None, "roll")
         self.a_rolls.setToolTip(tr("Geladene Rollen vom Gerät lesen oder von Hand eintragen"))
         self.a_poster = A(
-            tr("Posterdruck (Qualität, nebeneinander, Banner) …"), lambda: self.plan_dialog("poster"), None, "print"
+            tr("Posterdruck (Qualität, nebeneinander, Banner) …"), lambda: self.plan_dialog("poster"), None, "poster"
         )
         self.a_poster.setToolTip(tr("Poster und Banner auf Rollen: nebeneinander, Überbreite, Saum, Ösen, Print & Cut"))
         m.addAction(self.a_plan)
@@ -269,7 +286,7 @@ class MainActionsMixin:
         self.a_measure = A(tr("Messen"), lambda: None, "Ctrl+Shift+L", "measure")
         self.a_measure.setCheckable(True)
         self.a_measure.toggled.connect(self._measure_mode)
-        self.a_boxes = A(tr("Endformat und Anschnitt anzeigen"), lambda: None, "Ctrl+Shift+B", "crop")
+        self.a_boxes = A(tr("Endformat und Anschnitt anzeigen"), lambda: None, "Ctrl+Shift+B", "boxes")
         self.a_boxes.setCheckable(True)
         from .. import l10n as _l10n
 
@@ -299,6 +316,8 @@ class MainActionsMixin:
         A = self._act
         m = mb.addMenu(tr("&Verwaltung"))
         m.addAction(A(tr("Standardeinstellungen (Admin)…"), self.admin_dialog, None, "settings"))
+        self.a_presets = A(tr("Preset-Ordner öffnen"), self._open_presets_dir, None, "folder_gear")
+        m.addAction(self.a_presets)
         m = mb.addMenu(tr("&Hilfe"))
         a = QAction(tr("Kommandozeile – Anleitung (PDF)"), self)
         a.triggered.connect(self._open_cli_howto)
@@ -318,47 +337,71 @@ class MainActionsMixin:
         a = QAction(tr("Fehlerprotokolle öffnen"), self)
         a.triggered.connect(lambda: __import__("pdfdruck.gui.crashui", fromlist=["x"]).open_log_dir())
         m.addAction(a)
+        self.a_updates = A(tr("Nach Aktualisierungen suchen …"), self._check_updates, None, "update")
+        m.addAction(self.a_updates)
         a = QAction(tr("Lizenzen …"), self)
         a.setToolTip(tr("Lizenz von Passermark (GPL-3.0) und aller mitgelieferten Komponenten (Qt, Ghostscript, …)"))
         a.triggered.connect(self._open_licenses)
         m.addAction(a)
 
     def _build_main_toolbar(self, dock):
-        """Main toolbar: open/save/print, sidebar, page navigation, view tools, zoom."""
+        """Main toolbar in the groups of the 1.19.0 design: file · navigation · tools · rotate/layout · zoom."""
         A = self._act
-        dock_act = dock.toggleViewAction()
-        dock_act.setIcon(svg_icon("sidebar"))
-        dock_act.setText(tr("Seitenleiste"))
-        tb = self.addToolBar(tr("Werkzeuge"))
+        tb = self.main_bar = self.addToolBar(tr("Werkzeuge"))
+        tb.setObjectName("mainBar")
         tb.setMovable(False)
         tb.setIconSize(QSize(20, 20))
-        for a in (self.a_open, self.a_save, self.a_print):
+
+        def spacer(stretch=True, width=14):
+            w = QWidget()
+            if stretch:
+                from PySide6.QtWidgets import QSizePolicy
+
+                w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            else:
+                w.setFixedWidth(width)
+            tb.addWidget(w)
+
+        # file: the three main actions with text
+        for a, short in ((self.a_print, tr("Drucken")), (self.a_open, tr("Öffnen")), (self.a_save, tr("Speichern"))):
+            a.setIconText(short)
             tb.addAction(a)
             btn = tb.widgetForAction(a)
-            if isinstance(btn, QToolButton):  # the three main actions with text
+            if isinstance(btn, QToolButton):
                 btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        tb.addSeparator()
-        tb.addAction(dock_act)
-        tb.addSeparator()
-        tb.addAction(A(tr("Vorherige Seite"), lambda: self.view.goto(self.view.current - 1), None, "prev"))
+        spacer()
+        # navigation: page up/down, page field, smooth scrolling (continuous) or jumping (single page)
+        tb.addAction(A(tr("Vorherige Seite"), lambda: self.view.prev_page(), None, "prev"))
         self.page_edit = PageEdit()
         self.page_edit.gotoRequested.connect(lambda p: self.view.goto(p))
         tb.addWidget(self.page_edit)
-        tb.addAction(A(tr("Nächste Seite"), lambda: self.view.goto(self.view.current + 1), None, "next"))
-        tb.addSeparator()
-        # rulers/tape measure/trim size always available – not only in the workspace "Anzeigen"
-        tb.addAction(self.a_rulers)
-        tb.addAction(self.a_measure)
-        tb.addAction(self.a_boxes)
-        tb.addAction(self.a_proof)
-        tb.addSeparator()
+        tb.addAction(A(tr("Nächste Seite"), lambda: self.view.next_page(), None, "next"))
+        tb.addAction(self.a_smooth)
+        spacer()
+        # tools that are switched on and off on the page
+        for a in (self.a_boxes, self.a_pipette, self.a_measure, self.a_rulers, self.a_proof):
+            tb.addAction(a)
+        spacer()
+        # view: rotate, one page or several side by side
+        tb.addAction(self.a_vrot_l)
+        tb.addAction(self.a_vrot_r)
+        spacer(False, 8)
+        tb.addAction(self.a_one)
+        self.btn_multi = QToolButton()
+        self.btn_multi.setDefaultAction(self.a_multi)
+        self.btn_multi.setMenu(self._multi_menu())
+        self.btn_multi.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        tb.addWidget(self.btn_multi)
+        self._sync_layout_actions()
+        spacer(False, 14)
+        # zoom: – value +, then fitting
         tb.addAction(
             A(tr("Verkleinern"), lambda: self.view.step_zoom(1 / 1.2), QKeySequence.StandardKey.ZoomOut, "zoom_out")
         )
         self.zoom_combo = QComboBox()
         self.zoom_combo.setEditable(True)
         self.zoom_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.zoom_combo.setMinimumWidth(130)
+        self.zoom_combo.setMinimumWidth(110)
         self.zoom_combo.addItem(tr("Seitenbreite"), "width")
         self.zoom_combo.addItem(tr("Ganze Seite"), "page")
         for z in ZOOM_STEPS:
@@ -374,18 +417,8 @@ class MainActionsMixin:
                 "zoom_in",
             )
         )
-        tb.addSeparator()
-        tb.addAction(self.a_fitpage)
         tb.addAction(self.a_fitwidth)
-        self.btn_layout = QToolButton()
-        self.btn_layout.setMenu(self._layout_menu())
-        self.btn_layout.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.btn_layout.setToolTip(tr("Seitenanordnung: Einzelseite, fortlaufend, Doppelseite oder Raster"))
-        tb.addWidget(self.btn_layout)
-        self._sync_layout_actions()
-        tb.addSeparator()
-        tb.addAction(self.a_vrot_l)
-        tb.addAction(self.a_vrot_r)
+        tb.addAction(self.a_fitpage)
 
     # ---- page layout (gui/viewlayout.py): one set of actions, shown in the menu and behind the toolbar button
     def _layout_actions(self):
@@ -404,6 +437,19 @@ class MainActionsMixin:
         for a in self.a_layout.values():
             a.setCheckable(True)
             group.addAction(a)
+        # toolbar of the design: smooth scrolling (continuous) vs jumping, one page vs several side by side
+        self.a_smooth = A(tr("Sanft scrollen (sonst von Seite zu Seite springen)"), self._toggle_smooth, None, "scroll")
+        self.a_smooth.setCheckable(True)
+        self.a_one = A(
+            tr("Eine Seite je Zeile"),
+            lambda: self._set_layout("continuous" if self.a_smooth.isChecked() else "single"),
+            None,
+            "single",
+        )
+        self.a_one.setCheckable(True)
+        self.a_multi = A(tr("Mehrere Seiten nebeneinander"), lambda: self._set_layout(self._last_multi), None, "multi")
+        self.a_multi.setCheckable(True)
+        self._last_multi = "facing"
         self.a_cover = A(tr("Titelseite allein"), lambda: self._set_layout("facing"))
         self.a_cover.setCheckable(True)
         self.a_cover.setChecked(True)
@@ -427,6 +473,28 @@ class MainActionsMixin:
             m.addAction(a)
         return m
 
+    def _multi_menu(self):
+        """Menu behind "several pages": facing pages (cover alone) or a grid of 2/3/4 columns."""
+        self._layout_actions()
+        m = QMenu(self)
+        m.addAction(self.a_layout["facing"])
+        m.addAction(self.a_cover)
+        m.addSeparator()
+        m.addAction(self.a_layout["grid"])
+        for a in self.a_columns.values():
+            m.addAction(a)
+        return m
+
+    def _toggle_smooth(self, checked=None):
+        """Smooth scrolling on/off – only with one page across (single page <-> continuous)."""
+        self._set_layout("continuous" if self.a_smooth.isChecked() else "single")
+
+    def _check_updates(self):
+        """Help → check for updates (now, even if switched off by the administrator)."""
+        from .updatestatus import UpdateController
+
+        UpdateController.get().start(manual=True)
+
     def _set_layout(self, mode: str, columns: int | None = None):
         """Switch the page layout of this window; new windows of this session start with it too."""
         spec = {"mode": mode}
@@ -448,9 +516,13 @@ class MainActionsMixin:
             self.a_cover.setChecked(mode.cover_alone)
         if isinstance(mode, viewlayout.Grid):
             self.a_columns[mode.columns].setChecked(True)
-        btn = getattr(self, "btn_layout", None)
-        if btn is not None:
-            btn.setIcon(self.a_layout[mode.name].icon())
+        multi = mode.name in ("facing", "grid")
+        if multi:
+            self._last_multi = mode.name
+        self.a_one.setChecked(not multi)
+        self.a_multi.setChecked(multi)
+        self.a_smooth.setChecked(mode.name != "single")
+        self.a_smooth.setEnabled(not multi)  # several pages side by side always scroll smoothly
 
     def _update_actions(self):
         has = self.doc is not None
@@ -501,6 +573,8 @@ class MainActionsMixin:
     def _update_title(self):
         name = self.display_name or "Passermark"
         self.setWindowTitle(("● " if self.modified else "") + name + (tr(" – Passermark") if self.doc else ""))
+        if getattr(self, "titlebar", None) is not None:
+            self.titlebar.set_document((("● " if self.modified else "") + self.display_name) if self.doc else "")
         host = getattr(self, "_host", None)
         if host is not None:
             host.update_tab(self)

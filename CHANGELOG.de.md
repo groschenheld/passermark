@@ -2,6 +2,11 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.3
+
+### Neues Gesicht des Hauptfensters
+- Neues Aussehen mit wählbarer eigener Titelleiste: Die Reiter sitzen im Rand oben rechts, die Werkzeugbox unten links im Seitenbereich, mit einem Pfeil einklappbar, ihr Zustand über den Neustart gemerkt. Die Gruppen der Werkzeugleiste erklären sich mit Tooltips; Klicks in den leeren Rand gehen an das Fenster dahinter. Mit dem Systemrahmen bleibt alles wie bisher.
+- Aktualisierungsprüfung im Hilfe-Menü („Nach Aktualisierungen suchen …“): Das Symbol dreht sich während der Suche und zeigt bei einer neuen Version das rote Rufzeichen. Testversionen erscheinen nur mit der Verwaltungs-Einstellung. Neues Programmsymbol.
 ## 1.18.19 – 1.18.37
 
 ### Neue Ansichten: Doppelseite und Raster
