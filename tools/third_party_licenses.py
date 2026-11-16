@@ -374,6 +374,22 @@ def main(argv=None) -> int:
         warn("Python licence file not found")
     lines.append("")
 
+    # fonts shipped in pdfdruck/gui/fonts (licence text next to the font files)
+    font_dir = os.path.join(ROOT, "pdfdruck", "gui", "fonts")
+    fonts = (
+        ("Inter", "Inter-OFL.txt", "https://github.com/rsms/inter"),
+        ("JetBrains Mono", "JetBrainsMono-OFL.txt", "https://github.com/JetBrains/JetBrainsMono"),
+    )
+    lines += ["Fonts", "-" * 5, ""]
+    for name, lic, home in fonts:
+        p = os.path.join(font_dir, lic)
+        if os.path.isfile(p):
+            shutil.copyfile(p, os.path.join(out, "texts", lic))
+            lines.append(f"  {name}  ·  OFL-1.1  ·  {home}  ·  texts/{lic}")
+        else:
+            warn(f"missing font licence: pdfdruck/gui/fonts/{lic}")
+    lines.append("")
+
     # Python packages
     names = requirement_names(a.requirements) + ALWAYS
     dists = closure(names)

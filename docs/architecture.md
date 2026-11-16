@@ -133,6 +133,10 @@ The grip symbol marks the separators between sidebar, page and tools panel and (
 window corner; the scroll symbol sits on the handles of the two large scroll bars (`QScrollBar#bigScroll`). QSS
 needs image files for both, so `theme.py` writes them, coloured in the accent, next to the check mark.
 
+Fonts ship with the program (since 1.19.4): Inter for the interface (with digits of equal width) and JetBrains
+Mono for measurements and sizes, in `gui/fonts/` with their licence texts (SIL Open Font License);
+`theme.load_fonts()` registers them at start, so the look does not depend on the fonts of the system.
+
 Colours come only from `gui/theme.py` (Hias' palette), icons only from `gui/svgicons/` (Hias' set, drawn with
 `currentColor`, coloured per state by `gui/icons.py`; a name used in the program maps to its file in `_FILES`).
 
