@@ -2,6 +2,12 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.8
+
+- File → Export as image (Ctrl+Alt+E): pages as PNG, JPG or TIFF, one file per page or a multi-page TIFF; RGB, greyscale or CMYK with a print profile, transparent background for PNG. Also on the command line (`passermark-cli export`) and as a workflow step.
+- SVG opens as a vector PDF via rsvg-convert (now bundled in the AppImage); the status bar says what opened it, and a notice appears when parts were rasterised.
+- Colour: existing CMYK is read with the profile the file is separated for (output intent) instead of Ghostscript's default SWOP; the colour preview shows before and after with the same profile and says which case applies; the document properties show output intent, colour spaces and embedded profiles.
+- File dialogs start in the last used folder (kept across restarts), the page arrangement survives a restart, and the status bar shows the running version ("Current: v1.19.8").
 ## 1.19.7
 
 - Passermark can update itself: a tag v… now starts the Linux and Windows builds automatically, and both attach their files with checksums to the release. A tag with a suffix like v1.19.8-test1 becomes a pre-release.

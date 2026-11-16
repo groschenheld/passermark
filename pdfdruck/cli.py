@@ -435,6 +435,7 @@ API_COMMANDS = (
     "probe",
     "shared-folder",
     "materials",
+    "export",
 )
 
 
@@ -659,6 +660,28 @@ def _args_inspect(p: argparse.ArgumentParser, cmd: str):
     p.add_argument("--password", help=tr("Passwort"))
 
 
+def _args_export(p: argparse.ArgumentParser, cmd: str):
+    """Options of "export": pages as PNG, JPG or TIFF."""
+    from .l10n import tr
+
+    p.add_argument("file", help=tr("PDF"))
+    p.add_argument("out", help=tr("Zieldatei, z. B. seite.png – mehrere Seiten: seite-001.png …"))
+    p.add_argument("--format", choices=["png", "jpg", "tiff"], help=tr("Bildformat (sonst aus der Endung)"))
+    p.add_argument("--dpi", type=float, help=tr("Auflösung (Standard 150)"))
+    p.add_argument("--pages", help=tr("Seiten, z. B. 1,3-5 (sonst alle)"))
+    p.add_argument("--password", default=None, help=tr("Passwort der PDF"))
+    p.add_argument("--preset", help=tr("Einstellungen aus einer JSON-Datei"))
+    p.add_argument(
+        "--set",
+        action="append",
+        default=[],
+        metavar="k=v",
+        help=tr("Einstellung, z. B. color=cmyk, profile=…, quality=85, compression=zip, multipage=true"),
+    )
+    p.add_argument("--json-progress", dest="json", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--quiet", action="store_true", help=tr("keine Fortschrittsanzeige"))
+
+
 # command -> function that adds its options to the parser (commands without options of their own are missing)
 _API_ARGS = {
     "schema": _args_schema,
@@ -675,6 +698,7 @@ _API_ARGS = {
     "probe": _args_probe,
     "plan": _args_plan,
     "inspect": _args_inspect,
+    "export": _args_export,
 }
 
 
@@ -1222,6 +1246,44 @@ def _cmd_probe(a, rep, fail) -> int:
     return EXIT_OK
 
 
+def _cmd_export(a, rep, fail) -> int:
+    """passermark-cli export FILE OUT: pages as PNG, JPG or TIFF (rasterexport.py)."""
+    from . import core, rasterexport, workflow
+    from .l10n import tr
+
+    try:
+        data = {}
+        if a.preset:
+            with open(a.preset, encoding="utf-8") as f:
+                raw = json.load(f)
+            data = dict(raw.get("settings", raw) if isinstance(raw, dict) else {})
+        apply_sets(data, a.set)
+        data["format"] = a.format or data.get("format") or rasterexport.format_for(a.out)
+        if a.dpi:
+            data["dpi"] = a.dpi
+        s = core.settings_from_dict(rasterexport.ExportSettings, data)
+        pages = parse_pages(a.pages)
+    except (OSError, ValueError) as e:
+        return fail(workflow.E_INVALID, tr("Falsche Angabe: {0}").format(e), EXIT_USAGE)
+    try:
+        info = rasterexport.export(a.file, a.out, s, pages, a.password, progress=rep.progress)
+    except FileNotFoundError as e:
+        return fail(workflow.E_NOT_FOUND, tr("Datei nicht gefunden: {0}").format(e.filename or a.file), EXIT_ERROR)
+    except (KeyboardInterrupt, core.Cancelled):
+        return fail(workflow.E_CANCELLED, tr("Abgebrochen."), EXIT_CANCELLED)
+    except ValueError as e:
+        return fail(workflow.E_INVALID, str(e), EXIT_USAGE)
+    except Exception as e:  # noqa: BLE001 – report every cause (pdfium, Ghostscript, disk)
+        return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
+    rep.finish_line()
+    if a.json:
+        rep.emit(event="done", **info)
+    else:
+        for f in info["files"]:
+            print(f)
+    return EXIT_OK
+
+
 def _cmd_inspect(a, rep, fail) -> int:
     """passermark-cli inspect FILE [--check]: document details, optionally with the document check."""
     from . import docinfo, workflow
@@ -1493,6 +1555,7 @@ def _api_handler(cmd: str):
         "shared-folder": _cmd_shared_folder,
         "probe": _cmd_probe,
         "inspect": _cmd_inspect,
+        "export": _cmd_export,
         "workflows": _cmd_workflows,
         "serve": _serve,
         "tidy": _tidy,

@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -39,6 +38,7 @@ from PySide6.QtWidgets import (
 
 from .. import editing, fontlib, pdflayers, preflight
 from ..l10n import tr
+from . import lastdir
 from . import theme
 
 log = logging.getLogger(__name__)
@@ -1044,7 +1044,7 @@ class EditPanel(QWidget):
 
     def _font_activated(self, idx):
         if self.cmb_font.itemData(idx) == "__file__":
-            p, _ = QFileDialog.getOpenFileName(
+            p, _ = lastdir.getOpenFileName(
                 self, tr("Schriftdatei wählen"), fontlib.user_font_dir(), tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
             )
             if p:
@@ -1577,7 +1577,7 @@ class EditPanel(QWidget):
 
     def _layer_replace(self):
         def fn(d, L):
-            p, _ = QFileDialog.getOpenFileName(
+            p, _ = lastdir.getOpenFileName(
                 self, tr("Ersatz für Ebene „{0}“ wählen").format(L.name), "", tr("PDF-Dateien (*.pdf *.PDF)")
             )
             if not p:

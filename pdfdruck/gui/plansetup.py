@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
@@ -34,6 +33,7 @@ from PySide6.QtWidgets import (
 from .. import planprint as pp
 from .. import rolls as rl
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import MsgBox, make_responsive
 from .icons import icon
@@ -321,7 +321,7 @@ class ProbeDialog(QDialog):
     def _save(self):
         from .. import probe
 
-        out, _ = QFileDialog.getSaveFileName(
+        out, _ = lastdir.getSaveFileName(
             self,
             tr("Bericht speichern"),
             os.path.join(os.path.expanduser("~"), probe.default_name(self.rep)),
@@ -580,7 +580,7 @@ class MaterialsDialog(QDialog):
     def _import(self):
         from .. import printmat
 
-        path, _ = QFileDialog.getOpenFileName(
+        path, _ = lastdir.getOpenFileName(
             self,
             tr("Materialliste importieren"),
             os.path.expanduser("~"),
@@ -700,7 +700,7 @@ class FoldersDialog(QDialog):
     def _add_dir(self):
         from .. import shared
 
-        d = QFileDialog.getExistingDirectory(self, tr("Ausgabe-Ordner wählen"), shared.hotfolder_dir())
+        d = lastdir.getExistingDirectory(self, tr("Ausgabe-Ordner wählen"), shared.hotfolder_dir())
         if d:
             self._row(os.path.basename(d.rstrip("/\\")) or d, d)
 

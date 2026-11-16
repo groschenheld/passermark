@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
-    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -38,6 +37,7 @@ from PySide6.QtWidgets import (
 
 from .. import colorcheck, colorlab, config, pressexport
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import fill_combo
 
@@ -425,7 +425,7 @@ class PressDialog(QDialog):
 
     # ---------------- 3: output ---------------- #
     def _pick_out(self):
-        p, _ = QFileDialog.getSaveFileName(self, tr("Speichern als"), self.ed_out.text(), tr("PDF (*.pdf)"))
+        p, _ = lastdir.getSaveFileName(self, tr("Speichern als"), self.ed_out.text(), tr("PDF (*.pdf)"))
         if p:
             self.ed_out.setText(p if p.lower().endswith(".pdf") else p + ".pdf")
 

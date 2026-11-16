@@ -61,6 +61,7 @@ _OPTION_KEYS = {"image_dpi": (int, float), "password": (str,)}
 PRINT = "print"  # step that prints (not a job in core.JOBS – the PDF stays unchanged)
 PLAN = "plan"  # plan printing on rolls (every page a plan) – also prints, the PDF stays unchanged
 PRINTS = (PRINT, PLAN)
+EXPORT = "export"  # writes the pages as images (rasterexport.py) – the PDF stays unchanged
 FAIL, STOP, CHOOSE = "fail", "stop", "choose"  # flow control: abort with a message, stop, branch
 FLOW = (FAIL, STOP)
 E_REJECTED = "rejected"  # "fail" step: file rejected (message from the workflow)
@@ -71,10 +72,10 @@ class Rejected(RuntimeError):
 
 
 def step_jobs() -> list:
-    """Names of everything a workflow step can run: all jobs plus print and plan."""
+    """Names of everything a workflow step can run: all jobs plus print, plan and export."""
     from . import core
 
-    return list(core.JOBS) + [PRINT, PLAN]
+    return list(core.JOBS) + [PRINT, PLAN, EXPORT]
 
 
 def step_settings_class(job: str):
@@ -87,6 +88,10 @@ def step_settings_class(job: str):
         from .planprint import PlanSettings
 
         return PlanSettings
+    if job == EXPORT:
+        from .rasterexport import ExportSettings
+
+        return ExportSettings
     from . import core
 
     return core.settings_class(job)
@@ -615,6 +620,8 @@ class _Preparer:
             from .layout import LayoutSettings
 
             self.probs.extend(check_settings(LayoutSettings, settings["layout"], f"{where}.settings.layout"))
+        if job == EXPORT:
+            self._export_settings(settings, where)
         pages = None
         if st.get("pages"):
             try:
@@ -622,6 +629,24 @@ class _Preparer:
             except ValueError:
                 self.problem(f"{where}.pages", tr("ungültiger Seitenbereich: {0}").format(st["pages"]))
         return Step(job, st.get("name") or job, settings, pages, cond=cond, where=where)
+
+    def _export_settings(self, settings: dict, where: str):
+        """Export step: a target file is needed (relative to the workflow file), the settings must fit."""
+        from . import core, rasterexport
+
+        out = settings.get("out")
+        if not isinstance(out, str) or not out.strip():
+            self.problem(f"{where}.settings.out", tr("Zieldatei fehlt (z. B. „bilder/seite.png“)"))
+            return
+        settings["out"] = self.absp(out)
+        settings.setdefault("format", rasterexport.format_for(out))
+        try:
+            s = core.settings_from_dict(rasterexport.ExportSettings, settings)
+        except (TypeError, ValueError) as e:
+            self.problem(f"{where}.settings", str(e))
+            return
+        for msg in rasterexport.check(s):
+            self.problem(f"{where}.settings", msg)
 
     def _preset_settings(self, st: dict, job: str, where: str) -> dict:
         """Settings from the preset a step names; {} without a preset or if it cannot be loaded."""
@@ -631,6 +656,11 @@ class _Preparer:
             return {}
         if job in PRINTS:
             self.problem(f"{where}.preset", tr("Druck-Presets gibt es im Ablauf nicht – Einstellungen direkt angeben"))
+            return {}
+        if job == EXPORT:
+            self.problem(
+                f"{where}.preset", tr("Für den Bild-Export gibt es keine Presets – Einstellungen direkt angeben")
+            )
             return {}
         try:
             own_file = self.absp(st["preset"])
@@ -787,6 +817,8 @@ class _Run:
             prog = lambda d, t, x="", _k=k: self.emit(event="progress", step=_k, done=d, total=t, text=x)
             if st.job in (PLAN, PRINT):
                 self._exec_print(st, k, prog)
+            elif st.job == EXPORT:
+                self._exec_export(st, k, prog)
             else:
                 self._exec_job(st, k, prog)
         return False
@@ -829,6 +861,15 @@ class _Run:
         with printlog.in_workflow(self.plan.inputs, before, self.variables):
             info = print_pdf(self.cur, ps, st.pages, progress=prog)
         self._step_done(st, k, info, list(info.get("notes") or []))
+
+    def _exec_export(self, st, k: int, prog):
+        """Write the current PDF as images; the PDF itself stays as it is."""
+        from . import core, rasterexport
+
+        s = core.settings_from_dict(rasterexport.ExportSettings, st.settings)
+        os.makedirs(os.path.dirname(s.out) or ".", exist_ok=True)
+        info = rasterexport.export(self.cur, s.out, s, st.pages, progress=prog, cancel=self.cancel)
+        self._step_done(st, k, info, [tr("{0} Bilder: {1}").format(len(info["files"]), os.path.dirname(s.out))])
 
     def _exec_job(self, st, k: int, prog):
         """Run a job that produces a new PDF; the next step continues with that file."""

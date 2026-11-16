@@ -589,7 +589,15 @@ def _check_ink_coverage(f: Facts, t: Target, c: _Case) -> list:
                 + how
                 + part
             )
-            txt += " " + tr("Empfehlung: mit dem Zielprofil neu separieren – das Profil begrenzt den Farbauftrag.")
+            if c.oi and not c.oi_other:
+                # already separated for this very condition (e.g. after "Für Druckerei ausgeben"): separating again
+                # with the same profile changes nothing – the profile itself does not limit the ink enough
+                txt += " " + tr(
+                    "Die Datei ist schon für dieses Profil separiert, das Profil selbst begrenzt den Farbauftrag "
+                    "nicht genug. Empfehlung: ein Profil mit Farbauftragsgrenze wählen (z. B. PSO Coated v3, 300 %)."
+                )
+            else:
+                txt += " " + tr("Empfehlung: mit dem Zielprofil neu separieren – das Profil begrenzt den Farbauftrag.")
             params = dict(
                 c.convert_all or {"cmyk_mode": "all", "source": source_profile_for(c.oi, c.cfg) if c.oi else ""},
                 target=t.icc,

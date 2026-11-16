@@ -248,6 +248,14 @@ class PropertiesDialog(QDialog):
         m, det = d.get("metadata") or {}, d.get("details") or {}
         f.addRow(tr("PDF-Version:"), _label(d.get("pdf_version", "–")))
         f.addRow(tr("Seiten:"), _label(str(d.get("pages", "–"))))
+        f.addRow(
+            tr("Ausgabeprofil (Output Intent):"), _label(", ".join(det.get("output_intents") or []) or tr("keines"))
+        )
+        col = (d.get("check") or {}).get("colors") or {}
+        if col.get("spaces"):
+            f.addRow(tr("Farbräume:"), _label(", ".join(col["spaces"])))
+        if col.get("profiles"):
+            f.addRow(tr("Eingebettete Profile:"), _label(", ".join(col["profiles"])))
         for key, text in (
             ("title", tr("Titel:")),
             ("author", tr("Autor:")),
@@ -287,9 +295,6 @@ class PropertiesDialog(QDialog):
             f.addRow(tr("Erlaubt:"), _label(", ".join(allowed) or "–"))
             if denied:
                 f.addRow(tr("Gesperrt:"), _label(", ".join(denied)))
-        f.addRow(
-            tr("Ausgabeprofil (Output Intent):"), _label(", ".join(det.get("output_intents") or []) or tr("keines"))
-        )
         f.addRow(tr("Ebenen:"), _label(str(det.get("layers", 0))))
         f.addRow(tr("Formularfelder:"), _label(str(det.get("form_fields", 0))))
         f.addRow(tr("Kommentare/Stempel:"), _label(str(det.get("annotations", 0))))

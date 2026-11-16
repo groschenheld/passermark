@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -35,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from .. import datakinds, vdp
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import CollapsibleSection, fill_combo, fit_width, no_enter_default, split_panels
 
@@ -1299,7 +1299,7 @@ class VdpDialog(QDialog):
         if self.cmb_font.currentData() != "__file__":
             self._field_changed()
             return
-        p, _ = QFileDialog.getOpenFileName(self, tr("Schriftdatei wählen"), "", tr("Schriften (*.ttf *.TTF)"))
+        p, _ = lastdir.getOpenFileName(self, tr("Schriftdatei wählen"), "", tr("Schriften (*.ttf *.TTF)"))
         i = self._sel()
         if p and 0 <= i < len(self.fields):
             self.fields[i].font = p
@@ -1320,22 +1320,20 @@ class VdpDialog(QDialog):
 
     def _pick_fallback(self):
         start = os.path.dirname(self.ed_fallback.text()) or os.path.dirname(self.ed_csv.text().strip())
-        p, _ = QFileDialog.getOpenFileName(
+        p, _ = lastdir.getOpenFileName(
             self, tr("Ersatzbild wählen"), start, tr("Bilder") + f" ({IMAGE_FILTER});;" + tr("Alle (*)")
         )
         if p:
             self.ed_fallback.setText(p)
 
     def _pick_csv(self):
-        p, _ = QFileDialog.getOpenFileName(
-            self, tr("CSV-Datei wählen"), "", tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)")
-        )
+        p, _ = lastdir.getOpenFileName(self, tr("CSV-Datei wählen"), "", tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)"))
         if p:
             self.ed_csv.setText(p)
             self._csv_changed(p)
 
     def _pick_log(self):
-        p, _ = QFileDialog.getSaveFileName(self, tr("Code-Protokoll speichern"), "codes.csv", tr("CSV (*.csv)"))
+        p, _ = lastdir.getSaveFileName(self, tr("Code-Protokoll speichern"), "codes.csv", tr("CSV (*.csv)"))
         if p:
             self.ed_log.setText(p)
             self.chk_log.setChecked(True)

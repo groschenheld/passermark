@@ -118,6 +118,7 @@ class MainActionsMixin:
             tr("Leerseite einfügen – nach Auswahl"), lambda: self.insert_blank("after"), "Ctrl+Alt+I"
         )
         self.a_export = A(tr("Auswahl als ein PDF exportieren…"), self.export_selection, "Ctrl+E", "export")
+        self.a_export_img = A(tr("Als Bild exportieren (PNG, JPG, TIFF) …"), self.export_images, "Ctrl+Alt+E", "export")
         self.a_export_each = A(tr("Auswahl als einzelne PDFs exportieren…"), self.export_each, "Ctrl+Shift+E")
         self.a_delete = A(tr("Seiten löschen"), self.delete_pages, QKeySequence.StandardKey.Delete, "delete")
         self.a_split = A(tr("Seiten teilen (halbieren, Raster) …"), self.split_dialog, None, "split")
@@ -141,6 +142,7 @@ class MainActionsMixin:
             None,
             self.a_save,
             self.a_saveas,
+            self.a_export_img,
             None,
             self.a_props,
             None,
@@ -499,11 +501,21 @@ class MainActionsMixin:
         """Switch the page layout of this window; new windows of this session start with it too."""
         spec = {"mode": mode}
         if mode == "facing":
-            spec["cover_alone"] = self.a_cover.isChecked()
+            spec["cover_alone"] = self.a_cover.isChecked() is True
         if mode == "grid":
             cur = self.view.view_mode
             spec["columns"] = columns or (cur.columns if isinstance(cur, viewlayout.Grid) else 3)
         self.ctl.view_mode = spec
+        from .. import l10n
+        from ..app import VIEW_MODE_SETTING
+
+        st = l10n.load_settings()
+        if st.get(VIEW_MODE_SETTING) != spec:  # remembered for the next start
+            st[VIEW_MODE_SETTING] = spec
+            try:
+                l10n.save_settings(st)
+            except (OSError, TypeError, ValueError):
+                pass  # remembering is a convenience
         self.view.set_view_mode(viewlayout.make(spec))
         self._sync_layout_actions()
         self.view.setFocus()
@@ -537,6 +549,7 @@ class MainActionsMixin:
             self.a_blank_after,
             self.a_export,
             self.a_export_each,
+            self.a_export_img,
             self.a_delete,
             self.a_rot_l,
             self.a_rot_r,

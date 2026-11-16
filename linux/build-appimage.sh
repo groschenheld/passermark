@@ -1,8 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build Passermark-<version>-x86_64.AppImage (Python, Qt, all Python packages and Ghostscript included).
+# Build Passermark-<version>-x86_64.AppImage (Python, Qt, all Python packages, Ghostscript and rsvg-convert included).
 # Ubuntu/Debian build host:
-#   sudo apt install python3-venv python3-cups python3-dev ghostscript libcups2-dev patchelf wget file \
+#   sudo apt install python3-venv python3-cups python3-dev ghostscript librsvg2-bin libcups2-dev patchelf wget file \
 #        libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
 #        libxcb-shape0 libxcb-xinerama0 libxkbcommon-x11-0 libegl1
 #   ./linux/build-appimage.sh
@@ -106,6 +106,38 @@ case "$GSOUT" in
         rm -rf AppDir/usr/bin/gs AppDir/usr/lib/gs AppDir/usr/share/ghostscript AppDir/usr/share/fonts/urw-base35 ;;
 esac
 
+# 4a) rsvg-convert (librsvg, LGPL): opens SVG as vectors. Binary + its libraries, started via a wrapper; the
+#     AppRun puts usr/bin at the END of the PATH, so an installed rsvg-convert still goes first.
+if command -v rsvg-convert >/dev/null; then
+    RSBIN=$(readlink -f "$(command -v rsvg-convert)")
+    mkdir -p AppDir/usr/lib/rsvg
+    cp "$RSBIN" AppDir/usr/lib/rsvg/rsvg-convert.bin
+    ldd "$RSBIN" | awk '/=> \// {print $3}' | while read -r lib; do
+        case "$(basename "$lib")" in
+            libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*|ld-linux*|libgcc_s.so*|libstdc++.so*) ;;
+            *) cp -L "$lib" AppDir/usr/lib/rsvg/ ;;
+        esac
+    done
+    patchelf --set-rpath '$ORIGIN' AppDir/usr/lib/rsvg/rsvg-convert.bin
+    cat > AppDir/usr/bin/rsvg-convert <<'EOF2'
+#!/bin/sh
+D="$(cd "$(dirname "$0")/.." && pwd)"
+export LD_LIBRARY_PATH="$D/lib/rsvg${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$D/lib/rsvg/rsvg-convert.bin" "$@"
+EOF2
+    chmod 755 AppDir/usr/bin/rsvg-convert
+    mkdir -p build
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="5" height="5"/></svg>' > build/t.svg
+    if AppDir/usr/bin/rsvg-convert -f pdf -o build/t.pdf build/t.svg && [ -s build/t.pdf ]; then
+        echo "bundled rsvg-convert ok"
+    else
+        echo "::warning::Bundled rsvg-convert does not run - removed (SVG then needs an installed rsvg-convert)."
+        rm -rf AppDir/usr/bin/rsvg-convert AppDir/usr/lib/rsvg
+    fi
+else
+    echo "::warning::rsvg-convert not installed (apt install librsvg2-bin) - AppImage without it"
+fi
+
 # 4b) licences of everything shipped: Python packages (dist-info), Qt/PySide6 LGPL notice, Ghostscript
 #     AGPL notice + full text, copyright files of the bundled system libraries -> usr/lib/passermark/licenses
 AGPL=""
@@ -118,14 +150,20 @@ if [ -z "$AGPL" ]; then
 fi
 LICARGS=(--requirements requirements.txt)
 [ -n "$AGPL" ] && LICARGS+=(--agpl "$AGPL")
+DEBS=()
+SCAN=(AppDir/usr/lib/passermark/_internal)
 if [ -d AppDir/usr/lib/gs ]; then
     GSDEB=$(dpkg-query -W -f='${Version}' ghostscript 2>/dev/null || true)
-    LICARGS+=(--gs-version "$GSVER" --gs-source-note "Built from the Debian/Ubuntu package ghostscript ${GSDEB:-?}: apt-get source ghostscript=${GSDEB:-}"
-              --deb-packages ghostscript libgs-common fonts-urw-base35
-              --scan-libs AppDir/usr/lib/passermark/_internal AppDir/usr/lib/gs)
-else
-    LICARGS+=(--scan-libs AppDir/usr/lib/passermark/_internal)
+    LICARGS+=(--gs-version "$GSVER" --gs-source-note "Built from the Debian/Ubuntu package ghostscript ${GSDEB:-?}: apt-get source ghostscript=${GSDEB:-}")
+    DEBS+=(ghostscript libgs-common fonts-urw-base35)
+    SCAN+=(AppDir/usr/lib/gs)
 fi
+if [ -d AppDir/usr/lib/rsvg ]; then
+    DEBS+=(librsvg2-bin)
+    SCAN+=(AppDir/usr/lib/rsvg)
+fi
+[ ${#DEBS[@]} -gt 0 ] && LICARGS+=(--deb-packages "${DEBS[@]}")
+LICARGS+=(--scan-libs "${SCAN[@]}")
 .venv/bin/python tools/third_party_licenses.py AppDir/usr/lib/passermark/licenses "${LICARGS[@]}"
 [ -f AppDir/usr/lib/passermark/licenses/THIRD_PARTY_NOTICES.txt ] || { echo "licence collection failed"; exit 1; }
 

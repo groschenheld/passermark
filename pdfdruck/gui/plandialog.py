@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QColorDialog,
     QDialog,
-    QFileDialog,
     QListWidgetItem,
     QMenu,
     QMessageBox,
@@ -35,6 +34,7 @@ from .. import planprint as pp
 from .. import printers
 from .. import rolls as rl
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import make_responsive
 from .planbuild import PlanBuildMixin
@@ -347,7 +347,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
     def _add_files(self):
         from .. import convert
 
-        paths, _ = QFileDialog.getOpenFileNames(
+        paths, _ = lastdir.getOpenFileNames(
             self,
             tr("Pläne hinzufügen"),
             os.path.expanduser("~"),
@@ -996,7 +996,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
 
     def _save_pdf(self):
         s = self.settings()
-        out, _ = QFileDialog.getSaveFileName(
+        out, _ = lastdir.getSaveFileName(
             self,
             tr("Als PDF speichern"),
             os.path.join(

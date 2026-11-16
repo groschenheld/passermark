@@ -28,7 +28,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from . import platform as _platform
 from .l10n import tr
@@ -152,6 +152,13 @@ def system_profile_dirs() -> list[str]:
     return dirs
 
 
+def _gs_internal(path: str, desc: str) -> bool:
+    """Ghostscript's PostScript working profile (ps_cmyk, "Artifex PS CMYK Profile"): a naive CMYK conversion,
+    no printing condition – not offered as a target, the preview with it shows garishly saturated colours.
+    Ghostscript's SWOP profile (default_cmyk) stays: usable for quick tests."""
+    return os.path.basename(path).lower() == "ps_cmyk.icc" or desc.startswith("Artifex PS ")
+
+
 def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
     """CMYK print profiles: first those imported by the admin, then those present in the system."""
     out, seen = [], set()
@@ -163,8 +170,11 @@ def find_profiles(cfg: dict | None = None) -> list[CmykProfile]:
         h = _icc_head(path)
         if not h or h[16:20] != b"CMYK" or h[12:16] not in (b"prtr", b"spac"):
             return
+        desc = name or _desc(path)
+        if origin == "system" and _gs_internal(path, desc):
+            return
         seen.add(real)
-        out.append(CmykProfile(name or _desc(path), path, origin))
+        out.append(CmykProfile(desc, path, origin))
 
     for p in (cfg or {}).get("color_profiles", []):
         if p.get("file") and os.path.exists(p["file"]):
@@ -209,6 +219,71 @@ def color_args(s: ManipSettings) -> list[str]:
     return args
 
 
+def _profile_key(data: bytes) -> bytes:
+    """Identity of an ICC profile: MD5 over the data with the header fields that may differ between copies
+    (flags, rendering intent, profile ID) set to zero – the way the ICC specification computes the profile ID."""
+    import hashlib
+
+    b = bytearray(data)
+    if len(b) >= 100:
+        b[44:48] = b"\0" * 4
+        b[64:68] = b"\0" * 4
+        b[84:100] = b"\0" * 16
+    return hashlib.md5(bytes(b)).digest()
+
+
+def same_profile(data: bytes, path: str) -> bool:
+    """Is the profile ``data`` the same as the ICC file ``path``?"""
+    try:
+        with open(path, "rb") as f:
+            return _profile_key(data) == _profile_key(f.read())
+    except OSError:
+        return False
+
+
+def document_cmyk_profile(path: str, password: str | None = None) -> bytes | None:
+    """CMYK profile of the PDF's output intent – the printing condition the file was separated for – or None."""
+    try:
+        import pikepdf
+
+        with pikepdf.open(path, password=password or "") as pdf:
+            for oi in pdf.Root.get("/OutputIntents", None) or []:
+                prof = oi.get("/DestOutputProfile")
+                if prof is None:
+                    continue
+                data = prof.read_bytes()
+                if len(data) >= 20 and data[16:20] == b"CMYK":
+                    return data
+    except Exception:  # noqa: BLE001 – no readable output intent: Ghostscript's default applies
+        return None
+    return None
+
+
+def resolve_source(src_pdf: str, s: ManipSettings, tmpdir: str, password: str | None = None):
+    """Existing CMYK in the file: which profile it is read with -> (settings, notes).
+
+    The output intent of the file says what the CMYK was separated for. Is that already the target profile,
+    the CMYK stays 1:1 (also in "separate everything anew"). In "separate everything anew" without a chosen
+    source profile it is read with the output intent instead of Ghostscript's SWOP default.
+    """
+    if s.cmyk_mode not in ("all", "rgb_only") or not s.target or s.source:
+        return s, []
+    data = document_cmyk_profile(src_pdf, password)
+    if not data:
+        return s, []
+    p = os.path.join(tmpdir, "source.icc")
+    with open(p, "wb") as f:
+        f.write(data)
+    name = _desc(p)
+    if same_profile(data, s.target):
+        return replace(s, cmyk_mode="rgb_only"), [
+            tr("Die Datei ist schon für {0} separiert – vorhandenes CMYK bleibt unverändert.").format(name)
+        ]
+    if s.cmyk_mode == "rgb_only":
+        return s, []
+    return replace(s, source=p), [tr("Vorhandenes CMYK wird mit dem Profil der Datei gelesen: {0}").format(name)]
+
+
 def _permit(s: ManipSettings) -> list[str]:
     out = []
     for p in {s.target, s.source} - {""}:
@@ -221,11 +296,21 @@ def _run(cmd, timeout=1800):
     return r
 
 
-def convert_pdf(src: str, dst: str, s: ManipSettings):
-    """Convert the colours of ``src`` with Ghostscript and write the result to ``dst``."""
+def convert_pdf(src: str, dst: str, s: ManipSettings) -> list[str]:
+    """Convert the colours of ``src`` with Ghostscript and write the result to ``dst`` -> notes."""
     gs = ghostscript()
     if not gs:
         raise RuntimeError(tr("Für die CMYK-Umwandlung wird Ghostscript benötigt."))
+    tmp = tempfile.mkdtemp(prefix="passermark-cmyk-")
+    try:
+        return _convert(gs, src, dst, s, tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _convert(gs, src, dst, s, tmp) -> list[str]:
+    target = s.target
+    s, notes = resolve_source(src, s, tmp)
     cmd = [
         gs,
         "-q",
@@ -250,8 +335,9 @@ def convert_pdf(src: str, dst: str, s: ManipSettings):
     r = _run(cmd)
     if r.returncode != 0 or not os.path.exists(dst):
         raise RuntimeError(tr("Ghostscript-Fehler:\n") + (r.stderr or r.stdout or "")[-1500:])
-    if s.output_intent and s.cmyk_mode != "gray" and s.target:
-        embed_output_intent(dst, s.target)
+    if s.output_intent and s.cmyk_mode != "gray" and target:
+        embed_output_intent(dst, target)
+    return notes
 
 
 def embed_output_intent(path: str, icc: str):
@@ -315,6 +401,18 @@ class Preview:
     notes: list = field(default_factory=list)
 
 
+def _before_args(s: ManipSettings) -> list[str]:
+    """Ghostscript arguments for the "before" image: existing CMYK is shown with the profile the conversion
+    reads it with (and the same intent as "after"), so CMYK that stays unchanged looks the same on both sides
+    instead of once as SWOP (Ghostscript's default) and once through the target profile."""
+    if s.cmyk_mode == "gray" or not s.target:
+        return []
+    src = s.target if s.cmyk_mode == "rgb_only" else s.source
+    if not src:
+        return []
+    return [*_permit(s), f"-sDefaultCMYKProfile={src}", "-dRenderIntent=1", "-dBlackPtComp=1"]
+
+
 def render_preview(
     src_pdf: str, page: int, s: ManipSettings, dpi: int = 100, paper_white: bool = False, white_lab=None
 ) -> Preview:
@@ -326,8 +424,11 @@ def render_preview(
         raise RuntimeError(tr("Für die Farbvorschau wird Ghostscript benötigt."))
     tmp = tempfile.mkdtemp(prefix="passermark-prev-")
     try:
+        notes = []
+        if s.cmyk_mode != "gray":
+            s, notes = resolve_source(src_pdf, s, tmp)
         b = os.path.join(tmp, "before.png")
-        _render(gs, src_pdf, page, dpi, "png16m", [], b)
+        _render(gs, src_pdf, page, dpi, "png16m", _before_args(s), b)
         before = Image.open(b).convert("RGB")
         if s.cmyk_mode == "gray":
             a = os.path.join(tmp, "after.png")
@@ -340,7 +441,7 @@ def render_preview(
         cmyk.load()
         cmyk = cmyk.convert("CMYK") if cmyk.mode != "CMYK" else cmyk
         after = cmyk_to_screen(cmyk, s.target, paper_white, white_lab)
-        return Preview(before, after, cmyk)
+        return Preview(before, after, cmyk, notes=notes)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

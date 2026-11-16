@@ -2,6 +2,12 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.8
+
+- Datei → Als Bild exportieren (Strg+Alt+E): Seiten als PNG, JPG oder TIFF, je Seite eine Datei oder ein mehrseitiges TIFF; RGB, Graustufen oder CMYK mit Druckprofil, PNG mit durchsichtigem Hintergrund. Auch auf der Kommandozeile (passermark-cli export) und als Workflow-Schritt.
+- SVG öffnet als Vektor-PDF über rsvg-convert (jetzt im AppImage mitgeliefert); die Statusleiste sagt, womit es geöffnet wurde, und ein Hinweis erscheint, wenn Teile gerastert wurden.
+- Farbe: Vorhandenes CMYK wird mit dem Profil gelesen, für das die Datei separiert ist (Output Intent), statt mit dem Ghostscript-Standard SWOP; die Farbvorschau zeigt Vorher und Nachher mit demselben Profil und sagt, welcher Fall vorliegt; unter Datei → Eigenschaften stehen Ausgabeprofil, Farbräume und eingebettete Profile.
+- Datei-Dialoge starten im zuletzt verwendeten Ordner (auch nach Neustart), die Seitenanordnung bleibt über einen Neustart erhalten, und die Statuszeile zeigt die laufende Version („Aktuell: v1.19.8").
 ## 1.19.7
 
 - Passermark kann sich selbst aktualisieren: Ein Tag v… startet die Builds für Linux und Windows jetzt automatisch, und beide hängen ihre Dateien samt Prüfsumme ans Release. Ein Tag mit Zusatz wie v1.19.8-test1 wird automatisch Vorab-Release.

@@ -13,7 +13,6 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
-    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -25,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from .. import core, presets
 from ..l10n import tr
+from . import lastdir
 
 
 class PresetBar(QWidget):
@@ -142,7 +142,7 @@ class PresetBar(QWidget):
             self.refresh()
 
     def _import(self):
-        p, _ = QFileDialog.getOpenFileName(self, tr("Preset laden"), "", tr("Presets (*.json)"))
+        p, _ = lastdir.getOpenFileName(self, tr("Preset laden"), "", tr("Presets (*.json)"))
         if not p:
             return
         try:
@@ -166,7 +166,7 @@ class PresetBar(QWidget):
                 QMessageBox.warning(self, tr("Preset"), str(e))
 
     def _export(self):
-        p, _ = QFileDialog.getSaveFileName(
+        p, _ = lastdir.getSaveFileName(
             self, tr("Preset exportieren"), (self.current() or self.kind) + ".json", tr("Presets (*.json)")
         )
         if not p:

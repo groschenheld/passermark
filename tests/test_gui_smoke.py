@@ -4,6 +4,7 @@ Finds Python errors at program start, window construction and in menu/mouse func
 
 import os
 import subprocess
+import tempfile
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -158,6 +159,8 @@ def test_start_and_basic_actions():
         PDFTOOLKIT_LANG="en",
         PDFTOOLBOX_LANG="en",
         PASSERMARK_RENDER="local",
+        # own socket folder: otherwise a running Passermark of the user takes over the file (single instance)
+        TMPDIR=tempfile.mkdtemp(prefix="passermark-smoke-"),
     )  # the Qt stand-in has no event loop: everything in the program
     os.makedirs("/tmp/_smoke_home", exist_ok=True)
     r = subprocess.run([sys.executable, "-c", SCRIPT, SAMPLE], capture_output=True, text=True, env=env, timeout=300)

@@ -22,10 +22,13 @@ from PySide6.QtCore import QObject, QTimer
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from . import config, images, printjob
+from . import config, images, l10n, printjob
 from . import platform as _platform
+from .gui import viewlayout
 from .gui.common import Session
 from .l10n import tr
+
+VIEW_MODE_SETTING = "view_mode"  # user setting: the last page layout
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +71,9 @@ class Controller(QObject):
         self.hosts = []  # window frames (each with one or more tabs)
         self.server: QLocalServer | None = None
         self.view_single = True  # single page with jumping as the default (the view can be switched)
-        self.view_mode = None  # page layout chosen in this session (viewlayout.make values); None = view_single
+        # page layout (viewlayout.make values), remembered over a restart (user setting "view_mode"); None = single
+        saved = l10n.load_settings().get(VIEW_MODE_SETTING)
+        self.view_mode = saved if isinstance(saved, dict) and saved.get("mode") in viewlayout.MODES else None
         self._start_stallwatch()
         self._ensure_sendto()
 

@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from .. import layout, printers, printjob
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import Session, fit_width
 from .printbuild import PrintBuildMixin
@@ -823,7 +823,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
             start_dir = getattr(self.parent(), "_suggest_dir", "") or (
                 os.path.dirname(getattr(self.parent(), "path", "") or "") or os.path.expanduser("~")
             )
-            out, _ = QFileDialog.getSaveFileName(
+            out, _ = lastdir.getSaveFileName(
                 self, tr("Als PDF speichern"), os.path.join(start_dir, f"{base}_druck.pdf"), tr("PDF-Dateien (*.pdf)")
             )
             if not out:

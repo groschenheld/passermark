@@ -37,6 +37,9 @@ def cli_command() -> tuple[list[str], dict]:
     return [sys.executable, "-m", "pdfdruck.cli"], {"PYTHONPATH": pkg_parent + (os.pathsep + pp if pp else "")}
 
 
+EXPORT = "export"  # pages as images (passermark-cli export) – runs like a job, but writes image files
+
+
 class JobProcess:
     """Run a job as a separate process.
 
@@ -56,7 +59,8 @@ class JobProcess:
         pages: list[int] | None = None,
         lang: str | None = None,
     ):
-        core.settings_class(kind)  # unknown job -> ValueError right away
+        if kind != EXPORT:
+            core.settings_class(kind)  # unknown job -> ValueError right away
         self.kind, self.src, self.dst = kind, src, dst
         self.settings = settings or {}
         self.pages = pages
@@ -73,7 +77,11 @@ class JobProcess:
         cmd, env_extra = cli_command()
         fd, self._preset = tempfile.mkstemp(prefix="passermark-job-", suffix=".json")
         os.close(fd)
-        core.save_settings(self._preset, self.kind, self.settings)  # a file instead of --set: no quoting problems
+        if self.kind == EXPORT:  # not a PDF job: plain settings (passermark-cli export reads them as --preset)
+            with open(self._preset, "w", encoding="utf-8") as f:
+                json.dump({"settings": self.settings}, f, ensure_ascii=False)
+        else:
+            core.save_settings(self._preset, self.kind, self.settings)  # a file instead of --set: no quoting problems
         args = [self.kind, self.src, self.dst, "--preset", self._preset, "--json-progress"]
         if self.pages:
             args += ["--pages", ",".join(str(p + 1) for p in self.pages)]

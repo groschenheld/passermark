@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QInputDialog,
@@ -45,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from .. import datakinds, vdp
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import fill_combo, no_enter_default, split_panels
 
@@ -434,7 +434,7 @@ class DataDialog(QDialog):
     def _open(self):
         if not self._ask_discard():
             return
-        p, _ = QFileDialog.getOpenFileName(
+        p, _ = lastdir.getOpenFileName(
             self, tr("CSV-Datei wählen"), os.path.dirname(self.path), tr("CSV/Text (*.csv *.txt *.tsv);;Alle (*)")
         )
         if p:
@@ -457,7 +457,7 @@ class DataDialog(QDialog):
         name = self.path or os.path.join(
             os.path.expanduser("~"), {"vcard": "visitenkarten", "wifi": "wlan"}.get(self.kind, "daten") + ".csv"
         )
-        p, _ = QFileDialog.getSaveFileName(self, tr("Tabelle speichern"), name, tr("CSV (*.csv)"))
+        p, _ = lastdir.getSaveFileName(self, tr("Tabelle speichern"), name, tr("CSV (*.csv)"))
         if not p or not isinstance(p, str):
             return False
         if not p.lower().endswith(".csv"):

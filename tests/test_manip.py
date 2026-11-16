@@ -24,15 +24,13 @@ def _pdf(sizes_mm, path="/tmp/_crop.pdf", rotate=None):
         c.showPage()
     c.save()
     if rotate:
-        import pypdf
+        import pikepdf
 
-        r = pypdf.PdfReader(path)
-        wtr = pypdf.PdfWriter()
-        for i, p in enumerate(r.pages):
-            if i in rotate:
-                p.rotate(90)
-            wtr.add_page(p)
-        wtr.write(path)
+        with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+            for i, p in enumerate(pdf.pages):
+                if i in rotate:
+                    p.Rotate = (int(p.get("/Rotate", 0)) + 90) % 360
+            pdf.save(path)
     return pdfium.PdfDocument(path)
 
 
@@ -239,6 +237,92 @@ def test_white_bbox_large_and_tinted_content():
         c.save()
         bb = pdfmanip._white_bbox(pdfium.PdfDocument(buf.getvalue())[0])
         assert bb and all(abs(g - e) < 2 * MM for g, e in zip(bb, (x, y, x + w, y + h))), (frac, tint, bb)
+
+
+def test_preview_before_reads_cmyk_like_after():
+    """Unchanged CMYK must look the same before and after: both sides read it with the same profile."""
+    import tempfile
+
+    from PIL import Image
+
+    calls = []
+
+    def fake_render(gs, src, page, dpi, device, extra, out):
+        calls.append((device, list(extra)))
+        mode = "CMYK" if device == "tiff32nc" else "RGB"
+        Image.new(mode, (4, 4)).save(out)
+
+    old = cmyk._render, cmyk.ghostscript
+    cmyk._render, cmyk.ghostscript = fake_render, lambda: "gs"
+    try:
+        tmp = tempfile.mkdtemp()
+        pdf = os.path.join(tmp, "x.pdf")
+        doc = pdfium.PdfDocument.new()
+        doc.new_page(100, 100)
+        doc.save(pdf)
+        prof = FOGRA if os.path.exists(FOGRA) else None
+        if prof is None:
+            print("skip (no FOGRA39 profile)")
+            return
+        cmyk.render_preview(pdf, 0, cmyk.ManipSettings(cmyk=True, cmyk_mode="rgb_only", target=prof))
+        before = dict(calls)["png16m"]
+        assert "-sDefaultCMYKProfile=" + prof in before and "-dRenderIntent=1" in before
+        calls.clear()
+        cmyk.render_preview(pdf, 0, cmyk.ManipSettings(cmyk=True, cmyk_mode="all", target=prof))
+        assert dict(calls)["png16m"] == []  # no source profile known: Ghostscript's default on both sides
+        calls.clear()
+        cmyk.render_preview(pdf, 0, cmyk.ManipSettings(cmyk=True, cmyk_mode="gray"))
+        assert dict(calls)["png16m"] == []
+    finally:
+        cmyk._render, cmyk.ghostscript = old
+
+
+def test_ghostscript_working_profiles_hidden():
+    assert cmyk._gs_internal("/usr/share/ghostscript/10.02.1/iccprofiles/ps_cmyk.icc", "x")
+    assert cmyk._gs_internal("/opt/p/whatever.icc", "Artifex PS CMYK Profile")
+    assert not cmyk._gs_internal("/usr/share/ghostscript/iccprofiles/default_cmyk.icc", "Artifex CMYK SWOP Profile")
+    assert not cmyk._gs_internal("/usr/share/color/icc/ISOcoated_v2.icc", "ISO Coated v2 (ECI)")
+    assert all(not p.name.startswith("Artifex PS ") for p in cmyk.find_profiles())
+
+
+def test_existing_cmyk_read_with_output_intent():
+    """A file already separated for the target stays 1:1; another output intent is the source profile."""
+    import tempfile
+
+    import pikepdf
+
+    if not os.path.exists(FOGRA):
+        print("skip (no FOGRA39 profile)")
+        return
+    tmp = tempfile.mkdtemp()
+    with open(FOGRA, "rb") as f:
+        data = f.read()
+    flagged = bytearray(data)
+    flagged[44:48] = b"\1\0\0\0"  # other flags / ID: still the same profile
+    flagged[84:100] = b"x" * 16
+    assert cmyk.same_profile(bytes(flagged), FOGRA)
+    other = os.path.join(tmp, "other.icc")
+    with open(other, "wb") as f:
+        f.write(data[:-1] + bytes([data[-1] ^ 1]))
+    assert not cmyk.same_profile(data, other)
+
+    pdf_path = os.path.join(tmp, "sep.pdf")
+    pdf = pikepdf.new()
+    pdf.add_blank_page()
+    pdf.save(pdf_path)
+    s = cmyk.ManipSettings(cmyk=True, cmyk_mode="all", target=FOGRA)
+    assert cmyk.resolve_source(pdf_path, s, tmp) == (s, [])  # no output intent: Ghostscript default
+    cmyk.embed_output_intent(pdf_path, FOGRA)
+    assert cmyk.document_cmyk_profile(pdf_path) == data
+    s2, notes = cmyk.resolve_source(pdf_path, s, tmp)
+    assert s2.cmyk_mode == "rgb_only" and len(notes) == 1  # same as the target: CMYK passes through
+    assert "-sDefaultCMYKProfile=" + FOGRA in cmyk.color_args(s2)
+    s3, notes = cmyk.resolve_source(pdf_path, cmyk.ManipSettings(cmyk=True, cmyk_mode="all", target=other), tmp)
+    assert s3.cmyk_mode == "all" and s3.source.endswith("source.icc") and len(notes) == 1
+    s4 = cmyk.ManipSettings(cmyk=True, cmyk_mode="all", target=other, source="/p/chosen.icc")
+    assert cmyk.resolve_source(pdf_path, s4, tmp) == (s4, [])  # an explicitly chosen source profile wins
+    s5 = cmyk.ManipSettings(cmyk=True, cmyk_mode="rgb_only", target=other)
+    assert cmyk.resolve_source(pdf_path, s5, tmp) == (s5, [])
 
 
 if __name__ == "__main__":

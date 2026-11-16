@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -37,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from .. import cmyk, config, pdfmanip
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import fill_combo, fit_width
 
@@ -265,7 +265,7 @@ class ManipPanel(QWidget):
         cur_t = self.cmb_target.currentData() or self.s.target or (profs[0].path if profs else "")
         cur_s = self.cmb_source.currentData() or self.s.source
         fill_combo(self.cmb_target, items or [("", tr("(kein CMYK-Profil gefunden)"))], cur_t)
-        fill_combo(self.cmb_source, [("", tr("Ghostscript-Standard (SWOP)"))] + items, cur_s)
+        fill_combo(self.cmb_source, [("", tr("Aus der Datei (Output Intent), sonst SWOP"))] + items, cur_s)
         if not profs:
             self.lbl_cmyk.setText(
                 tr(
@@ -330,9 +330,7 @@ class ManipPanel(QWidget):
         self.lbl_rec.show()
 
     def _pick_file(self):
-        p, _ = QFileDialog.getOpenFileName(
-            self, tr("ICC-Profil wählen"), "", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)")
-        )
+        p, _ = lastdir.getOpenFileName(self, tr("ICC-Profil wählen"), "", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)"))
         if not p:
             return
         head = cmyk._icc_head(p)
@@ -668,6 +666,7 @@ class ColorPreviewDialog(QDialog):
                 right = cmyk.separation(r.cmyk, "cmyk".index(view))
             elif view == "tac":
                 right = warn
+        info += list(getattr(r, "notes", None) or [])
         left = r.before if view == "both" else None
         self.split.widget(0).setVisible(left is not None)
         if left is not None:

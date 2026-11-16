@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -31,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from .. import repair
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import fit_width
 
@@ -201,7 +201,7 @@ class RepairDialog(QDialog):
             w.setEnabled(on)
 
     def _browse(self):
-        p, _ = QFileDialog.getSaveFileName(self, tr("Speichern unter"), self.ed_out.text(), tr("PDF-Dateien (*.pdf)"))
+        p, _ = lastdir.getSaveFileName(self, tr("Speichern unter"), self.ed_out.text(), tr("PDF-Dateien (*.pdf)"))
         if p:
             self.ed_out.setText(p if p.lower().endswith(".pdf") else p + ".pdf")
 

@@ -109,7 +109,13 @@ def load_any(parent, ctl, path, workdir=None, notes=None):
     import tempfile
 
     if images.is_image(path):
-        return images.images_to_document([path], ctl.image_dpi, ask_hdr(parent, [path], ctl.image_dpi))
+        doc = images.images_to_document([path], ctl.image_dpi, ask_hdr(parent, [path], ctl.image_dpi))
+        rep = images.svg_report(path)  # SVG: which way and what got rasterised
+        if rep is not None and notes is not None:
+            if rep["method"] != "qt":
+                notes.append(tr("{0}: als Vektoren geöffnet mit {1}").format(os.path.basename(path), rep["method"]))
+            notes.extend(rep["notes"])
+        return doc
     if _convert.is_office(path):
         from PySide6.QtWidgets import QApplication
 

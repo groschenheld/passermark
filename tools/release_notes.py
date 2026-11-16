@@ -5,6 +5,7 @@ English. The update dialog of the program shows exactly this text.
 
     python3 tools/release_notes.py 1.19.7            -> Markdown on stdout
     python3 tools/release_notes.py v1.19.7-test1     -> a tag works too; a suffix falls back to 1.19.7
+    python3 tools/release_notes.py v1.19.7 notes.md  -> into a file (UTF-8)
 """
 
 from __future__ import annotations
@@ -58,11 +59,17 @@ def notes(tag: str, root: str = ROOT) -> str:
 
 
 def main(argv: list[str]) -> int:
-    """Print the notes for the tag given as the only argument."""
-    if len(argv) != 1:
+    """Print the notes for the tag given as the first argument, or write them to the file given as the second
+    (UTF-8 – the Windows console would garble the umlauts)."""
+    if len(argv) not in (1, 2):
         print(__doc__)
         return 2
-    sys.stdout.write(notes(argv[0]))
+    text = notes(argv[0])
+    if len(argv) == 2:
+        with open(argv[1], "w", encoding="utf-8") as f:
+            f.write(text)
+    else:
+        sys.stdout.write(text)
     return 0
 
 

@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.19.7 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.19.8 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -49,7 +49,7 @@ Since 1.19 the window follows a design sheet by the author:
 │  colour,   │  │ ┌────┐                                               │      │ │ P │ │  margin
 │  edit)     │  │ │box │ merge / split / edit (folds away)             │      │ └───┘ │
 ├────────────┴──┴─┴────┴───────────────────────────────────────────────┴──────┘       │
-│ ✓ Prüfung OK   Seite 3/19   210 × 297 mm                       ⟳ Alles aktuell      │  status bar
+│ ✓ Prüfung OK   Seite 3/19   210 × 297 mm                       ⟳ Aktuell: v1.19.8   │  status bar
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,7 +79,7 @@ Since 1.19 the window follows a design sheet by the author:
 
 | Menu | Content (shortcuts in brackets) |
 |---|---|
-| **Datei** (file) | Öffnen (Ctrl+O), new window, new tab, detach tab · Speichern (Ctrl+S), Speichern unter (Ctrl+Shift+S) · Eigenschaften (Ctrl+D: location, file, document, pages, fonts, check) · Drucken (Ctrl+P) · Einstellungen (Ctrl+,) · Schließen |
+| **Datei** (file) | Öffnen (Ctrl+O), new window, new tab, detach tab · Speichern (Ctrl+S), Speichern unter (Ctrl+Shift+S), Als Bild exportieren (Ctrl+Alt+E: PNG, JPG, TIFF) · Eigenschaften (Ctrl+D: location, file, document, pages, fonts, check) · Drucken (Ctrl+P) · Einstellungen (Ctrl+,) · Schließen |
 | **Seiten** (pages; also the context menu of the thumbnails) | insert pages before/after the selection or at the end, insert blank pages · export the selection as one PDF (Ctrl+E) or as single PDFs · rotate pages permanently, move them forward/back (Alt+↑/↓) · split pages (halves, grid), split spreads · delete (Del) · select all · copy marked text, select the page text |
 | **Dokument** (document) | merge documents (Ctrl+M) · repair, optimise, password (Ctrl+Shift+R) · reduce file size · document check (Ctrl+Shift+P) · submenus below |
 | ↳ **Dokument-Manipulation** | edit text and layers (Ctrl+T) · CMYK conversion · crop to format · CMYK and crop in one step (Ctrl+Shift+M) · separate objects (single pages without white space) · CutContour for cutting plotters · variable data (Ctrl+Shift+D) · enter data (tables for business cards, Wi-Fi, codes) |
@@ -94,12 +94,21 @@ Home/End jump to the first/last page; Ctrl+4…7 switch the page arrangement.
 ### 1.4 Feature areas
 
 **Opening and viewing.** PDFs, images (also HEIC and SVG) at their real size, Office files via LibreOffice,
-OnlyOffice or Euro-Office (`convert.py`, `images.py`). Pages are rendered in a separate process; zooming
+OnlyOffice or Euro-Office (`convert.py`, `images.py`). SVG is converted to vector PDF with rsvg-convert (bundled
+in the AppImage and, if MSYS2 is present at build time, the Windows setup), otherwise Inkscape, otherwise Qt;
+the status bar says which path was used, and a hint appears when parts ended up as images (filters, or the Qt
+fallback). The page arrangement (single, continuous, facing, grid) is remembered across restarts. Pages are rendered in a separate process; zooming
 re-renders sharply, large pages are smoothed in the background. A document is checked automatically after
 opening (can be switched off).
 
 **Page operations** (`pageops.py`, `gui/mainfile.py`): insert, blank pages, export, rotate, move, delete,
 split into halves or a grid (`split.py`, lossless – content is not rasterised).
+
+**Export as image** (`rasterexport.py`, dialog `gui/exportdialog.py`): pages as PNG, JPG or TIFF, 150 dpi by
+default, one file per page (`name-001.png` …) or all pages in one multi-page TIFF; RGB, grey or CMYK (CMYK via
+Ghostscript with a chosen profile, JPG/TIFF only), transparent background for PNG, JPG quality, TIFF
+compression. Saving stays PDF; the export runs as a background job and is also available as
+`passermark-cli export` and as workflow step `export`.
 
 **Printing** – own print dialog with a live preview (`gui/printdialog.py` and the `print*.py` parts):
 printer and tray chosen automatically from size and grammage, material, duplex, colour, the driver's own

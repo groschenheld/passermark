@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 os.environ.setdefault("PASSERMARK_LANG", "de")
-from test_softproof import cmyk_profile
+from test_softproof import cmyk_profile, is_fogra39
 
 from pdfdruck import cfgvalidate, colorlab
 
@@ -54,7 +54,10 @@ def test_delta_e_reference_pairs():
 def test_profile_white_and_surface():
     f = cmyk_profile()
     w = colorlab.profile_white(f)
-    assert w and 93 < w[0] < 97 and abs(w[1]) < 2 and -4 < w[2] < 1, w  # FOGRA39: L95 a0 b-2
+    if is_fogra39(f):
+        assert w and 93 < w[0] < 97 and abs(w[1]) < 2 and -4 < w[2] < 1, w  # FOGRA39: L95 a0 b-2
+    else:  # Ghostscript's default CMYK profile (no TeX Live): a warmer, darker paper (about L89 a0 b+4)
+        assert w and 80 < w[0] < 97 and abs(w[1]) < 3 and -4 < w[2] < 8, w
     assert colorlab.guess_surface("PSO Uncoated v3 (FOGRA52)") == "uncoated"
     assert colorlab.guess_surface("ISOcoated_v2_eci") == "coated"
     assert colorlab.guess_surface("Epson Premium Glossy Photo Paper") == "glossy"
@@ -129,8 +132,9 @@ def test_suggestions():
     assert res[0]["de"] < 1 and res[0]["verdict"] == colorlab.verdict(0.5)
     natur = cfg["materials"][0]
     res = colorlab.suggest(natur, cands, "")
-    assert res[0]["de"] > 4 and "andere Oberfläche" in res[0]["why"]
-    assert "FOGRA52" in colorlab.standard_tip(natur, res[0])
+    if is_fogra39(cmyk_profile()):  # the test profile is a coated one with a cool white: far from natural paper
+        assert res[0]["de"] > 4 and "andere Oberfläche" in res[0]["why"]
+        assert "FOGRA52" in colorlab.standard_tip(natur, res[0])
     assert colorlab.standard_tip(coated, colorlab.suggest(coated, cands)[0]) == ""
     assert (
         colorlab.profile_for(cfg, natur, "epson") == "epson_matt" and colorlab.profile_for(cfg, natur, "x") == "fogra39"
@@ -147,12 +151,13 @@ def test_conversion_recommendation():
     cands = colorlab.candidates(_cfg(), extra_cmyk=False)
     r = colorlab.recommend_conversion([], False, f, cands)
     assert r["mode"] == "rgb_only" and "Keine CMYK" in r["text"]
-    r = colorlab.recommend_conversion(["FOGRA39L Coated"], True, f, cands)
-    assert r["mode"] == "rgb_only" and "schon" in r["text"], r  # same condition: CMYK stays
-    r = colorlab.recommend_conversion(
-        ["Coated FOGRA39 (ISO 12647-2:2004)"], True, "/x/PSOuncoated_v3_FOGRA52.icc", cands
-    )
-    assert r["mode"] == "all" and r["source"] == f, r  # source profile installed -> found
+    if is_fogra39(f):  # these two need a test profile that really is FOGRA39
+        r = colorlab.recommend_conversion(["FOGRA39L Coated"], True, f, cands)
+        assert r["mode"] == "rgb_only" and "schon" in r["text"], r  # same condition: CMYK stays
+        r = colorlab.recommend_conversion(
+            ["Coated FOGRA39 (ISO 12647-2:2004)"], True, "/x/PSOuncoated_v3_FOGRA52.icc", cands
+        )
+        assert r["mode"] == "all" and r["source"] == f, r  # source profile installed -> found
     r = colorlab.recommend_conversion(["FOGRA27"], True, f, cands)
     assert r["mode"] == "all" and r["source"] == "" and "nicht installiert" in r["text"]
 

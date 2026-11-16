@@ -5,6 +5,12 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.19.8
+
+- Fájl → Exportálás képként (Ctrl+Alt+E): az oldalak PNG, JPG vagy TIFF formátumban, oldalanként egy fájl vagy többoldalas TIFF; RGB, szürkeárnyalatos vagy CMYK nyomási profillal, PNG-nél átlátszó háttérrel. Parancssorból is (passermark-cli export), és munkafolyamat-lépésként.
+- Az SVG rsvg-convert segítségével vektoros PDF-ként nyílik meg (mostantól az AppImage-ban is); az állapotsor megmondja, mivel nyílt meg, és figyelmeztetés jelenik meg, ha egyes részek rasztereződtek.
+- Szín: a meglévő CMYK a fájl szeparálási profiljával (output intent) olvasódik be a Ghostscript alapértelmezett SWOP-ja helyett; a színelőnézet ugyanazzal a profillal mutatja az előtte-utána állapotot, és megmondja, melyik esetről van szó; a Fájl → Tulajdonságok alatt a kimeneti profil, a színterek és a beágyazott profilok láthatók.
+- A fájl párbeszédablakok a legutóbb használt mappában nyílnak meg (újraindítás után is), az oldalrendezés újraindítést túléli, az állapotsor pedig a futó verziót mutatja („Aktuell: v1.19.8").
 ## 1.19.7
 
 - A Passermark mostantól saját magát is frissíti: egy v… címke automatikusan elindítja a Linux- és a Windows-buildet, és mindkettő a fájlokat az ellenőrzőösszeggel együtt a release-hez csatolja. A kiegészített címke, pl. v1.19.8-test1, automatikusan előzetes kiadássá válik.

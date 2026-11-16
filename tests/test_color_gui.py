@@ -129,8 +129,10 @@ QInputDialog.getText = staticmethod(lambda *a, **k: ("Natur ungestrichen 120 g",
 import pikepdf
 import test_colorcheck as T
 from pdfdruck import cmyk, usercolor
-F = T.cmyk_profile()
-cmyk.system_profile_dirs = lambda: [os.path.dirname(F), usercolor.icc_dir()]
+import shutil, tempfile
+_icc = tempfile.mkdtemp(prefix="pm-icc-")
+F = shutil.copy(T.cmyk_profile(), _icc)  # only the test profile – not the profiles installed on this machine
+cmyk.system_profile_dirs = lambda: [_icc, usercolor.icc_dir()]
 
 
 def pump(cond, n=1500):
@@ -146,7 +148,12 @@ from pdfdruck.app import Controller
 ctl = Controller()
 path = T.write(T.sample_pdf())
 ctl.open_paths([path]); w = ctl.windows[-1]
-assert any(a.text().replace("&", "") == "Farbe" for a in w.menuBar().actions())
+def menus(m):  # all menu titles, also submenus ("Farbe" sits under "Dokument" since 1.19)
+    for a in m.actions():
+        if a.menu():
+            yield a.text().replace("&", "")
+            yield from menus(a.menu())
+assert "Farbe" in set(menus(w.mbar)), list(menus(w.mbar))  # w.mbar: menuBar() would replace the own title bar
 # ---- colour check in the background ----
 w.color_check()
 cp = w.color_panel

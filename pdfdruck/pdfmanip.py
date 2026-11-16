@@ -361,7 +361,7 @@ def apply(doc, s: _cmyk.ManipSettings):
         try:
             src, dst = os.path.join(tmp, "in.pdf"), os.path.join(tmp, "out.pdf")
             cur.save(src)
-            _cmyk.convert_pdf(src, dst, s)
+            notes += _cmyk.convert_pdf(src, dst, s)
             with open(dst, "rb") as f:
                 data = f.read()
             if cur is not doc:

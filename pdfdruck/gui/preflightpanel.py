@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
-    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -36,6 +35,7 @@ from PySide6.QtWidgets import (
 
 from .. import fontlib, pdflayers, preflight
 from ..l10n import tr
+from . import lastdir
 from . import theme
 
 SEV_TEXT = {"error": "Fehler", "warning": "Warnung", "info": "Hinweis"}
@@ -662,7 +662,7 @@ class PreflightPanel(QWidget):
         name = cb.property("font_name")
         what = cb.currentData()
         if what == "__file__":
-            p, _ = QFileDialog.getOpenFileName(
+            p, _ = lastdir.getOpenFileName(
                 self, tr("Schriftdatei wählen"), "", tr("Schriften (*.ttf *.otf *.TTF *.OTF)")
             )
             cb.setCurrentIndex(0)
@@ -838,7 +838,7 @@ class PreflightPanel(QWidget):
     def _save_report(self):
         if not self.rep:
             return
-        p, _ = QFileDialog.getSaveFileName(
+        p, _ = lastdir.getSaveFileName(
             self, tr("Prüfbericht speichern"), tr("Pruefbericht.txt"), tr("Textdateien (*.txt)")
         )
         if p:

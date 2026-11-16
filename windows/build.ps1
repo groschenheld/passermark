@@ -40,6 +40,37 @@ $GsDest = "dist\passermark\gs\gs$GsVersion"
 New-Item -ItemType Directory -Force -Path $GsDest | Out-Null
 Copy-Item -Recurse -Force "$GsStage\*" $GsDest
 
+# rsvg-convert (librsvg, LGPL) from MSYS2, if installed: opens SVG as vectors instead of Qt's rasterising
+# fallback. Optional – without it the program still runs. MSYS2: pacman -S mingw-w64-ucrt-x86_64-librsvg
+$Msys = if ($env:MSYS2_ROOT) { $env:MSYS2_ROOT } else { "C:\msys64" }
+$RsvgExe = Join-Path $Msys "ucrt64\bin\rsvg-convert.exe"
+if (Test-Path $RsvgExe) {
+    $RsvgDest = "dist\passermark\rsvg"
+    New-Item -ItemType Directory -Force -Path $RsvgDest | Out-Null
+    Copy-Item -Force $RsvgExe $RsvgDest
+    # the DLLs it needs: MSYS2's ldd lists them as /ucrt64/bin/xyz.dll (Windows' own DLLs are left out)
+    $Ldd = Join-Path $Msys "usr\bin\ldd.exe"
+    & $Ldd $RsvgExe | ForEach-Object {
+        if ($_ -match "=>\s+(/ucrt64/bin/\S+\.dll)") {
+            Copy-Item -Force (Join-Path $Msys ($Matches[1].TrimStart("/") -replace "/", "\")) $RsvgDest
+        }
+    }
+    $LicDir = Join-Path $Msys "ucrt64\share\licenses\librsvg"
+    if (Test-Path $LicDir) {
+        New-Item -ItemType Directory -Force -Path "dist\passermark\licenses\librsvg" | Out-Null
+        Copy-Item -Force "$LicDir\*" "dist\passermark\licenses\librsvg"
+    }
+    New-Item -ItemType Directory -Force -Path "build" | Out-Null
+    Set-Content -Encoding ascii build\t.svg '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="5" height="5"/></svg>'
+    & "$RsvgDest\rsvg-convert.exe" -f pdf -o build\t.pdf build\t.svg
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path build\t.pdf)) {
+        Write-Host "WARNING: bundled rsvg-convert does not run - removed (SVG then opens via Qt)"
+        Remove-Item -Recurse -Force $RsvgDest
+    } else { Write-Host "bundled rsvg-convert ok" }
+} else {
+    Write-Host "NOTE: rsvg-convert not found ($RsvgExe) - Setup without it, SVG opens via Qt"
+}
+
 # Licences of everything shipped (Python packages, Qt/PySide6 LGPL notice, Ghostscript AGPL notice)
 # -> dist\passermark\licenses (installed next to the program, Help -> Licences)
 $Agpl = "build\agpl-3.0.txt"
