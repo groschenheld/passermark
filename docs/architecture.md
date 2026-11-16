@@ -1,7 +1,8 @@
 # Passermark – architecture
 
 This document is the map of the code: what lives where, how the parts talk to each other and where to start
-reading. User documentation is in the READMEs; the command line and workflow interface is specified in
+reading. For an introduction to the features and walkthroughs through the code read [guide.md](guide.md) first.
+User documentation is in the READMEs; the command line and workflow interface is specified in
 [cli-api.md](cli-api.md).
 
 ## In one paragraph
@@ -65,7 +66,8 @@ before Qt is loaded) and exits; `Controller.queue_request` receives them.
 ## Jobs, settings, presets, workflows
 
 - A **job** is registered in `core.JOBS` under a name (`impose`, `vdp`, `cutcontour`, `manip`, `repair`,
-  `preflight_fix`, `separate`, `split`, `shrink`, `press`, `print`, `plan`) together with its settings dataclass.
+  `preflight_fix`, `separate`, `split`, `shrink`, `press`) together with its settings dataclass. Workflows add
+  the steps `print` and `plan` (`workflow.py`), which print and leave the PDF unchanged.
 - `core.run_job(kind, src, dst, settings)` runs one job. Settings are plain dataclasses;
   `core.settings_from_dict` / `settings_to_dict` convert them to and from JSON. Unknown keys are ignored and
   missing ones keep their default, so files from other versions still load.
@@ -115,7 +117,10 @@ Most paths come from `platform.py`. Exception: `l10n.py` computes the location o
 
 Source strings are German and wrapped in `tr("…")`. Translations live in `pdfdruck/lang/<code>.py`
 (en, hu, es, fr). `tests/test_l10n.py` fails if a string in the code has no translation. Comments and docstrings
-are English.
+are English. Anyone can translate without touching code (`langpack.py`, see [translating.md](translating.md)):
+the texts are exported as a table, a filled-in table is checked and installed per user (`lang/<code>.json` next
+to the settings – it completes a shipped language or adds a new one), and `passermark-cli lang import` turns it
+into a catalog of the program.
 
 ## Look of the main window (1.19.0)
 
@@ -133,6 +138,11 @@ The grip symbol marks the separators between sidebar, page and tools panel and (
 window corner; the scroll symbol sits on the handles of the two large scroll bars (`QScrollBar#bigScroll`). QSS
 needs image files for both, so `theme.py` writes them, coloured in the accent, next to the check mark.
 
+Panels in the sidebars get narrow without cutting anything off (`common.responsive_panel`, since 1.19.5): button
+texts break into lines, tabs wrap into rows, lists and tables wrap their text. The tools panel keeps text next to
+the symbols while there is room and shows only the symbols below that. Switching the page arrangement keeps the
+page and the place in it (`PageView.set_view_mode`).
+
 Fonts ship with the program (since 1.19.4): Inter for the interface (with digits of equal width) and JetBrains
 Mono for measurements and sizes, in `gui/fonts/` with their licence texts (SIL Open Font License);
 `theme.load_fonts()` registers them at start, so the look does not depend on the fonts of the system.
@@ -149,7 +159,11 @@ remembered as available is asked for again at the next start, in case it was wit
 setup runs silently and starts Passermark again (`/AUTOUPDATE`, `windows/passermark.iss`), an install.sh
 installation downloads the source package and lets root install it (`passermark-admin update`, which fetches the
 checksum itself instead of trusting the caller). Every download is checked against the `<file>.sha256` that the
-release workflows publish with it; without it nothing is installed. The administrator can switch the check off or
+release workflows publish with it; without it nothing is installed. Pushing a tag `v*` starts both build workflows
+by themselves; each attaches its files in a `release` job (one concurrency group, so the two never create the
+release twice), marks a tag with a suffix as pre-release and takes the release text from the changelogs
+(`tools/release_notes.py`, German and English – the update dialog shows it). If a file is still missing, the
+dialog says which one instead of only pointing to the release page (`updates.why_not`). The administrator can switch the check off or
 allow test versions (admin configuration `updates`). The window side is `gui/updatestatus.py`.
 
 ## Error handling
@@ -240,7 +254,8 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/images.py` | Opening images as PDFs – at their actual size (from the image's DPI value). |
 | `pdfdruck/ipp.py` | Minimal IPP client (RFC 8010/8011): asks the printer directly what lies in which tray. |
 | `pdfdruck/jobproc.py` | Jobs as a separate process: the GUI starts the command line in the background. |
-| `pdfdruck/l10n.py` | Interface language: German (source language), English, Hungarian, Spanish, French. |
+| `pdfdruck/l10n.py` | Interface language |
+| `pdfdruck/langpack.py` | Translations by anyone: export the texts as a table, check a filled-in table, install it for the user or turn it into a catalog of the program (pdfdruck/lang/<code>.py). |
 | `pdfdruck/layout.py` | Page selection, scaling and N-up imposition. |
 | `pdfdruck/measure.py` | Ruler and measuring – pure computation logic (no GUI, therefore precisely testable). |
 | `pdfdruck/objects.py` | Object detection on PDF pages (vector and raster) and splitting into individual pages. |

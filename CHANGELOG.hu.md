@@ -5,6 +5,24 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.19.7
+
+- A Passermark mostantól saját magát is frissíti: egy v… címke automatikusan elindítja a Linux- és a Windows-buildet, és mindkettő a fájlokat az ellenőrzőösszeggel együtt a release-hez csatolja. A kiegészített címke, pl. v1.19.8-test1, automatikusan előzetes kiadássá válik.
+- A kiadási szöveg a változásnapló megfelelő ## 1.19.x szakaszából jön (angolul és németül); a frissítési párbeszéd pontosan ezt a szöveget mutatja.
+- Ha egy telepítés nem tudja frissíteni magát, a párbeszéd megmondja az okát: a build még fut, vagy a Passermark forrásmappából fut.
+
+## 1.19.6
+
+- A Passermark mostantól táblázattal is lefordítható, kód érintése nélkül. A Fájl → Beállítások → Nyelv menüben a „Fordítási sablon exportálása …" kiírja az összes szöveget tartalmazó táblát (CSV vagy JSON); ha ki van választva nyelv, korábbi fordítása már benne van. A „Fordítás betöltése …" ellenőrzi a fájlt, és telepíti a felhasználónak; a hibás helyőrzőket, pl. {0}, az érintett szövegekkel együtt elutasítja.
+- A betöltött fordítások JSON-ként tárolódnak, és sosem futtatnak kódot.
+- Új CLI-parancsok: passermark-cli lang list, export, import, check, install, remove.
+
+## 1.19.5
+
+- A nézet oldalak átrendezése után, valamint egy és több oldal közötti váltáskor ugyanarra az oldalra és helyre tér vissza.
+- A dokumentumáttekintés görgetősávja ismét mutatja a görgetésjelzőt, ahogy az oldalsávok (Eszközök, Előellenőrzés …) sávjai is.
+- Jobb eszköztár: keskenyebbre húzáskor a szöveg előbb két sorba törik, csak ezután tűnnek el a fejlécek; a „?" eszköztippjében a cím és a magyarázat marad.
+- Előellenőrzés, Szerkesztés és Színes panelek: a gombszövegek törik át a levágás helyett; a fülek több sorba futnak nyilak mögé rejtés helyett; a listák és táblázatok törik a szöveget. A fülekben a számok, pl. „Text (12)", továbbra is frissülnek.
 ## 1.19.4
 
 - A Passermark mostantól saját betűtípusokat hoz magával: Inter a felülethez és JetBrains Mono a méretekhez és formátumokhoz. A megjelenés többé nem függ a gépre telepített betűtípusoktól.

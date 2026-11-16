@@ -2,6 +2,24 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.7
+
+- Passermark kann sich selbst aktualisieren: Ein Tag v… startet die Builds für Linux und Windows jetzt automatisch, und beide hängen ihre Dateien samt Prüfsumme ans Release. Ein Tag mit Zusatz wie v1.19.8-test1 wird automatisch Vorab-Release.
+- Der Releasetext kommt aus dem passenden Abschnitt ## 1.19.x der Changelogs (Englisch und Deutsch); genau diesen Text zeigt der Updatedialog. Den Abschnitt also vor dem Tag schreiben.
+- Kann sich eine Installation nicht selbst aktualisieren, sagt der Dialog jetzt warum: Die Dateien am Release bauen noch, oder Passermark läuft aus einem Quellordner.
+
+## 1.19.6
+
+- Passermark lässt sich jetzt mit einer Tabelle übersetzen, ganz ohne Code. Unter Datei → Einstellungen → Sprache schreibt „Übersetzungsvorlage exportieren …" die Tabelle mit allen Texten (CSV oder JSON); ist eine Sprache gewählt, steht ihre bisherige Übersetzung schon drin. „Übersetzung einspielen …" prüft die Datei und installiert sie für den Benutzer; kaputte Platzhalter wie {0} werden mit den betroffenen Texten abgelehnt.
+- Eingespielte Übersetzungen werden als JSON gespeichert und führen nie Code aus.
+- Neue CLI-Befehle: passermark-cli lang list, export, import, check, install, remove.
+
+## 1.19.5
+
+- Die Ansicht kehrt nach dem Umordnen der Seiten und auch nach dem Wechsel zwischen einer und mehreren Seiten auf dieselbe Seite und Stelle zurück.
+- Die Bildlaufleiste der Dokumentübersicht zeigt das Scroll-Symbol, ebenso die Leisten in den Seitenleisten (Werkzeuge, Prüfung …).
+- Werkzeugleiste rechts: Beim Schmalerziehen bricht der Text erst in zwei Zeilen um, erst dann verschwinden die Überschriften; das „?" zeigt im Tooltip Titel und Erklärung.
+- Prüfung, Bearbeiten und Farbe: Knopftexte brechen um statt abgeschnitten zu werden; Reiter laufen über mehrere Zeilen, statt hinter Pfeilen zu verschwinden; Listen und Tabellen brechen ihren Text um. Die Zahlen in den Reitern, z. B. „Text (12)", ändern sich weiter mit.
 ## 1.19.4
 
 - Passermark bringt jetzt eigene Schriften mit: Inter für die Oberfläche und JetBrains Mono für Maße und Formate. Das Aussehen hängt nicht mehr von den auf dem Rechner installierten Schriften ab.

@@ -5,6 +5,24 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.19.7
+
+- Passermark ahora puede actualizarse solo: una etiqueta v… inicia automáticamente las compilaciones de Linux y Windows, y ambas adjuntan sus archivos con la suma de comprobación a la publicación. Una etiqueta con sufijo como v1.19.8-test1 se convierte automáticamente en versión preliminar.
+- El texto de la publicación viene de la sección ## 1.19.x correspondiente de los registros (inglés y alemán); el diálogo de actualización muestra exactamente ese texto. Escribe la sección antes de etiquetar.
+- Si una instalación no puede actualizarse sola, el diálogo indica el motivo: los archivos aún se están compilando, o Passermark se ejecuta desde una carpeta de código fuente.
+
+## 1.19.6
+
+- Passermark ahora se puede traducir con una tabla, sin tocar código. En Archivo → Ajustes → Idioma, «Exportar plantilla de traducción …» escribe la tabla con todos los textos (CSV o JSON); si hay un idioma seleccionado, su traducción anterior ya está incluida. «Importar traducción …» comprueba el archivo y lo instala para el usuario; los marcadores rotos como {0} se rechazan indicando los textos afectados.
+- Las traducciones importadas se guardan como JSON y nunca ejecutan código.
+- Nuevos comandos CLI: passermark-cli lang list, export, import, check, install, remove.
+
+## 1.19.5
+
+- La vista vuelve a la misma página y posición tras reordenar las páginas, y también al cambiar entre una y varias páginas y volver.
+- La barra de desplazamiento de la vista general del documento vuelve a mostrar el indicador de desplazamiento, igual que las barras de los paneles laterales (Herramientas, Verificación …).
+- Barra de herramientas derecha: al estrecharla, el texto se parte primero en dos líneas y solo después desaparecen los títulos; la «?» conserva título y explicación en su información emergente.
+- Paneles de Verificación, Edición y Color: los textos de los botones se parten en lugar de cortarse; las pestañas se reparten en varias filas en vez de esconderse tras flechas; las listas y tablas parten su texto. Los números en las pestañas, p. ej. «Text (12)», siguen actualizándose.
 ## 1.19.4
 
 - Passermark incluye ahora sus propias fuentes: Inter para la interfaz y JetBrains Mono para medidas y formatos. El aspecto ya no depende de las fuentes instaladas en el equipo.

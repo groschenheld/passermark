@@ -47,7 +47,8 @@ If we agree on a change:
 ## Translations
 
 The program is available in German, English, Hungarian, Spanish and French. Corrections to existing translations
-are welcome as an issue (screenshot + better wording).
+are welcome as an issue (screenshot + better wording). New languages and larger corrections: fill in the table
+described in [docs/translating.md](docs/translating.md) and attach it to an issue.
 
 ---
 
@@ -102,7 +103,8 @@ Wenn wir uns auf eine Änderung einigen:
 ### Übersetzungen
 
 Das Programm gibt es auf Deutsch, Englisch, Ungarisch, Spanisch und Französisch. Verbesserungen bestehender
-Übersetzungen gern als Issue (Bildschirmfoto + bessere Formulierung).
+Übersetzungen gern als Issue (Bildschirmfoto + bessere Formulierung). Neue Sprachen und größere Korrekturen: die
+Tabelle aus [docs/translating.md](docs/translating.md) ausfüllen und an ein Issue hängen.
 
 ---
 
@@ -149,7 +151,8 @@ Ha megegyezünk egy változtatásban:
 ### Fordítások
 
 A program magyarul, németül, angolul, spanyolul és franciául érhető el. A meglévő fordítások javításait
-szívesen fogadom issue-ként (képernyőkép + jobb megfogalmazás).
+szívesen fogadom issue-ként (képernyőkép + jobb megfogalmazás). Új nyelvek és nagyobb javítások: töltsd ki a
+[docs/translating.md](docs/translating.md) leírta táblázatot, és csatold egy issue-hoz.
 
 ---
 
@@ -196,7 +199,9 @@ Si nous nous mettons d'accord sur un changement :
 ### Traductions
 
 Le programme est disponible en français, allemand, anglais, hongrois et espagnol. Les corrections des
-traductions existantes sont bienvenues en issue (capture d'écran + meilleure formulation).
+traductions existantes sont bienvenues en issue (capture d'écran + meilleure formulation). Nouvelles langues et
+corrections plus importantes : remplir le tableau décrit dans [docs/translating.md](docs/translating.md) et le
+joindre à une issue.
 
 ---
 
@@ -244,4 +249,6 @@ Si nos ponemos de acuerdo en un cambio:
 ### Traducciones
 
 El programa está disponible en español, alemán, inglés, húngaro y francés. Las correcciones a las
-traducciones existentes son bienvenidas como issue (captura de pantalla + mejor formulación).
+traducciones existentes son bienvenidas como issue (captura de pantalla + mejor formulación). Idiomas nuevos y
+correcciones mayores: rellenar la tabla descrita en [docs/translating.md](docs/translating.md) y adjuntarla a un
+issue.

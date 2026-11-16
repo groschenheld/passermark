@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..l10n import tr
-from .common import responsive
+from .common import responsive, responsive_panel
 
 
 class MainColourMixin:
@@ -75,7 +75,7 @@ class MainColourMixin:
         from .colorpanel import ColorPanel
 
         self.color_panel = ColorPanel(self)
-        responsive(self.color_panel)
+        responsive_panel(self.color_panel)
         self.color_panel.data_fn = lambda: self._doc_bytes() if self.doc is not None else None
         self.color_panel.cfg_fn = lambda: self.session.cfg
         self.color_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))

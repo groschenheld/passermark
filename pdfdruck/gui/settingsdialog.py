@@ -17,9 +17,13 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFileDialog,
     QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMessageBox,
+    QPushButton,
     QVBoxLayout,
 )
 
@@ -92,16 +96,136 @@ class SettingsDialog(QDialog):
         f = QFormLayout(g)
         self.cmb = QComboBox()
         self.cmb.addItem(tr("Automatisch (Systemsprache)"), "auto")
-        for code, name in l10n.LANGS.items():  # language names always in their own language
-            self.cmb.addItem(name, code)
-        i = self.cmb.findData(self.settings.get("language", "auto"))
-        self.cmb.setCurrentIndex(max(0, i))
+        self._fill_languages(self.settings.get("language", "auto"))
         f.addRow(tr("Oberflächensprache:"), self.cmb)
         note = QLabel(tr("Die Sprache wird nach einem Neustart von Passermark wirksam."))
         note.setWordWrap(True)
         note.setStyleSheet(f"color: {theme.MUTED};")
         f.addRow(note)
+        # translations by anyone: export a table, fill it in, play it back in (langpack.py, docs/translating.md)
+        row = QHBoxLayout()
+        b_exp = QPushButton(tr("Übersetzungsvorlage exportieren …"))
+        b_exp.setToolTip(
+            tr(
+                "Alle Texte als Tabelle (CSV für Excel/LibreOffice oder JSON) – mit Englisch als Hilfe und, bei einer gewählten Sprache, ihrer bisherigen Übersetzung"
+            )
+        )
+        b_exp.clicked.connect(self._export_translation)
+        b_imp = QPushButton(tr("Übersetzung einspielen …"))
+        b_imp.setToolTip(tr("Ausgefüllte Tabelle prüfen und für diesen Benutzer installieren"))
+        b_imp.clicked.connect(self._install_translation)
+        self.b_rm = QPushButton(tr("Entfernen"))
+        self.b_rm.setToolTip(tr("Eingespielte Übersetzung der gewählten Sprache entfernen"))
+        self.b_rm.clicked.connect(self._remove_translation)
+        for b in (b_exp, b_imp, self.b_rm):
+            row.addWidget(b)
+        f.addRow(row)
+        self.cmb.currentIndexChanged.connect(lambda _i: self._sync_remove())
+        self._sync_remove()
         v.addWidget(g)
+
+    def _fill_languages(self, select: str):
+        """Shipped and installed languages; names always in their own language."""
+        self.cmb.blockSignals(True)
+        while self.cmb.count() > 1:
+            self.cmb.removeItem(1)
+        user = l10n.user_languages()
+        for code, name in l10n.languages().items():
+            self.cmb.addItem(name + (" ✎" if code in user else ""), code)
+        self.cmb.setCurrentIndex(max(0, self.cmb.findData(select)))
+        self.cmb.blockSignals(False)
+
+    def _sync_remove(self):
+        self.b_rm.setEnabled(self.cmb.currentData() in l10n.user_languages())
+
+    def _export_translation(self):
+        from .. import langpack
+
+        code = self.cmb.currentData()
+        code = code if code not in ("auto", "de") else None
+        name = f"passermark-{code or 'translation'}.csv"
+        path, _f = QFileDialog.getSaveFileName(
+            self, tr("Übersetzungsvorlage exportieren"), name, tr("Tabelle (*.csv);;JSON (*.json)")
+        )
+        if not path:
+            return
+        try:
+            n = langpack.export(path, code)
+        except OSError as e:
+            QMessageBox.critical(self, tr("Übersetzung"), tr("Speichern nicht möglich:\n{0}").format(e))
+            return
+        QMessageBox.information(
+            self,
+            tr("Übersetzung"),
+            tr(
+                "{0} Texte geschrieben. Spalte „translation“ ausfüllen, dann mit „Übersetzung einspielen …“ laden."
+            ).format(n),
+        )
+
+    def _install_translation(self):
+        from .. import langpack
+
+        path, _f = QFileDialog.getOpenFileName(self, tr("Übersetzung einspielen"), "", tr("Übersetzung (*.csv *.json)"))
+        if not path:
+            return
+        try:
+            meta, msgs = langpack.read(path)
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(self, tr("Übersetzung"), tr("Datei nicht lesbar:\n{0}").format(e))
+            return
+        rep = langpack.check(msgs)
+        if not rep.translated:
+            QMessageBox.warning(
+                self, tr("Übersetzung"), tr("In der Datei ist nichts übersetzt (Spalte „translation“).")
+            )
+            return
+        if not rep.ok:
+            bad = "\n".join(f"• {src[:60]}" for src, _w in rep.problems[:8])
+            QMessageBox.warning(
+                self,
+                tr("Übersetzung"),
+                tr("Platzhalter wie {{0}} fehlen oder sind verändert – bitte zuerst korrigieren:\n{0}").format(bad),
+            )
+            return
+        code = meta.get("language") or ""
+        if not langpack.valid_code(code):
+            code, ok = QInputDialog.getText(
+                self, tr("Übersetzung"), tr("Sprachkürzel (z. B. it, pl, pt_BR – für Ungarisch hu):")
+            )
+            code = code.strip()
+            if not ok or not langpack.valid_code(code):
+                return
+        name = meta.get("name") or l10n.LANGS.get(code, "")
+        if not name:
+            name, ok = QInputDialog.getText(
+                self, tr("Übersetzung"), tr("Name der Sprache in der Sprache selbst (z. B. Italiano):")
+            )
+            if not ok or not name.strip():
+                return
+        try:
+            langpack.install(msgs, code, name.strip())
+        except (OSError, ValueError) as e:
+            QMessageBox.critical(self, tr("Übersetzung"), tr("Installieren nicht möglich:\n{0}").format(e))
+            return
+        self._fill_languages(code)
+        self._sync_remove()
+        QMessageBox.information(
+            self,
+            tr("Übersetzung"),
+            tr("{0}: {1} von {2} Texten übersetzt ({3} %). Fehlende Texte erscheinen wie bisher.").format(
+                name, rep.translated, rep.total, rep.percent
+            )
+            + "\n"
+            + tr("Mit OK speichern – die Sprache wirkt nach einem Neustart."),
+        )
+
+    def _remove_translation(self):
+        from .. import langpack
+
+        code = self.cmb.currentData()
+        if langpack.remove(code):
+            self._fill_languages(code if code in l10n.languages() else "auto")
+            self._sync_remove()
 
     def _build_check_group(self, v):
         """Group "Dokumentprüfung"."""

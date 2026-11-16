@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from ..l10n import tr
 from . import theme
-from .common import responsive
+from .common import responsive_panel
 
 log = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class MainCheckMixin:
         from .preflightpanel import PreflightPanel
 
         self.pf_panel = PreflightPanel(self)
-        responsive(self.pf_panel)
+        responsive_panel(self.pf_panel)  # narrow sidebar: texts and tabs wrap instead of being cut off
         self.pf_panel.data_fn = self._doc_bytes
         self.pf_panel.file_fn = self._file_bytes
         self.pf_panel.result_ready.connect(self._pf_result)

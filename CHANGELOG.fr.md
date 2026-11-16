@@ -5,6 +5,24 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.19.7
+
+- Passermark peut désormais se mettre à jour tout seul : un tag v… démarre automatiquement les builds Linux et Windows, et les deux attachent leurs fichiers avec leur somme de contrôle à la parution. Un tag avec suffixe comme v1.19.8-test1 devient automatiquement une préversion.
+- Le texte de parution vient de la section ## 1.19.x correspondante des journaux (anglais et allemand) ; la boîte de dialogue de mise à jour affiche exactement ce texte. Rédigez la section avant le tag.
+- Si une installation ne peut pas se mettre à jour, la boîte de dialogue indique pourquoi : les fichiers sont encore en cours de build, ou Passermark s'exécute depuis un dossier source.
+
+## 1.19.6
+
+- Passermark peut désormais être traduit avec un tableau, sans toucher au code. Dans Fichier → Paramètres → Langue, « Exporter le modèle de traduction … » écrit le tableau avec tous les textes (CSV ou JSON) ; si une langue est sélectionnée, sa traduction précédente y figure déjà. « Importer une traduction … » vérifie le fichier et l'installe pour l'utilisateur ; les placeholders défectueux comme {0} sont refusés avec les textes concernés.
+- Les traductions importées sont stockées en JSON et n'exécutent jamais de code.
+- Nouvelles commandes CLI : passermark-cli lang list, export, import, check, install, remove.
+
+## 1.19.5
+
+- La vue revient à la même page et au même endroit après réorganisation des pages, ainsi qu'après passage d'une à plusieurs pages et retour.
+- La barre de défilement de l'aperçu du document affiche à nouveau l'indicateur, comme les barres des panneaux latéraux (Outils, Précontrôle …).
+- Barre d'outils droite : en rétrécissant, le texte passe d'abord sur deux lignes, puis seulement les titres disparaissent ; le « ? » garde titre et explication dans l'infobulle.
+- Panneaux Précontrôle, Édition et Couleur : les textes des boutons passent à la ligne au lieu d'être coupés ; les onglets s'étendent sur plusieurs lignes au lieu de disparaître derrière des flèches ; listes et tableaux coupent leur texte. Les compteurs des onglets, p. ex. « Texte (12) », continuent de se mettre à jour.
 ## 1.19.4
 
 - Passermark fournit désormais ses propres polices : Inter pour l'interface et JetBrains Mono pour les mesures et les formats. L'apparence ne dépend plus des polices installées sur la machine.

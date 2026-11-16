@@ -3,7 +3,8 @@
 # This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
 # License, version 3 or (at your option) any later version.
 # It is provided WITHOUT ANY WARRANTY. See the file LICENSE.
-"""Interface language: German (source language), English, Hungarian, Spanish, French.
+"""Interface language: German (source language), English, Hungarian, Spanish, French – plus translations the
+user installed (langpack.py, lang/<code>.json next to the settings).
 
 tr("German text") returns the text in the configured language; if a translation is missing,
 the German text stays. Placeholders: tr("Page {0} of {1}").format(a, b).
@@ -107,6 +108,60 @@ def system_language() -> str:
     return "en"
 
 
+def user_lang_dir() -> str:
+    """Translations installed by the user (langpack.py): lang/<code>.json next to settings.json."""
+    return os.path.join(os.path.dirname(_settings_file()), "lang")
+
+
+_user_langs: dict | None = None  # code -> name of the installed translations
+
+
+def user_languages() -> dict:
+    """Installed translations: {code: name}. A broken file is skipped."""
+    global _user_langs
+    if _user_langs is None:
+        _user_langs = {}
+        try:
+            names = sorted(os.listdir(user_lang_dir()))
+        except OSError:
+            names = []
+        for n in names:
+            code = n[:-5]
+            if not n.endswith(".json") or code == "de":
+                continue
+            try:
+                with open(os.path.join(user_lang_dir(), n), encoding="utf-8") as f:
+                    doc = json.load(f)
+                _user_langs[code] = str(doc.get("name") or LANGS.get(code) or code)
+            except (OSError, ValueError, AttributeError):
+                continue
+    return _user_langs
+
+
+def forget_user_languages():
+    """After installing or removing a translation: read the folder again."""
+    global _user_langs
+    _user_langs = None
+
+
+def user_messages(code: str) -> dict:
+    """The texts of an installed translation ({} if there is none or the file is broken)."""
+    try:
+        with open(os.path.join(user_lang_dir(), code + ".json"), encoding="utf-8") as f:
+            msgs = json.load(f).get("messages") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return {k: v for k, v in msgs.items() if isinstance(k, str) and isinstance(v, str)}
+
+
+def languages() -> dict:
+    """All selectable languages: the shipped ones, then the ones installed by the user."""
+    out = dict(LANGS)
+    for code, name in user_languages().items():
+        out.setdefault(code, name)
+    return out
+
+
 def current() -> str:
     """Language code of the interface: environment variable, user setting or system language."""
     global _lang
@@ -114,14 +169,14 @@ def current() -> str:
         want = os.environ.get("PASSERMARK_LANG") or load_settings().get("language") or "auto"
         if want == "auto":
             want = _admin_default() or "auto"
-        _lang = want if want in LANGS else system_language()
+        _lang = want if want in languages() else system_language()
     return _lang
 
 
 def set_language(code: str):
     """For tests/restart: switch the language immediately (the GUI is rebuilt on restart)."""
     global _lang, _catalog
-    _lang = code if code in LANGS else "en"
+    _lang = code if code in languages() else "en"
     _catalog = None
 
 
@@ -131,10 +186,21 @@ def _cat() -> dict:
         lang = current()
         _catalog = {}
         if lang != "de":
-            try:
-                _catalog = importlib.import_module(f"{__package__}.lang.{lang}").MESSAGES
-            except Exception:  # noqa: BLE001 – language file missing: German texts
-                _catalog = {}
+            if lang in LANGS:
+                try:
+                    _catalog = dict(importlib.import_module(f"{__package__}.lang.{lang}").MESSAGES)
+                except Exception:  # noqa: BLE001 – language file missing: German texts
+                    _catalog = {}
+            # an installed translation completes or corrects the shipped one, or is a language of its own;
+            # what it lacks comes from English rather than German
+            user = user_messages(lang)
+            if user:
+                if lang not in LANGS:
+                    try:
+                        _catalog = dict(importlib.import_module(f"{__package__}.lang.en").MESSAGES)
+                    except Exception:  # noqa: BLE001 – English catalog missing: German texts
+                        _catalog = {}
+                _catalog.update(user)
     return _catalog
 
 

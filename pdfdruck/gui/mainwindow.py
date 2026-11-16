@@ -338,6 +338,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         sc.setWidget(w)
         # panels wrap (common.responsive) – scroll horizontally only when there is no other way
         sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        sc.verticalScrollBar().setObjectName("bigScroll")  # Hias' scroll symbol on the handle (theme.py)
         return sc
 
     def _dock_vis(self, d, vis):
