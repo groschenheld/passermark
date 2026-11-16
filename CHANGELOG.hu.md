@@ -5,6 +5,9 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.19.4
+
+- A Passermark mostantól saját betűtípusokat hoz magával: Inter a felülethez és JetBrains Mono a méretekhez és formátumokhoz. A megjelenés többé nem függ a gépre telepített betűtípusoktól.
 ## 1.19.3
 
 ### A főablak újratervezése

@@ -2,6 +2,9 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.4
+
+- Passermark now ships its own fonts: Inter for the interface and JetBrains Mono for measurements and formats. The look no longer depends on the fonts installed on the machine.
 ## 1.19.3
 
 ### Redesign of the main window

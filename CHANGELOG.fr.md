@@ -5,6 +5,9 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.19.4
+
+- Passermark fournit désormais ses propres polices : Inter pour l'interface et JetBrains Mono pour les mesures et les formats. L'apparence ne dépend plus des polices installées sur la machine.
 ## 1.19.3
 
 ### Refonte de la fenêtre principale

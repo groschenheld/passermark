@@ -37,6 +37,16 @@ def test_repository_texts_present():
     assert "Mozilla Public License Version 2.0" in open(os.path.join(ROOT, "licenses/MPL-2.0.txt")).read()
 
 
+def test_shipped_fonts_with_licence():
+    d = os.path.join(ROOT, "pdfdruck", "gui", "fonts")
+    files = os.listdir(d)
+    for f in ("Inter-Regular.otf", "Inter-Bold.otf", "JetBrainsMono-Regular.ttf"):
+        assert f in files, f
+    for lic in ("Inter-OFL.txt", "JetBrainsMono-OFL.txt"):
+        text = open(os.path.join(d, lic), encoding="utf-8").read()
+        assert "SIL OPEN FONT LICENSE Version 1.1" in text, lic
+
+
 def test_collects_packages_and_notices():
     agpl = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
     agpl.write("GNU AFFERO GENERAL PUBLIC LICENSE\nVersion 3, 19 November 2007\n")
@@ -51,7 +61,8 @@ def test_collects_packages_and_notices():
     for pkg in ("pikepdf", "numpy", "img2pdf", "pypdfium2"):
         assert pkg in notes, pkg
     assert "Ghostscript 10.05.1" in notes and "AGPL-3.0" in notes
-    for t in ("GPL-3.0.txt", "LGPL-3.0.txt", "MPL-2.0.txt", "AGPL-3.0.txt"):
+    assert "Inter  ·  OFL-1.1" in notes and "JetBrains Mono  ·  OFL-1.1" in notes
+    for t in ("GPL-3.0.txt", "LGPL-3.0.txt", "MPL-2.0.txt", "AGPL-3.0.txt", "Inter-OFL.txt", "JetBrainsMono-OFL.txt"):
         assert os.path.isfile(os.path.join(d, "texts", t)), t
     gs = open(os.path.join(d, "GHOSTSCRIPT-NOTICE.txt"), encoding="utf-8").read()
     assert "ghostpdl-10.05.1" in gs and "gs10051" in gs, gs

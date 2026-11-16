@@ -8,7 +8,8 @@ root = os.path.abspath(os.path.join(SPECPATH, ".."))
 datas = [(os.path.join(root, "pdfdruck", "gui", "passermark.svg"), "pdfdruck/gui"),
          (os.path.join(root, "LICENSE"), "."), (os.path.join(root, "README.md"), "."),
          (os.path.join(root, "pdfdruck", "docs"), "pdfdruck/docs"),
-         (os.path.join(root, "pdfdruck", "gui", "svgicons"), "pdfdruck/gui/svgicons")]
+         (os.path.join(root, "pdfdruck", "gui", "svgicons"), "pdfdruck/gui/svgicons"),
+         (os.path.join(root, "pdfdruck", "gui", "fonts"), "pdfdruck/gui/fonts")]
 datas += collect_data_files("pypdfium2") + collect_data_files("pypdfium2_raw") + collect_data_files("reportlab")
 binaries = collect_dynamic_libs("pypdfium2_raw") + collect_dynamic_libs("pikepdf")
 RL = collect_submodules("reportlab.graphics.barcode") + ["reportlab.graphics.renderPDF"]  # Barcodes (loaded dynamically)

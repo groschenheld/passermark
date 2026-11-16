@@ -5,6 +5,9 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.19.4
+
+- Passermark incluye ahora sus propias fuentes: Inter para la interfaz y JetBrains Mono para medidas y formatos. El aspecto ya no depende de las fuentes instaladas en el equipo.
 ## 1.19.3
 
 ### Rediseño de la ventana principal

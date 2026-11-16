@@ -83,8 +83,31 @@ def _rgba(color: str, opacity: str) -> str:
 
 ACCENT_SOFT = _rgba(ACCENT, "0.36")  # Hias: backgrounds in the accent at 36 % opacity
 
-UI_FONTS = ["IBM Plex Sans", "Inter", "Segoe UI Variable Text", "Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans"]
-MONO_FONTS = ["IBM Plex Mono", "JetBrains Mono", "Cascadia Mono", "Consolas", "Ubuntu Mono", "DejaVu Sans Mono"]
+# Since 1.19.4 both fonts ship with the program (gui/fonts, SIL Open Font License): Inter for the interface,
+# JetBrains Mono for measurements and sizes. The other names are only a fallback if the files are missing.
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+UI_FONTS = ["Inter", "Segoe UI Variable Text", "Segoe UI", "Ubuntu", "Noto Sans", "DejaVu Sans"]
+MONO_FONTS = ["JetBrains Mono", "Cascadia Mono", "Consolas", "Ubuntu Mono", "DejaVu Sans Mono"]
+_fonts_loaded = False
+
+
+def load_fonts() -> list[str]:
+    """Register the fonts shipped in gui/fonts with Qt (once); the families that were added."""
+    global _fonts_loaded
+    if _fonts_loaded:
+        return []
+    _fonts_loaded = True
+    added = []
+    try:
+        names = sorted(os.listdir(FONT_DIR))
+    except OSError:
+        return added
+    for name in names:
+        if name.lower().endswith((".otf", ".ttf")):
+            fid = QFontDatabase.addApplicationFont(os.path.join(FONT_DIR, name))
+            if fid >= 0:
+                added += [f for f in QFontDatabase.applicationFontFamilies(fid) if f not in added]
+    return added
 
 
 def _first_available(names):
@@ -92,8 +115,18 @@ def _first_available(names):
     return next((n for n in names if n in fams), None)
 
 
+def tabular_figures(f: QFont) -> QFont:
+    """Digits of equal width (page numbers, zoom, sizes do not jump); needs Qt 6.7 – otherwise unchanged."""
+    try:
+        f.setFeature(QFont.Tag("tnum"), 1)
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return f
+
+
 def mono_font(size: float = 9.5) -> QFont:
-    """A monospaced font that is available on this system."""
+    """The monospaced font for measurements and sizes (JetBrains Mono, shipped with the program)."""
+    load_fonts()
     f = QFont()
     fam = _first_available(MONO_FONTS)
     if fam:
@@ -393,12 +426,13 @@ def apply(app: QApplication):
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor(ICON_OFF))
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor(ICON_OFF))
     app.setPalette(pal)
+    load_fonts()
     f = QFont()
     fam = _first_available(UI_FONTS)
     if fam:
         f.setFamily(fam)
     f.setPointSizeF(10)
-    app.setFont(f)
+    app.setFont(tabular_figures(f))
     app.setStyleSheet(QSS + _indicator_qss())
     if not install_wheel_guard(app):  # fallback: as a filter for the whole application
         _guard = WheelGuard(app)
