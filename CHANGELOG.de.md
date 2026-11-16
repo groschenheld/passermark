@@ -2,6 +2,9 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.4
+
+- Passermark bringt jetzt eigene Schriften mit: Inter für die Oberfläche und JetBrains Mono für Maße und Formate. Das Aussehen hängt nicht mehr von den auf dem Rechner installierten Schriften ab.
 ## 1.19.3
 
 ### Neues Gesicht des Hauptfensters
