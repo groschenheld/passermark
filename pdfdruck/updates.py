@@ -166,6 +166,18 @@ def asset_name(release: Release, kind: str) -> str | None:
     return cands[0] if cands else None
 
 
+def why_not(release: Release, kind: str) -> str:
+    """Why this installation cannot update itself to ``release``: "" (it can), "checkout" (not an installed
+    program, e.g. a git checkout), "no_file" (the release has no file for this kind of installation – the build
+    workflow has not attached it) or "no_checksum" (the file is there, its .sha256 is not)."""
+    if kind not in ("appimage", "windows", "source"):
+        return "checkout"
+    name = asset_name(release, kind)
+    if not name:
+        return "no_file"
+    return "" if name + ".sha256" in release.assets else "no_checksum"
+
+
 def can_apply(release: Release, kind: str) -> bool:
     """Can this installation update itself to ``release`` (file and its checksum published)?"""
     name = asset_name(release, kind)

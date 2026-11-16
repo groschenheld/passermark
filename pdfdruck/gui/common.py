@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
@@ -281,6 +281,14 @@ class FlowLayout(QLayout):
         m = self.contentsMargins()
         return size + QSize(m.left() + m.right(), m.top() + m.bottom())
 
+    @staticmethod
+    def _hint(it, width: int) -> QSize:
+        """Size of an item, never wider than the row (a wrapping button then breaks its text, see wrap_buttons)."""
+        sh = it.sizeHint()
+        if width > 0 and sh.width() > width:
+            sh = QSize(max(width, it.minimumSize().width()), sh.height())
+        return sh
+
     def _do(self, rect, test: bool) -> int:
         m = self.contentsMargins()
         r = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
@@ -289,13 +297,13 @@ class FlowLayout(QLayout):
 
         def place(items, y0, h):
             for it, xx in items:
-                sh = it.sizeHint()
+                sh = self._hint(it, r.width())
                 it.setGeometry(QRect(QPoint(xx, y0 + (h - sh.height()) // 2), sh))
 
         for it in self._items:
             if it.isEmpty():
                 continue
-            sh = it.sizeHint()
+            sh = self._hint(it, r.width())
             nx = x + sh.width() + self._h
             if nx - self._h > r.right() + 1 and line_h > 0:
                 if not test:
@@ -356,6 +364,167 @@ def responsive(root):
             lb.setMinimumWidth(0)
             lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
     flow_buttons(root)
+
+
+def _wrap_words(text: str, fm, width: int) -> str:
+    """``text`` with line breaks so that no line is wider than ``width`` (a single long word stays whole).
+    A "…" stays with the word before it."""
+    words = text.replace(" …", "\u00a0…").split(" ")
+    lines, cur = [], ""
+    for w in words:
+        cand = f"{cur} {w}" if cur else w
+        if cur and fm.horizontalAdvance(cand) > width:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = cand
+    lines.append(cur)
+    return "\n".join(lines).replace("\u00a0", " ")
+
+
+class _ButtonWrapper(QObject):
+    """Breaks the text of push buttons into lines when they get narrow (see wrap_buttons)."""
+
+    def eventFilter(self, b, ev):
+        if ev.type() == QEvent.Type.Resize:
+            self.rewrap(b)
+        return False
+
+    @staticmethod
+    def _pad(b) -> int:
+        from PySide6.QtWidgets import QStyle
+
+        pad = 2 * b.style().pixelMetric(QStyle.PixelMetric.PM_ButtonMargin, None, b) + 16
+        if not b.icon().isNull():
+            pad += b.iconSize().width() + 4
+        return pad
+
+    def rewrap(self, b):
+        """Break the button's text for its current width (a text set by the program becomes the new source)."""
+        shown = b.property("wrapShown")
+        if shown is None or b.text() != shown:  # new text from the program: that is the source now
+            b.setProperty("wrapSource", b.text().replace("\n", " "))
+            self.set_minimum(b)
+        src = b.property("wrapSource") or ""
+        text = _wrap_words(src, b.fontMetrics(), b.width() - self._pad(b))
+        b.setProperty("wrapShown", text)
+        if text != b.text():
+            b.setText(text)
+
+    def set_minimum(self, b):
+        """As narrow as the longest word allows (instead of the whole text in one line)."""
+        src = b.property("wrapSource") or ""
+        fm = b.fontMetrics()
+        longest = max((fm.horizontalAdvance(w) for w in src.replace(" …", "\u00a0…").split(" ")), default=0)
+        b.setMinimumWidth(longest + self._pad(b))
+
+
+_wrapper = None
+
+
+def wrap_buttons(root):
+    """Push buttons with text get narrow by breaking their text into lines instead of being cut off."""
+    from PySide6.QtWidgets import QDialogButtonBox, QPushButton
+
+    global _wrapper
+    if _wrapper is None:
+        _wrapper = _ButtonWrapper()
+    for b in root.findChildren(QPushButton):
+        t = b.text()
+        if " " not in t.strip() or isinstance(b.parentWidget(), QDialogButtonBox) or b.property("wrapSource"):
+            continue
+        b.setProperty("wrapSource", t)
+        _wrapper.set_minimum(b)
+        b.installEventFilter(_wrapper)
+
+
+def wrap_tabs(tw) -> bool:
+    """Tabs of a panel in rows that wrap (instead of a tab bar with scroll arrows that hides tabs)."""
+    from PySide6.QtWidgets import QBoxLayout, QButtonGroup, QToolButton
+
+    host = tw.parentWidget()
+    lay = host.layout() if host is not None else None
+    if not isinstance(lay, QBoxLayout) or getattr(tw, "_flow_tabs", None) is not None:
+        return False
+    idx = lay.indexOf(tw)
+    if idx < 0:
+        return False
+    bar = QWidget(host)
+    bar.setObjectName("flowTabs")
+    flow = FlowLayout(bar, 2, 2)
+    group = QButtonGroup(bar)
+    group.setExclusive(True)
+    tw._flow_tabs = bar
+
+    def sync():
+        btns = group.buttons()
+        if len(btns) != tw.count():
+            for b in btns:
+                group.removeButton(b)
+                flow.removeWidget(b)
+                b.deleteLater()
+            for i in range(tw.count()):
+                b = QToolButton(bar)
+                b.setObjectName("flowTab")
+                b.setCheckable(True)
+                b.setAutoRaise(True)
+                group.addButton(b, i)
+                flow.addWidget(b)
+        for i in range(tw.count()):
+            b = group.button(i)
+            b.setText(tw.tabText(i).replace("&", "&&"))
+            b.setToolTip(tw.tabToolTip(i))
+            b.setIcon(tw.tabIcon(i))
+            b.setEnabled(tw.isTabEnabled(i))
+            b.setVisible(tw.isTabVisible(i))
+            b.setChecked(i == tw.currentIndex())
+
+    group.idClicked.connect(tw.setCurrentIndex)
+    tw.currentChanged.connect(lambda _i: sync())
+    for name in ("setTabText", "setTabEnabled", "setTabVisible", "setTabToolTip", "setTabIcon"):
+        orig = getattr(tw, name)
+        setattr(tw, name, lambda *a, _o=orig: (_o(*a), sync())[0])
+    for name in ("addTab", "insertTab", "removeTab"):
+        orig = getattr(tw, name)
+        setattr(tw, name, lambda *a, _o=orig: (lambda r: (sync(), r)[1])(_o(*a)))
+    tw.tabBar().hide()
+    lay.insertWidget(idx, bar)
+    sync()
+    return True
+
+
+def wrap_views(root):
+    """Lists and tables in a panel: text wraps and rows grow when a column gets narrow."""
+    from PySide6.QtWidgets import QTableView, QTreeView
+
+    for v in root.findChildren(QTreeView):
+        if v.wordWrap():
+            v.setTextElideMode(Qt.TextElideMode.ElideNone)
+            t = QTimer(v)
+            t.setSingleShot(True)
+            t.setInterval(60)
+            t.timeout.connect(v.doItemsLayout)
+            v.header().sectionResized.connect(lambda *_a, t=t: t.start())
+    for v in root.findChildren(QTableView):
+        v.setWordWrap(True)
+        v.setTextElideMode(Qt.TextElideMode.ElideNone)
+        t = QTimer(v)
+        t.setSingleShot(True)
+        t.setInterval(60)
+        t.timeout.connect(v.resizeRowsToContents)
+        v.horizontalHeader().sectionResized.connect(lambda *_a, t=t: t.start())
+
+
+def responsive_panel(root):
+    """For the panels of the sidebars: like responsive(), and also: button texts and tabs wrap, lists and
+    tables wrap their text – getting narrow breaks lines instead of cutting things off."""
+    from PySide6.QtWidgets import QTabWidget
+
+    responsive(root)
+    wrap_buttons(root)
+    for tw in root.findChildren(QTabWidget):
+        wrap_tabs(tw)
+    wrap_views(root)
 
 
 def scroll_body(dlg) -> bool:

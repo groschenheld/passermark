@@ -400,6 +400,10 @@ def main(argv: list[str] | None = None) -> int:
 
         return render_main()
     _safe_streams()
+    if argv[:1] == ["lang"]:  # translations: export, check, install, convert (langpack.py)
+        from .langpack import cli_main as lang_main
+
+        return lang_main(argv[1:])
     if argv[:1] and argv[0] in API_COMMANDS:
         return api_main(argv[0], argv[1:])
 

@@ -189,6 +189,9 @@ QTabWidget::pane {{ border: 1px solid {BORDER}; top: -1px; background: {BG}; }}
 QTabBar::tab {{ background: {PANEL}; border: 1px solid {BORDER}; padding: 6px 14px; margin-right: 2px; }}
 QTabBar::tab:selected {{ border-bottom: 2px solid {ACCENT}; color: {ACCENT_TEXT}; }}
 QTabBar::tab:hover {{ color: {ACCENT_TEXT}; }}
+QToolButton#flowTab {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 0; padding: 5px 10px; }}
+QToolButton#flowTab:checked {{ border-bottom: 2px solid {ACCENT}; color: {ACCENT_TEXT}; }}
+QToolButton#flowTab:hover {{ color: {ACCENT_TEXT}; }}
 
 QDockWidget {{ titlebar-close-icon: none; }}
 QDockWidget::title {{ background: {PANEL}; padding: 5px; border-bottom: 1px solid {BORDER}; }}

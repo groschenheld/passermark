@@ -99,9 +99,9 @@ class EditPanel(QWidget):
         self.btn_undo.clicked.connect(self._undo)
         self.btn_undo.setEnabled(False)
         v.addWidget(self.btn_undo)
-        from .common import responsive
+        from .common import responsive_panel
 
-        responsive(self)  # wrap rows of buttons, cut nothing off in a narrow panel
+        responsive_panel(self)  # rows, texts and tabs wrap, nothing is cut off in a narrow panel
         self.setMinimumWidth(0)
 
     def _build_text_tab(self):

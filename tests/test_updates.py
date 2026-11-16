@@ -106,6 +106,10 @@ def test_install_kind_and_asset():
     assert U.asset_name(rel, "source") == "passermark-src-1.19.0.tar.gz" and U.asset_name(rel, "other") is None
     assert U.can_apply(rel, "appimage") and U.can_apply(rel, "source")
     assert not U.can_apply(rel, "windows")  # setup without checksum: never installed
+    assert U.why_not(rel, "appimage") == "" and U.why_not(rel, "windows") == "no_checksum"
+    assert U.why_not(rel, "other") == "checkout"
+    bare = U.releases_from_json(json.loads(_gh(("v1.19.4", False, []))))[0]
+    assert U.why_not(bare, "source") == "no_file"  # tag pushed, build not attached (the 1.19.4 case)
 
 
 def test_checksum_text():

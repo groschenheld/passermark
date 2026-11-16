@@ -96,6 +96,7 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
         # single-page view: the scroll area only holds one page, so a scroll bar of our own stands for the
         # whole document (see docscroll.py); the area's own vertical bar is hidden meanwhile
         self._docbar = QScrollBar(Qt.Orientation.Vertical, self)
+        self._docbar.setObjectName("bigScroll")  # Hias' scroll symbol on the handle, as on the normal bar
         self._docbar.setPageStep(docscroll.UNITS)
         self._docbar.setSingleStep(docscroll.UNITS // 10)
         self._docbar.hide()
@@ -167,12 +168,40 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
 
     def set_view_mode(self, mode):
         """Arrange the pages differently (a viewlayout.ViewMode). The zoom stays; with "fit width/page" the
-        pages are fitted anew in the new arrangement."""
+        pages are fitted anew in the new arrangement. The view stays on the same page, as far down it as before."""
         cur = self.current
-        self.view_mode = mode
-        self.ruler_page = None
-        self.relayout()
-        self.goto(cur, force=True)
+        share = self._share_in_page(cur)
+        self._switching = True  # scroll signals of the rearrangement must not change the current page
+        try:
+            self.view_mode = mode
+            self.ruler_page = None
+            self.relayout()
+            self._back_to(cur, share)
+        finally:
+            self._switching = False
+        # the scroll ranges of the new arrangement may only be final after Qt's layout pass: once more then
+        QTimer.singleShot(0, lambda: self._back_to(cur, share) if self.view_mode is mode else None)
+
+    def _share_in_page(self, i: int) -> float:
+        """How far down page i the top of the view is (0.0 = its top, 1.0 = its bottom)."""
+        if not (0 <= i < len(self.pages)) or self.pages[i].height() <= 0:
+            return 0.0
+        w = self.pages[i]
+        return min(max((self.verticalScrollBar().value() + PAGE_GAP - w.y()) / w.height(), 0.0), 1.0)
+
+    def _back_to(self, i: int, share: float):
+        """Show page i again, scrolled to ``share`` of its height (after a change of the arrangement)."""
+        if not (0 <= i < len(self.pages)):
+            return
+        self._switching = True
+        try:
+            self.goto(i, force=True)
+            if share > 0:
+                vb = self.verticalScrollBar()
+                vb.setValue(vb.value() + round(share * self.pages[i].height()))
+        finally:
+            self._switching = False
+        self._sync_docbar()
 
     def _dpi_scale(self) -> float:
         return self.logicalDpiX() / 72.0
@@ -259,6 +288,8 @@ class PageView(PageOverlayMixin, PageInteractionMixin, PageGeometryMixin, PageRe
 
     def _on_scroll(self, _):
         self._timer.start()
+        if getattr(self, "_switching", False):
+            return
         i = self.view_mode.page_at_scroll(self)
         if i is not None and i != self.current:
             self.current = i

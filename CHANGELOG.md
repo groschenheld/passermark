@@ -2,6 +2,24 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.7
+
+- Passermark can update itself: a tag v… now starts the Linux and Windows builds automatically, and both attach their files with checksums to the release. A tag with a suffix like v1.19.8-test1 becomes a pre-release.
+- The release text comes from the matching ## 1.19.x section of the changelogs (English and German); the update dialog shows exactly this text. Write the section before tagging.
+- If an installation cannot update itself, the dialog now says why: the release files are still building, or Passermark runs from a source folder.
+
+## 1.19.6
+
+- Anyone can translate Passermark with a table, without touching code. Under File → Settings → Language, "Export translation template …" writes the table with all texts (CSV or JSON); with a language selected, its previous translation is already included. "Import translation …" checks the file and installs it for the user; broken placeholders like {0} are rejected with the affected texts.
+- Imported translations are stored as JSON and never execute code.
+- New CLI commands: passermark-cli lang list, export, import, check, install, remove.
+
+## 1.19.5
+
+- The view returns to the same page and position after pages are reordered, and also when switching between one and several pages and back.
+- The scrollbar of the document overview shows the scroll indicator again; so do the bars in the side panels (Tools, Preflight …).
+- Right toolbar: when made narrower the text wraps into two lines first, only then the headings hide; the "?" keeps title and explanation in its tooltip.
+- Preflight, Edit and Colour panels: button texts wrap instead of being cut off; tabs run over several rows instead of disappearing behind arrows; lists and tables wrap their text. The counts in the tabs, e.g. "Text (12)", keep updating.
 ## 1.19.4
 
 - Passermark now ships its own fonts: Inter for the interface and JetBrains Mono for measurements and formats. The look no longer depends on the fonts installed on the machine.

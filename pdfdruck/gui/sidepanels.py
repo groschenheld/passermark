@@ -119,9 +119,18 @@ class Dashed(QWidget):
         p.end()
 
 
+class _ToolsHead(QWidget):
+    """Head of the tools panel; when narrow only close button and symbol remain."""
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        need = 2 * 28 + self.title.sizeHint().width() + 10 + 26 + 40
+        self.title.setVisible(self.width() >= need)
+
+
 def tools_header(window) -> QWidget:
     """Head of the tools panel: close button, "Werkzeuge" with its symbol, dashed line."""
-    head = QWidget()
+    head = _ToolsHead()
     head.setObjectName("toolsHead")
     v = QVBoxLayout(head)
     v.setContentsMargins(8, 6, 8, 0)
@@ -139,6 +148,8 @@ def tools_header(window) -> QWidget:
     f.setBold(True)
     f.setPointSizeF(max(f.pointSizeF(), 9.0) * 1.3)
     title.setFont(f)
+    title.setMinimumWidth(1)  # may get narrow – resizeEvent hides it then
+    head.title = title
     sym = QLabel()
     sym.setPixmap(_crisp("tools", theme.ICON, 26, head))
     row.addWidget(close)
@@ -214,7 +225,7 @@ def tools_panel(window) -> QWidget:
             ],
         ),
     ]
-    box = QWidget()
+    box = _ToolsPanel()
     box.setObjectName("toolsPanel")
     v = QVBoxLayout(box)
     v.setContentsMargins(12, 4, 12, 10)
@@ -228,12 +239,15 @@ def tools_panel(window) -> QWidget:
         f.setBold(True)
         f.setPointSizeF(max(f.pointSizeF(), 9.0) * 1.15)
         head.setFont(f)
+        head.setWordWrap(True)  # narrow: the heading breaks into lines, very narrow: only "?" remains
+        head.setAlignment(Qt.AlignmentFlag.AlignCenter)
         head.setToolTip(help_text)
+        box.headings.append(head)
         q = QLabel("?")
         q.setObjectName("toolsHelp")
         q.setAlignment(Qt.AlignmentFlag.AlignCenter)
         q.setFixedSize(16, 16)
-        q.setToolTip(help_text)
+        q.setToolTip(f"<b>{title}</b><br>{help_text}")
         row.addStretch(1)
         row.addWidget(head)
         row.addWidget(q, 0, Qt.AlignmentFlag.AlignTop)
@@ -244,6 +258,23 @@ def tools_panel(window) -> QWidget:
             v.addWidget(Dashed())
     v.addStretch(1)
     return box
+
+
+class _ToolsPanel(QWidget):
+    """The body of the tools panel; below COMPACT pixels the group headings give way (only "?" stays)."""
+
+    COMPACT = 150
+
+    def __init__(self):
+        super().__init__()
+        self.headings = []
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        wide = self.width() >= self.COMPACT
+        for h in self.headings:
+            if h.isVisibleTo(self) != wide:
+                h.setVisible(wide)
 
 
 class _ToolButton(QPushButton):
@@ -266,6 +297,22 @@ class _ToolButton(QPushButton):
         fm = self.fontMetrics()
         return QSize(fm.horizontalAdvance(self.text()) + 2 * self.ICON + 40, 40)
 
+    def minimumSizeHint(self):
+        return QSize(self.ICON + 20, 40)  # narrow: only the symbol (see paintEvent)
+
+    def _text_room(self) -> QRectF:
+        n = self.ICON
+        return QRectF(n + 10, 2, self.width() - 2 * (n + 10), self.height() - 4)
+
+    def _text_fits(self, f: QFont) -> bool:
+        """Does the text fit next to the symbol – in one line or broken into two?"""
+        fm = QFontMetrics(f)
+        room = self._text_room()
+        if room.width() <= 0 or any(fm.horizontalAdvance(w) > room.width() for w in self.text().split()):
+            return False
+        used = fm.boundingRect(room.toRect(), int(Qt.TextFlag.TextWordWrap), self.text())
+        return used.height() <= room.height()
+
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -277,14 +324,17 @@ class _ToolButton(QPushButton):
         p.drawRect(r)
         n = self.ICON
         pm = self._action.icon().pixmap(QSize(n, n), self.devicePixelRatioF(), mode=_icon_mode(on, hover))
-        x = self.width() - n - 10
-        p.drawPixmap(QRectF(x, (self.height() - n) / 2, n, n), pm, QRectF(pm.rect()))
         f = QFont(self.font())
         f.setBold(True)
-        p.setFont(f)
-        p.setPen(QColor(theme.TEXT if on else theme.ICON_OFF))
-        text_rect = QRectF(n + 10, 0, self.width() - 2 * (n + 10), self.height())
-        p.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, self.text())
+        with_text = self._text_fits(f)
+        x = self.width() - n - 10 if with_text else (self.width() - n) / 2  # too narrow: symbol in the middle
+        p.drawPixmap(QRectF(x, (self.height() - n) / 2, n, n), pm, QRectF(pm.rect()))
+        if with_text:
+            p.setFont(f)
+            p.setPen(QColor(theme.TEXT if on else theme.ICON_OFF))
+            p.drawText(
+                self._text_room(), int(Qt.AlignmentFlag.AlignCenter) | int(Qt.TextFlag.TextWordWrap), self.text()
+            )
         p.end()
 
 

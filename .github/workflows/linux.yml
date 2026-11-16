@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds the Linux AppImage (incl. Python, Qt, Ghostscript). Built on ubuntu-22.04 so it runs on newer distros too.
-# Result: "Artifacts" of the run; for tags v* also attached to a GitHub Release.
+# Result: "Artifacts" of the run. Pushing a tag v* builds by itself and attaches AppImage, source package and
+# their .sha256 to the GitHub Release – the update function of the program needs exactly these files.
 name: Linux AppImage
 on:
   workflow_dispatch:
+  push:
+    tags: ["v*"]
 permissions:
   contents: write
 jobs:
@@ -52,6 +55,8 @@ jobs:
           .venv/bin/python tests/test_examples.py
           .venv/bin/python tests/test_split.py
           .venv/bin/python tests/test_performance.py
+          .venv/bin/python tests/test_updates.py
+          .venv/bin/python tests/test_release_notes.py
       - name: Self test of the AppImage (all bundled dependencies)
         run: |
           APPIMAGE_EXTRACT_AND_RUN=1 QT_QPA_PLATFORM=offscreen timeout 120 dist/*.AppImage --selftest
@@ -69,12 +74,38 @@ jobs:
           git archive --format=tar.gz --prefix="passermark-$VER/" -o "dist/passermark-src-$VER.tar.gz" HEAD
           cd dist
           for f in *.AppImage passermark-src-*.tar.gz; do sha256sum "$f" > "$f.sha256"; done
-      - name: Release (tags only)
+      - uses: actions/upload-artifact@v7
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
         with:
-          files: |
+          name: release-linux
+          path: |
             dist/*.AppImage
             dist/*.AppImage.sha256
             dist/passermark-src-*.tar.gz
             dist/passermark-src-*.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 3
+
+  # Attach to the release. Own job with the same concurrency group as in windows.yml: the two workflows never
+  # create the release at the same time (that could give two releases for one tag).
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-linux
+          path: dist
+      - name: Release notes from the changelogs
+        run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > release-notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          # a tag with a suffix (v1.19.7-test1) is a pre-release: only the test channel of the program sees it
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/*

@@ -284,10 +284,18 @@ class UpdateDialog(QDialog):
         self._installed.connect(self._source_done, Qt.ConnectionType.QueuedConnection)
 
     def _how_text(self) -> str:
-        if not updates.can_apply(self.release, self.kind):
+        why = updates.why_not(self.release, self.kind)
+        if why == "checkout":
             return tr(
-                "Diese Installation kann sich nicht selbst aktualisieren – die neue Version gibt es auf der Seite."
+                "Passermark läuft hier nicht aus einer Installation (AppImage, Setup, install.sh), sondern z. B. "
+                "aus einem Quellordner – dort bitte selbst aktualisieren (git pull)."
             )
+        if why:
+            # the release is incomplete: the build has not attached the file (or its checksum) yet
+            return tr(
+                "Zu dieser Version fehlt die Datei für diese Installation ({0}) noch – meist läuft der Build "
+                "gerade. Später nochmal versuchen oder die Seite öffnen."
+            ).format({"appimage": "AppImage", "windows": "Setup.exe", "source": tr("Quellpaket")}[self.kind])
         return {
             "appimage": tr("Die AppImage-Datei wird ersetzt, danach startet Passermark neu."),
             "windows": tr(
