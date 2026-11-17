@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -31,6 +30,7 @@ from PySide6.QtWidgets import (
 from .. import colorlab
 from .. import platform as _platform
 from ..l10n import tr
+from . import lastdir
 from . import theme
 
 
@@ -240,7 +240,7 @@ class MeasureDialog(QDialog):
         self.ed_lab.clear()
 
     def _load_file(self):
-        path, _ = QFileDialog.getOpenFileName(
+        path, _ = lastdir.getOpenFileName(
             self, tr("Messdatei"), "", tr("Messdaten (*.txt *.ti3 *.cgats *.it8 *.csv *.log);;Alle Dateien (*)")
         )
         if not path:

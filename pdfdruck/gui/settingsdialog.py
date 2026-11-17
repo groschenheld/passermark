@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
@@ -29,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from .. import l10n
 from ..l10n import tr
+from . import lastdir
 from . import theme
 
 
@@ -144,7 +144,7 @@ class SettingsDialog(QDialog):
         code = self.cmb.currentData()
         code = code if code not in ("auto", "de") else None
         name = f"passermark-{code or 'translation'}.csv"
-        path, _f = QFileDialog.getSaveFileName(
+        path, _f = lastdir.getSaveFileName(
             self, tr("Übersetzungsvorlage exportieren"), name, tr("Tabelle (*.csv);;JSON (*.json)")
         )
         if not path:
@@ -165,7 +165,7 @@ class SettingsDialog(QDialog):
     def _install_translation(self):
         from .. import langpack
 
-        path, _f = QFileDialog.getOpenFileName(self, tr("Übersetzung einspielen"), "", tr("Übersetzung (*.csv *.json)"))
+        path, _f = lastdir.getOpenFileName(self, tr("Übersetzung einspielen"), "", tr("Übersetzung (*.csv *.json)"))
         if not path:
             return
         try:

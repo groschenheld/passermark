@@ -14,7 +14,6 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_r
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFileDialog,
     QMenu,
     QMessageBox,
 )
@@ -23,6 +22,7 @@ from .. import convert as _convert
 from .. import images
 from ..l10n import tr
 from .fileopen import OPEN_FILTER, ask_hdr, load_any, load_pdf
+from . import lastdir
 from .icons import icon as svg_icon
 from .mergedialog import MergeDialog
 from .thumbs import THUMB_W
@@ -36,7 +36,7 @@ class MainFileMixin:
     # ================================================================ #
     def open_dialog(self):
         """Ask for files and open them."""
-        paths, _ = QFileDialog.getOpenFileNames(self, tr("Öffnen"), os.path.dirname(self.path or ""), OPEN_FILTER)
+        paths, _ = lastdir.getOpenFileNames(self, tr("Öffnen"), os.path.dirname(self.path or ""), OPEN_FILTER)
         if paths:
             self.open_paths_here(paths)
 
@@ -65,6 +65,8 @@ class MainFileMixin:
             self.doc.close()
         same_count = self.doc is not None and changed_pages is not None and self.thumbs.count() == len(doc)
         self.doc, self.path, self.display_name, self.modified = doc, path, display, modified
+        if path:
+            lastdir.remember(path)  # file dialogs start here next time
         if src is None and not modified and path and path.lower().endswith(".pdf") and os.path.isfile(path):
             src = path  # unchanged: the render process reads the file itself
         self.view.set_document(doc, keep_page, src=src, changed_pages=changed_pages if same_count else None)
@@ -104,6 +106,7 @@ class MainFileMixin:
         self._sources = [tr("{0} (umgewandelt)").format(path)]
         self._set_doc(doc, None, os.path.splitext(os.path.basename(path))[0] + ".pdf", False)
         self._suggest_dir = os.path.dirname(path)
+        lastdir.remember(path)
 
     def open_images(self, paths: list[str]):
         """Open several images as one document in this window."""
@@ -117,6 +120,24 @@ class MainFileMixin:
         self._sources = list(paths)
         self._set_doc(doc, None, name, False)
         self._suggest_dir = os.path.dirname(paths[0])
+        lastdir.remember(paths[0])
+        self._svg_hints(paths)
+
+    def _svg_hints(self, paths: list[str]):
+        """SVG: say how it was opened; if parts were rasterised, say so and why (not silently)."""
+        warn, used = [], []
+        for p in paths:
+            rep = images.svg_report(p)
+            if rep is None:
+                continue
+            used.append(rep["method"])
+            warn += [f"{os.path.basename(p)}: {n}" for n in rep["notes"]]
+        if warn:
+            QMessageBox.information(self, tr("SVG geöffnet"), "\n\n".join(warn))
+        elif used:
+            self.statusBar().showMessage(
+                tr("SVG als Vektoren geöffnet ({0})").format(", ".join(sorted(set(used)))), 8000
+            )
 
     def properties_dialog(self):
         """Open the document properties."""
@@ -160,7 +181,7 @@ class MainFileMixin:
         start = self.path or os.path.join(
             getattr(self, "_suggest_dir", os.path.expanduser("~")), self.display_name or "Dokument.pdf"
         )
-        path, _ = QFileDialog.getSaveFileName(self, tr("Speichern unter"), start, tr("PDF-Dateien (*.pdf)"))
+        path, _ = lastdir.getSaveFileName(self, tr("Speichern unter"), start, tr("PDF-Dateien (*.pdf)"))
         if not path:
             return False
         if not path.lower().endswith(".pdf"):
@@ -191,6 +212,45 @@ class MainFileMixin:
         rows = sorted(self.thumbs.row(i) for i in self.thumbs.selectedItems())
         return rows or ([self.view.current] if self.doc is not None else [])
 
+    def export_images(self):
+        """File → Export as image: PNG/JPG/TIFF, one file per page – runs in the background (exportdialog.py)."""
+        if self.doc is None:
+            return
+        from .exportdialog import ExportImageDialog, default_name
+
+        sel = sorted(self.thumbs.row(i) for i in self.thumbs.selectedItems())
+        dlg = ExportImageDialog(self, len(self.doc), self.view.current, sel)
+        if dlg.exec() != dlg.DialogCode.Accepted:
+            return
+        s, pages = dlg.result_settings(), dlg.result_pages()
+        folder = os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", "")
+        ext = {"png": "*.png", "jpg": "*.jpg *.jpeg", "tiff": "*.tif *.tiff"}[s.format]
+        path, _ = lastdir.getSaveFileName(
+            self,
+            tr("Als Bild exportieren"),
+            default_name(self.display_name, s.format, folder),
+            f"{s.format.upper()} ({ext})",
+        )
+        if not path:
+            return
+        from .. import rasterexport
+
+        files = rasterexport.target_files(path, pages, s)
+        taken = [f for f in files if os.path.exists(f)]
+        if taken and (
+            QMessageBox.question(
+                self,
+                tr("Als Bild exportieren"),
+                tr("{0} Datei(en) gibt es schon, z. B. {1}. Überschreiben?").format(
+                    len(taken), os.path.basename(taken[0])
+                ),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+        settings = {k: v for k, v in vars(s).items() if k != "out"}
+        self.start_export(path, settings, pages)
+
     def export_selection(self):
         """Export the selected pages as one PDF."""
         pages = self.selected_pages()
@@ -201,7 +261,7 @@ class MainFileMixin:
         start = os.path.join(
             os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", ""), f"{base}_{rng}.pdf"
         )
-        path, _ = QFileDialog.getSaveFileName(
+        path, _ = lastdir.getSaveFileName(
             self, tr("{0} Seite(n) exportieren").format(len(pages)), start, tr("PDF-Dateien (*.pdf)")
         )
         if not path:
@@ -228,7 +288,7 @@ class MainFileMixin:
         pages = self.selected_pages()
         if not pages:
             return
-        folder = QFileDialog.getExistingDirectory(
+        folder = lastdir.getExistingDirectory(
             self,
             tr("Zielordner für Einzelseiten"),
             os.path.dirname(self.path) if self.path else getattr(self, "_suggest_dir", ""),
@@ -289,7 +349,7 @@ class MainFileMixin:
 
     def insert_dialog(self, where: str):
         """Ask for files and insert their pages (``where``: before, after or end)."""
-        paths, _ = QFileDialog.getOpenFileNames(
+        paths, _ = lastdir.getOpenFileNames(
             self, tr("Seiten einfügen aus …"), os.path.dirname(self.path or ""), OPEN_FILTER
         )
         if not paths:

@@ -20,8 +20,17 @@ from pdfdruck import colorlab, proof
 TMP = tempfile.mkdtemp(prefix="pm-proof-")
 
 
+def is_fogra39(path: str) -> bool:
+    """Is the test profile FOGRA39 (TeX Live, package texlive-base)? Without it Ghostscript's default CMYK profile is
+    used, and checks that rely on FOGRA39's paper white or name are left out."""
+    return "FOGRA39" in os.path.basename(path)
+
+
 def cmyk_profile():
-    """A CMYK print profile for testing: FOGRA39 from TeX Live, otherwise one made with LittleCMS (Pillow)."""
+    """A CMYK print profile for testing: $PASSERMARK_TEST_CMYK if set, FOGRA39 from TeX Live, otherwise
+    Ghostscript's default CMYK profile."""
+    if os.environ.get("PASSERMARK_TEST_CMYK"):
+        return os.environ["PASSERMARK_TEST_CMYK"]
     for p in (
         "/usr/share/texlive/texmf-dist/tex/generic/colorprofiles/FOGRA39L_coated.icc",
         "/usr/share/color/icc/ghostscript/default_cmyk.icc",
@@ -56,9 +65,11 @@ def test_variants():
     pw = colorlab.profile_white(f)
     same = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "paper": True, "white": list(pw)}))
     assert all(abs(a - b) <= 3 for p, q in zip(same, paper) for a, b in zip(p, q)), (same, paper)
-    # yellowish paper: white becomes yellowish (blue drops), all colours in the same ratio
+    # yellowish paper: white becomes yellowish (blue drops relative to red), all colours in the same ratio. Compare
+    # ratios, not values: the measured white may be lighter than the profile's (Ghostscript's default profile)
     yel = px(proof.softproof_rgb(src, {"icc": f, "space": "CMYK", "paper": True, "white": [92, 1, 8]}))
-    assert yel[0][2] < yel[0][0] - 10 and yel[3][2] < paper[3][2], yel
+    assert yel[0][2] < yel[0][0] - 10, yel
+    assert yel[3][2] / max(yel[3][0], 1) < paper[3][2] / max(paper[3][0], 1), (yel, paper)
 
 
 def test_warnings():

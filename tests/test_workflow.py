@@ -85,7 +85,10 @@ def test_schema_and_settings_check():
     except ImportError:
         jsonschema = None
     sch = workflow.schema()
-    assert set(sch["$defs"]) == {f"settings.{j}" for j in list(core.JOBS) + ["print", "plan"]} | {"step", "condition"}
+    assert set(sch["$defs"]) == {f"settings.{j}" for j in list(core.JOBS) + ["print", "plan", "export"]} | {
+        "step",
+        "condition",
+    }
     bad = {"passermark": "workflow", "version": 1, "steps": [{"job": "impose", "settings": {"sheett": "A4"}}]}
     if jsonschema is not None:
         jsonschema.Draft202012Validator.check_schema(sch)

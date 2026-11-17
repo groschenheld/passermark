@@ -153,6 +153,9 @@ def test_quiet_zone_makes_qr_readable_alone():
 
 
 def test_code128_and_ean_scan_back():
+    if not C.HAVE_CV2:
+        print("  (OpenCV fehlt – Lesen übersprungen)")
+        return
     vals = ["T0001", "ART-1001", "Hallo Welt 123", "12345678901234"]
     p = os.path.join(TMP, "c.csv")
     D.write_csv(

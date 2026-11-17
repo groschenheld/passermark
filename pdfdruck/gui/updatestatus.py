@@ -174,7 +174,7 @@ class UpdateStatus(QWidget):
                 theme.WARN,
                 tr("Aktualisierung verfügbar: v{0}").format(ctl.release.version if ctl.release else ""),
             ),
-            CURRENT: ("update", theme.OK, tr("Alles aktuell")),
+            CURRENT: ("update", theme.OK, tr("Aktuell: v{0}").format(__version__)),  # shows which version runs
             OFFLINE: ("update", theme.MUTED, tr("Keine Verbindung")),
         }
         self.setVisible(state in look)

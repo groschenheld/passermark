@@ -30,6 +30,10 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
+      - name: rsvg-convert from MSYS2 (SVG as vectors; optional)
+        shell: pwsh
+        continue-on-error: true
+        run: C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-librsvg"
       - name: Build installer
         shell: pwsh
         run: ./windows/build.ps1

@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..l10n import tr
+from . import lastdir
 from .fileopen import OPEN_FILTER
 
 
@@ -139,11 +139,11 @@ class MergeDialog(QDialog):
         self.activateWindow()
 
     def _add(self):
-        paths, _ = QFileDialog.getOpenFileNames(self, tr("Dateien hinzufügen"), "", OPEN_FILTER)
+        paths, _ = lastdir.getOpenFileNames(self, tr("Dateien hinzufügen"), "", OPEN_FILTER)
         self.add_paths(paths)
 
     def _add_folder(self):
-        d = QFileDialog.getExistingDirectory(self, tr("Ordner hinzufügen …"))
+        d = lastdir.getExistingDirectory(self, tr("Ordner hinzufügen …"))
         if d:
             self.add_paths([d])
 

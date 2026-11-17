@@ -101,8 +101,84 @@ def _svg_size_mm(path: str):
     return (w, h) if w and h else None
 
 
+# what happened to the last SVGs: path -> {"method": "rsvg-convert" | "inkscape" | "qt", "notes": [...]}
+# (fileopen.py shows it; the conversion itself happens deep inside images_to_document)
+SVG_REPORTS: dict = {}
+
+
+def svg_report(path: str) -> dict | None:
+    """How the SVG ``path`` was converted last time (and removes the entry) – or None."""
+    return SVG_REPORTS.pop(os.path.abspath(path), None)
+
+
+def _svg_tool(name: str) -> str | None:
+    """rsvg-convert / Inkscape: on the PATH, else shipped with the program (Windows: next to the program in
+    rsvg/, AppImage: usr/bin is on the PATH anyway)."""
+    import shutil
+    import sys
+
+    exe = shutil.which(name)
+    if exe:
+        return exe
+    if name == "rsvg-convert" and getattr(sys, "frozen", False):
+        here = os.path.dirname(sys.executable)
+        for cand in (os.path.join(here, "rsvg", "rsvg-convert.exe"), os.path.join(here, "rsvg", "rsvg-convert")):
+            if os.path.isfile(cand):
+                return cand
+    return None
+
+
+def _svg_notes(path: str, method: str, pdf: bytes) -> list[str]:
+    """What the user should know about the conversion: rasterised parts and why."""
+    notes = []
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            svg = f.read()
+    except OSError:
+        svg = ""
+    if method == "qt":
+        notes.append(
+            tr(
+                "SVG mit Qt geöffnet (rsvg-convert und Inkscape fehlen): Verläufe mit Transparenz, Masken, Filter "
+                "und manche Texte können gerastert sein. Für saubere Vektoren rsvg-convert installieren "
+                "(Linux: Paket librsvg2-bin)."
+            )
+        )
+        return notes
+    in_svg = svg.count("<image")
+    try:
+        import io
+
+        import pikepdf
+
+        with pikepdf.open(io.BytesIO(pdf)) as doc:
+            in_pdf = sum(
+                1 for o in doc.objects if isinstance(o, pikepdf.Stream) and o.get("/Subtype") == pikepdf.Name.Image
+            )
+    except Exception:  # noqa: BLE001 – only a hint; the document itself is fine
+        in_pdf = in_svg
+    if "<filter" in svg:
+        notes.append(
+            tr(
+                "Effekte im SVG (Filter wie Schatten oder Weichzeichner) lassen sich in PDF nicht als Vektoren "
+                "abbilden – sie sind als Bild eingebettet, alles andere bleibt Vektor."
+            )
+        )
+    elif in_pdf > in_svg:
+        notes.append(tr("Teile des SVG wurden gerastert ({0} Bild(er) im PDF).").format(in_pdf - in_svg))
+    return notes
+
+
 def svg_to_pdf_bytes(path: str) -> bytes:
-    """SVG -> PDF, as vectors. rsvg-convert (librsvg) > Inkscape > Qt (SVG Tiny, always available)."""
+    """SVG -> PDF, as vectors. rsvg-convert (librsvg) > Inkscape > Qt (SVG Tiny, always available).
+    What was used and what got rasterised is left in SVG_REPORTS (svg_report())."""
+    data, method = _svg_to_pdf(path)
+    notes = _svg_notes(path, method, data)
+    SVG_REPORTS[os.path.abspath(path)] = {"method": method, "notes": notes}
+    return data
+
+
+def _svg_to_pdf(path: str) -> tuple[bytes, str]:
     import shutil
     import subprocess
     import tempfile
@@ -111,7 +187,7 @@ def svg_to_pdf_bytes(path: str) -> bytes:
 
     errors = []
     for tool in ("rsvg-convert", "inkscape"):
-        exe = shutil.which(tool)
+        exe = _svg_tool(tool)
         if not exe:
             continue
         tmp = tempfile.mkdtemp(prefix="passermark-svg-")
@@ -125,7 +201,7 @@ def svg_to_pdf_bytes(path: str) -> bytes:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=120, **_platform.hidden_subprocess_kwargs())
             if r.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0:
                 with open(out, "rb") as f:
-                    return f.read()
+                    return f.read(), tool
             errors.append(f"{tool}: {(r.stderr or '').strip()[-300:]}")
         except (OSError, subprocess.SubprocessError) as e:
             errors.append(f"{tool}: {e}")
@@ -157,7 +233,7 @@ def svg_to_pdf_bytes(path: str) -> bytes:
     ren.render(painter, QRectF(0, 0, wr.width(), wr.height()))
     painter.end()
     buf.close()
-    return bytes(data)
+    return bytes(data), "qt"
 
 
 # ---------------------------------------------------------------------------------------------- #

@@ -136,7 +136,8 @@ with T.FakePlotter() as fp:
     while dlg._queue:
         dlg._analyze_next()
     out = os.path.join(T.TMP, "gui_out.pdf")
-    P.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))
+    from PySide6.QtWidgets import QFileDialog as _QFD
+    _QFD.getSaveFileName = staticmethod(lambda *a, **k: (out, ""))
     dlg._save_pdf()
     d = pdfium.PdfDocument(out)
     assert len(d) == 2
@@ -157,7 +158,7 @@ with T.FakePlotter() as fp:
     pd._refresh()
     assert pd.settings().hem_mm == 30 and pd.settings().cut_contour
     out2 = os.path.join(T.TMP, "gui_poster_out.pdf")
-    P.QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (out2, ""))
+    _QFD.getSaveFileName = staticmethod(lambda *a, **k: (out2, ""))
     pd._save_pdf()
     assert os.path.isfile(out2)
     pd._cleanup(0)

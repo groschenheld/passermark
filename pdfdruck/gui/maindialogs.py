@@ -13,12 +13,12 @@ import pypdfium2.raw as pdfium_r
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QInputDialog,
     QMessageBox,
 )
 
 from ..l10n import tr
+from . import lastdir
 from .fileopen import load_pdf
 from .icons import icon as svg_icon
 
@@ -136,6 +136,73 @@ class MainDialogsMixin:
         self.statusBar().addWidget(widget)
         self._jobs.append(entry)
         reader.start()
+
+    def start_export(self, out: str, settings: dict, pages: list[int]):
+        """Export as images in the background (passermark-cli export); at the end a message with the files."""
+        from .. import jobproc, l10n
+        from .jobs import JobReader, JobWidget
+
+        base = os.path.splitext(self.display_name or "Dokument")[0]
+        src = self.ctl.cache_file(base + "_bild.pdf")
+        try:
+            self.doc.save(src)  # current state (including unsaved changes)
+            job = jobproc.JobProcess(jobproc.EXPORT, src, out, settings, pages, lang=l10n.current())
+            job.start()
+        except Exception as e:  # noqa: BLE001 – shown to the user
+            from .objectsdialog import show_error
+
+            show_error(self, tr("Fehler"), e)
+            return
+        entry = {"job": job, "src": src, "dst": out}
+        widget = JobWidget(tr("Als Bild exportieren"), lambda: self._cancel_job(entry))
+        reader = JobReader(job)
+        entry.update(widget=widget, reader=reader)
+        reader.progress.connect(widget.set_progress)
+        reader.finished_job.connect(lambda res: self._export_finished(entry, res))
+        self.statusBar().addWidget(widget)
+        self._jobs.append(entry)
+        reader.start()
+
+    def _export_finished(self, entry, res):
+        if entry in self._jobs:
+            self._jobs.remove(entry)
+        self.statusBar().removeWidget(entry["widget"])
+        entry["widget"].deleteLater()
+        entry["reader"].wait(2000)
+        try:
+            os.remove(entry["src"])
+        except OSError:
+            pass
+        ev = res.get("event")
+        if ev == "cancelled":
+            self.statusBar().showMessage(tr("Abgebrochen."), 6000)
+            return
+        if ev != "done":
+            box = QMessageBox(
+                QMessageBox.Icon.Critical, tr("Fehler"), res.get("message") or tr("Unbekannter Fehler"), parent=self
+            )
+            if res.get("details"):
+                box.setDetailedText(res["details"])
+            box.exec()
+            return
+        files = res.get("files") or []
+        folder = os.path.dirname(files[0]) if files else os.path.dirname(entry["dst"])
+        box = QMessageBox(
+            QMessageBox.Icon.Information,
+            tr("Als Bild exportieren"),
+            tr("{0} Bild(er) gespeichert in:\n{1}").format(len(files), folder),
+            parent=self,
+        )
+        if files:
+            box.setDetailedText("\n".join(os.path.basename(f) for f in files))
+        btn = box.addButton(tr("Ordner öffnen"), QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Ok)
+        box.exec()
+        if box.clickedButton() is btn:
+            from PySide6.QtCore import QUrl
+            from PySide6.QtGui import QDesktopServices
+
+            QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
 
     def _cancel_job(self, entry):
         entry["widget"].set_cancelling()
@@ -355,7 +422,7 @@ class MainDialogsMixin:
 
         names, out_dir = {}, None
         if self.doc is None:
-            files, _ = QFileDialog.getOpenFileNames(
+            files, _ = lastdir.getOpenFileNames(
                 self, tr("PDFs reparieren / optimieren"), "", tr("PDF-Dateien (*.pdf *.PDF)")
             )
             if not files:

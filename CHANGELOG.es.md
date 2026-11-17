@@ -5,6 +5,12 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.19.8
+
+- Archivo → Exportar como imagen (Ctrl+Alt+E): páginas como PNG, JPG o TIFF, un archivo por página o un TIFF multipágina; RGB, escala de grises o CMYK con perfil de impresión, fondo transparente en PNG. También en la línea de comandos (passermark-cli export) y como paso de flujo.
+- El SVG se abre como PDF vectorial mediante rsvg-convert (ahora incluido en el AppImage); la barra de estado indica con qué se abrió, y aparece un aviso cuando se rasterizaron partes.
+- Color: el CMYK existente se lee con el perfil de separación del archivo (output intent) en lugar del SWOP por defecto de Ghostscript; la vista previa de color muestra antes y después con el mismo perfil e indica qué caso aplica; en Archivo → Propiedades figuran el perfil de salida, los espacios de color y los perfiles incrustados.
+- Los diálogos de archivos se abren en la última carpeta usada (también tras reiniciar), la disposición de páginas sobrevive a un reinicio, y la barra de estado muestra la versión en curso («Actual: v1.19.8»).
 ## 1.19.7
 
 - Passermark ahora puede actualizarse solo: una etiqueta v… inicia automáticamente las compilaciones de Linux y Windows, y ambas adjuntan sus archivos con la suma de comprobación a la publicación. Una etiqueta con sufijo como v1.19.8-test1 se convierte automáticamente en versión preliminar.

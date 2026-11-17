@@ -29,14 +29,12 @@ def card_sheet(path="/tmp/_cards.pdf", rotate=False):
     c.showPage()
     c.save()
     if rotate:
-        import pypdf
+        import pikepdf
 
-        rd = pypdf.PdfReader(path)
-        w = pypdf.PdfWriter()
-        p = rd.pages[0]
-        p.rotate(90)
-        w.add_page(p)
-        w.write(path)
+        with pikepdf.open(path, allow_overwriting_input=True) as pdf:
+            p = pdf.pages[0]
+            p.Rotate = (int(p.get("/Rotate", 0)) + 90) % 360
+            pdf.save(path)
     return pdfium.PdfDocument(path)
 
 

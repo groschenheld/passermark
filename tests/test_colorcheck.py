@@ -22,7 +22,7 @@ os.environ["PASSERMARK_USER_DIR"] = USER
 
 import pikepdf
 from PIL import Image
-from test_softproof import cmyk_profile
+from test_softproof import cmyk_profile, is_fogra39
 
 from pdfdruck import cmyk, colorcheck, colorlab, core, pressexport, usercolor, workflow
 
@@ -151,8 +151,14 @@ def test_standard_profiles_catalogue_and_download():
         os.path.basename(path) == "PSOcoated_v3.icc"
         and usercolor.standard_installed(usercolor.standard_by_key("PSOcoated_v3")) == path
     )
-    # standards that are not installed as a suggestion (by surface)
-    cands = colorlab.standard_candidates()
+    # standards that are not installed as a suggestion (by surface) – only the test's own profile folder counts,
+    # not standard profiles the user of this machine has installed
+    real_dirs = cmyk.system_profile_dirs
+    cmyk.system_profile_dirs = lambda: [usercolor.icc_dir()]
+    try:
+        cands = colorlab.standard_candidates()
+    finally:
+        cmyk.system_profile_dirs = real_dirs
     assert "PSOcoated_v3" not in {c["std"] for c in cands} and "PSOuncoated_v3_FOGRA52" in {c["std"] for c in cands}
     res = colorlab.suggest({"surface": "uncoated", "white": None}, cands, limit=3)
     assert res[0]["std"] in ("PSOuncoated_v3_FOGRA52", "Uncoated_Fogra47L_VIGC_300")
@@ -175,8 +181,9 @@ def test_tac_limits():
 def test_conditions():
     assert colorcheck.condition_keys("Coated FOGRA39 (ISO 12647-2:2004)") >= {"fogra39"}
     assert "fogra51" in colorcheck.condition_keys("PSO Coated v3")
-    f = cmyk_profile()  # FOGRA39L_coated.icc
-    assert colorcheck.same_condition("Coated FOGRA39 (ISO 12647-2:2004)", f)
+    f = cmyk_profile()  # FOGRA39L_coated.icc – or Ghostscript's default profile without TeX Live
+    if is_fogra39(f):
+        assert colorcheck.same_condition("Coated FOGRA39 (ISO 12647-2:2004)", f)
     assert not colorcheck.same_condition("PSO Uncoated v3 (FOGRA52)", f)
 
 
@@ -204,12 +211,25 @@ def test_facts_and_findings():
     res2 = colorcheck.check(f2, t, {})
     oo = next(x for x in res2 if x.key == "oi_other")
     assert oo.params["cmyk_mode"] == "all"
-    # everything fits -> "Bereit"
+    # everything fits -> "Bereit" (the file's condition FOGRA39 is the target's only with the FOGRA39 test profile)
     f3 = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.2, 0.2, 0.2, 0.2), oi="Coated FOGRA39"), t)
     res3 = colorcheck.check(f3, t, {})
-    assert {"oi_ok", "ready"} <= {x.key for x in res3} and not [x for x in res3 if x.severity in ("error", "warning")]
+    if is_fogra39(t.icc):
+        assert {"oi_ok", "ready"} <= {x.key for x in res3}
+        assert not [x for x in res3 if x.severity in ("error", "warning")]
     # no printing condition
     assert colorcheck.check(f3, colorcheck.Target(), {})[0].key == "no_target"
+
+
+def test_tac_already_separated_for_the_target():
+    """Too much ink in a file that is already made for the target: separating again would not help."""
+    t = target()
+    f = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(1, 1, 1, 1), oi=t.name), t)
+    tac = next(x for x in colorcheck.check(f, t, {}) if x.key == "tac")
+    assert "schon für dieses Profil separiert" in tac.text, tac.text
+    other = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(1, 1, 1, 1), oi="PSO Uncoated v3 (FOGRA52)"), t)
+    tac = next(x for x in colorcheck.check(other, t, {}) if x.key == "tac")
+    assert "neu separieren" in tac.text, tac.text
 
 
 def test_paper_findings():
@@ -217,7 +237,9 @@ def test_paper_findings():
     t.material, t.material_id, t.surface = "Natur", "u_n", "uncoated"
     f = colorcheck.facts(sample_pdf(rgb=False, cmyk_ink=(0.1, 0, 0, 0)), t)
     keys = {x.key for x in colorcheck.check(f, t, {})}
-    assert {"paper_unmeasured", "surface"} <= keys
+    assert "paper_unmeasured" in keys, keys
+    if is_fogra39(t.icc):  # "coated" is known from the name of FOGRA39; Ghostscript's default profile says nothing
+        assert "surface" in keys, keys
     t.white = [88.0, 2.0, 12.0]  # yellowish paper
     res = colorcheck.check(f, t, {})
     assert next(x for x in res if x.key == "paper").action == "get_profiles"
@@ -295,7 +317,11 @@ def test_press_with_ghostscript():
     dst = src[:-4] + "_gs.pdf"
     r = pressexport.run(src, dst, pressexport.PressSettings(target=t.icc, rgb="convert"), cfg={})
     f = colorcheck.facts(open(dst, "rb").read(), t)
-    assert not f.rgb_pages and f.output_intents and r["info"]["tac_after"] <= t.limit + 2, r["info"]
+    assert not f.rgb_pages and f.output_intents, r["info"]
+    if r["info"]["tac_after"] > t.limit + 2:
+        # a profile that does not limit the ink itself (Ghostscript's default profile: 351 % against the usual 300 %)
+        # – then the export must say so instead of passing it on silently
+        assert any(x.key == "tac" for x in r["findings"]), (r["info"], r["notes"])
 
 
 def test_spotread_ports():

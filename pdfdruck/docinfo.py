@@ -240,6 +240,7 @@ def _check(data: bytes, printer: str = "") -> dict:
             raise ValueError(tr("Drucker nicht gefunden: {0}").format(printer))
         preflight.add_device_issues(rep, Session(config.load()).caps_for(printer), printer)
     return {
+        "colors": _colors(rep),
         "counts": rep.counts(),
         "issues": [
             {
@@ -265,6 +266,18 @@ def _check(data: bytes, printer: str = "") -> dict:
         ],
         "layers": [{"name": L.name, "view": L.view_on, "print": L.print_on, "locked": L.locked} for L in rep.layers],
     }
+
+
+def _colors(rep) -> dict:
+    """Colour spaces of the document and ICC profiles embedded in its images (names)."""
+    from .imagecheck import space_label
+
+    cr = rep.colors
+    if cr is None:
+        return {"spaces": [], "profiles": []}
+    spaces = sorted({space_label(c) for cs in cr.page_colors.values() for c in cs})
+    profiles = sorted({u.profile for u in cr.images if getattr(u, "profile", "") and not u.mask})
+    return {"spaces": spaces, "profiles": profiles}
 
 
 def text_summary(d: dict) -> str:

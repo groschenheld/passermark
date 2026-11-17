@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -44,6 +43,7 @@ from PySide6.QtWidgets import (
 from .. import colorconv, config, i18n, layout, printers
 from .. import platform as _platform
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import Session, fill_combo, fit_width
 
@@ -266,7 +266,7 @@ class AdminDialog(QDialog):
         b_pl = QPushButton(tr("Wählen …"))
         b_pl.clicked.connect(
             lambda: (lambda d: d and self.ed_plog.setText(os.path.normpath(d)))(
-                QFileDialog.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))
+                lastdir.getExistingDirectory(self, tr("Ordner für das Druckprotokoll"))
             )
         )
         prow.addWidget(self.ed_plog, 1)
@@ -401,7 +401,7 @@ class AdminDialog(QDialog):
             f.addRow("", c)
 
     def _wfdir_add(self):
-        d = QFileDialog.getExistingDirectory(self, tr("Ablauf-Ordner wählen"))
+        d = lastdir.getExistingDirectory(self, tr("Ablauf-Ordner wählen"))
         if d and not self.lst_wfdirs.findItems(d, Qt.MatchFlag.MatchExactly):
             self.lst_wfdirs.addItem(os.path.normpath(d))
 
@@ -953,7 +953,7 @@ class AdminDialog(QDialog):
         p["driver_options"] = opts
 
     def _add_profile(self):
-        path, _ = QFileDialog.getOpenFileName(
+        path, _ = lastdir.getOpenFileName(
             self, tr("ICC-Profil wählen"), "/usr/share/color/icc", tr("ICC-Profile (*.icc *.icm *.ICC *.ICM)")
         )
         if not path:

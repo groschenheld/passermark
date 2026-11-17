@@ -37,6 +37,7 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `shared-folder [--user NAME …] [--status] [--json]` | shared print folder for Passermark and its add-on programs (see *Shared print folder*); sets up via the root helper (pkexec), `--status` only reads |
 | `materials list\|import FILE [--printer P] [--dry-run] [--json]` | print materials of plan/poster printing: list them, or take them over from a CSV/JSON list (e.g. a RIP export) – unchecked, same names skipped |
 | `tidy file.json [--full] [--out FILE] [--print] [--json]` | shorten a preset or workflow to the values that differ from the default (`--full`: preset with every value). Steps with `preset` and the `layout` of a print step stay as they are |
+| `export in.pdf out.png [--format png\|jpg\|tiff] [--dpi 150] [--pages …] [--set k=v …] [--preset FILE] [--json]` | pages as images (see *Image export*); several pages give `out-001.png` … (page number), a multi-page TIFF with `--set multipage=true` |
 | `<job> in.pdf out.pdf [--preset …] [--set k=v …] [--pages …] [--json]` | a single job (as before) |
 
 Exit codes: `0` ok · `1` error while working / file not found · `2` wrong invocation or invalid workflow ·
@@ -194,6 +195,31 @@ Result (`step_done` → `info`): `{"printer": "…", "job_id": 4711, "pages": 8,
 On Windows the vendor-specific finishers live in the vendor's driver dialog, not in the option list: set them up
 once as a finisher template (administration → printer → new finisher template → vendor dialog) and select it with
 `finisher_preset`.
+
+## Image export (`"job": "export"`)
+
+Writes pages as PNG, JPG or TIFF – on the command line (`passermark-cli export`) or as a workflow step. The step
+leaves the PDF unchanged, later steps continue with it.
+
+```json
+{"job": "export", "pages": "1-4",
+ "settings": {"out": "bilder/${name}.png", "format": "png", "dpi": 150}}
+```
+
+| Setting | Values | Default |
+|---|---|---|
+| `out` | target file (workflow step: required, relative to the workflow file; variables allowed). Several pages: `name-001.png`, `name-002.png` … (the number is the page number) | – |
+| `format` | `png` · `jpg` · `tiff` | from the extension of `out` |
+| `dpi` | 10–2400 | `150` |
+| `color` | `rgb` · `gray` · `cmyk` (JPG and TIFF: separated by Ghostscript with `profile`; CMYK in the PDF passes through) | `rgb` |
+| `profile` | CMYK print profile (ICC file) | first CMYK profile of the admin settings |
+| `transparent` | PNG: page background transparent | `false` |
+| `quality` | JPG: 1–100 | `90` |
+| `compression` | TIFF: `lzw` · `zip` · `none` | `lzw` |
+| `multipage` | TIFF: all pages in one file | `false` |
+
+RGB images carry the sRGB profile, CMYK images the print profile. With `--json` the command reports
+`{"event": "progress", …}` lines and ends with `{"event": "done", "files": [...], "pages": n, …}`.
 
 ## JSON output (`--json`)
 
@@ -478,6 +504,7 @@ passermark-cli schema impose                        # Schema der Einstellungen e
 passermark-cli check ablauf.json --var kunde=Muster # prüfen, ohne auszuführen (alle Probleme auf einmal)
 passermark-cli run ablauf.json --in karten.pdf --json
 passermark-cli run Visitenkarten --in karten.pdf     # Ablauf beim Namen aus den Ablauf-Ordnern
+passermark-cli export plan.pdf bild.png --dpi 300   # Seiten als Bilder (PNG, JPG, TIFF), je Seite eine Datei
 passermark-cli workflows                            # Abläufe in den Ordnern (--dirs: welche Ordner)
 passermark-cli inspect karten.pdf --check           # Seiten, Formate, Endformat/Anschnitt, Prüfung
 passermark-cli printers                             # Drucker

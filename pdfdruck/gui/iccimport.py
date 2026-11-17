@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from .. import iccfetch
 from ..l10n import tr
+from . import lastdir
 from . import theme
 from .common import fill_combo, fit_width
 
@@ -145,7 +145,7 @@ class IccImportDialog(QDialog):
             self.lst.addItem(it)
 
     def _from_file(self):
-        path, _ = QFileDialog.getOpenFileName(
+        path, _ = lastdir.getOpenFileName(
             self,
             tr("Profil, ZIP oder Treiberpaket wählen"),
             "",

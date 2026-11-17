@@ -150,6 +150,18 @@ Mono for measurements and sizes, in `gui/fonts/` with their licence texts (SIL O
 Colours come only from `gui/theme.py` (Hias' palette), icons only from `gui/svgicons/` (Hias' set, drawn with
 `currentColor`, coloured per state by `gui/icons.py`; a name used in the program maps to its file in `_FILES`).
 
+## Image export and SVG (1.19.8)
+
+`rasterexport.py` renders pages with pdfium (RGB, grey, transparent PNG) or Ghostscript `tiff32nc` (CMYK with
+a profile) and saves them with Pillow; every file is written to `*.part` first and renamed at the end, so a
+cancelled export leaves no half files. The GUI starts it as a `JobProcess` (`jobproc.EXPORT`) like any other
+job; the CLI command `export` and the workflow step `export` use the same `ExportSettings`. Presets are not
+offered for the export.
+
+`images.py` converts SVG with rsvg-convert (PATH first, then `rsvg/` next to the frozen executable), then
+Inkscape, then Qt, and keeps a short report per file (`svg_report`) so the GUI can say which path was used and
+warn about rasterised parts.
+
 ## Updates
 
 `pdfdruck/updates.py` asks the GitHub releases of the repository (at most once a day at start, from Help, or by a
@@ -163,7 +175,9 @@ release workflows publish with it; without it nothing is installed. Pushing a ta
 by themselves; each attaches its files in a `release` job (one concurrency group, so the two never create the
 release twice), marks a tag with a suffix as pre-release and takes the release text from the changelogs
 (`tools/release_notes.py`, German and English – the update dialog shows it). If a file is still missing, the
-dialog says which one instead of only pointing to the release page (`updates.why_not`). The administrator can switch the check off or
+dialog says which one instead of only pointing to the release page (`updates.why_not`). Without the workflows
+(e.g. no Actions minutes left) the same release is made locally: `tools/release_local.sh <tag>` (source package,
+AppImage, checksums, text) and `windows/release_upload.ps1 <tag>` on the Windows machine (Setup.exe). The administrator can switch the check off or
 allow test versions (admin configuration `updates`). The window side is `gui/updatestatus.py`.
 
 ## Error handling
@@ -280,6 +294,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/printmat.py` | Print materials for roll printers (plan & poster): main category, then the settings per material. |
 | `pdfdruck/probe.py` | Device check: what a printer/plotter reveals over the network – raw, to pass on and evaluate. No Qt. |
 | `pdfdruck/proof.py` | Preview the way it comes out of the printer (as far as predictable). |
+| `pdfdruck/rasterexport.py` | Export pages as images: PNG, JPG or TIFF. |
 | `pdfdruck/renderproc.py` | Render server for the page view: its own process with its own pdfium (pdfium is not thread-safe). |
 | `pdfdruck/repair.py` | Repair PDFs and optimize them for sharing. |
 | `pdfdruck/roland.py` | Roland cutting plotters (CAMM-1 GS/GS2/GR/GX …) over the network (raw port 9100): loaded material width and direct cut jobs in CAMM-GL III (HP-GL dialect). |
@@ -311,11 +326,13 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/datadialog.py` | Dialog "Enter data": create a data table for variable data right inside Passermark. |
 | `pdfdruck/gui/docscroll.py` | Scroll bar for the whole document in the single-page view. |
 | `pdfdruck/gui/editpanel.py` | Sidebar "Edit": text rows (text, font, size) and layers (on/off, remove, replace, scale/move). |
+| `pdfdruck/gui/exportdialog.py` | File → Export as image: format, resolution, pages, colour – the export itself runs as a job in the background (passermark-cli export, rasterexport.py). |
 | `pdfdruck/gui/fileopen.py` | Opening files |
 | `pdfdruck/gui/hdrdialog.py` | Question for HDR photos (photo + grey gain map): when opening and in the document check. |
 | `pdfdruck/gui/iccimport.py` | Admin: obtain color profiles for a printer – sources, link download, file/ZIP/driver package. |
 | `pdfdruck/gui/icons.py` | Line icons of the interface. |
 | `pdfdruck/gui/jobs.py` | Jobs in the interface: shown in the status bar with progress and cancel. |
+| `pdfdruck/gui/lastdir.py` | Last used folder: file dialogs (open, save, export …) start where the user worked last – also after a restart. |
 | `pdfdruck/gui/mainactions.py` | Main window: the actions, the menus and the main toolbar. |
 | `pdfdruck/gui/maincheck.py` | Main window: the document check in the background, the edit mode, rulers and measuring. |
 | `pdfdruck/gui/maincolour.py` | Main window |
