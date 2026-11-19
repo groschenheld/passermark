@@ -16,7 +16,16 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QIcon, QPainter, QPen
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ..l10n import tr
 from . import icons, theme
@@ -289,6 +298,8 @@ class _ToolButton(QPushButton):
         tip = action.toolTip()
         self.setToolTip(tip if tip and tip.replace("&", "") != text else text)
         self.setMinimumHeight(40)
+        # may shrink down to the symbol (minimumSizeHint) – QPushButton's own policy would keep the full text width
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.clicked.connect(action.trigger)
         action.changed.connect(lambda: self.setEnabled(action.isEnabled()))
         self.setEnabled(action.isEnabled())

@@ -2,6 +2,14 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.19.9
+
+- Seitenrahmen setzen (Seiten-Menü): Anzeigebereich, Anschnitt, Endformat und Objektrahmen als Abstand vom Blattrand in mm, für alle, die aktuelle oder die gewählten Seiten; „Anschnitt = Endformat + 3 mm“ mit einem Klick.
+- Text suchen und ersetzen (Strg+H): ersetzt in der Originalschrift, mit Hinweis, wenn der eingebetteten Teilschrift Zeichen fehlen.
+- Vorher/Nachher vergleichen: die gespeicherte Datei neben dem jetzigen Stand, Änderungen rot markiert, mit Prozentangabe.
+- CMYK-Bilder mit eingebettetem Profil öffnen als PDF mit diesem Profil als Output Intent.
+- Schmale Fenster: Seitenleisten und Fenster mit Einstellungen rechts (Druckdialog, Variable Daten, Objekte trennen, CutContour …) werden schmal, statt abzuschneiden, Beschriftungen rücken über die Felder, Texte brechen um, Knöpfe ordnen sich in gleichen Spalten; die Werkzeuge-Leiste wird schmal bis auf die Symbole.
+- Behoben: Messen mit Strg rastet wieder an Bild- und Vektorkanten ein, das Fadenkreuz erscheint auf der Seite unter der Maus; Softproof geht ohne vorherige Änderung im Dialog (vor allem Windows); kein Absturz mehr beim Schließen, während Farbprüfung oder Reparatur laufen; als zuletzt verwendeter Ordner zählt nur das Öffnen einer anderen Datei.
 ## 1.19.8
 
 - Datei → Als Bild exportieren (Strg+Alt+E): Seiten als PNG, JPG oder TIFF, je Seite eine Datei oder ein mehrseitiges TIFF; RGB, Graustufen oder CMYK mit Druckprofil, PNG mit durchsichtigem Hintergrund. Auch auf der Kommandozeile (passermark-cli export) und als Workflow-Schritt.

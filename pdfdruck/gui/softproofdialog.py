@@ -51,6 +51,18 @@ def save(d: dict):
             pass
 
 
+def effective(cfg: dict, saved: dict | None = None) -> dict:
+    """The stored selection – if nothing is chosen yet or the chosen printing condition is gone, the first one
+    (what the dialog shows preselected), stored as well. So the soft proof can be switched on (Ctrl+Y) without
+    having changed anything in the dialog before."""
+    saved = dict(load_saved() if saved is None else saved)
+    keys = [c["key"] for c in colorlab.proof_choices(cfg)]
+    if keys and saved.get("key") not in keys:
+        saved["key"] = keys[0]
+        save(saved)
+    return saved
+
+
 def build_spec(cfg: dict, saved: dict):
     """Stored selection -> spec for proof.proofed_render (None if the printing condition is missing)."""
     ch = next((c for c in colorlab.proof_choices(cfg) if c["key"] == saved.get("key")), None)

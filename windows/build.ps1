@@ -31,7 +31,11 @@ if ($LASTEXITCODE -ne 0) { throw "python -m venv failed" }
 .\.venv-win\Scripts\python -m pip install --upgrade pip
 .\.venv-win\Scripts\pip install -r requirements-windows.txt pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
+# program icon from data\passermark.svg – delete the old one first: if the generation fails, the build must
+# stop instead of quietly using an earlier passermark.ico (old icon)
+Remove-Item "windows\passermark.ico" -Force -ErrorAction SilentlyContinue
 .\.venv-win\Scripts\python windows\make_icon.py
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path "windows\passermark.ico")) { throw "make_icon.py failed (passermark.ico)" }
 .\.venv-win\Scripts\pyinstaller --noconfirm windows\passermark.spec --distpath dist --workpath build\pyi
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 

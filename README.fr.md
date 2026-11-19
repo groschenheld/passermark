@@ -1,4 +1,4 @@
-# Passermark 1.19.8
+# Passermark 1.19.9
 
 Visionneuse PDF, outil d'impression et boîte à outils de préparation prépresse pour **Linux et Windows**.
 Logiciel libre (GPL-3.0-or-later).

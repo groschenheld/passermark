@@ -30,9 +30,6 @@ jobs:
           .venv/bin/ruff format --check .
           .venv/bin/ruff check .
       - name: Tests (all of tests/test_*.py)
-        # not blocking yet: 48 of the tests never ran in CI before – once a run is green, remove this line so a
-        # failing test stops the release
-        continue-on-error: true
         run: |
           .venv/bin/pip install reportlab numpy
           # for testing only (after AppImage build, not shipped in the package): actually read the generated QR/EAN codes

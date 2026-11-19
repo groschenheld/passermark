@@ -23,11 +23,12 @@ class MainColourMixin:
     """Colour functions of MainWindow."""
 
     def _toggle_proof(self, on: bool):
-        from .softproofdialog import build_spec, load_saved
+        from .softproofdialog import build_spec, effective
 
-        spec = build_spec(self.session.cfg, load_saved()) if on else None
+        spec = build_spec(self.session.cfg, effective(self.session.cfg)) if on else None
         if on and spec is None:
-            self.softproof_dialog()  # nothing chosen yet (or the profile is gone): set up
+            self._apply_proof(None)  # no printing condition at all: switch off again and set up
+            self.softproof_dialog()
             return
         self._apply_proof(spec)
 
@@ -44,7 +45,7 @@ class MainColourMixin:
 
     def softproof_dialog(self):
         """Open the dialog for setting up the soft proof."""
-        from .softproofdialog import SoftproofDialog, build_spec, load_saved
+        from .softproofdialog import SoftproofDialog, build_spec, effective
 
         dlg = getattr(self, "_proof_dlg", None)
         if dlg is None:
@@ -54,7 +55,7 @@ class MainColourMixin:
             self._proof_dlg = dlg
         dlg.show()
         dlg.raise_()
-        spec = build_spec(self.session.cfg, load_saved())
+        spec = build_spec(self.session.cfg, effective(self.session.cfg))
         if spec:
             self._apply_proof(spec)
         else:

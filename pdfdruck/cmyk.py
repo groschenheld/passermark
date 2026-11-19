@@ -348,20 +348,49 @@ def embed_output_intent(path: str, icc: str):
         data = f.read()
     pdf = pikepdf.open(path, allow_overwriting_input=True)
     try:
-        stream = pikepdf.Stream(pdf, data)
-        stream["/N"] = 4
-        name = _desc(icc)
-        oi = pikepdf.Dictionary(
-            Type=pikepdf.Name.OutputIntent,
-            S=pikepdf.Name.GTS_PDFX,
-            OutputConditionIdentifier=pikepdf.String(name),
-            Info=pikepdf.String(name),
-            DestOutputProfile=stream,
-        )
-        pdf.Root.OutputIntents = pikepdf.Array([oi])
+        _set_output_intent(pdf, data, _desc(icc))
         pdf.save(path)
     finally:
         pdf.close()
+
+
+def _set_output_intent(pdf, data: bytes, name: str):
+    import pikepdf
+
+    stream = pikepdf.Stream(pdf, data)
+    stream["/N"] = 4
+    oi = pikepdf.Dictionary(
+        Type=pikepdf.Name.OutputIntent,
+        S=pikepdf.Name.GTS_PDFX,
+        OutputConditionIdentifier=pikepdf.String(name),
+        Info=pikepdf.String(name),
+        DestOutputProfile=stream,
+    )
+    pdf.Root.OutputIntents = pikepdf.Array([oi])
+
+
+def with_output_intent(pdf_bytes: bytes, icc: bytes) -> bytes:
+    """``pdf_bytes`` with the CMYK profile ``icc`` as output intent (in memory) – unchanged if that fails."""
+    import io
+    import tempfile
+
+    import pikepdf
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".icc", delete=False) as f:
+            f.write(icc)
+            tmp = f.name
+        try:
+            name = _desc(tmp)
+        finally:
+            os.unlink(tmp)
+        with pikepdf.open(io.BytesIO(pdf_bytes)) as pdf:
+            _set_output_intent(pdf, icc, name)
+            out = io.BytesIO()
+            pdf.save(out)
+            return out.getvalue()
+    except Exception:  # noqa: BLE001 – the output intent is an addition, the document stays usable
+        return pdf_bytes
 
 
 # --------------------------------------------------------------------------- #

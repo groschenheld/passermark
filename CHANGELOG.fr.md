@@ -5,6 +5,14 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.19.9
+
+- Définir les cadres de page (menu Pages) : zone d'affichage, fond perdu, format final et cadre d'objet en écart du bord de feuille en mm, pour toutes les pages ou les pages choisies ; « Fond perdu = format final + 3 mm » en un clic.
+- Rechercher et remplacer (Ctrl+H) : remplace dans la police d'origine, avec un avis quand des caractères manquent dans le sous-ensemble incorporé.
+- Comparer avant/après : le fichier enregistré à côté de l'état actuel, les changements marqués en rouge, avec un pourcentage.
+- Les images CMYK avec profil incorporé s'ouvrent en PDF avec ce profil comme output intent.
+- Fenêtres étroites : les panneaux latéraux et les fenêtres de réglage à droite (dialogue d'impression, données variables, séparer les objets, CutContour …) rétrécissent au lieu de couper, les étiquettes passent au-dessus des champs, les textes se replient, les boutons s'alignent en colonnes égales ; la barre d'outils se réduit à ses symboles.
+- Corrigé : la mesure avec Ctrl s'aligne de nouveau sur les bords d'image et de vecteur, et le réticule apparaît sur la page sous la souris ; l'épreuve sur écran fonctionne sans modifier d'abord le dialogue (surtout sous Windows) ; plus de plantage à la fermeture pendant un contrôle couleur ou une réparation ; seul l'ouverture d'un autre fichier compte pour le dernier dossier utilisé.
 ## 1.19.8
 
 - Fichier → Exporter en image (Ctrl+Alt+E) : les pages en PNG, JPG ou TIFF, un fichier par page ou un TIFF multipage ; RGB, niveaux de gris ou CMYK avec profil d'impression, fond transparent en PNG. Aussi en ligne de commande (passermark-cli export) et comme étape de flux.

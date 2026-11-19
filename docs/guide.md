@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.19.8 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.19.9 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -103,6 +103,14 @@ opening (can be switched off).
 
 **Page operations** (`pageops.py`, `gui/mainfile.py`): insert, blank pages, export, rotate, move, delete,
 split into halves or a grid (`split.py`, lossless – content is not rasterised).
+
+**Page tools (1.19.9):** *Endformat und Anschnitt festlegen* (`pageboxes.py`, `gui/pageboxdialog.py`) sets
+the trim box (final format, centred on the page) and the bleed box (bleed around it, as far as the page has
+content); a recognised format with bleed (216 × 303 → A4 + 3 mm) is suggested, a larger sheet is cut down to
+trim + bleed on request. *Text suchen
+und ersetzen* (Ctrl+H, `editing.find_text/replace_text`, `gui/findreplacedialog.py`) changes rows in their
+original font (hint when a subset font lacks characters). *Vorher/Nachher vergleichen* (`gui/comparedialog.py`)
+shows the saved file next to the current state with changed pixels in red.
 
 **Export as image** (`rasterexport.py`, dialog `gui/exportdialog.py`): pages as PNG, JPG or TIFF, 150 dpi by
 default, one file per page (`name-001.png` …) or all pages in one multi-page TIFF; RGB, grey or CMYK (CMYK via

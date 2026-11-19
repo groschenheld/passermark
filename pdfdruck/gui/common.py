@@ -125,6 +125,8 @@ def fit_width(root):
         cb.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         cb.setMinimumContentsLength(min(cb.minimumContentsLength() or 8, 8))
         cb.setSizePolicy(QSizePolicy.Policy.Expanding, cb.sizePolicy().verticalPolicy())
+        if cb.minimumWidth() == 0:  # an explicit minimum wins over the width of the longest entry
+            cb.setMinimumWidth(80)
     from PySide6.QtWidgets import QAbstractSpinBox
 
     for sp in root.findChildren(QAbstractSpinBox):
@@ -135,6 +137,10 @@ def fit_width(root):
         if sa.metaObject().className() == "QScrollArea":
             # cut nothing off: if the window gets narrower than the content there is a horizontal scroll bar
             sa.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    stack_rows(root)  # rows and forms lie top-to-bottom when it gets narrow
+    from PySide6.QtWidgets import QCheckBox, QRadioButton
+
+    wrap_buttons(root, (QCheckBox, QRadioButton))  # long check box texts break into lines
 
 
 def guard_wheel(root):
@@ -210,7 +216,50 @@ def split_panels(root, left, right, right_width: int = 420):
     sp.setChildrenCollapsible(False)
     sp.setSizes([900, right_width])
     root.addWidget(sp)
+    # the settings on the right behave like a side panel: wrap and stack instead of being cut off
+    from PySide6.QtWidgets import QToolButton
+
+    responsive_panel(rw)
+    wrap_buttons(rw, (QToolButton,))  # section headings („3. Nummerierung – …“)
+    lay = rw.layout()
+    if lay is not None:  # distance to the window edge on the right
+        m = lay.contentsMargins()
+        lay.setContentsMargins(m.left(), m.top(), max(m.right(), 12), m.bottom())
+    follow_minimum(rw, sa)
     return sp
+
+
+def follow_minimum(content, area):
+    """Keep scroll area ``area`` at least as wide as ``content`` needs (updated when the content changes)."""
+    return _MinFollow(content, area)
+
+
+class _MinFollow(QObject):
+    """The scroll area of a settings side never gets narrower than what its content needs – the splitter stops
+    there instead of cutting the content off."""
+
+    def __init__(self, content, area):
+        super().__init__(content)
+        self.content, self.area = content, area
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(0)
+        self.timer.timeout.connect(self.update)
+        content.installEventFilter(self)
+        self.timer.start()
+
+    def update(self):
+        """Set the area's minimum width to what the content needs now."""
+        try:
+            need = self.content.minimumSizeHint().width() + self.area.verticalScrollBar().sizeHint().width() + 2
+            self.area.setMinimumWidth(max(260, need))
+        except RuntimeError:
+            pass  # already deleted
+
+    def eventFilter(self, obj, ev):
+        if ev.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Show):
+            self.timer.start()
+        return False
 
 
 def no_enter_default(dialog):
@@ -234,10 +283,11 @@ class FlowLayout(QLayout):
     scroll areas and docks get the right height.
     """
 
-    def __init__(self, parent=None, hspacing: int = 6, vspacing: int = 6):
+    def __init__(self, parent=None, hspacing: int = 6, vspacing: int = 6, uniform: bool = False):
         super().__init__(parent)
         self._items = []
         self._h, self._v = hspacing, vspacing
+        self.uniform = uniform  # all items equally wide, in as many columns as the widest one allows
         self.setContentsMargins(0, 0, 0, 0)
 
     def addItem(self, item):
@@ -289,7 +339,38 @@ class FlowLayout(QLayout):
             sh = QSize(max(width, it.minimumSize().width()), sh.height())
         return sh
 
+    def columns(self, width: int) -> int:
+        """Uniform mode: how many equally wide columns fit (the widest item in one line decides)."""
+        items = [it for it in self._items if not it.isEmpty()]
+        if not items:
+            return 1
+        widest = max(it.sizeHint().width() for it in items)
+        return max(1, min(len(items), (width + self._h) // max(1, widest + self._h)))
+
+    def _do_uniform(self, rect, test: bool) -> int:
+        m = self.contentsMargins()
+        r = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
+        items = [it for it in self._items if not it.isEmpty()]
+        if not items:
+            return 0
+        cols = self.columns(r.width())
+        cw = max((r.width() - self._h * (cols - 1)) // cols, max(it.minimumSize().width() for it in items))
+        y = r.y()
+        for i in range(0, len(items), cols):
+            row = items[i : i + cols]
+            h = max(it.heightForWidth(cw) if it.hasHeightForWidth() else it.sizeHint().height() for it in row)
+            if not test:
+                for k, it in enumerate(row):
+                    g = QRect(r.x() + k * (cw + self._h), y, cw, h)
+                    w = it.widget()
+                    # straight onto the widget: QWidgetItem would keep a tool button at its own width
+                    (w.setGeometry if w is not None else it.setGeometry)(g)
+            y += h + self._v
+        return y - self._v - rect.y() + m.bottom()
+
     def _do(self, rect, test: bool) -> int:
+        if self.uniform:
+            return self._do_uniform(rect, test)
         m = self.contentsMargins()
         r = rect.adjusted(m.left(), m.top(), -m.right(), -m.bottom())
         x, y, line_h = r.x(), r.y(), 0
@@ -343,7 +424,7 @@ def flow_buttons(root, minimum: int = 3):
             continue
         stretch = parent.stretch(idx)
         parent.takeAt(idx)
-        flow = FlowLayout()
+        flow = FlowLayout(uniform=True)  # equally wide buttons
         for w_ in widgets:
             lay.removeWidget(w_)
             flow.addWidget(w_)
@@ -394,6 +475,15 @@ class _ButtonWrapper(QObject):
     def _pad(b) -> int:
         from PySide6.QtWidgets import QStyle
 
+        from PySide6.QtWidgets import QCheckBox, QRadioButton
+
+        if isinstance(b, (QCheckBox, QRadioButton)):  # box/circle in front of the text instead of a frame
+            st = b.style()
+            return (
+                st.pixelMetric(QStyle.PixelMetric.PM_IndicatorWidth, None, b)
+                + st.pixelMetric(QStyle.PixelMetric.PM_CheckBoxLabelSpacing, None, b)
+                + 8
+            )
         pad = 2 * b.style().pixelMetric(QStyle.PixelMetric.PM_ButtonMargin, None, b) + 16
         if not b.icon().isNull():
             pad += b.iconSize().width() + 4
@@ -422,14 +512,19 @@ class _ButtonWrapper(QObject):
 _wrapper = None
 
 
-def wrap_buttons(root):
-    """Push buttons with text get narrow by breaking their text into lines instead of being cut off."""
+def wrap_buttons(root, kinds=None):
+    """Push buttons (and with ``kinds`` other buttons such as check boxes) with text get narrow by breaking
+    their text into lines instead of being cut off."""
     from PySide6.QtWidgets import QDialogButtonBox, QPushButton
 
     global _wrapper
     if _wrapper is None:
         _wrapper = _ButtonWrapper()
-    for b in root.findChildren(QPushButton):
+    found = []
+    for k in kinds or (QPushButton,):
+        kids = root.findChildren(k)
+        found += kids if isinstance(kids, list) else list(kids or [])
+    for b in found:
         t = b.text()
         if " " not in t.strip() or isinstance(b.parentWidget(), QDialogButtonBox) or b.property("wrapSource"):
             continue
@@ -451,7 +546,7 @@ def wrap_tabs(tw) -> bool:
         return False
     bar = QWidget(host)
     bar.setObjectName("flowTabs")
-    flow = FlowLayout(bar, 2, 2)
+    flow = FlowLayout(bar, 6, 6, uniform=True)  # equally wide tab buttons, same gaps as the button rows
     group = QButtonGroup(bar)
     group.setExclusive(True)
     tw._flow_tabs = bar
@@ -472,7 +567,7 @@ def wrap_tabs(tw) -> bool:
                 flow.addWidget(b)
         for i in range(tw.count()):
             b = group.button(i)
-            b.setText(tw.tabText(i).replace("&", "&&"))
+            b.setText(tw.tabText(i))  # same text rules as the tab ("&&" = a literal &)
             b.setToolTip(tw.tabToolTip(i))
             b.setIcon(tw.tabIcon(i))
             b.setEnabled(tw.isTabEnabled(i))
@@ -515,11 +610,22 @@ def wrap_views(root):
         v.horizontalHeader().sectionResized.connect(lambda *_a, t=t: t.start())
 
 
-def responsive_panel(root):
+def responsive_panel(root, labels_above: bool = True):
     """For the panels of the sidebars: like responsive(), and also: button texts and tabs wrap, lists and
     tables wrap their text – getting narrow breaks lines instead of cutting things off."""
-    from PySide6.QtWidgets import QTabWidget
+    from PySide6.QtWidgets import QLabel, QTabWidget
 
+    for lb in root.findChildren(QLabel):  # texts wrap instead of setting the panel's minimum width (also later ones)
+        if not lb.wordWrap() and lb.pixmap().isNull():
+            lb.setWordWrap(True)
+    from PySide6.QtWidgets import QFormLayout, QPushButton
+
+    for f in root.findChildren(QFormLayout) if labels_above else []:  # narrow panel: label above the field
+        f.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+    for b in root.findChildren(QPushButton):  # arrows and symbols (◀ ▶ …): no 80 px minimum of the style
+        if len(b.text().strip()) <= 2 and b.minimumWidth() == 0:
+            b.setMinimumWidth(30)
+    flow_buttons(root, 2)  # two buttons side by side already wrap
     responsive(root)
     wrap_buttons(root)
     for tw in root.findChildren(QTabWidget):
@@ -619,3 +725,146 @@ def make_responsive(w: QWidget):
         if lb.wordWrap():
             lb.setMinimumWidth(0)
             lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
+    stack_rows(w)
+    from PySide6.QtWidgets import QCheckBox, QRadioButton
+
+    wrap_buttons(w, (QCheckBox, QRadioButton))  # long check box texts break into lines
+
+
+# --------------------------------------------------------------------------- #
+# rows that stack when it gets narrow
+
+
+def needs_stack(needed: int, available: int, stacked: bool, slack: int = 12) -> bool:
+    """Should a row lie top-to-bottom? With hysteresis, so it does not flip back and forth at the border."""
+    if available <= 0:
+        return stacked
+    return needed > available if not stacked else needed + slack > available
+
+
+def _scroll_viewport(w):
+    """Viewport of the nearest scroll area above ``w`` (or None)."""
+    from PySide6.QtWidgets import QAbstractScrollArea
+
+    p = w.parentWidget() if w is not None else None
+    while p is not None:
+        if isinstance(p, QAbstractScrollArea):
+            return p.viewport()
+        p = p.parentWidget()
+    return None
+
+
+def _available(lay) -> int:
+    """Width a layout really has: its own, but in a scroll area at most up to the visible right edge."""
+    pw = lay.parentWidget()
+    g = lay.geometry()
+    avail = g.width() or (pw.width() if pw is not None else 0)
+    vp = _scroll_viewport(pw)
+    if vp is not None and pw is not None:
+        x = pw.mapTo(vp.parentWidget(), g.topLeft()).x() - vp.geometry().x()
+        avail = min(avail, vp.width() - max(0, x) - 4)
+    return avail
+
+
+def _row_needed(lay) -> int:
+    """Minimum width of a horizontal row when all items stand side by side."""
+    m = lay.contentsMargins()
+    total, n = m.left() + m.right(), 0
+    for i in range(lay.count()):
+        it = lay.itemAt(i)
+        w = it.widget()
+        if w is not None and w.isHidden():
+            continue
+        if it.spacerItem() is not None:
+            continue
+        sz = it.minimumSize().width()
+        if w is not None and not getattr(w, "wordWrap", lambda: True)():
+            sz = max(sz, w.sizeHint().width())  # labels without wrapping: their text
+        total += sz
+        n += 1
+    return total + max(0, n - 1) * max(0, lay.spacing())
+
+
+def _form_needed(f) -> int:
+    from PySide6.QtWidgets import QFormLayout
+
+    lab = fld = 0
+    for r in range(f.rowCount()):
+        li = f.itemAt(r, QFormLayout.ItemRole.LabelRole)
+        fi = f.itemAt(r, QFormLayout.ItemRole.FieldRole)
+        if li is not None and (li.widget() is None or not li.widget().isHidden()):
+            lab = max(lab, li.sizeHint().width())
+        if fi is not None:
+            fld = max(fld, fi.minimumSize().width())
+    m = f.contentsMargins()
+    return lab + fld + max(0, f.horizontalSpacing()) + m.left() + m.right()
+
+
+def _visible_items(lay) -> int:
+    return sum(
+        1
+        for i in range(lay.count())
+        if lay.itemAt(i).widget() is not None
+        and not lay.itemAt(i).widget().isHidden()
+        or lay.itemAt(i).layout() is not None
+    )
+
+
+def restack(root):
+    """Lay rows top-to-bottom where they do not fit side by side (and back when there is room again); forms put
+    the label above the field. Picks up rows added later, too (results lists that are rebuilt)."""
+    from PySide6.QtWidgets import QBoxLayout, QFormLayout, QHBoxLayout
+
+    for lay in root.findChildren(QHBoxLayout):
+        if _visible_items(lay) < 2 or lay.property("noStack"):
+            continue
+        stacked = lay.direction() == QBoxLayout.Direction.TopToBottom
+        want = needs_stack(_row_needed(lay), _available(lay), stacked)
+        if want != stacked:
+            lay.setDirection(QBoxLayout.Direction.TopToBottom if want else QBoxLayout.Direction.LeftToRight)
+    for f in root.findChildren(QFormLayout):
+        stacked = f.rowWrapPolicy() == QFormLayout.RowWrapPolicy.WrapAllRows
+        want = needs_stack(_form_needed(f), _available(f), stacked)
+        if want != stacked:
+            f.setRowWrapPolicy(
+                QFormLayout.RowWrapPolicy.WrapAllRows if want else QFormLayout.RowWrapPolicy.WrapLongRows
+            )
+
+
+class _Stacker(QObject):
+    """Calls restack() after the panel or its scroll area changed size (once per event loop pass)."""
+
+    def __init__(self, root):
+        super().__init__(root)
+        self.root = root
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(0)
+        self.timer.timeout.connect(self._run)
+
+    def _run(self):
+        try:
+            restack(self.root)
+        except RuntimeError:
+            pass  # widget already deleted
+
+    def eventFilter(self, obj, ev):
+        if ev.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.LayoutRequest):
+            self.timer.start()
+        return False
+
+
+def stack_rows(root):
+    """Make rows and forms below ``root`` stack when it gets narrow (see restack) – nothing is cut off."""
+    if root.property("_stacker"):
+        return
+    st = _Stacker(root)
+    root.setProperty("_stacker", True)
+    root.installEventFilter(st)
+    vp = _scroll_viewport(root)
+    if vp is not None:
+        vp.installEventFilter(st)
+    from PySide6.QtWidgets import QAbstractScrollArea
+
+    for sa in root.findChildren(QAbstractScrollArea):
+        sa.viewport().installEventFilter(st)

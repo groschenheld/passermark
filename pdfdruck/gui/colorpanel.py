@@ -268,6 +268,15 @@ class ColorPanel(QWidget):
         self._worker = w
         w.start()
 
+    def stop(self, wait_ms: int = 15000):
+        """Cancel running checks and wait for them – before the window closes (a running QThread must not be
+        destroyed, Qt aborts the program then)."""
+        for w in list(self._threads):
+            w.cancel()
+        for w in list(self._threads):
+            if w.isRunning():
+                w.wait(wait_ms)
+
     def _done(self, gen, t, f, res, err):
         if gen != self._gen:
             return
