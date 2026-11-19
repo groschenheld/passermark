@@ -11,7 +11,6 @@
 - Keresés és csere (Ctrl+H): az eredeti betűtípusban cserél, figyelmeztetéssel, ha a beágyazott részbetűtípusból hiányzik karakter.
 - Előtte/utána összehasonlítás: a mentett fájl a jelenlegi állapot mellett, a változások pirosan jelölve, százalékos értékkel.
 - Beágyazott profillal rendelkező CMYK-képek PDF-ként nyílnak meg, a profil output intentként.
-- winget előkészítve: útmutató a docs/winget.md fájlban, felvétel és új verziók kézzel.
 - Szűk ablakok: az oldalsávok és a jobb oldali beállító ablakok (nyomtatási párbeszéd, változó adatok, objektumok szétválasztása, CutContour …) szűkülnek levágás helyett, a címkék a mezők fölé kerülnek, a szövegek törnek, a gombok egyforma oszlopokba rendeződnek; az eszköztávolsáv a szimbólumokra szűkül.
 - Javítva: a Ctrl-lal végzett mérés ismét a kép- és vektorélekhez simul, és a célkereszt az egér alatti oldalon jelenik meg; a színpróba a párbeszéd előzetes módosítása nélkül működik (főleg Windowson); nincs összeomlás bezáráskor futó színellenőrzés vagy javítás közben; a legutóbbi mappának csak másik fájl megnyitása számít.
 ## 1.19.8

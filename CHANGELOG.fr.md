@@ -11,7 +11,6 @@
 - Rechercher et remplacer (Ctrl+H) : remplace dans la police d'origine, avec un avis quand des caractères manquent dans le sous-ensemble incorporé.
 - Comparer avant/après : le fichier enregistré à côté de l'état actuel, les changements marqués en rouge, avec un pourcentage.
 - Les images CMYK avec profil incorporé s'ouvrent en PDF avec ce profil comme output intent.
-- winget préparé : instructions dans docs/winget.md, admission et nouvelles versions à la main.
 - Fenêtres étroites : les panneaux latéraux et les fenêtres de réglage à droite (dialogue d'impression, données variables, séparer les objets, CutContour …) rétrécissent au lieu de couper, les étiquettes passent au-dessus des champs, les textes se replient, les boutons s'alignent en colonnes égales ; la barre d'outils se réduit à ses symboles.
 - Corrigé : la mesure avec Ctrl s'aligne de nouveau sur les bords d'image et de vecteur, et le réticule apparaît sur la page sous la souris ; l'épreuve sur écran fonctionne sans modifier d'abord le dialogue (surtout sous Windows) ; plus de plantage à la fermeture pendant un contrôle couleur ou une réparation ; seul l'ouverture d'un autre fichier compte pour le dernier dossier utilisé.
 ## 1.19.8

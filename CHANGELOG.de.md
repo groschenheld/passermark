@@ -8,7 +8,6 @@
 - Text suchen und ersetzen (Strg+H): ersetzt in der Originalschrift, mit Hinweis, wenn der eingebetteten Teilschrift Zeichen fehlen.
 - Vorher/Nachher vergleichen: die gespeicherte Datei neben dem jetzigen Stand, Änderungen rot markiert, mit Prozentangabe.
 - CMYK-Bilder mit eingebettetem Profil öffnen als PDF mit diesem Profil als Output Intent.
-- winget vorbereitet: Anleitung in docs/winget.md, Aufnahme und neue Versionen von Hand.
 - Schmale Fenster: Seitenleisten und Fenster mit Einstellungen rechts (Druckdialog, Variable Daten, Objekte trennen, CutContour …) werden schmal, statt abzuschneiden, Beschriftungen rücken über die Felder, Texte brechen um, Knöpfe ordnen sich in gleichen Spalten; die Werkzeuge-Leiste wird schmal bis auf die Symbole.
 - Behoben: Messen mit Strg rastet wieder an Bild- und Vektorkanten ein, das Fadenkreuz erscheint auf der Seite unter der Maus; Softproof geht ohne vorherige Änderung im Dialog (vor allem Windows); kein Absturz mehr beim Schließen, während Farbprüfung oder Reparatur laufen; als zuletzt verwendeter Ordner zählt nur das Öffnen einer anderen Datei.
 ## 1.19.8

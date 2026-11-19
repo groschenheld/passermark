@@ -8,7 +8,6 @@
 - Find and replace (Ctrl+H) replaces text in the original font, with a notice when characters are missing from the embedded subset.
 - Compare before and after: the saved file next to the current state, changes marked in red, with a percentage.
 - CMYK images with an embedded profile open as a PDF with that profile as the output intent.
-- winget prepared: instructions in docs/winget.md, admission and new versions by hand.
 - Narrow windows: side panels and windows with settings on the right (print dialog, variable data, separate objects, CutContour ...) get narrow instead of cutting things off, labels move above the fields, texts and headings wrap, buttons line up in equal columns; the tools bar narrows down to its symbols.
 - Fixed: measuring with Ctrl snaps to image and vector edges again, and the crosshair shows on the page under the mouse; the soft proof works without changing anything in the dialog first (Windows in particular); no crash when closing while a colour check or a repair is still running; only opening another file counts for the last used folder.
 ## 1.19.8

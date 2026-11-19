@@ -11,7 +11,6 @@
 - Buscar y reemplazar (Ctrl+H): reemplaza en la fuente original, con aviso cuando faltan caracteres en la fuente parcial incrustada.
 - Comparar antes/después: el archivo guardado junto al estado actual, cambios marcados en rojo, con porcentaje.
 - Las imágenes CMYK con perfil incrustado se abren como PDF con ese perfil como output intent.
-- winget preparado: instrucciones en docs/winget.md, admisión y nuevas versiones a mano.
 - Ventanas estrechas: los paneles laterales y las ventanas de ajustes a la derecha (diálogo de impresión, datos variables, separar objetos, CutContour …) se estrechan en lugar de cortar, las etiquetas pasan sobre los campos, los textos se pliegan, los botones se alinean en columnas iguales; la barra de herramientas se reduce a sus símbolos.
 - Corregido: medir con Ctrl se ajusta de nuevo a los bordes de imagen y vector, y la cruz aparece en la página bajo el ratón; la prueba de color funciona sin cambiar antes nada en el diálogo (sobre todo en Windows); sin fallo al cerrar mientras corre una comprobación de color o una reparación; solo abrir otro archivo cuenta como última carpeta usada.
 ## 1.19.8
