@@ -34,6 +34,8 @@ for f in tests/test_*.py; do
     ok=$((ok + 1))
   else
     bad="$bad $name"; echo "FAILED $name  (log: /tmp/passermark-$name.log)"
+    # in CI the log file is gone after the run: show its end right here
+    if [ -n "$GITHUB_ACTIONS" ]; then tail -n 40 "/tmp/passermark-$name.log" | sed 's/^/    /'; fi
   fi
 done
 if [ -z "$bad" ]; then echo "$ok ok"; exit 0; fi
