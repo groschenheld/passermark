@@ -90,9 +90,13 @@ def test_schema_and_settings_check():
         "condition",
     }
     bad = {"passermark": "workflow", "version": 1, "steps": [{"job": "impose", "settings": {"sheett": "A4"}}]}
-    if jsonschema is not None:
-        jsonschema.Draft202012Validator.check_schema(sch)
-        v = jsonschema.Draft202012Validator(sch)
+    # only with jsonschema 4+ (draft 2020-12) – Ubuntu 22.04 ships 3.2, then this part is skipped
+    validator = getattr(jsonschema, "Draft202012Validator", None) if jsonschema is not None else None
+    if validator is None:
+        print("skip schema validation (no jsonschema with draft 2020-12)")
+    else:
+        validator.check_schema(sch)
+        v = validator(sch)
         assert not list(v.iter_errors(GOOD))
         assert list(v.iter_errors(bad))
         for job in workflow.step_jobs():  # the defaults match their own schema
