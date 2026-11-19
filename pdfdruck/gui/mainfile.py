@@ -64,9 +64,10 @@ class MainFileMixin:
         if self.doc is not None and self.doc is not doc:
             self.doc.close()
         same_count = self.doc is not None and changed_pages is not None and self.thumbs.count() == len(doc)
+        new_file = bool(path) and path != getattr(self, "path", None)
         self.doc, self.path, self.display_name, self.modified = doc, path, display, modified
-        if path:
-            lastdir.remember(path)  # file dialogs start here next time
+        if new_file:  # a document from another file was opened: dialogs start there next time (not on every edit)
+            lastdir.remember(path)
         if src is None and not modified and path and path.lower().endswith(".pdf") and os.path.isfile(path):
             src = path  # unchanged: the render process reads the file itself
         self.view.set_document(doc, keep_page, src=src, changed_pages=changed_pages if same_count else None)
@@ -583,3 +584,76 @@ class MainFileMixin:
             self._changed_doc(start, list(range(start, len(self.doc))))
         else:
             self.open_paths_here(paths)
+
+    # ------------------------------------------------------------------ #
+    # page boxes, search and replace, before/after
+
+    def _take_bytes(self, data: bytes, keep_page: int):
+        """Show ``data`` as the new (unsaved) state of the document."""
+        import pypdfium2 as pdfium
+
+        self._set_doc(pdfium.PdfDocument(data), self.path, self.display_name, True, keep_page=keep_page, src=data)
+
+    def page_boxes_dialog(self):
+        """Set the trim format (final format and bleed) – trim and bleed box, excess sheet cut off."""
+        if self.doc is None:
+            return
+        from .. import pageboxes
+        from .pageboxdialog import PageBoxDialog
+
+        data = self._doc_bytes()
+        cur = self.view.current
+        dlg = PageBoxDialog(self, data, cur, len(self.doc), self.selected_pages())
+        if not dlg.exec():
+            return
+        w, h, bleed, cut = dlg.result_params()
+        try:
+            new, notes = pageboxes.apply_format(data, dlg.result_pages(), w, h, bleed, cut)
+        except ValueError as e:
+            QMessageBox.warning(self, tr("Endformat festlegen"), str(e))
+            return
+        self._take_bytes(new, cur)
+        if notes:
+            QMessageBox.information(self, tr("Endformat festlegen"), "\n\n".join(notes))
+        self.statusBar().showMessage(tr("Endformat festgelegt – gespeichert wird beim Speichern."), 6000)
+
+    def find_replace_dialog(self):
+        """Search a text in the document and replace it (original font)."""
+        if self.doc is None:
+            return
+        import pypdfium2 as pdfium
+
+        from .findreplacedialog import FindReplaceDialog
+
+        cur = self.view.current
+        work = pdfium.PdfDocument(self._doc_bytes())  # on a copy: "Schließen" without replacing changes nothing
+        dlg = FindReplaceDialog(self, work, cur)
+        dlg.exec()
+        if dlg.changed:
+            import io
+
+            buf = io.BytesIO()
+            work.save(buf)
+            self._take_bytes(buf.getvalue(), cur)
+            self.statusBar().showMessage(tr("{0} Stelle(n) ersetzt.").format(dlg.changed), 6000)
+        work.close()
+
+    def compare_dialog(self):
+        """The saved file next to the current state, differences marked."""
+        if self.doc is None:
+            return
+        p = self.path
+        if not (p and p.lower().endswith(".pdf") and os.path.isfile(p)):
+            QMessageBox.information(
+                self,
+                tr("Vorher/Nachher vergleichen"),
+                tr("Verglichen wird mit der gespeicherten PDF-Datei – dieses Dokument wurde noch nicht gespeichert."),
+            )
+            return
+        with open(p, "rb") as f:
+            before = f.read()
+        from .comparedialog import CompareDialog
+
+        dlg = CompareDialog(self, before, self._doc_bytes(), self.view.current, len(self.doc))
+        dlg.resize(1100, 800)
+        dlg.exec()

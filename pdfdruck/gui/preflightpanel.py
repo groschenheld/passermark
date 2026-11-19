@@ -811,6 +811,12 @@ class PreflightPanel(QWidget):
             tr("Verläufe umwandeln"),
         )
 
+    def stop(self, wait_ms: int = 15000):
+        """Wait for a running repair before the window closes (see colorpanel.stop)."""
+        w = self._worker
+        if w is not None and w.isRunning():
+            w.wait(wait_ms)
+
     def _run(self, fn, suffix, notes):
         if self.data_fn is None or (self._worker is not None and self._worker.isRunning()):
             return

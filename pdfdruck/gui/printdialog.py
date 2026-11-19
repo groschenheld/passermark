@@ -29,7 +29,7 @@ from .. import layout, printers, printjob
 from ..l10n import tr
 from . import lastdir
 from . import theme
-from .common import Session, fit_width
+from .common import Session, fit_width, follow_minimum, responsive_panel
 from .printbuild import PrintBuildMixin
 from .printdevice import PrintDeviceMixin
 from .printpreview import PrintPreviewMixin
@@ -81,8 +81,8 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         left.addWidget(self.presetbar)
         # one continuous column instead of tabs: guidance from top to bottom
         self.general = QWidget()
-        self.general.setMinimumWidth(380)
-        left.addWidget(self._scroll(self.general), 1)
+        self._general_area = self._scroll(self.general)
+        left.addWidget(self._general_area, 1)
 
         right = QVBoxLayout()
         # settings | preview with a movable splitter (drag wider instead of cut off)
@@ -144,6 +144,9 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         right.addWidget(bb)
 
         self._build_general()
+        # the settings column behaves like a side panel: wrap and stack, the splitter stops before cutting off
+        responsive_panel(self.general, labels_above=False)  # wide column: label beside, above only when narrow
+        follow_minimum(self.general, self._general_area)
         fit_width(self)
         self._load_printers()
 

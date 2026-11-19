@@ -150,6 +150,56 @@ print("SMOKE-OK")
 """
 
 
+def test_rows_stack_with_hysteresis():
+    sys.path[:0] = [os.path.join(HERE, "_qtstub"), ROOT]
+    from pdfdruck.gui.common import needs_stack
+
+    assert needs_stack(300, 250, False) and not needs_stack(300, 320, False)
+    assert needs_stack(300, 305, True)  # stays stacked until there is clearly room
+    assert not needs_stack(300, 320, True)
+    assert needs_stack(300, 0, True) and not needs_stack(300, 0, False)  # no width known yet: unchanged
+
+
+def test_snap_reads_object_bounds():
+    """Measuring with Ctrl snaps to image edges: page objects give their bounds (pypdfium2 4 and 5)."""
+    sys.path[:0] = [os.path.join(HERE, "_qtstub"), ROOT]
+    import io
+
+    import img2pdf
+    import pypdfium2 as pdfium
+    from PIL import Image
+
+    from pdfdruck.gui.pageinteraction import _bounds
+
+    b = io.BytesIO()
+    Image.new("RGB", (100, 100), "red").save(b, "JPEG")
+    doc = pdfium.PdfDocument(img2pdf.convert(b.getvalue(), layout_fun=img2pdf.get_layout_fun((200, 300))))
+    obj = next(iter(doc[0].get_objects()))
+    left, bottom, right, top = _bounds(obj)
+    assert right - left > 100 and top - bottom > 100
+
+
+def test_softproof_switches_on_without_setup():
+    """Ctrl+Y works before anything was changed in the set-up dialog: the first printing condition counts."""
+    import tempfile
+
+    os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    sys.path[:0] = [os.path.join(HERE, "_qtstub"), ROOT]
+    from pdfdruck import colorlab
+    from pdfdruck.gui import softproofdialog as SD
+
+    choices = colorlab.proof_choices({})
+    if not choices:
+        print("skip (no CMYK/RGB profile in this system)")
+        return
+    eff = SD.effective({})
+    assert eff["key"] == choices[0]["key"] and SD.load_saved()["key"] == eff["key"]
+    assert SD.build_spec({}, eff) is not None
+    SD.save({"key": "f:/gone.icc", "intent": "perceptual"})
+    eff = SD.effective({})
+    assert eff["key"] == choices[0]["key"] and eff["intent"] == "perceptual"  # other choices are kept
+
+
 def test_start_and_basic_actions():
     env = dict(
         os.environ,
@@ -168,5 +218,7 @@ def test_start_and_basic_actions():
 
 
 if __name__ == "__main__":
-    test_start_and_basic_actions()
-    print("ok test_start_and_basic_actions")
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("ok", name)

@@ -15,6 +15,8 @@ here = os.path.dirname(os.path.abspath(__file__))
 svg = os.path.join(here, "..", "data", "passermark.svg")
 app = QGuiApplication(sys.argv[:1])
 r = QSvgRenderer(svg)
+if not r.isValid():
+    sys.exit(f"Symbol nicht lesbar: {svg}")
 frames = []
 for size in (16, 24, 32, 48, 64, 128, 256):
     img = QImage(size, size, QImage.Format.Format_ARGB32)
@@ -27,5 +29,7 @@ for size in (16, 24, 32, 48, 64, 128, 256):
     buf.open(QIODevice.OpenModeFlag.WriteOnly)
     img.save(buf, "PNG")
     frames.append(Image.open(io.BytesIO(bytes(buf.data()))).convert("RGBA"))
+if not frames[-1].getbbox():
+    sys.exit("Symbol leer gezeichnet – passermark.ico nicht erzeugt")
 frames[-1].save(os.path.join(here, "passermark.ico"), sizes=[f.size for f in frames])
-print("passermark.ico erzeugt")
+print("passermark.ico erzeugt aus", os.path.normpath(svg))

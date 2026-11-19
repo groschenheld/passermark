@@ -277,6 +277,33 @@ def test_preview_before_reads_cmyk_like_after():
         cmyk._render, cmyk.ghostscript = old
 
 
+def test_cmyk_image_profile_becomes_output_intent():
+    """Opening a CMYK image with an embedded profile: the PDF names it as its printing condition."""
+    import tempfile
+
+    from PIL import Image
+
+    from pdfdruck import docinfo, images
+
+    if not os.path.exists(FOGRA):
+        print("skip (no FOGRA39 profile)")
+        return
+    tmp = tempfile.mkdtemp()
+    tif, jpg, out = (os.path.join(tmp, n) for n in ("c.tif", "r.jpg", "o.pdf"))
+    with open(FOGRA, "rb") as f:
+        Image.new("CMYK", (40, 40), (200, 50, 0, 10)).save(tif, icc_profile=f.read(), dpi=(150, 150))
+    Image.new("RGB", (40, 40)).save(jpg)
+    doc = images.images_to_document([jpg, tif], 96)
+    doc.save(out)
+    assert len(doc) == 2 and docinfo.inspect(out)["details"]["output_intents"] == [cmyk._desc(FOGRA)]
+    doc = images.images_to_document([jpg], 96)
+    doc.save(out)
+    assert docinfo.inspect(out)["details"]["output_intents"] == []  # RGB only: none
+    with open(out, "wb") as f:
+        f.write(images.image_to_pdf_bytes(tif))
+    assert cmyk.same_profile(cmyk.document_cmyk_profile(out), FOGRA)  # single image (CLI) too
+
+
 def test_ghostscript_working_profiles_hidden():
     assert cmyk._gs_internal("/usr/share/ghostscript/10.02.1/iccprofiles/ps_cmyk.icc", "x")
     assert cmyk._gs_internal("/opt/p/whatever.icc", "Artifex PS CMYK Profile")

@@ -21,6 +21,17 @@ SVG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "svgicons")
 
 # icon name used in the program -> (file in svgicons/, mirrored)
 _FILES = {
+    "actual": ("tatsaechliche_groesse", False),
+    "fit_page": ("ganze_seite", False),
+    "copy": ("text_kopieren", False),
+    "select": ("text_markieren", False),
+    "delete": ("seiten_loeschen", False),
+    "move_up": ("seiten_nach_vorne", False),
+    "move_down": ("seiten_nach_hinten", False),
+    "export": ("export", False),
+    "info": ("info", False),
+    "history": ("letzte_drucke", False),
+    "roll": ("rollen", False),
     "open": ("oeffnen", False),
     "save": ("speichern", False),
     "print": ("drucken", False),

@@ -14,6 +14,12 @@ from PySide6.QtCore import Qt
 log = logging.getLogger(__name__)
 
 
+def _bounds(obj):
+    """(left, bottom, right, top) of a page object – pypdfium2 5 calls it get_bounds, 4 get_pos."""
+    f = getattr(obj, "get_bounds", None) or obj.get_pos
+    return f()
+
+
 class PageInteractionMixin:
     """Mouse handling of PageView (the page widgets pass their events on to these methods)."""
 
@@ -79,14 +85,14 @@ class PageInteractionMixin:
                     try:
                         t = obj.type
                         if t == _r.FPDF_PAGEOBJ_IMAGE:
-                            left, b, r, t_ = obj.get_pos()
+                            left, b, r, t_ = _bounds(obj)
                             if r - left < 2000 and t_ - b < 2000:
                                 ox |= {left, r}
                                 oy |= {b, t_}
                         elif t == _r.FPDF_PAGEOBJ_PATH:
                             # single path segments: line ends, curve control points –
                             # precise snapping to real vector lines
-                            left, b, r, t_ = obj.get_pos()
+                            left, b, r, t_ = _bounds(obj)
                             if r - left < 2000 and t_ - b < 2000:
                                 ox |= {left, r}
                                 oy |= {b, t_}
@@ -236,7 +242,7 @@ class PageInteractionMixin:
             # Ctrl held: preview cross hairs that snap to the nearest edge
             # (visible before the first click – afterwards the end of the rubber band snaps)
             ctrl = bool(e.modifiers() & Qt.KeyboardModifier.ControlModifier)
-            if ctrl and w.index == self.current:
+            if ctrl:  # on the page under the mouse – with several pages visible not only the "current" one
                 x, y = self.to_page(w, e.position())
                 sx, sy = self._snap_point(w, x, y, True)
                 self._snap_prev = (w.index, sx, sy, x != sx or y != sy)

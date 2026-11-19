@@ -2013,3 +2013,48 @@ def edit_objects_content(
         return buf.getvalue()
     finally:
         pdf.close()
+
+
+# --------------------------------------------------------------------------- #
+# search and replace
+
+
+def _matcher(needle: str, case: bool):
+    import re
+
+    pat = re.compile(re.escape(needle), 0 if case else re.IGNORECASE)
+    return pat
+
+
+def find_text(doc, pages: list[int], needle: str, case: bool = False) -> list[tuple[int, str]]:
+    """Rows containing ``needle``: [(page index, row text), …] – rows pdfium cannot decode are skipped."""
+    if not needle:
+        return []
+    pat = _matcher(needle, case)
+    hits = []
+    for p in pages:
+        for ln in text_lines(doc, p):
+            if not ln.no_text and pat.search(ln.text):
+                hits.append((p, ln.text))
+    return hits
+
+
+def replace_text(doc, pages: list[int], needle: str, repl: str, case: bool = False) -> tuple[int, list[str]]:
+    """Replace ``needle`` by ``repl`` in all rows of ``pages`` (original font, see edit_line).
+    -> (number of replacements, hints). Changes the document directly."""
+    if not needle:
+        return 0, []
+    pat = _matcher(needle, case)
+    count, notes = 0, []
+    for p in pages:
+        lines = [ln for ln in text_lines(doc, p) if not ln.no_text and pat.search(ln.text)]
+        # from the back: removing objects of a row only shifts the numbers of rows already done
+        for ln in sorted(lines, key=lambda ln: max(ln.objs), reverse=True):
+            new, n = pat.subn(lambda _m: repl, ln.text)
+            if not n or new == ln.text:
+                continue
+            for h in edit_line(doc, p, ln, new):
+                if h not in notes:
+                    notes.append(h)
+            count += n
+    return count, notes

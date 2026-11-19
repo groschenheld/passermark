@@ -287,9 +287,13 @@ class MainCheckMixin:
         self._open_result(pdfium.PdfDocument(data), suffix, notes)
 
     def _pf_stop(self):
+        """Before closing: wait for the background check and the threads of the side panels."""
         w = getattr(self, "_pf_worker", None)
         if w is not None and w.isRunning():
             w.wait(15000)
+        for panel in (getattr(self, "pf_panel", None), getattr(self, "color_panel", None)):
+            if panel is not None and hasattr(panel, "stop"):
+                panel.stop()
 
 
 def _chip(color: str) -> str:

@@ -1,4 +1,4 @@
-# Passermark 1.19.8
+# Passermark 1.19.9
 
 Visor de PDF, herramienta de impresión y caja de herramientas de preprensa para **Linux y Windows**.
 Software libre (GPL-3.0-or-later).

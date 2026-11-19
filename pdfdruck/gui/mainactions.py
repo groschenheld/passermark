@@ -125,6 +125,9 @@ class MainActionsMixin:
         self.a_split_spreads = A(
             tr("Doppelseiten teilen (falsch exportierte Broschüre)"), self.split_spreads, None, "split"
         )
+        self.a_boxes = A(tr("Endformat und Anschnitt festlegen …"), self.page_boxes_dialog, None, "crop")
+        self.a_find_replace = A(tr("Text suchen und ersetzen …"), self.find_replace_dialog, "Ctrl+H", "select")
+        self.a_compare = A(tr("Vorher/Nachher vergleichen …"), self.compare_dialog, None, "info")
         self.a_rot_l = A(tr("Seiten links drehen (dauerhaft)"), lambda: self.rotate_pages(-90), None, "rot_l")
         self.a_rot_r = A(tr("Seiten rechts drehen (dauerhaft)"), lambda: self.rotate_pages(90), None, "rot_r")
         self.a_up = A(tr("Seiten nach vorne verschieben"), lambda: self.move_pages(-1), "Alt+Up", "move_up")
@@ -174,6 +177,10 @@ class MainActionsMixin:
             None,
             self.a_split,
             self.a_split_spreads,
+            self.a_boxes,
+            None,
+            self.a_find_replace,
+            self.a_compare,
             None,
             self.a_delete,
             None,
@@ -566,6 +573,9 @@ class MainActionsMixin:
             self.a_vdp,
             self.a_split,
             self.a_split_spreads,
+            self.a_boxes,
+            self.a_find_replace,
+            self.a_compare,
         ):
             a.setEnabled(has)
         # save only when there is something to save (otherwise "nothing happens")

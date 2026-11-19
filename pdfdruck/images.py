@@ -449,7 +449,27 @@ def image_to_pdf_bytes(path: str, default_dpi: float = 96.0, hdr: dict | None = 
     kw = {"rotation": img2pdf.Rotation.ifvalid}
     if dpi is None:
         kw["layout_fun"] = img2pdf.get_fixed_dpi_layout_fun((default_dpi, default_dpi))
-    return img2pdf.convert(data, **kw)
+    pdf = img2pdf.convert(data, **kw)
+    icc = cmyk_profile_of(path)
+    if icc:
+        from . import cmyk
+
+        pdf = cmyk.with_output_intent(pdf, icc)
+    return pdf
+
+
+def cmyk_profile_of(path: str) -> bytes | None:
+    """ICC profile embedded in a CMYK image (the printing condition it was separated for) – else None."""
+    from PIL import Image
+
+    try:
+        with Image.open(path) as img:
+            icc = img.info.get("icc_profile")
+            if img.mode == "CMYK" and icc and len(icc) >= 20 and icc[16:20] == b"CMYK":
+                return icc
+    except Exception:  # noqa: BLE001 – not readable by Pillow (SVG, PDF …): no profile
+        return None
+    return None
 
 
 def images_to_document(paths: list[str], default_dpi: float = 96.0, hdr: dict | None = None):
@@ -467,4 +487,14 @@ def images_to_document(paths: list[str], default_dpi: float = 96.0, hdr: dict | 
         part = pdfium.PdfDocument(image_to_pdf_bytes(p, default_dpi, o))
         out.import_pages(part)
         part.close()
-    return out
+    icc = next((c for c in map(cmyk_profile_of, paths) if c), None)
+    if icc is None:
+        return out
+    # CMYK image with its profile: that is the printing condition of the document (output intent) – so the
+    # CMYK conversion knows the file is already separated for it, and the properties show it
+    from . import cmyk
+
+    buf = io.BytesIO()
+    out.save(buf)
+    out.close()
+    return pdfium.PdfDocument(cmyk.with_output_intent(buf.getvalue(), icc))
