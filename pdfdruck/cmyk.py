@@ -488,7 +488,9 @@ def cmyk_to_screen(cmyk, profile: str, paper_white: bool = False, white_lab=None
     src = ImageCms.getOpenProfile(profile)
     dst = ImageCms.createProfile("sRGB")
     intent = ImageCms.Intent.ABSOLUTE_COLORIMETRIC if paper_white else ImageCms.Intent.RELATIVE_COLORIMETRIC
-    flags = 0 if paper_white else ImageCms.Flags.BLACKPOINTCOMPENSATION
+    from .proof import _cms_flag
+
+    flags = 0 if paper_white else _cms_flag("BLACKPOINTCOMPENSATION")
     tf = ImageCms.buildTransform(src, dst, "CMYK", "RGB", renderingIntent=intent, flags=flags)
     return ImageCms.applyTransform(cmyk, tf)
 

@@ -217,6 +217,92 @@ def test_start_and_basic_actions():
     assert "SMOKE-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 
 
+def test_fit_height():
+    """Dialogs grow with their wrapped content (squeezed settings/repair windows, 1.20.0)."""
+    from pdfdruck.gui import common
+
+    class Size:
+        def __init__(self, w, h):
+            self.w, self.h = w, h
+
+        def width(self):
+            return self.w
+
+        def height(self):
+            return self.h
+
+    class Lay:
+        def activate(self):
+            pass
+
+        def totalMinimumSize(self):
+            return Size(300, 200)
+
+        def hasHeightForWidth(self):
+            return True
+
+        def totalHeightForWidth(self, w):
+            return 120000 // w  # narrower -> taller
+
+    class Scr:
+        def availableGeometry(self):
+            return Size(1920, 1000)
+
+    class Win:
+        def __init__(self):
+            self.minw, self.minh, self.w, self.h = 0, 0, 600, 150
+
+        def minimumWidth(self):
+            return self.minw
+
+        def minimumHeight(self):
+            return self.minh
+
+        def setMinimumSize(self, w, h):
+            self.minw, self.minh = w, h
+
+        def width(self):
+            return self.w
+
+        def height(self):
+            return self.h
+
+        def resize(self, w, h):
+            self.w, self.h = w, h
+
+        def layout(self):
+            return Lay()
+
+        def screen(self):
+            return Scr()
+
+        def isWindow(self):
+            return True
+
+        def isVisible(self):
+            return True
+
+        def installEventFilter(self, f):
+            pass
+
+        def property(self, name):
+            return 0
+
+    win = Win()
+    assert common._fit_need(win) == (300, 200)  # 120000 / 600 = 200
+    common._fit_window(win)
+    assert (win.minw, win.minh) == (300, 200) and win.h == 200  # was 150: squeezed -> grows
+    win.w = 400
+    common._fit_window(win)
+    assert win.minh == 300 and win.h == 300  # narrower: texts wrap, taller
+    win.w = 40
+    assert common._fit_need(win)[1] == 940  # never taller than the screen
+    # the filter keeps no Python attributes (a fresh PySide wrapper must work, log 1.20.0-vorab4)
+    import inspect
+
+    assert "self." not in inspect.getsource(common._FitHeight.eventFilter)
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

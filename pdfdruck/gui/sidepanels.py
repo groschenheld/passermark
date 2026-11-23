@@ -195,6 +195,8 @@ def tools_panel(window) -> QWidget:
             [
                 (window.a_manip_cmyk, tr("CMYK-Umwandlung")),
                 (window.a_softproof_setup, tr("Softproof einrichten")),
+                (window.a_output, tr("Ausgabevorschau")),
+                (window.a_colorrules, tr("Farbregeln")),
                 (window.a_materials, tr("Papiere und Messungen")),
                 (window.a_std_profiles, tr("Standardprofile holen")),
                 (window.a_press, tr("Für Druckerei ausgeben")),
@@ -209,6 +211,7 @@ def tools_panel(window) -> QWidget:
             ),
             [
                 (window.a_manip_crop, tr("Auf Format beschneiden")),
+                (window.a_bleed, tr("Anschnitt erzeugen")),
                 (window.a_separate, tr("Objekte trennen")),
                 (window.a_cut, tr("CutContour erzeugen")),
             ],

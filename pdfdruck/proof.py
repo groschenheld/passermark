@@ -79,6 +79,14 @@ def adjustments(caps, values: dict) -> dict:
 _tf_cache = {}
 
 
+def _cms_flag(name: str) -> int:
+    """LittleCMS flag by name – ImageCms.Flags only exists from Pillow 10.3 on, before that ImageCms.FLAGS."""
+    from PIL import ImageCms
+
+    fl = getattr(ImageCms, "Flags", None)
+    return int(getattr(fl, name)) if fl is not None else int(ImageCms.FLAGS[name])
+
+
 def _proof_transform(icc_path: str, intent: str, bpc: bool):
     from PIL import ImageCms
 
@@ -86,9 +94,9 @@ def _proof_transform(icc_path: str, intent: str, bpc: bool):
     if key not in _tf_cache:
         srgb = ImageCms.createProfile("sRGB")
         dev = ImageCms.getOpenProfile(icc_path)
-        flags = ImageCms.Flags.SOFTPROOFING
+        flags = _cms_flag("SOFTPROOFING")
         if bpc:
-            flags |= ImageCms.Flags.BLACKPOINTCOMPENSATION
+            flags |= _cms_flag("BLACKPOINTCOMPENSATION")
         it = INTENT_CMS.get(intent, 1)
         _tf_cache[key] = ImageCms.buildProofTransform(
             srgb,
@@ -165,7 +173,9 @@ def describe(adj: dict, profile_name: str | None) -> str:
 # --------------------------------------------------------------------------- #
 # spec = {"icc": path, "space": "CMYK"|"RGB"|"Gray", "name": display name, "intent": "relative", "bpc": True,
 #         "paper": simulate paper colour, "black": simulate black ink, "white": [L, a, b] | None
-#         (measured paper white of the material instead of the profile white), "warn": "none"|"gamut"|"tac", "tac": 300}
+#         (measured paper white of the material instead of the profile white), "warn": "none"|"gamut"|"tac", "tac": 300,
+#         "overprint": simulate overprint, output preview: "mode": "sep"|"tac", "hide": [ink names], "gray": single
+#         ink in black}
 #
 # CMYK profile + Ghostscript: the page is separated as in the CMYK conversion (existing CMYK stays,
 # RGB/grey -> profile) and these CMYK values are shown – exactly the colours that would be printed.
@@ -211,6 +221,10 @@ def spec_key(spec) -> tuple:
         w,
         spec.get("warn", "none"),
         float(spec.get("tac", 300)),
+        bool(spec.get("overprint", True)),
+        spec.get("mode") or "",
+        tuple(sorted(spec.get("hide") or ())),
+        bool(spec.get("gray")),
     )
 
 
@@ -219,6 +233,13 @@ def describe_spec(spec) -> str:
     if not spec:
         return ""
     parts = [spec.get("name") or os.path.basename(spec.get("icc", ""))]
+    if spec.get("mode") in ("sep", "tac"):
+        from . import separations
+
+        parts.append(separations.describe(spec))
+        if not spec.get("overprint", True):
+            parts.append(tr("ohne Überdrucken"))
+        return tr("Ausgabevorschau: {0}").format(", ".join(p for p in parts if p))
     if spec.get("paper"):
         parts.append(tr("Papierweiß (gemessen)") if spec.get("white") else tr("Papierweiß"))
     elif spec.get("black"):
@@ -227,6 +248,8 @@ def describe_spec(spec) -> str:
         parts.append(tr("Farbumfang-Warnung"))
     elif spec.get("warn") == "tac":
         parts.append(tr("Farbauftrag > {0:g} %").format(float(spec.get("tac", 300))))
+    if not spec.get("overprint", True) and (spec.get("space") or "") == "CMYK":
+        parts.append(tr("ohne Überdrucken"))
     return tr("Softproof: {0}").format(", ".join(p for p in parts if p))
 
 
@@ -257,7 +280,7 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
             "RGB",
             mode,
             renderingIntent=INTENT_CMS.get(intent, 1),
-            flags=ImageCms.Flags.BLACKPOINTCOMPENSATION if bpc else 0,
+            flags=_cms_flag("BLACKPOINTCOMPENSATION") if bpc else 0,
         )
     elif kind == "dev_lab":
         tf = ImageCms.buildTransform(
@@ -270,7 +293,7 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
             mode,
             "LAB",
             renderingIntent=R.RELATIVE_COLORIMETRIC,
-            flags=ImageCms.Flags.BLACKPOINTCOMPENSATION,
+            flags=_cms_flag("BLACKPOINTCOMPENSATION"),
         )
     elif kind == "srgb_lab":
         tf = ImageCms.buildTransform(srgb, lab, "RGB", "LAB", renderingIntent=R.RELATIVE_COLORIMETRIC)
@@ -281,7 +304,7 @@ def _tf(kind: str, icc: str, space: str, intent: str = "relative", bpc: bool = T
             mode,
             "RGB",
             renderingIntent=R.ABSOLUTE_COLORIMETRIC if intent == "absolute" else R.RELATIVE_COLORIMETRIC,
-            flags=ImageCms.Flags.BLACKPOINTCOMPENSATION if bpc else 0,
+            flags=_cms_flag("BLACKPOINTCOMPENSATION") if bpc else 0,
         )
     if len(_sp_cache) > 48:
         _sp_cache.clear()
@@ -427,7 +450,7 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
 
     from PIL import Image
 
-    from . import cmyk
+    from . import cmyk, overprint
 
     st = os.stat(path)
     dpi = round(max(18.0, min(float(dpi), PROOF_MAX_DPI)))
@@ -444,7 +467,14 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
         intent=spec.get("intent", "relative"),
         bpc=bool(spec.get("bpc", True)),
     )
-    extra = ["-dUseCropBox", *cmyk._permit(s), *cmyk.color_args(s)]
+    if spec.get("mode") in ("sep", "tac"):
+        img = _output_preview(path, index, dpi, rdpi, spec, password)
+        while len(_SEP_CACHE) >= 4:
+            _SEP_CACHE.pop(next(iter(_SEP_CACHE)))
+        _SEP_CACHE[key] = img
+        return img
+    op = overprint.ghostscript_args(bool(spec.get("overprint", True)))
+    extra = ["-dUseCropBox", *op, *cmyk._permit(s), *cmyk.color_args(s)]
     if password:
         extra.append(f"-sPDFPassword={password}")
     tmp = tempfile.mkdtemp(prefix="passermark-proof-")
@@ -466,7 +496,7 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
                 index,
                 rdpi,
                 "png16m",
-                ["-dUseCropBox"] + ([f"-sPDFPassword={password}"] if password else []),
+                ["-dUseCropBox", *op] + ([f"-sPDFPassword={password}"] if password else []),
                 r,
             )
             rgb = Image.open(r).convert("RGB")
@@ -479,6 +509,37 @@ def separated_page(path: str, index: int, dpi: float, spec, password: str | None
         _SEP_CACHE.pop(next(iter(_SEP_CACHE)))
     _SEP_CACHE[key] = img
     return img
+
+
+def outline(mask, width: int):
+    """Band of ``width`` pixels around the areas of ``mask`` (outside) – the areas themselves stay visible."""
+    import numpy as np
+    from scipy import ndimage
+
+    if mask is None or not mask.any():
+        return mask
+    st = ndimage.generate_binary_structure(2, 2)  # 8 neighbours: round corners
+    grown = ndimage.binary_dilation(mask, structure=st, iterations=max(1, int(width)))
+    return np.logical_and(grown, np.logical_not(mask))
+
+
+def _output_preview(path: str, index: int, dpi: float, rdpi: float, spec, password: str | None):
+    """Output preview (separations.py): only the selected inks, or the areas above the ink limit outlined in red."""
+    from PIL import Image
+
+    from . import separations
+
+    p = separations.plates_for(path, index, rdpi, spec, password)
+    if spec.get("mode") == "tac":
+        out = device_to_screen(separations.compose(p), spec).convert("RGB")
+        over = separations.tac_map(p) > float(spec.get("tac", 300)) + 0.5
+        out = _mark(out, outline(over, max(2, round(rdpi / 50))), TAC_COLOR)
+    else:
+        img = separations.compose(p, spec.get("hide") or (), bool(spec.get("gray")))
+        out = img.convert("RGB") if img.mode == "L" else device_to_screen(img, spec).convert("RGB")
+    w, h = p.size
+    size = (max(1, round(w * dpi / rdpi)), max(1, round(h * dpi / rdpi)))
+    return out.resize(size, Image.Resampling.LANCZOS) if out.size != size else out
 
 
 def proofed_render(

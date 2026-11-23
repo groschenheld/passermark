@@ -5,6 +5,16 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.20.0
+
+- Surimpression contrôlée et corrigée : le contrôle signale les objets surimprimant en blanc comme erreur (ils disparaissent à l'impression) et les petits textes noirs défoncés jusqu'à 12 pt comme avertissement (risque de fausse couleur), avec leur emplacement ; « Corriger la surimpression » (Contrôle -> transparence) modifie exactement ces endroits sans Ghostscript ; l'épreuve sur écran et la pipette simulent la surimpression (activées par défaut).
+- Aperçu de sortie (Couleur -> aperçu de sortie, Ctrl+Alt+Y) : séparations pour afficher et masquer chaque encre y compris tons directs ; couverture d'encre avec limite - les zones au-dessus sont cerclées de rouge, avec la valeur maximale et la part de la page au-dessus ; sous la souris, les valeurs par encre et leur somme.
+- Règles de couleur (Couleur -> règles de couleur) : petits textes et lignes fines en noir RVB, gris ou quadrichromie passent à 100 % K ; les tons directs se renomment, se fusionnent (« HKS 43 K » / « HKS43K ») ou se convertissent en CMJN ; les contours de découpe s'unifient sous un nom (défaut CutContour), avec surimpression au choix.
+- Créer le fond perdu (Pages -> créer le fond perdu) : les marges sont inversées ou étirées (défaut 3 mm), tout reste vectoriel ; le format final et le fond perdu sont ensuite correctement définis, le fond perdu existant reste intact, seul le manquant est complété.
+- Marge de sécurité dans le contrôle : textes et logos à moins de 3 mm du format final donnent un avertissement avec emplacements ; la mention « fond perdu insuffisant » renvoie maintenant à « créer le fond perdu ».
+- Fond perdu dans le dialogue d'impression : en présence d'un fond perdu, une indication montre pages et taille et « utiliser le fond perdu existant » est présélectionné ; le fond manquant n'est ajouté qu'à la demande (« compléter le fond manquant à l'impression », désactivé par défaut, inversion ou étirement) ; les repères de coupe sont toujours au format final.
+- Ligne de commande : nouvelles tâches règles de couleur et création de fond perdu, surimpression comme correction préflight, ainsi que les réglages d'impression doc_bleed, bleed_fill et bleed_mode.
+- Corrigé : les fenêtres écrasées prennent la hauteur de leur contenu ; plus de plantage à l'impression (« _FitHeight ») ; les libellés de champs ne disparaissent plus dans les fenêtres étroites ; un fond perdu de 0 mm se comporte à l'identique avec ou sans repères de coupe ; l'épreuve sur écran et l'aperçu CMJN fonctionnent aussi avec Pillow 10.2 (Ubuntu 24.04) ; Ctrl+Alt+Y ramène l'aperçu de sortie au premier plan ; deux actions ne portent plus le même nom interne.
 ## 1.19.9
 
 - Définir les cadres de page (menu Pages) : zone d'affichage, fond perdu, format final et cadre d'objet en écart du bord de feuille en mm, pour toutes les pages ou les pages choisies ; « Fond perdu = format final + 3 mm » en un clic.

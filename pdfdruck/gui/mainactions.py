@@ -125,7 +125,11 @@ class MainActionsMixin:
         self.a_split_spreads = A(
             tr("Doppelseiten teilen (falsch exportierte Broschüre)"), self.split_spreads, None, "split"
         )
-        self.a_boxes = A(tr("Endformat und Anschnitt festlegen …"), self.page_boxes_dialog, None, "crop")
+        self.a_pageboxes = A(tr("Endformat und Anschnitt festlegen …"), self.page_boxes_dialog, None, "crop")
+        self.a_bleed = A(tr("Anschnitt erzeugen …"), self.bleed_dialog, None, "crop")
+        self.a_bleed.setToolTip(
+            tr("Für Dateien ohne Anschnitt: Ränder nach außen spiegeln oder strecken, Endformat setzen")
+        )
         self.a_find_replace = A(tr("Text suchen und ersetzen …"), self.find_replace_dialog, "Ctrl+H", "select")
         self.a_compare = A(tr("Vorher/Nachher vergleichen …"), self.compare_dialog, None, "info")
         self.a_rot_l = A(tr("Seiten links drehen (dauerhaft)"), lambda: self.rotate_pages(-90), None, "rot_l")
@@ -177,7 +181,8 @@ class MainActionsMixin:
             None,
             self.a_split,
             self.a_split_spreads,
-            self.a_boxes,
+            self.a_pageboxes,
+            self.a_bleed,
             None,
             self.a_find_replace,
             self.a_compare,
@@ -252,6 +257,16 @@ class MainActionsMixin:
             m.addAction(a)
         self.a_softproof_setup = A(tr("Softproof einrichten …"), self.softproof_dialog, "Ctrl+Shift+Y", "proof")
         m.addAction(self.a_softproof_setup)
+        self.a_output = A(tr("Ausgabevorschau …"), self.output_preview, "Ctrl+Alt+Y", "proof")
+        self.a_output.setToolTip(
+            tr("Druckfarben einzeln ein- und ausblenden, Gesamtfarbauftrag prüfen, Werte unter der Maus")
+        )
+        m.addAction(self.a_output)
+        self.a_colorrules = A(tr("Farbregeln …"), self.color_rules_dialog, None, "color")
+        self.a_colorrules.setToolTip(
+            tr("Schwarz bei kleinem Text/dünnen Linien → 100 % K, Sonderfarben umbenennen/umwandeln, Schneidkonturen")
+        )
+        m.addAction(self.a_colorrules)
         m.addSeparator()
         m.addAction(self.a_press)
         m.addAction(self.a_manip_cmyk)
@@ -573,9 +588,12 @@ class MainActionsMixin:
             self.a_vdp,
             self.a_split,
             self.a_split_spreads,
-            self.a_boxes,
+            self.a_pageboxes,
+            self.a_bleed,
             self.a_find_replace,
             self.a_compare,
+            self.a_output,
+            self.a_colorrules,
         ):
             a.setEnabled(has)
         # save only when there is something to save (otherwise "nothing happens")

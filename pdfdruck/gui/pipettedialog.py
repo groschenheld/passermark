@@ -121,9 +121,10 @@ class PipetteDialog(QDialog):
         v.addLayout(row)
         self._load_choices()
         self.cmb.currentIndexChanged.connect(self._choice_changed)
-        from .common import responsive
+        from .common import fit_height, responsive
 
         responsive(self)
+        fit_height(self)
         self.resize(420, 0)
 
     # ------------------------------------------------------------------ #

@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.0
+
+- Überdrucken prüfen und korrigieren: Die Prüfung meldet weiß überdruckende Objekte als Fehler (sie verschwinden im Druck) und kleinen aussparenden Schwarntext bis 12 pt als Warnung (Blitzgefahr), beides mit Fundstelle; „Überdrucken korrigieren" (Prüfung -> Transparenz) ändert genau diese Stellen und braucht kein Ghostscript; Softproof und Pipette simulieren Überdrucken (standardmäßig an).
+- Ausgabevorschau (Farbe -> Ausgabenvorschau, Strg+Alt+Y): Auszüge blenden jede Druckfarbe samt Sonderfarben ein und aus; Farbauftrag mit Grenzwert - Stellen darüber sind rot umrandet, dazu Höchstwert und Anteil der Seite darüber; unter der Maus stehen die Werte je Farbe und die Summe.
+- Farbregeln (Farbe -> Farbregeln): kleiner Text und dünne Linien in RGB-, Grau- oder 4c-Schwarz werden 100 % K; Sonderfarben lassen sich umbenennen, zusammenführen („HKS 43 K" / „HKS43K") oder in CMYK umwandeln; Schneidkonturen werden unter einem Namen vereinheitlicht (Vorgabe CutContour), wahlweise auf Überdrucken.
+- Anschnitt erzeugen (Seiten -> Anschnitt erzeugen): die Ränder werden gespiegelt oder gestreckt (Vorgabe 3 mm), alles bleibt Vektor; TrimBox und BleedBox sind danach richtig gesetzt, vorhandener Anschnitt bleibt echt, ergänzt wird nur, was fehlt.
+- Sicherheitsabstand in der Prüfung: Text und Logos näher als 3 mm am Schnitt sind eine Warnung mit Fundstellen; der Hinweis „zu wenig Beschnitt" verweist jetzt auf „Anschnitt erzeugen".
+- Anschnitt im Druckdialog: bei vorhandenem Anschnitt zeigt ein Hinweis Seiten und Maß, „Vorhandenen Anschnitt verwenden" ist vorausgewählt; fehlender Anschnitt wird nur mit „Fehlenden Anschnitt beim Druck ergänzen" erzeugt (standardmäßig aus, Spiegeln oder Strecken); Schnittmarken sitzen immer am Endformat.
+- CLI: neue Aufträge Farbregeln und Anschnitt erzeugen, Überdrucken als preflight_fix sowie die Druck-Einstellungen doc_bleed, bleed_fill und bleed_mode.
+- Behoben: gequetschte Fenster sind so hoch, wie ihr Inhalt braucht; kein Absturz beim Drucken mehr („_FitHeight"); Formular-Beschriftungen verschwinden nicht mehr in schmalen Fenstern; Anschnitt 0 mm verhält sich mit und ohne Schnittmarken gleich; Softproof und CMYK-Vorschau laufen auch mit Pillow 10.2 (Ubuntu 24.04); Strg+Alt+Y holt die Ausgabevorschau nach vorne; zwei Aktionen heißen intern nicht mehr gleich.
 ## 1.19.9
 
 - Seitenrahmen setzen (Seiten-Menü): Anzeigebereich, Anschnitt, Endformat und Objektrahmen als Abstand vom Blattrand in mm, für alle, die aktuelle oder die gewählten Seiten; „Anschnitt = Endformat + 3 mm“ mit einem Klick.

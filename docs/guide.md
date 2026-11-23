@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.19.9 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.20.0 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -111,6 +111,17 @@ trim + bleed on request. *Text suchen
 und ersetzen* (Ctrl+H, `editing.find_text/replace_text`, `gui/findreplacedialog.py`) changes rows in their
 original font (hint when a subset font lacks characters). *Vorher/Nachher vergleichen* (`gui/comparedialog.py`)
 shows the saved file next to the current state with changed pixels in red.
+
+**Prepress (1.20.0):** *Überdrucken* (`overprint.py`): the check reports white objects set to overprint and
+small black text that knocks out; "Überdrucken korrigieren" (also job `preflight_fix`, `"fix": "overprint"`)
+changes only those operators. The soft proof and the pipette can simulate overprint (Ghostscript). The
+*Ausgabevorschau* (`separations.py`, panel `gui/outputpanel.py`) separates the page with Ghostscript `tiffsep`:
+inks on/off with area share, values under the mouse, ink coverage above a limit outlined in red. *Farbregeln*
+(`colorrules.py`, `pdffunc.py`, dialog `gui/colorrulesdialog.py`, job `colorrules`): small black text and thin
+lines to 100 % K, rename/merge spot colours or convert them to CMYK, unify cut contour names. *Anschnitt
+erzeugen* (`bleedgen.py`, `gui/bleeddialog.py`, job `bleed`) mirrors or stretches the page edges and sets
+TrimBox/BleedBox; the check warns about text and logos closer than 3 mm to the trim. In the print dialog the
+document's own bleed is detected and kept; missing bleed is only added on request (`layout.bleed_fill`).
 
 **Export as image** (`rasterexport.py`, dialog `gui/exportdialog.py`): pages as PNG, JPG or TIFF, 150 dpi by
 default, one file per page (`name-001.png` …) or all pages in one multi-page TIFF; RGB, grey or CMYK (CMYK via

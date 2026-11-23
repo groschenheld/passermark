@@ -126,6 +126,8 @@ class Report:
     forms: dict = field(default_factory=dict)  # {fields, widgets: [(page, rect, prints)], need_ap}
     blank: list = field(default_factory=list)  # blank pages (1-based)
     edge_ink: dict = field(default_factory=dict)  # page -> {side of the box: bleed mm} – content up to the edge
+    near_edge: dict = field(default_factory=dict)  # page -> [box] – text/logo closer than SAFETY_MM to the trim
+    overprint: dict = field(default_factory=dict)  # overprint.scan(): {"white": {page: [box]}, "black_text": …}
     _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
@@ -336,6 +338,13 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
         except Exception:
             log.warning("Prüfung: Dokumentprüfungen unvollständig", exc_info=True)
         rep.layers = list_layers(pdf)
+        try:
+            from . import overprint
+
+            rep.overprint = overprint.scan(pdf)
+        except Exception:
+            log.warning("Prüfung: Überdrucken nicht geprüft", exc_info=True)
+            rep.overprint = {}
         _sub_reports(pdf, data, rep)
     finally:
         pdf.close()
@@ -363,6 +372,11 @@ def finish(rep: Report, data: bytes, deep_layers: bool = True) -> Report:
         _render_checks(data, rep)
     except Exception:
         log.warning("Prüfung: Render-Prüfungen nicht ausgeführt", exc_info=True)
+    try:
+        _safety_checks(data, rep)
+    except Exception:
+        log.warning("Prüfung: Sicherheitsabstand nicht geprüft", exc_info=True)
+        rep.near_edge = {}
     if deep_layers and rep.layers:
         try:
             layers_outside(data, rep.layers)
@@ -602,6 +616,77 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
         doc.close()
 
 
+SAFETY_MM = 3.0  # text and logos keep this distance from the final format (cutting tolerance)
+LOGO_MAX_SHARE = 0.25  # images up to this share of the page count as logo/photo; larger ones are backgrounds
+
+
+def _safety_checks(data: bytes, rep: Report, max_pages: int = 100):
+    """pdfium: text and small images inside the final format but closer than SAFETY_MM to its edge (or cut by
+    it) – they may be cut off. Objects that reach beyond the edge on purpose (backgrounds) are not reported."""
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as raw
+
+    d = SAFETY_MM * MM_PT
+    doc = pdfium.PdfDocument(data)
+    try:
+        for p, g in sorted(rep.geometry.items())[:max_pages]:
+            if p - 1 >= len(doc):
+                continue
+            _crop, _bl, trim = effective(g)
+            tw, th = trim[2] - trim[0], trim[3] - trim[1]
+            if tw < 6 * d or th < 6 * d:  # tiny formats (labels): the rule does not apply
+                continue
+            pg = doc[p - 1]
+            boxes = []
+            try:
+                tp = pg.get_textpage()
+                try:
+                    n = tp.count_chars()
+                    text = tp.get_text_range(0, n) if n else ""
+                    same = len(text) == n
+                    for i in range(n):
+                        if same and text[i].isspace():
+                            continue
+                        box = tp.get_charbox(i)
+                        if _too_close(box, trim, d, allow_beyond=False):
+                            boxes.append(box)
+                finally:
+                    tp.close()
+                area = tw * th
+                for obj in pg.get_objects(filter=[raw.FPDF_PAGEOBJ_IMAGE], max_depth=2):
+                    try:
+                        b = obj.get_bounds()
+                    except Exception:  # noqa: BLE001
+                        continue
+                    if (b[2] - b[0]) * (b[3] - b[1]) > LOGO_MAX_SHARE * area:
+                        continue
+                    if _too_close(b, trim, d, allow_beyond=True):
+                        boxes.append(b)
+            finally:
+                pg.close()
+            if boxes:
+                rep.near_edge[p] = _merge_boxes(boxes)
+    finally:
+        doc.close()
+
+
+def _too_close(box, trim, d: float, allow_beyond: bool) -> bool:
+    """Inside the final format (at least partly) and closer than d to one of its edges. allow_beyond: objects that
+    touch or cross the edge count as intended (bleed) – for images; text crossing the edge is always reported."""
+    x0, y0, x1, y1 = box
+    if x1 <= trim[0] or x0 >= trim[2] or y1 <= trim[1] or y0 >= trim[3]:
+        return False  # completely outside: slug, bleed, crop marks
+    if x1 - x0 <= 0 or y1 - y0 <= 0:
+        return False
+    tol = 0.3 * MM_PT
+    dist = min(x0 - trim[0], y0 - trim[1], trim[2] - x1, trim[3] - y1)
+    if dist < -tol:  # crosses the edge
+        return not allow_beyond
+    if allow_beyond and dist <= tol:  # image up to the edge: meant to bleed (the bleed check covers that)
+        return False
+    return dist < d - 0.05 * MM_PT
+
+
 SIDE_TEXT = {"l": "links", "r": "rechts", "t": "oben", "b": "unten"}
 
 
@@ -705,9 +790,23 @@ def _geometry_issues(rep: Report) -> list:
                 tr(
                     "Inhalt geht bis an den Endformat-Rand, aber zu wenig Beschnitt "
                     "({0}; empfohlen 3 mm) – beim Schneiden blitzt weißer Rand. "
-                    "Abhilfe: Überfüller/Beschnitt ergänzen."
+                    "Abhilfe: Seiten → Anschnitt erzeugen …"
                 ).format(txt),
                 pg,
+            )
+        )
+    if rep.near_edge:
+        pages = sorted(rep.near_edge)
+        out.append(
+            Issue(
+                "warning",
+                "geometry",
+                tr(
+                    "Text oder Bild näher als {0:g} mm am Endformat – kann beim Schneiden angeschnitten werden "
+                    "(Seite {1}). Abhilfe: im Layout weiter nach innen setzen."
+                ).format(SAFETY_MM, _pages_str(pages)),
+                pages,
+                [Spot(p, b, "") for p in pages for b in rep.near_edge[p][:20]],
             )
         )
     return out
@@ -1624,6 +1723,45 @@ def _transparency_issues(rep: Report) -> list[Issue]:
     return out
 
 
+def _box_spots(found: dict, label: str = "") -> list:
+    return [Spot(p, b, label) for p in sorted(found) for b in _merge_boxes(found[p])]
+
+
+def _overprint_issues(rep: Report) -> list[Issue]:
+    """White objects that overprint (disappear), small black text that knocks out (white edges)."""
+    out = []
+    op = rep.overprint or {}
+    white = op.get("white") or {}
+    if white:
+        out.append(
+            Issue(
+                "error",
+                "overprint",
+                tr(
+                    "{0} weiße(s) Objekt(e) auf Überdrucken gestellt – sie verschwinden im Druck "
+                    "(Druckmaschine, RIP mit Überdrucken). Reparatur: „Überdrucken korrigieren“."
+                ).format(sum(len(v) for v in white.values())),
+                sorted(white),
+                _box_spots(white),
+            )
+        )
+    black = op.get("black_text") or {}
+    if black:
+        out.append(
+            Issue(
+                "warning",
+                "overprint",
+                tr(
+                    "Kleiner schwarzer Text (bis 12 pt) spart aus statt zu überdrucken – schon kleinste "
+                    "Passerschwankungen zeigen weiße Ränder ({0} Stelle(n)). Reparatur: „Überdrucken korrigieren“."
+                ).format(sum(len(v) for v in black.values())),
+                sorted(black),
+                _box_spots(black),
+            )
+        )
+    return out
+
+
 def _issues_raw(rep: Report) -> list[Issue]:
     out = []
     for part in (
@@ -1635,6 +1773,7 @@ def _issues_raw(rep: Report) -> list[Issue]:
         _size_issues,
         _hdr_issues,
         _transparency_issues,
+        _overprint_issues,
         _geometry_issues,
         _doc_issues,
     ):

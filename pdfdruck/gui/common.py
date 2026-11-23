@@ -169,6 +169,7 @@ def window_modal_dialogs():
             if type(self).__module__.startswith("pdfdruck") and not getattr(self, "_pm_responsive", False):
                 self._pm_responsive = True
                 responsive(self)
+                fit_height(self)  # wrapped texts: the window grows along instead of squeezing the content
                 scr = (self.parentWidget() or self).screen().availableGeometry()
                 if self.minimumSizeHint().height() > scr.height() - 60:
                     scroll_body(self)  # taller than the screen: the content scrolls, the buttons stay
@@ -260,6 +261,61 @@ class _MinFollow(QObject):
         if ev.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Show):
             self.timer.start()
         return False
+
+
+def _fit_need(win) -> tuple:
+    """(minimum width, height) the window's layout needs at its current width (capped at the screen)."""
+    lay = win.layout()
+    if lay is None:
+        return 0, 0
+    lay.activate()
+    mn = lay.totalMinimumSize()
+    h = mn.height()
+    if lay.hasHeightForWidth():
+        h = max(h, lay.totalHeightForWidth(win.width()))
+    base = win.property("_pm_base_w")
+    scr = win.screen().availableGeometry()
+    return min(max(int(base or 0), mn.width()), scr.width() - 40), min(h, scr.height() - 60)
+
+
+def _fit_window(win):
+    """Raise the window's minimum size to what the content needs (Qt grows the window along)."""
+    try:
+        if win is None or not win.isWindow() or not win.isVisible():
+            return
+        w, h = _fit_need(win)
+        if h <= 0:
+            return
+        if (win.minimumWidth(), win.minimumHeight()) != (w, h):
+            win.setMinimumSize(w, h)
+        if win.height() < h:
+            win.resize(win.width(), h)
+    except RuntimeError:
+        pass  # window already closed
+
+
+class _FitHeight(QObject):
+    """A window is never lower than its content needs at its current width. Texts and buttons that wrap get
+    taller when the window is narrow; Qt itself only looks at the minimum without line breaks – the content
+    was squeezed into each other when a window opened (settings, repair).
+
+    Keeps no Python attributes: PySide may hand the filter to Python as a fresh wrapper later (the original one
+    collected with a dialog's local variable) – the watched window comes as ``obj``, its explicit minimum width
+    is stored as a Qt property on the window."""
+
+    def eventFilter(self, obj, ev):
+        if ev.type() in (QEvent.Type.Show, QEvent.Type.LayoutRequest, QEvent.Type.Resize):
+            QTimer.singleShot(0, lambda w=obj: _fit_window(w))
+        return False
+
+
+def fit_height(win):
+    """Install _FitHeight once on a dialog or window."""
+    if win is None or win.property("_pm_fit_height"):
+        return
+    win.setProperty("_pm_fit_height", True)
+    win.setProperty("_pm_base_w", win.minimumWidth())  # an explicit minimum width of the window stays
+    win.installEventFilter(_FitHeight(win))
 
 
 def no_enter_default(dialog):
@@ -440,11 +496,28 @@ def responsive(root):
     from PySide6.QtWidgets import QLabel, QSizePolicy
 
     fit_width(root)
+    keep = form_labels(root)
     for lb in root.findChildren(QLabel):
         if lb.wordWrap():
             lb.setMinimumWidth(0)
+            if any(lb is k for k in keep):
+                continue  # a label beside its field: "Ignored" gave it 0 px width – it vanished (print dialog)
             lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
     flow_buttons(root)
+
+
+def form_labels(root) -> list:
+    """The labels in the label column of all form layouts below ``root``."""
+    from PySide6.QtWidgets import QFormLayout
+
+    out = []
+    for f in root.findChildren(QFormLayout):
+        for r in range(f.rowCount()):
+            it = f.itemAt(r, QFormLayout.ItemRole.LabelRole)
+            w = it.widget() if it is not None else None
+            if w is not None:
+                out.append(w)
+    return out
 
 
 def _wrap_words(text: str, fm, width: int) -> str:
@@ -721,10 +794,12 @@ def make_responsive(w: QWidget):
     for f in w.findChildren(QFormLayout):
         f.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         f.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    keep = form_labels(w)
     for lb in w.findChildren(QLabel):
         if lb.wordWrap():
             lb.setMinimumWidth(0)
-            lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
+            if not any(lb is k for k in keep):
+                lb.setSizePolicy(QSizePolicy.Policy.Ignored, lb.sizePolicy().verticalPolicy())
     stack_rows(w)
     from PySide6.QtWidgets import QCheckBox, QRadioButton
 

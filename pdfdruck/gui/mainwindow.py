@@ -94,7 +94,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self._rulers_on = False
         self.setCentralWidget(central)
         self.view.viewMoved.connect(self._rulers_update)
-        self.view.on_cursor = self._rulers_cursor
+        self.view.on_cursor = self._view_cursor
         self.view.pageChanged.connect(self._page_changed)
         self.view.infoReady.connect(lambda: self._page_changed(self.view.current))
         self.view.zoomChanged.connect(self._zoom_changed)
@@ -142,9 +142,10 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         self._build_preflight(dock)
         self.statusBar().addWidget(self.lbl_size)  # left, after the check result (design)
         self._build_color(dock)
+        self._build_output(dock)
         self._build_edit(dock)
         self._dock_widths = {}
-        for d in (dock, self.pf_dock, self.color_dock, self.edit_dock):
+        for d in (dock, self.pf_dock, self.color_dock, self.output_dock, self.edit_dock):
             d.visibilityChanged.connect(lambda vis, d=d: self._dock_vis(d, vis))
         self._build_edges(dock)
         self.lbl_measure = QLabel()
@@ -522,10 +523,16 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
             it.setData(THUMB_PIX, pm)
             it.setData(THUMB_W, iw)
 
+    def _view_cursor(self, w, pos):
+        """Mouse over a page: rulers and the values of the output preview."""
+        self._rulers_cursor(w, pos)
+        self._output_cursor(w, pos)
+
     def _page_changed(self, i):
         if self.doc is None:
             self.lbl_size.setText("")
             return
+        self._output_schedule()
         self.page_edit.set_current(i)
         if len(self.thumbs.selectedItems()) <= 1 and 0 <= i < self.thumbs.count():
             self.thumbs.blockSignals(True)
