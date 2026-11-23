@@ -181,11 +181,8 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         lay = QVBoxLayout(self.side_strip)
         lay.setContentsMargins(3, 6, 3, 6)
         self.btn_sidebar = QToolButton()
-        self.btn_sidebar.setCheckable(True)
-        self.btn_sidebar.setChecked(True)
         self.btn_sidebar.setIconSize(QSize(20, 20))
-        self.btn_sidebar.setToolTip(tr("Seitenleiste ein-/ausblenden"))
-        self.btn_sidebar.toggled.connect(self._toggle_sidebar)
+        self.btn_sidebar.clicked.connect(self._sidebar_button)
         pages_dock.visibilityChanged.connect(self._sidebar_shown)
         self._sidebar_shown()
         lay.addWidget(self.btn_sidebar)
@@ -258,12 +255,29 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
                 front.raise_()
         self._sidebar_shown()
 
+    def _sidebar_button(self):
+        """Sidebar into its own window and back (1.20.1, gui/sidebarwin.py); with every panel closed the button
+        opens the sidebar again."""
+        from . import sidebarwin
+
+        if sidebarwin.is_floating(self):
+            sidebarwin.window_of(self).dock()
+        elif not any(d.toggleViewAction().isChecked() for d in self._left_docks()):
+            self._toggle_sidebar(True)
+        else:
+            sidebarwin.window_of(self, create=True).open_for(self)
+
     def _sidebar_shown(self, _vis=None):
-        vis = any(d.toggleViewAction().isChecked() for d in self._left_docks())
-        self.btn_sidebar.blockSignals(True)
-        self.btn_sidebar.setChecked(vis)
-        self.btn_sidebar.blockSignals(False)
-        self.btn_sidebar.setIcon(svg_icon("sidebar_close" if vis else "sidebar_open"))
+        from . import sidebarwin
+
+        if sidebarwin.is_floating(self):
+            icon, tip = "sidebar_open", tr("Seitenleiste wieder andocken")
+        elif any(d.toggleViewAction().isChecked() for d in self._left_docks()):
+            icon, tip = "sidebar_close", tr("Seitenleiste als eigenes Fenster öffnen")
+        else:
+            icon, tip = "sidebar_open", tr("Seitenleiste einblenden")
+        self.btn_sidebar.setIcon(svg_icon(icon))
+        self.btn_sidebar.setToolTip(tip)
 
     @staticmethod
     def licenses_path() -> str:
@@ -355,7 +369,7 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
         if want is None and d is not self._pages_dock:
             inner = d.widget().widget() if isinstance(d.widget(), QScrollArea) else d.widget()
             want = max(d.width(), inner.minimumSizeHint().width() + 4)
-        if want and want != d.width():
+        if want and want != d.width() and d.parentWidget() is self:  # not in the sidebar window (own width)
             QTimer.singleShot(0, lambda: self.resizeDocks([d], [want], Qt.Orientation.Horizontal))
 
     def _thumb_panel(self):
@@ -425,7 +439,10 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
             self._save_thumb_settings()
         else:
             d = self._pages_dock
-            if not d.isFloating():
+            if d.parentWidget() is not self:  # sidebar in its own window (1.20.1)
+                win = d.window()
+                win.resize(max(110, int(win.width() * f)), win.height())
+            elif not d.isFloating():
                 w = max(110, min(int(d.width() * f), max(200, self.width() - 300)))
                 self.resizeDocks([d], [w], Qt.Orientation.Horizontal)
             else:
@@ -589,6 +606,9 @@ class MainWindow(MainDialogsMixin, MainCheckMixin, MainColourMixin, MainFileMixi
             if r == QMessageBox.StandardButton.Cancel or (r == QMessageBox.StandardButton.Save and not self.save()):
                 e.ignore()
                 return
+        from . import sidebarwin
+
+        sidebarwin.release(self)  # panels in the sidebar window come home (they close with this window)
         # The print settings of the session stay until the last window – then they expire.
         try:
             self.view._timer.stop()

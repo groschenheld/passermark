@@ -3088,7 +3088,6 @@ MESSAGES = {
     "Sanft scrollen (sonst von Seite zu Seite springen)": "Défilement continu (sinon saut de page en page)",
     "Schneiden, Trennen und Konturen": "Découpe, séparation et contours",
     "Seite öffnen": "Ouvrir la page",
-    "Seitenleiste ein-/ausblenden": "Afficher/masquer le panneau latéral",
     "Später": "Plus tard",
     "Suche nach Aktualisierung …": "Recherche de mise à jour …",
     "Variable Daten erfassen": "Saisir des données variables",
@@ -3362,4 +3361,8 @@ MESSAGES = {
     'Aus: gedruckt wird nur der Anschnitt, den die Datei hat – nichts wird erzeugt. An: bis zum Wert hier wird fehlender Anschnitt durch Spiegeln oder Strecken der Seitenränder ergänzt.': 'Désactivé : seul le fond perdu présent dans le fichier est imprimé – rien n’est créé. Activé : le fond perdu manquant jusqu’à cette valeur est ajouté en reflétant ou en étirant les bords de la page.',
     'Gedruckt wird der Anschnitt aus der Datei – nichts wird ergänzt.': 'Le fond perdu du fichier est imprimé – rien n’est ajouté.',
     'Kein Anschnitt: gedruckt wird genau das Endformat.': 'Pas de fond perdu : seul le format fini est imprimé.',
+    'Seitenleiste wieder andocken': 'Réancrer la barre latérale',
+    'Seitenleiste als eigenes Fenster öffnen': 'Ouvrir la barre latérale dans sa propre fenêtre',
+    'Seitenleiste einblenden': 'Afficher la barre latérale',
+    'Seitenleiste – {0}': 'Barre latérale – {0}',
 }

@@ -2,6 +2,10 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.1
+
+- Undock the side bar: the button to the left of the page moves pages, check, colour, output preview and editing into their own window; the page itself gets wider. A second click or closing the window docks the bar back, with the same tab in front.
+- The window always shows the document that is in front and follows the document tabs; check results, colour settings and thumbnails are kept. Size and position are remembered until the program ends, keyboard shortcuts also work while the side bar window has the focus.
 ## 1.20.0
 
 - Overprint check and fix: the check reports white overprinting objects as an error (they disappear in print) and small knock-out black text up to 12 pt as a warning (risk of misregistration), both with their location; "Fix overprint" (Check -> transparency) changes exactly these spots and needs no Ghostscript; soft proof and colour picker simulate overprint (on by default).

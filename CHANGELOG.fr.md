@@ -5,6 +5,10 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.20.1
+
+- Détacher la barre latérale : le bouton à gauche de la page emmène pages, contrôle, couleur, aperçu de sortie et édition dans leur propre fenêtre ; la page elle-même s'élargit. Un second clic ou la fermeture de la fenêtre rembarre la barre, avec le même onglet devant.
+- La fenêtre montre toujours le document au premier plan et suit les onglets de documents ; résultats de contrôle, réglages de couleur et vignettes sont conservés. Taille et position sont retenues jusqu'à la fin du programme, et les raccourcis clavier fonctionnent aussi quand la fenêtre de la barre a le focus.
 ## 1.20.0
 
 - Surimpression contrôlée et corrigée : le contrôle signale les objets surimprimant en blanc comme erreur (ils disparaissent à l'impression) et les petits textes noirs défoncés jusqu'à 12 pt comme avertissement (risque de fausse couleur), avec leur emplacement ; « Corriger la surimpression » (Contrôle -> transparence) modifie exactement ces endroits sans Ghostscript ; l'épreuve sur écran et la pipette simulent la surimpression (activées par défaut).

@@ -5,6 +5,10 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.20.1
+
+- Desacoplar la barra lateral: el botón a la izquierda de la página lleva páginas, comprobación, color, vista previa de salida y edición a su propia ventana; la página en sí se ensancha. Un segundo clic o cerrar la ventana vuelve a acoplar la barra, con la misma pestaña delante.
+- La ventana muestra siempre el documento que está delante y cambia con las pestañas de documentos; los resultados de comprobación, ajustes de color y miniaturas se conservan. El tamaño y la posición se recuerdan hasta el final del programa, y los atajos de teclado también funcionan cuando la ventana de la barra lateral tiene el foco.
 ## 1.20.0
 
 - Sobreimpresión comprobada y corregida: la comprobación informa los objetos que sobreimprimen en blanco como error (desaparecen en impresión) y los textos negros pequeños hasta 12 pt que reservan como aviso (riesgo de registro), ambos con su lugar; «Corregir sobreimpresión» (Comprobación -> transparencia) cambia exactamente esos puntos y no necesita Ghostscript; la prueba de color y la pipeta simulan la sobreimpresión (activado por defecto).

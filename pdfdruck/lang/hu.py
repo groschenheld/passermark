@@ -3088,7 +3088,6 @@ MESSAGES = {
     "Sanft scrollen (sonst von Seite zu Seite springen)": "Folyamatos görgetés (különben oldalról oldalra ugrik)",
     "Schneiden, Trennen und Konturen": "Vágás, szétválasztás és kontúrok",
     "Seite öffnen": "Oldal megnyitása",
-    "Seitenleiste ein-/ausblenden": "Oldalsáv be/ki",
     "Später": "Később",
     "Suche nach Aktualisierung …": "Frissítés keresése …",
     "Variable Daten erfassen": "Változó adatok rögzítése",
@@ -3362,4 +3361,8 @@ MESSAGES = {
     'Aus: gedruckt wird nur der Anschnitt, den die Datei hat – nichts wird erzeugt. An: bis zum Wert hier wird fehlender Anschnitt durch Spiegeln oder Strecken der Seitenränder ergänzt.': 'Ki: csak a fájlban lévő kifutó kerül nyomtatásra – semmi sem jön létre. Be: az itt megadott értékig a hiányzó kifutót az oldalszélek tükrözése vagy nyújtása egészíti ki.',
     'Gedruckt wird der Anschnitt aus der Datei – nichts wird ergänzt.': 'A fájl kifutója kerül nyomtatásra – semmi sem egészül ki.',
     'Kein Anschnitt: gedruckt wird genau das Endformat.': 'Nincs kifutó: pontosan a vágott méret kerül nyomtatásra.',
+    'Seitenleiste wieder andocken': 'Oldalsáv visszadokkolása',
+    'Seitenleiste als eigenes Fenster öffnen': 'Oldalsáv megnyitása külön ablakban',
+    'Seitenleiste einblenden': 'Oldalsáv megjelenítése',
+    'Seitenleiste – {0}': 'Oldalsáv – {0}',
 }

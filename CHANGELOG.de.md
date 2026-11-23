@@ -2,6 +2,10 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.1
+
+- Seitenleiste auslagern: der Knopf links neben der Seite holt Seiten, Prüfung, Farbe, Ausgabenvorschau und Bearbeiten in ein eigenes Fenster; die Seite selbst wird dadurch breiter. Ein zweiter Klick oder das Schließen des Fensters dockt die Leiste wieder an, mit demselben Reiter vorne.
+- Das Fenster zeigt immer das vordere Dokument und wechselt mit den Reitern mit; Prüfergebnisse, Farbeinstellungen und Miniaturen bleiben erhalten. Größe und Lage merkt es sich bis zum Programmende, und Tastenkürzel gelten auch, wenn das Fenster der Seitenleiste den Fokus hat.
 ## 1.20.0
 
 - Überdrucken prüfen und korrigieren: Die Prüfung meldet weiß überdruckende Objekte als Fehler (sie verschwinden im Druck) und kleinen aussparenden Schwarntext bis 12 pt als Warnung (Blitzgefahr), beides mit Fundstelle; „Überdrucken korrigieren" (Prüfung -> Transparenz) ändert genau diese Stellen und braucht kein Ghostscript; Softproof und Pipette simulieren Überdrucken (standardmäßig an).

@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.20.0 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.20.1 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -62,7 +62,10 @@ Since 1.19 the window follows a design sheet by the author:
   beside it offers facing pages and grids of 2–4 columns); zoom.
 - **Left sidebar** with tabs: *Seiten* (thumbnails with the page context menu), *Prüfung* (preflight findings),
   *Farbe* (colour check), *Bearbeiten* (edit mode). The strip between sidebar and page has the button that
-  collapses the whole sidebar. Narrow panels wrap their texts and tabs instead of cutting them off.
+  takes the whole sidebar out into its own window and docks it back (since 1.20.1, `gui/sidebarwin.py`): the
+  window shows the panels of the document in front and follows the tabs, closing it docks back, it closes with
+  the program. With every panel closed the button opens the sidebar again. Narrow panels wrap their texts and
+  tabs instead of cutting them off.
 - **Page view** – single page, continuous, facing pages (with the cover alone) or grid. Rulers in mm, measuring
   with snapping, trim/bleed overlay, soft proof.
 - **Tool box** over the bottom left of the page: merge, split, edit; an arrow folds it to a strip.

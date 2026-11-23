@@ -156,6 +156,9 @@ class TabHost(QMainWindow):
         w = self.tabs.widget(i)
         if w is not None:
             self.setWindowTitle(w.windowTitle())
+        sb = getattr(self, "_pm_sidebar", None)
+        if sb is not None and sb.active:  # sidebar in its own window: follows the document in front
+            sb.take(w)
 
     # -------------------------------------------------------------- #
     def close_tab(self, i):
@@ -236,4 +239,7 @@ class TabHost(QMainWindow):
         hosts = getattr(self.ctl, "hosts", None)
         if hosts is not None and self in hosts:
             hosts.remove(self)
+        sb = getattr(self, "_pm_sidebar", None)
+        if sb is not None:  # the sidebar window closes with its frame
+            sb.shutdown()
         super().closeEvent(e)

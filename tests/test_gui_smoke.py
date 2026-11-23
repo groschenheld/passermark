@@ -303,6 +303,111 @@ def test_fit_height():
     assert "self." not in inspect.getsource(common._FitHeight.eventFilter)
 
 
+def test_sidebar_window():
+    """1.20.1: the sidebar moves into its own window, follows the document in front and docks back."""
+    from pdfdruck.gui import sidebarwin
+
+    class Act:
+        def __init__(self, dock):
+            self.dock = dock
+
+        def isChecked(self):
+            return self.dock.open
+
+    class Sig:
+        def connect(self, fn):
+            pass
+
+    class Dock:
+        def __init__(self, name, open_, front=False):
+            self.name, self.open, self.front = name, open_, front
+            self.visibilityChanged = Sig()
+
+        def toggleViewAction(self):
+            return Act(self)
+
+        def isVisible(self):
+            return self.open and self.front
+
+        def setVisible(self, v):
+            self.open = v
+
+        def show(self):
+            self.open = True
+
+        def width(self):
+            return 240
+
+        def raise_(self):
+            pass
+
+    class Doc:
+        def __init__(self, name):
+            self.display_name = name
+            self.docks = [Dock("Seiten", True), Dock("Prüfung", True, True), Dock("Farbe", False)]
+            self._pages_dock = self.docks[0]
+            self.log = []
+            self.shown = 0
+
+        def _left_docks(self):
+            return list(self.docks)
+
+        def removeDockWidget(self, d):
+            self.log.append(("out", d.name))
+
+        def addDockWidget(self, area, d):
+            self.log.append(("add", d.name))
+
+        def tabifyDockWidget(self, a, b):
+            self.log.append(("tab", a.name, b.name))
+
+        def findChildren(self, cls):
+            return []
+
+        def resizeDocks(self, *a):
+            pass
+
+        def _sidebar_shown(self):
+            self.shown += 1
+
+    a, b = Doc("a.pdf"), Doc("b.pdf")
+
+    class Frame:
+        _pm_sidebar = None
+
+        def windows(self):
+            return [a, b]
+
+    frame = Frame()
+    a._host = b._host = frame
+    assert not sidebarwin.is_floating(a)
+    sb = sidebarwin.window_of(a, create=True)
+    assert sidebarwin.window_of(b) is sb  # one window per frame
+    sb._place = lambda: None
+    sb.open_for(a)
+    assert sb.active and sb.owner is a and [d.name for d in sb.held] == ["Seiten", "Prüfung", "Farbe"]
+    assert [x for x in a.log if x[0] == "out"] == [("out", "Seiten"), ("out", "Prüfung"), ("out", "Farbe")]
+    assert sidebarwin.is_floating(b) and a.shown and b.shown  # every tab's button follows
+    assert [d.open for d in a.docks] == [True, True, False]  # open panels stay open
+    sb.take(b)  # other tab in front: a gets its panels back, b's move into the window
+    assert sb.owner is b and a.log[-5:] == [
+        ("add", "Seiten"),
+        ("add", "Prüfung"),
+        ("tab", "Seiten", "Prüfung"),
+        ("add", "Farbe"),
+        ("tab", "Seiten", "Farbe"),
+    ]
+    sidebarwin.release(b)  # b closes: its panels come home first
+    assert sb.owner is None and ("add", "Seiten") in b.log
+    sb.take(None)
+    assert sb.active  # still out – comes back with the next document
+    sb.take(a)
+    sb.dock()
+    assert not sb.active and sb.owner is None and not sidebarwin.is_floating(a)
+    sb.shutdown()
+    assert frame._pm_sidebar is None
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

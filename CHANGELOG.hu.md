@@ -5,6 +5,10 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.20.1
+
+- Oldalsáv kiemelése: a lap bal oldalán lévő gomb az oldalakat, ellenőrzést, színt, kimenet-előnézetet és szerkesztést saját ablakba viszi; a lap maga ezáltal szélesebb lesz. Egy második kattintás vagy az ablak bezárása visszadokkolja a sávot, ugyanazzal a füllel elöl.
+- Az ablak mindig az éppen elöl lévő dokumentumot mutatja, és a dokumentumfülekkel együtt vált; az ellenőrzési eredmények, színbeállítások és miniatűrök megmaradnak. A méretet és a helyet a program befejezéséig megjegyzi, a gyorsbillentyűk pedig akkor is működnek, ha az oldalsáv ablaka van fókuszban.
 ## 1.20.0
 
 - Túlnyomás-ellenőrzés és javítás: az ellenőrzés hibaként jelzi a fehérben túlnyomó objektumokat (nyomtatásban eltűnnek), figyelmeztetéssel a 12 pt-ig terjedő kis kihagyó fekete szövegre (regisztrációs hiba veszélye), mindkettő helymegjelöléssel; a „Túlnyomás javítása" (Ellenőrzés -> átlátszóság) pontosan ezeket a helyeket javítja, Ghostscript nélkül; a színpróba és a pipetta szimulálja a túlnyomást (alapértelmezés szerint bekapcsolva).

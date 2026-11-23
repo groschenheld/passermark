@@ -3088,7 +3088,6 @@ MESSAGES = {
     "Sanft scrollen (sonst von Seite zu Seite springen)": "Desplazamiento suave (si no, saltar de página en página)",
     "Schneiden, Trennen und Konturen": "Cortar, separar y contornos",
     "Seite öffnen": "Abrir página",
-    "Seitenleiste ein-/ausblenden": "Mostrar/ocultar barra lateral",
     "Später": "Más tarde",
     "Suche nach Aktualisierung …": "Buscando actualización …",
     "Variable Daten erfassen": "Introducir datos variables",
@@ -3362,4 +3361,8 @@ MESSAGES = {
     'Aus: gedruckt wird nur der Anschnitt, den die Datei hat – nichts wird erzeugt. An: bis zum Wert hier wird fehlender Anschnitt durch Spiegeln oder Strecken der Seitenränder ergänzt.': 'Desactivado: solo se imprime el sangrado que tiene el archivo; no se crea nada. Activado: el sangrado que falta hasta este valor se añade reflejando o estirando los bordes de la página.',
     'Gedruckt wird der Anschnitt aus der Datei – nichts wird ergänzt.': 'Se imprime el sangrado del archivo: no se añade nada.',
     'Kein Anschnitt: gedruckt wird genau das Endformat.': 'Sin sangrado: se imprime exactamente el formato final.',
+    'Seitenleiste wieder andocken': 'Volver a acoplar la barra lateral',
+    'Seitenleiste als eigenes Fenster öffnen': 'Abrir la barra lateral en su propia ventana',
+    'Seitenleiste einblenden': 'Mostrar la barra lateral',
+    'Seitenleiste – {0}': 'Barra lateral – {0}',
 }

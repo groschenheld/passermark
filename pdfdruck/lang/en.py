@@ -3088,7 +3088,6 @@ MESSAGES = {
     "Sanft scrollen (sonst von Seite zu Seite springen)": "Scroll smoothly (otherwise jump from page to page)",
     "Schneiden, Trennen und Konturen": "Cutting, separating and contours",
     "Seite öffnen": "Open page",
-    "Seitenleiste ein-/ausblenden": "Show/hide sidebar",
     "Später": "Later",
     "Suche nach Aktualisierung …": "Checking for updates …",
     "Variable Daten erfassen": "Enter variable data",
@@ -3362,4 +3361,8 @@ MESSAGES = {
     'Aus: gedruckt wird nur der Anschnitt, den die Datei hat – nichts wird erzeugt. An: bis zum Wert hier wird fehlender Anschnitt durch Spiegeln oder Strecken der Seitenränder ergänzt.': 'Off: only the bleed the file has is printed – nothing is created. On: missing bleed up to the value here is added by mirroring or stretching the page edges.',
     'Gedruckt wird der Anschnitt aus der Datei – nichts wird ergänzt.': "The file's bleed is printed – nothing is added.",
     'Kein Anschnitt: gedruckt wird genau das Endformat.': 'No bleed: exactly the trim size is printed.',
+    'Seitenleiste wieder andocken': 'Dock the sidebar again',
+    'Seitenleiste als eigenes Fenster öffnen': 'Open the sidebar in its own window',
+    'Seitenleiste einblenden': 'Show sidebar',
+    'Seitenleiste – {0}': 'Sidebar – {0}',
 }

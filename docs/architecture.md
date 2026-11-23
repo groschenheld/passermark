@@ -382,6 +382,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/repairdialog.py` | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
 | `pdfdruck/gui/settingsdialog.py` | File → Settings: the user's personal settings (currently: language). |
 | `pdfdruck/gui/shrinkdialog.py` | Reduce file size: breakdown of the file size and every measure on/off separately. |
+| `pdfdruck/gui/sidebarwin.py` | The sidebar as its own window (1.20.1). |
 | `pdfdruck/gui/sidepanels.py` | Parts of the 1.19.0 main window at its edges |
 | `pdfdruck/gui/softproofdialog.py` | Set up the soft proof of the page view: printing condition (material or profile), intent, paper white, black, warnings. |
 | `pdfdruck/gui/splitdialog.py` | Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines. |
