@@ -5,6 +5,20 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.20.1
+
+- Desacoplar la barra lateral: el botón a la izquierda de la página lleva páginas, comprobación, color, vista previa de salida y edición a su propia ventana; la página en sí se ensancha. Un segundo clic o cerrar la ventana vuelve a acoplar la barra, con la misma pestaña delante.
+- La ventana muestra siempre el documento que está delante y cambia con las pestañas de documentos; los resultados de comprobación, ajustes de color y miniaturas se conservan. El tamaño y la posición se recuerdan hasta el final del programa, y los atajos de teclado también funcionan cuando la ventana de la barra lateral tiene el foco.
+## 1.20.0
+
+- Sobreimpresión comprobada y corregida: la comprobación informa los objetos que sobreimprimen en blanco como error (desaparecen en impresión) y los textos negros pequeños hasta 12 pt que reservan como aviso (riesgo de registro), ambos con su lugar; «Corregir sobreimpresión» (Comprobación -> transparencia) cambia exactamente esos puntos y no necesita Ghostscript; la prueba de color y la pipeta simulan la sobreimpresión (activado por defecto).
+- Vista previa de salida (Color -> vista previa de salida, Ctrl+Alt+Y): separaciones muestran y ocultan cada tinta incluidas las manchas; cobertura de tinta con valor límite - las zonas por encima se marcan en rojo, con el valor máximo y la parte de la página por encima; bajo el ratón, los valores por tinta y su suma.
+- Reglas de color (Color -> reglas de color): los textos pequeños y las líneas finas en negro RGB, gris o de cuatro tintas pasan a 100 % K; las manchas se pueden renombrar, unificar («HKS 43 K» / «HKS43K») o convertir a CMYK; los contornos de corte se unifican bajo un nombre (por defecto CutContour), a elección en sobreimpresión.
+- Crear sangrado (Páginas -> crear sangrado): los márgenes se reflejan o estiran (por defecto 3 mm), todo sigue siendo vectorial; después el formato final y el sangrado quedan bien definidos; el sangrado existente se respeta, solo se añade lo que falta.
+- Margen de seguridad en la comprobación: textos y logotipos a menos de 3 mm del corte dan un aviso con sus lugares; el aviso «sangrado insuficiente» remite ahora a «crear sangrado».
+- Sangrado en el diálogo de impresión: si hay sangrado, un aviso muestra páginas y medida y «usar el sangrado existente» viene preseleccionado; el sangrado que falta solo se añade a petición («completar el sangrado faltante al imprimir», apagado por defecto, reflejar o estirar); las marcas de corte se sitúan siempre en el formato final.
+- Línea de comandos: nuevas tareas reglas de color y crear sangrado, sobreimpresión como corrección preflight, y los ajustes de impresión doc_bleed, bleed_fill y bleed_mode.
+- Corregido: las ventanas aplastadas toman la altura que necesita su contenido; sin fallo al imprimir («_FitHeight»); las etiquetas de campos ya no desaparecen en ventanas estrechas; un sangrado de 0 mm se comporta igual con y sin marcas de corte; la prueba de color y la vista previa CMYK también funcionan con Pillow 10.2 (Ubuntu 24.04); Ctrl+Alt+Y trae la vista previa de salida al frente; dos acciones ya no comparten el mismo nombre interno.
 ## 1.19.9
 
 - Definir marcos de página (menú Páginas): zona de visualización, sangrado, formato final y marco de objeto como distancia al borde de la hoja en mm, para todas o las páginas elegidas; «Sangrado = formato final + 3 mm» con un clic.

@@ -43,6 +43,7 @@ CAT_TEXT = {
     "font": "Schrift",
     "layer": "Ebene",
     "transparency": "Transparenz",
+    "overprint": "Überdrucken & Aussparen",
     "text": "Zeichen",
     "image": "Bild",
     "size": "Dateigröße",
@@ -62,6 +63,28 @@ KIND_TEXT = {
     "image_alpha": "Bild mit Transparenz",
     "pattern_smask": "Verlauf mit Soft-Maske",
 }
+
+
+def overprint_counts(rep) -> int:
+    """Number of overprint findings (white overprints + black text that knocks out)."""
+    op = getattr(rep, "overprint", None) or {}
+    return sum(len(v) for k in ("white", "black_text") for v in (op.get(k) or {}).values())
+
+
+def overprint_lines(rep) -> list:
+    """Lines for the transparency tab: where white overprints and where small black text knocks out."""
+    op = getattr(rep, "overprint", None) or {}
+    out = []
+    for key, text in (
+        ("white", tr("Weiß überdruckt (verschwindet): Seite {0}")),
+        ("black_text", tr("Schwarzer Text spart aus: Seite {0}")),
+    ):
+        pages = sorted(op.get(key) or {})
+        if pages:
+            out.append(text.format(preflight._pages_str(pages)))
+    if out:
+        out.insert(0, "")
+    return out
 
 
 class _Worker(QThread):
@@ -252,6 +275,17 @@ class PreflightPanel(QWidget):
         )
         b.clicked.connect(self._flatten_softmask)
         lv.addWidget(b)
+        self.btn_overprint = QPushButton(tr("Überdrucken korrigieren"))
+        self.btn_overprint.setToolTip(
+            tr(
+                "Weiße Objekte, die überdrucken, werden auf Aussparen gestellt (sonst verschwinden sie im Druck); "
+                "kleiner schwarzer Text (100 % K, bis 12 pt) wird auf Überdrucken gestellt (keine Blitzer). "
+                "Nur genau diese Stellen werden geändert. Ohne Ghostscript."
+            )
+        )
+        self.btn_overprint.setEnabled(False)
+        self.btn_overprint.clicked.connect(self._fix_overprint)
+        lv.addWidget(self.btn_overprint)
         self.tabs.addTab(w, tr("Transparenz"))
 
     def _build_images_tab(self):
@@ -413,9 +447,11 @@ class PreflightPanel(QWidget):
             lines = []
             for p, kinds in sorted(rep.transparency.items())[:60]:
                 lines.append(tr("Seite {0}: {1}").format(p, ", ".join(tr(KIND_TEXT[k]) for k in sorted(kinds))))
-            self.lbl_trans.setText("\n".join(lines))
         else:
-            self.lbl_trans.setText(tr("Keine Transparenzen gefunden."))
+            lines = [tr("Keine Transparenzen gefunden.")]
+        lines += overprint_lines(rep)
+        self.lbl_trans.setText("\n".join(lines))
+        self.btn_overprint.setEnabled(bool(overprint_counts(rep)))
         self._fill_colors(rep)
         if rep.size is not None:
             from .. import shrink
@@ -809,6 +845,16 @@ class PreflightPanel(QWidget):
             PreflightFixSettings(fix="flatten_softmask", dpi=300),
             tr("_Verlaeufe"),
             tr("Verläufe umwandeln"),
+        )
+
+    def _fix_overprint(self):
+        from .. import overprint
+
+        n = overprint_counts(self.rep) if self.rep else 0
+        self._run(
+            lambda d: overprint.fix(d)[0],
+            tr("_Ueberdrucken"),
+            [tr("Überdrucken an {0} Stelle(n) korrigiert.").format(n)],
         )
 
     def stop(self, wait_ms: int = 15000):

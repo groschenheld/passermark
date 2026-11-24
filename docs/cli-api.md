@@ -221,6 +221,27 @@ leaves the PDF unchanged, later steps continue with it.
 RGB images carry the sRGB profile, CMYK images the print profile. With `--json` the command reports
 `{"event": "progress", …}` lines and ends with `{"event": "done", "files": [...], "pages": n, …}`.
 
+## Prepress jobs (1.20.0)
+
+```json
+{"job": "preflight_fix", "settings": {"fix": "overprint"}}
+{"job": "colorrules", "settings": {"cut_name": "CutContour", "to_process": ["*"], "rename": {"HKS43K": "HKS 43 K"}}}
+{"job": "bleed", "pages": "1-4", "settings": {"bleed_mm": 3, "mode": "mirror"}}
+```
+
+- `preflight_fix` with `"fix": "overprint"`: white objects set to overprint are set to knock out, small black text
+  (100 % K, up to 12 pt) to overprint – only exactly these items, no Ghostscript.
+- `colorrules`: `black_text`/`black_text_max_pt` (12) and `black_lines`/`black_line_max_pt` (1) → 100 % K;
+  `rename` {old: new}; `merge_duplicates` (true); `to_process` (spot colours to their alternate colour, `["*"]` =
+  all but cut contours); `cut_name` (unify cut contours, empty = leave alone), `cut_aliases`, `cut_overprint` (true).
+  The result reports `changed`.
+- `bleed`: `bleed_mm` (3) and `mode` (`mirror` · `stretch`); TrimBox = trim size, BleedBox = MediaBox = trim size +
+  bleed; pages with enough bleed stay unchanged.
+- Print layout (`print` step, `layout`): `doc_bleed` (true – the document's own bleed counts), `bleed_fill` (true –
+  missing bleed up to `bleed_mm` is created; false = only the document's own bleed is printed), `bleed_mode`
+  (`mirror` · `stretch`). Defaults are unchanged from earlier versions; the print dialog starts with `bleed_fill`
+  off.
+
 ## JSON output (`--json`)
 
 One JSON object per line on stdout (ASCII, non-ASCII characters escaped). Messages are in the program language
@@ -528,6 +549,11 @@ Weg wie der Druckdialog; `dry_run` schickt nichts, sondern meldet nur, was gedru
 wählt das Papier nach der PDF (Größe: die Seite, Broschüre: zwei Seiten nebeneinander). `"borderless": true`
 (seit 1.18.13) druckt randlos: randlose Papiervariante bzw. Randlos-Option des Treibers, Endformat (TrimBox) genau
 aufs Blatt, Anschnitt über den Rand.
+
+Druckvorstufe (seit 1.20.0): `preflight_fix` mit `"fix": "overprint"` (weiß überdruckend → aussparen, kleiner
+schwarzer Text → überdrucken), `colorrules` (Schwarz → 100 % K, Sonderfarben umbenennen/zusammenführen/in CMYK,
+Schneidkonturen vereinheitlichen) und `bleed` (Anschnitt spiegeln/strecken, `bleed_mm`, `mode`); im Druck-`layout`
+zusätzlich `doc_bleed`, `bleed_fill` und `bleed_mode` – Einzelheiten oben unter *Prepress jobs*.
 
 Ablauf-Ordner (der erste mit dem Namen gewinnt): eigene unter `~/.config/passermark/workflows/` bzw.
 `%APPDATA%\Passermark\workflows\`, dann die vom Admin eingetragenen weiteren Ordner (z. B. Netzwerkfreigabe,

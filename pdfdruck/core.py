@@ -161,6 +161,7 @@ class PreflightFixSettings:
     """Settings of the job ``preflight_fix``: one targeted repair from the document check."""
 
     fix: str = "flatten_layers"  # flatten_layers | embed_fonts | outline_text | flatten_transparency | flatten_softmask
+    #                               | overprint
     font_map: dict = field(default_factory=dict)  # embed_fonts: {font name: path}
     dpi: int = 300  # flatten_transparency, flatten_softmask
     visible: list | None = None  # flatten_layers: visible layers (None = print state)
@@ -342,6 +343,11 @@ def _job_preflight_fix(src, dst, s: PreflightFixSettings, opts, progress, cancel
 
         out, more = softmask.flatten_softmask_paints(data, s.dpi, step)
         notes += more
+    elif s.fix == "overprint":
+        from . import overprint
+
+        out, more = overprint.fix(data)
+        notes += more
     else:
         raise ValueError(tr("Unbekannte Reparatur: {0}").format(s.fix))
     _check(cancel)
@@ -480,6 +486,46 @@ def _job_press(src, dst, s, opts, progress, cancel):
     return JobResult(dst, r["info"], r["notes"])
 
 
+def _colorrules_settings():
+    from .colorrules import ColorRulesSettings
+
+    return ColorRulesSettings
+
+
+def _job_colorrules(src, dst, s, opts, progress, cancel):
+    """Colour rules for the whole document: black -> 100 % K, spot colours, cut contours (colorrules.py)."""
+    from . import colorrules
+
+    _check(cancel)
+    with open(src, "rb") as f:
+        data = f.read()
+    out, notes = colorrules.apply(data, s)
+    _check(cancel)
+    with open(dst, "wb") as f:
+        f.write(out)
+    return JobResult(dst, {"changed": out != data}, notes)
+
+
+def _bleed_settings():
+    from .bleedgen import BleedSettings
+
+    return BleedSettings
+
+
+def _job_bleed(src, dst, s, opts, progress, cancel):
+    """Create bleed (mirror/stretch the edges) for pages without it (bleedgen.py)."""
+    from . import bleedgen
+
+    _check(cancel)
+    with open(src, "rb") as f:
+        data = f.read()
+    out, notes = bleedgen.add_bleed(data, opts.get("pages"), s.bleed_mm, s.mode)
+    _check(cancel)
+    with open(dst, "wb") as f:
+        f.write(out)
+    return JobResult(dst, {"changed": out != data}, notes)
+
+
 def _press_settings():
     from .pressexport import PressSettings
 
@@ -504,6 +550,8 @@ JOBS = {
     "split": (_split_settings, _job_split),
     "shrink": (_shrink_settings, _job_shrink),
     "press": (_press_settings, _job_press),
+    "colorrules": (_colorrules_settings, _job_colorrules),
+    "bleed": (_bleed_settings, _job_bleed),
 }
 
 

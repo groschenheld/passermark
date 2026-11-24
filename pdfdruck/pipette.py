@@ -343,7 +343,7 @@ def ink_color(
     import numpy as np
     from PIL import Image
 
-    from . import cmyk
+    from . import cmyk, overprint
 
     crop, rot, (pw, ph) = _geometry(data, page_index)
     dpi = round(min(DPI, MAX_PX * 72.0 / max(pw, ph, 1)), 1)
@@ -354,7 +354,7 @@ def ink_color(
         if not gs:
             raise RuntimeError(tr("Für den Farbauftrag wird Ghostscript benötigt."))
         s = cmyk.ManipSettings(cmyk=True, cmyk_mode="rgb_only", target=icc, intent=intent or "relative")
-        extra = ["-dUseCropBox", *cmyk._permit(s), *cmyk.color_args(s)]
+        extra = ["-dUseCropBox", *overprint.ghostscript_args(True), *cmyk._permit(s), *cmyk.color_args(s)]
         if password:
             extra.append(f"-sPDFPassword={password}")
         tmp = tempfile.mkdtemp(prefix="passermark-ink-")

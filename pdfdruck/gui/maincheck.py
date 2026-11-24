@@ -291,7 +291,11 @@ class MainCheckMixin:
         w = getattr(self, "_pf_worker", None)
         if w is not None and w.isRunning():
             w.wait(15000)
-        for panel in (getattr(self, "pf_panel", None), getattr(self, "color_panel", None)):
+        for panel in (
+            getattr(self, "pf_panel", None),
+            getattr(self, "color_panel", None),
+            getattr(self, "output_panel", None),
+        ):
             if panel is not None and hasattr(panel, "stop"):
                 panel.stop()
 

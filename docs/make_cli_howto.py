@@ -259,7 +259,7 @@ def build():
         )
     )
 
-    s.append(P("Die zehn Aufträge", H3))
+    s.append(P("Die zwölf Aufträge", H3))
     s.append(
         table(
             [
@@ -270,7 +270,8 @@ def build():
                 [c("repair"), "Reparieren, für Druck optimieren, verkleinern, PDF/A, Passwort"],
                 [
                     c("preflight_fix"),
-                    "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren",
+                    "Ebenen festschreiben, Schriften einbetten, Text in Pfade, Transparenzen reduzieren, "
+                    "Überdrucken korrigieren",
                 ],
                 [c("impose"), "Ausschießen wie im Druckdialog: Broschüre und Lagen, Nutzen, Mehrere pro Blatt, Poster"],
                 [
@@ -290,6 +291,12 @@ def build():
                     "Für die Druckerei ausgeben: umwandeln wie empfohlen, Output Intent immer einbetten, optional Paket mit "
                     "Profil und Bericht",
                 ],
+                [
+                    c("colorrules"),
+                    "Farbregeln fürs ganze Dokument: Schwarz → 100 % K, Sonderfarben umbenennen/zusammenführen/in CMYK, "
+                    "Schneidkonturen vereinheitlichen",
+                ],
+                [c("bleed"), "Anschnitt erzeugen: Seitenränder spiegeln oder strecken, Endformat und Anschnitt setzen"],
             ],
             [32 * mm, W - 32 * mm],
         )
@@ -758,7 +765,9 @@ def build():
                     + ", "
                     + c("flatten_softmask")
                     + " (transparente Verläufe in deckende Bilder – "
-                    "gegen schwarze Flächen am RIP, ohne Ghostscript)",
+                    "gegen schwarze Flächen am RIP, ohne Ghostscript), "
+                    + c("overprint")
+                    + " (weiß überdruckende Objekte aussparen, kleinen schwarzen Text überdrucken – ohne Ghostscript)",
                 ],
                 [c("font_map"), "{}", "bei " + c("embed_fonts") + ": Ersatzschriften {Schriftname: Pfad}"],
                 [
@@ -788,6 +797,14 @@ def build():
             "",
             "passermark-cli preflight_fix plakat.pdf plakat-flach.pdf \\\n"
             "    --set fix=flatten_transparency --set dpi=300",
+        )
+    )
+    s.append(
+        example(
+            "Weißer Text verschwindet im Druck",
+            "Die Prüfung meldet „weiß überdruckt“: nur genau diese Stellen werden auf Aussparen gestellt, kleiner "
+            "schwarzer Text (100 % K, bis 12 pt) auf Überdrucken.",
+            "passermark-cli preflight_fix flyer.pdf flyer-ok.pdf --set fix=overprint",
         )
     )
     _gs = (
@@ -1186,6 +1203,113 @@ def build():
             "Bogen mit 2 × 4 Karten in Einzelkarten",
             "Raster auf Seite 1.",
             "passermark-cli split bogen.pdf karten.pdf --set mode=grid --set cols=2 --set rows=4 --pages 1",
+        )
+    )
+
+    # ------------------------------------------------------------------ colorrules
+    s.append(P("colorrules – Farbregeln fürs ganze Dokument", H3))
+    s.append(
+        P(
+            "Ändert Farben im ganzen Dokument, auch in Formularen und Mustern – wie Farbe → Farbregeln … im "
+            "Programm. Es wirkt nur, was eingeschaltet bzw. angegeben ist. Ohne Ghostscript."
+        )
+    )
+    s.append(
+        table(
+            [
+                ["Einstellung", "Standard", "Bedeutung"],
+                [
+                    c("black_text") + " / " + c("black_text_max_pt"),
+                    c("true") + " / 12",
+                    "kleiner Text in RGB-, Grau- oder 4c-Schwarz bis zu dieser Größe → 100 % K",
+                ],
+                [
+                    c("black_lines") + " / " + c("black_line_max_pt"),
+                    c("true") + " / 1",
+                    "dünne Linien bis zu dieser Strichstärke ebenso",
+                ],
+                [c("rename"), "{}", "Sonderfarben umbenennen: {alter Name: neuer Name}"],
+                [c("merge_duplicates"), c("true"), "gleiche Namen zusammenführen („HKS 43 K“ = „HKS43K“)"],
+                [
+                    c("to_process"),
+                    "[]",
+                    "Sonderfarben in ihre Ersatzfarbe (CMYK) umwandeln; "
+                    + c('["*"]')
+                    + " = alle außer Schneidkonturen",
+                ],
+                [
+                    c("cut_name"),
+                    '""',
+                    "Schneidkonturen unter diesem Namen vereinheitlichen, z. B. "
+                    + c("CutContour")
+                    + "; leer = nicht anfassen",
+                ],
+                [
+                    c("cut_aliases"),
+                    "Cut, Kontur, Stanze …",
+                    "Namen, die als Schneidkontur gelten (Groß-/Kleinschreibung und Leerzeichen egal)",
+                ],
+                [c("cut_overprint"), c("true"), "Schneidkontur überdruckt (spart den Druck nicht aus)"],
+            ],
+            [40 * mm, 30 * mm, W - 70 * mm],
+        )
+    )
+    s.append(
+        example(
+            "Kundendatei für den Schneideplotter",
+            "„Stanze“, „Cut“ oder „Kontur“ heißen danach CutContour und überdrucken; kleiner schwarzer Text wird "
+            "reines Schwarz.",
+            "passermark-cli colorrules kunde.pdf kunde-plot.pdf --set cut_name=CutContour",
+        )
+    )
+    s.append(
+        example(
+            "Digitaldruck ohne Sonderfarben",
+            "Alle Sonderfarben in CMYK, eine Farbe vorher umbenannt.",
+            "passermark-cli colorrules kunde.pdf kunde-cmyk.pdf \\\n"
+            "    --set 'to_process=[\"*\"]' --set 'rename={\"HKS43K\": \"HKS 43 K\"}'",
+        )
+    )
+
+    # ------------------------------------------------------------------ bleed
+    s.append(P("bleed – Anschnitt erzeugen", H3))
+    s.append(
+        P(
+            "Für Kundendateien ohne Beschnittzugabe – wie Seiten → Anschnitt erzeugen … im Programm. Die Seite wird "
+            "ringsum um den Anschnitt größer; Endformat ist die TrimBox, sonst die Seite, wie sie ist. Danach gilt "
+            "TrimBox = Endformat, BleedBox = MediaBox = Endformat + Anschnitt. Vorhandener Anschnitt bleibt echt, nur "
+            "der Rest wird ergänzt; alles bleibt Vektor."
+        )
+    )
+    s.append(
+        table(
+            [
+                ["Einstellung", "Standard", "Bedeutung"],
+                [c("bleed_mm"), "3", "Anschnitt in mm"],
+                [
+                    c("mode"),
+                    c("mirror"),
+                    c("mirror")
+                    + " = Rand nach außen spiegeln (nahtlos), "
+                    + c("stretch")
+                    + " = 1-mm-Randstreifen nach außen ziehen (wenn ein Spiegelbild auffallen würde)",
+                ],
+            ],
+            [30 * mm, 22 * mm, W - 52 * mm],
+        )
+    )
+    s.append(
+        example(
+            "Flyer ohne Beschnitt",
+            "3 mm gespiegelt auf allen Seiten.",
+            "passermark-cli bleed kunde.pdf kunde-anschnitt.pdf --set bleed_mm=3",
+        )
+    )
+    s.append(
+        example(
+            "Schrift nah am Rand",
+            "Strecken statt Spiegeln, nur Seite 1.",
+            "passermark-cli bleed kunde.pdf kunde-gestreckt.pdf --set mode=stretch --pages 1",
         )
     )
 

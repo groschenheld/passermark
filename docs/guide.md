@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.19.9 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.20.1 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -62,7 +62,10 @@ Since 1.19 the window follows a design sheet by the author:
   beside it offers facing pages and grids of 2–4 columns); zoom.
 - **Left sidebar** with tabs: *Seiten* (thumbnails with the page context menu), *Prüfung* (preflight findings),
   *Farbe* (colour check), *Bearbeiten* (edit mode). The strip between sidebar and page has the button that
-  collapses the whole sidebar. Narrow panels wrap their texts and tabs instead of cutting them off.
+  takes the whole sidebar out into its own window and docks it back (since 1.20.1, `gui/sidebarwin.py`): the
+  window shows the panels of the document in front and follows the tabs, closing it docks back, it closes with
+  the program. With every panel closed the button opens the sidebar again. Narrow panels wrap their texts and
+  tabs instead of cutting them off.
 - **Page view** – single page, continuous, facing pages (with the cover alone) or grid. Rulers in mm, measuring
   with snapping, trim/bleed overlay, soft proof.
 - **Tool box** over the bottom left of the page: merge, split, edit; an arrow folds it to a strip.
@@ -111,6 +114,17 @@ trim + bleed on request. *Text suchen
 und ersetzen* (Ctrl+H, `editing.find_text/replace_text`, `gui/findreplacedialog.py`) changes rows in their
 original font (hint when a subset font lacks characters). *Vorher/Nachher vergleichen* (`gui/comparedialog.py`)
 shows the saved file next to the current state with changed pixels in red.
+
+**Prepress (1.20.0):** *Überdrucken* (`overprint.py`): the check reports white objects set to overprint and
+small black text that knocks out; "Überdrucken korrigieren" (also job `preflight_fix`, `"fix": "overprint"`)
+changes only those operators. The soft proof and the pipette can simulate overprint (Ghostscript). The
+*Ausgabevorschau* (`separations.py`, panel `gui/outputpanel.py`) separates the page with Ghostscript `tiffsep`:
+inks on/off with area share, values under the mouse, ink coverage above a limit outlined in red. *Farbregeln*
+(`colorrules.py`, `pdffunc.py`, dialog `gui/colorrulesdialog.py`, job `colorrules`): small black text and thin
+lines to 100 % K, rename/merge spot colours or convert them to CMYK, unify cut contour names. *Anschnitt
+erzeugen* (`bleedgen.py`, `gui/bleeddialog.py`, job `bleed`) mirrors or stretches the page edges and sets
+TrimBox/BleedBox; the check warns about text and logos closer than 3 mm to the trim. In the print dialog the
+document's own bleed is detected and kept; missing bleed is only added on request (`layout.bleed_fill`).
 
 **Export as image** (`rasterexport.py`, dialog `gui/exportdialog.py`): pages as PNG, JPG or TIFF, 150 dpi by
 default, one file per page (`name-001.png` …) or all pages in one multi-page TIFF; RGB, grey or CMYK (CMYK via
@@ -174,7 +188,10 @@ download with checksum, apply per installation type (AppImage swaps itself, Wind
 install.sh installation is reinstalled by the root helper from the source package).
 
 **Error logs** (`crashlog.py`, `gui/crashui.py`, `gui/stallwatch.py`): every error and every hang of the
-interface ends up in a log file that can be sent along; after a crash the next start points to it.
+interface ends up in a log file that can be sent along; after a crash the next start points to it. Qt's own
+warnings go in as well (they do not keep the file), so an abrupt end by the window system (Wayland/X11 connection
+error, Qt ends the process without any Python error) still leaves its reason; such a run is reported at the next
+start too.
 
 ### 1.5 Starting it
 

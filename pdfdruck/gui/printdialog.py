@@ -38,6 +38,44 @@ from .printwidgets import PageBox, Preview, SideTab, _print_pump  # noqa: F401
 log = logging.getLogger(__name__)
 
 
+def _mm(v: float) -> str:
+    from .. import l10n as _l
+
+    t = f"{v:.1f}"
+    return t if _l.current() == "en" else t.replace(".", ",")
+
+
+def bleed_texts(avail: list, want_mm: float, mode_text: str, fill: bool = True, use_doc: bool = True) -> dict:
+    """Texts for the bleed section from the bleed per page (mm, None = no final format in the file):
+    {"doc": which pages have bleed, "doc_mm"/"doc_max": smallest/largest existing bleed, "add": where bleed is
+    added}. fill False: nothing is created, only the file's bleed is printed (if use_doc)."""
+    from ..preflight import _pages_str
+
+    have = [i + 1 for i, a in enumerate(avail) if a is not None and a > 0.05]
+    none = [i + 1 for i, a in enumerate(avail) if a is None or a <= 0.05]
+    doc_mm = min((avail[p - 1] for p in have), default=0.0)
+    doc_max = max((avail[p - 1] for p in have), default=0.0)
+    doc = ""
+    if have:
+        doc = tr("Die Datei hat schon Anschnitt: Seite {0} ({1} mm).").format(_pages_str(have), _mm(doc_mm))
+        if none:
+            doc += " " + tr("Ohne Anschnitt: Seite {0}.").format(_pages_str(none))
+    add_pages = [i + 1 for i, a in enumerate(avail) if want_mm > 0.05 and (a or 0.0) < want_mm - 0.05]
+    if not fill:
+        add = (
+            tr("Gedruckt wird der Anschnitt aus der Datei – nichts wird ergänzt.")
+            if have and use_doc
+            else tr("Kein Anschnitt: gedruckt wird genau das Endformat.")
+        )
+    elif want_mm <= 0.05:
+        add = tr("Anschnitt 0 mm: gedruckt wird genau das Endformat.") if have else ""
+    elif add_pages:
+        add = tr("Wird beim Druck ergänzt ({0}): Seite {1}.").format(mode_text, _pages_str(add_pages))
+    else:
+        add = tr("Anschnitt vollständig in der Datei – nichts wird ergänzt.")
+    return {"doc": doc, "doc_mm": doc_mm, "doc_max": doc_max, "add": add}
+
+
 class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog):
     """The print dialog: printer and options on the left, live preview of the imposed sheets on the right."""
 
@@ -346,7 +384,7 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
             # With "several per sheet" the step-and-repeat arrangement overrides the old
             # gap (edge always; bleed from 1 mm bleed; gap always) – the field is then
             # greyed out so that it is clear where the effective value comes from
-            overridden = nup and (join != "bleed" or self.spn_bleed.value() > 0)
+            overridden = nup and (join != "bleed" or self._bleed_mm() > 0)
             self.spn_gap.setEnabled(not overridden)
             self.spn_srcols.setEnabled(sr and grid)
             self.spn_srrows.setEnabled(sr and grid)
@@ -457,7 +495,11 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         L.sr2_w_mm, L.sr2_h_mm = self.spn_sr2w.value(), self.spn_sr2h.value()
         L.sr2_cols, L.sr2_rows = self.spn_sr2cols.value(), self.spn_sr2rows.value()
         L.crop_marks = self.chk_marks.isChecked()
-        L.bleed_mm = self.spn_bleed.value()
+        # (not isVisibleTo: the section may be collapsed)
+        L.doc_bleed = self.chk_docbleed.isChecked() or not getattr(self, "_doc_has_bleed", False)
+        L.bleed_fill = self.chk_fillbleed.isChecked()
+        L.bleed_mm = self._bleed_mm()
+        L.bleed_mode = self.cmb_bleedmode.currentData() or "mirror"
         L.order = self.cmb_order.currentData()
         L.tile_mode = self.cmb_tile.currentData()
         L.tile_percent = self.spn_tile.value()
@@ -561,6 +603,10 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         self.spn_sr2rows.setValue(L.sr2_rows)
         self.chk_marks.setChecked(L.crop_marks)
         self.spn_bleed.setValue(L.bleed_mm)
+        self.chk_docbleed.setChecked(bool(getattr(L, "doc_bleed", True)))
+        self.chk_fillbleed.setChecked(bool(getattr(L, "bleed_fill", True)) and L.bleed_mm > 0.05)
+        i = self.cmb_bleedmode.findData(getattr(L, "bleed_mode", "mirror"))
+        self.cmb_bleedmode.setCurrentIndex(max(0, i))
         self.handling_btns.get(L.handling, self.handling_btns["size"]).setChecked(True)
         on = bool(L.step_repeat or getattr(L, "sr_multi", False))
         if bool(self.chk_sr.isChecked()) != on:
@@ -772,8 +818,59 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
     def _is_pdf_target(self):
         return bool(self.caps and self.caps.backend == "pdf")
 
+    def _bleed_mm(self) -> float:
+        """Bleed to print: the field when missing bleed is created, otherwise the file's own (or none)."""
+        if self.chk_fillbleed.isChecked():
+            return self.spn_bleed.value()
+        if not hasattr(self, "_doc_has_bleed") and self.doc is not None:
+            self._bleed_info()  # the file's bleed not determined yet
+        if getattr(self, "_doc_has_bleed", False) and self.chk_docbleed.isChecked():
+            return round(getattr(self, "_doc_bleed_max", 0.0), 2)
+        return 0.0
+
+    def _docbleed_toggled(self, on: bool):
+        """Use the document's bleed: the bleed field cannot go below it (otherwise it would be cut away)."""
+        self._bleed_info(apply_minimum=True)
+        self._changed()
+
+    def _bleed_info(self, apply_minimum: bool = False):
+        """Which pages already have bleed, which get it added – and the bleed field at least the document's
+        bleed while "use the document's bleed" is ticked."""
+        try:
+            self._ensure_trims()
+        except Exception:  # noqa: BLE001 – no info then
+            return
+        avail = layout.available_bleeds(
+            getattr(self, "trims", None) or [], getattr(self, "doc_bleeds", None) or [], len(self.doc)
+        )
+        how = tr("gestreckt") if self.cmb_bleedmode.currentData() == "stretch" else tr("gespiegelt")
+        fill = self.chk_fillbleed.isChecked()
+        info = bleed_texts(avail, self.spn_bleed.value(), how)
+        has = info["doc_mm"] > 0.05
+        self._doc_bleed_max, self._doc_has_bleed = info["doc_max"], has
+        self.spn_bleed.setEnabled(fill)
+        self.cmb_bleedmode.setEnabled(fill)
+        self.lbl_docbleed.setText(info["doc"])
+        self.lbl_docbleed.setVisible(has)
+        self.chk_docbleed.setVisible(has)
+        if has:
+            self.chk_docbleed.setText(
+                tr("Vorhandenen Anschnitt aus dem Dokument verwenden ({0} mm)").format(_mm(info["doc_mm"]))
+            )
+        want_min = round(info["doc_mm"], 1) if has and self.chk_docbleed.isChecked() else 0.0
+        if apply_minimum or self.spn_bleed.minimum() != want_min:
+            self.spn_bleed.blockSignals(True)
+            self.spn_bleed.setMinimum(want_min)
+            if self.spn_bleed.value() < want_min:
+                self.spn_bleed.setValue(want_min)
+            self.spn_bleed.blockSignals(False)
+        use_doc = has and self.chk_docbleed.isChecked()
+        self.lbl_bleedadd.setText(bleed_texts(avail, self.spn_bleed.value(), how, fill, use_doc)["add"])
+
     def _changed(self, *_):
         self._sync_enabled()
+        if self.doc is not None and hasattr(self, "chk_docbleed"):
+            self._bleed_info()
         if not self.caps:
             return
         # remember the session (RAM only)

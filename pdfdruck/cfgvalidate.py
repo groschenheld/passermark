@@ -39,6 +39,7 @@ LAYOUT = {
     "sr_join": ("edge", "bleed", "gap"),
     "custom_by": ("percent", "short", "long"),
     "sr_by": ("percent", "short", "long"),
+    "bleed_mode": ("mirror", "stretch"),
 }
 NUMS = {
     "custom_percent": (1, 1000),
@@ -74,6 +75,8 @@ BOOLS = (
     "mirror_v",
     "step_repeat",
     "crop_marks",
+    "doc_bleed",
+    "bleed_fill",
 )
 STRS = {"booklet_sheets": re.compile(r"^[0-9 ,;-]{0,64}$")}
 INTENTS = ("perceptual", "relative", "saturation", "absolute")

@@ -12,6 +12,9 @@
 - recoverable errors the program works around (logger warnings, see docs/architecture.md, error handling)
   go in as "Hinweis": the file is kept so it can be sent along, but it is not reported as a crash
 - at most MAX_LOGS logs containing errors are kept
+- Qt's own messages (warnings, the last word before the window system ends the program) go in too, but do not
+  keep the file; a GUI log left behind by a process that is gone (hard end without any Python error, e.g. a
+  Wayland/X11 connection error, after which Qt calls _exit) is reported as a crash at the next start
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import faulthandler
 import logging
 import os
 import platform as _pyplatform
+import re
 import sys
 import threading
 import traceback
@@ -30,6 +34,8 @@ from . import platform as _platform
 
 MAX_LOGS = 10
 NOTE_REPEATS = 3  # the same note is written at most this often per run
+QT_REPEATS = 3  # the same Qt message likewise
+ABRUPT = "== Fehler: Passermark wurde ohne Fehlermeldung beendet"
 SEEN_MARK = "== bereits gemeldet =="
 CRASH_MARKERS = ("Fatal Python error", "Traceback (most recent call last)", "== Fehler")
 
@@ -134,7 +140,50 @@ def install(kind: str = "gui", on_error=None) -> str | None:
 
     threading.excepthook = thread_hook
     atexit.register(_finish)
+    if "PySide6.QtCore" in sys.modules:
+        qt_messages()
     return path
+
+
+def qt_message(level: str, msg: str) -> None:
+    """Write one Qt message to the log. It does not keep the file (a clean end still deletes it), but if the
+    window system ends the program abruptly, it is the last line there is."""
+    f = _state["file"]
+    if f is None:
+        return
+    seen = _state.setdefault("qt_seen", {})
+    n = seen[msg] = seen.get(msg, 0) + 1
+    if n > QT_REPEATS:
+        return
+    with _lock:
+        try:
+            f.write(f"-- Qt {level} {datetime.datetime.now().isoformat(timespec='seconds')}: {msg}\n")
+            f.flush()
+        except (OSError, ValueError):
+            pass
+
+
+def qt_messages() -> None:
+    """Route Qt's messages into the log (and on to the console as before)."""
+    try:
+        from PySide6.QtCore import QtMsgType, qInstallMessageHandler
+    except ImportError:
+        return
+    levels = {QtMsgType.QtWarningMsg: "Warnung", QtMsgType.QtCriticalMsg: "Kritisch", QtMsgType.QtFatalMsg: "Fatal"}
+
+    def handler(mode, _ctx, msg):
+        try:
+            sys.stderr.write(msg + "\n")
+        except (OSError, ValueError, AttributeError):
+            pass
+        level = levels.get(mode)
+        if level == "Fatal":
+            record("Qt", msg)
+        elif level:
+            qt_message(level, msg)
+
+    _state["qt_handler"] = handler  # keep a reference
+    qInstallMessageHandler(handler)
 
 
 def tr_safe(text: str) -> str:
@@ -227,6 +276,39 @@ def _finish():
             pass
 
 
+def _pid_alive(pid: int) -> bool:
+    """Does process ``pid`` still run?"""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            k32 = ctypes.windll.kernel32
+            h = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if not h:
+                return False
+            code = ctypes.c_ulong()
+            k32.GetExitCodeProcess(h, ctypes.byref(code))
+            k32.CloseHandle(h)
+            return code.value == 259  # STILL_ACTIVE
+        except Exception:  # noqa: BLE001 – im Zweifel läuft er noch (nicht melden)
+            return True
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:  # e.g. no permission: it exists
+        return True
+    return True
+
+
+def _ended_abruptly(name: str) -> bool:
+    """GUI log of a process that is gone without finishing it (a clean end deletes it or marks it)."""
+    m = re.match(r"passermark-gui-\d{8}-\d{6}-(\d+)\.log$", name)
+    return bool(m) and not _pid_alive(int(m.group(1)))
+
+
 def pending_crashes() -> list[str]:
     """Logs of earlier starts with errors/crashes not yet reported (not the current one)."""
     d = log_dir()
@@ -244,7 +326,16 @@ def pending_crashes() -> list[str]:
                 text = fh.read()
         except OSError:
             continue
-        if SEEN_MARK not in text and any(m in text for m in CRASH_MARKERS):
+        if SEEN_MARK in text:
+            continue
+        if any(m in text for m in CRASH_MARKERS):
+            out.append(p)
+        elif _ended_abruptly(n):  # no Python error at all: the window system or Qt ended it (see the Qt lines)
+            try:
+                with open(p, "a", encoding="utf-8") as fh:
+                    fh.write(f"{ABRUPT} (vermutlich Fenstersystem oder Qt – letzte Qt-Meldungen oben)\n")
+            except OSError:
+                continue
             out.append(p)
     return out
 

@@ -5,6 +5,20 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.20.1
+
+- Oldalsáv kiemelése: a lap bal oldalán lévő gomb az oldalakat, ellenőrzést, színt, kimenet-előnézetet és szerkesztést saját ablakba viszi; a lap maga ezáltal szélesebb lesz. Egy második kattintás vagy az ablak bezárása visszadokkolja a sávot, ugyanazzal a füllel elöl.
+- Az ablak mindig az éppen elöl lévő dokumentumot mutatja, és a dokumentumfülekkel együtt vált; az ellenőrzési eredmények, színbeállítások és miniatűrök megmaradnak. A méretet és a helyet a program befejezéséig megjegyzi, a gyorsbillentyűk pedig akkor is működnek, ha az oldalsáv ablaka van fókuszban.
+## 1.20.0
+
+- Túlnyomás-ellenőrzés és javítás: az ellenőrzés hibaként jelzi a fehérben túlnyomó objektumokat (nyomtatásban eltűnnek), figyelmeztetéssel a 12 pt-ig terjedő kis kihagyó fekete szövegre (regisztrációs hiba veszélye), mindkettő helymegjelöléssel; a „Túlnyomás javítása" (Ellenőrzés -> átlátszóság) pontosan ezeket a helyeket javítja, Ghostscript nélkül; a színpróba és a pipetta szimulálja a túlnyomást (alapértelmezés szerint bekapcsolva).
+- Kimenet-előnézet (Szín -> kimenet-előnézet, Ctrl+Alt+Y): színleválasztások - minden nyomtatási és spot szín be- és kikapcsolható; festékfedés határértékkel - a felette lévő területek piros keretben, a maximumértékkel és az oldal felette lévő hányadosával; az egér alatt színkénti értékek és összegük.
+- Színszabályok (Szín -> színszabályok): a kis szövegek és vékony vonalak RGB-, szürke vagy négy színes feketéje 100 % K lesz; a spot színek átnevezhetők, egyesíthetők („HKS 43 K" / „HKS43K") vagy CMYK-ba alakíthatók; a vágókontúrok egy néven egyesülnek (alapértelmezés CutContour), opcionálisan túlnyomással.
+- Levágás létrehozása (Oldalak -> levágás létrehozása): a margók tükrözve vagy nyújtva (alapértelmezés 3 mm), minden vektor marad; a TrimBox és a BleedBox ezután helyesen áll, a meglévő levágás megmarad, csak a hiányzó egészül ki.
+- Biztonsági távolság az ellenőrzésben: a vágástól 3 mm-nél közelebbi szöveg és logó figyelmeztetés, helymegjelöléssel; a „túl kevés levágás" tanács most a „levágás létrehozására" mutat.
+- Levágás a nyomtatási párbeszédben: meglévő levágásnál egy tanács mutatja az oldalakat és a méretet, a „meglévő levágás használata" előre be van jelölve; a hiányzó levágás csak kérésre egészül ki („hiányzó levágás kiegészítése nyomtatáskor", alapértelmezés szerint ki, tükrözés vagy nyújtás); a vágójelek mindig a végformátumon ülnek.
+- Parancssor: új feladatok színszabályok és levágás létrehozása, túlnyomás preflight-javításként, valamint a doc_bleed, bleed_fill és bleed_mode nyomtatási beállítások.
+- Javítva: az összenyomott ablakok olyan magasak, amennyi a tartalmuknak kell; nincs összeomlás nyomtatáskor („_FitHeight"); a mező feliratai nem tűnnek el szűk ablakokban; a 0 mm-es levágás vágójelekkel és anélkül ugyanúgy viselkedik; a színpróba és a CMYK-előnézet Pillow 10.2-vel is működik (Ubuntu 24.04); a Ctrl+Alt+Y előre hozza a kimenet-előnézetet; két művelet neve belsőleg nem egyezik többé.
 ## 1.19.9
 
 - Oldalkeretek beállítása (Oldalak menü): megjelenítési terület, levágás, végformátum és objektumkeret a lap szélétől mm-ben, az összes oldalra vagy a kijelölt oldalakra; „Levágás = végformátum + 3 mm“ egy kattintással.

@@ -82,6 +82,26 @@ def test_hard_crash_reported_once():
     assert _run(code, st).stdout.strip() == "0"  # and not afterwards either
 
 
+def test_abrupt_end_reported_with_qt_message():
+    """The window system ends the program (Qt calls _exit, no Python error) -> next start reports it,
+    with the last Qt message; Qt messages alone do not keep the log of a clean run."""
+    st = tempfile.mkdtemp()
+    r = _run(PRE + "crashlog.qt_message('Warnung', 'harmlos')\nprint('ok')", st)
+    assert r.returncode == 0 and _logs(st) == [], _logs(st)
+    r = _run(
+        PRE
+        + "crashlog.qt_message('Warnung', 'The Wayland connection experienced a fatal error')\nimport os\nos._exit(1)",
+        st,
+    )
+    assert r.returncode == 1
+    logs = _logs(st)
+    assert len(logs) == 1 and "Wayland connection" in open(logs[0], encoding="utf-8").read()
+    code = "from pdfdruck import crashlog\ncrashlog.install('gui')\np=crashlog.pending_crashes()\nprint(len(p))\ncrashlog.mark_seen(p)"
+    assert _run(code, st).stdout.strip() == "1"
+    assert "ohne Fehlermeldung beendet" in open(logs[0], encoding="utf-8").read()
+    assert _run(code, st).stdout.strip() == "0"
+
+
 def test_thread_error_logged():
     st = tempfile.mkdtemp()
     r = _run(PRE + "import threading\nt=threading.Thread(target=lambda: 1/0, name='Rechner')\nt.start(); t.join()", st)

@@ -83,6 +83,9 @@ BUILTIN = {
         "sr_join": "bleed",
         "crop_marks": False,
         "bleed_mm": 0.0,
+        "doc_bleed": True,
+        "bleed_mode": "mirror",
+        "bleed_fill": True,
     },
     # "printers": {"<queue>": {"options": {"InputSlot": "Cas1"}, "color_profile": "", "intent": "relative"}}
     "printers": {},

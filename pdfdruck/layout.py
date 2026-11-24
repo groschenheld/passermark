@@ -147,7 +147,10 @@ class LayoutSettings:
     sr2_cols: int = 0  # step 2: grid (columns × rows); 0 × 0 = automatically as many as fit
     sr2_rows: int = 0
     crop_marks: bool = False  # crop marks
-    bleed_mm: float = 0.0  # bleed area/bleed by mirroring the edges
+    bleed_mm: float = 0.0  # bleed area around the final format; missing bleed is mirrored/stretched
+    doc_bleed: bool = True  # final format and bleed from the document (TrimBox/BleedBox) – also without marks
+    bleed_mode: str = "mirror"  # missing bleed: mirror | stretch the page edges
+    bleed_fill: bool = True  # create missing bleed; off: only the bleed the document has is printed
 
     @classmethod
     def from_dict(cls, d: dict | None) -> LayoutSettings:
@@ -213,6 +216,9 @@ class Placement:
     bleed_sides: tuple = (True, True, True, True)  # left, bottom, right, top
     mirror_h: bool = False
     mirror_v: bool = False
+    bleed_mode: str = "mirror"  # how missing bleed is created: mirror | stretch
+    bleed_fill: bool = True  # False: no mirrored/stretched bleed, only the document's own (up to own_bleed)
+    own_bleed: float = -1.0  # the document's bleed (BleedBox) in pt of the source page; -1 = up to the page edge
     trim: tuple | None = None  # trim size in the document: (left, bottom, right, top) pt -> real bleed
     trim_show_edge: tuple = (False, False, False, False)  # outer sides of the step-and-repeat block: also show the real
     # document edge (incl. existing crop marks)
@@ -1011,6 +1017,9 @@ def _crop_marks(sp: SheetPlan, bleed: float):
         sp.marks.append(("line", X1 + o, y, X1 + o + MARK_LEN, y, False))
 
 
+STRETCH_BAND_MM = 1.0  # stretched bleed: this strip inside the page edge is pulled outward (as bleedgen)
+
+
 def _apply_extras(plans, s: LayoutSettings):
     special = s.handling in ("booklet", "poster") and not s.step_repeat
     bleed = 0.0 if special else s.bleed_mm * MM
@@ -1018,6 +1027,8 @@ def _apply_extras(plans, s: LayoutSettings):
         for pl in sp.placements:
             pl.bleed = bleed
             pl.mirror_h, pl.mirror_v = s.mirror_h, s.mirror_v
+            pl.bleed_mode = s.bleed_mode
+            pl.bleed_fill = s.bleed_fill
         if s.crop_marks and not special:
             _crop_marks(sp, bleed)
     return plans
@@ -1319,7 +1330,8 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
 
         s = dataclasses.replace(s, use_margins=False)
         sheet = Sheet(sheet.width, sheet.height, None)
-    if not trims or not any(trims) or not uses_trim(s):
+    # without "bleed from the document" the final format always counts (bleed 0 = exactly the final format)
+    if not trims or not any(trims) or not (uses_trim(s) or not s.doc_bleed):
         return _plan(sizes, pages, sheet, s)
     sz = list(sizes)
     for i, t in enumerate(trims):
@@ -1344,6 +1356,8 @@ def plan(sizes, pages, sheet: Sheet, s: LayoutSettings, trims=None, bleeds=None)
             t = trims[pl.src] if pl.src < len(trims) else None
             if t:
                 pl.trim = t
+                b = bleeds[pl.src] if bleeds and pl.src < len(bleeds) else 0.0
+                pl.own_bleed = b if b > 0 else -1.0
                 if s.borderless and not s.step_repeat and s.handling != "booklet":
                     pl.trim_show_edge = (True, True, True, True)  # real bleed beyond the sheet edge
     return plans
@@ -1458,10 +1472,17 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
             show = pl.trim_show_edge
             # per side: the configured bleed; on the outer sides of the block additionally
             # up to the real document edge (use existing crop marks instead of cutting them off)
-            bL = max(b if sl else 0.0, eL0 if show[0] else 0.0)
-            bB = max(b if sb else 0.0, eB0 if show[1] else 0.0)
-            bR = max(b if sr_ else 0.0, eR0 if show[2] else 0.0)
-            bT = max(b if st else 0.0, eT0 if show[3] else 0.0)
+            # without "create missing bleed" only what the document has is shown (no mirroring/stretching)
+            fill = getattr(pl, "bleed_fill", True)
+            own = getattr(pl, "own_bleed", -1.0)
+            lim = own * pl.scale if own >= 0 else float("inf")
+            cL, cB, cR, cT = (
+                (b, b, b, b) if fill else (min(b, eL0, lim), min(b, eB0, lim), min(b, eR0, lim), min(b, eT0, lim))
+            )
+            bL = max(cL if sl else 0.0, eL0 if show[0] else 0.0)
+            bB = max(cB if sb else 0.0, eB0 if show[1] else 0.0)
+            bR = max(cR if sr_ else 0.0, eR0 if show[2] else 0.0)
+            bT = max(cT if st else 0.0, eT0 if show[3] else 0.0)
             bx, by = pl.x - bL, pl.y - bB
             bw, bh = pl.w + bL + bR, pl.h + bB + bT
             if pl.clip is not None:
@@ -1480,15 +1501,31 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
             eL, eB, eR, eT = eL0, eB0, eR0, eT0
             xs_ = [0] + ([-1] if sl and bL > eL + 0.05 else []) + ([1] if sr_ and bR > eR + 0.05 else [])
             ys_ = [0] + ([-1] if sb and bB > eB + 0.05 else []) + ([1] if st and bT > eT + 0.05 else [])
-            offsets = [(dx, dy) for dx in xs_ for dy in ys_]
+            # corners first, then the sides, the page itself last (on top): a stretched copy also covers the
+            # inside of the page, the original hides that again
+            offsets = sorted(((dx, dy) for dx in xs_ for dy in ys_), key=lambda o: -(abs(o[0]) + abs(o[1])))
+            stretch = getattr(pl, "bleed_mode", "mirror") == "stretch"
+            band = min(STRETCH_BAND_MM * MM * pl.scale, (X1 - X0) / 4, (Y1 - Y0) / 4)
             for dx, dy in offsets:
                 mm = local
-                if dx:  # mirror at the left/right edge
+                if dx:  # mirror/stretch at the left/right edge
                     c = X0 - eL if dx < 0 else X1 + eR
-                    mm = _mul(mm, (-1, 0, 0, 1, 2 * c, 0))
+                    if stretch and band > 0:
+                        need = (bL - eL) if dx < 0 else (bR - eR)
+                        k = (band + max(0.0, need)) / band
+                        anchor = c + band if dx < 0 else c - band
+                        mm = _mul(mm, (k, 0, 0, 1, anchor * (1 - k), 0))
+                    else:
+                        mm = _mul(mm, (-1, 0, 0, 1, 2 * c, 0))
                 if dy:
                     c = Y0 - eB if dy < 0 else Y1 + eT
-                    mm = _mul(mm, (1, 0, 0, -1, 0, 2 * c))
+                    if stretch and band > 0:
+                        need = (bB - eB) if dy < 0 else (bT - eT)
+                        k = (band + max(0.0, need)) / band
+                        anchor = c + band if dy < 0 else c - band
+                        mm = _mul(mm, (1, 0, 0, k, 0, anchor * (1 - k)))
+                    else:
+                        mm = _mul(mm, (1, 0, 0, -1, 0, 2 * c))
                 tobj = xobj(pl.src, tiles).as_pageobject()
                 tobj.transform(pdfium.PdfMatrix(*mm))
                 tpage.insert_obj(tobj)
@@ -1633,6 +1670,20 @@ def trims_from_info(info: list) -> list:
         elif rot == 270:
             o = (o[3], o[0], o[1], o[2])
         out.append(o if max(o) > 0.5 and min(o) >= 0 and (tr_ - tl) > 10 and (tt - tb) > 10 else None)
+    return out
+
+
+def available_bleeds(trims: list, doc_bleeds: list, n: int) -> list:
+    """Bleed per page in mm that the file has around its final format (BleedBox, otherwise the visible page
+    beyond the TrimBox); None for pages without a final format in the file."""
+    out = []
+    for i in range(n):
+        t = trims[i] if i < len(trims) else None
+        if not t:
+            out.append(None)
+            continue
+        b = doc_bleeds[i] if i < len(doc_bleeds) else 0.0
+        out.append((min(b, min(t)) if b > 0 else min(t)) / MM)
     return out
 
 

@@ -217,6 +217,197 @@ def test_start_and_basic_actions():
     assert "SMOKE-OK" in r.stdout, r.stdout[-2000:] + r.stderr[-3000:]
 
 
+def test_fit_height():
+    """Dialogs grow with their wrapped content (squeezed settings/repair windows, 1.20.0)."""
+    from pdfdruck.gui import common
+
+    class Size:
+        def __init__(self, w, h):
+            self.w, self.h = w, h
+
+        def width(self):
+            return self.w
+
+        def height(self):
+            return self.h
+
+    class Lay:
+        def activate(self):
+            pass
+
+        def totalMinimumSize(self):
+            return Size(300, 200)
+
+        def hasHeightForWidth(self):
+            return True
+
+        def totalHeightForWidth(self, w):
+            return 120000 // w  # narrower -> taller
+
+    class Scr:
+        def availableGeometry(self):
+            return Size(1920, 1000)
+
+    class Win:
+        def __init__(self):
+            self.minw, self.minh, self.w, self.h = 0, 0, 600, 150
+
+        def minimumWidth(self):
+            return self.minw
+
+        def minimumHeight(self):
+            return self.minh
+
+        def setMinimumSize(self, w, h):
+            self.minw, self.minh = w, h
+
+        def width(self):
+            return self.w
+
+        def height(self):
+            return self.h
+
+        def resize(self, w, h):
+            self.w, self.h = w, h
+
+        def layout(self):
+            return Lay()
+
+        def screen(self):
+            return Scr()
+
+        def isWindow(self):
+            return True
+
+        def isVisible(self):
+            return True
+
+        def installEventFilter(self, f):
+            pass
+
+        def property(self, name):
+            return 0
+
+    win = Win()
+    assert common._fit_need(win) == (300, 200)  # 120000 / 600 = 200
+    common._fit_window(win)
+    assert (win.minw, win.minh) == (300, 200) and win.h == 200  # was 150: squeezed -> grows
+    win.w = 400
+    common._fit_window(win)
+    assert win.minh == 300 and win.h == 300  # narrower: texts wrap, taller
+    win.w = 40
+    assert common._fit_need(win)[1] == 940  # never taller than the screen
+    # the filter keeps no Python attributes (a fresh PySide wrapper must work, log 1.20.0-vorab4)
+    import inspect
+
+    assert "self." not in inspect.getsource(common._FitHeight.eventFilter)
+
+
+def test_sidebar_window():
+    """1.20.1: the sidebar moves into its own window, follows the document in front and docks back."""
+    from pdfdruck.gui import sidebarwin
+
+    class Act:
+        def __init__(self, dock):
+            self.dock = dock
+
+        def isChecked(self):
+            return self.dock.open
+
+    class Sig:
+        def connect(self, fn):
+            pass
+
+    class Dock:
+        def __init__(self, name, open_, front=False):
+            self.name, self.open, self.front = name, open_, front
+            self.visibilityChanged = Sig()
+
+        def toggleViewAction(self):
+            return Act(self)
+
+        def isVisible(self):
+            return self.open and self.front
+
+        def setVisible(self, v):
+            self.open = v
+
+        def show(self):
+            self.open = True
+
+        def width(self):
+            return 240
+
+        def raise_(self):
+            pass
+
+    class Doc:
+        def __init__(self, name):
+            self.display_name = name
+            self.docks = [Dock("Seiten", True), Dock("Prüfung", True, True), Dock("Farbe", False)]
+            self._pages_dock = self.docks[0]
+            self.log = []
+            self.shown = 0
+
+        def _left_docks(self):
+            return list(self.docks)
+
+        def removeDockWidget(self, d):
+            self.log.append(("out", d.name))
+
+        def addDockWidget(self, area, d):
+            self.log.append(("add", d.name))
+
+        def tabifyDockWidget(self, a, b):
+            self.log.append(("tab", a.name, b.name))
+
+        def findChildren(self, cls):
+            return []
+
+        def resizeDocks(self, *a):
+            pass
+
+        def _sidebar_shown(self):
+            self.shown += 1
+
+    a, b = Doc("a.pdf"), Doc("b.pdf")
+
+    class Frame:
+        _pm_sidebar = None
+
+        def windows(self):
+            return [a, b]
+
+    frame = Frame()
+    a._host = b._host = frame
+    assert not sidebarwin.is_floating(a)
+    sb = sidebarwin.window_of(a, create=True)
+    assert sidebarwin.window_of(b) is sb  # one window per frame
+    sb._place = lambda: None
+    sb.open_for(a)
+    assert sb.active and sb.owner is a and [d.name for d in sb.held] == ["Seiten", "Prüfung", "Farbe"]
+    assert [x for x in a.log if x[0] == "out"] == [("out", "Seiten"), ("out", "Prüfung"), ("out", "Farbe")]
+    assert sidebarwin.is_floating(b) and a.shown and b.shown  # every tab's button follows
+    assert [d.open for d in a.docks] == [True, True, False]  # open panels stay open
+    sb.take(b)  # other tab in front: a gets its panels back, b's move into the window
+    assert sb.owner is b and a.log[-5:] == [
+        ("add", "Seiten"),
+        ("add", "Prüfung"),
+        ("tab", "Seiten", "Prüfung"),
+        ("add", "Farbe"),
+        ("tab", "Seiten", "Farbe"),
+    ]
+    sidebarwin.release(b)  # b closes: its panels come home first
+    assert sb.owner is None and ("add", "Seiten") in b.log
+    sb.take(None)
+    assert sb.active  # still out – comes back with the next document
+    sb.take(a)
+    sb.dock()
+    assert not sb.active and sb.owner is None and not sidebarwin.is_floating(a)
+    sb.shutdown()
+    assert frame._pm_sidebar is None
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

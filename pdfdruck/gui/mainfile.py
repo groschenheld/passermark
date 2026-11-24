@@ -594,6 +594,33 @@ class MainFileMixin:
 
         self._set_doc(pdfium.PdfDocument(data), self.path, self.display_name, True, keep_page=keep_page, src=data)
 
+    def bleed_dialog(self):
+        """Seiten → Anschnitt erzeugen: mirror or stretch the edges for files without bleed (bleedgen)."""
+        if self.doc is None:
+            return
+        from PySide6.QtWidgets import QApplication
+
+        from .. import bleedgen
+        from .bleeddialog import BleedDialog
+
+        data = self._doc_bytes()
+        cur = self.view.current
+        dlg = BleedDialog(self, data, cur, len(self.doc), self.selected_pages())
+        if not dlg.exec():
+            return
+        bleed, mode = dlg.result_params()
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            new, notes = bleedgen.add_bleed(data, dlg.result_pages(), bleed, mode)
+        except Exception as e:  # noqa: BLE001 – shown, the document stays as it is
+            QMessageBox.warning(self, tr("Anschnitt erzeugen"), tr("Fehler: {0}").format(e))
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+        if new != data:
+            self._take_bytes(new, cur)
+        QMessageBox.information(self, tr("Anschnitt erzeugen"), "\n".join(notes))
+
     def page_boxes_dialog(self):
         """Set the trim format (final format and bleed) – trim and bleed box, excess sheet cut off."""
         if self.doc is None:

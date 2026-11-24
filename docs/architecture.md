@@ -243,12 +243,14 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 |---|---|
 | `pdfdruck/__main__.py` | passermark [--print] [--open] [FILES …] |
 | `pdfdruck/app.py` | Program-wide state + single instance. |
+| `pdfdruck/bleedgen.py` | Create bleed for customer files without it |
 | `pdfdruck/cfgvalidate.py` | Validation of the admin configuration – shared by the Linux helper (pkexec) and the Windows helper (UAC). |
 | `pdfdruck/cli.py` | Command line: run jobs without a GUI. |
 | `pdfdruck/cmyk.py` | CMYK conversion of PDFs and color-accurate preview. |
 | `pdfdruck/colorcheck.py` | Colour check of a document against a printing condition – facts, findings, recommendations. No Qt. |
 | `pdfdruck/colorconv.py` | Color conversion of the finished print PDF to an output profile. |
 | `pdfdruck/colorlab.py` | Colour measurement and materials (papers) – no Qt. |
+| `pdfdruck/colorrules.py` | Colour rules for the whole document (like "global changes" in PitStop) – also as a job in workflows. |
 | `pdfdruck/conditions.py` | Conditions in workflows ("if", "choose") – checked against the CURRENT PDF of the workflow. No Qt. |
 | `pdfdruck/config.py` | Admin defaults from /etc/passermark/defaults.json. |
 | `pdfdruck/convert.py` | Any files -> PDF: PDFs directly, images via img2pdf, Office via LibreOffice, OnlyOffice or Euro-Office. |
@@ -273,10 +275,12 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/layout.py` | Page selection, scaling and N-up imposition. |
 | `pdfdruck/measure.py` | Ruler and measuring – pure computation logic (no GUI, therefore precisely testable). |
 | `pdfdruck/objects.py` | Object detection on PDF pages (vector and raster) and splitting into individual pages. |
+| `pdfdruck/overprint.py` | Overprint: find risky overprint settings in the content streams and correct them. |
 | `pdfdruck/pageboxes.py` | Set the trim format: trim box (where it is cut) and bleed box (colour beyond the cut) on the pages. |
 | `pdfdruck/pagegeom.py` | Page <-> screen without loading the page: a re-implementation of pdfium's CPDF_Page::GetDisplayMatrix. |
 | `pdfdruck/pageops.py` | Page operations on the open document (pdfium), no user interface. |
 | `pdfdruck/papersizes.py` | Paper sizes in ONE place (mm, portrait) – no Qt. |
+| `pdfdruck/pdffunc.py` | PDF functions (ISO 32000 7.10): evaluate them in Python – for the tint transforms of spot colours. |
 | `pdfdruck/pdflayers.py` | Layers (optional content) of a PDF |
 | `pdfdruck/pdfmanip.py` | Document manipulation: cropping to a target size and CMYK conversion. |
 | `pdfdruck/pdfutil.py` | Small helpers for pikepdf objects that several checks share |
@@ -301,6 +305,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/roland.py` | Roland cutting plotters (CAMM-1 GS/GS2/GR/GX …) over the network (raw port 9100): loaded material width and direct cut jobs in CAMM-GL III (HP-GL dialect). |
 | `pdfdruck/rolls.py` | Rolls of large-format printers and plotters: what is loaded (width, grammage, media, remaining length). |
 | `pdfdruck/selftest.py` | Self-test of the finished program file (EXE/AppImage): checks that all bundled dependencies load. |
+| `pdfdruck/separations.py` | Output preview: the printing plates of a page (CMYK + spot colours) and the total ink coverage. |
 | `pdfdruck/session.py` | Print session (printers, options, colour profile, layout) – no Qt, for the program and the command line. |
 | `pdfdruck/shared.py` | Shared print folder for Passermark and all add-on programs (Passermark-GUI, Passerlink, PassCount …). |
 | `pdfdruck/shrink.py` | File size: show what takes up the space and reduce it selectively – every measure can be switched separately. |
@@ -320,7 +325,9 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | Module | Purpose |
 |---|---|
 | `pdfdruck/gui/admindialog.py` | Management of the defaults – saved via pkexec + helper (a single password prompt). |
+| `pdfdruck/gui/bleeddialog.py` | Dialog "Anschnitt erzeugen": bleed for customer files without it – mirror or stretch the edges (bleedgen.py). |
 | `pdfdruck/gui/colorpanel.py` | Farbe → Farbprüfung: side panel next to the soft proof. |
+| `pdfdruck/gui/colorrulesdialog.py` | Dialog "Farbregeln": black text and thin lines -> 100 % K, spot colours (rename, merge, into process colours), cut contours under one name (colorrules.py). |
 | `pdfdruck/gui/common.py` | Shared GUI helpers and the session state (kept in memory only). |
 | `pdfdruck/gui/comparedialog.py` | Dialog "Compare before/after": the saved file next to the current state, differences marked in red. |
 | `pdfdruck/gui/crashui.py` | Error log in the interface: message on unexpected errors, notice after a crash. |
@@ -349,6 +356,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/measuredialog.py` | Determine the paper white of a material: with the measuring device (ArgyllCMS spotread – X-Rite i1Pro, ColorMunki, i1Studio …), from a measurement file (CGATS from i1Profiler/ArgyllCMS, spotread log) or by hand. |
 | `pdfdruck/gui/mergedialog.py` | Dialog "Zusammenführen": put files (PDF, images, Office) in order and combine them into one PDF. |
 | `pdfdruck/gui/objectsdialog.py` | Dialogs "Separate objects" (individual pages without white space) and "Create CutContour" (cutting plotters). |
+| `pdfdruck/gui/outputpanel.py` | Farbe → Ausgabevorschau: side panel for the printing plates of the page and the total ink coverage. |
 | `pdfdruck/gui/pageboxdialog.py` | Dialog "Set trim format": final format and bleed – trim and bleed box follow, excess sheet is cut off. |
 | `pdfdruck/gui/pagegeometry.py` | Geometry of the document view |
 | `pdfdruck/gui/pageinteraction.py` | Mouse in the document view: selecting text, measuring with snapping to edges, edit mode and pipette clicks. |
@@ -374,6 +382,7 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | `pdfdruck/gui/repairdialog.py` | Dialog: repair PDFs, optimize for sharing, set/remove password protection. |
 | `pdfdruck/gui/settingsdialog.py` | File → Settings: the user's personal settings (currently: language). |
 | `pdfdruck/gui/shrinkdialog.py` | Reduce file size: breakdown of the file size and every measure on/off separately. |
+| `pdfdruck/gui/sidebarwin.py` | The sidebar as its own window (1.20.1). |
 | `pdfdruck/gui/sidepanels.py` | Parts of the 1.19.0 main window at its edges |
 | `pdfdruck/gui/softproofdialog.py` | Set up the soft proof of the page view: printing condition (material or profile), intent, paper white, black, warnings. |
 | `pdfdruck/gui/splitdialog.py` | Dialog "Split pages": halve or grid, which pages, order – with a preview of the cut lines. |

@@ -79,6 +79,7 @@ def build_spec(cfg: dict, saved: dict):
         "white": ch["white"] if saved.get("measured", True) else None,
         "warn": saved.get("warn", "none"),
         "tac": int(saved.get("tac", 300)),
+        "overprint": bool(saved.get("overprint", True)),
     }
 
 
@@ -127,9 +128,18 @@ class SoftproofDialog(QDialog):
             tr("Statt des Papierweiß aus dem Profil das gemessene des Materials (Farbe → Papiere und Messungen)")
         )
         self.chk_measured.setChecked(bool(saved.get("measured", True)))
+        self.chk_overprint = QCheckBox(tr("Überdrucken simulieren"))
+        self.chk_overprint.setToolTip(
+            tr(
+                "Zeigt überdruckende Objekte so, wie sie gedruckt werden – z. B. verschwindet weiß überdruckter "
+                "Text, Sonderfarben mischen sich. Nur mit CMYK-Druckbedingung und Ghostscript."
+            )
+        )
+        self.chk_overprint.setChecked(bool(saved.get("overprint", True)))
         f.addRow(tr("Anzeigen:"), self.chk_paper)
         f.addRow("", self.chk_black)
         f.addRow("", self.chk_measured)
+        f.addRow("", self.chk_overprint)
         h = QHBoxLayout()
         self.grp = QButtonGroup(self)
         self.rb = {}
@@ -166,7 +176,7 @@ class SoftproofDialog(QDialog):
         v.addWidget(bb)
         for w in (self.cmb, self.cmb_intent):
             w.currentIndexChanged.connect(self._emit)
-        for w in (self.chk_bpc, self.chk_paper, self.chk_black, self.chk_measured):
+        for w in (self.chk_bpc, self.chk_paper, self.chk_black, self.chk_measured, self.chk_overprint):
             w.toggled.connect(self._emit)
         self.grp.buttonToggled.connect(lambda *_: self._emit())
         self.spn_tac.valueChanged.connect(self._emit)
@@ -185,6 +195,7 @@ class SoftproofDialog(QDialog):
             "measured": self.chk_measured.isChecked(),
             "warn": warn,
             "tac": self.spn_tac.value(),
+            "overprint": self.chk_overprint.isChecked(),
         }
 
     def _choice(self):
@@ -196,6 +207,7 @@ class SoftproofDialog(QDialog):
         self.chk_measured.setEnabled(bool(ch and ch["white"]) and self.chk_paper.isChecked())
         self.spn_tac.setEnabled(self.rb["tac"].isChecked())
         self.rb["tac"].setEnabled(bool(ch and ch["space"] == "CMYK"))
+        self.chk_overprint.setEnabled(bool(ch and ch["space"] == "CMYK" and _platform.ghostscript()))
         notes = []
         if ch:
             pw = colorlab.profile_white(ch["icc"])

@@ -831,7 +831,53 @@ class PrintBuildMixin:
         self.spn_bleed.setSingleStep(0.5)
         self.spn_bleed.setSuffix(tr(" mm"))
         self.spn_bleed.setValue(L.bleed_mm)
-        f.addRow(tr("Überfüller / Anschnitt (gespiegelt):"), self.spn_bleed)
+        self.spn_bleed.setToolTip(
+            tr("Wie viel um das Endformat herum gedruckt wird. Fehlt Anschnitt in der Datei, wird er ergänzt.")
+        )
+        # bleed that the document already has (TrimBox/BleedBox) – filled in by _bleed_info once the pages are known
+        self.lbl_docbleed = QLabel("")
+        self.lbl_docbleed.setWordWrap(True)
+        self.lbl_docbleed.hide()
+        f.addRow(self.lbl_docbleed)
+        self.chk_docbleed = QCheckBox(tr("Vorhandenen Anschnitt aus dem Dokument verwenden"))
+        self.chk_docbleed.setChecked(bool(getattr(L, "doc_bleed", True)))
+        self.chk_docbleed.setToolTip(
+            tr(
+                "An: der Anschnitt der Datei wird mitgedruckt. Aus: gedruckt wird nur das Endformat – plus "
+                "ergänzter Anschnitt, wenn „Fehlenden Anschnitt beim Druck ergänzen“ an ist."
+            )
+        )
+        self.chk_docbleed.hide()
+        f.addRow(self.chk_docbleed)
+        # creating bleed is opt-in: off = only what the file has is printed (old sessions/presets with a bleed
+        # value keep it on)
+        self.chk_fillbleed = QCheckBox(tr("Fehlenden Anschnitt beim Druck ergänzen"))
+        self.chk_fillbleed.setChecked(bool(getattr(L, "bleed_fill", True)) and L.bleed_mm > 0.05)
+        self.chk_fillbleed.setToolTip(
+            tr(
+                "Aus: gedruckt wird nur der Anschnitt, den die Datei hat – nichts wird erzeugt. An: bis zum Wert "
+                "hier wird fehlender Anschnitt durch Spiegeln oder Strecken der Seitenränder ergänzt."
+            )
+        )
+        f.addRow(self.chk_fillbleed)
+        f.addRow(tr("Anschnitt:"), self.spn_bleed)
+        self.cmb_bleedmode = QComboBox()
+        fill_combo(
+            self.cmb_bleedmode,
+            [
+                ("mirror", tr("spiegeln (nahtlos, empfohlen)")),
+                ("stretch", tr("strecken (Randstreifen nach außen ziehen)")),
+            ],
+            getattr(L, "bleed_mode", "mirror"),
+        )
+        self.cmb_bleedmode.setToolTip(
+            tr("Wie fehlender Anschnitt entsteht – Strecken, wenn ein Spiegelbild am Rand auffallen würde")
+        )
+        f.addRow(tr("Fehlender Anschnitt:"), self.cmb_bleedmode)
+        self.lbl_bleedadd = QLabel("")
+        self.lbl_bleedadd.setWordWrap(True)
+        self.lbl_bleedadd.setStyleSheet(f"color: {theme.MUTED};")
+        f.addRow(self.lbl_bleedadd)
         # step-and-repeat arrangement (lives here – with the cut/cutting questions)
         self.cmb_srjoin = QComboBox()
         fill_combo(
@@ -871,9 +917,10 @@ class PrintBuildMixin:
         f.addRow(tr("Abstand zwischen Nutzen:"), self.spn_srgap)
         note = QLabel(
             tr(
-                "Erzeugt den Anschnitt durch Spiegeln der Seitenränder nach außen – für Dateien ohne "
-                "Beschnittzugabe. Beim Anpassen wird automatisch Platz für Anschnitt und Marken gelassen; "
-                "Nutzen bekommen mindestens den doppelten Anschnitt als Abstand."
+                "Schnittmarken sitzen immer am Endformat. Fehlender Anschnitt wird beim Druck durch Spiegeln oder "
+                "Strecken der Seitenränder ergänzt – dauerhaft in der Datei: Seiten → Anschnitt erzeugen. Beim "
+                "Anpassen wird Platz für Anschnitt und Marken gelassen; Nutzen bekommen mindestens den doppelten "
+                "Anschnitt als Abstand."
             )
         )
         note.setWordWrap(True)
@@ -988,6 +1035,9 @@ class PrintBuildMixin:
         # signals of the former tab "Weitere Optionen" (step and repeat, marks, mirroring)
         for w in (self.chk_sr, self.chk_sr2, self.chk_marks, self.chk_srseq):
             w.toggled.connect(self._changed)
+        self.chk_docbleed.toggled.connect(self._docbleed_toggled)
+        self.chk_fillbleed.toggled.connect(self._docbleed_toggled)
+        self.cmb_bleedmode.currentIndexChanged.connect(self._changed)
         for w in (self.cmb_srmode, self.cmb_srorient, self.cmb_srrot, self.cmb_srjoin, self.cmb_srstack):
             w.currentIndexChanged.connect(self._changed)
         self.cmb_srby.currentIndexChanged.connect(self._changed)

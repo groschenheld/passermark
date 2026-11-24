@@ -2,6 +2,20 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.1
+
+- Undock the side bar: the button to the left of the page moves pages, check, colour, output preview and editing into their own window; the page itself gets wider. A second click or closing the window docks the bar back, with the same tab in front.
+- The window always shows the document that is in front and follows the document tabs; check results, colour settings and thumbnails are kept. Size and position are remembered until the program ends, keyboard shortcuts also work while the side bar window has the focus.
+## 1.20.0
+
+- Overprint check and fix: the check reports white overprinting objects as an error (they disappear in print) and small knock-out black text up to 12 pt as a warning (risk of misregistration), both with their location; "Fix overprint" (Check -> transparency) changes exactly these spots and needs no Ghostscript; soft proof and colour picker simulate overprint (on by default).
+- Output preview (Colour -> output preview, Ctrl+Alt+Y): separations to show and hide every ink including spot colours, and ink coverage with a limit - areas above the limit are outlined in red, with the maximum value and the share of the page above the limit; under the mouse the per-ink values and their sum.
+- Colour rules (Colour -> colour rules): small text and thin lines in RGB, grey or four-colour black become 100 % K; spot colours can be renamed, merged ("HKS 43 K" / "HKS43K") or converted to CMYK; cut contours are unified under one name (default CutContour), optionally set to overprint.
+- Create bleed (Pages -> create bleed): the margins are mirrored or stretched (default 3 mm), everything stays vector; trim and bleed box are set correctly afterwards, existing bleed is kept and only what is missing is added.
+- Safety margin in the check: text and logos closer than 3 mm to the trim are a warning with their locations; the hint "not enough bleed" now points to "create bleed".
+- Bleed in the print dialog: with bleed present, a hint shows pages and size and "use existing bleed" is preselected; missing bleed is only added on request ("add missing bleed when printing", off by default, mirror or stretch); crop marks always sit on the trim size.
+- CLI: the new jobs colour rules and create bleed, overprint as a preflight fix, and the print settings doc_bleed, bleed_fill and bleed_mode.
+- Fixed: squeezed windows are as high as their content needs; no crash when printing ("_FitHeight"); form labels no longer disappear in narrow windows; bleed of 0 mm behaves the same with and without crop marks; soft proof and CMYK preview also work with Pillow 10.2 (Ubuntu 24.04); Ctrl+Alt+Y brings the output preview to the front; two actions no longer share one internal name.
 ## 1.19.9
 
 - Set page boxes (Pages menu): display area, bleed, trim and object box as distances from the sheet edge in millimetres, for all or for the selected pages; "Bleed = trim + 3 mm" with one click.
