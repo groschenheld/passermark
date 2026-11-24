@@ -1267,7 +1267,7 @@ def build():
             "Digitaldruck ohne Sonderfarben",
             "Alle Sonderfarben in CMYK, eine Farbe vorher umbenannt.",
             "passermark-cli colorrules kunde.pdf kunde-cmyk.pdf \\\n"
-            "    --set 'to_process=[\"*\"]' --set 'rename={\"HKS43K\": \"HKS 43 K\"}'",
+            '    --set \'to_process=["*"]\' --set \'rename={"HKS43K": "HKS 43 K"}\'',
         )
     )
 
