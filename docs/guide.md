@@ -188,7 +188,10 @@ download with checksum, apply per installation type (AppImage swaps itself, Wind
 install.sh installation is reinstalled by the root helper from the source package).
 
 **Error logs** (`crashlog.py`, `gui/crashui.py`, `gui/stallwatch.py`): every error and every hang of the
-interface ends up in a log file that can be sent along; after a crash the next start points to it.
+interface ends up in a log file that can be sent along; after a crash the next start points to it. Qt's own
+warnings go in as well (they do not keep the file), so an abrupt end by the window system (Wayland/X11 connection
+error, Qt ends the process without any Python error) still leaves its reason; such a run is reported at the next
+start too.
 
 ### 1.5 Starting it
 
