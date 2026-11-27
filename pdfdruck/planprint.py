@@ -34,6 +34,7 @@ BLEED_MODES = ("mirror", "blank", "color")
 ORDERS = ("list", "roll")
 ALIGNS = ("center", "left", "right")  # position across the roll
 TOL_MM = 0.5  # tolerance of the roll width
+EDGE_TOL_MM = 3.0  # default: a plan this much wider than a roll still goes on it – the outer edge is trimmed
 
 
 @dataclass
@@ -92,6 +93,7 @@ class PlanSettings:
     scale_mm: float = 0.0
     overrides: dict = field(default_factory=dict)  # per page (1-based, "3") overrides: {"scale_pct": 200, …}
     cut_sheets: bool = True  # set the printer's cut option to "after every page" (IPP trim, CutMedia …)
+    edge_tol_mm: float = EDGE_TOL_MM  # up to this much wider than a roll: trim the edge (A1 594 on a 592.9 roll)
 
 
 KINDS = ("plan", "poster")
@@ -168,18 +170,19 @@ def defaults_for(kind: str) -> dict:
             "weights": [],
             "frame": "none",
             "align": "center",
-            "quality_mode": "quality",
+            "quality_mode": "driver",
         }
-    return {"kind": "plan", "quality_mode": "production"}
+    return {"kind": "plan", "quality_mode": "driver"}
 
 
-QUALITY_MODES = ("production", "quality")
+QUALITY_MODES = ("production", "quality", "driver")  # driver: leave the driver's quality as it is
 
 
 def quality_mode_of(s) -> str:
-    """Production print (plan) or quality print (poster) – can be switched with quality_mode."""
+    """Quality of the driver: as set there (default, 1.20.2 – Passermark does not step in unasked; an 8-colour
+    Epson does its colour itself) or on request production print (lowest level) / quality print (highest)."""
     m = getattr(s, "quality_mode", "") or ""
-    return m if m in QUALITY_MODES else ("quality" if getattr(s, "kind", "plan") == "poster" else "production")
+    return m if m in QUALITY_MODES else "driver"
 
 
 def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
@@ -196,6 +199,8 @@ def apply_quality_mode(caps, vals: dict, s, mat: dict | None = None) -> dict:
     if opt is None or key in (s.options or {}):
         return vals
     mode = quality_mode_of(s)
+    if mode == "driver":
+        return vals
     mat = mat or {}
     if (mat.get("quality") or key in (mat.get("options") or {})) and (mat.get("category") == "plan") == (
         mode == "production"
@@ -377,17 +382,22 @@ def _refine(page, W: float, H: float, side: str, approx: float, lo: float, hi: f
     return x0 + r[0] / scale
 
 
-def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
-    """Print area of a plan page."""
+def detect_scale(W: float, H: float) -> float:
+    """Render scale of the coarse pass of detect() for a page W × H pt."""
+    longest_in = max(W, H) / 72
+    return max(20.0, min(50.0, 3200 / longest_in)) / 72
+
+
+def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0, gray=None) -> Area:
+    """Print area of a plan page. gray: the page already rendered in grey at detect_scale() (saves a pass)."""
     W, H = doc.get_page_size(i)
     if mode == "none":
         return Area((0.0, 0.0, W, H), "page")
     page = doc[i]
     try:
-        longest_in = max(W, H) / 72
-        dpi = max(20.0, min(50.0, 3200 / longest_in))
-        scale = dpi / 72
-        a = _render_gray(page, scale)
+        scale = detect_scale(W, H)
+        dpi = scale * 72
+        a = gray if gray is not None else _render_gray(page, scale)
         ink = a < INK
         px_mm = 25.4 / dpi
         bbox, outer, inner = _frames(ink, px_mm)
@@ -425,7 +435,13 @@ def detect(doc, i: int, mode: str = "auto", margin_mm: float = 5.0) -> Area:
             note = tr("Keine zwei Außenlinien gefunden – Inhalt + Rand")
         y0p, y1p, x0p, x1p = bbox
         m = margin_mm * MM
-        rect = (xpt(x0p) - m, ypt(y1p + 1) - m, xpt(x1p + 1) + m, ypt(y0p) + m)
+        # content + margin, but never beyond the page: a plan drawn up to its edge is printed as it is
+        rect = (
+            max(0.0, xpt(x0p) - m),
+            max(0.0, ypt(y1p + 1) - m),
+            min(W, xpt(x1p + 1) + m),
+            min(H, ypt(y0p) + m),
+        )
         return Area(rect, "margin", note)
     finally:
         page.close()
@@ -472,8 +488,10 @@ def finished_size(area: Area, s: PlanSettings) -> tuple:
     return area.w_mm * f + left + r, area.h_mm * f + b + t
 
 
-def choose(w: float, h: float, rolls: list, rotate: str = "auto") -> Fit | None:
-    """Roll and orientation for a plan w × h (mm, as the page stands)."""
+def choose(w: float, h: float, rolls: list, rotate: str = "auto", edge_tol: float = 0.0) -> Fit | None:
+    """Roll and orientation for a plan w × h (mm, as the page stands): the least paper (roll width × length),
+    then the shorter length. Up to ``edge_tol`` mm wider than a roll still fits – the edge is trimmed then
+    (pieces_for); a fit without trimming wins when it needs no more paper."""
     best = None
     for i, r in enumerate(rolls):
         if getattr(r, "empty", False):
@@ -486,9 +504,10 @@ def choose(w: float, h: float, rolls: list, rotate: str = "auto") -> Fit | None:
                 continue
             if rotate == "long" and across < along - 1e-6:
                 continue
-            if across > r.width_mm + TOL_MM:
+            over = across - r.width_mm
+            if over > TOL_MM + max(0.0, edge_tol):
                 continue
-            key = (round(along, 1), r.width_mm, rot)
+            key = (round(r.width_mm * along / 100.0), over > TOL_MM, round(along, 1), r.width_mm, rot)
             if best is None or key < best[0]:
                 best = (key, Fit(i, r.width_mm, across, along, rot))
     if best is None and rotate in ("short", "long"):
@@ -538,7 +557,7 @@ def place(items: list, rolls: list, s: PlanSettings) -> None:
             continue
         es = eff(s, it)
         it.size = finished_size(it.area, es)
-        it.fit = choose(it.size[0], it.size[1], rolls, es.rotate)
+        it.fit = choose(it.size[0], it.size[1], rolls, es.rotate, getattr(es, "edge_tol_mm", EDGE_TOL_MM))
 
 
 def run_lengths(items: list, rolls: list, copies: int) -> list:
@@ -710,6 +729,7 @@ class Piece:
     tile: int = 0
     tiles: int = 1
     clipped: bool = False  # wider than the roll – cut off
+    trimmed: float = 0.0  # mm trimmed at the edges across the roll (a little wider than the roll, edge_tol_mm)
 
     @property
     def label(self) -> str:
@@ -768,8 +788,36 @@ def find_roll(rolls: list, key: str):
     return None
 
 
+# words that say nothing about the media (vendor, IPP namespace, "user setting" of the device): matching on them
+# picked an arbitrary vendor media in the driver – e.g. "com.epson-usersetting" -> some EPSON photo paper
+_NOISE_WORDS = {
+    "com",
+    "org",
+    "net",
+    "epson",
+    "canon",
+    "hewlett",
+    "packard",
+    "oce",
+    "ricoh",
+    "xerox",
+    "roland",
+    "brother",
+    "usersetting",
+    "user",
+    "setting",
+    "settings",
+    "custom",
+    "media",
+    "type",
+    "default",
+    "roll",
+    "rolle",
+}
+
+
 def _words(t: str) -> set:
-    return {w for w in re.findall(r"[a-zäöüß]{3,}", (t or "").lower())}
+    return {w for w in re.findall(r"[a-zäöüß]{3,}", (t or "").lower())} - _NOISE_WORDS
 
 
 def match_material(rolls: list, mat: dict) -> list:
@@ -929,7 +977,16 @@ def pieces_for(it: Item, rolls: list, s: PlanSettings, use: list | None = None, 
         if nf is not None:
             return [Piece(it, it.area.rect, nf.across, nf.along, nf.rotated, nf.roll, nf.width_mm)]
     if it.fit is not None:
-        return [Piece(it, it.area.rect, it.fit.across, it.fit.along, it.fit.rotated, it.fit.roll, it.fit.width_mm)]
+        over = it.fit.across - it.fit.width_mm
+        if over <= TOL_MM:
+            return [Piece(it, it.area.rect, it.fit.across, it.fit.along, it.fit.rotated, it.fit.roll, it.fit.width_mm)]
+        # a little wider than the roll: trim the edge across the roll evenly on both sides
+        cut = over / 2.0 * MM / factor(it.area, s)
+        x0, y0, x1, y1 = it.area.rect
+        rect = (x0, y0 + cut, x1, y1 - cut) if it.fit.rotated else (x0 + cut, y0, x1 - cut, y1)
+        return [
+            Piece(it, rect, it.fit.width_mm, it.fit.along, it.fit.rotated, it.fit.roll, it.fit.width_mm, trimmed=over)
+        ]
     if s.overwidth not in ("crop", "tile") or not use:
         return []
     idx = [rolls.index(r) for r in use]
@@ -1529,6 +1586,58 @@ def rolls_for(session, printer: str, s: PlanSettings) -> tuple:
             )
         )
     return st.rolls, st.origin, notes
+
+
+THUMB_PX = 480  # longest side of the page picture for the preview of the print pages
+
+
+def item_info(
+    path: str,
+    page: int,
+    frame: str = "auto",
+    margin_mm: float = 5.0,
+    hairline_mm: float = 0.1,
+    scale: dict | None = None,
+    area: list | None = None,
+) -> dict:
+    """Everything the plan window needs of one page, in one go (render process "analysis", so the window never
+    waits): print area (unless ``area`` is given), hairlines and a small picture of the page.
+    -> {"rect", "kind", "note", "hairlines", "page_pt", "thumb": (w, h, RGB bytes)}"""
+    import numpy as np
+    import pypdfium2 as pdfium
+
+    doc = pdfium.PdfDocument(path)
+    try:
+        W, H = doc.get_page_size(page)
+        pg = doc[page]
+        try:
+            sc = detect_scale(W, H)
+            rgb = pg.render(scale=sc, may_draw_forms=True, no_smoothpath=True).to_numpy()[..., :3]
+        finally:
+            pg.close()
+        rgb = np.ascontiguousarray(rgb[..., ::-1]) if rgb.shape[2] == 3 else rgb  # BGR(x) -> RGB
+        if area:
+            a = Area(tuple(area[0]), area[1], area[2] if len(area) > 2 else "")
+        else:
+            a = detect(doc, page, frame, margin_mm, gray=rgb.min(axis=2))
+        es = PlanSettings(**{k: v for k, v in (scale or {}).items() if k in ("scale_mode", "scale_pct", "scale_mm")})
+        n = hairlines(doc, page, hairline_mm, factor(a, es) * 100.0)
+        from PIL import Image
+
+        im = Image.fromarray(rgb)
+        k = THUMB_PX / max(im.size)
+        if k < 1:
+            im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
+        return {
+            "rect": list(a.rect),
+            "kind": a.kind,
+            "note": a.note,
+            "hairlines": n,
+            "page_pt": (W, H),
+            "thumb": (im.width, im.height, im.tobytes()),
+        }
+    finally:
+        doc.close()
 
 
 def analyze(doc, pages: list, s: PlanSettings, rolls: list, source: str = "", qty: int = 1) -> list:

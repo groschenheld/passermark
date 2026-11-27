@@ -247,8 +247,8 @@ class PlanBuildMixin:
         self.cmb_qmode.setToolTip(
             tr(
                 "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. "
-                "höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material "
-                "derselben Kategorie eingetragen ist."
+                "höchste Stufe (Qualitätsdruck) – „Wie im Treiber“ lässt sie unverändert. Vorrang hat eine "
+                "Qualität, die beim Material derselben Kategorie eingetragen ist."
             )
         )
         f.addRow(tr("Qualität:"), self.cmb_qmode)

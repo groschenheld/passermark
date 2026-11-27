@@ -23,7 +23,11 @@ ROTATE_TEXT = {
 }
 ORDER_TEXT = {"list": "Reihenfolge der Liste", "roll": "Nach Rollenbreite (schmal zuerst)"}
 COLOR_TEXT = {"": "Wie im Treiber", "color": "Farbe", "gray": "Graustufen"}
-QMODE_TEXT = {"production": "Produktionsdruck (schnell)", "quality": "Qualitätsdruck (höchste Qualität)"}
+QMODE_TEXT = {
+    "production": "Produktionsdruck (schnell)",
+    "quality": "Qualitätsdruck (höchste Qualität)",
+    "driver": "Wie im Treiber",
+}
 BLEED_TEXT = {"mirror": "Gespiegelt", "blank": "Leerraum", "color": "Einzelfarbe"}
 OVER_TEXT = {
     "none": "Auslassen (Warnung)",

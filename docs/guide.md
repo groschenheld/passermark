@@ -149,7 +149,11 @@ per user with a colour path. History of the last 50 prints. 1.20.2: the open doc
 Plan & Poster / toolbar button: unchanged the file itself, edited a copy in the cache, kept 14 days –
 `maindialogs.handover_copy`); every file in the list is checked after the detection with the profile of the window
 (default *plot*, this window only), column *Prüfung* with tool tip, a summary above the list and a question before
-printing with errors. Colour profile, intent and "driver colour adjustment off" apply to one print only.
+printing with errors. Colour profile, intent and "driver colour adjustment off" apply to one print only. Detection,
+hairlines and a page picture come from the analysis process (`planprint.item_info`, call `plan_item`), so the
+window never waits for a CAD plan; the preview of the print pages is drawn from these pictures (no rendering).
+On Windows `printers_win._open_dc` checks the paper the driver really took: turned → the page is turned, too small
+→ error instead of a cut-off plan; `druck-windows.log` records page, paper and the DEVMODE fields.
 
 **Prepress check** (`preflight.py`, sidebar *Prüfung*): fonts (embedded, subset, Type 3 …), layers,
 transparency, page boxes and bleed, protection, PDF/X and output intent, form fields, empty pages, page size

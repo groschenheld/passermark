@@ -3035,7 +3035,7 @@ MESSAGES = {
     "Qualität:": "Minőség:",
     "Produktionsdruck (schnell)": "Termelési nyomtatás (gyors)",
     "Qualitätsdruck (höchste Qualität)": "Minőségi nyomtatás (legjobb minőség)",
-    "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.": "A nyomtató-illesztőprogram minőségét a legalacsonyabb (termelési nyomtatás) vagy a legmagasabb szintre (minőségi nyomtatás) állítja. Elsőbbséget élvez az azonos kategóriájú anyagnál megadott minőség.",
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck) – „Wie im Treiber“ lässt sie unverändert. Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': "A nyomtató-illesztőprogram minőségét a legalacsonyabb (termelési nyomtatás) vagy a legmagasabb szintre (minőségi nyomtatás) állítja – a „Mint az illesztőprogramban” változatlanul hagyja. Elsőbbséget élvez az azonos kategóriájú anyagnál megadott minőség.",
     "Fortlaufend": "Folyamatos",
     "Doppelseite": "Egymás melletti oldalak",
     "Raster": "Rács",
@@ -3555,4 +3555,8 @@ MESSAGES = {
     'Sonderfarben in CMYK umwandeln (Schneidkonturen bleiben)': 'Direktszínek átalakítása CMYK-ba (a vágókontúrok maradnak)',
     'RGB in CMYK umwandeln': 'RGB átalakítása CMYK-ba',
     'Als PDF/X-4 ausweisen': 'Megjelölés PDF/X-4-ként',
+    'Der Druckertreiber nimmt die Papiergröße {0} × {1} mm nicht an (er meldet {2} × {3} mm) – der Plan würde abgeschnitten, deshalb wird nicht gedruckt. Im Treiber benutzerdefinierte Formate/Rollenlänge zulassen oder die Länge prüfen.': 'A nyomtató-illesztőprogram nem fogadja el a(z) {0} × {1} mm papírméretet ({2} × {3} mm-t jelez) – a terv levágódna, ezért nem nyomtat. Engedélyezze az egyéni méreteket/tekercshosszt az illesztőprogramban, vagy ellenőrizze a hosszt.',
+    'Erkenne … ({0} offen)': 'Felismerés … ({0} hátra)',
+    '{0} mm breiter als die Rolle – am Rand beschnitten (je Seite die Hälfte)': '{0} mm-rel szélesebb a tekercsnél – a szélén vágva (oldalanként a fele)',
+    '−{0} mm': '−{0} mm',
 }

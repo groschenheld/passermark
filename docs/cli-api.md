@@ -406,9 +406,12 @@ Job `plan` (workflow step `{"job": "plan", "settings": {…}}`, or `passermark-c
 on a roll printer – the same as *Plan & Poster → Plan printing* in the program:
 
 - **Print area** (`frame`): `auto` – two outer lines: printing is limited to the outer one (it disappears, an exact
-  margin stays around the plan); otherwise the content plus `margin_mm` (5). `frame`, `margin`, `none` (page).
-- **Roll** (`rotate`): `auto` = the roll with the shortest length, rotation allowed (an A1 goes across the 841 roll),
-  equal length → the narrower roll; `keep`, `short`, `long`. Only rolls whose grammage is in `weights` (75, 80)
+  margin stays around the plan); otherwise the content plus `margin_mm` (5), never beyond the page (1.20.2).
+  `frame`, `margin`, `none` (page).
+- **Roll** (`rotate`): `auto` = the least paper (roll width × length), rotation allowed, equal paper → the shorter
+  length (1.20.2; before: the shortest length – an A2 landed on the 914 roll); `keep`, `short`, `long`.
+  `edge_tol_mm` (3): a plan up to this much wider than a roll still goes on it – half of the excess is trimmed on
+  each side (an A1 with frame lines of 593.5 mm on a roll the device reports as 592.9 mm). Only rolls whose grammage is in `weights` (75, 80)
   or unknown are used for plans; with a `material` the rolls with its grammage, else those whose media name matches
   the material's name/media type (e.g. “Polyprop”).
 - **Fixed roll** (`roll_pick`, `--roll`): print only on this roll – its driver feed value (`slot`), its name at the
@@ -458,12 +461,13 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   In the program, profile, intent and driver colour of Plan & Poster apply to one print only and are never saved;
   the session's colour profile stays as it was after a plan print. Print dialog: "Driver colour adjustment off (this
   print only)" (job value `__driver_color_off__`, `printers.color_off_option`).
-- **Print quality** `quality_mode`: `production` (lowest quality level of the driver – default for plans) |
-  `quality` (highest – default for posters). Takes precedence over the driver default; a quality in `options` or one
-  set for a material of the matching category (`plan` ↔ production, `quality` ↔ quality) wins. Drivers whose
-  quality levels cannot be ranked (no draft/high/dpi in the names) are left alone.
+- **Print quality** `quality_mode`: `driver` (default since 1.20.2: the driver's quality stays as it is – Passermark
+  does not step in unasked) | `production` (lowest quality level of the driver) | `quality` (highest). Production
+  and quality take precedence over the driver default; a quality in `options` or one set for a material of the
+  matching category (`plan` ↔ production, `quality` ↔ quality) wins. Drivers whose quality levels cannot be ranked
+  (no draft/high/dpi in the names) are left alone.
 - **Posters** (`"kind": "poster"`, `--kind poster` sets the poster defaults: `align` `center`, `overwidth` `crop`,
-  no plan paper grammage, `frame` `none`): quality print; `nest` (side by side, off by default; roll and orientation
+  no plan paper grammage, `frame` `none`); `nest` (side by side, off by default; roll and orientation
   with the least paper = roll width × length; `gap_mm`; every row is its own print page, so the printer cuts after each row – copies are
   never stacked on one sheet), `overwidth` (`none` | `crop` | `tile` with
   `overlap_mm`). In a workflow set `nest`/`overwidth`/`align` explicitly.

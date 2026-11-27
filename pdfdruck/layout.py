@@ -1435,6 +1435,7 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
         return sizes[i]
 
     xobjs = {}
+    tile_xobjs = {}  # identical tiles (step & repeat): one XObject in the output, placed many times
 
     def xobj(i, dest):
         key = (i, id(dest))
@@ -1492,9 +1493,27 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
                 bx, by = nx, ny
             if bw <= 0 or bh <= 0:
                 continue
-            tpage = tiles.new_page(bw, bh)
             local = _mul(m, _translate(-bx, -by))
             X0, Y0 = pl.x - bx, pl.y - by
+            tkey = (
+                pl.src,
+                tuple(round(v, 3) for v in (bw, bh, X0, Y0, pl.w, pl.h, bL, bB, bR, bT, eL0, eB0, eR0, eT0)),
+                tuple(round(v, 5) for v in local),
+                getattr(pl, "bleed_mode", "mirror"),
+                bool(borders),
+            )
+            cx_obj = tile_xobjs.get(tkey)
+            if cx_obj is not None:  # same tile as before (step & repeat): reuse, no copy of the page
+                cell = cx_obj.as_pageobject()
+                place = (1, 0, 0, 1, 0, 0)
+                if pl.mirror_h:
+                    place = _mul(place, (-1, 0, 0, 1, bw, 0))
+                if pl.mirror_v:
+                    place = _mul(place, (1, 0, 0, -1, 0, bh))
+                cell.transform(pdfium.PdfMatrix(*_mul(_mul(place, _translate(bx, by)), to_phys)))
+                page.insert_obj(cell)
+                continue
+            tpage = tiles.new_page(bw, bh)
             X1, Y1 = X0 + pl.w, Y0 + pl.h
             # bleed area from the document (TrimBox): real content up to the page edge; only what goes beyond
             # is needed is mirrored at the page edge
@@ -1543,12 +1562,14 @@ def impose(src, sheet: Sheet, plans: list[SheetPlan], only: list[int] | None = N
                 place = _mul(place, (1, 0, 0, -1, 0, bh))
             cell.transform(pdfium.PdfMatrix(*_mul(_mul(place, _translate(bx, by)), to_phys)))
             page.insert_obj(cell)
-            cx_obj.close()
+            tile_xobjs[tkey] = cx_obj  # closed at the end – further identical tiles reuse it
         for m in sp.marks:
             _add_mark(out, page, m, to_phys)
         page.gen_content()
         page.close()
     for x in xobjs.values():
+        x.close()
+    for x in tile_xobjs.values():
         x.close()
     tiles.close()
     return out

@@ -97,6 +97,12 @@ def _call_preflight(path: str, deep_layers: bool = True, profile=None):
     return preflight.analyze(data, deep_layers, pdfium_parts=True, profile=profile)
 
 
+def _call_plan_item(**kw):
+    from . import planprint
+
+    return planprint.item_info(**kw)
+
+
 def _call_verify(before: str, after: str, page: int, boxes: list):
     from . import editing
 
@@ -292,6 +298,7 @@ CALLS = {
     "edit": _call_edit,
     "sheet": _call_sheet,
     "sheet_release": _call_sheet_release,
+    "plan_item": _call_plan_item,
 }
 
 

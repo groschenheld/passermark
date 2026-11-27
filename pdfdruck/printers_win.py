@@ -339,7 +339,9 @@ def imageable_for(printer: str, values: dict):
 # --------------------------------------------------------------------------- #
 # printing
 # --------------------------------------------------------------------------- #
-def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
+def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool, swap: bool = False):
+    """DEVMODE for one job. swap: custom size given as landscape (width and length exchanged,
+    orientation landscape) – for drivers that only accept a custom size with width <= length."""
     dm = devmode_from_str(printer, values.get(DEVMODE_KEY))
     fields = dm.Fields
 
@@ -355,9 +357,10 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
 
     cust = parse_custom(values.get("PageSize"))
     if cust:  # custom size: DMPAPER_USER with width/length in 0.1 mm
+        cw, cl = (cust[1], cust[0]) if swap else (cust[0], cust[1])
         setf("PaperSize", DMPAPER_USER, DM_PAPERSIZE)
-        setf("PaperWidth", round(cust[0] * 10), DM_PAPERWIDTH)
-        setf("PaperLength", round(cust[1] * 10), DM_PAPERLENGTH)
+        setf("PaperWidth", round(cw * 10), DM_PAPERWIDTH)
+        setf("PaperLength", round(cl * 10), DM_PAPERLENGTH)
     elif values.get("PageSize"):
         setf("PaperSize", values["PageSize"], DM_PAPERSIZE)
     if values.get("InputSlot"):
@@ -372,7 +375,7 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
 
     if values.get(COLOR_OFF_KEY) == "1":  # no ICM colour adjustment (vendor modes like "Vivid": driver dialog)
         setf("ICMMethod", DMICMMETHOD_NONE, DM_ICMMETHOD)
-    setf("Orientation", 1, DM_ORIENTATION)  # sheets are already physically portrait
+    setf("Orientation", 2 if (swap and cust) else 1, DM_ORIENTATION)  # sheets are already physically portrait
     setf("Copies", max(1, copies), DM_COPIES)
     setf("Collate", 1 if collate else 0, DM_COLLATE)
     dm.Fields = fields
@@ -565,6 +568,87 @@ def _raster_page(gdi, hdc, page, w_pt, h_pt, dev_dpi, ox, oy, raster_dpi, use_jp
     return stats
 
 
+PAPER_TOL_MM = 2.0  # driver paper vs. page: tolerance
+
+
+def _paper_mm(hdc) -> tuple:
+    """Paper of the device context as the driver took it (mm, in the orientation of the drawing surface)."""
+    import win32print
+
+    dx, dy = win32print.GetDeviceCaps(hdc, LOGPIXELSX), win32print.GetDeviceCaps(hdc, LOGPIXELSY)
+    pw, ph = win32print.GetDeviceCaps(hdc, PHYSICALWIDTH), win32print.GetDeviceCaps(hdc, PHYSICALHEIGHT)
+    return (pw * 25.4 / max(1, dx), ph * 25.4 / max(1, dy))
+
+
+def paper_fit(got: tuple, want: tuple, tol: float = PAPER_TOL_MM) -> str:
+    """How a page ``want`` (mm) fits the driver's paper ``got``: same | rotated (only turned by 90°) |
+    larger (paper larger – white remains) | larger_rotated | "" (the page would be cut off)."""
+    gw, gh = got
+    ww, wh = want
+    if abs(gw - ww) <= tol and abs(gh - wh) <= tol:
+        return "same"
+    if abs(gw - wh) <= tol and abs(gh - ww) <= tol:
+        return "rotated"
+    if gw >= ww - tol and gh >= wh - tol:
+        return "larger"
+    if gw >= wh - tol and gh >= ww - tol:
+        return "larger_rotated"
+    return ""
+
+
+def _dm_summary(dm) -> dict:
+    """The DEVMODE fields that decide paper, media, quality and colour (for the log)."""
+    out = {}
+    for f in (
+        "PaperSize",
+        "PaperWidth",
+        "PaperLength",
+        "Orientation",
+        "DefaultSource",
+        "MediaType",
+        "PrintQuality",
+        "YResolution",
+        "Color",
+        "ICMMethod",
+        "ICMIntent",
+    ):
+        v = getattr(dm, f, None)
+        if v is not None:
+            out[f] = v
+    return out
+
+
+def _open_dc(printer: str, values: dict, copies: int, collate: bool, want_mm: tuple | None, info: dict):
+    """Device context whose paper takes the page: as given, otherwise the custom size as landscape.
+    -> (hdc, how) with how from paper_fit. A custom size the driver does not take raises – instead of
+    printing it cut off (Windows drivers silently fall back to another paper)."""
+    import win32gui
+
+    from .printers import parse_custom
+
+    cust = parse_custom(values.get("PageSize"))
+    tries = (False, True) if cust else (False,)
+    seen = []
+    for swap in tries:
+        dm = _devmode_for_job(printer, values, copies, collate, swap=swap)
+        hdc = win32gui.CreateDC("WINSPOOL", printer, dm)
+        got = _paper_mm(hdc)
+        how = paper_fit(got, want_mm) if want_mm else "same"
+        seen.append([round(v, 1) for v in got])
+        info.update(devmode=_dm_summary(dm), paper_mm=[round(v, 1) for v in got], swap=swap, fit=how)
+        if how or not cust:
+            return hdc, how or "same"
+        win32gui.DeleteDC(hdc)
+    info["paper_tried"] = seen
+    raise RuntimeError(
+        tr(
+            "Der Druckertreiber nimmt die Papiergröße {0} × {1} mm nicht an (er meldet {2} × {3} mm) – der Plan "
+            "würde abgeschnitten, deshalb wird nicht gedruckt. Im Treiber benutzerdefinierte Formate/Rollenlänge "
+            "zulassen oder die Länge prüfen."
+        ).format(round(want_mm[0]), round(want_mm[1]), round(seen[0][0]), round(seen[0][1]))
+    )
+
+
 def print_pdf(
     printer: str,
     pdf_path: str,
@@ -594,9 +678,18 @@ def print_pdf(
     if force_mode:
         wanted = force_mode
     info = {"printer": printer, "wanted": wanted}
-    dm = _devmode_for_job(printer, values, copies, collate)
-    hdc = win32gui.CreateDC("WINSPOOL", printer, dm)
     doc = pdfium.PdfDocument(pdf_path)
+    w0, h0 = doc.get_page_size(0) if len(doc) else (0.0, 0.0)
+    want = (w0 * 25.4 / 72.0, h0 * 25.4 / 72.0) if len(doc) else None
+    info["page_mm"] = [round(v, 1) for v in want] if want else None
+    try:
+        hdc, how = _open_dc(printer, values, copies, collate, want, info)
+    except Exception as e:
+        info["error"] = repr(e)
+        _log_job(info)
+        doc.close()
+        raise
+    turn = how in ("rotated", "larger_rotated")  # the driver's paper is turned: turn the page as well
     job = 0
     mode = "raster"
     set_mode = getattr(r, "FPDF_SetPrintMode", None)
@@ -633,8 +726,10 @@ def print_pdf(
         info["bands"] = 0
         for i in range(len(doc)):
             win32print.StartPage(hdc)
-            w, h = doc.get_page_size(i)
             page = doc[i]
+            if turn:
+                page.set_rotation((page.get_rotation() + 90) % 360)
+            w, h = page.get_size()
             try:
                 if mode == "raster":
                     st = _raster_page(gdi, hdc, page, w, h, (dpx, dpy), ox, oy, raster_dpi, use_jpeg)

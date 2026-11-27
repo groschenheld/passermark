@@ -1791,7 +1791,7 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
         P(
             "Poster und Banner: Arbeitsbereich <b>Plan &amp; Poster → Posterdruck</b> bzw. "
             + c("--kind poster")
-            + ". Qualitätsdruck, Stücke nebeneinander mit dem wenigsten Papier, was breiter ist als jede Rolle, wird "
+            + ". Stücke nebeneinander mit dem wenigsten Papier, was breiter ist als jede Rolle, wird "
             "abgeschnitten oder in Bahnen geteilt ("
             + c("overwidth")
             + "). Banner: Saum/Tunnel ("

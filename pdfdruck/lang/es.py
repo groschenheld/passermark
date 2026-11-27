@@ -3035,7 +3035,7 @@ MESSAGES = {
     "Qualität:": "Calidad:",
     "Produktionsdruck (schnell)": "Impresión de producción (rápida)",
     "Qualitätsdruck (höchste Qualität)": "Impresión de calidad (máxima calidad)",
-    "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.": "Ajusta la calidad del controlador al nivel más bajo (impresión de producción) o al más alto (impresión de calidad). Tiene prioridad una calidad indicada en un material de la misma categoría.",
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck) – „Wie im Treiber“ lässt sie unverändert. Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': "Ajusta la calidad del controlador al nivel más bajo (impresión de producción) o al más alto (impresión de calidad) – «Como en el controlador» la deja sin cambios. Tiene prioridad una calidad indicada en un material de la misma categoría.",
     "Fortlaufend": "Continua",
     "Doppelseite": "Páginas enfrentadas",
     "Raster": "Cuadrícula",
@@ -3555,4 +3555,8 @@ MESSAGES = {
     'Sonderfarben in CMYK umwandeln (Schneidkonturen bleiben)': 'Convertir tintas planas a CMYK (los contornos de corte se mantienen)',
     'RGB in CMYK umwandeln': 'Convertir RGB a CMYK',
     'Als PDF/X-4 ausweisen': 'Marcar como PDF/X-4',
+    'Der Druckertreiber nimmt die Papiergröße {0} × {1} mm nicht an (er meldet {2} × {3} mm) – der Plan würde abgeschnitten, deshalb wird nicht gedruckt. Im Treiber benutzerdefinierte Formate/Rollenlänge zulassen oder die Länge prüfen.': 'El controlador no acepta el tamaño de papel {0} × {1} mm (indica {2} × {3} mm): el plano quedaría cortado, por eso no se imprime. Permita tamaños personalizados/longitud de rollo en el controlador o revise la longitud.',
+    'Erkenne … ({0} offen)': 'Detectando … ({0} pendientes)',
+    '{0} mm breiter als die Rolle – am Rand beschnitten (je Seite die Hälfte)': '{0} mm más ancho que el rollo: recortado en el borde (la mitad por lado)',
+    '−{0} mm': '−{0} mm',
 }

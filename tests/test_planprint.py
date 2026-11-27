@@ -123,6 +123,53 @@ def test_choose_roll():
     assert len(ok) == 1 and note
 
 
+def test_least_paper_and_edge_tolerance():
+    """1.20.2 Nachtrag (Plandruck am Epson): rolls 914 and 592.9 mm as reported by the device."""
+    rr = [rolls.Roll(913.9, name="914"), rolls.Roll(592.9, name="594")]
+    # A1 with frame lines 593.5 mm: 0.6 mm wider than the narrow roll – on it, edge trimmed (not 914 + 32 cm white)
+    f = pp.choose(593.5, 593.5, rr, "auto", pp.EDGE_TOL_MM)
+    assert f.width_mm == 592.9
+    assert pp.choose(593.5, 593.5, rr, "auto", 0.0).width_mm == 913.9  # without tolerance as before
+    # A2 landscape: least paper (594 × 420) instead of the shortest length on 914
+    f = pp.choose(594.1, 420.2, rr, "auto", pp.EDGE_TOL_MM)
+    assert f.width_mm == 592.9 and not f.rotated and abs(f.along - 420.2) < 0.1
+    # trimmed piece: exactly the roll width, half of the excess cut off on each side
+    doc = pdfium.PdfDocument(plan_pdf("a1", 593.5, 593.5, frames=0))
+    s = pp.PlanSettings(frame="none")
+    items = pp.analyze(doc, [0], s, rr)
+    (pc,) = pp.pieces_for(items[0], rr, s)
+    assert pc.width_mm == 592.9 and abs(pc.across - 592.9) < 0.01 and abs(pc.trimmed - 0.6) < 0.05
+    cut = (items[0].area.rect[2] - items[0].area.rect[0]) - (pc.rect[2] - pc.rect[0])
+    assert abs(cut / pp.MM - 0.6) < 0.05
+    run = pp.build_runs(items, rr, s)[0]
+    out, _ = pp.make_run(run, s)
+    assert abs(out.get_page_size(0)[0] / pp.MM - 592.9) < 0.1
+
+
+def test_media_vendor_words_do_not_match():
+    """Roll "com.epson-usersetting" (IPP): no arbitrary EPSON media of the Windows driver (grey turned violet)."""
+    caps = PrinterCaps(name="Epson", backend="win")
+    caps.options["MediaType"] = Option(
+        "MediaType",
+        "Medientyp",
+        "g",
+        [Choice("1", "Plain Paper"), Choice("280", "EPSON Premium Glossy Photo Paper (250)")],
+        "1",
+    )
+    caps.roles["mediatype"] = "MediaType"
+    assert pp.media_for_roll(caps, rolls.Roll(913.9, media="com.epson-usersetting")) == ""
+    assert pp.media_for_roll(caps, rolls.Roll(913.9, media="Premium Glossy")) == "280"
+
+
+def test_margin_never_beyond_page():
+    """Content + margin is limited to the page (verlegeplan: content up to the edge -> page, not +10 mm)."""
+    path = plan_pdf("edge", 841, 594, frames=1, outer=0)
+    doc = pdfium.PdfDocument(path)
+    a = pp.detect(doc, 0, "margin", 5.0)
+    W, H = doc.get_page_size(0)
+    assert a.rect[0] >= 0 and a.rect[1] >= 0 and a.rect[2] <= W + 0.01 and a.rect[3] <= H + 0.01
+
+
 def test_lengths_and_order():
     items = []
     for k, (w, h, q) in enumerate(((594, 841, 1), (420, 594, 2), (900, 1200, 1), (297, 420, 1))):
@@ -448,18 +495,18 @@ def test_quality_mode():
     )
     printers._assign_roles(caps)  # recognised via the text "Druckqualität"
     assert caps.roles.get("quality") == "CNQualityMode"
-    assert pp.quality_mode_of(pp.PlanSettings()) == "production"
-    assert pp.quality_mode_of(pp.PlanSettings(kind="poster")) == "quality"
+    # 1.20.2: Passermark leaves the driver's quality alone unless asked
+    assert pp.quality_mode_of(pp.PlanSettings()) == "driver"
+    assert pp.quality_mode_of(pp.PlanSettings(kind="poster")) == "driver"
     assert pp.quality_mode_of(pp.PlanSettings(kind="poster", quality_mode="production")) == "production"
-    assert (
-        pp.defaults_for("poster")["quality_mode"] == "quality"
-        and pp.defaults_for("plan")["quality_mode"] == "production"
-    )
-    v = pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster"))
+    assert pp.defaults_for("poster")["quality_mode"] == "driver" and pp.defaults_for("plan")["quality_mode"] == "driver"
+    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings()) == {}
+    v = pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster", quality_mode="quality"))
     assert v == {"CNQualityMode": "Best"}
     assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(kind="poster", options={"CNQualityMode": "Std"})) == {}
-    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "plan", "quality": "Std"}) == {}
-    assert pp.apply_quality_mode(caps, {}, pp.PlanSettings(), {"category": "quality", "quality": "Best"}) == {
+    prod = pp.PlanSettings(quality_mode="production")
+    assert pp.apply_quality_mode(caps, {}, prod, {"category": "plan", "quality": "Std"}) == {}
+    assert pp.apply_quality_mode(caps, {}, prod, {"category": "quality", "quality": "Best"}) == {
         "CNQualityMode": "Fast"
     }  # quality material in production print
     # end to end: what really goes to the printer
@@ -469,8 +516,10 @@ def test_quality_mode():
     with FakePlotter() as fp:
         printers.load_caps = lambda name: caps
         for kind, mode, want in (
-            ("plan", "", "Fast"),
-            ("poster", "", "Best"),
+            ("plan", "", "Std"),  # as in the driver: its default stays
+            ("poster", "", "Std"),
+            ("plan", "production", "Fast"),
+            ("poster", "quality", "Best"),
             ("poster", "production", "Fast"),
             ("plan", "quality", "Best"),
         ):

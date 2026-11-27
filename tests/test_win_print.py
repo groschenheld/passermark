@@ -23,7 +23,7 @@ _ORIG_DEVMODE = pw._devmode_for_job
 def _setup(**kw):
     g = fakewin.FakeGDI(**kw)
     pw._gdi32 = lambda: g
-    pw._devmode_for_job = lambda *a: None
+    pw._devmode_for_job = lambda *a, **k: None
     w, h = pdfium.PdfDocument(SAMPLE).get_page_size(0)
     fakewin.install(g, (int(round(w * g.dpi / 72)), int(round(h * g.dpi / 72))))
     return g
@@ -142,6 +142,50 @@ def test_custom_paper_size_devmode():
     assert dm.Fields & pw.DM_PAPERWIDTH and dm.Fields & pw.DM_PAPERLENGTH and dm.Fields & pw.DM_PAPERSIZE
     dm = _ORIG_DEVMODE("T", {"PageSize": "9"}, 1, True)
     assert dm.PaperSize == 9 and not hasattr(dm, "PaperWidth")
+
+
+def test_paper_fit():
+    assert pw.paper_fit((914, 1091), (913.9, 1090.6)) == "same"
+    assert pw.paper_fit((1091, 914), (913.9, 1090.6)) == "rotated"
+    assert pw.paper_fit((914, 1200), (913.9, 1090.6)) == "larger"
+    assert pw.paper_fit((914, 914), (913.9, 1090.6)) == ""  # would be cut off (Epson: "900 × 900")
+
+
+def test_custom_size_not_taken_is_not_printed_cut_off():
+    """The driver keeps another paper (914 × 914 instead of 914 × 1091): error instead of a cut-off print –
+    first the landscape variant is tried."""
+    import tempfile
+
+    import pikepdf
+
+    from pdfdruck import platform as pl
+
+    pdf = pikepdf.new()
+    pdf.add_blank_page(page_size=(913.9 * 72 / 25.4, 1090.6 * 72 / 25.4))
+    path = os.path.join(tempfile.mkdtemp(), "plan.pdf")
+    pdf.save(path)
+    g = _setup(dpi=50)
+    px = round(913.9 * 50 / 25.4)
+    g.paper_px = (px, px)
+    seen = []
+    pw._devmode_for_job = lambda *a, **k: seen.append(k.get("swap"))
+    pw.print_settings = lambda: ("raster", 150)
+    old = pl.user_log_dir
+    pl.user_log_dir = lambda: tempfile.mkdtemp()
+    try:
+        pw.print_pdf("Epson", path, "t", {"PageSize": printers.custom_value(913.9, 1090.6)}, 1, True)
+        raise AssertionError("abgeschnitten gedruckt")
+    except RuntimeError as e:
+        assert "1091" in str(e) and seen == [False, True], (str(e), seen)
+    finally:
+        pl.user_log_dir = old
+    assert not [c for c in g.calls if c[0] == "band"]
+    # the driver turns the paper: the page is turned as well and printed completely
+    g = _setup(dpi=50)
+    g.paper_px = (round(1090.6 * 50 / 25.4), px)
+    fakewin.install(g, g.paper_px)
+    pw.print_pdf("Epson", path, "t", {"PageSize": printers.custom_value(913.9, 1090.6)}, 1, True)
+    assert pw.LAST_INFO["fit"] == "rotated" and g.pages and g.pages[0].size == g.paper_px
 
 
 if __name__ == "__main__":

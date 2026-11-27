@@ -3035,7 +3035,7 @@ MESSAGES = {
     "Qualität:": "Qualité :",
     "Produktionsdruck (schnell)": "Impression production (rapide)",
     "Qualitätsdruck (höchste Qualität)": "Impression qualité (qualité maximale)",
-    "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.": "Règle la qualité du pilote au niveau le plus bas (impression production) ou le plus haut (impression qualité). Une qualité définie pour un matériau de la même catégorie est prioritaire.",
+    'Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. höchste Stufe (Qualitätsdruck) – „Wie im Treiber“ lässt sie unverändert. Vorrang hat eine Qualität, die beim Material derselben Kategorie eingetragen ist.': "Règle la qualité du pilote au niveau le plus bas (impression production) ou le plus haut (impression qualité) – « Comme dans le pilote » la laisse inchangée. Une qualité définie pour un matériau de la même catégorie est prioritaire.",
     "Fortlaufend": "Continue",
     "Doppelseite": "Pages en vis-à-vis",
     "Raster": "Grille",
@@ -3555,4 +3555,8 @@ MESSAGES = {
     'Sonderfarben in CMYK umwandeln (Schneidkonturen bleiben)': 'Convertir les tons directs en CMJN (les contours de découpe restent)',
     'RGB in CMYK umwandeln': 'Convertir RVB en CMJN',
     'Als PDF/X-4 ausweisen': 'Déclarer en PDF/X-4',
+    'Der Druckertreiber nimmt die Papiergröße {0} × {1} mm nicht an (er meldet {2} × {3} mm) – der Plan würde abgeschnitten, deshalb wird nicht gedruckt. Im Treiber benutzerdefinierte Formate/Rollenlänge zulassen oder die Länge prüfen.': 'Le pilote n’accepte pas le format {0} × {1} mm (il indique {2} × {3} mm) – le plan serait coupé, rien n’est donc imprimé. Autorisez les formats personnalisés/la longueur de rouleau dans le pilote ou vérifiez la longueur.',
+    'Erkenne … ({0} offen)': 'Détection … ({0} restants)',
+    '{0} mm breiter als die Rolle – am Rand beschnitten (je Seite die Hälfte)': '{0} mm plus large que le rouleau – rogné au bord (moitié de chaque côté)',
+    '−{0} mm': '−{0} mm',
 }

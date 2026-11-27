@@ -16,8 +16,8 @@ import dataclasses
 import logging
 import os
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtCore import QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication,
     QColorDialog,
@@ -488,8 +488,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
             else:
                 it.ov.pop("frame", None)
             it.area = None
-            if it not in self._queue:
-                self._queue.append(it)
+            self._requeue(it)
         self._timer.start()
         self._refresh()
 
@@ -523,25 +522,78 @@ class PlanDialog(PlanBuildMixin, QDialog):
     def _redetect(self, *_a):
         for it in self.items:
             it.area = None
-            if it not in self._queue:
-                self._queue.append(it)
+            self._requeue(it)
         self._timer.start()
         self._refresh()
 
     def _redetect_hairlines(self, *_a):
-        s = self.settings()
+        """Count the hairlines again (scale changed) – in the background, the print area stays."""
         for it in self.items:
             if it.area is not None:
-                try:
-                    it.hairlines = pp.hairlines(
-                        it.doc, it.page, s.hairline_mm, pp.factor(it.area, pp.eff(s, it)) * 100.0
-                    )
-                except Exception:
-                    log.warning("Haarlinien nicht geprüft", exc_info=True)
+                it._hair_only = True
+                self._requeue(it)
+        self._timer.start()
         self._refresh()
 
+    def _requeue(self, it):
+        """Detect a plan again: answers still under way for it are outdated."""
+        it._sent = False
+        it._local = False
+        it._tok = getattr(it, "_tok", 0) + 1
+        if it not in self._queue:
+            self._queue.append(it)
+
+    def _service(self):
+        """Analysis process (as for the check of the main window) – None: everything in the window."""
+        if os.environ.get("PASSERMARK_RENDER", "") == "local":
+            return None
+        from .renderclient import RenderService
+
+        svc = RenderService.get("analysis")
+        return svc if svc.ok else None
+
+    @staticmethod
+    def _item_path(it) -> str:
+        """The file of a plan, if the analysis process can open it itself (a PDF as it lies on disk)."""
+        src = it.source or ""
+        return src if src.lower().endswith(".pdf") and os.path.isfile(src) else ""
+
     def _analyze_next(self):
-        if not self._queue:
+        """Detection of the plans: files in the analysis process (the window does not wait – CAD plans take
+        seconds), converted documents one per step in the window. Then the check."""
+        if getattr(self, "_closed", False):
+            self._timer.stop()
+            return
+        svc = self._service()
+        s = self.settings()
+        if svc is not None:
+            for it in self._queue:
+                path = self._item_path(it)
+                if getattr(it, "_sent", False) or not path or getattr(it, "_local", False):
+                    continue
+                it._sent = True
+                it._tok = getattr(it, "_tok", 0) + 1
+                es = pp.eff(s, it)
+                hair = bool(getattr(it, "_hair_only", False)) and it.area is not None
+                args = {
+                    "path": path,
+                    "page": it.page,
+                    "frame": es.frame,
+                    "margin_mm": es.margin_mm,
+                    "hairline_mm": s.hairline_mm,
+                    "scale": {"scale_mode": es.scale_mode, "scale_pct": es.scale_pct, "scale_mm": es.scale_mm},
+                    "area": [list(it.area.rect), it.area.kind, it.area.note] if hair else None,
+                }
+                svc.call("plan_item", args, lambda err, res, it=it, tok=it._tok: self._item_done(it, tok, err, res))
+        local = next(
+            (it for it in self._queue if not getattr(it, "_sent", False)),
+            None,
+        )
+        if local is None:
+            if self._queue:  # everything is in the analysis process: wait for the answers
+                self.lbl_state.setText(tr("Erkenne … ({0} offen)").format(len(self._queue)))
+                self._timer.stop()
+                return
             src = self._next_unchecked()
             if src is not None:  # after the detection: check the files one by one (window stays usable)
                 self._run_check(src)
@@ -551,17 +603,64 @@ class PlanDialog(PlanBuildMixin, QDialog):
             self.lbl_state.setText("")
             self._refresh()
             return
-        it = self._queue.pop(0)
-        s = self.settings()
+        it = local
+        self._queue.remove(it)
         self.lbl_state.setText(tr("Erkenne {0} … ({1} offen)").format(it.label, len(self._queue)))
         try:
             es = pp.eff(s, it)
-            it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
+            if not (getattr(it, "_hair_only", False) and it.area is not None):
+                it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
             it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, pp.factor(it.area, es) * 100.0)
+            if getattr(it, "_thumb", None) is None:
+                self._local_thumb(it)
         except Exception as e:  # noqa: BLE001
             it.area = None
             self.lbl_state.setText(tr("{0}: {1}").format(it.label, e))
+        it._hair_only = False
         self._refresh()
+
+    def _item_done(self, it, tok, err, res):
+        """Answer of the analysis process for one plan."""
+        if getattr(self, "_closed", False) or it not in self.items or tok != getattr(it, "_tok", 0):
+            return
+        it._sent = False
+        if err or not res:
+            log.warning("Plandruck: Erkennung im Hintergrund fehlgeschlagen (%s) – im Fenster", err)
+            it._local = True  # once more in the window
+            self._timer.start()
+            return
+        it.area = pp.Area(tuple(res["rect"]), res["kind"], res.get("note", ""))
+        it.hairlines = int(res.get("hairlines") or 0)
+        w, h, data = res["thumb"]
+        it._thumb = QImage(data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
+        it._thumb_pt = tuple(res["page_pt"])
+        it._hair_only = False
+        if it in self._queue:
+            self._queue.remove(it)
+        self.lbl_state.setText(tr("Erkenne … ({0} offen)").format(len(self._queue)) if self._queue else "")
+        self._refresh()
+        if not self._queue:
+            self._timer.start()  # then the check
+
+    def _local_thumb(self, it):
+        """Small picture of a page rendered in the window (converted images/office files – these are light)."""
+        try:
+            W, H = it.doc.get_page_size(it.page)
+            k = pp.THUMB_PX / max(W, H)
+            page = it.doc[it.page]
+            try:
+                arr = page.render(scale=k, may_draw_forms=True).to_numpy()
+            finally:
+                page.close()
+            import numpy as np
+
+            if arr.ndim == 2:
+                arr = np.stack([arr] * 3, axis=2)
+            arr = np.ascontiguousarray(arr[..., :3][..., ::-1])
+            it._thumb = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
+            it._thumb_pt = (W, H)
+        except Exception:  # noqa: BLE001 – preview only
+            it._thumb = None
 
     # ------------------------------------------------------------------ #
     # document check
@@ -580,6 +679,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         self.cmb_check.currentIndexChanged.connect(self._check_profile_changed)
 
     def _check_profile_changed(self, *_a):
+        self._check_gen = getattr(self, "_check_gen", 0) + 1  # answers still under way are outdated
         self._checks.clear()
         self._timer.start()
         self._refresh()
@@ -590,11 +690,26 @@ class PlanDialog(PlanBuildMixin, QDialog):
         return next((it.source for it in self.items if it.source not in self._checks and it.doc is not None), None)
 
     def _run_check(self, src: str):
-        """Check one file of the list with the profile of the window."""
+        """Check one file of the list with the profile of the window – in the analysis process if possible."""
         from .. import preflight
 
         it = next(x for x in self.items if x.source == src)
         self.lbl_state.setText(tr("Prüfe {0} …").format(os.path.basename(src)))
+        svc = self._service()
+        if svc is not None and self._item_path(it):
+            self._checks[src] = "pending"
+            gen = self._check_gen = getattr(self, "_check_gen", 0) + 1
+
+            def got(err, rep, src=src, gen=gen):
+                if getattr(self, "_closed", False) or gen != getattr(self, "_check_gen", 0):
+                    return
+                self._checks[src] = None if err else rep
+                self._refresh()
+                self._timer.start()  # next file
+
+            svc.call("preflight", {"path": src, "deep_layers": False, "profile": self.cmb_check.currentData()}, got)
+            self._timer.stop()
+            return
         QApplication.processEvents()
         try:
             if src.lower().endswith(".pdf") and os.path.isfile(src):
@@ -614,6 +729,8 @@ class PlanDialog(PlanBuildMixin, QDialog):
     def _findings(self, it) -> list | None:
         """Findings of the check that concern this plan (its page or the whole file); None: not checked yet."""
         rep = self._checks.get(it.source)
+        if rep == "pending":
+            return None
         if rep is None:
             return None if it.source not in self._checks else []
         return [i for i in rep.issues if i.severity in ("error", "warning") and (not i.pages or it.page + 1 in i.pages)]
@@ -725,8 +842,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         if redetect:
             for it in targets:
                 it.area = None
-                if it not in self._queue:
-                    self._queue.append(it)
+                self._requeue(it)
             self._timer.start()
         elif {"scale_pct", "scale_mode", "scale_mm"} & set(vals):
             self._redetect_hairlines()
@@ -902,6 +1018,8 @@ class PlanDialog(PlanBuildMixin, QDialog):
                     txt += "  " + tr("{0} Bahnen").format(len(pcs))
                 if p0.clipped:
                     txt += "  ✂"
+                elif p0.trimmed > 0:
+                    txt += "  " + tr("−{0} mm").format(pp.mm_text(round(p0.trimmed, 1)))
                 row.setText(2, txt)
                 row.setToolTip(
                     2,
@@ -910,6 +1028,11 @@ class PlanDialog(PlanBuildMixin, QDialog):
                         for x in (
                             tr("gedreht – quer zur Rolle") if p0.rotated else "",
                             tr("breiter als die Rolle – wird abgeschnitten") if p0.clipped else "",
+                            tr("{0} mm breiter als die Rolle – am Rand beschnitten (je Seite die Hälfte)").format(
+                                pp.mm_text(round(p0.trimmed, 1))
+                            )
+                            if p0.trimmed > 0
+                            else "",
                             tr("in {0} Bahnen mit Überlappung").format(len(pcs)) if len(pcs) > 1 else "",
                         )
                         if x
@@ -969,31 +1092,53 @@ class PlanDialog(PlanBuildMixin, QDialog):
         self.lbl_prev.setText(txt.format(len(runs), total) + extra)
 
     def _sheet_pixmap(self, run, s) -> QPixmap:
-        """Print page rendered small, roll width outlined in grey, cut edge red."""
+        """Print page drawn small from the page pictures of the plans (no rendering – CAD plans take seconds),
+        roll width outlined in grey, cut edge red. A plan without a picture yet: grey area."""
+        from .. import layout
+
         W, H = run.across, run.along
         sc = PREVIEW_PX / max(W, H)
         w, h = max(8, int(W * sc)), max(8, int(H * sc))
         pm = QPixmap(w + 2, h + 2)
         pm.fill(QColor("#ffffff"))
+        p = QPainter(pm)
         try:
-            doc, _cuts = pp.make_run(run, s)
-            try:
-                page = doc[0]
-                bm = page.render(scale=sc / pp.MM, may_draw_forms=True)
-                arr = bm.to_numpy()
-                page.close()
-            finally:
-                doc.close()
-            import numpy as np
-
-            if arr.ndim == 2:
-                arr = np.stack([arr] * 3, axis=2)
-            arr = np.ascontiguousarray(arr[..., :3][..., ::-1]) if arr.shape[2] >= 3 else arr
-            img = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
-            p = QPainter(pm)
-            p.drawImage(1, 1, img.scaled(w, h))
-        except Exception:  # noqa: BLE001 – Vorschau darf nie stören
-            p = QPainter(pm)
+            k = sc / pp.MM  # px per pt
+            to_px = (k, 0, 0, -k, 1.0, 1.0 + H * pp.MM * k)  # sheet pt (y up) -> picture px (y down)
+            for piece, x, y in run.pieces:
+                it = piece.item
+                es = pp.eff(s, it)
+                f = pp.factor(it.area, es)
+                x0, y0, x1, y1 = piece.rect
+                cw, ch = (x1 - x0) * f, (y1 - y0) * f
+                left, b, _r, t = (v * pp.MM for v in pp.margins_mm(es))
+                rot = layout._rot90ccw(ch + b + t) if piece.rotated else (1, 0, 0, 1, 0, 0)
+                m = layout._mul(rot, layout._translate(x * pp.MM, y * pp.MM))
+                box = layout._mul(layout._mul(layout._translate(left, b), m), to_px)  # content box -> px
+                corners = [
+                    (cx * box[0] + cy * box[2] + box[4], cx * box[1] + cy * box[3] + box[5])
+                    for cx, cy in ((0, 0), (cw, 0), (cw, ch), (0, ch))
+                ]
+                xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+                clip = QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+                img = getattr(it, "_thumb", None)
+                if img is None or img.isNull():
+                    p.fillRect(clip, QColor(theme.PAPER_LINE))
+                    continue
+                PW, PH = getattr(it, "_thumb_pt", (img.width(), img.height()))
+                img2pt = (PW / img.width(), 0, 0, -PH / img.height(), 0, PH)  # picture px -> page pt (y up)
+                src2px = layout._mul(
+                    layout._mul(layout._mul(img2pt, layout._translate(-x0, -y0)), layout._scale(f)),
+                    layout._mul(layout._mul(layout._translate(left, b), m), to_px),
+                )
+                p.save()
+                p.setClipRect(clip)
+                p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                p.setTransform(QTransform(*src2px))
+                p.drawImage(0, 0, img)
+                p.restore()
+        except Exception:  # noqa: BLE001 – the preview must never get in the way
+            log.debug("Vorschau der Druckseite", exc_info=True)
         p.setPen(QPen(QColor(theme.PAPER_LINE), 1))
         p.drawRect(0, 0, w + 1, h + 1)
         p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
