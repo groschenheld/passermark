@@ -93,15 +93,20 @@ for _ in range(100):
 rep = preflight.analyze(T.sample_pdf(), True, True)
 w._pf_show(rep)
 panel, view, tree = w.pf_panel, w.view, w.pf_panel.tree
-rgb = next(tree.topLevelItem(k) for k in range(tree.topLevelItemCount()) if "RGB" in tree.topLevelItem(k).text(1))
+from pdfdruck.gui.preflightpanel import ROLE_DETAIL
+# findings sit under their group (1.20.2); the message is in ROLE_DETAIL
+items = [tree.topLevelItem(k).child(j) for k in range(tree.topLevelItemCount()) for j in range(tree.topLevelItem(k).childCount())]
+rgb = next(it for it in items if "RGB" in str(it.data(0, ROLE_DETAIL) or ""))
 assert rgb.childCount() == 2, rgb.childCount()                # image on p. 2 and p. 3
-tree.setCurrentItem(rgb); panel._issue_clicked(rgb, 1)
+tree.setCurrentItem(rgb); panel._issue_clicked(rgb, 0)
 assert view.current == 1 and view.pf_mark and view.pf_mark[0] == 1 and view.pf_mark[1] is not None, view.pf_mark
 assert "1/2" in panel.lbl_nav.text(), panel.lbl_nav.text()
 panel._step_spot(+1)
 assert view.current == 2 and view.pf_mark[0] == 2 and "2/2" in panel.lbl_nav.text()
-ch = rgb.child(0); tree.setCurrentItem(ch); panel._issue_clicked(ch, 1)
+ch = rgb.child(0); tree.setCurrentItem(ch); panel._issue_clicked(ch, 0)
 assert view.current == 1
+tree.setCurrentItem(rgb); panel._issue_clicked(rgb, 0)        # clicked again: the next location
+assert view.current == 2, view.current
 panel._go(preflight.Spot(3))                                   # without an area: whole page marked
 assert view.current == 2 and view.pf_mark == (2, None)
 w.repaint(); app.processEvents()                               # drawing the mark raises nothing

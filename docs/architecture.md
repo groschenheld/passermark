@@ -243,8 +243,11 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 |---|---|
 | `pdfdruck/__main__.py` | passermark [--print] [--open] [FILES …] |
 | `pdfdruck/app.py` | Program-wide state + single instance. |
+| `pdfdruck/autofix.py` | Repair everything that can be repaired automatically (1.20.2) – job ``autofix``. |
 | `pdfdruck/bleedgen.py` | Create bleed for customer files without it |
 | `pdfdruck/cfgvalidate.py` | Validation of the admin configuration – shared by the Linux helper (pkexec) and the Windows helper (UAC). |
+| `pdfdruck/checkprofile.py` | Check profiles (1.20.2): which findings of the document check are reported how, and with which limits. |
+| `pdfdruck/checkreport.py` | Check report as PDF (1.20.2) |
 | `pdfdruck/cli.py` | Command line: run jobs without a GUI. |
 | `pdfdruck/cmyk.py` | CMYK conversion of PDFs and color-accurate preview. |
 | `pdfdruck/colorcheck.py` | Colour check of a document against a printing condition – facts, findings, recommendations. No Qt. |
@@ -325,7 +328,9 @@ Generated from the module docstrings: `python3 tools/module_overview.py`.
 | Module | Purpose |
 |---|---|
 | `pdfdruck/gui/admindialog.py` | Management of the defaults – saved via pkexec + helper (a single password prompt). |
+| `pdfdruck/gui/autofixdialog.py` | Dialog "Alles reparieren" (1.20.2): the planned repairs for the findings of the check profile – each can be switched off –, the printing condition for RGB -> CMYK and PDF/X, and what stays to be done by hand. |
 | `pdfdruck/gui/bleeddialog.py` | Dialog "Anschnitt erzeugen": bleed for customer files without it – mirror or stretch the edges (bleedgen.py). |
+| `pdfdruck/gui/checkprofiledialog.py` | Dokument → Prüfprofile bearbeiten (1.20.2): what the check reports how strictly ("Melden") and with which limits ("Grenzwerte"). |
 | `pdfdruck/gui/colorpanel.py` | Farbe → Farbprüfung: side panel next to the soft proof. |
 | `pdfdruck/gui/colorrulesdialog.py` | Dialog "Farbregeln": black text and thin lines -> 100 % K, spot colours (rename, merge, into process colours), cut contours under one name (colorrules.py). |
 | `pdfdruck/gui/common.py` | Shared GUI helpers and the session state (kept in memory only). |

@@ -2,6 +2,16 @@
 
 **English:** [CHANGELOG.md](CHANGELOG.md) · **Deutsch** · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.2
+
+- Prüfprofile: Die Prüfung läuft nach einem Profil. Es legt pro Prüfpunkt fest, ob er als Fehler, Warnung, Hinweis oder gar nicht gemeldet wird, samt Grenzwerten (Auflösung, Mindestschrift, Linienstärke, Anschnitt, Farbauftrag, PDF/X-Version ...). Eingebaut: Standard, Offset (angelehnt an PDF/X-4), GWG Bogenoffset (GWG2015), Digitaldruck, Plan- und Großformat, Bildschirm; eigene Profile im Profileditor mit Import und Export als JSON, gewählt im Prüf-Panel oder unter Dokument -> Prüfprofil. Kommandozeile und Abläufe prüfen ohne Angabe immer mit "standard", das Ergebnis bleibt so reproduzierbar.
+- Neue Prüfpunkte: Farbauftrag über der Grenze (die Flächen werden mit Ghostscript gefunden), PDF/X-Version zu alt, Courier als mögliche Ersatzschrift, eigene Auflösungsgrenzen für Strichbilder.
+- Prüf-Panel, neu für die schmale Seitenleiste: Befunde nach Art gruppiert und so als Übersicht nutzbar, nur Gruppen mit Fehlern sind aufgeklappt; jeder Befund zeigt Seiten, Meldung und einen Reparatur-Link; die Ansicht wird über eine Klappliste gewählt; ein erneuter Klick auf einen Befund springt zur nächsten Stelle.
+- Prüfbericht als PDF: vorne die Zusammenfassung, danach die betroffenen Originalseiten mit umrahmten, nummerierten Stellen; auch per Kommandozeile mit inspect --report.
+- Alles reparieren: repariert in einem Durchgang Ebenen, HDR-Seiten, Schriften, Verläufe, Sonderfarben -> CMYK, RGB -> CMYK, Überdrucken und Anschnitt und weist die Datei zuletzt als PDF/X-4 aus; jeder Schritt ist vorher abwählbar, danach siehst du, was noch von Hand bleibt; auch als Auftrag autofix für Abläufe und Kommandozeile.
+- Plan & Poster: das offene Dokument lässt sich direkt übergeben, auch bearbeitet, über den Knopf "Plan & Poster" oder das Menü; jede Datei in der Liste wird geprüft, eine Spalte "Prüfung" zeigt das Ergebnis je Plan, und bei Fehlern fragt Passermark vor dem Drucken nach; Farbprofil, Intent und Treiber-Farbanpassung sind für einen einzelnen Druck wählbar, zum Testen, und werden nie gespeichert.
+- Drucken: neuer Schalter "Farbanpassung des Treibers aus (nur dieser Druck)", unter Windows über ICM, unter Linux über die passende Treiberoption; ein Plandruck verändert das Farbprofil für spätere normale Drucke nicht mehr.
+- Behoben: bei "Text kleiner als ..." steht jetzt die Seite des kleinsten Texts; wurde auf einer Seite schon ein zu grobes Bild gemeldet, werden nun auch weitere, nur etwas zu grobe Bilder dort gemeldet.
 ## 1.20.1
 
 - Seitenleiste auslagern: der Knopf links neben der Seite holt Seiten, Prüfung, Farbe, Ausgabenvorschau und Bearbeiten in ein eigenes Fenster; die Seite selbst wird dadurch breiter. Ein zweiter Klick oder das Schließen des Fensters dockt die Leiste wieder an, mit demselben Reiter vorne.

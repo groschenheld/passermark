@@ -570,6 +570,15 @@ class PrintDeviceMixin:
         self.cmb_profile.blockSignals(False)
         self.cmb_intent.blockSignals(False)
         self._build_materials(name, user and bool(profs))
+        if getattr(self, "chk_drvcolor", None) is not None:
+            from .. import printers
+
+            can = not self._is_pdf_target() and printers.color_off_option(self.caps) is not None
+            self.chk_drvcolor.setEnabled(can)
+            if not can:
+                self.chk_drvcolor.setChecked(False)
+            if not self._is_pdf_target() and not can:
+                self.chk_drvcolor.setToolTip(tr("Der Treiber bietet keine Option, seine Farbanpassung abzuschalten."))
         self._profile_note()
 
     def _build_materials(self, printer: str, enabled: bool):
@@ -652,7 +661,15 @@ class PrintDeviceMixin:
             getattr(self.s, "material", {}).pop(self.caps.name, None)
             m = None
         if not p:
-            self.lbl_profile_note.setText("")
+            chk = getattr(self, "chk_drvcolor", None)
+            off = chk is not None and chk.isEnabled() and chk.isChecked()
+            self.lbl_profile_note.setText(
+                tr(
+                    "Ohne Profil und ohne Farbanpassung gehen die Farbwerte unverändert an den Drucker (z. B. für Testcharts)."
+                )
+                if off
+                else ""
+            )
             return
         dopts = p.get("driver_options") or {}
         txt = tr("Das PDF wird vor dem Senden mit diesem Profil in Gerätefarben umgerechnet.")
@@ -665,4 +682,10 @@ class PrintDeviceMixin:
                 )
         if dopts:
             txt += tr(" Profil setzt Treiberoptionen: ") + ", ".join(f"{k}={v}" for k, v in dopts.items())
+        chk = getattr(self, "chk_drvcolor", None)
+        if chk is not None and chk.isEnabled() and not chk.isChecked() and not dopts:
+            txt += " " + tr(
+                "Passt der Treiber die Farben zusätzlich an, werden sie doppelt verändert – dann unten "
+                "„Farbanpassung des Treibers aus“."
+            )
         self.lbl_profile_note.setText(txt)

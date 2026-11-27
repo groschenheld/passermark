@@ -88,6 +88,20 @@ with T.FakePlotter() as fp:
     assert len(dlg.items) == 2 and len(dlg._queue) == 2
     while dlg._queue:
         dlg._analyze_next()
+    # 1.20.2: document check after the detection, profile "plot" of this window
+    assert dlg.cmb_check.currentData() == "plot" and dlg._next_unchecked() == src
+    while dlg._next_unchecked():
+        dlg._analyze_next()
+    from pdfdruck import preflight as PF
+    assert isinstance(dlg._checks[src], PF.Report) and dlg._checks[src].profile.name == "plot"
+    assert dlg._findings(dlg.items[0]) is not None
+    dlg._refresh()
+    assert dlg.lbl_check.text() or dlg.lbl_check is not None
+    dlg.cmb_check.setCurrentIndex(dlg.cmb_check.findData(""))   # no check: nothing pending
+    dlg._check_profile_changed()
+    assert dlg._next_unchecked() is None and dlg._checks == {}
+    dlg.cmb_check.setCurrentIndex(dlg.cmb_check.findData("plot"))
+    dlg._check_profile_changed()
     s = dlg.settings()
     assert s.weights == [75, 80] and not s.collate and s.copies == 1
     # 914 has 180 g -> not for plans: 600 × 850 on 841 (length 850)

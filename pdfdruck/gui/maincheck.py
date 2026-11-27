@@ -146,6 +146,8 @@ class MainCheckMixin:
         self.pf_panel.goto_page.connect(lambda p: self.view.goto(p - 1))
         self.pf_panel.goto_spot.connect(lambda p, box: self.view.show_spot(p - 1, box))
         self.pf_panel.recheck.connect(lambda: self._pf_start(force=True))
+        self.pf_panel.tool_requested.connect(self._pf_tool)
+        self.pf_panel.profiles_requested.connect(self.check_profiles_dialog)
         self.pf_dock = QDockWidget(tr("Prüfung"), self)
         self.pf_dock.setWidget(self._dock_scroll(self.pf_panel))
         self.pf_dock.setFeatures(
@@ -231,7 +233,35 @@ class MainCheckMixin:
             else:
                 self._pf_show(rep)
 
-        svc.call("preflight", {"path": path, "deep_layers": True}, got)
+        svc.call("preflight", {"path": path, "deep_layers": True, "profile": self._pf_profile()}, got)
+
+    def _pf_tool(self, name: str):
+        """Repair button of a finding that opens a dialog of the window (Anschnitt, Farbregeln)."""
+        {"bleed": self.bleed_dialog, "colorrules": self.color_rules_dialog}.get(name, lambda: None)()
+
+    def check_profiles_dialog(self):
+        """Dokument → Prüfprofile bearbeiten …: edit, save, import/export; a saved one is checked with at once."""
+        from .checkprofiledialog import edit_profiles
+
+        if edit_profiles(self) is not None:
+            self.pf_panel.fill_profiles()
+            self._pf_start(force=True)
+
+    def choose_check_profile(self, name: str):
+        """Dokument → Prüfprofil: choose one and check again."""
+        from .. import checkprofile, l10n
+
+        s = l10n.load_settings()
+        s[checkprofile.SETTING] = name
+        l10n.save_settings(s)
+        self.pf_panel.fill_profiles()
+        self._pf_start(force=True)
+
+    def _pf_profile(self) -> str:
+        """Name of the check profile chosen in the settings (Prüfung panel)."""
+        from .. import checkprofile
+
+        return checkprofile.chosen()
 
     def _pf_show(self, rep):
         try:  # size against the default printer (paper sizes)
@@ -244,11 +274,13 @@ class MainCheckMixin:
             pass
         self.pf_panel.set_report(rep)
         c = rep.counts()
+        prof = getattr(rep, "profile", None)
+        tail = " · " + prof.title() if prof is not None and prof.name != "standard" else ""
         if c["error"] or c["warning"]:
-            self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]))
+            self.btn_pf.setText("⚠ " + tr("{0} Fehler · {1} Warnung(en)").format(c["error"], c["warning"]) + tail)
             self.btn_pf.setStyleSheet(_chip(theme.ERROR if c["error"] else theme.WARN))
         else:
-            self.btn_pf.setText("✓ " + tr("Prüfung OK"))
+            self.btn_pf.setText("✓ " + tr("Prüfung OK") + tail)
             self.btn_pf.setStyleSheet(_chip(theme.OK))
 
     def _pf_start_thread(self, gen):
@@ -262,7 +294,8 @@ class MainCheckMixin:
         except Exception as e:  # noqa: BLE001 – shown to the user
             self.pf_panel.set_error(str(e))
             return
-        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False), data)
+        prof = self._pf_profile()
+        w = _Worker(lambda d: preflight.analyze(d, True, pdfium_parts=False, profile=prof), data)
 
         def done(rep, err, gen=gen, w=w):
             if gen != self._pf_gen:

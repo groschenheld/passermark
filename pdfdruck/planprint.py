@@ -60,8 +60,9 @@ class PlanSettings:
     fix_hairlines: bool = False  # raise hairlines
     hairline_mm: float = 0.1
     options: dict = field(default_factory=dict)  # raw driver options
-    profile: str = "admin"  # colour profile as for printing: admin | none | profile id
+    profile: str = "admin"  # colour profile as for printing: admin | none | profile id (window: this print only)
     intent: str = ""
+    driver_color_off: bool = False  # switch the driver's own colour adjustment off (window: this print only)
     title: str = ""
     dry_run: bool = False
     # poster/quality print, banner, print & cut, material
@@ -1584,10 +1585,22 @@ def values_for(session, printer: str, caps, s: PlanSettings) -> dict:
     if probs:
         raise ValueError("; ".join(f"{w}: {m}" for w, m in probs))
     apply_quality_mode(caps, vals, s, mat)
-    if mat.get("profile"):
-        pid, intent = session.color_for(printer)
-        session.color[printer] = (mat["profile"], mat.get("intent") or intent)
+    _set_color(session, printer, s, mat)
     return vals
+
+
+def _set_color(session, printer: str, s: PlanSettings, mat: dict):
+    """Colour profile and intent of this print: a choice in s (profile/intent – e.g. for tests) before the material,
+    the material before the setting of the printer (snapshot from print_items, otherwise the current one)."""
+    if not hasattr(session, "color"):
+        return
+    base = getattr(session, "_plan_color_base", {}).get(printer)
+    pid, intent = base if base is not None else session.color_for(printer)
+    if s.profile not in ("", "admin"):
+        pid = "" if s.profile == "none" else s.profile
+    elif mat.get("profile"):
+        pid, intent = mat["profile"], mat.get("intent") or intent
+    session.color[printer] = (pid, s.intent or intent)
 
 
 def _neutral_media(caps, key: str) -> str:
@@ -1651,6 +1664,10 @@ def run_values(session, printer: str, caps, base_vals: dict, run: Run, rolls: li
         mv = media_for_roll(caps, src)
         if mv:
             vals[mkey] = mv
+    if s.driver_color_off:
+        from .printers import COLOR_OFF_KEY
+
+        vals[COLOR_OFF_KEY] = "1"
     return vals, rmat
 
 
@@ -1837,7 +1854,24 @@ def _job_info(run: Run, rolls: list, s: PlanSettings | None = None) -> dict:
 
 
 def print_items(session, printer: str, items: list, rolls: list, s: PlanSettings, progress=None, cancel=None) -> dict:
-    """Print plans/posters (order as set). -> info incl. run length and job numbers."""
+    """Print plans/posters (order as set). -> info incl. run length and job numbers. The colour profile of the
+    session stays as it was (material and test choice only apply to this print)."""
+    had = hasattr(session, "color") and printer in session.color
+    before = session.color_for(printer) if hasattr(session, "color") else None
+    if before is not None:
+        session._plan_color_base = {printer: before}
+    try:
+        return _print_items(session, printer, items, rolls, s, progress, cancel)
+    finally:
+        if before is not None:
+            session._plan_color_base = {}
+            if had:
+                session.color[printer] = before
+            else:
+                session.color.pop(printer, None)
+
+
+def _print_items(session, printer: str, items: list, rolls: list, s: PlanSettings, progress=None, cancel=None) -> dict:
     caps = None if is_folder(printer) else session.caps_for(printer)
     if is_folder(printer):
         base = {}
@@ -2000,12 +2034,6 @@ def plan_files(
             raise ValueError(
                 tr("Drucker nicht gefunden: {0} (vorhanden: {1})").format(printer, ", ".join(names) or "–")
             )
-    if printer and not is_folder(printer) and (s.profile != "admin" or s.intent):
-        pid, intent = session.color_for(printer)
-        session.color[printer] = (
-            "" if s.profile == "none" else (pid if s.profile == "admin" else s.profile),
-            s.intent or intent,
-        )
     if s.material and material_of(s) is None:
         raise ValueError(tr("Material nicht gefunden: {0}").format(s.material))
     rolls, origin, notes = rolls_for(session, printer, s)

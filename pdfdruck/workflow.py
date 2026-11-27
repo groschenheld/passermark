@@ -55,7 +55,7 @@ _TOP_KEYS = {"passermark", "version", "name", "description", "input", "output", 
 _STEP_KEYS = {"job", "name", "settings", "preset", "pages", "if"}
 _FLOW_KEYS = {"job", "name", "if", "message"}  # fail / stop
 _CHOOSE_KEYS = {"choose", "name"}
-_OPTION_KEYS = {"image_dpi": (int, float), "password": (str,)}
+_OPTION_KEYS = {"image_dpi": (int, float), "password": (str,), "check_profile": (str,)}
 
 
 PRINT = "print"  # step that prints (not a job in core.JOBS – the PDF stays unchanged)
@@ -254,6 +254,12 @@ def schema() -> dict:
                 "properties": {
                     "image_dpi": {"type": "number", "default": 96},
                     "password": {"type": "string", "default": ""},
+                    "check_profile": {
+                        "type": "string",
+                        "default": "",
+                        "description": "check profile for conditions on errors/warnings (name or .json file; "
+                        "empty: standard)",
+                    },
                 },
             },
             "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}},
@@ -395,6 +401,7 @@ class Plan:
     steps: list
     image_dpi: float = 96.0
     password: str = ""
+    check_profile: str = ""  # profile for the check facts of conditions (empty: "standard")
 
 
 def _has_print(raw) -> bool:
@@ -697,10 +704,24 @@ def prepare(
     steps = p.steps(steps_raw, "steps")
     for name in sorted(p.missing):
         p.problem("", tr("Variable ${{{0}}} nicht gesetzt (--var {0}=…)").format(name))
+    prof = opts.get("check_profile") or ""
+    if prof:
+        from . import checkprofile
+
+        try:
+            checkprofile.resolve(prof)
+        except (ValueError, OSError) as e:
+            p.problem("options.check_profile", str(e))
     if p.probs:
         raise WorkflowError(p.probs)
     return Plan(
-        data.get("name") or "", in_paths, out_path, steps, float(opts.get("image_dpi", 96)), opts.get("password") or ""
+        data.get("name") or "",
+        in_paths,
+        out_path,
+        steps,
+        float(opts.get("image_dpi", 96)),
+        opts.get("password") or "",
+        prof,
     )
 
 
@@ -763,7 +784,9 @@ class _Run:
 
         f = self._facts
         if f is None or f.path != self.cur:
-            f = self._facts = conditions.Facts(self.cur, self._fname, self.variables or {})
+            f = self._facts = conditions.Facts(
+                self.cur, self._fname, self.variables or {}, profile=self.plan.check_profile or None
+            )
         return f
 
     def holds(self, cond, where: str, what: str) -> bool:

@@ -25,7 +25,8 @@ Windows → `passermark-cli.exe` in the installation folder.
 | `run workflow.json [output.pdf] [--in FILE …] [--var NAME=VALUE …] [--json]` | run all steps |
 | `run NAME …` | run a workflow from the workflow folders by its name (file name without `.json`) |
 | `workflows [--dirs] [--json]` | list the workflows in the workflow folders (`--dirs`: the folders) |
-| `inspect file.pdf [--check [--printer P]] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results; `--printer`: also size against that printer's paper sizes |
+| `inspect file.pdf [--check [--printer P] [--profile NAME]] [--report REPORT.pdf] [--password PW] [--json]` | pages, formats, trim and bleed; `--check`: check results; `--printer`: also size against that printer's paper sizes; `--profile`: check profile (see *Check profiles*); `--report`: check report as PDF with the locations marked (implies `--check`) |
+| `checkprofiles [--show NAME] [--dirs] [--json]` | the check profiles (built-in and own, `*` = chosen in the settings); `--show`: every check and limit of one profile; `--dirs`: the profile folders |
 | `printers [--json]` | printers with status (`default`, `state`, `model`) |
 | `caps PRINTER [--json]` | the printer's driver options with all choices, which option serves which role, paper sizes (`page_size_source`: `driver` · `code` = from the PPD's PostScript · `text` = from the name · `table`; `page_size_problems`: PPD errors such as a decimal comma) |
 | `serve [--config watch.json] [--once] [--check] [--json] [--quiet] [--log FILE]` | drop folders: files dropped into a folder run through its workflow (see below) |
@@ -71,7 +72,7 @@ line (`--in`, output) are relative to the current folder.
   "name": "Business cards SRA3",
   "input": "${input}",
   "output": "${dir}/done/${stem}-sra3.pdf",
-  "options": {"image_dpi": 96, "password": ""},
+  "options": {"image_dpi": 96, "password": "", "check_profile": ""},
   "steps": [
     {"job": "preflight_fix", "settings": {"fix": "flatten_layers"}},
     {"job": "impose", "name": "Imposition", "preset": "Business cards",
@@ -227,7 +228,18 @@ RGB images carry the sRGB profile, CMYK images the print profile. With `--json` 
 {"job": "preflight_fix", "settings": {"fix": "overprint"}}
 {"job": "colorrules", "settings": {"cut_name": "CutContour", "to_process": ["*"], "rename": {"HKS43K": "HKS 43 K"}}}
 {"job": "bleed", "pages": "1-4", "settings": {"bleed_mm": 3, "mode": "mirror"}}
+{"job": "autofix", "settings": {"profile": "gwg", "target": "/pfad/PSOcoated_v3.icc"}}
 ```
+
+- `autofix` (1.20.2, program: check panel → *Alles reparieren …*): checks with `profile` and repairs every finding
+  that has an automatic repair, in this order: `layers` (flatten, `layers`: print | view), `hdr`, `fonts`
+  (`font_map`), `softmask` (transparent gradients, `dpi`), `spots` (spot colours → CMYK, cut contours stay), `cmyk`
+  (RGB → CMYK with `target`, `intent`, `bpc`), `overprint`, `bleed` (`bleed_min_mm` of the profile, `bleed_mode`),
+  `pdfx` (PDF/X-4: output intent, XMP `GTS_PDFXVersion`, document/version id, trim box, PDF 1.6, no JavaScript).
+  `steps`: only these (default: all needed). Without `target` the CMYK output intent of the file is used; without
+  either `cmyk` and `pdfx` are skipped. A failing step (e.g. no Ghostscript) is noted, the others run. Result info:
+  `errors`, `warnings`, `profile` after the repair; notes list what was done and what stays (small images, small
+  text, hairlines, ink coverage …). CLI: `passermark-cli autofix in.pdf out.pdf --set profile=gwg --set target=…`.
 
 - `preflight_fix` with `"fix": "overprint"`: white objects set to overprint are set to knock out, small black text
   (100 % K, up to 12 pt) to overprint – only exactly these items, no Ghostscript.
@@ -285,8 +297,9 @@ Errors (all commands):
                 "trim_mm": [85.0, 55.0], "bleed_mm": 3.0,
                 "boxes_pt": {"crop": […], "trim": […], "bleed": […], "art": null}}, …],
  "formats_mm": [{"size": "91 x 61", "pages": 4}],
- "check": {"counts": {"error": 0, "warning": 0, "info": 2},
-           "issues": [{"severity": "info", "category": "font", "message": "…", "pages": [1, 2]}],
+ "check": {"profile": "standard", "passed": ["font_missing", "rgb", …],
+           "counts": {"error": 0, "warning": 0, "info": 2},
+           "issues": [{"severity": "info", "category": "font", "check": "font_std14", "message": "…", "pages": [1, 2]}],
            "fonts": [{"name": "Helvetica", "subtype": "/Type1", "embedded": false, "subset": false, "pages": [1]}],
            "layers": [{"name": "…", "view": true, "print": null, "locked": false}]}}
 ```
@@ -349,6 +362,44 @@ field stays empty) and `lowres` (below 150 ppi at the size printed).
 
 The text report (`report_text`) lists the page boxes and the bleed per side of the first page.
 
+### Check profiles (since 1.20.2)
+
+A check profile decides which findings are reported how (`error` · `warning` · `info` · `off`) and with which limits.
+Every finding has a `check` key (in `inspect --json`). Built-in profiles: `standard` (the check as before),
+`offset` (based on PDF/X-4: fonts embedded incl. standard fonts, RGB and images below 300 ppi are warnings, below
+150 ppi errors, 3 mm bleed, minimum text size 6 pt, ink coverage at most 300 %, PDF/X declaration expected – not a certified PDF/X validation),
+`gwg` (sheetfed offset with the values of GWG2015 SheetCmyk: PDF/X-4, no RGB and no spot colours, images 149/224 ppi,
+line art 549/799 ppi, text 8 pt, lines 0.25 pt, ink coverage 320 %, black text up to 12 pt overprints – not a
+certified GWG check), `digital`, `plot` (plans and large format), `screen`. Own profiles are JSON files in the profile folders
+(`checkprofiles --dirs`: Linux `~/.config/passermark/checkprofiles` and `/etc/passermark/checkprofiles`, Windows
+`%APPDATA%\Passermark\checkprofiles` and `%ProgramData%\Passermark\checkprofiles`) – only the deviations:
+
+```json
+{"passermark": "check-profile", "version": 1, "name": "Druckerei Muster",
+ "report": {"rgb": "error", "pdfx_none": "warning"},
+ "limits": {"bleed_min_mm": 3, "text_min_pt": 6, "spot_max": 2, "page_multiple": 4}}
+```
+
+Limits (`checkprofiles --show standard`): `image_ppi_min` (150), `image_ppi_good` (300), `image_ppi_max` (0 = off),
+`text_min_pt` (0 = off), `black_text_pt` (12; small black text that should overprint), `hairline_mm` (0.1),
+`bleed_min_mm` (2), `safety_mm` (3), `spot_max` (-1 = off), `page_multiple` (0 = off), `tac_max` (0 = off; total ink
+coverage in %, check `ink_tac`), `pdfx_min` (0 = off; PDF/X main version at least, check `pdfx_version`),
+`lineart_ppi_min`/`lineart_ppi_good` (0 = automatic: line art needs twice the image limits). Check `font_courier`
+(off by default, `gwg`: warning) reports Courier, often a substitute for a missing font.
+A limit at its "off" value switches its check off. Which profile is used: `--profile` on the
+command line, `options.check_profile` in a workflow (for conditions on `errors`/`warnings`), otherwise `standard`.
+The profile chosen in the program (*Check* panel → Profile) applies to the program only, so that the command line
+and workflows give the same result for every user. `checkprofiles` marks it with `*`.
+
+Ink coverage (`ink_tac`, only with `tac_max`): with Ghostscript the pages are separated at 24 dpi (RGB and grey via
+the CMYK output intent, without one with the Ghostscript default profile) and the areas above the limit are located;
+without Ghostscript an estimate from the existing CMYK (colour values and CMYK images). At most the first 50 pages.
+
+Check report as PDF (`inspect --report REPORT.pdf`, program: *Check* → report button): summary pages (status, every
+finding numbered with its pages and locations, the checks without a finding, fonts), then every page with located
+findings – the original page with the locations framed in the colour of the severity and numbered like the list,
+also on rotated pages; bookmarks per page. `inspect --json` gives `check.report_pdf` = `{file, pages, marked}`.
+
 ## Plan printing (`plan`)
 
 Job `plan` (workflow step `{"job": "plan", "settings": {…}}`, or `passermark-cli plan`) prints every page as a plan
@@ -401,7 +452,12 @@ on a roll printer – the same as *Plan & Poster → Plan printing* in the progr
   driver value.
 - Further settings: `color`, `media`, `scale_pct`, `bleed_mm` + `bleed_mode` (`mirror` | `blank` | `color`,
   `bleed_color`), `crop_marks`, `fix_hairlines` (+ `hairline_mm`), `fold_marks` (DIN 824, simplified), `options`,
-  `profile`, `intent`, `dry_run`.
+  `profile` (`admin` | `none` | profile id; before the material's profile), `intent`, `driver_color_off` (switch the
+  driver's own colour adjustment off: the matching driver option – Gutenprint `StpColorCorrection=Uncorrected`,
+  options like "colour adjustment/matching = off/none" –, on Windows DEVMODE `dmICMMethod = none`), `dry_run`.
+  In the program, profile, intent and driver colour of Plan & Poster apply to one print only and are never saved;
+  the session's colour profile stays as it was after a plan print. Print dialog: "Driver colour adjustment off (this
+  print only)" (job value `__driver_color_off__`, `printers.color_off_option`).
 - **Print quality** `quality_mode`: `production` (lowest quality level of the driver – default for plans) |
   `quality` (highest – default for posters). Takes precedence over the driver default; a quality in `options` or one
   set for a material of the matching category (`plan` ↔ production, `quality` ↔ quality) wins. Drivers whose
@@ -528,6 +584,7 @@ passermark-cli run Visitenkarten --in karten.pdf     # Ablauf beim Namen aus den
 passermark-cli export plan.pdf bild.png --dpi 300   # Seiten als Bilder (PNG, JPG, TIFF), je Seite eine Datei
 passermark-cli workflows                            # Abläufe in den Ordnern (--dirs: welche Ordner)
 passermark-cli inspect karten.pdf --check           # Seiten, Formate, Endformat/Anschnitt, Prüfung
+passermark-cli inspect karten.pdf --report bericht.pdf --profile offset   # Prüfbericht als PDF
 passermark-cli printers                             # Drucker
 passermark-cli caps Canon-C3822i                    # Optionen, Fächer, Formate, Finisher eines Druckers
 passermark-cli serve --check                        # Drop-Ordner prüfen (watch.json)
@@ -590,6 +647,14 @@ Variable Daten vor dem Erzeugen (Text zu lang/zu hoch, leere Spalten, unbekannte
 CSV-Zeile). Seit 1.18.12 Bildfelder (`"kind": "image"`): Pfad aus einer Spalte, relativ zur CSV oder absolut,
 `fit` `contain`/`cover`/`stretch`, `fallback` = Ersatzbild; fehlende/unlesbare Bilder werden mit CSV-Zeile gemeldet
 und brechen ohne Ersatzbild ab, PDF-Bilder bleiben Vektor. Fehlerprotokolle und Ruckler-Meldungen lassen sich unter Datei → Einstellungen abschalten.
+
+Prüfprofile (seit 1.20.2): legen fest, was wie streng gemeldet wird (Fehler/Warnung/Hinweis/aus) und mit welchen
+Grenzwerten – eingebaut `standard` (wie bisher), `offset` (angelehnt an PDF/X-4), `gwg` (Bogenoffset nach GWG2015 SheetCmyk), `digital`, `plot`, `screen`; eigene
+als JSON in den Profil-Ordnern (`passermark-cli checkprofiles --dirs`). Auswahl im Programm (Prüfung → Profil), auf der
+Kommandozeile `inspect --check --profile NAME`, im Ablauf `"options": {"check_profile": "NAME"}`. Neu nur mit Profil:
+Mindestschrift, höchstens n Sonderfarben, Seitenzahl als Vielfaches von n, Bilder über einer Höchstauflösung,
+fehlende PDF/X-Angabe, Farbauftrag über einer Grenze (`tac_max`, Profil `offset`: 300 %). Prüfbericht als PDF mit
+markierten Stellen: `inspect --report bericht.pdf`. Einzelheiten oben unter *Check profiles*.
 
 Prüfung (seit 1.18.2 zusätzlich): Seitenrahmen (UserUnit, CropBox ≠ MediaBox, TrimBox/BleedBox widersprüchlich,
 /Rotate, gemischte Formate, Inhalt bis zum Endformat-Rand bei weniger als 2 mm Beschnitt), Schutz (Drucken

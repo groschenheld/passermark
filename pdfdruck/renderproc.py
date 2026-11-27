@@ -89,12 +89,12 @@ def page_info(data: bytes) -> list:
     return out
 
 
-def _call_preflight(path: str, deep_layers: bool = True):
+def _call_preflight(path: str, deep_layers: bool = True, profile=None):
     from . import preflight
 
     with open(path, "rb") as f:
         data = f.read()
-    return preflight.analyze(data, deep_layers, pdfium_parts=True)
+    return preflight.analyze(data, deep_layers, pdfium_parts=True, profile=profile)
 
 
 def _call_verify(before: str, after: str, page: int, boxes: list):

@@ -35,6 +35,7 @@ DC_MEDIATYPENAMES, DC_MEDIATYPES = 34, 35
 DM_ORIENTATION, DM_PAPERSIZE, DM_COPIES, DM_DEFAULTSOURCE = 0x1, 0x2, 0x100, 0x200
 DM_PAPERLENGTH, DM_PAPERWIDTH, DMPAPER_USER = 0x4, 0x8, 256
 DM_COLOR, DM_DUPLEX, DM_COLLATE, DM_MEDIATYPE = 0x800, 0x1000, 0x8000, 0x2000000
+DM_ICMMETHOD, DMICMMETHOD_NONE = 0x800000, 1  # colour adjustment of the driver/system off
 DM_OUT_BUFFER, DM_IN_PROMPT, DM_IN_BUFFER = 2, 4, 8
 LOGPIXELSX, LOGPIXELSY, HORZRES, VERTRES = 88, 90, 8, 10
 PHYSICALWIDTH, PHYSICALHEIGHT, PHYSICALOFFSETX, PHYSICALOFFSETY = 110, 111, 112, 113
@@ -367,6 +368,10 @@ def _devmode_for_job(printer: str, values: dict, copies: int, collate: bool):
         setf("Color", values["ColorModel"], DM_COLOR)
     if values.get("MediaType"):
         setf("MediaType", values["MediaType"], DM_MEDIATYPE)
+    from .printers import COLOR_OFF_KEY
+
+    if values.get(COLOR_OFF_KEY) == "1":  # no ICM colour adjustment (vendor modes like "Vivid": driver dialog)
+        setf("ICMMethod", DMICMMETHOD_NONE, DM_ICMMETHOD)
     setf("Orientation", 1, DM_ORIENTATION)  # sheets are already physically portrait
     setf("Copies", max(1, copies), DM_COPIES)
     setf("Collate", 1 if collate else 0, DM_COLLATE)

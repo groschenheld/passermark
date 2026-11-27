@@ -123,13 +123,15 @@ class _Edit:
 
 
 class _Scan:
-    def __init__(self, pdf, text_max_pt: float, plan: bool, want: set):
+    def __init__(self, pdf, text_max_pt: float, plan: bool, want: set, text_min_pt: float = 0.0):
         self.pdf = pdf
         self.text_max_pt = text_max_pt
+        self.text_min_pt = text_min_pt  # > 0: also collect visible text below this size (check profiles)
+        self.small_min: dict = {}  # page -> smallest text size found below text_min_pt
         self.plan = plan  # collect insertions for the correction
         self.want = want  # {"white", "black_text"}
-        self.found: dict = {"white": {}, "black_text": {}}
-        self.counts: dict = {"white": 0, "black_text": 0}
+        self.found: dict = {"white": {}, "black_text": {}, "small_text": {}}
+        self.counts: dict = {"white": 0, "black_text": 0, "small_text": 0}
         self.edits: list = []
         self.done_forms: set = set()
         self.truncated = False
@@ -312,6 +314,10 @@ class _Scan:
         old = (st.OP, st.op, st.OPM)
         fills = st.mode in TEXT_FILL_MODES
         strokes = st.mode in TEXT_STROKE_MODES
+        if (fills or strokes) and 0 < size < self.text_min_pt - 1e-6:
+            self.found["small_text"].setdefault(pno, []).append(box)
+            self.counts["small_text"] += 1
+            self.small_min[pno] = min(self.small_min.get(pno, size), size)
         off_fill = fills and st.op and is_white(st.fill)
         off_stroke = strokes and st.OP and is_white(st.stroke)
         if off_fill or off_stroke:
@@ -381,12 +387,13 @@ def _nonempty(item) -> bool:
 # --------------------------------------------------------------------------- #
 # public interface
 # --------------------------------------------------------------------------- #
-def scan(pdf, max_pages: int = 300, text_max_pt: float = TEXT_MAX_PT) -> dict:
+def scan(pdf, max_pages: int = 300, text_max_pt: float = TEXT_MAX_PT, text_min_pt: float = 0.0) -> dict:
     """Findings of an open pikepdf document:
     {"white": {page: [box]}, "black_text": {page: [box]}, "counts": {kind: n}, "truncated": bool}.
-    Pages are 1-based, boxes (x0, y0, x1, y1) in pt in page coordinates.
+    Pages are 1-based, boxes (x0, y0, x1, y1) in pt in page coordinates. text_min_pt > 0: additionally
+    "small_text" {page: [box]} and "small_min" {page: smallest size} – visible text below that size.
     """
-    sc = _Scan(pdf, text_max_pt, plan=False, want={"white", "black_text"})
+    sc = _Scan(pdf, text_max_pt, plan=False, want={"white", "black_text"}, text_min_pt=text_min_pt)
     for i, page in enumerate(pdf.pages, start=1):
         if i > max_pages:
             sc.truncated = True
@@ -395,7 +402,9 @@ def scan(pdf, max_pages: int = 300, text_max_pt: float = TEXT_MAX_PT) -> dict:
     return {
         "white": sc.found["white"],
         "black_text": sc.found["black_text"],
-        "counts": dict(sc.counts),
+        "small_text": sc.found["small_text"],
+        "small_min": dict(sc.small_min),
+        "counts": {k: v for k, v in sc.counts.items() if k != "small_text" or text_min_pt > 0},
         "truncated": sc.truncated or len(pdf.pages) > max_pages,
     }
 

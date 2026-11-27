@@ -984,6 +984,11 @@ class PrintDialog(PrintPreviewMixin, PrintDeviceMixin, PrintBuildMixin, QDialog)
         pkey = self.caps.roles.get("pagesize")
         if pkey and pkey in self.values:  # sheet for step 1 as chosen – submit_document sets the target size
             values = dict(values, **{pkey: self.values[pkey]})
+        chk = getattr(self, "chk_drvcolor", None)
+        if chk is not None and chk.isEnabled() and chk.isChecked():  # this job only, never remembered
+            from .. import printers as _printers
+
+            values = dict(values, **{_printers.COLOR_OFF_KEY: "1"})
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         pump = _print_pump()
         try:

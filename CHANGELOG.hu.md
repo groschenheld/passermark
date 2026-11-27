@@ -5,6 +5,16 @@
 > Ez a változásnapló a **1.10.0-tól kezdve** tartalmazza magyarul. A teljes változástörténet:
 > [CHANGELOG.md](CHANGELOG.md) (angolul) vagy [CHANGELOG.de.md](CHANGELOG.de.md) (németül).
 
+## 1.20.2
+
+- Ellenőrzési profilok: az ellenőrzés profil szerint fut; a profil megadja, hogy egy-egy ellenőrzési pont hibaként, figyelmeztetésként, megjegyzésként vagy sehogy jelenik-e meg, határértékekkel (felbontás, legkisebb betű, vonalvastagság, levágás, festékfedés, PDF/X-verzió ...). Beépítve: standard, ofszet (a PDF/X-4 mintájára), GWG laposofszet (GWG2015), digitális nyomtatás, nagy formátum, képernyő; saját profilok a profilszerkesztőben, JSON importtal és exporttal, kiválasztva az ellenőrző panelen vagy a Dokumentum -> ellenőrzési profil menüben. A parancssor és a munkafolyamatok megadás nélkül mindig "standard" profillal ellenőriznek, így az eredmény visszavezethető marad.
+- Új ellenőrzési pontok: a határérték feletti festékfedés (a területeket Ghostscript találja meg), túl régi PDF/X-verzió, Courier mint lehetséges helyettesítő betűtípus, saját felbontási határértékek vonalas grafikákhoz.
+- Újraépített ellenőrző panel a szűk oldalsávnak: a leletek fajtánként csoportosítva áttekintést adnak, csak a hibás csoportok vannak kibontva; minden lelet oldalszámot, üzenetet és javítási hivatkozást mutat; a nézet legördülő listából választható; egy újabb kattintás a következő helyre ugrik.
+- Ellenőrzési jelentés PDF-ben: elöl az összefoglaló, utána az érintett eredeti oldalak keretezett, számozott helyekkel; parancssorból is, inspect --report.
+- Mindent javít: egy menetben javítja a rétegeket, a HDR-oldalakat, a betűtípusokat, az átvitteket, a spot színeket -> CMYK, az RGB -> CMYK átalakítást, a túlnyomást és a levágást, majd PDF/X-4-ként jelöli meg a fájlt; minden lépés előre kikapcsolható, utána látszik, mi marad kézi munkára; autofix feladatként is elérhető a munkafolyamatokban és a parancssorban.
+- Terv és plakát: a megnyitott dokumentum átadható közvetlenül, akár szerkesztve is, a "Terv és plakát" gombbal vagy a menüből; a lista minden fájlját ellenőrzi, egy "ellenőrzés" oszlop mutatja az eredményt tervenként, hibánál Passermark rákérdez nyomtatás előtt; a színprofil, a szándék és a meghajtó színigazítása egyetlen nyomtatáshoz választható, kipróbálásra, és soha nem kerül mentésre.
+- Nyomtatás: új kapcsoló "a meghajtó színigazításának kikapcsolása (csak ez a nyomtatás)", Windowson ICM-en, Linuxon a megfelelő meghajtóbeállításon keresztül; egy tervnyomtatás többé nem változtatja meg a színprofilt a későbbi normál nyomtatásokhoz.
+- Javítva: a "betű kisebb, mint ..." most a legkisebb betű oldalát mutatja; ha egy oldalon már be lett jelentve egy túl durva kép, most a további, csak kicsit túl durva képek is jelzésre kerülnek ott.
 ## 1.20.1
 
 - Oldalsáv kiemelése: a lap bal oldalán lévő gomb az oldalakat, ellenőrzést, színt, kimenet-előnézetet és szerkesztést saját ablakba viszi; a lap maga ezáltal szélesebb lesz. Egy második kattintás vagy az ablak bezárása visszadokkolja a sávot, ugyanazzal a füllel elöl.

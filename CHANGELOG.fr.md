@@ -5,6 +5,16 @@
 > Ce journal contient les versions depuis **1.10.0** en français. L'historique complet :
 > [CHANGELOG.md](CHANGELOG.md) (anglais) ou [CHANGELOG.de.md](CHANGELOG.de.md) (allemand).
 
+## 1.20.2
+
+- Profils de contrôle : le contrôle suit un profil qui détermine, point par point, s'il est signalé en erreur, avertissement, remarque ou pas du tout, avec des seuils (résolution, plus petit corps, épaisseur de trait, fond perdu, couverture d'encre, version PDF/X ...). Intégrés : standard, offset (proche du PDF/X-4), offset feuille GWG (GWG2015), impression numérique, grand format et écran ; profils propres dans l'éditeur de profils, avec import et export en JSON, choisis dans le panneau de contrôle ou sous Document -> profil de contrôle. La ligne de commande et les flux contrôlent toujours avec « standard » sauf indication contraire, le résultat reste ainsi reproductible.
+- Nouveaux points de contrôle : couverture d'encre au-dessus de la limite (les zones sont trouvées avec Ghostscript), version PDF/X trop ancienne, Courier comme police de substitution possible, seuils de résolution propres pour les graphiques au trait.
+- Panneau de contrôle repensé pour la barre latérale étroite : les constats groupés par nature servent d'aperçu, seuls les groupes avec erreurs sont dépliés ; chaque constat montre pages, message et un lien de réparation ; la vue se choisit dans une liste déroulante ; un nouveau clic sur un constat saute à l'endroit suivant.
+- Rapport de contrôle en PDF : le résumé en tête, puis les pages originales concernées avec des repères encadrés et numérotés ; aussi en ligne de commande avec inspect --report.
+- Tout réparer : répare en une passe les calques, les pages HDR, les polices, les dégradés, les tons directs -> CMJN, le RVB -> CMJN, la surimpression et le fond perdu, puis déclare le fichier en PDF/X-4 ; chaque étape se désactive au préalable, et vous voyez ensuite ce qui reste à la main ; aussi disponible en tâche autofix pour les flux et la ligne de commande.
+- Plan et poster : le document ouvert se transmet directement, modifié ou non, par le bouton « Plan et poster » ou le menu ; chaque fichier de la liste est contrôlé, une colonne « contrôle » montre le résultat par plan, et Passermark demande avant d'imprimer en cas d'erreur ; profil colorimétrique, intent et réglage couleur du pilote choisissables pour une seule impression, à titre d'essai, jamais enregistrés.
+- Impression : nouveau réglage « désactiver le réglage couleur du pilote (cette impression seulement) », via ICM sous Windows et l'option pilote correspondante sous Linux ; une impression de plan ne modifie plus le profil colorimétrique des impressions normales suivantes.
+- Corrigé : « texte plus petit que ... » indique maintenant la page du plus petit texte ; si une image trop grossière avait déjà été signalée sur une page, les autres images à peine trop grossières y sont maintenant signalées aussi.
 ## 1.20.1
 
 - Détacher la barre latérale : le bouton à gauche de la page emmène pages, contrôle, couleur, aperçu de sortie et édition dans leur propre fenêtre ; la page elle-même s'élargit. Un second clic ou la fermeture de la fenêtre rembarre la barre, avec le même onglet devant.

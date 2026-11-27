@@ -464,6 +464,23 @@ class MainDialogsMixin:
 
         open_window(self.session, self.ctl, entry.get("kind", kind) if entry else kind, entry)
 
+    def send_to_plan(self, kind: str = "plan"):
+        """Hand the open document over to plan or poster printing – as it is now: unchanged the file itself,
+        edited (pages, crop, colour rules …) the current state as a copy in the cache (kept 14 days, so that the
+        print history can reopen it)."""
+        if self.doc is None:
+            return
+        from .plandialog import open_window
+
+        path = self.path if self.path and not self.modified and self.path.lower().endswith(".pdf") else ""
+        if not path or not os.path.isfile(path):
+            try:
+                path = handover_copy(self._doc_bytes(), self.display_name or "Dokument")
+            except OSError as e:
+                QMessageBox.warning(self, tr("Plan & Poster"), str(e))
+                return
+        open_window(self.session, self.ctl, kind, files=[path])
+
     def _fill_plan_history(self):
         """Plan & Poster → recent prints: plan and poster prints, newest first; clean-up at the bottom."""
         from .. import planhistory
@@ -533,3 +550,35 @@ class MainDialogsMixin:
         if AdminDialog(self, self.session).exec():
             self.ctl.reload_config()
             self.statusBar().showMessage(tr("Admin-Standards gespeichert und übernommen."), 6000)
+
+
+HANDOVER_DAYS = 14
+
+
+def handover_copy(data: bytes, name: str) -> str:
+    """Write the current state of a document for plan/poster printing to the cache: <name>_bearbeitet.pdf
+    (numbered if taken); copies older than HANDOVER_DAYS are removed."""
+    import re
+    import time
+
+    from .. import platform as _platform
+
+    d = os.path.join(_platform.user_cache_dir(), "plan-uebergabe")
+    os.makedirs(d, exist_ok=True)
+    now = time.time()
+    for f in os.listdir(d):
+        fp = os.path.join(d, f)
+        try:
+            if now - os.path.getmtime(fp) > HANDOVER_DAYS * 86400:
+                os.remove(fp)
+        except OSError:
+            pass
+    stem = re.sub(r"[^\w.\-]+", "_", os.path.splitext(os.path.basename(name))[0])[:60] or "Dokument"
+    path = os.path.join(d, f"{stem}_{tr('bearbeitet')}.pdf")
+    k = 2
+    while os.path.exists(path):
+        path = os.path.join(d, f"{stem}_{tr('bearbeitet')}-{k}.pdf")
+        k += 1
+    with open(path, "wb") as f:
+        f.write(data)
+    return path

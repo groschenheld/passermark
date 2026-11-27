@@ -146,6 +146,46 @@ appmod.Controller().queue_request("plan", [sys.argv[1]])
 pw_ = {d.kind: d for d in plandialog.open_windows()}
 assert set(pw_) == {"plan", "poster"} and pw_["plan"].items, pw_
 plandialog._WINDOWS.clear()
+# 1.20.2: hand the open document over – unchanged the file itself, edited a copy in the cache
+import os, tempfile as _tf
+from pdfdruck import platform as _plat
+_cache = _tf.mkdtemp()
+_plat.user_cache_dir = lambda: _cache
+_mod = w.modified
+w.modified = False
+w.send_to_plan("poster")
+pw_ = plandialog.open_windows()
+_src = pw_[0].items[0].source
+assert len(pw_) == 1 and pw_[0].kind == "poster", pw_
+assert _src == w.path if os.path.isfile(w.path or "") else _src.startswith(_cache), (_src, w.path)
+plandialog._WINDOWS.clear()
+w.modified = True
+w.send_to_plan("plan")
+pw_ = plandialog.open_windows()
+_src = pw_[0].items[0].source
+assert pw_[0].kind == "plan" and _src.startswith(_cache) and _src.endswith(".pdf") and os.path.isfile(_src), _src
+w.modified = _mod
+plandialog._WINDOWS.clear()
+# check panel (1.20.2): grouped findings with repairs, passed checks, profile menu and editor
+from pdfdruck import preflight as pf_, checkprofile as cp_
+import test_preflight as tp_
+rep_ = pf_.analyze(tp_.problem_pdf(), deep_layers=False, profile="offset")
+w._pf_show(rep_)
+assert rep_.passed and any(i.check == "font_std14" and i.severity == "error" for i in rep_.issues)
+w.pf_panel._issue_clicked(w.pf_panel.tree.topLevelItem(0), 0)  # group: open/close
+from PySide6.QtWidgets import QMenu
+w._fill_profile_menu(QMenu())
+from pdfdruck.gui import checkprofiledialog
+dlg_ = checkprofiledialog.CheckProfileDialog(w, "offset")  # the stand-in keeps no choice: load explicitly
+dlg_._load(cp_.BUILTIN["offset"])
+assert dlg_.cur.name == "offset" and set(dlg_.sev_boxes) == set(cp_.CHECKS) and set(dlg_.lim_boxes) == set(cp_.LIMITS)
+rep_ = pf_.analyze(tp_.problem_pdf(), deep_layers=False, profile="screen")
+w.pf_panel.set_report(rep_)
+w._pf_tool("bleed"); w._pf_tool("colorrules")
+from pdfdruck.gui import autofixdialog                 # Alles reparieren: steps of the profile, settings for the job
+rep_ = pf_.analyze(tp_.problem_pdf(), deep_layers=False, profile="offset")
+afd_ = autofixdialog.AutofixDialog(w, rep_, {})
+assert "fonts" in afd_.checks and afd_.settings({}).profile == "offset"
 print("SMOKE-OK")
 """
 

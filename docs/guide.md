@@ -1,6 +1,6 @@
 # Passermark – features and code guide
 
-State: version 1.20.1 (November 2026). Written for a reader who wants to understand the program as a whole –
+State: version 1.20.2 (November 2026). Written for a reader who wants to understand the program as a whole –
 what it does for the user and how the code is built – before reviewing or changing it.
 
 How this fits with the other documents:
@@ -87,7 +87,7 @@ Since 1.19 the window follows a design sheet by the author:
 | **Dokument** (document) | merge documents (Ctrl+M) · repair, optimise, password (Ctrl+Shift+R) · reduce file size · document check (Ctrl+Shift+P) · submenus below |
 | ↳ **Dokument-Manipulation** | edit text and layers (Ctrl+T) · CMYK conversion · crop to format · CMYK and crop in one step (Ctrl+Shift+M) · separate objects (single pages without white space) · CutContour for cutting plotters · variable data (Ctrl+Shift+D) · enter data (tables for business cards, Wi-Fi, codes) |
 | ↳ **Farbe** (colour) | colour check (Ctrl+Shift+F) · colour pipette (Ctrl+Shift+C) · soft proof on/off (Ctrl+Y) and set up (Ctrl+Shift+Y) · output for the print shop · CMYK conversion · papers and measurements · get standard profiles · colour management explained |
-| ↳ **Plan & Poster** | plan printing (Ctrl+Alt+P) · poster printing · last prints (history) · rolls of the printers |
+| ↳ **Plan & Poster** | plan printing (Ctrl+Alt+P) · poster printing · hand the document over to plan/poster printing · last prints (history) · rolls of the printers |
 | **Ansicht** (view) | page arrangement · rulers (Ctrl+R) · measure (Ctrl+Shift+L) · trim and bleed (Ctrl+Shift+B) · soft proof · sidebar · whole page (Ctrl+1), page width (Ctrl+2), actual size (Ctrl+0) · rotate view |
 | **Verwaltung** (administration) | admin defaults (password prompt) · open the preset folder |
 | **Hilfe** (help) | command line guide and variable data guide (PDF) · get examples · Windows print test (Windows only) · open error logs · check for updates · licences |
@@ -145,13 +145,34 @@ outer lines of a plan, roll choice (narrowest fitting roll, by grammage/material
 per roll with a warning before a roll runs short, scaling, rotation, fold marks to DIN 824, hairline lifting;
 posters side by side, wider than the roll in panels, hem, eyelets, registration marks and CutContour for print
 & cut on Roland plotters. Rolls are read from the device (IPP, otherwise SNMP) or entered by hand; materials
-per user with a colour path. History of the last 50 prints.
+per user with a colour path. History of the last 50 prints. 1.20.2: the open document can be handed over (menu
+Plan & Poster / toolbar button: unchanged the file itself, edited a copy in the cache, kept 14 days –
+`maindialogs.handover_copy`); every file in the list is checked after the detection with the profile of the window
+(default *plot*, this window only), column *Prüfung* with tool tip, a summary above the list and a question before
+printing with errors. Colour profile, intent and "driver colour adjustment off" apply to one print only.
 
 **Prepress check** (`preflight.py`, sidebar *Prüfung*): fonts (embedded, subset, Type 3 …), layers,
 transparency, page boxes and bleed, protection, PDF/X and output intent, form fields, empty pages, page size
 against the default printer, images (resolution, colour space – `imagecheck.py`). Every finding names its
 position and can be jumped to; targeted repairs: embed or substitute fonts (also download free fonts), outline
-text, fix/remove layers, flatten transparency.
+text, fix/remove layers, flatten transparency. Since 1.20.2 the check runs with a **check profile**
+(`checkprofile.py`): every finding has a check key, the profile sets its severity or switches it off and holds the
+limits (image resolution, minimum text size, hairlines, bleed, safety distance, number of spot colours, page count
+as a multiple, total ink coverage). Built-in: standard, offset (based on PDF/X-4), gwg (GWG2015 SheetCmyk), digital, plot, screen; own profiles are JSON files in
+the profile folders. The panel chooses the profile; outside the GUI (`analyze()`, CLI `inspect --check`,
+workflow conditions) the default is *standard* unless a profile is given. `rep.passed` lists the checks without
+a finding. The panel (1.20.2) is built for the narrow sidebar: a compact head (traffic light, summary, icon
+buttons for re-check and report), a combo for the view instead of the tab bar, and a single-column tree drawn by
+`_FindingDelegate` – groups by kind with icon and counter as overview (only groups with errors open), each finding
+with severity stripe, title, pages (right or below), the message in grey and the repair as a link "→ …"
+(`editorEvent`), the checks without a finding as a closed group and the empty state "Druckbereit". Clicking a
+finding again jumps to its next location; the frame in the view pulses. The report button saves the check report
+as PDF (`checkreport.py`: summary set with reportlab, then the original pages with the locations framed and
+numbered by a pikepdf overlay in page coordinates) or as text. *Alles reparieren …* (`gui/autofixdialog.py`, job `autofix` in `autofix.py`) plans one step per
+finding with an automatic repair, each can be switched off; printing condition for RGB → CMYK and PDF/X-4; the
+result opens as an edited document. The ink coverage check (`preflight.measure_tac`)
+separates with Ghostscript via the CMYK output intent and locates the areas above `tac_max`. Dokument → Prüfprofil chooses, *Prüfprofile bearbeiten …* (`gui/checkprofiledialog.py`) edits
+("Melden" / "Grenzwerte"), saves as an own profile, imports and exports.
 
 **Colour** (`colorcheck.py`, `cmyk.py`, `colorconv.py`, `proof.py`, `pipette.py`, `colorlab.py`): colour check
 against a printing condition with findings and fixes; soft proof in the view (paper white, black ink, gamut and

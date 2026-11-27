@@ -316,11 +316,17 @@ def send_prepared(
             colorconv.convert(job, conv, prof["file"], intent, bool(prof.get("bpc", True)))
             job = conv
             opts.update({k: str(v) for k, v in (prof.get("driver_options") or {}).items()})
+        if values.get(printers.COLOR_OFF_KEY) == "1" and caps.backend != "win":  # Windows: DEVMODE (printers_win)
+            off = printers.color_off_option(caps)
+            if off:
+                opts[off[0]] = off[1]
         if caps.backend == "win":  # Windows: via GDI to the vendor driver
             from .printers_win import print_pdf
 
             if sent is not None:
                 sent.update(opts)
+                if values.get(printers.COLOR_OFF_KEY) == "1":
+                    sent["ICMMethod"] = "none"
             return print_pdf(printer, job, title, values, copies, collate)
         opts.update(
             {
