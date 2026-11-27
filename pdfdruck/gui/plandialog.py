@@ -16,8 +16,8 @@ import dataclasses
 import logging
 import os
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtCore import QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import QBrush, QColor, QIcon, QImage, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtWidgets import (
     QApplication,
     QColorDialog,
@@ -64,9 +64,16 @@ def _std_key(kind: str) -> str:
     return "plan_standard" if kind != "poster" else "poster_standard"
 
 
+# colour choices for tests: this print only – never remembered, every window starts with the setting
+COLOR_TEST = {"profile": "admin", "intent": "", "driver_color_off": False}
+
+
 def _clean(s: pp.PlanSettings) -> dict:
-    """For remembering: without printer, rolls entered by hand, per-plan overrides and raw driver values."""
-    d = pp.compact(dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", options={}, overrides={}))
+    """For remembering: without printer, rolls entered by hand, per-plan overrides, raw driver values and the colour
+    choices for tests."""
+    d = pp.compact(
+        dataclasses.replace(s, printer="", rolls=[], dry_run=False, title="", options={}, overrides={}, **COLOR_TEST)
+    )
     d.pop("printer", None)
     d.pop("overrides", None)
     return d
@@ -83,6 +90,7 @@ def load_settings(kind: str = "plan") -> pp.PlanSettings:
     try:
         merged = dict(base, **(d if isinstance(d, dict) else {}))
         merged["kind"] = kind
+        merged.update(COLOR_TEST)
         return core.settings_from_dict(pp.PlanSettings, merged)
     except (TypeError, ValueError):
         return pp.PlanSettings(**base)
@@ -158,7 +166,8 @@ class PlanDialog(PlanBuildMixin, QDialog):
 
     printed = Signal(str)
 
-    COLS = ("Plan", "Druckbereich", "Rolle", "Länge", "Menge")
+    COLS = ("Plan", "Druckbereich", "Rolle", "Länge", "Menge", "Prüfung")
+    CHECK_DEFAULT = "plot"  # check profile of the window (plans and large format)
 
     def __init__(self, parent, session, ctl=None, doc=None, path: str = "", name: str = "", kind: str = "plan"):
         super().__init__(parent)
@@ -178,6 +187,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         self._building = False
         self.s0 = load_settings(self.kind)
         self._bleed_color = self.s0.bleed_color
+        self._checks: dict = {}  # source -> preflight.Report (None: could not be checked)
 
         v = QVBoxLayout(self)
         self._build_top_row(v)
@@ -193,6 +203,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         split.setStretchFactor(1, 2)
         self._build_bottom_row(v)
 
+        self._fill_checks()
         self.finished.connect(self._cleanup)
         self._timer = QTimer(self)
         self._timer.setInterval(0)
@@ -238,7 +249,43 @@ class PlanDialog(PlanBuildMixin, QDialog):
                 self.lbl_rolls.setText(tr("Drucker nicht abfragbar: {0}").format(e))
         self._fill_media()
         self._fill_materials()
+        self._fill_color_test()
         self._load_rolls()
+
+    def _fill_color_test(self):
+        """Colour profile, intent and driver colour for tests (this print only): profiles of the printer."""
+        from .. import config, printers
+
+        if getattr(self, "cmb_cprof", None) is None:
+            return
+        on = bool(self.printer) and not pp.is_folder(self.printer)
+        cur = self.cmb_cprof.currentData() if self.cmb_cprof.count() else "admin"
+        self.cmb_cprof.blockSignals(True)
+        self.cmb_cprof.clear()
+        self.cmb_cprof.addItem(tr("Wie eingestellt (Material / Verwaltung)"), "admin")
+        self.cmb_cprof.addItem(tr("Keins – Farbmanagement des Treibers"), "none")
+        for p in config.profiles_for(self.session.cfg, self.printer) if on else []:
+            self.cmb_cprof.addItem(p.get("name") or p["id"], p["id"])
+        self.cmb_cprof.setCurrentIndex(max(0, self.cmb_cprof.findData(cur)))
+        self.cmb_cprof.blockSignals(False)
+        if not self.cmb_cintent.count():
+            self.cmb_cintent.addItem(tr("Intent wie eingestellt"), "")
+            for k, t in config.INTENTS.items():
+                self.cmb_cintent.addItem(tr(t), k)
+        can = on and printers.color_off_option(self.caps) is not None
+        self.chk_drvcolor.setEnabled(can)
+        if not can:
+            self.chk_drvcolor.setChecked(False)
+        for w in (self.cmb_cprof, self.cmb_cintent):
+            w.setEnabled(on)
+
+    def _reset_color_test(self):
+        """Back to the setting (after printing and with the default)."""
+        if getattr(self, "cmb_cprof", None) is None:
+            return
+        self.cmb_cprof.setCurrentIndex(max(0, self.cmb_cprof.findData("admin")))
+        self.cmb_cintent.setCurrentIndex(0)
+        self.chk_drvcolor.setChecked(False)
 
     def _fill_media(self):
         cur = self.cmb_media.currentData() if self.cmb_media.count() else self.s0.media
@@ -441,8 +488,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
             else:
                 it.ov.pop("frame", None)
             it.area = None
-            if it not in self._queue:
-                self._queue.append(it)
+            self._requeue(it)
         self._timer.start()
         self._refresh()
 
@@ -463,7 +509,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         self._building = True
         self.tree.clear()
         for it in self.items:
-            row = QTreeWidgetItem([it.label, "", "", "", str(it.qty)])
+            row = QTreeWidgetItem([it.label, "", "", "", str(it.qty), ""])
             row.setFlags(row.flags() | Qt.ItemFlag.ItemIsEditable)
             row.setTextAlignment(4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             row.setTextAlignment(3, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -476,40 +522,279 @@ class PlanDialog(PlanBuildMixin, QDialog):
     def _redetect(self, *_a):
         for it in self.items:
             it.area = None
-            if it not in self._queue:
-                self._queue.append(it)
+            self._requeue(it)
         self._timer.start()
         self._refresh()
 
     def _redetect_hairlines(self, *_a):
-        s = self.settings()
+        """Count the hairlines again (scale changed) – in the background, the print area stays."""
         for it in self.items:
             if it.area is not None:
-                try:
-                    it.hairlines = pp.hairlines(
-                        it.doc, it.page, s.hairline_mm, pp.factor(it.area, pp.eff(s, it)) * 100.0
-                    )
-                except Exception:
-                    log.warning("Haarlinien nicht geprüft", exc_info=True)
+                it._hair_only = True
+                self._requeue(it)
+        self._timer.start()
         self._refresh()
 
+    def _requeue(self, it):
+        """Detect a plan again: answers still under way for it are outdated."""
+        it._sent = False
+        it._local = False
+        it._tok = getattr(it, "_tok", 0) + 1
+        if it not in self._queue:
+            self._queue.append(it)
+
+    def _service(self):
+        """Analysis process (as for the check of the main window) – None: everything in the window."""
+        if os.environ.get("PASSERMARK_RENDER", "") == "local":
+            return None
+        from .renderclient import RenderService
+
+        svc = RenderService.get("analysis")
+        return svc if svc.ok else None
+
+    @staticmethod
+    def _item_path(it) -> str:
+        """The file of a plan, if the analysis process can open it itself (a PDF as it lies on disk)."""
+        src = it.source or ""
+        return src if src.lower().endswith(".pdf") and os.path.isfile(src) else ""
+
     def _analyze_next(self):
-        if not self._queue:
+        """Detection of the plans: files in the analysis process (the window does not wait – CAD plans take
+        seconds), converted documents one per step in the window. Then the check."""
+        if getattr(self, "_closed", False):
+            self._timer.stop()
+            return
+        svc = self._service()
+        s = self.settings()
+        if svc is not None:
+            for it in self._queue:
+                path = self._item_path(it)
+                if getattr(it, "_sent", False) or not path or getattr(it, "_local", False):
+                    continue
+                it._sent = True
+                it._tok = getattr(it, "_tok", 0) + 1
+                es = pp.eff(s, it)
+                hair = bool(getattr(it, "_hair_only", False)) and it.area is not None
+                args = {
+                    "path": path,
+                    "page": it.page,
+                    "frame": es.frame,
+                    "margin_mm": es.margin_mm,
+                    "hairline_mm": s.hairline_mm,
+                    "scale": {"scale_mode": es.scale_mode, "scale_pct": es.scale_pct, "scale_mm": es.scale_mm},
+                    "area": [list(it.area.rect), it.area.kind, it.area.note] if hair else None,
+                }
+                svc.call("plan_item", args, lambda err, res, it=it, tok=it._tok: self._item_done(it, tok, err, res))
+        local = next(
+            (it for it in self._queue if not getattr(it, "_sent", False)),
+            None,
+        )
+        if local is None:
+            if self._queue:  # everything is in the analysis process: wait for the answers
+                self.lbl_state.setText(tr("Erkenne … ({0} offen)").format(len(self._queue)))
+                self._timer.stop()
+                return
+            src = self._next_unchecked()
+            if src is not None:  # after the detection: check the files one by one (window stays usable)
+                self._run_check(src)
+                self._refresh()
+                return
             self._timer.stop()
             self.lbl_state.setText("")
             self._refresh()
             return
-        it = self._queue.pop(0)
-        s = self.settings()
+        it = local
+        self._queue.remove(it)
         self.lbl_state.setText(tr("Erkenne {0} … ({1} offen)").format(it.label, len(self._queue)))
         try:
             es = pp.eff(s, it)
-            it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
+            if not (getattr(it, "_hair_only", False) and it.area is not None):
+                it.area = pp.detect(it.doc, it.page, es.frame, es.margin_mm)
             it.hairlines = pp.hairlines(it.doc, it.page, s.hairline_mm, pp.factor(it.area, es) * 100.0)
+            if getattr(it, "_thumb", None) is None:
+                self._local_thumb(it)
         except Exception as e:  # noqa: BLE001
             it.area = None
             self.lbl_state.setText(tr("{0}: {1}").format(it.label, e))
+        it._hair_only = False
         self._refresh()
+
+    def _item_done(self, it, tok, err, res):
+        """Answer of the analysis process for one plan."""
+        if getattr(self, "_closed", False) or it not in self.items or tok != getattr(it, "_tok", 0):
+            return
+        it._sent = False
+        if err or not res:
+            log.warning("Plandruck: Erkennung im Hintergrund fehlgeschlagen (%s) – im Fenster", err)
+            it._local = True  # once more in the window
+            self._timer.start()
+            return
+        it.area = pp.Area(tuple(res["rect"]), res["kind"], res.get("note", ""))
+        it.hairlines = int(res.get("hairlines") or 0)
+        w, h, data = res["thumb"]
+        it._thumb = QImage(data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
+        it._thumb_pt = tuple(res["page_pt"])
+        it._hair_only = False
+        if it in self._queue:
+            self._queue.remove(it)
+        self.lbl_state.setText(tr("Erkenne … ({0} offen)").format(len(self._queue)) if self._queue else "")
+        self._refresh()
+        if not self._queue:
+            self._timer.start()  # then the check
+
+    def _local_thumb(self, it):
+        """Small picture of a page rendered in the window (converted images/office files – these are light)."""
+        try:
+            W, H = it.doc.get_page_size(it.page)
+            k = pp.THUMB_PX / max(W, H)
+            page = it.doc[it.page]
+            try:
+                arr = page.render(scale=k, may_draw_forms=True).to_numpy()
+            finally:
+                page.close()
+            import numpy as np
+
+            if arr.ndim == 2:
+                arr = np.stack([arr] * 3, axis=2)
+            arr = np.ascontiguousarray(arr[..., :3][..., ::-1])
+            it._thumb = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
+            it._thumb_pt = (W, H)
+        except Exception:  # noqa: BLE001 – preview only
+            it._thumb = None
+
+    # ------------------------------------------------------------------ #
+    # document check
+    # ------------------------------------------------------------------ #
+    def _fill_checks(self):
+        """Check profiles in the combo; plot by default (this window only, not remembered)."""
+        from .. import checkprofile
+
+        self.cmb_check.blockSignals(True)
+        self.cmb_check.clear()
+        for p in checkprofile.all_profiles():
+            self.cmb_check.addItem(p.title(), p.name)
+        self.cmb_check.addItem(tr("Keine Prüfung"), "")
+        self.cmb_check.setCurrentIndex(max(0, self.cmb_check.findData(self.CHECK_DEFAULT)))
+        self.cmb_check.blockSignals(False)
+        self.cmb_check.currentIndexChanged.connect(self._check_profile_changed)
+
+    def _check_profile_changed(self, *_a):
+        self._check_gen = getattr(self, "_check_gen", 0) + 1  # answers still under way are outdated
+        self._checks.clear()
+        self._timer.start()
+        self._refresh()
+
+    def _next_unchecked(self):
+        if not self.cmb_check.currentData():
+            return None
+        return next((it.source for it in self.items if it.source not in self._checks and it.doc is not None), None)
+
+    def _run_check(self, src: str):
+        """Check one file of the list with the profile of the window – in the analysis process if possible."""
+        from .. import preflight
+
+        it = next(x for x in self.items if x.source == src)
+        self.lbl_state.setText(tr("Prüfe {0} …").format(os.path.basename(src)))
+        svc = self._service()
+        if svc is not None and self._item_path(it):
+            self._checks[src] = "pending"
+            gen = self._check_gen = getattr(self, "_check_gen", 0) + 1
+
+            def got(err, rep, src=src, gen=gen):
+                if getattr(self, "_closed", False) or gen != getattr(self, "_check_gen", 0):
+                    return
+                self._checks[src] = None if err else rep
+                self._refresh()
+                self._timer.start()  # next file
+
+            svc.call("preflight", {"path": src, "deep_layers": False, "profile": self.cmb_check.currentData()}, got)
+            self._timer.stop()
+            return
+        QApplication.processEvents()
+        try:
+            if src.lower().endswith(".pdf") and os.path.isfile(src):
+                with open(src, "rb") as f:
+                    data = f.read()
+            else:  # image or office file: the converted document
+                import io
+
+                buf = io.BytesIO()
+                it.doc.save(buf)
+                data = buf.getvalue()
+            self._checks[src] = preflight.analyze(data, profile=self.cmb_check.currentData())
+        except Exception:  # noqa: BLE001 – the plan stays printable, the check is a hint
+            log.warning("Plandruck: Prüfung von %s fehlgeschlagen", src, exc_info=True)
+            self._checks[src] = None
+
+    def _findings(self, it) -> list | None:
+        """Findings of the check that concern this plan (its page or the whole file); None: not checked yet."""
+        rep = self._checks.get(it.source)
+        if rep == "pending":
+            return None
+        if rep is None:
+            return None if it.source not in self._checks else []
+        return [i for i in rep.issues if i.severity in ("error", "warning") and (not i.pages or it.page + 1 in i.pages)]
+
+    def _check_cell(self, row, it):
+        """Column "Prüfung" of a plan: symbol, count and the findings as tool tip."""
+        if not self.cmb_check.currentData():
+            row.setText(5, "")
+            row.setToolTip(5, "")
+            return
+        f = self._findings(it)
+        if f is None:
+            row.setText(5, "…")
+            row.setToolTip(5, tr("wird geprüft …"))
+            return
+        err = sum(1 for i in f if i.severity == "error")
+        warn = len(f) - err
+        if err:
+            row.setText(5, f"✖ {err}" + (f"  ⚠ {warn}" if warn else ""))
+            row.setForeground(5, QBrush(QColor(theme.ERROR)))
+        elif warn:
+            row.setText(5, f"⚠ {warn}")
+            row.setForeground(5, QBrush(QColor(theme.WARN)))
+        else:
+            row.setText(5, "✓")
+            row.setForeground(5, QBrush(QColor(theme.OK)))
+        lines = [("✖ " if i.severity == "error" else "⚠ ") + i.message for i in f[:10]]
+        if len(f) > 10:
+            lines.append(tr("… und {0} weitere").format(len(f) - 10))
+        row.setToolTip(5, "\n".join(lines) or tr("Keine Fehler und Warnungen."))
+
+    def _check_summary(self):
+        """Line above the list: errors and warnings of the plans to print (each finding once)."""
+        if not self.cmb_check.currentData():
+            self.lbl_check.setText("")
+            return
+        seen, err, warn, pending = set(), 0, 0, False
+        for it in self.items:
+            if it.qty <= 0:
+                continue
+            f = self._findings(it)
+            if f is None:
+                pending = True
+                continue
+            for i in f:
+                key = (it.source, id(i))
+                if key in seen:
+                    continue
+                seen.add(key)
+                err += i.severity == "error"
+                warn += i.severity == "warning"
+        if not self.items:
+            txt, col = "", theme.MUTED
+        elif err or warn:
+            parts = [tr("{0} Fehler").format(err)] if err else []
+            parts += [tr("{0} Warnung(en)").format(warn)] if warn else []
+            txt, col = " · ".join(parts) + tr(" – Details: Spalte „Prüfung“"), theme.ERROR if err else theme.WARN
+        elif pending:
+            txt, col = tr("wird geprüft …"), theme.MUTED
+        else:
+            txt, col = tr("Keine Fehler und Warnungen."), theme.OK
+        self.lbl_check.setText(txt)
+        self.lbl_check.setStyleSheet(f"color: {col};")
+        self._check_errors = err
 
     def _changed(self, *_a):
         self._color_button()
@@ -557,8 +842,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         if redetect:
             for it in targets:
                 it.area = None
-                if it not in self._queue:
-                    self._queue.append(it)
+                self._requeue(it)
             self._timer.start()
         elif {"scale_pct", "scale_mode", "scale_mm"} & set(vals):
             self._redetect_hairlines()
@@ -680,6 +964,9 @@ class PlanDialog(PlanBuildMixin, QDialog):
             split_copies=True,
             copies_mode=self.cmb_copies.currentData() or "sheets",
             overrides={},
+            profile=self.cmb_cprof.currentData() or "admin",
+            intent=self.cmb_cintent.currentData() or "",
+            driver_color_off=self.chk_drvcolor.isEnabled() and self.chk_drvcolor.isChecked(),
             **{k: self.g[k] for k in pp.OV_KEYS},
         )
 
@@ -701,6 +988,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
             row = self.tree.topLevelItem(i)
             if row is None:
                 continue
+            self._check_cell(row, it)
             if it.area is None:
                 row.setText(1, tr("wird erkannt …"))
                 row.setText(2, "")
@@ -730,6 +1018,8 @@ class PlanDialog(PlanBuildMixin, QDialog):
                     txt += "  " + tr("{0} Bahnen").format(len(pcs))
                 if p0.clipped:
                     txt += "  ✂"
+                elif p0.trimmed > 0:
+                    txt += "  " + tr("−{0} mm").format(pp.mm_text(round(p0.trimmed, 1)))
                 row.setText(2, txt)
                 row.setToolTip(
                     2,
@@ -738,6 +1028,11 @@ class PlanDialog(PlanBuildMixin, QDialog):
                         for x in (
                             tr("gedreht – quer zur Rolle") if p0.rotated else "",
                             tr("breiter als die Rolle – wird abgeschnitten") if p0.clipped else "",
+                            tr("{0} mm breiter als die Rolle – am Rand beschnitten (je Seite die Hälfte)").format(
+                                pp.mm_text(round(p0.trimmed, 1))
+                            )
+                            if p0.trimmed > 0
+                            else "",
                             tr("in {0} Bahnen mit Überlappung").format(len(pcs)) if len(pcs) > 1 else "",
                         )
                         if x
@@ -754,6 +1049,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
                 if self.rolls:
                     row.setForeground(2, QBrush(QColor(theme.ERROR)))
         self._building = False
+        self._check_summary()
         self._lengths(s, done, wnote, use)
         if hasattr(self, "_prev_timer"):
             self._prev_timer.start()
@@ -796,31 +1092,53 @@ class PlanDialog(PlanBuildMixin, QDialog):
         self.lbl_prev.setText(txt.format(len(runs), total) + extra)
 
     def _sheet_pixmap(self, run, s) -> QPixmap:
-        """Print page rendered small, roll width outlined in grey, cut edge red."""
+        """Print page drawn small from the page pictures of the plans (no rendering – CAD plans take seconds),
+        roll width outlined in grey, cut edge red. A plan without a picture yet: grey area."""
+        from .. import layout
+
         W, H = run.across, run.along
         sc = PREVIEW_PX / max(W, H)
         w, h = max(8, int(W * sc)), max(8, int(H * sc))
         pm = QPixmap(w + 2, h + 2)
         pm.fill(QColor("#ffffff"))
+        p = QPainter(pm)
         try:
-            doc, _cuts = pp.make_run(run, s)
-            try:
-                page = doc[0]
-                bm = page.render(scale=sc / pp.MM, may_draw_forms=True)
-                arr = bm.to_numpy()
-                page.close()
-            finally:
-                doc.close()
-            import numpy as np
-
-            if arr.ndim == 2:
-                arr = np.stack([arr] * 3, axis=2)
-            arr = np.ascontiguousarray(arr[..., :3][..., ::-1]) if arr.shape[2] >= 3 else arr
-            img = QImage(arr.data, arr.shape[1], arr.shape[0], arr.strides[0], QImage.Format.Format_RGB888).copy()
-            p = QPainter(pm)
-            p.drawImage(1, 1, img.scaled(w, h))
-        except Exception:  # noqa: BLE001 – Vorschau darf nie stören
-            p = QPainter(pm)
+            k = sc / pp.MM  # px per pt
+            to_px = (k, 0, 0, -k, 1.0, 1.0 + H * pp.MM * k)  # sheet pt (y up) -> picture px (y down)
+            for piece, x, y in run.pieces:
+                it = piece.item
+                es = pp.eff(s, it)
+                f = pp.factor(it.area, es)
+                x0, y0, x1, y1 = piece.rect
+                cw, ch = (x1 - x0) * f, (y1 - y0) * f
+                left, b, _r, t = (v * pp.MM for v in pp.margins_mm(es))
+                rot = layout._rot90ccw(ch + b + t) if piece.rotated else (1, 0, 0, 1, 0, 0)
+                m = layout._mul(rot, layout._translate(x * pp.MM, y * pp.MM))
+                box = layout._mul(layout._mul(layout._translate(left, b), m), to_px)  # content box -> px
+                corners = [
+                    (cx * box[0] + cy * box[2] + box[4], cx * box[1] + cy * box[3] + box[5])
+                    for cx, cy in ((0, 0), (cw, 0), (cw, ch), (0, ch))
+                ]
+                xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+                clip = QRectF(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+                img = getattr(it, "_thumb", None)
+                if img is None or img.isNull():
+                    p.fillRect(clip, QColor(theme.PAPER_LINE))
+                    continue
+                PW, PH = getattr(it, "_thumb_pt", (img.width(), img.height()))
+                img2pt = (PW / img.width(), 0, 0, -PH / img.height(), 0, PH)  # picture px -> page pt (y up)
+                src2px = layout._mul(
+                    layout._mul(layout._mul(img2pt, layout._translate(-x0, -y0)), layout._scale(f)),
+                    layout._mul(layout._mul(layout._translate(left, b), m), to_px),
+                )
+                p.save()
+                p.setClipRect(clip)
+                p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+                p.setTransform(QTransform(*src2px))
+                p.drawImage(0, 0, img)
+                p.restore()
+        except Exception:  # noqa: BLE001 – the preview must never get in the way
+            log.debug("Vorschau der Druckseite", exc_info=True)
         p.setPen(QPen(QColor(theme.PAPER_LINE), 1))
         p.drawRect(0, 0, w + 1, h + 1)
         p.setPen(QPen(QColor(theme.ERROR), 2, Qt.PenStyle.DashLine))
@@ -1021,6 +1339,16 @@ class PlanDialog(PlanBuildMixin, QDialog):
     def _print(self):
         s = self.settings()
         items = [it for it in self.items if it.area is not None]
+        if (
+            getattr(self, "_check_errors", 0)
+            and QMessageBox.question(
+                self,
+                tr("Prüfung"),
+                tr("Die Prüfung meldet {0} Fehler (Spalte „Prüfung“). Trotzdem drucken?").format(self._check_errors),
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
         use, _n = pp.eligible_for(self.rolls, s)
         unfit = [it for it in items if it.qty > 0 and not self._pieces(it, s, use)]
         if (
@@ -1301,6 +1629,7 @@ class PlanDialog(PlanBuildMixin, QDialog):
         finally:
             for w in ws:
                 w.blockSignals(False)
+        self._reset_color_test()
         self._bleed_color = s.bleed_color
         self.g = {k: getattr(s, k) for k in pp.OV_KEYS}
         self.g["roll_pick"] = s.roll_pick

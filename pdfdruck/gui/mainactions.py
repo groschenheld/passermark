@@ -212,7 +212,29 @@ class MainActionsMixin:
             "check",
         )
         m.addAction(self.a_preflight)
+        pm = m.addMenu(tr("Prüfprofil"))
+        pm.aboutToShow.connect(lambda menu=pm: self._fill_profile_menu(menu))
+        self.a_check_profiles = A(tr("Prüfprofile bearbeiten …"), self.check_profiles_dialog)
         return m
+
+    def _fill_profile_menu(self, menu):
+        """Dokument → Prüfprofil: every profile, the chosen one ticked (built when opened – own profiles change)."""
+        from PySide6.QtGui import QActionGroup
+
+        from .. import checkprofile
+
+        menu.clear()
+        grp = QActionGroup(menu)
+        cur = checkprofile.chosen()
+        for p in checkprofile.all_profiles():
+            a = menu.addAction(p.title())
+            a.setCheckable(True)
+            a.setChecked(p.name == cur)
+            a.setToolTip(checkprofile.describe(p)["description"])
+            grp.addAction(a)
+            a.triggered.connect(lambda _c=False, n=p.name: self.choose_check_profile(n))
+        menu.addSeparator()
+        menu.addAction(self.a_check_profiles)
 
     def _menu_manipulation(self, mb):
         """Menu "Dokument-Manipulation": editing, CMYK, cropping, objects, CutContour, variable data."""
@@ -290,8 +312,20 @@ class MainActionsMixin:
             tr("Posterdruck (Qualität, nebeneinander, Banner) …"), lambda: self.plan_dialog("poster"), None, "poster"
         )
         self.a_poster.setToolTip(tr("Poster und Banner auf Rollen: nebeneinander, Überbreite, Saum, Ösen, Print & Cut"))
+        self.a_to_plan = A(tr("Dokument an Plandruck übergeben"), lambda: self.send_to_plan("plan"), None, "plan")
+        self.a_to_plan.setToolTip(tr("Das offene Dokument so, wie es jetzt ist (auch bearbeitet), in den Plandruck"))
+        self.a_to_poster = A(
+            tr("Dokument an Posterdruck übergeben"), lambda: self.send_to_plan("poster"), None, "poster"
+        )
+        self.a_to_poster.setToolTip(
+            tr("Das offene Dokument so, wie es jetzt ist (auch bearbeitet), in den Posterdruck")
+        )
         m.addAction(self.a_plan)
         m.addAction(self.a_poster)
+        m.addSeparator()
+        m.addAction(self.a_to_plan)
+        m.addAction(self.a_to_poster)
+        m.addSeparator()
         self.m_plan_hist = m.addMenu(svg_icon("history"), tr("Letzte Drucke"))
         self.m_plan_hist.aboutToShow.connect(self._fill_plan_history)
         m.addSeparator()
@@ -393,6 +427,20 @@ class MainActionsMixin:
             btn = tb.widgetForAction(a)
             if isinstance(btn, QToolButton):
                 btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        # hand the document over to plan/poster printing (as it is now)
+        self.btn_to_plan = QToolButton()
+        self.btn_to_plan.setIcon(svg_icon("plan"))
+        self.btn_to_plan.setText(tr("Plan & Poster"))
+        self.btn_to_plan.setToolTip(
+            tr("Das offene Dokument so, wie es jetzt ist, an den Plan- oder Posterdruck übergeben")
+        )
+        self.btn_to_plan.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.btn_to_plan.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        pm = QMenu(self.btn_to_plan)
+        pm.addAction(self.a_to_plan)
+        pm.addAction(self.a_to_poster)
+        self.btn_to_plan.setMenu(pm)
+        tb.addWidget(self.btn_to_plan)
         spacer()
         # navigation: page up/down, page field, smooth scrolling (continuous) or jumping (single page)
         tb.addAction(A(tr("Vorherige Seite"), lambda: self.view.prev_page(), None, "prev"))
@@ -564,6 +612,8 @@ class MainActionsMixin:
             self.a_save,
             self.a_saveas,
             self.a_print,
+            self.a_to_plan,
+            self.a_to_poster,
             self.a_ins_before,
             self.a_ins_after,
             self.a_ins_end,
@@ -596,6 +646,8 @@ class MainActionsMixin:
             self.a_colorrules,
         ):
             a.setEnabled(has)
+        if getattr(self, "btn_to_plan", None) is not None:
+            self.btn_to_plan.setEnabled(has)
         # save only when there is something to save (otherwise "nothing happens")
         self.a_save.setEnabled(has and (self.modified or not self.path))
         self.a_save.setToolTip(tr("Speichern") if self.a_save.isEnabled() else tr("Keine ungespeicherten Änderungen"))

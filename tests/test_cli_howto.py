@@ -116,7 +116,7 @@ def _prepare_inputs(tmp, examples):
     return runnable
 
 
-API_NO_INPUT = ("version", "schema", "workflows")
+API_NO_INPUT = ("version", "schema", "workflows", "checkprofiles")
 QUIET_OK = ("run", "check")  # interface commands with --quiet
 
 

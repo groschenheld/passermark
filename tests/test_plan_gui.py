@@ -14,6 +14,7 @@ ROOT = os.path.dirname(HERE)
 SCRIPT = r"""
 import os, sys, tempfile
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="pm-plangui-")
+os.environ["PASSERMARK_RENDER"] = "local"  # detection in the window (the analysis process is tested below)
 from PySide6 import QtWidgets as W
 from pdfdruck.gui import plandialog as P
 from pdfdruck.gui import plansetup as PS
@@ -88,6 +89,31 @@ with T.FakePlotter() as fp:
     assert len(dlg.items) == 2 and len(dlg._queue) == 2
     while dlg._queue:
         dlg._analyze_next()
+    # 1.20.2: document check after the detection, profile "plot" of this window
+    assert dlg.cmb_check.currentData() == "plot" and dlg._next_unchecked() == src
+    while dlg._next_unchecked():
+        dlg._analyze_next()
+    from pdfdruck import preflight as PF
+    assert isinstance(dlg._checks[src], PF.Report) and dlg._checks[src].profile.name == "plot"
+    assert dlg._findings(dlg.items[0]) is not None
+    dlg._refresh()
+    assert dlg.lbl_check.text() or dlg.lbl_check is not None
+    dlg.cmb_check.setCurrentIndex(dlg.cmb_check.findData(""))   # no check: nothing pending
+    dlg._check_profile_changed()
+    assert dlg._next_unchecked() is None and dlg._checks == {}
+    dlg.cmb_check.setCurrentIndex(dlg.cmb_check.findData("plot"))
+    dlg._check_profile_changed()
+    # answer of the analysis process (plan_item): area, hairlines and page picture, outdated answers ignored
+    from pdfdruck import planprint as PP
+    it0 = dlg.items[0]
+    info = PP.item_info(src, it0.page)
+    dlg._requeue(it0)
+    stale = it0._tok - 1
+    dlg._item_done(it0, stale, None, dict(info, kind="page"))
+    assert it0 in dlg._queue
+    dlg._item_done(it0, it0._tok, None, info)
+    assert it0 not in dlg._queue and it0.area.kind == info["kind"] and it0._thumb is not None
+    dlg._preview()
     s = dlg.settings()
     assert s.weights == [75, 80] and not s.collate and s.copies == 1
     # 914 has 180 g -> not for plans: 600 × 850 on 841 (length 850)
@@ -104,7 +130,7 @@ with T.FakePlotter() as fp:
     assert dlg.items[0].area.kind == "margin" and dlg.items[1].area.kind == "frame"
     # greyscale, by roll, print
     dlg.cmb_color.setCurrentIndex(dlg.cmb_color.findData("gray"))
-    assert dlg.settings().quality_mode == "production"          # Plan: Produktionsdruck, umschaltbar
+    assert dlg.settings().quality_mode == "driver"          # 1.20.2: wie im Treiber, umschaltbar
     dlg.cmb_qmode.setCurrentIndex(dlg.cmb_qmode.findData("quality"))
     assert dlg.settings().quality_mode == "quality"
     dlg._print()
@@ -113,8 +139,8 @@ with T.FakePlotter() as fp:
     assert fp.sent[0]["title"].endswith("×2") and fp.sent[1]["title"].endswith("×6"), fp.sent
     assert all(x["opts"]["InputSlot"] == "Roll2" and x["opts"]["ColorModel"] == "Gray" for x in fp.sent)
     assert dlg.items == [] and dlg.settings().copies == 1 and dlg.settings().color != "gray"   # the window stays: empty, default
-    assert dlg.settings().quality_mode == "production"
-    assert P.PlanDialog(None, sess, None, None, "", "", "poster").settings().quality_mode == "quality"
+    assert dlg.settings().quality_mode == "driver"
+    assert P.PlanDialog(None, sess, None, None, "", "", "poster").settings().quality_mode == "driver"
     from pdfdruck import planhistory              # history: print remembered, reopen with files and quantities
     ents = planhistory.entries("plan")
     assert ents and ents[0]["printer"] == "Plotter" and [i["qty"] for i in ents[0]["items"]] == [1, 3], ents[:1]

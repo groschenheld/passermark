@@ -48,7 +48,15 @@ def install(gdi, page_size_dev):
     w32p = types.ModuleType("win32print")
     w32g.CreateDC = lambda *a: 1234
     w32g.DeleteDC = lambda h: None
-    w32p.GetDeviceCaps = lambda h, i: {88: gdi.dpi, 90: gdi.dpi, 112: 0, 113: 0}.get(i, 0)
+    gdi.paper_px = getattr(gdi, "paper_px", None) or page_size_dev  # paper as the driver takes it
+    w32p.GetDeviceCaps = lambda h, i: {
+        88: gdi.dpi,
+        90: gdi.dpi,
+        112: 0,
+        113: 0,
+        110: gdi.paper_px[0],
+        111: gdi.paper_px[1],
+    }.get(i, 0)
 
     def start_page(h):
         gdi.canvas = Image.new("RGB", page_size_dev, (200, 200, 200))

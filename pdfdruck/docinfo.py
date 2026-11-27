@@ -29,9 +29,16 @@ def _box(b):
 
 
 def inspect(
-    path: str, password: str | None = None, check: bool = False, image_dpi: float = 96.0, printer: str = ""
+    path: str,
+    password: str | None = None,
+    check: bool = False,
+    image_dpi: float = 96.0,
+    printer: str = "",
+    profile=None,
+    report_pdf: str = "",
 ) -> dict:
-    """path: PDF (or image/Office file – converted first, like when opening)."""
+    """path: PDF (or image/Office file – converted first, like when opening). report_pdf: with ``check`` also
+    write the check report as PDF there (checkreport.py)."""
     import pikepdf
 
     from . import convert, renderproc
@@ -123,7 +130,7 @@ def inspect(
         sizes[k] = sizes.get(k, 0) + 1
     out["formats_mm"] = [{"size": k, "pages": n} for k, n in sorted(sizes.items(), key=lambda kv: -kv[1])]
     if check:
-        out["check"] = _check(data, printer)
+        out["check"] = _check(data, printer, profile, report_pdf, os.path.basename(path), password)
     return out
 
 
@@ -228,10 +235,13 @@ def _details(pdf) -> dict:
     return d
 
 
-def _check(data: bytes, printer: str = "") -> dict:
-    from . import preflight
+def _check(data: bytes, printer: str = "", profile=None, report_pdf="", title="", password=None) -> dict:
+    from . import checkprofile, preflight
 
-    rep = preflight.analyze(data, True, pdfium_parts=True)
+    # unknown profile: an error for the caller, not a silent fallback; none given: "standard" (not the choice of the
+    # program – the command line gives the same result for every user)
+    prof = checkprofile.resolve(profile or checkprofile.DEFAULT)
+    rep = preflight.analyze(data, True, pdfium_parts=True, profile=prof)
     if printer:  # size against the device
         from . import config, printers
         from .session import Session
@@ -239,13 +249,22 @@ def _check(data: bytes, printer: str = "") -> dict:
         if printer not in {p.name for p in printers.list_printers()}:
             raise ValueError(tr("Drucker nicht gefunden: {0}").format(printer))
         preflight.add_device_issues(rep, Session(config.load()).caps_for(printer), printer)
+    report = None
+    if report_pdf:
+        from . import checkreport
+
+        report = dict(checkreport.write_pdf(rep, data, report_pdf, title, password), file=os.path.abspath(report_pdf))
     return {
+        "profile": prof.name,
+        "report_pdf": report,
+        "passed": list(rep.passed),
         "colors": _colors(rep),
         "counts": rep.counts(),
         "issues": [
             {
                 "severity": i.severity,
                 "category": i.category,
+                "check": i.check,
                 "message": i.message,
                 "pages": sorted(i.pages),
                 "spots": [
@@ -301,10 +320,16 @@ def text_summary(d: dict) -> str:
             + tr("Prüfung: {0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(
                 c["counts"]["error"], c["counts"]["warning"], c["counts"]["info"]
             )
+            + (" · " + tr("Profil: {0}").format(c["profile"]) if c.get("profile") else "")
         )
         for i in c["issues"]:
             pg = ",".join(str(p) for p in i["pages"][:10]) + (" …" if len(i["pages"]) > 10 else "")
             lines.append(
                 f"    [{i['severity']}] {i['message']}" + ("  (" + tr("S. {0}").format(pg) + ")" if pg else "")
+            )
+        r = c.get("report_pdf")
+        if r:
+            lines.append(
+                "  " + tr("Prüfbericht: {0} ({1} Seiten, {2} markiert)").format(r["file"], r["pages"], r["marked"])
             )
     return "\n".join(lines)

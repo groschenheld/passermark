@@ -5,6 +5,16 @@
 > Este registro contiene las versiones desde **1.10.0** en español. El historial completo:
 > [CHANGELOG.md](CHANGELOG.md) (inglés) o [CHANGELOG.de.md](CHANGELOG.de.md) (alemán).
 
+## 1.20.2
+
+- Perfiles de comprobación: la comprobación se ejecuta según un perfil que decide, punto por punto, si se informa como error, aviso, nota o no se informa, con valores límite (resolución, cuerpo mínimo, grosor de línea, sangrado, cobertura de tinta, versión PDF/X ...). Incorporados: estándar, offset (siguiendo el PDF/X-4), offset de pliego GWG (GWG2015), impresión digital, gran formato y pantalla; perfiles propios en el editor de perfiles, con importación y exportación en JSON, elegidos en el panel de comprobación o en Documento -> perfil de comprobación. La línea de comandos y los flujos comprueban siempre con «estándar» salvo indicación contraria, así el resultado sigue siendo reproducible.
+- Nuevos puntos de comprobación: cobertura de tinta por encima del límite (las áreas se encuentran con Ghostscript), versión PDF/X demasiado antigua, Courier como posible fuente de sustitución, límites de resolución propios para gráficos de trazo.
+- Panel de comprobación rehecho para la barra lateral estrecha: los hallazgos agrupados por tipo sirven de resumen, solo los grupos con errores están desplegados; cada hallazgo muestra páginas, mensaje y un enlace de reparación; la vista se elige en una lista desplegable; un nuevo clic en un hallazgo salta al siguiente punto.
+- Informe de comprobación en PDF: primero el resumen, después las páginas originales afectadas con puntos enmarcados y numerados; también desde la línea de comandos con inspect --report.
+- Reparar todo: repara en una pasada las capas, las páginas HDR, las fuentes, los degradados, las manchas -> CMYK, el RGB -> CMYK, la sobreimpresión y el sangrado, y por último declara el archivo como PDF/X-4; cada paso se puede desactivar antes, y después se ve lo que queda a mano; también disponible como tarea autofix para los flujos y la línea de comandos.
+- Plan y póster: el documento abierto se entrega directamente, editado o no, con el botón «Plan y póster» o desde el menú; se comprueba cada archivo de la lista, una columna «comprobación» muestra el resultado por plan, y Passermark pregunta antes de imprimir si hay errores; el perfil de color, el intento y el ajuste de color del controlador se pueden elegir para una sola impresión, para probar, y nunca se guardan.
+- Impresión: nuevo interruptor «desactivar el ajuste de color del controlador (solo esta impresión)», vía ICM en Windows y la opción de controlador correspondiente en Linux; una impresión de plan ya no cambia el perfil de color de las impresiones normales posteriores.
+- Corregido: «texto más pequeño que ...» indica ahora la página del texto más pequeño; si en una página ya se había informado una imagen demasiado basta, ahora también se informan en ella otras imágenes solo un poco demasiado bastas.
 ## 1.20.1
 
 - Desacoplar la barra lateral: el botón a la izquierda de la página lleva páginas, comprobación, color, vista previa de salida y edición a su propia ventana; la página en sí se ensancha. Un segundo clic o cerrar la ventana vuelve a acoplar la barra, con la misma pestaña delante.

@@ -182,8 +182,9 @@ def _show(v) -> str:
 class Facts:
     """Check values of a PDF – computed only when a condition needs them; once per file."""
 
-    def __init__(self, path: str, filename: str = "", variables: dict | None = None):
+    def __init__(self, path: str, filename: str = "", variables: dict | None = None, profile=None):
         self.path, self.filename, self.vars = path, filename or os.path.basename(path), dict(variables or {})
+        self.profile = profile  # check profile for errors/warnings/infos (None: "standard")
         self._basic = None
         self._check = None
 
@@ -233,7 +234,7 @@ class Facts:
             from . import preflight
 
             with open(self.path, "rb") as f:
-                rep = preflight.analyze(f.read(), deep_layers=False, pdfium_parts=True)
+                rep = preflight.analyze(f.read(), deep_layers=False, pdfium_parts=True, profile=self.profile)
             c = rep.counts()
             cr = rep.colors
             spots = sorted({n for ns in (cr.spots.values() if cr else []) for n in ns})

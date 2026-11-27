@@ -297,6 +297,10 @@ def build():
                     "Schneidkonturen vereinheitlichen",
                 ],
                 [c("bleed"), "Anschnitt erzeugen: Seitenränder spiegeln oder strecken, Endformat und Anschnitt setzen"],
+                [
+                    c("autofix"),
+                    "Alles reparieren, was ein Prüfprofil bemängelt und automatisch geht – bis zur PDF/X-4-Datei",
+                ],
             ],
             [32 * mm, W - 32 * mm],
         )
@@ -1787,7 +1791,7 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
         P(
             "Poster und Banner: Arbeitsbereich <b>Plan &amp; Poster → Posterdruck</b> bzw. "
             + c("--kind poster")
-            + ". Qualitätsdruck, Stücke nebeneinander mit dem wenigsten Papier, was breiter ist als jede Rolle, wird "
+            + ". Stücke nebeneinander mit dem wenigsten Papier, was breiter ist als jede Rolle, wird "
             "abgeschnitten oder in Bahnen geteilt ("
             + c("overwidth")
             + "). Banner: Saum/Tunnel ("
@@ -1833,6 +1837,105 @@ Get-ChildItem eingang\\*.pdf | ForEach-Object {
         )
     )
     s.append(code("passermark-cli inspect karten.pdf --check"))
+    s.append(P("Prüfprofile", H3))
+    s.append(
+        P(
+            "Was als Fehler, Warnung oder Hinweis gilt, legt ein Prüfprofil fest – je Prüfpunkt die Schwere und dazu "
+            "Grenzwerte (Auflösung, Mindestschrift, Linienstärke, Anschnitt, Farbauftrag, PDF/X-Version). Ohne "
+            + c("--profile")
+            + " prüft die Kommandozeile immer mit "
+            + c("standard")
+            + " – das im Programm gewählte Profil gilt nur dort, so kommt überall dasselbe heraus."
+        )
+    )
+    s.append(
+        table(
+            [
+                ["Profil", "Wofür"],
+                [c("standard"), "wie bisher: allgemeine Prüfung"],
+                [c("offset"), "Druckerei, angelehnt an PDF/X-4: CMYK, 300 ppi, 3 mm Anschnitt, Farbauftrag 300 %"],
+                [
+                    c("gwg"),
+                    "Bogenoffset nach GWG2015: PDF/X-4, kein RGB, keine Sonderfarben, Bilder 149/224 ppi, Schrift 8 pt, "
+                    "Farbauftrag 320 %",
+                ],
+                [c("digital"), "Digitaldruck"],
+                [c("plot"), "Plan- und Großformat (Plotter)"],
+                [c("screen"), "Bildschirm und Web"],
+            ],
+            [24 * mm, W - 24 * mm],
+        )
+    )
+    s.append(
+        code(
+            "passermark-cli checkprofiles\n"
+            "passermark-cli checkprofiles --show gwg\n"
+            "passermark-cli inspect kunde.pdf --check --profile gwg"
+        )
+    )
+    s.append(
+        P(
+            "Eigene Profile sind JSON-Dateien im Ordner, den "
+            + c("checkprofiles --dirs")
+            + " zeigt (anlegen am einfachsten im Programm: Dokument → Prüfprofil → Prüfprofile bearbeiten). "
+            + c("--profile")
+            + " nimmt einen Namen oder den Pfad einer .json-Datei.",
+            NOTE,
+        )
+    )
+    s.append(P("Prüfbericht als PDF", H3))
+    s.append(
+        P(
+            "Mit "
+            + c("--report")
+            + " entsteht zusätzlich ein Bericht für den Kunden: vorne die Zusammenfassung mit allen Befunden, "
+            "dahinter die betroffenen Originalseiten mit umrahmten, nummerierten Stellen. "
+            + c("--report")
+            + " schließt "
+            + c("--check")
+            + " ein."
+        )
+    )
+    s.append(code("passermark-cli inspect kunde.pdf --report kunde-bericht.pdf --profile offset"))
+    s.append(P("Alles reparieren: autofix", H3))
+    s.append(
+        P(
+            "Repariert in einem Durchgang alles, was das Profil bemängelt und sich automatisch lösen lässt – in "
+            "dieser Reihenfolge: Ebenen festschreiben, HDR-Zusatzseiten entfernen, Schriften einbetten, transparente "
+            "Verläufe umwandeln, Sonderfarben in CMYK (Schneidkonturen bleiben), RGB in CMYK, Überdrucken korrigieren, "
+            "Anschnitt erzeugen und zuletzt als PDF/X-4 ausweisen. Zu kleine Bilder, zu kleine Schrift, Haarlinien "
+            "und zu hoher Farbauftrag bleiben – die stehen danach in den Hinweisen."
+        )
+    )
+    s.append(
+        table(
+            [
+                ["Einstellung", "Standard", "Bedeutung"],
+                [c("profile"), c("standard"), "Prüfprofil, nach dem repariert wird"],
+                [c("target"), '""', "CMYK-Profil (.icc) für RGB → CMYK und PDF/X; leer = Output-Intent der Datei"],
+                [c("intent"), c("relative"), "Render-Intent der Farbumwandlung"],
+                [c("steps"), "[]", "nur diese Schritte, z. B. " + c('["fonts", "pdfx"]') + "; leer = alle nötigen"],
+                [c("layers"), c("print"), "Ebenen festschreiben wie beim Druck (" + c("view") + ": wie am Bildschirm)"],
+            ],
+            [24 * mm, 24 * mm, W - 48 * mm],
+        )
+    )
+    s.append(
+        example(
+            "Kundendatei als PDF/X-4 für die Druckerei",
+            "Mit Druckbedingung: RGB wird nach PSO Coated v3 umgewandelt, die Datei als PDF/X-4 ausgewiesen.",
+            "passermark-cli autofix kunde.pdf kunde-x4.pdf --set profile=gwg \\\n"
+            "    --set target=/pfad/PSOcoated_v3.icc",
+        )
+    )
+    s.append(
+        example(
+            "Nur ausgewählte Reparaturen",
+            "Überdrucken korrigieren und Ebenen festschreiben, sonst nichts.",
+            "passermark-cli autofix kunde.pdf kunde-fix.pdf --set profile=offset \\\n"
+            '    --set \'steps=["overprint", "layers"]\'',
+        )
+    )
 
     # ------------------------------------------------------------------ programs
     s.append(P("8 · Für andere Programme", H2))

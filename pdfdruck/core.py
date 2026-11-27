@@ -532,6 +532,30 @@ def _press_settings():
     return PressSettings
 
 
+def _autofix_settings():
+    from .autofix import AutofixSettings
+
+    return AutofixSettings
+
+
+def _job_autofix(src, dst, s, opts, progress, cancel):
+    """Repair everything that can be repaired automatically for a check profile (autofix.py)."""
+    from . import autofix
+
+    with open(src, "rb") as f:
+        data = f.read()
+
+    def step(done, total, text):
+        _check(cancel)
+        _report(progress, done, max(total, 1), text)
+
+    out, notes, after = autofix.run(data, s, step, cancel)
+    _check(cancel)
+    _write_atomic(dst, out)
+    c = after.counts()
+    return JobResult(dst, {"errors": c["error"], "warnings": c["warning"], "profile": after.profile.name}, notes)
+
+
 def _manip_settings():
     from .cmyk import ManipSettings
 
@@ -552,6 +576,7 @@ JOBS = {
     "press": (_press_settings, _job_press),
     "colorrules": (_colorrules_settings, _job_colorrules),
     "bleed": (_bleed_settings, _job_bleed),
+    "autofix": (_autofix_settings, _job_autofix),
 }
 
 

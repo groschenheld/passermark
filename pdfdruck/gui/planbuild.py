@@ -104,6 +104,18 @@ class PlanBuildMixin:
         bar.addWidget(b)
         bar.addStretch(1)
         lv.addLayout(bar)
+        # document check of the listed files (plandialog._run_check): profile for this window only
+        crow = QHBoxLayout()
+        crow.addWidget(QLabel(tr("Prüfung:")))
+        self.cmb_check = QComboBox()
+        self.cmb_check.setToolTip(
+            tr("Prüfprofil für die Dateien in der Liste – gilt nur in diesem Fenster (Vorgabe: Plan- und Großformat)")
+        )
+        crow.addWidget(self.cmb_check)
+        self.lbl_check = QLabel()
+        self.lbl_check.setWordWrap(True)
+        crow.addWidget(self.lbl_check, 1)
+        lv.addLayout(crow)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels([tr(c) for c in self.COLS])
         self.tree.setRootIsDecorated(False)
@@ -235,11 +247,33 @@ class PlanBuildMixin:
         self.cmb_qmode.setToolTip(
             tr(
                 "Stellt die Druckqualität im Treiber auf die niedrigste (Produktionsdruck) bzw. "
-                "höchste Stufe (Qualitätsdruck). Vorrang hat eine Qualität, die beim Material "
-                "derselben Kategorie eingetragen ist."
+                "höchste Stufe (Qualitätsdruck) – „Wie im Treiber“ lässt sie unverändert. Vorrang hat eine "
+                "Qualität, die beim Material derselben Kategorie eingetragen ist."
             )
         )
         f.addRow(tr("Qualität:"), self.cmb_qmode)
+        # colour for tests: this print only, never remembered (filled per printer: plandialog._fill_color_test)
+        row = QHBoxLayout()
+        self.cmb_cprof = QComboBox()
+        self.cmb_cprof.setToolTip(
+            tr(
+                "Nur für diesen Druck (zum Testen) – wird nicht gespeichert, beim nächsten Mal gilt wieder die Einstellung."
+            )
+        )
+        row.addWidget(self.cmb_cprof, 2)
+        self.cmb_cintent = QComboBox()
+        self.cmb_cintent.setToolTip(self.cmb_cprof.toolTip())
+        row.addWidget(self.cmb_cintent, 1)
+        f.addRow(tr("Farbprofil:"), row)
+        self.chk_drvcolor = QCheckBox(tr("Farbanpassung des Treibers aus (nur dieser Druck)"))
+        self.chk_drvcolor.setToolTip(
+            tr(
+                "Für Tests und wenn Passermark mit einem Profil umrechnet: der Treiber verändert die Farben dann "
+                "nicht noch einmal. Unter Windows wird die ICM-Farbanpassung abgeschaltet – einen eigenen Farbmodus "
+                "des Herstellers (z. B. „EPSON Vivid“) stellst du in den Treibereinstellungen auf „Aus“."
+            )
+        )
+        f.addRow("", self.chk_drvcolor)
 
     def _build_media_rows(self, f):
         """Material, roll and where on the roll the drawing sits."""

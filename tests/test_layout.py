@@ -151,6 +151,36 @@ def test_step_repeat_bleed_marks():
     assert len(out) == 1
 
 
+def test_step_repeat_shares_one_page():
+    """Step & repeat with bleed: every copy refers to the same page – the image is in the file once
+    (1.20.2: a 7 MB poster 25 times on SRA3 made 200 MB and crashed Passermark on Windows)."""
+    import io
+    import tempfile
+
+    import numpy as np
+    import pikepdf
+    from PIL import Image
+    from reportlab.lib.units import mm as _mm
+    from reportlab.pdfgen import canvas
+
+    tmp = tempfile.mkdtemp()
+    img = os.path.join(tmp, "foto.png")
+    Image.fromarray((np.random.default_rng(1).random((300, 400, 3)) * 255).astype("uint8")).save(img)
+    src = os.path.join(tmp, "karte.pdf")
+    c = canvas.Canvas(src, pagesize=(85 * _mm, 55 * _mm))
+    c.drawImage(img, 0, 0, 85 * _mm, 55 * _mm)
+    c.save()
+    doc = pdfium.PdfDocument(src)
+    p1 = plan([doc.get_page_size(0)], [0], A4, LayoutSettings(step_repeat=True, bleed_mm=3, crop_marks=True))[0]
+    assert len(p1.placements) >= 8
+    out = impose_with(doc, A4, [p1], LayoutSettings())
+    buf = io.BytesIO()
+    out.save(buf)
+    with pikepdf.open(io.BytesIO(buf.getvalue())) as pdf:
+        images = [o for o in pdf.objects if isinstance(o, pikepdf.Stream) and o.get("/Subtype") == "/Image"]
+    assert len(images) == 1, len(images)
+
+
 def test_step_repeat_orientation_join():
     s = LayoutSettings(step_repeat=True, sr_mode="grid", sr_cols=2, sr_rows=1)
     a3 = Sheet(841.89, 1190.55, None)  # borderless

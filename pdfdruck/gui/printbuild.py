@@ -951,6 +951,15 @@ class PrintBuildMixin:
         f.addRow(tr("Material:"), self.cmb_material)
         f.addRow(tr("Ausgabeprofil:"), self.cmb_profile)
         f.addRow(tr("Render-Intent:"), self.cmb_intent)
+        self.chk_drvcolor = QCheckBox(tr("Farbanpassung des Treibers aus (nur dieser Druck)"))
+        self.chk_drvcolor.setToolTip(
+            tr(
+                "Für Tests und wenn Passermark mit einem Profil umrechnet: der Treiber verändert die Farben dann "
+                "nicht noch einmal. Unter Windows wird die ICM-Farbanpassung abgeschaltet – einen eigenen Farbmodus "
+                "des Herstellers (z. B. „EPSON Vivid“) stellst du in den Treibereinstellungen auf „Aus“."
+            )
+        )
+        f.addRow("", self.chk_drvcolor)
         f.addRow("", self.lbl_profile_note)
         self.color_form = f
 
@@ -1057,6 +1066,7 @@ class PrintBuildMixin:
         ):
             w.valueChanged.connect(self._changed)
         self.cmb_profile.currentIndexChanged.connect(self._profile_changed)
+        self.chk_drvcolor.toggled.connect(lambda _on: self._profile_note())
         self.cmb_intent.currentIndexChanged.connect(self._profile_changed)
         self.cmb_material.currentIndexChanged.connect(self._material_changed)
         self._sync_enabled()

@@ -2,6 +2,16 @@
 
 **English** · [Deutsch](CHANGELOG.de.md) · [Magyar](CHANGELOG.hu.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md)
 
+## 1.20.2
+
+- Check profiles: the check runs with a profile that decides per finding whether it is reported as an error, a warning, a note or not at all, with limits (resolution, smallest type, line width, bleed, ink coverage, PDF/X version ...). Built in: standard, offset (along PDF/X-4), GWG sheetfed offset (GWG2015), digital, large format and screen; own profiles in the profile editor, with import and export as JSON, chosen in the check panel or under Document -> check profile. Command line and workflows always check with "standard" unless told otherwise, so the result stays reproducible.
+- New check points: ink coverage above the limit (the areas are found with Ghostscript), PDF/X version too old, Courier as a possible substitute font, own resolution limits for line art.
+- Check panel, rebuilt for the narrow side bar: findings grouped by kind, serving as an overview, only groups with errors are expanded; every finding shows pages, message and a repair link; the view is chosen from a drop-down list; clicking a finding again jumps to the next spot.
+- Check report as PDF: summary first, then the affected original pages with framed, numbered spots; also from the CLI with inspect --report.
+- Fix everything: repairs layers, HDR pages, fonts, gradients, spot colours -> CMYK, RGB -> CMYK, overprint and bleed in one go and finally marks the file as PDF/X-4; every step can be switched off beforehand, and afterwards you see what is left to do by hand; also available as the job autofix for workflows and the CLI.
+- Plan & poster: the open document can be handed over directly, edited or not, via the "Plan & poster" button or the menu; every file in the list is checked, a "check" column shows the result per plan, and Passermark asks before printing when something is wrong; colour profile, intent and driver colour adjustment can be chosen for a single print, for testing, and are never saved.
+- Printing: new switch "turn the driver's colour adjustment off (this print only)", via ICM on Windows and the matching driver option on Linux; a plan print no longer changes the colour profile for later normal prints.
+- Fixed: "text smaller than ..." now shows the page of the smallest text; when a too coarse image had already been reported on a page, further, only slightly too coarse images on it are now reported too.
 ## 1.20.1
 
 - Undock the side bar: the button to the left of the page moves pages, check, colour, output preview and editing into their own window; the page itself gets wider. A second click or closing the window docks the bar back, with the same tab in front.

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -72,6 +73,7 @@ class Issue:
     message: str
     pages: list = field(default_factory=list)
     spots: list = field(default_factory=list)  # [Spot] – where exactly (empty: only the pages)
+    check: str = ""  # key of the check (checkprofile.CHECKS) – profiles switch it off or change the severity
 
 
 @dataclass
@@ -128,6 +130,11 @@ class Report:
     edge_ink: dict = field(default_factory=dict)  # page -> {side of the box: bleed mm} – content up to the edge
     near_edge: dict = field(default_factory=dict)  # page -> [box] – text/logo closer than SAFETY_MM to the trim
     overprint: dict = field(default_factory=dict)  # overprint.scan(): {"white": {page: [box]}, "black_text": …}
+    profile: object = None  # checkprofile.Profile the check ran with (None: "standard")
+    passed: list = field(default_factory=list)  # keys of the checks of the profile without a finding
+    tac: dict = field(
+        default_factory=dict
+    )  # ink coverage (only with a limit): {max, page, limit, method, pages, areas}
     _blank_candidates: list = field(default_factory=list)
 
     def counts(self):
@@ -316,13 +323,36 @@ def _sub_reports(pdf, data: bytes, rep: Report):
         rep.size = None
 
 
-def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) -> Report:
+def _profile(ref):
+    """Profile for a check: name, file, dict or Profile; None = "standard" (the choice in the program is passed in
+    by the program itself – command line, workflows and tests do not depend on it). An unknown one falls back to
+    "standard" (the check must not fail because of it)."""
+    from . import checkprofile
+
+    try:
+        return checkprofile.resolve(ref or checkprofile.DEFAULT)
+    except (ValueError, OSError):
+        log.warning("Prüfung: Prüfprofil %r nicht verfügbar – Standard", ref, exc_info=True)
+        return checkprofile.BUILTIN[checkprofile.DEFAULT]
+
+
+def lim(rep: Report, key: str) -> float:
+    """Limit ``key`` of the profile of ``rep`` (checkprofile.LIMITS)."""
+    from . import checkprofile
+
+    p = rep.profile
+    return p.limit(key) if p is not None else float(checkprofile.LIMITS[key][0])
+
+
+def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True, profile=None) -> Report:
     """Check the document. pdfium_parts=False: only the parts without pdfium (for background threads – pdfium is not
-    thread-safe); complete the rest afterwards in the main thread with finish().
+    thread-safe); complete the rest afterwards in the main thread with finish(). profile: check profile (name, file,
+    dict or checkprofile.Profile; None = "standard").
     """
     import pikepdf
 
     rep = Report()
+    rep.profile = _profile(profile)
     pdf = pikepdf.open(io.BytesIO(data))
     try:
         rep.pages = len(pdf.pages)
@@ -341,11 +371,23 @@ def analyze(data: bytes, deep_layers: bool = True, pdfium_parts: bool = True) ->
         try:
             from . import overprint
 
-            rep.overprint = overprint.scan(pdf)
+            rep.overprint = overprint.scan(
+                pdf,
+                text_max_pt=lim(rep, "black_text_pt") or overprint.TEXT_MAX_PT,
+                text_min_pt=lim(rep, "text_min_pt"),
+            )
+            if not lim(rep, "black_text_pt"):  # switched off in the profile
+                rep.overprint["black_text"] = {}
         except Exception:
             log.warning("Prüfung: Überdrucken nicht geprüft", exc_info=True)
             rep.overprint = {}
         _sub_reports(pdf, data, rep)
+        if lim(rep, "tac_max") and rep.profile.severity("ink_tac") != "off":
+            try:
+                rep.tac = measure_tac(pdf, data, lim(rep, "tac_max")) or {}
+            except Exception:
+                log.warning("Prüfung: Farbauftrag nicht gemessen", exc_info=True)
+                rep.tac = {}
     finally:
         pdf.close()
     if pdfium_parts:
@@ -560,10 +602,11 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
 
     from .planprint import _render_gray
 
+    need = lim(rep, "bleed_min_mm")
     edge = [
         p
         for p, g in sorted(rep.geometry.items())
-        if g["rotate"] == 0 and any(v < BLEED_MIN_MM - 0.05 for v in bleed_mm(g).values())
+        if need > 0 and g["rotate"] == 0 and any(v < need - 0.05 for v in bleed_mm(g).values())
     ][:max_bleed]
     todo = sorted(set(rep._blank_candidates[:max_pages]) | set(edge))
     if not todo:
@@ -599,7 +642,7 @@ def _render_checks(data: bytes, rep: Report, max_pages: int = 300, max_bleed: in
                     }
                     hit = {}
                     for k, v in bleed_mm(g).items():
-                        if v >= BLEED_MIN_MM - 0.05:
+                        if v >= need - 0.05:
                             continue
                         x0, y1 = px(sides[k][0], sides[k][1])
                         x1, y0 = px(sides[k][2], sides[k][3])
@@ -626,7 +669,9 @@ def _safety_checks(data: bytes, rep: Report, max_pages: int = 100):
     import pypdfium2 as pdfium
     import pypdfium2.raw as raw
 
-    d = SAFETY_MM * MM_PT
+    d = lim(rep, "safety_mm") * MM_PT
+    if d <= 0:
+        return
     doc = pdfium.PdfDocument(data)
     try:
         for p, g in sorted(rep.geometry.items())[:max_pages]:
@@ -732,6 +777,7 @@ def _geometry_issues(rep: Report) -> list:
                     "ignorieren ihn und drucken im falschen Format."
                 ).format(v),
                 pg,
+                check="userunit",
             )
         )
     for t, pg in _group(crop):
@@ -746,10 +792,11 @@ def _geometry_issues(rep: Report) -> list:
                     "den sichtbaren Bereich zuschneiden."
                 ),
                 pg,
+                check="cropbox",
             )
         )
     for t, pg in _group(trim_out) + _group(bleed_out):
-        out.append(Issue("warning", "geometry", t + tr(" – widersprüchliche Seitenrahmen."), pg))
+        out.append(Issue("warning", "geometry", t + tr(" – widersprüchliche Seitenrahmen."), pg, check="boxes"))
     for v, pg in _group(rot):
         out.append(
             Issue(
@@ -757,6 +804,7 @@ def _geometry_issues(rep: Report) -> list:
                 "geometry",
                 tr("Seite um {0}° gedreht (/Rotate) – bei Duplex und Plotter auf die Ausrichtung achten.").format(v),
                 pg,
+                check="rotate",
             )
         )
     sizes = {}
@@ -779,6 +827,7 @@ def _geometry_issues(rep: Report) -> list:
                     ", ".join(parts[:6]) + (" …" if len(parts) > 6 else "")
                 ),
                 other,
+                check="page_sizes",
             )
         )
     for hit, pg in _group({p: tuple(sorted(h.items())) for p, h in rep.edge_ink.items()}):
@@ -789,10 +838,11 @@ def _geometry_issues(rep: Report) -> list:
                 "geometry",
                 tr(
                     "Inhalt geht bis an den Endformat-Rand, aber zu wenig Beschnitt "
-                    "({0}; empfohlen 3 mm) – beim Schneiden blitzt weißer Rand. "
+                    "({0}; empfohlen {1} mm) – beim Schneiden blitzt weißer Rand. "
                     "Abhilfe: Seiten → Anschnitt erzeugen …"
-                ).format(txt),
+                ).format(txt, _mm_num(max(lim(rep, "bleed_min_mm"), 3.0))),
                 pg,
+                check="bleed",
             )
         )
     if rep.near_edge:
@@ -804,9 +854,10 @@ def _geometry_issues(rep: Report) -> list:
                 tr(
                     "Text oder Bild näher als {0:g} mm am Endformat – kann beim Schneiden angeschnitten werden "
                     "(Seite {1}). Abhilfe: im Layout weiter nach innen setzen."
-                ).format(SAFETY_MM, _pages_str(pages)),
+                ).format(lim(rep, "safety_mm"), _pages_str(pages)),
                 pages,
                 [Spot(p, b, "") for p in pages for b in rep.near_edge[p][:20]],
+                check="safety",
             )
         )
     return out
@@ -855,6 +906,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
                         "wird abgeschnitten oder in Bahnen geteilt."
                     ).format(size, printer, f"{max(widths):g}"),
                     pages,
+                    check="device",
                 )
             )
             continue
@@ -870,6 +922,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
                         "geht nur als Sonderformat, falls das Gerät es kann."
                     ).format(size, printer, bigtxt),
                     pages,
+                    check="device",
                 )
             )
         else:
@@ -881,6 +934,7 @@ def device_issues(rep: Report, caps, printer: str, rolls: list | None = None) ->
                         "{0} passt auf kein Papierformat von {1} (größtes: {2}) – wird verkleinert oder abgeschnitten."
                     ).format(size, printer, bigtxt),
                     pages,
+                    check="device",
                 )
             )
     return out
@@ -895,6 +949,10 @@ def add_device_issues(rep: Report, caps, printer: str, rolls: list | None = None
     for i in extra:
         if not i.spots:
             i.spots = [Spot(p) for p in i.pages]
+    if rep.profile is not None:
+        from . import checkprofile
+
+        extra, _passed = checkprofile.apply(extra, rep.profile)
     rep.issues = sorted(rep.issues + extra, key=lambda i: (SEV_ORDER[i.severity], i.category))
     try:
         rep._device_for = printer
@@ -908,7 +966,14 @@ def _doc_issues(rep: Report) -> list:
     sec = rep.security or {}
     if sec.get("encrypted"):
         if not sec.get("print", True):
-            out.append(Issue("error", "security", tr("Dokument ist geschützt: Drucken ist nicht erlaubt.")))
+            out.append(
+                Issue(
+                    "error",
+                    "security",
+                    tr("Dokument ist geschützt: Drucken ist nicht erlaubt."),
+                    check="print_forbidden",
+                )
+            )
         elif not sec.get("print_high", True):
             out.append(
                 Issue(
@@ -918,10 +983,18 @@ def _doc_issues(rep: Report) -> list:
                         "Dokument ist geschützt: nur Drucken in niedriger Auflösung "
                         "erlaubt – manche Programme drucken dann gerastert/unscharf."
                     ),
+                    check="print_lowres",
                 )
             )
         else:
-            out.append(Issue("info", "security", tr("Dokument ist verschlüsselt (Rechte-Passwort) – Drucken erlaubt.")))
+            out.append(
+                Issue(
+                    "info",
+                    "security",
+                    tr("Dokument ist verschlüsselt (Rechte-Passwort) – Drucken erlaubt."),
+                    check="encrypted",
+                )
+            )
     px = rep.pdfx or {}
     if px.get("version"):
         if not px.get("intent"):
@@ -932,6 +1005,7 @@ def _doc_issues(rep: Report) -> list:
                     tr(
                         "Datei gibt sich als {0} aus, hat aber keinen PDF/X-Output-Intent – die Angabe stimmt nicht."
                     ).format(px["version"]),
+                    check="pdfx_intent",
                 )
             )
         elif px.get("no_profile"):
@@ -940,6 +1014,7 @@ def _doc_issues(rep: Report) -> list:
                     "warning",
                     "pdfx",
                     tr("{0}: Output-Intent „{1}“ ohne eingebettetes Profil.").format(px["version"], px["intent"]),
+                    check="pdfx_profile",
                 )
             )
         if px.get("missing_trim"):
@@ -951,6 +1026,7 @@ def _doc_issues(rep: Report) -> list:
                         px["version"], len(px["missing_trim"])
                     ),
                     px["missing_trim"],
+                    check="pdfx_trim",
                 )
             )
     fm = rep.forms or {}
@@ -975,10 +1051,15 @@ def _doc_issues(rep: Report) -> list:
                 msg + ".",
                 pages,
                 [Spot(p, r, tr("nicht gedruckt")) for p, r in no if r] or [],
+                check="forms",
             )
         )
     if rep.blank:
-        out.append(Issue("info", "page", tr("{0} leere Seite(n).").format(len(rep.blank)), list(rep.blank)))
+        out.append(
+            Issue(
+                "info", "page", tr("{0} leere Seite(n).").format(len(rep.blank)), list(rep.blank), check="blank_pages"
+            )
+        )
     return out
 
 
@@ -1197,9 +1278,28 @@ def _img_spot(u) -> Spot:
     )
 
 
-def _image_issues(rep: Report) -> list:
-    from . import imagecheck as ic
+def _ppi(rep: Report, u) -> tuple:
+    """(recommended, minimum) resolution for image use ``u`` in the profile of ``rep`` – line art (1 bit) with its
+    own limits, or twice the image limits when these are 0 (automatic)."""
+    good, low = lim(rep, "image_ppi_good"), lim(rep, "image_ppi_min")
+    if u.bits != 1:
+        return good, low
+    return lim(rep, "lineart_ppi_good") or good * 2.0, lim(rep, "lineart_ppi_min") or low * 2.0
 
+
+def _rate(rep: Report, u) -> str:
+    """Rating of image use ``u`` with the limits of the profile: good, ok, low – or tiny (too small to judge)."""
+    if u.rating == "tiny":
+        return "tiny"
+    good, low = _ppi(rep, u)
+    if low and u.dpi < low * 0.98:
+        return "low"
+    if good and u.dpi < good * 0.98:
+        return "ok"
+    return "good"
+
+
+def _image_issues(rep: Report) -> list:
     cr = rep.colors
     if cr is None:
         return []
@@ -1210,33 +1310,43 @@ def _image_issues(rep: Report) -> list:
         if (u.mask and u.rating == "tiny") or u.page in hdr_aux:
             continue
         by_page.setdefault(u.page, []).append(u)
-    limits = ic.page_limits(cr)
-    low_pages = sorted(p for p, us in by_page.items() if any(u.rating == "low" for u in us))
-    ok_pages = sorted(p for p, us in by_page.items() if p not in low_pages and any(u.rating == "ok" for u in us))
+    good_ppi, min_ppi = lim(rep, "image_ppi_good"), lim(rep, "image_ppi_min")
+    limits = {}  # page -> (lowest dpi, max. enlargement at the recommended, at the minimum resolution)
+    for u in cr.images:
+        if u.mask or u.rating == "tiny":
+            continue
+        cur = limits.get(u.page)
+        if cur is None or u.dpi < cur[0]:
+            limits[u.page] = (u.dpi, u.dpi / (good_ppi or u.dpi), u.dpi / (min_ppi or u.dpi))
+    low_pages = sorted(p for p, us in by_page.items() if any(_rate(rep, u) == "low" for u in us))
+    # a page can have both: images below the minimum and others only below the recommended resolution
+    ok_pages = sorted(p for p, us in by_page.items() if any(_rate(rep, u) == "ok" for u in us))
 
     def advice(p, worst):
-        lim = limits.get(p)
-        a, b = worst.max_mm(worst.good), worst.max_mm(worst.ok)
+        lm = limits.get(p)
+        good, low = _ppi(rep, worst)
+        good, low = good or low, low or good
+        a, b = worst.max_mm(good), worst.max_mm(low)
         txt = tr("Empfehlung: dieses Bild bei {0} dpi max. {1}, bei {2} dpi max. {3}.").format(
-            worst.good, _mm(a), worst.ok, _mm(b)
+            f"{good:g}", _mm(a), f"{low:g}", _mm(b)
         )
-        if lim and p in cr.page_size_mm and lim[1] < 0.995:
+        if lm and p in cr.page_size_mm and lm[1] < 0.995:
             ps = cr.page_size_mm[p]
             txt += " " + tr(
                 "Ganze Seite höchstens {0:.0f} % ({1}) bei {2} dpi bzw. {3:.0f} % ({4}) bei {5} dpi."
             ).format(
-                lim[1] * 100,
-                _mm((ps[0] * lim[1], ps[1] * lim[1])),
-                ic.GOOD_DPI,
-                min(lim[2], 9.99) * 100,
-                _mm((ps[0] * min(lim[2], 9.99), ps[1] * min(lim[2], 9.99))),
-                ic.OK_DPI,
+                lm[1] * 100,
+                _mm((ps[0] * lm[1], ps[1] * lm[1])),
+                f"{good_ppi or min_ppi:g}",
+                min(lm[2], 9.99) * 100,
+                _mm((ps[0] * min(lm[2], 9.99), ps[1] * min(lm[2], 9.99))),
+                f"{min_ppi or good_ppi:g}",
             )
         return txt
 
     for pages, sev, kind in ((low_pages, "warning", "low"), (ok_pages, "info", "ok")):
         if len(pages) > 8:  # many pages: one collective message
-            worst = min((u for p in pages for u in by_page[p] if u.rating == kind), key=lambda u: u.dpi)
+            worst = min((u for p in pages for u in by_page[p] if _rate(rep, u) == kind), key=lambda u: u.dpi)
             msg = (
                 tr("Bilder unter {0} dpi auf {1} Seiten – niedrigste {2:.0f} dpi (Seite {3}).")
                 if kind == "low"
@@ -1246,16 +1356,17 @@ def _image_issues(rep: Report) -> list:
                 Issue(
                     sev,
                     "image",
-                    msg.format(worst.ok, len(pages), worst.dpi, worst.page)
+                    msg.format(f"{_ppi(rep, worst)[1]:g}", len(pages), worst.dpi, worst.page)
                     if kind == "low"
-                    else msg.format(ic.OK_DPI, ic.GOOD_DPI - 1, len(pages)),
+                    else msg.format(f"{min_ppi:g}", f"{good_ppi - 1:g}", len(pages)),
                     pages,
-                    [_img_spot(u) for p in pages for u in by_page[p] if u.rating == kind],
+                    [_img_spot(u) for p in pages for u in by_page[p] if _rate(rep, u) == kind],
+                    check="image_low" if kind == "low" else "image_ok",
                 )
             )
             continue
         for p in pages:
-            us = [u for u in by_page[p] if u.rating == kind]
+            us = [u for u in by_page[p] if _rate(rep, u) == kind]
             worst = min(us, key=lambda u: u.dpi)
             head = (
                 tr("Seite {0}: {1} Bild(er) unter {2} dpi – niedrigste {3:.0f} dpi ({4} × {5} px auf {6}).")
@@ -1268,13 +1379,45 @@ def _image_issues(rep: Report) -> list:
             msg = head.format(
                 p,
                 len(us),
-                worst.ok if kind == "low" else worst.good - 1,
+                f"{_ppi(rep, worst)[1]:g}" if kind == "low" else f"{_ppi(rep, worst)[0] - 1:g}",
                 worst.dpi,
                 worst.px[0],
                 worst.px[1],
                 _mm(worst.placed_mm),
             )
-            out.append(Issue(sev, "image", msg + " " + advice(p, worst), [p], [_img_spot(u) for u in us]))
+            out.append(
+                Issue(
+                    sev,
+                    "image",
+                    msg + " " + advice(p, worst),
+                    [p],
+                    [_img_spot(u) for u in us],
+                    check="image_low" if kind == "low" else "image_ok",
+                )
+            )
+    top = lim(rep, "image_ppi_max")
+    if top > 0:
+        high = [
+            u
+            for us in by_page.values()
+            for u in us
+            if not u.mask and u.rating != "tiny" and u.dpi > top * (2.0 if u.bits == 1 else 1.0) * 1.02
+        ]
+        if high:
+            worst = max(high, key=lambda u: u.dpi)
+            out.append(
+                Issue(
+                    "info",
+                    "image",
+                    tr(
+                        "{0} Bild(er) über {1:g} dpi – höchste {2:.0f} dpi (Seite {3}): unnötig groß, „Datei "
+                        "verkleinern …“ rechnet sie herunter."
+                    ).format(len(high), top, worst.dpi, worst.page),
+                    sorted({u.page for u in high}),
+                    [_img_spot(u) for u in high],
+                    check="image_high",
+                )
+            )
     rgb = sorted(p for p, c in cr.page_colors.items() if "RGB" in c)
     if rgb:
         n_img = sum(1 for u in cr.images if u.space == "RGB")
@@ -1292,6 +1435,7 @@ def _image_issues(rep: Report) -> list:
                 ).format(len(rgb), n_img),
                 rgb,
                 sorted(spots, key=lambda sp: sp.page),
+                check="rgb",
             )
         )
     names = sorted({n for ns in cr.spots.values() for n in ns})
@@ -1303,6 +1447,7 @@ def _image_issues(rep: Report) -> list:
                 tr("Sonderfarben: {0}.").format(", ".join(names)),
                 sorted(cr.spots),
                 [Spot(p, None, ", ".join(sorted(cr.spots[p]))) for p in sorted(cr.spots)],
+                check="spot_colors",
             )
         )
     return out
@@ -1466,11 +1611,14 @@ def _hairlines(data: bytes, rep: Report, max_pages: int = 200) -> None:
 
     from .planprint import hairline_boxes
 
+    limit = lim(rep, "hairline_mm")
+    rep.hairlines = {}
+    if limit <= 0:
+        return
     doc = pdfium.PdfDocument(data)
     try:
-        rep.hairlines = {}
         for i in range(min(len(doc), max_pages)):
-            n, boxes = hairline_boxes(doc, i, HAIRLINE_MM)
+            n, boxes = hairline_boxes(doc, i, limit)
             if n:
                 rep.hairlines[i + 1] = n
                 rep.located.setdefault(("line",), {})[i + 1] = boxes
@@ -1489,10 +1637,16 @@ def _located_spots(rep: Report, key: tuple, pages, label: str = "") -> list:
 
 
 def _issues(rep: Report) -> list[Issue]:
+    from . import checkprofile
+
     out = _issues_raw(rep)
     for i in out:
         if not i.spots:
             i.spots = [Spot(p) for p in i.pages]
+    if rep.profile is None:
+        rep.profile = checkprofile.BUILTIN[checkprofile.DEFAULT]
+    out, rep.passed = checkprofile.apply(out, rep.profile)
+    out.sort(key=lambda i: (SEV_ORDER[i.severity], i.category))
     return out
 
 
@@ -1514,6 +1668,7 @@ def _font_issues(rep: Report) -> list[Issue]:
                             "zu Fremdzeichen)."
                         ).format(f.name),
                         pg,
+                        check="font_missing",
                     )
                 )
             elif f.cid and f.encoding.startswith("Identity"):
@@ -1526,6 +1681,7 @@ def _font_issues(rep: Report) -> list[Issue]:
                             "Originalschrift nicht reparierbar."
                         ).format(f.name),
                         pg,
+                        check="font_missing",
                     )
                 )
             else:
@@ -1538,6 +1694,7 @@ def _font_issues(rep: Report) -> list[Issue]:
                         "font",
                         tr("Schrift „{0}“ ist nicht eingebettet – Darstellung kann abweichen.").format(f.name) + hint,
                         pg,
+                        check="font_missing",
                     )
                 )
         elif f.status == "std14":
@@ -1547,6 +1704,7 @@ def _font_issues(rep: Report) -> list[Issue]:
                     "font",
                     tr("Standardschrift „{0}“ nicht eingebettet (wird meist korrekt ersetzt).").format(f.name),
                     pg,
+                    check="font_std14",
                 )
             )
         elif f.status == "type3":
@@ -1556,6 +1714,17 @@ def _font_issues(rep: Report) -> list[Issue]:
                     "font",
                     tr("Type3-Schrift „{0}“ (oft aus CAD) – Text ggf. nicht durchsuchbar.").format(f.name),
                     pg,
+                    check="font_type3",
+                )
+            )
+        if "courier" in f.name.split("+")[-1].lower():
+            out.append(
+                Issue(
+                    "info",
+                    "font",
+                    tr("Schrift „{0}“ – Courier ist oft eine Ersatzschrift für eine fehlende Schrift.").format(f.name),
+                    pg,
+                    check="font_courier",
                 )
             )
         if (
@@ -1571,6 +1740,7 @@ def _font_issues(rep: Report) -> list[Issue]:
                         f.name
                     ),
                     pg,
+                    check="font_unicode",
                 )
             )
         for i in out[n0:]:
@@ -1588,6 +1758,7 @@ def _text_issues(rep: Report) -> list[Issue]:
                 "text",
                 tr("Seite {0}: {1} Zeichen ohne gültige Zuordnung (seltsame Zeichen).").format(p, n),
                 [p],
+                check="text_garbled",
             )
         )
     return out
@@ -1607,6 +1778,7 @@ def _layer_issues(rep: Report) -> list[Issue]:
                     "drucken sie trotzdem. Empfehlung: „Sichtbaren Zustand festschreiben“."
                 ).format(len(hidden)),
                 sorted(set().union(*[L.pages for L in hidden])),
+                check="layer_hidden",
             )
         )
     for L in rep.layers:
@@ -1619,6 +1791,7 @@ def _layer_issues(rep: Report) -> list[Issue]:
                         L.name, tr("an") if L.view_on else tr("aus"), tr("an") if L.print_on else tr("aus")
                     ),
                     sorted(L.pages),
+                    check="layer_print",
                 )
             )
         if L.outside_pct is not None and L.outside_pct > 25:
@@ -1630,6 +1803,7 @@ def _layer_issues(rep: Report) -> list[Issue]:
                         L.name, L.outside_pct
                     ),
                     sorted(L.pages),
+                    check="layer_outside",
                 )
             )
     return out
@@ -1648,9 +1822,10 @@ def _line_issues(rep: Report) -> list[Issue]:
                     "{0} Linie(n) dünner als {1} mm auf {2} Seite(n) – auf Plottern und "
                     "Laserdruckern kaum oder gar nicht sichtbar. Beim Plandruck lassen sie "
                     "sich mit „Haarlinien anheben“ verstärken."
-                ).format(sum(rep.hairlines.values()), _mm_num(HAIRLINE_MM), len(pg)),
+                ).format(sum(rep.hairlines.values()), _mm_num(lim(rep, "hairline_mm")), len(pg)),
                 pg,
                 _located_spots(rep, ("line",), pg),
+                check="hairline",
             )
         )
     return out
@@ -1662,7 +1837,7 @@ def _size_issues(rep: Report) -> list[Issue]:
     if rep.size is not None:
         from . import shrink
 
-        out += [Issue(sev, "size", msg, []) for sev, msg in shrink.issues(rep.size)]
+        out += [Issue(sev, "size", msg, [], check="file_size") for sev, msg in shrink.issues(rep.size)]
     return out
 
 
@@ -1680,6 +1855,7 @@ def _hdr_issues(rep: Report) -> list[Issue]:
                     "Farben. Reparatur: „HDR-Zusatzseiten entfernen“."
                 ).format(h["aux"] + 1, h["main"] + 1),
                 [h["aux"] + 1],
+                check="hdr",
             )
         )
     return out
@@ -1702,6 +1878,7 @@ def _transparency_issues(rep: Report) -> list[Issue]:
                 ).format(len(grad)),
                 grad,
                 _located_spots(rep, ("transparency",), grad),
+                check="transparency_gradient",
             )
         )
     risky = {p for p, k in rep.transparency.items() if k & {"smask", "blend", "group"} and "pattern_smask" not in k}
@@ -1715,11 +1892,20 @@ def _transparency_issues(rep: Report) -> list[Issue]:
                 ).format(len(risky)),
                 sorted(risky),
                 _located_spots(rep, ("transparency",), risky),
+                check="transparency",
             )
         )
     op = {p for p, k in rep.transparency.items() if "overprint" in k}
     if op:
-        out.append(Issue("info", "transparency", tr("Überdrucken auf {0} Seite(n).").format(len(op)), sorted(op)))
+        out.append(
+            Issue(
+                "info",
+                "transparency",
+                tr("Überdrucken auf {0} Seite(n).").format(len(op)),
+                sorted(op),
+                check="overprint_used",
+            )
+        )
     return out
 
 
@@ -1743,6 +1929,7 @@ def _overprint_issues(rep: Report) -> list[Issue]:
                 ).format(sum(len(v) for v in white.values())),
                 sorted(white),
                 _box_spots(white),
+                check="overprint_white",
             )
         )
     black = op.get("black_text") or {}
@@ -1752,11 +1939,217 @@ def _overprint_issues(rep: Report) -> list[Issue]:
                 "warning",
                 "overprint",
                 tr(
-                    "Kleiner schwarzer Text (bis 12 pt) spart aus statt zu überdrucken – schon kleinste "
+                    "Kleiner schwarzer Text (bis {1:g} pt) spart aus statt zu überdrucken – schon kleinste "
                     "Passerschwankungen zeigen weiße Ränder ({0} Stelle(n)). Reparatur: „Überdrucken korrigieren“."
-                ).format(sum(len(v) for v in black.values())),
+                ).format(sum(len(v) for v in black.values()), lim(rep, "black_text_pt")),
                 sorted(black),
                 _box_spots(black),
+                check="overprint_black_text",
+            )
+        )
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# ink coverage (TAC)
+# --------------------------------------------------------------------------- #
+TAC_DPI = 24  # coarse is enough: small spots above the limit do not matter for drying and set-off
+TAC_MAX_PAGES = 50
+TAC_AREAS = 6  # marked areas per page at most (the largest)
+
+
+def _oi_cmyk_profile(pdf) -> bytes | None:
+    """ICC data of the first CMYK output intent (None: none)."""
+    try:
+        for oi in pdf.Root.get("/OutputIntents") or []:
+            prof = oi.get("/DestOutputProfile")
+            if prof is not None and int(prof.get("/N", 0)) == 4:
+                return bytes(prof.read_bytes())
+    except Exception:  # noqa: BLE001 – malformed PDF object: skipped or default value
+        pass
+    return None
+
+
+def measure_tac(pdf, data: bytes, limit: float) -> dict | None:
+    """Total ink coverage per page as it would be printed. With Ghostscript the pages are separated (RGB/grey via
+    the CMYK output intent, without one with the Ghostscript default) and the areas above ``limit`` located;
+    without Ghostscript an estimate from the existing CMYK (colorcheck.estimate_tac, no areas).
+    -> {"max", "page", "limit", "method": "gs"|"estimate", "pages": {page: max}, "areas": {page: [box pt]},
+    "checked", "total", "profile": "oi"|"default"}
+    """
+    from . import cmyk, colorcheck
+
+    gs = cmyk.ghostscript()
+    if not gs:
+        est = colorcheck.estimate_tac(data, int(limit), max_pages=TAC_MAX_PAGES)
+        if est:
+            est["areas"] = {}
+        return est
+    import shutil
+    import tempfile
+
+    tmp = tempfile.mkdtemp(prefix="passermark-tac-")
+    try:
+        src = os.path.join(tmp, "in.pdf")
+        with open(src, "wb") as fh:
+            fh.write(data)
+        n = min(len(pdf.pages), TAC_MAX_PAGES)
+        extra = ["-sColorConversionStrategy=CMYK", "-sProcessColorModel=DeviceCMYK"]
+        icc = _oi_cmyk_profile(pdf)
+        if icc:
+            prof = os.path.join(tmp, "oi.icc")
+            with open(prof, "wb") as fh:
+                fh.write(icc)
+            extra += [f"-sOutputICCProfile={prof}", f"--permit-file-read={prof}"]
+        cmd = [gs, "-q", "-dNOPAUSE", "-dBATCH", "-dSAFER", "-sDEVICE=tiff32nc", f"-r{TAC_DPI}", "-dFirstPage=1"]
+        cmd += [f"-dLastPage={n}", *extra, "-o", os.path.join(tmp, "p%04d.tif"), src]
+        cmyk._run(cmd, timeout=600)
+        per, areas, best = {}, {}, (0.0, 0)
+        for i in range(n):
+            out = os.path.join(tmp, f"p{i + 1:04d}.tif")
+            if not os.path.exists(out):
+                break
+            tot = _tac_array(out)
+            mx = float(tot.max()) if tot.size else 0.0
+            per[i + 1] = round(mx)
+            if mx > best[0]:
+                best = (mx, i + 1)
+            if mx > limit + 0.5:
+                areas[i + 1] = _tac_boxes(tot > limit + 0.5, pdf.pages[i])
+        if not per:
+            return None
+        return {
+            "max": round(best[0]),
+            "page": best[1],
+            "limit": limit,
+            "method": "gs",
+            "pages": per,
+            "areas": {p: a for p, a in areas.items() if a},
+            "checked": len(per),
+            "total": len(pdf.pages),
+            "profile": "oi" if icc else "default",
+        }
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _tac_array(path: str):
+    """Sum of the four inks in percent per pixel of a CMYK TIFF."""
+    import numpy as np
+    from PIL import Image
+
+    with Image.open(path) as im:
+        im.load()
+        a = np.asarray(im if im.mode == "CMYK" else im.convert("CMYK"), dtype=np.uint16)
+    return a.sum(axis=2) * (100.0 / 255.0)
+
+
+def _tac_boxes(mask, page) -> list:
+    """Areas of ``mask`` (rendered page: MediaBox, /Rotate applied) as boxes in page coordinates (pt) – the
+    largest TAC_AREAS ones."""
+    import numpy as np
+    from scipy import ndimage
+
+    lab, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    if not n:
+        return []
+    mb = _box(_inh(page, "/MediaBox")) or (0.0, 0.0, 612.0, 792.0)
+    rot = int(_inh(page, "/Rotate") or 0) % 360
+    h, w = mask.shape
+    sizes = ndimage.sum(mask, lab, range(1, n + 1))
+    keep = sorted(range(n), key=lambda k: -sizes[k])[:TAC_AREAS]
+    objs = ndimage.find_objects(lab)
+    s = 72.0 / TAC_DPI
+    out = []
+    for k in keep:
+        ys, xs = objs[k]
+        # pixel box of the rendered (rotated) page in pt: u to the right, v downwards
+        u0, u1, v0, v1 = xs.start * s, xs.stop * s, ys.start * s, ys.stop * s
+        W, H = w * s, h * s
+        if rot == 90:  # clockwise: right -> down, up -> right
+            x0, x1, y0, y1 = v0, v1, u0, u1
+        elif rot == 180:
+            x0, x1, y0, y1 = W - u1, W - u0, v0, v1
+        elif rot == 270:
+            x0, x1, y0, y1 = H - v1, H - v0, W - u1, W - u0
+        else:
+            x0, x1, y0, y1 = u0, u1, H - v1, H - v0
+        out.append((mb[0] + x0, mb[1] + y0, mb[0] + x1, mb[1] + y1))
+    return out
+
+
+def _limit_issues(rep: Report) -> list[Issue]:
+    """Checks that only check profiles switch on: smallest text, number of spot colours, page count, PDF/X."""
+    out = []
+    op = rep.overprint or {}
+    small = op.get("small_text") or {}
+    if small:
+        mins = op.get("small_min") or {}
+        at = min(mins, key=mins.get) if mins else min(small)
+        smallest = mins.get(at, 0.0)
+        out.append(
+            Issue(
+                "warning",
+                "text",
+                tr("Text kleiner als {0:g} pt auf {1} Seite(n) – kleinste {2:.1f} pt (Seite {3}).").format(
+                    lim(rep, "text_min_pt"),
+                    len(small),
+                    smallest,
+                    at,
+                ),
+                sorted(small),
+                _box_spots(small),
+                check="text_small",
+            )
+        )
+    n_max = lim(rep, "spot_max")
+    cr = rep.colors
+    if n_max >= 0 and cr is not None:
+        names = sorted({n for ns in cr.spots.values() for n in ns})
+        if len(names) > n_max:
+            out.append(
+                Issue(
+                    "warning",
+                    "image",
+                    tr("{0} Sonderfarben – erlaubt sind höchstens {1:g}: {2}.").format(
+                        len(names), n_max, ", ".join(names)
+                    ),
+                    sorted(cr.spots),
+                    check="spot_count",
+                )
+            )
+    every = int(lim(rep, "page_multiple"))
+    if every > 1 and rep.pages and rep.pages % every:
+        missing = every - rep.pages % every
+        out.append(
+            Issue(
+                "warning",
+                "geometry",
+                tr(
+                    "{0} Seiten sind kein Vielfaches von {1} – es fehlen {2} Seite(n) (z. B. für eine Broschüre)."
+                ).format(rep.pages, every, missing),
+                check="page_multiple",
+            )
+        )
+    out += _tac_issue(rep)
+    need = lim(rep, "pdfx_min")
+    ver = (rep.pdfx or {}).get("version") or ""
+    if need and ver and _pdfx_number(ver) < need:
+        out.append(
+            Issue(
+                "warning",
+                "pdfx",
+                tr("{0} – verlangt ist mindestens PDF/X-{1:g}.").format(ver, need),
+                check="pdfx_version",
+            )
+        )
+    if not ver:
+        out.append(
+            Issue(
+                "warning",
+                "pdfx",
+                tr("Keine PDF/X-Angabe (Output-Intent) – Druckereien erwarten oft PDF/X-4 oder PDF/X-1a/-3."),
+                check="pdfx_none",
             )
         )
     return out
@@ -1776,10 +2169,55 @@ def _issues_raw(rep: Report) -> list[Issue]:
         _overprint_issues,
         _geometry_issues,
         _doc_issues,
+        _limit_issues,
     ):
         out += part(rep)
     out.sort(key=lambda i: (SEV_ORDER[i.severity], i.category))
     return out
+
+
+def _pdfx_number(ver: str) -> float:
+    """Main version of a PDF/X declaration: "PDF/X-1a:2001" -> 1, "PDF/X-4p" -> 4 (0: unknown)."""
+    import re
+
+    m = re.search(r"X-(\d)", ver)
+    return float(m.group(1)) if m else 0.0
+
+
+def _tac_issue(rep: Report) -> list[Issue]:
+    """Finding for an ink coverage above the limit of the profile (measure_tac)."""
+    t = rep.tac or {}
+    limit = t.get("limit") or 0
+    if not limit or t.get("max", 0) <= limit + 0.5:
+        return []
+    over = sorted(p for p, v in (t.get("pages") or {}).items() if v > limit + 0.5)
+    spots = [Spot(p, box, f"{t['pages'][p]} %") for p in over for box in t["areas"].get(p, [])]
+    spots += [Spot(p, None, f"{t['pages'][p]} %") for p in over if not t["areas"].get(p)]
+    if t.get("method") != "gs":
+        how = " " + tr("Geschätzt ohne Ghostscript – nur das vorhandene CMYK, RGB nicht berücksichtigt.")
+    elif t.get("profile") == "default":
+        how = " " + tr("Ohne Output-Intent mit dem Standardprofil von Ghostscript gerechnet.")
+    else:
+        how = ""
+    part = (
+        ""
+        if t.get("checked", 0) >= t.get("total", 0)
+        else " " + tr("Geprüft: die ersten {0} Seiten.").format(t["checked"])
+    )
+    return [
+        Issue(
+            "warning",
+            "ink",
+            tr("Farbauftrag bis {0} % auf {1} Seite(n) – erlaubt sind {2:g} % (höchster auf Seite {3}).").format(
+                t["max"], len(over), limit, t["page"]
+            )
+            + how
+            + part,
+            over,
+            sorted(spots, key=lambda sp: sp.page),
+            check="ink_tac",
+        )
+    ]
 
 
 def report_text(rep: Report, title: str = "") -> str:
@@ -1791,6 +2229,8 @@ def report_text(rep: Report, title: str = "") -> str:
             c["error"], c["warning"], c["info"], rep.pages
         )
     )
+    if rep.profile is not None:
+        lines.append(tr("Prüfprofil: {0}").format(rep.profile.title()))
     lines.append("")
     sev = {"error": tr("FEHLER"), "warning": tr("WARNUNG"), "info": tr("HINWEIS")}
     for i in rep.issues:

@@ -558,6 +558,42 @@ _BL_OPT_RX = re.compile(r"borderless|randlos|full\s*-?bleed|margin\s*-?type|rand
 _BL_EXP_RX = re.compile(r"expan|extension|erweiterung|[üu]berstand|overspray|amount\s*of\s*ext|bleed\s*amount", re.I)
 _BL_ON_RX = re.compile(r"^(true|on|yes|1)$|borderless|randlos|full\s*-?bleed|ohne\s*rand|no\s*margin", re.I)
 _BL_OFF_RX = re.compile(r"^(false|off|no|0|none|normal|standard)$|bordered|with\s*margin|mit\s*rand|^border$", re.I)
+COLOR_OFF_KEY = "__driver_color_off__"  # job value "1": switch the driver's own colour adjustment off (this job)
+_CO_KEY_RX = re.compile(
+    r"colou?r\s*-?(correct|match|adjust|manag|enhanc)|farb(anpass|korrektur|management|abgleich)|^(icm|cms)\b|"
+    r"colormanagement|colorcorrection|colormatching",
+    re.I,
+)
+_CO_VAL_RX = re.compile(  # clearly "off" (first choice)
+    r"^(off|aus|disabled?)$|uncorrected|\braw\b|no\s*colou?r\s*(adjust|correct|match)|keine\s*farb|ohne\s*farb|"
+    r"application|anwendung|^app\b",
+    re.I,
+)
+_CO_WEAK_RX = re.compile(r"^(none|no|false|keine?)$", re.I)  # only if the text does not say "default"
+_CO_DEFAULT_RX = re.compile(r"default|standard|auto", re.I)
+
+
+def color_off_option(caps) -> tuple[str, str] | None:
+    """How the driver's own colour adjustment is switched off for one job: (keyword, value) of the driver option,
+    ("ICM", "none") on Windows (DEVMODE dmICMMethod) – None if the driver has no such option."""
+    if caps is None or caps.backend == "pdf":
+        return None
+    if caps.backend == "win":
+        return ("ICM", "none")
+    for k, opt in caps.options.items():
+        if opt.installable or "model" in k.lower() or k.lower() in ("print-color-mode", "colormodel"):
+            continue
+        if not (_CO_KEY_RX.search(k) or _CO_KEY_RX.search(opt.text or "")):
+            continue
+        for ch in opt.choices:
+            if _CO_VAL_RX.search(ch.value) or _CO_VAL_RX.search(ch.text or ""):
+                return (k, ch.value)
+        for ch in opt.choices:
+            if _CO_WEAK_RX.search(ch.value) and not _CO_DEFAULT_RX.search(ch.text or ""):
+                return (k, ch.value)
+    return None
+
+
 PDF_TARGET = "__pdf__"
 PDF_DOC_SIZE = "DOC"  # "Save as PDF": sheet = size of the first selected page
 PDF_SIZES = ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "A3+", "SRA4", "SRA3", "SRA2", "LETTER", "LEGAL", "TABLOID"]

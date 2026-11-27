@@ -45,6 +45,20 @@ class PageOverlayMixin:
         if not hasattr(self, "_pf_mark_timer"):
             self._pf_mark_timer = QTimer(self, singleShot=True, interval=6000, timeout=self._clear_spot)
         self._pf_mark_timer.start()
+        # pulse (1.20.2): the frame grows and shrinks three times so the eye finds it
+        self._pf_pulse = 0
+        if not hasattr(self, "_pf_pulse_timer"):
+            self._pf_pulse_timer = QTimer(self, interval=110, timeout=self._pulse_step)
+        self._pf_pulse_timer.start()
+
+    def _pulse_step(self):
+        self._pf_pulse = getattr(self, "_pf_pulse", 0) + 1
+        mk = getattr(self, "pf_mark", None)
+        if self._pf_pulse >= 12 or not mk:
+            self._pf_pulse_timer.stop()
+            self._pf_pulse = 12
+        if mk and 0 <= mk[0] < len(self.pages):
+            self.pages[mk[0]].update()
 
     def _clear_spot(self):
         mk = getattr(self, "pf_mark", None)
@@ -201,9 +215,12 @@ class PageOverlayMixin:
             fill.setAlpha(45)
             p.setPen(pen)
             p.setBrush(fill)
+            step = getattr(self, "_pf_pulse", 12)
+            grow = (6 if step % 4 in (1, 2) else 0) if step < 12 else 0  # pulse after a jump
             if mk[1]:
                 x0, y0, x1, y1 = mk[1]
-                p.drawRect(self._rect_widget(w, x0, y0, x1, y1).adjusted(-4, -4, 4, 4))
+                g = 4 + grow
+                p.drawRect(self._rect_widget(w, x0, y0, x1, y1).adjusted(-g, -g, g, g))
             else:
                 p.setBrush(Qt.BrushStyle.NoBrush)
                 p.drawRect(QRectF(1.5, 1.5, w.width() - 3, w.height() - 3))

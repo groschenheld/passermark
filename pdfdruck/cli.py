@@ -24,7 +24,8 @@ Interface for other programs (see docs/cli-api.md; never import Passermark code,
     passermark-cli run ablauf.json [ausgabe.pdf] [--in datei …] [--var k=v] [--json]
     passermark-cli run <Name> --in datei.pdf                 (workflow from the workflow folders, by name)
     passermark-cli workflows [--dirs] [--json]               (list workflows in the workflow folders)
-    passermark-cli inspect datei.pdf [--check] [--json]      (pages, formats, trim/bleed, check results)
+    passermark-cli inspect datei.pdf [--check] [--profile offset] [--json]   (pages, formats, trim/bleed, check results)
+    passermark-cli checkprofiles [--show NAME] [--dirs] [--json]   (check profiles: list, one in full, folders)
     passermark-cli printers [--json]                         (printers with status)
     passermark-cli caps <drucker> [--json]                   (driver options, trays, paper sizes, finishers)
     passermark-cli serve [--config watch.json] [--once] [--check] [--json]   (drop folders -> workflows)
@@ -436,6 +437,7 @@ API_COMMANDS = (
     "shared-folder",
     "materials",
     "export",
+    "checkprofiles",
 )
 
 
@@ -657,7 +659,25 @@ def _args_inspect(p: argparse.ArgumentParser, cmd: str):
     p.add_argument(
         "--printer", default="", help=tr("mit --check: Format gegen die Papierformate dieses Druckers prüfen")
     )
+    p.add_argument(
+        "--profile",
+        default=None,
+        help=tr("mit --check: Prüfprofil (Name oder .json-Datei; sonst „standard“)"),
+    )
+    p.add_argument(
+        "--report",
+        metavar=tr("DATEI"),
+        help=tr("Prüfbericht als PDF mit markierten Stellen speichern (schließt --check ein)"),
+    )
     p.add_argument("--password", help=tr("Passwort"))
+
+
+def _args_checkprofiles(p: argparse.ArgumentParser, cmd: str):
+    """Options of "checkprofiles"."""
+    from .l10n import tr
+
+    p.add_argument("--show", metavar="NAME", help=tr("ein Profil vollständig zeigen (alle Prüfungen und Grenzwerte)"))
+    p.add_argument("--dirs", action="store_true", help=tr("nur die Profil-Ordner anzeigen"))
 
 
 def _args_export(p: argparse.ArgumentParser, cmd: str):
@@ -698,6 +718,7 @@ _API_ARGS = {
     "probe": _args_probe,
     "plan": _args_plan,
     "inspect": _args_inspect,
+    "checkprofiles": _args_checkprofiles,
     "export": _args_export,
 }
 
@@ -1289,12 +1310,67 @@ def _cmd_inspect(a, rep, fail) -> int:
     from . import docinfo, workflow
 
     try:
-        d = docinfo.inspect(a.file, a.password, a.check, printer=a.printer)
+        d = docinfo.inspect(
+            a.file,
+            a.password,
+            a.check or bool(a.report),
+            printer=a.printer,
+            profile=a.profile,
+            report_pdf=a.report or "",
+        )
     except FileNotFoundError as e:
         return fail(workflow.E_NOT_FOUND, str(e), EXIT_ERROR)
+    except ValueError as e:  # e.g. unknown check profile
+        return fail(workflow.E_INVALID, str(e), EXIT_USAGE)
     except Exception as e:  # noqa: BLE001 – report every cause
         return fail(workflow.E_FAILED, str(e), EXIT_ERROR)
     print(json.dumps(d, ensure_ascii=False) if a.json else docinfo.text_summary(d))
+    return EXIT_OK
+
+
+def _cmd_checkprofiles(a, rep, fail) -> int:
+    """passermark-cli checkprofiles [--show NAME] [--dirs]: the check profiles, one in full, or their folders."""
+    from . import checkprofile, workflow
+    from .l10n import tr
+
+    if a.dirs:
+        d = [{"source": src, "folder": f, "exists": os.path.isdir(f)} for src, f in checkprofile.folders()]
+        if a.json:
+            _print_json(d)
+            return EXIT_OK
+        for x in d:
+            missing = "" if x["exists"] else "  (" + tr("noch nicht angelegt") + ")"
+            print(f"{x['source']:<7} " + x["folder"] + missing)
+        return EXIT_OK
+    if a.show:
+        try:
+            p = checkprofile.resolve(a.show)
+        except (ValueError, OSError) as e:
+            return fail(workflow.E_INVALID, str(e), EXIT_USAGE)
+        d = checkprofile.describe(p)
+        if a.json:
+            _print_json(d)
+            return EXIT_OK
+        print(f"{d['name']} – {d['label']}" + (f"\n{d['description']}" if d["description"] else ""))
+        print("\n" + tr("Prüfungen:"))
+        for k, sev in d["checks"].items():
+            print(f"  {k:<24} {sev}")
+        print("\n" + tr("Grenzwerte:"))
+        for k, v in d["limits"].items():
+            unit = checkprofile.LIMITS[k][1]
+            off = v == checkprofile.LIMITS[k][5]
+            zero = tr("automatisch") if k in checkprofile.AUTO_ZERO else tr("aus")
+            print(f"  {k:<24} " + (zero if off else f"{v:g}{(' ' + unit) if unit else ''}"))
+        return EXIT_OK
+    cur = checkprofile.chosen()
+    items = [dict(checkprofile.describe(p), chosen=p.name == cur) for p in checkprofile.all_profiles()]
+    if a.json:
+        _print_json(items)
+        return EXIT_OK
+    for d in items:
+        mark = "*" if d["chosen"] else " "
+        src = tr("eingebaut") if d["builtin"] else d["file"]
+        print(f"{mark} {d['name']:<12} {d['label']}  ({src})")
     return EXIT_OK
 
 
@@ -1555,6 +1631,7 @@ def _api_handler(cmd: str):
         "shared-folder": _cmd_shared_folder,
         "probe": _cmd_probe,
         "inspect": _cmd_inspect,
+        "checkprofiles": _cmd_checkprofiles,
         "export": _cmd_export,
         "workflows": _cmd_workflows,
         "serve": _serve,

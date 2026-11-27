@@ -10,13 +10,18 @@ from __future__ import annotations
 import os
 import traceback
 
-from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtCore import QRect, QSize, Qt, QThread, Signal
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QToolButton,
     QCheckBox,
     QComboBox,
+    QDialog,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -53,7 +58,182 @@ CAT_TEXT = {
     "form": "Formular",
     "page": "Seite",
     "device": "Drucker",
+    "line": "Linien",
+    "ink": "Farbauftrag",
 }
+# icon per category in the findings list (gui/svgicons)
+CAT_ICON = {
+    "font": "copy",
+    "text": "select",
+    "image": "color",
+    "line": "ruler",
+    "transparency": "proof",
+    "overprint": "cmyk",
+    "layer": "multi",
+    "geometry": "boxes",
+    "page": "single",
+    "security": "info",
+    "pdfx": "info",
+    "form": "table",
+    "size": "shrink",
+    "device": "print",
+    "ink": "separate",
+}
+SEV_COLOR = {"error": theme.ERROR, "warning": theme.WARN, "info": theme.MUTED}
+SEV_RANK = {"error": 0, "warning": 1, "info": 2}
+ROLE_KIND = Qt.ItemDataRole.UserRole + 1  # "group" · "finding" · "spot" · "passed"
+ROLE_DETAIL = Qt.ItemDataRole.UserRole + 2  # finding: the full message (grey line under the title)
+ROLE_SEV = Qt.ItemDataRole.UserRole + 3  # finding: severity (colour of the stripe)
+
+
+ROLE_PAGES = Qt.ItemDataRole.UserRole + 4  # finding: pages (right in the title line)
+ROLE_ACTION = Qt.ItemDataRole.UserRole + 5  # finding: text of its repair (a link under the message)
+ROLE_COUNT = Qt.ItemDataRole.UserRole + 6  # group: number of findings (badge on the right)
+ROLE_FIX = Qt.ItemDataRole.UserRole + 7  # finding: its check key (which repair belongs to it)
+
+
+def _depth(index) -> int:
+    d, p = 0, index.parent()
+    while p.isValid():
+        d, p = d + 1, p.parent()
+    return d
+
+
+class _FindingDelegate(QStyledItemDelegate):
+    """Rows of the findings list (1.20.2), one column so that a narrow sidebar is used fully:
+    group rows with a count badge on the right; finding rows with a severity stripe, short title and pages in one
+    line, the full message wrapped in grey below and – where there is one – the repair as a link below that."""
+
+    PAD = 4
+    STRIPE = 3
+
+    def __init__(self, tree, on_action=None):
+        super().__init__(tree)
+        self.tree = tree
+        self.on_action = on_action  # called with the index when the repair link is clicked
+
+    def _width(self, index) -> int:
+        return self.tree.viewport().width() - self.tree.indentation() * (_depth(index) + 1)
+
+    def _geometry(self, font, rect: QRect, index) -> dict:
+        """Where title, pages, message and repair link go in ``rect`` (also for the height)."""
+        title = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        pages = str(index.data(ROLE_PAGES) or "")
+        detail = str(index.data(ROLE_DETAIL) or "")
+        action = str(index.data(ROLE_ACTION) or "")
+        bold = QFont(font)
+        bold.setBold(True)
+        fm, fb = QFontMetrics(font), QFontMetrics(bold)
+        flags = int(Qt.TextFlag.TextWordWrap)
+        x = rect.left() + self.STRIPE + self.PAD
+        w = max(30, rect.width() - self.STRIPE - 2 * self.PAD)
+        pw = fm.horizontalAdvance(pages) + 6 if pages else 0
+        if pw > w // 3:  # many pages: below the title instead of beside it
+            pw = 0
+        tw = max(20, w - pw)
+        t = fb.boundingRect(QRect(0, 0, tw, 100000), flags, title)
+        y = rect.top() + self.PAD
+        out = {"bold": bold, "title": QRect(x, y, tw, t.height()), "pages": None, "detail": None, "action": None}
+        if pages:
+            if pw:
+                out["pages"] = QRect(x + tw, y, pw, fm.height())
+            else:
+                y += t.height()
+                out["pages"] = QRect(x, y, w, fm.boundingRect(QRect(0, 0, w, 100000), flags, pages).height())
+                t = QRect(0, 0, 0, out["pages"].height())
+        y += t.height()
+        if detail:
+            d = fm.boundingRect(QRect(0, 0, w, 100000), flags, detail)
+            out["detail"] = QRect(x, y + 1, w, d.height())
+            y += d.height() + 1
+        if action:
+            out["action"] = QRect(x, y + 2, min(w, fm.horizontalAdvance("→ " + action) + 4), fm.height())
+            y += fm.height() + 2
+        out["height"] = y - rect.top() + self.PAD
+        return out
+
+    def sizeHint(self, option, index):
+        if index.data(ROLE_KIND) != "finding":
+            return super().sizeHint(option, index)
+        w = self._width(index)
+        return QSize(w, self._geometry(option.font, QRect(0, 0, w, 0), index)["height"])
+
+    def paint(self, painter, option, index):
+        """Group and finding rows drawn by hand (badge; stripe, title, pages, grey message, link)."""
+        kind = index.data(ROLE_KIND)
+        if kind == "group":
+            count = str(index.data(ROLE_COUNT) or "")
+            fm = QFontMetrics(option.font)
+            cw = fm.horizontalAdvance(count) + 12 if count else 0
+            opt = QStyleOptionViewItem(option)
+            opt.rect = QRect(
+                option.rect.left(), option.rect.top(), max(10, option.rect.width() - cw), option.rect.height()
+            )
+            super().paint(painter, opt, index)
+            if count:
+                painter.save()
+                painter.setPen(QColor(index.data(ROLE_SEV) or theme.MUTED))
+                f = QFont(option.font)
+                f.setBold(True)
+                painter.setFont(f)
+                r = QRect(option.rect.right() - cw, option.rect.top(), cw - 4, option.rect.height())
+                painter.drawText(r, int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter), count)
+                painter.restore()
+            return
+        if kind != "finding":
+            super().paint(painter, option, index)
+            return
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.text = ""
+        style = opt.widget.style() if opt.widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, opt.widget)
+        r = option.rect
+        g = self._geometry(option.font, r, index)
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        flags = int(Qt.TextFlag.TextWordWrap)
+        painter.save()
+        painter.fillRect(
+            QRect(r.left(), r.top() + 3, self.STRIPE, max(4, r.height() - 6)),
+            QColor(SEV_COLOR.get(index.data(ROLE_SEV), theme.MUTED)),
+        )
+        painter.setFont(g["bold"])
+        painter.setPen(
+            option.palette.color(QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text)
+        )
+        painter.drawText(g["title"], flags, str(index.data(Qt.ItemDataRole.DisplayRole) or ""))
+        painter.setFont(option.font)
+        painter.setPen(QColor(theme.TEXT if selected else theme.MUTED))
+        if g["pages"] is not None:
+            align = Qt.AlignmentFlag.AlignRight if g["pages"].left() > g["title"].left() else Qt.AlignmentFlag.AlignLeft
+            painter.drawText(g["pages"], flags | int(align), str(index.data(ROLE_PAGES) or ""))
+        if g["detail"] is not None:
+            painter.drawText(g["detail"], flags, str(index.data(ROLE_DETAIL) or ""))
+        if g["action"] is not None:
+            f = QFont(option.font)
+            f.setUnderline(True)
+            painter.setFont(f)
+            painter.setPen(QColor(theme.ACCENT_TEXT))
+            painter.drawText(g["action"], 0, "→ " + str(index.data(ROLE_ACTION) or ""))
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
+        """A click on the repair link runs the repair (instead of only selecting the row)."""
+        from PySide6.QtCore import QEvent
+
+        if (
+            event.type() == QEvent.Type.MouseButtonRelease
+            and index.data(ROLE_KIND) == "finding"
+            and index.data(ROLE_ACTION)
+            and self.on_action is not None
+        ):
+            g = self._geometry(option.font, option.rect, index)
+            if g["action"] is not None and g["action"].contains(event.position().toPoint()):
+                self.on_action(index)
+                return True
+        return super().editorEvent(event, model, option, index)
+
+
 KIND_TEXT = {
     "smask": "weiche Maske",
     "blend": "Füllmethode",
@@ -111,30 +291,71 @@ class PreflightPanel(QWidget):
     goto_spot = Signal(int, object)  # page (1-based), area (x0, y0, x1, y1) pt or None
     job_requested = Signal(str, object, str, str)  # kind, settings, name suffix, title (own process)
     recheck = Signal()
+    tool_requested = Signal(str)  # "bleed" · "colorrules" – a dialog of the main window (repair in a finding row)
+    profiles_requested = Signal()  # "Profile bearbeiten …"
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._owner = parent  # document window (the panel may sit in the separate sidebar window)
         self.rep: preflight.Report | None = None
         self.data_fn = None  # returns the current document bytes
         self.file_fn = None  # file as on disk (size/shrink), otherwise data_fn
         self._job_data = None
         self.font_map: dict[str, str] = {}
         self._worker = None
+        self._last_finding = None  # finding clicked last: clicking it again goes to its next location
         v = QVBoxLayout(self)
         v.setContentsMargins(6, 6, 6, 6)
+        # head (1.20.2): traffic light and summary, profile, check again, report
+        head = QHBoxLayout()
+        self.lbl_light = QLabel("●")
+        self.lbl_light.setStyleSheet(f"color: {theme.MUTED}; font-size: 22px;")
+        self.lbl_light.setToolTip(tr("Rot: Fehler · Gelb: Warnungen · Grün: druckbereit"))
+        head.addWidget(self.lbl_light, 0, Qt.AlignmentFlag.AlignTop)
         self.lbl_sum = QLabel(tr("Noch nicht geprüft."))
         self.lbl_sum.setWordWrap(True)
-        v.addWidget(self.lbl_sum)
-        row = QHBoxLayout()
-        b = QPushButton(tr("Neu prüfen"))
-        b.clicked.connect(self.recheck.emit)
-        row.addWidget(b)
-        self.btn_report = QPushButton(tr("Bericht …"))
-        self.btn_report.clicked.connect(self._save_report)
-        row.addWidget(self.btn_report)
-        v.addLayout(row)
+        f = self.lbl_sum.font()
+        f.setBold(True)
+        self.lbl_sum.setFont(f)
+        head.addWidget(self.lbl_sum, 1)
+        from .icons import icon as svg_icon
 
+        b = QToolButton()  # check again / report as symbols: one row less in the narrow sidebar
+        b.setIcon(svg_icon("update"))
+        b.setToolTip(tr("Neu prüfen"))
+        b.setAutoRaise(True)
+        b.clicked.connect(self.recheck.emit)
+        head.addWidget(b, 0, Qt.AlignmentFlag.AlignTop)
+        self.btn_report = QToolButton()
+        self.btn_report.setIcon(svg_icon("export"))
+        self.btn_report.setToolTip(tr("Bericht …"))
+        self.btn_report.setAutoRaise(True)
+        self.btn_report.clicked.connect(self._save_report)
+        head.addWidget(self.btn_report, 0, Qt.AlignmentFlag.AlignTop)
+        v.addLayout(head)
+        prow = QHBoxLayout()
+        self.cmb_profile = QComboBox()
+        self.cmb_profile.setToolTip(tr("Prüfprofil: was wie streng gemeldet wird und mit welchen Grenzwerten"))
+        self.fill_profiles()
+        self.cmb_profile.currentIndexChanged.connect(self._profile_chosen)
+        prow.addWidget(self.cmb_profile, 1)
+        b = QToolButton()
+        b.setText("…")
+        b.setToolTip(tr("Prüfprofile bearbeiten …"))
+        b.clicked.connect(self.profiles_requested.emit)
+        prow.addWidget(b)
+        v.addLayout(prow)
+        # the parts as a choice instead of tabs (1.20.2): six tabs wrapped into six rows of buttons in the narrow
+        # sidebar and took the place of the findings
+        self.cmb_view = QComboBox()
+        self.cmb_view.setToolTip(
+            tr("Befunde oder die Einzelheiten: Schriften, Ebenen, Transparenz, Bilder, Dateigröße")
+        )
+        v.addWidget(self.cmb_view)
         self.tabs = QTabWidget()
+        self.tabs._flow_tabs = self.cmb_view  # common.wrap_tabs: leave alone, the choice above switches
+        self.tabs.tabBar().hide()
+        self.tabs.setDocumentMode(True)
         v.addWidget(self.tabs, 1)
         self._build_findings_tab()
         self._build_fonts_tab()
@@ -142,21 +363,39 @@ class PreflightPanel(QWidget):
         self._build_transparency_tab()
         self._build_images_tab()
         self._build_size_tab()
+        for k in range(self.tabs.count()):
+            self.cmb_view.addItem(self.tabs.tabText(k).replace("&&", "&"))
+        self.cmb_view.currentIndexChanged.connect(self.tabs.setCurrentIndex)
+        self.tabs.currentChanged.connect(self.cmb_view.setCurrentIndex)
 
     def _build_findings_tab(self):
         """Tab "Befunde": the list of findings, navigation between locations and the repair buttons."""
         # findings
         w = QWidget()
         lv = QVBoxLayout(w)
+        # empty state: nothing to fix
+        self.lbl_ready = QLabel("")
+        self.lbl_ready.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_ready.setWordWrap(True)
+        self.lbl_ready.hide()
+        lv.addWidget(self.lbl_ready)
+        # findings grouped by kind (1.20.2): group – finding – location
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels([tr("Art"), tr("Befund"), tr("Seiten")])
-        self.tree.setRootIsDecorated(False)
+        self.tree.setColumnCount(1)
+        self.tree.setHeaderHidden(True)
         self.tree.setWordWrap(True)
-        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.tree.setUniformRowHeights(False)
         self.tree.setRootIsDecorated(True)
+        self.tree.setIndentation(12)
+        self.tree.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tree.header().setStretchLastSection(True)
+        self.tree.header().sectionResized.connect(lambda *_a: self.tree.scheduleDelayedItemsLayout())
+        self.tree.setItemDelegate(_FindingDelegate(self.tree, self._action_clicked))
         self.tree.itemClicked.connect(self._issue_clicked)
         self.tree.currentItemChanged.connect(lambda cur, _prev: self._update_nav())
-        self.tree.setToolTip(tr("Klick: zur Fundstelle springen · ▸ aufklappen: alle Fundstellen"))
+        self.tree.setToolTip(
+            tr("Klick: zur Fundstelle springen, nochmal: zur nächsten · ▸ aufklappen: alle Fundstellen")
+        )
         lv.addWidget(self.tree, 1)
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("◀")
@@ -171,11 +410,11 @@ class PreflightPanel(QWidget):
         nav.addWidget(self.lbl_nav, 1)
         lv.addLayout(nav)
         self._update_nav()
-        self.btn_fix_all = QPushButton(tr("Empfohlene Reparaturen …"))
+        self.btn_fix_all = QPushButton(tr("Alles reparieren …"))
         self.btn_fix_all.setToolTip(
             tr(
-                "Ebenen festschreiben (falls ausgeblendete vorhanden) und fehlende Schriften "
-                "mit Ersatz einbetten – Ergebnis im neuen Fenster"
+                "Alles automatisch Reparierbare für das Prüfprofil: Ebenen, Schriften, Verläufe, Sonderfarben, "
+                "RGB → CMYK, Überdrucken, Anschnitt, PDF/X-4 – vorher auswählbar"
             )
         )
         self.btn_fix_all.clicked.connect(self._fix_all)
@@ -345,47 +584,82 @@ class PreflightPanel(QWidget):
 
     # ------------------------------------------------------------------ #
     def set_busy(self, text=None):
-        """Show that the check is running."""
+        """Show that the check is running – the old findings stay, marked as outdated."""
         self.lbl_sum.setText(text or tr("Prüfe …"))
+        self.lbl_light.setStyleSheet(f"color: {theme.MUTED}; font-size: 22px;")
+        if self.rep is not None:
+            self.lbl_sum.setText((text or tr("Prüfe …")) + "  " + tr("(die Liste zeigt noch den alten Stand)"))
 
     def set_error(self, msg):
         """Show that the check failed."""
         self.lbl_sum.setText("⚠ " + msg.splitlines()[0])
+        self.lbl_light.setStyleSheet(f"color: {theme.MUTED}; font-size: 22px;")
+
+    def fill_profiles(self):
+        """Fill the profile choice: built-in and own profiles, the one chosen in the settings selected."""
+        from .. import checkprofile
+
+        cur = checkprofile.chosen()
+        self.cmb_profile.blockSignals(True)
+        self.cmb_profile.clear()
+        for p in checkprofile.all_profiles():
+            self.cmb_profile.addItem(p.title(), p.name)
+            info = checkprofile.describe(p)["description"]
+            if info:
+                self.cmb_profile.setItemData(self.cmb_profile.count() - 1, info, Qt.ItemDataRole.ToolTipRole)
+        i = self.cmb_profile.findData(cur)
+        self.cmb_profile.setCurrentIndex(i if i >= 0 else 0)
+        self.cmb_profile.blockSignals(False)
+
+    def _profile_chosen(self, _i):
+        """Another profile: save it as the chosen one and check again."""
+        from .. import checkprofile, l10n
+
+        name = self.cmb_profile.currentData()
+        if not name:
+            return
+        s = l10n.load_settings()
+        if s.get(checkprofile.SETTING) != name:
+            s[checkprofile.SETTING] = name
+            l10n.save_settings(s)
+        self.recheck.emit()
 
     def set_report(self, rep: preflight.Report):
         """Show the findings of a finished check."""
         self.rep = rep
+        self._last_finding = None
         c = rep.counts()
+        light = theme.ERROR if c["error"] else theme.WARN if c["warning"] else theme.OK
+        self.lbl_light.setStyleSheet(f"color: {light}; font-size: 22px;")
         if not rep.issues:
             self.lbl_sum.setText("✓ " + tr("Keine Probleme gefunden."))
-        else:
-            self.lbl_sum.setText(
-                tr("{0} Fehler, {1} Warnung(en), {2} Hinweis(e)").format(c["error"], c["warning"], c["info"])
+        elif not c["error"] and not c["warning"]:
+            self.lbl_sum.setText(tr("Druckbereit – {0} Hinweis(e)").format(c["info"]))
+        else:  # short, so that it fits the narrow sidebar: only what is there
+            parts = [
+                txt.format(n)
+                for n, txt in (
+                    (c["error"], tr("{0} Fehler")),
+                    (c["warning"], tr("{0} Warnung(en)")),
+                    (c["info"], tr("{0} Hinweis(e)")),
+                )
+                if n
+            ]
+            self.lbl_sum.setText(" · ".join(parts))
+        prof = getattr(rep, "profile", None)
+        if prof is not None:
+            i = self.cmb_profile.findData(prof.name)
+            if i < 0:  # e.g. chosen in another window meanwhile, or a new own profile
+                self.fill_profiles()
+                i = self.cmb_profile.findData(prof.name)
+            if i >= 0 and i != self.cmb_profile.currentIndex():
+                self.cmb_profile.blockSignals(True)
+                self.cmb_profile.setCurrentIndex(i)
+                self.cmb_profile.blockSignals(False)
+            self.lbl_sum.setToolTip(
+                tr("Prüfprofil: {0} · {1} Prüfung(en) ohne Befund").format(prof.title(), len(rep.passed or []))
             )
-        col = {"error": theme.ERROR, "warning": theme.ACCENT, "info": theme.MUTED}
-        self.tree.clear()
-        for i in rep.issues:
-            spots = list(getattr(i, "spots", None) or [preflight.Spot(p) for p in i.pages])
-            it = QTreeWidgetItem(
-                [
-                    tr(SEV_TEXT[i.severity]) + " · " + tr(CAT_TEXT.get(i.category, i.category)),
-                    i.message,
-                    preflight._pages_str(i.pages),
-                ]
-            )
-            it.setForeground(0, QBrush(QColor(col[i.severity])))
-            it.setData(0, Qt.ItemDataRole.UserRole, spots)
-            it.setData(1, Qt.ItemDataRole.UserRole, 0)  # current location (for ◀ ▶)
-            it.setToolTip(1, i.message)
-            self.tree.addTopLevelItem(it)
-            if len(spots) > 1 or (spots and (spots[0].box is not None or spots[0].label)):
-                for k, sp in enumerate(spots[:500]):
-                    ch = QTreeWidgetItem(["", preflight.where_text(rep, sp), str(sp.page)])
-                    ch.setData(0, Qt.ItemDataRole.UserRole, [sp])
-                    ch.setData(1, Qt.ItemDataRole.UserRole, k)
-                    ch.setToolTip(1, preflight.where_text(rep, sp))
-                    it.addChild(ch)
-        self.tree.resizeColumnToContents(0)
+        self._fill_findings(rep)
         self.btn_hdr.setVisible(bool(getattr(rep, "hdr", None)))
         # fonts
         st = {
@@ -459,6 +733,126 @@ class PreflightPanel(QWidget):
             self.lbl_size.setText("\n".join(shrink.summary_lines(rep.size, top=8)))
         else:
             self.lbl_size.setText("")
+
+    def _fix_for(self, check: str):
+        """(button text, tooltip, action) of the repair that belongs to a finding – or None."""
+        fixes = {
+            "font_missing": (tr("Einbetten …"), tr("Fehlende Schriften mit Ersatz einbetten"), self._embed),
+            "font_std14": (tr("Einbetten …"), tr("Fehlende Schriften mit Ersatz einbetten"), self._embed),
+            "layer_hidden": (
+                tr("Festschreiben …"),
+                tr("Ebenen festschreiben (wie am Bildschirm oder beim Druck)"),
+                self._layers_flatten,
+            ),
+            "layer_print": (
+                tr("Festschreiben …"),
+                tr("Ebenen festschreiben (wie am Bildschirm oder beim Druck)"),
+                self._layers_flatten,
+            ),
+            "transparency_gradient": (
+                tr("Umwandeln …"),
+                tr("Transparente Verläufe in deckende Bilder umwandeln"),
+                self._flatten_softmask,
+            ),
+            "overprint_white": (tr("Korrigieren"), tr("Überdrucken korrigieren"), self._fix_overprint),
+            "overprint_black_text": (tr("Korrigieren"), tr("Überdrucken korrigieren"), self._fix_overprint),
+            "hdr": (tr("Entfernen …"), tr("HDR-Zusatzseiten entfernen …"), self._fix_hdr),
+            "file_size": (tr("Verkleinern …"), tr("Datei verkleinern …"), self.shrink),
+            "image_high": (tr("Verkleinern …"), tr("Datei verkleinern …"), self.shrink),
+            "bleed": (tr("Anschnitt …"), tr("Anschnitt erzeugen …"), lambda: self.tool_requested.emit("bleed")),
+            "rgb": (tr("Farbregeln …"), tr("Farbregeln …"), lambda: self.tool_requested.emit("colorrules")),
+            "spot_count": (tr("Farbregeln …"), tr("Farbregeln …"), lambda: self.tool_requested.emit("colorrules")),
+        }
+        return fixes.get(check)
+
+    def _action_clicked(self, index):
+        """Repair link of a finding row."""
+        it = self.tree.itemFromIndex(index)
+        fix = self._fix_for(it.data(0, ROLE_FIX) or "") if it is not None else None
+        if fix is not None:
+            fix[2]()
+
+    def _fill_findings(self, rep):
+        """Findings grouped by kind, groups with errors first – those open, the others closed, so that the list of
+        groups is the overview also in the narrow sidebar; under a finding every location; at the end the checks of
+        the profile without a finding. Nothing to fix: the empty state "Druckbereit"."""
+        from .. import checkprofile
+        from .icons import icon as svg_icon
+
+        self.tree.clear()
+        groups: dict = {}
+        for i in rep.issues:
+            groups.setdefault(i.category, []).append(i)
+        order = sorted(groups, key=lambda k: (min(SEV_RANK[i.severity] for i in groups[k]), k))
+        for cat in order:
+            items = sorted(groups[cat], key=lambda i: SEV_RANK[i.severity])
+            worst = items[0].severity
+            g = QTreeWidgetItem([tr(CAT_TEXT.get(cat, cat))])
+            g.setData(0, ROLE_KIND, "group")
+            g.setData(0, ROLE_COUNT, len(items))
+            g.setData(0, ROLE_SEV, SEV_COLOR[worst])
+            if cat in CAT_ICON:
+                g.setIcon(0, svg_icon(CAT_ICON[cat]))
+            f = g.font(0)
+            f.setBold(True)
+            g.setFont(0, f)
+            g.setToolTip(0, tr("{0} Befund(e)").format(len(items)))
+            self.tree.addTopLevelItem(g)
+            for i in items:
+                spots = list(getattr(i, "spots", None) or [preflight.Spot(p) for p in i.pages])
+                key = getattr(i, "check", "")
+                spec = checkprofile.CHECKS.get(key)
+                title = tr(SEV_TEXT[i.severity]) + " · " + (tr(spec[2]) if spec else tr(CAT_TEXT.get(cat, cat)))
+                it = QTreeWidgetItem([title])
+                it.setData(0, ROLE_KIND, "finding")
+                it.setData(0, ROLE_DETAIL, i.message)
+                it.setData(0, ROLE_SEV, i.severity)
+                it.setData(0, ROLE_FIX, key)
+                if i.pages:
+                    it.setData(0, ROLE_PAGES, tr("S. {0}").format(preflight._pages_str(i.pages)))
+                fix = self._fix_for(key)
+                if fix is not None:
+                    it.setData(0, ROLE_ACTION, fix[0])
+                it.setData(0, Qt.ItemDataRole.UserRole, spots)
+                it.setData(1, Qt.ItemDataRole.UserRole, 0)  # current location (for ◀ ▶)
+                it.setToolTip(0, i.message + (("\n\n→ " + fix[1]) if fix is not None else ""))
+                g.addChild(it)
+                if len(spots) > 1 or (spots and (spots[0].box is not None or spots[0].label)):
+                    for k, sp in enumerate(spots[:500]):
+                        ch = QTreeWidgetItem([preflight.where_text(rep, sp)])
+                        ch.setData(0, ROLE_KIND, "spot")
+                        ch.setData(0, Qt.ItemDataRole.UserRole, [sp])
+                        ch.setData(1, Qt.ItemDataRole.UserRole, k)
+                        ch.setToolTip(0, preflight.where_text(rep, sp))
+                        it.addChild(ch)
+            g.setExpanded(worst == "error")
+        passed = list(getattr(rep, "passed", None) or [])
+        if passed:
+            g = QTreeWidgetItem(["✓ " + tr("Ohne Befund")])
+            g.setData(0, ROLE_KIND, "group")
+            g.setData(0, ROLE_COUNT, len(passed))
+            g.setData(0, ROLE_SEV, theme.OK)
+            g.setForeground(0, QBrush(QColor(theme.OK)))
+            g.setToolTip(0, tr("Prüfungen des Profils, die nichts gefunden haben"))
+            self.tree.addTopLevelItem(g)
+            for key in passed:
+                spec = checkprofile.CHECKS.get(key)
+                ch = QTreeWidgetItem(["✓ " + (tr(spec[2]) if spec else key)])
+                ch.setData(0, ROLE_KIND, "passed")
+                ch.setForeground(0, QBrush(QColor(theme.MUTED)))
+                g.addChild(ch)
+            g.setExpanded(False)
+        c = rep.counts()
+        ready = not c["error"] and not c["warning"]
+        if ready:
+            prof = getattr(rep, "profile", None)
+            sub = tr("Profil: {0}").format(prof.title()) if prof is not None else ""
+            self.lbl_ready.setText(
+                f'<div style="font-size:40px; color:{theme.OK};">✓</div>'
+                f'<div style="font-size:16px; font-weight:bold;">{tr("Druckbereit")}</div>'
+                f'<div style="color:{theme.MUTED};">{sub}</div>'
+            )
+        self.lbl_ready.setVisible(ready)
 
     def shrink(self):
         """Dialog with breakdown and switches; runs as its own process (large files)."""
@@ -539,8 +933,9 @@ class PreflightPanel(QWidget):
             self.tbl_images.setItem(r, 2, QTableWidgetItem(f"{u.placed_mm[0]:.0f} × {u.placed_mm[1]:.0f} mm"))
             d = QTableWidgetItem()
             d.setData(Qt.ItemDataRole.DisplayRole, round(u.dpi))
-            if u.rating in col:
-                d.setForeground(QBrush(col[u.rating]))
+            rating = preflight._rate(rep, u)
+            if rating in col:
+                d.setForeground(QBrush(col[rating]))
             if u.bits == 1:
                 d.setToolTip(tr("Strichbild (1 Bit): gut ab 600 dpi, ausreichend ab 300 dpi"))
             self.tbl_images.setItem(r, 3, d)
@@ -555,15 +950,24 @@ class PreflightPanel(QWidget):
 
     # ------------------------------------------------------------------ #
     def _issue_clicked(self, it, _col):
-        """Finding: jump to the (current) location; location (sub-item): exactly there."""
+        """Finding: jump to the (current) location – clicked again: to the next one; location: exactly there;
+        group: open/close."""
+        kind = it.data(0, ROLE_KIND)
+        if kind == "group":
+            it.setExpanded(not it.isExpanded())
+            return
         spots = it.data(0, Qt.ItemDataRole.UserRole) or []
         if not spots:
             return
-        parent = it.parent()
-        if parent is not None:  # sub-item: remember as the current location of the finding
-            parent.setData(1, Qt.ItemDataRole.UserRole, int(it.data(1, Qt.ItemDataRole.UserRole) or 0))
+        if kind == "spot":  # remember as the current location of the finding
+            it.parent().setData(1, Qt.ItemDataRole.UserRole, int(it.data(1, Qt.ItemDataRole.UserRole) or 0))
+            self._last_finding = it.parent()
             self._go(spots[0])
+        elif it is self._last_finding and len(spots) > 1:
+            self._step_spot(+1)
+            return
         else:
+            self._last_finding = it
             k = int(it.data(1, Qt.ItemDataRole.UserRole) or 0)
             self._go(spots[min(k, len(spots) - 1)])
         self._update_nav()
@@ -572,8 +976,14 @@ class PreflightPanel(QWidget):
         self.goto_spot.emit(int(sp.page), sp.box)
 
     def _top(self):
+        """The finding of the current row (also from one of its locations)."""
         it = self.tree.currentItem()
-        return it.parent() or it if it is not None else None
+        if it is None:
+            return None
+        kind = it.data(0, ROLE_KIND)
+        if kind == "spot":
+            return it.parent()
+        return it if kind == "finding" else None
 
     def _step_spot(self, d: int):
         top = self._top()
@@ -783,42 +1193,17 @@ class PreflightPanel(QWidget):
         )
 
     def _fix_all(self):
+        """Repair everything that can be repaired automatically for the profile (dialog, then job autofix)."""
         if not self.rep:
             return
-        steps, notes = [], []
-        hidden = [L for L in self.rep.layers if not L.view_on or L.print_on is False]
-        if hidden:
-            st = self._layer_states()
-            basis = self._ask_basis(st)
-            if basis is None:
-                return
-            vis = {k for k, (v, p) in st.items() if (p if basis == "print" else v)}
-            steps.append(lambda d: pdflayers.flatten_layers(d, vis))
-            notes.append(
-                tr("Ebenen festgeschrieben ({0}).").format(
-                    tr("wie beim Druck") if basis == "print" else tr("wie am Bildschirm")
-                )
-            )
-        if getattr(self.rep, "hdr", None):
-            steps.append(lambda d: preflight.remove_hdr_aux(d, "aux", False))
-            notes.append(tr("{0} HDR-Zusatzseite(n) entfernt.").format(len(self.rep.hdr)))
-        missing = [f for f in self.rep.fonts if f.status == "missing"]
-        if missing and not self._no_substitute_ok():
-            return
-        if missing:
-            mp = dict(self.font_map)
-            steps.append(lambda d: fontlib.embed_fonts(d, mp))
-            notes.append(tr("Schriften eingebettet."))
-        if not steps:
-            QMessageBox.information(self, tr("Prüfung"), tr("Keine automatischen Reparaturen nötig."))
-            return
+        from .autofixdialog import AutofixDialog
 
-        def chain(d):
-            for s in steps:
-                d = s(d)
-            return d
-
-        self._run(chain, tr("_repariert"), notes)
+        dlg = AutofixDialog(self, self.rep)
+        if dlg.exec() != QDialog.DialogCode.Accepted or not dlg.chosen():
+            return
+        if "fonts" in dlg.chosen() and not self._no_substitute_ok():
+            return
+        self.job_requested.emit("autofix", dlg.settings(self.font_map), tr("_repariert"), tr("Alles reparieren"))
 
     def _fix_hdr(self):
         if not self.rep or not self.rep.hdr:
@@ -851,8 +1236,10 @@ class PreflightPanel(QWidget):
         from .. import overprint
 
         n = overprint_counts(self.rep) if self.rep else 0
+        size = (preflight.lim(self.rep, "black_text_pt") if self.rep else 0.0) or overprint.TEXT_MAX_PT
+        black = bool(self.rep is None or preflight.lim(self.rep, "black_text_pt"))  # off in the profile: only white
         self._run(
-            lambda d: overprint.fix(d)[0],
+            lambda d: overprint.fix(d, black_text=black, text_max_pt=size)[0],
             tr("_Ueberdrucken"),
             [tr("Überdrucken an {0} Stelle(n) korrigiert.").format(n)],
         )
@@ -890,9 +1277,32 @@ class PreflightPanel(QWidget):
     def _save_report(self):
         if not self.rep:
             return
-        p, _ = lastdir.getSaveFileName(
-            self, tr("Prüfbericht speichern"), tr("Pruefbericht.txt"), tr("Textdateien (*.txt)")
+        name = getattr(self._owner or self.window(), "display_name", "") or ""
+        stem = os.path.splitext(os.path.basename(name))[0] if name else ""
+        p, flt = lastdir.getSaveFileName(
+            self,
+            tr("Prüfbericht speichern"),
+            tr("Pruefbericht") + (f"-{stem}" if stem else "") + ".pdf",
+            tr("PDF mit markierten Stellen (*.pdf)") + ";;" + tr("Textdateien (*.txt)"),
         )
-        if p:
-            with open(p, "w", encoding="utf-8") as f:
-                f.write(preflight.report_text(self.rep, getattr(self.window(), "display_name", "")))
+        if not p:
+            return
+        try:
+            if p.lower().endswith(".txt") or (flt and "*.txt" in flt and not p.lower().endswith(".pdf")):
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(preflight.report_text(self.rep, name))
+                return
+            from .. import checkreport
+
+            if not p.lower().endswith(".pdf"):
+                p += ".pdf"
+            data = self.data_fn() if self.data_fn else None
+            if data is None:
+                raise RuntimeError(tr("Kein Dokument geladen."))
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                checkreport.write_pdf(self.rep, data, p, name)
+            finally:
+                QApplication.restoreOverrideCursor()
+        except Exception as e:  # noqa: BLE001 – shown to the user
+            QMessageBox.critical(self, tr("Prüfbericht speichern"), str(e))
